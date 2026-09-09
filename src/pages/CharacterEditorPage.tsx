@@ -22,6 +22,8 @@ import TestChatPane from "../components/character/TestChatPane";
 import AvatarCropDialog from "../components/character/AvatarCropDialog";
 import AvatarGenerateButton from "../components/character/AvatarGenerateButton";
 import { parseSize, autoCoverCropToBlob, savePortraitBlob } from "../features/ai/utils/portraitUtils";
+import { parseCharacterCardJson } from "../features/character/characterCard";
+import { useModal } from "../contexts/ModalContext";
 
 const findSwatchIndex = (accent?: [string, string]) => {
   if (!accent) return 0;
@@ -33,6 +35,7 @@ const STEPS = ["Identity", "Personality", "Scenario & Greeting", "Example Dialog
 
 const CharacterEditorPage = () => {
   const dispatch = useAppDispatch();
+  const { showAlert } = useModal();
   const navigate = useNavigate();
   const location = useLocation();
   const { characterId } = useParams();
@@ -172,47 +175,22 @@ const CharacterEditorPage = () => {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Accepts WhatsGemini's own native export, a V2 Character Card, or a
+  // flat/legacy V1 card (see parseCharacterCardJson) - whichever a
+  // "character file" JSON turns out to be.
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    event.target.value = ''; // Reset input
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        const parsed = JSON.parse(content);
-
-        if (!parsed.name || !parsed.prompt) {
-          alert("Invalid character file: Missing name or prompt.");
-          return;
-        }
-
-        dispatch(
-          addCharacter({
-            name: parsed.name,
-            description: parsed.description || "",
-            tags: parsed.tags || [],
-            prompt: parsed.prompt,
-            scenario: parsed.scenario || "",
-            first_mes: parsed.first_mes || "",
-            mes_example: parsed.mes_example || "",
-            relationship: parsed.relationship || "",
-            appearance: parsed.appearance || "",
-            appearanceImages: parsed.appearanceImages || [],
-            accent: parsed.accent,
-            voiceURI: parsed.voiceURI,
-            autoSelfie: parsed.autoSelfie,
-          })
-        );
-
-        alert("Character imported successfully!");
-      } catch (err) {
-        console.error("Import error:", err);
-        alert("Failed to import character. Invalid JSON file.");
-      }
-    };
-    reader.readAsText(file);
-    event.target.value = ''; // Reset input
+    try {
+      const parsed = parseCharacterCardJson(JSON.parse(await file.text()));
+      dispatch(addCharacter(parsed));
+      showAlert("Imported", "Character imported successfully!");
+    } catch (err: any) {
+      console.error("Import error:", err);
+      showAlert("Import failed", err?.message || "Failed to import character. Invalid JSON file.");
+    }
   };
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {

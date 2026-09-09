@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { addCharacter, deleteCharacter } from "../features/characterSlice";
 import { addChat } from "../features/chatSlice";
 import { useNavigate } from "react-router-dom";
-import { FaTrash, FaEdit, FaDownload, FaImages, FaPlus, FaComment, FaEllipsisV, FaSearch, FaCopy } from "react-icons/fa";
+import { FaTrash, FaEdit, FaDownload, FaImages, FaPlus, FaComment, FaEllipsisV, FaSearch, FaCopy, FaFileImage, FaUpload } from "react-icons/fa";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../components/ui/dropdown-menu";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Character, Chat } from "../types";
@@ -15,6 +15,8 @@ import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import Header from "../components/Header";
 import { CHARACTER_SWATCHES, SAMPLE_CHARACTER } from "../utils/constants";
+import { characterToCardV2, parseCharacterCardJson, buildCharacterCardPng, extractCharacterCardFromPng } from "../features/character/characterCard";
+import { parseSize, resolveImageSrcToUrl, autoCoverCropToBlob, generatePlaceholderPortraitBlob, blobToDataUrl } from "../features/ai/utils/portraitUtils";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -24,9 +26,12 @@ const CharacterPage = () => {
   const characters = useAppSelector((state) => state.character.characters);
   const chats = useAppSelector((state) => state.chat.chats);
   const loading = useAppSelector((state) => state.character.loading);
-  const { showConfirm } = useModal();
+  const { showConfirm, showAlert } = useModal();
+  const portraitSaveSize = useAppSelector((state) => parseSize(state.settings.portraitSaveSize));
 
   const [gallerySearch, setGallerySearch] = useState("");
+  const importCardInputRef = useRef<HTMLInputElement>(null);
+  const [importingCard, setImportingCard] = useState(false);
 
   const handleTrySampleCharacter = async () => {
     const character = await dispatch(addCharacter(SAMPLE_CHARACTER)).unwrap();
@@ -80,6 +85,72 @@ const CharacterPage = () => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  // Community-standard "Character Card V2" export (TavernAI/SillyTavern) -
+  // separate from handleExportCharacter's native format above, which stays
+  // the full-fidelity round-trip option within WhatsGemini itself.
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportCharacterCardJson = (char: Character) => {
+    const jsonString = JSON.stringify(characterToCardV2(char), null, 2);
+    downloadBlob(new Blob([jsonString], { type: "application/json" }), `${char.name.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_card.json`);
+  };
+
+  const handleExportCharacterCardPng = async (char: Character) => {
+    try {
+      let basePng: Blob;
+      if (char.appearanceImages?.[0]) {
+        const url = await resolveImageSrcToUrl(char.appearanceImages[0]);
+        basePng = await autoCoverCropToBlob(url, 400, 533);
+      } else {
+        basePng = await generatePlaceholderPortraitBlob(char.name, char.accent);
+      }
+      const cardPng = await buildCharacterCardPng(char, basePng);
+      downloadBlob(cardPng, `${char.name.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_card.png`);
+    } catch (err: any) {
+      showAlert("Export failed", err?.message || "Failed to export character card.");
+    }
+  };
+
+  // Import: JSON (WhatsGemini native, V2 card, or flat/legacy V1 card) or a
+  // PNG card (a normal portrait PNG with the card JSON tucked into a tEXt
+  // chunk). A PNG card's own image becomes the imported character's
+  // reference portrait.
+  const handleImportCardFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setImportingCard(true);
+    try {
+      const isPng = file.type === "image/png" || file.name.toLowerCase().endsWith(".png");
+      const parsedChar = isPng
+        ? await extractCharacterCardFromPng(file)
+        : parseCharacterCardJson(JSON.parse(await file.text()));
+
+      if (isPng && (!parsedChar.appearanceImages || parsedChar.appearanceImages.length === 0)) {
+        const resized = await autoCoverCropToBlob(URL.createObjectURL(file), portraitSaveSize.width, portraitSaveSize.height);
+        parsedChar.appearanceImages = [await blobToDataUrl(resized)];
+      }
+
+      const character = await dispatch(addCharacter(parsedChar)).unwrap();
+      if (character) {
+        showAlert("Imported", `Imported "${(character as Character).name}".`);
+      }
+    } catch (err: any) {
+      showAlert("Import failed", err?.message || "Failed to import character card.");
+    } finally {
+      setImportingCard(false);
+    }
   };
 
   const truncateText = (text: string, maxLength = 100) => {
@@ -140,6 +211,21 @@ const CharacterPage = () => {
                 />
               </div>
             )}
+            <Button
+              onClick={() => importCardInputRef.current?.click()}
+              variant="outline"
+              disabled={importingCard}
+              title="Import a Character Card (V2 JSON or PNG) or a WhatsGemini export"
+            >
+              <FaUpload size={12} /> {importingCard ? "Importing..." : "Import Card"}
+            </Button>
+            <input
+              type="file"
+              ref={importCardInputRef}
+              onChange={handleImportCardFileSelected}
+              accept=".json,application/json,.png,image/png"
+              style={{ display: "none" }}
+            />
             <Button onClick={() => navigate("/characters/new")} variant="default">
               <FaPlus size={12} /> New character
             </Button>
@@ -237,6 +323,14 @@ const CharacterPage = () => {
                         <DropdownMenuItem onSelect={() => handleExportCharacter(char)}>
                           <FaDownload className="mr-2 h-4 w-4" />
                           <span>Export</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleExportCharacterCardJson(char)}>
+                          <FaDownload className="mr-2 h-4 w-4" />
+                          <span>Export Card (V2 JSON)</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleExportCharacterCardPng(char)}>
+                          <FaFileImage className="mr-2 h-4 w-4" />
+                          <span>Export Card (V2 PNG)</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => navigate("/characters/new", { state: { duplicateFrom: char } })}>
                           <FaCopy className="mr-2 h-4 w-4" />
