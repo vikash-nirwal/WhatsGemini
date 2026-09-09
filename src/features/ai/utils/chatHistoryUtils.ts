@@ -6,6 +6,7 @@ import { CHAT_PROVIDERS } from "../providers/registry";
 import { Message } from "../../../types";
 import { buildChatHistory } from "./promptComposition";
 import { estimateMessageTokens } from "./tokenEstimator";
+import { splitForCompression } from "./compressionSplit";
 
 // Clones the raw history into fresh objects and drops the trailing user
 // message if it's a duplicate of the prompt about to be sent (the caller's chat
@@ -50,49 +51,30 @@ ${conversationText}`;
   return { summary: result.text.trim(), usage: result.usage };
 };
 
-// If the chat's estimated token count has grown past compressThresholdTokens,
+// If the chat's message count has grown past compressThresholdMessages,
 // summarizes the aged-out portion (excluding any seeded initial messages) into
-// a single persisted message pair, keeping just under the token budget's worth
-// of recent messages verbatim so the result stays pinned near the configured
-// budget instead of collapsing to half of it. If the oldest surviving message
-// is already a prior compression summary, it's folded into the new one (via
-// the plain-text summarization input) rather than re-summarized alongside it -
-// so there's only ever one live summary message.
+// a single persisted message pair, collapsing down to half that many recent
+// messages kept verbatim (see splitForCompression) rather than pinning right
+// at the threshold - that headroom is what stops compression from firing
+// again on almost every subsequent turn. If the oldest surviving message is
+// already a prior compression summary, it's folded into the new one (via the
+// plain-text summarization input) rather than re-summarized alongside it - so
+// there's only ever one live summary message.
 export const buildAutoCompressedMessages = async (
   adapter: ChatProviderAdapter,
   config: ProviderRuntimeConfig,
   selectedModel: string,
   messages: Message[],
-  compressThresholdTokens: number
+  compressThresholdMessages: number
 ): Promise<{ messages: Message[]; compressed: boolean; usage?: UsageInfo }> => {
-  if (compressThresholdTokens <= 0) return { messages, compressed: false };
+  if (compressThresholdMessages <= 0) return { messages, compressed: false };
 
   const initialMessages = getInitialMessages();
   const startIndex = initialMessages.length || 0;
   const compressible = messages.slice(startIndex);
-  if (compressible.length === 0) return { messages, compressed: false };
+  if (compressible.length <= compressThresholdMessages) return { messages, compressed: false };
 
-  const totalTokens = compressible.reduce((sum, m) => sum + estimateMessageTokens(m.txt), 0);
-  if (totalTokens <= compressThresholdTokens) return { messages, compressed: false };
-
-  // Walk backwards from the newest message, accumulating tokens, to find how
-  // many of the most recent messages fit within the budget - those stay
-  // verbatim as `tail`; everything older gets folded into the summary. The
-  // newest message always stays regardless of size, so there's always
-  // something left to keep the conversation going.
-  let tailTokens = 0;
-  let splitIndex = compressible.length;
-  for (let i = compressible.length - 1; i >= 0; i--) {
-    const msgTokens = estimateMessageTokens(compressible[i].txt);
-    const isNewest = i === compressible.length - 1;
-    if (!isNewest && tailTokens + msgTokens > compressThresholdTokens) {
-      splitIndex = i + 1;
-      break;
-    }
-    tailTokens += msgTokens;
-    splitIndex = i;
-  }
-
+  const splitIndex = splitForCompression(compressible, compressThresholdMessages);
   if (splitIndex <= 1) return { messages, compressed: false };
 
   const oldChunk = compressible.slice(0, splitIndex);

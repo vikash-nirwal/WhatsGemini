@@ -175,7 +175,7 @@ const initialState: AIState = {
 
 
 
-// If the chat's estimated token count has grown past settings.compressThreshold,
+// If the chat's message count has grown past settings.compressThreshold,
 // summarizes the aged-out portion into one persisted, visible message and returns
 // the resulting (shorter) message list; otherwise returns `messages` unchanged.
 // Called from ChatPage before building turn context for a new send, so the
