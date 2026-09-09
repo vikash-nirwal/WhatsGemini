@@ -62,6 +62,11 @@ export interface Chat {
   // characterIds[0] is "the primary character" wherever single-character
   // code still needs just one (headers, avatars, 1:1-chat quick-launch).
   characterIds?: number[];
+  // Characters temporarily silenced in a multi-character room - excluded from
+  // the round-robin/mention speaker resolution, but still full members of
+  // characterIds (their history and any of their past messages stay put).
+  // Meaningless for a 1:1 chat.
+  mutedParticipantIds?: number[];
   tree?: ConversationTree; // undefined until the chat's first branch action
   activeLeafId?: string | null;
   autoReply?: {

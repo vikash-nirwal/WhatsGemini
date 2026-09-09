@@ -32,10 +32,10 @@ export const fetchChatById = createAsyncThunk("chat/fetchById", async (id: numbe
 
 export const addChat = createAsyncThunk(
   "chat/add",
-  async ({ title, characterIds }: { title: string; characterIds?: number[] }, { rejectWithValue }) => {
+  async ({ title, characterIds, authorNote }: { title: string; characterIds?: number[]; authorNote?: string }, { rejectWithValue }) => {
     try {
       const timestamp = Date.now();
-      const newChat = { title, timestamp, content: [], characterIds: characterIds || [] };
+      const newChat = { title, timestamp, content: [], characterIds: characterIds || [], authorNote };
       const id = await dbService.addChat(newChat);
       return { id, ...newChat };
     } catch (error) {
@@ -205,6 +205,22 @@ export const updateChatWorldTags = createAsyncThunk(
       chat.worldTags = worldTags;
       await dbService.updateChat(chat);
       return { chatId, worldTags };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
+// Updates which of a room's participants are muted (Phase 12's Participants
+// panel) - leaves content and tree untouched. Meaningless for a 1:1 chat.
+export const updateChatMutedParticipants = createAsyncThunk(
+  "chat/updateChatMutedParticipants",
+  async ({ chatId, mutedParticipantIds }: { chatId: number; mutedParticipantIds: Chat["mutedParticipantIds"] }, { rejectWithValue }) => {
+    try {
+      const chat = await dbService.getChatById(chatId);
+      chat.mutedParticipantIds = mutedParticipantIds;
+      await dbService.updateChat(chat);
+      return { chatId, mutedParticipantIds };
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
@@ -400,6 +416,15 @@ const chatSlice = createSlice({
         }
       })
       .addCase(updateChatWorldTags.rejected, (state, action) => {
+        state.error = action.payload as string;
+      })
+      .addCase(updateChatMutedParticipants.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c.id === action.payload.chatId);
+        if (chat) {
+          chat.mutedParticipantIds = action.payload.mutedParticipantIds;
+        }
+      })
+      .addCase(updateChatMutedParticipants.rejected, (state, action) => {
         state.error = action.payload as string;
       })
       .addCase(updateChatPersona.fulfilled, (state, action) => {

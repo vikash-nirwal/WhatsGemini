@@ -66,7 +66,9 @@ export const buildSystemInstruction = (
   if (otherParticipants && otherParticipants.length > 0) {
     sections.push(
       `You are in a group conversation, not a private one-on-one chat. Also present: ${otherParticipants.join(", ")}. ` +
-      `Every line in the conversation history is prefixed with who said it. Reply only as yourself, ${character.name} - ` +
+      `Every line in the conversation history is prefixed with who said it, purely so you can tell speakers apart - that ` +
+      `labeling is added by the app, not something characters actually say out loud. Reply only as yourself, ${character.name}: ` +
+      `write your own dialogue/actions directly, with NO leading "${character.name}:" name label of your own, and ` +
       `never write dialogue, actions, or narration for the user or for any other character present.`
     );
   }

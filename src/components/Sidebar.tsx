@@ -4,7 +4,7 @@ import { fetchChats, deleteChat, addChat, importChat, updateChatPinned } from ".
 import { selectActivePersona } from "../features/settingsSlice";
 import { fetchCharacters } from "../features/characterSlice";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { FaTrash, FaFileImport, FaPlus, FaSearch, FaThumbtack, FaUser, FaPencilAlt, FaChevronRight } from "react-icons/fa";
+import { FaTrash, FaFileImport, FaPlus, FaSearch, FaThumbtack, FaUser, FaPencilAlt, FaChevronRight, FaCheck, FaUsers } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { useModal } from "../contexts/ModalContext";
 import { useSidebar } from "../contexts/SidebarContext";
@@ -14,6 +14,8 @@ import { cn } from "../utils/cn";
 import { CharacterAvatar } from "./ui/CharacterAvatar";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { Textarea } from "./ui/textarea";
+import { SegmentedControl } from "./settings/SegmentedControl";
 import Logo from "./ui/Logo";
 import { stripLeakedBase64 } from "../features/ai/utils/apiUtils";
 
@@ -87,6 +89,26 @@ const Sidebar = () => {
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [characterSearch, setCharacterSearch] = useState("");
+  // Room Creator (Phase 12) - lives inside the same "New chat" modal rather
+  // than a separate flow, since picking who to talk to is the one thing
+  // both a 1:1 chat and a group room start with.
+  const [newChatMode, setNewChatMode] = useState<"single" | "group">("single");
+  const [selectedCharacterIds, setSelectedCharacterIds] = useState<number[]>([]);
+  const [roomName, setRoomName] = useState("");
+  const [roomScenario, setRoomScenario] = useState("");
+  const [creatingRoom, setCreatingRoom] = useState(false);
+
+  const resetNewChatModal = () => {
+    setCharacterSearch("");
+    setNewChatMode("single");
+    setSelectedCharacterIds([]);
+    setRoomName("");
+    setRoomScenario("");
+  };
+
+  const toggleCharacterSelection = (id: number) => {
+    setSelectedCharacterIds((prev) => (prev.includes(id) ? prev.filter((cid) => cid !== id) : [...prev, id]));
+  };
 
   useEffect(() => {
     dispatch(fetchChats());
@@ -121,6 +143,30 @@ const Sidebar = () => {
     }
     close();
   }, [chats, dispatch, navigate, close]);
+
+  const handleCreateRoom = async () => {
+    if (selectedCharacterIds.length < 2 || creatingRoom) return;
+    setCreatingRoom(true);
+    try {
+      const selectedChars = selectedCharacterIds
+        .map((id) => characters.find((c) => c.id === id))
+        .filter((c): c is Character => Boolean(c));
+      const title = roomName.trim() || selectedChars.map((c) => c.name).join(", ");
+      const result = await dispatch(addChat({
+        title,
+        characterIds: selectedCharacterIds,
+        authorNote: roomScenario.trim() || undefined,
+      }));
+      if (result.payload && (result.payload as Chat).id) {
+        navigate(`/chat/${(result.payload as Chat).id}`);
+      }
+      setIsNewChatModalOpen(false);
+      resetNewChatModal();
+      close();
+    } finally {
+      setCreatingRoom(false);
+    }
+  };
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -304,15 +350,16 @@ const Sidebar = () => {
         )}
       </AnimatePresence>
 
-      {/* New Chat Modal */}
+      {/* New Chat Modal - also the Room Creator (Phase 12), toggled into
+          "group" mode below rather than a separate flow */}
       <Modal
         isOpen={isNewChatModalOpen}
         onClose={() => {
           setIsNewChatModalOpen(false);
-          setCharacterSearch("");
+          resetNewChatModal();
         }}
-        title="Who do you want to talk to?"
-        subtitle="Pick a character to start a new chat."
+        title={newChatMode === "group" ? "Start a group chat" : "Who do you want to talk to?"}
+        subtitle={newChatMode === "group" ? "Pick everyone who should be in the room." : "Pick a character to start a new chat."}
       >
         {characters.length === 0 ? (
           <div className="text-center py-4">
@@ -331,6 +378,20 @@ const Sidebar = () => {
           </div>
         ) : (
           <div className="flex flex-col gap-2">
+            {characters.length > 1 && (
+              <SegmentedControl
+                value={newChatMode}
+                onChange={(v) => {
+                  setNewChatMode(v as "single" | "group");
+                  setSelectedCharacterIds([]);
+                }}
+                options={[
+                  { value: "single", label: "1:1 chat" },
+                  { value: "group", label: <span className="inline-flex items-center gap-1.5"><FaUsers size={11} /> Group chat</span> },
+                ]}
+                className="self-start"
+              />
+            )}
             <div className="relative">
               <FaSearch size={12} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
               <Input
@@ -345,38 +406,91 @@ const Sidebar = () => {
             {filteredCharacters.length === 0 ? (
               <p className="text-muted-foreground text-center py-4 text-sm">No characters match "{characterSearch.trim()}".</p>
             ) : (
-              filteredCharacters.map((char: Character) => (
-                <Button
-                  key={char.id}
-                  onClick={() => {
-                    setIsNewChatModalOpen(false);
-                    setCharacterSearch("");
-                    handleCharacterClick(char.id, char.name);
-                  }}
-                  variant="ghost"
-                  className="w-full h-auto justify-start gap-3 p-3 rounded-lg text-left font-normal"
-                >
-                  <CharacterAvatar name={char.name} accent={char.accent} size={40} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-[14.5px] text-foreground truncate">{char.name}</h3>
-                      {char.relationship && (
-                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary flex-shrink-0">
-                          {char.relationship}
+              <div className="max-h-[280px] overflow-y-auto flex flex-col gap-2">
+                {filteredCharacters.map((char: Character) => {
+                  const isSelected = selectedCharacterIds.includes(char.id);
+                  return (
+                    <Button
+                      key={char.id}
+                      onClick={() => {
+                        if (newChatMode === "group") {
+                          toggleCharacterSelection(char.id);
+                          return;
+                        }
+                        setIsNewChatModalOpen(false);
+                        resetNewChatModal();
+                        handleCharacterClick(char.id, char.name);
+                      }}
+                      variant="ghost"
+                      className={cn(
+                        "w-full h-auto justify-start gap-3 p-3 rounded-lg text-left font-normal",
+                        newChatMode === "group" && isSelected && "bg-primary/10"
+                      )}
+                    >
+                      {newChatMode === "group" && (
+                        <span
+                          className={cn(
+                            "flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition",
+                            isSelected ? "bg-primary border-primary" : "border-border"
+                          )}
+                        >
+                          {isSelected && <FaCheck size={10} className="text-primary-foreground" />}
                         </span>
                       )}
-                    </div>
-                    {char.description && (
-                      <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{char.description}</p>
-                    )}
-                  </div>
-                  <FaChevronRight size={13} className="text-subtle flex-shrink-0" />
+                      <CharacterAvatar name={char.name} accent={char.accent} size={40} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-[14.5px] text-foreground truncate">{char.name}</h3>
+                          {char.relationship && (
+                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary flex-shrink-0">
+                              {char.relationship}
+                            </span>
+                          )}
+                        </div>
+                        {char.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{char.description}</p>
+                        )}
+                      </div>
+                      {newChatMode === "single" && <FaChevronRight size={13} className="text-subtle flex-shrink-0" />}
+                    </Button>
+                  );
+                })}
+              </div>
+            )}
+
+            {newChatMode === "group" && selectedCharacterIds.length >= 2 && (
+              <div className="flex flex-col gap-2.5 pt-3 mt-1 border-t border-border/40">
+                <Input
+                  value={roomName}
+                  onChange={(e) => setRoomName(e.target.value)}
+                  placeholder={characters.filter((c) => selectedCharacterIds.includes(c.id)).map((c) => c.name).join(", ")}
+                  aria-label="Room name"
+                  className="text-[13px] bg-background border-border/10 shadow-none"
+                />
+                <Textarea
+                  value={roomScenario}
+                  onChange={(e) => setRoomScenario(e.target.value)}
+                  placeholder="Scenario / scene setting (optional) - shared context every character in the room will see"
+                  aria-label="Room scenario"
+                  className="min-h-[64px] text-[13px] bg-background border-border/10 shadow-none resize-none"
+                />
+                <Button
+                  onClick={handleCreateRoom}
+                  disabled={creatingRoom}
+                  variant="default"
+                  className="h-auto py-2.5 text-[13.5px] font-semibold"
+                >
+                  <FaUsers size={12} />
+                  {creatingRoom ? "Creating..." : `Create Room (${selectedCharacterIds.length})`}
                 </Button>
-              ))
+              </div>
+            )}
+            {newChatMode === "group" && selectedCharacterIds.length === 1 && (
+              <p className="text-xs text-subtle text-center pt-1">Pick at least one more character to start a group chat.</p>
             )}
           </div>
         )}
-        {characters.length > 0 && (
+        {characters.length > 0 && newChatMode === "single" && (
           <div className="flex items-center gap-2 pt-3 mt-1 border-t border-border/40 text-[13px] text-muted-foreground">
             <FaPlus size={12} className="text-primary flex-shrink-0" />
             <span>

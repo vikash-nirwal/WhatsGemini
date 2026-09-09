@@ -11,6 +11,7 @@ import { DisplayImage } from "./DisplayImage";
 import ToggleSwitch from "./ToggleSwitch";
 import ChatMessage from "./chat/ChatMessage";
 import ScenePanel from "./chat/ScenePanel";
+import ParticipantsPanel from "./chat/ParticipantsPanel";
 import { Dialog, DialogContent, DialogTitle, DialogClose } from "./ui/dialog";
 import { CharacterAvatar } from "./ui/CharacterAvatar";
 import { Button } from "./ui/button";
@@ -36,6 +37,9 @@ interface ChatWindowProps {
   onCloseScene?: () => void;
   authorNote?: string;
   worldTags?: string[];
+  participantsOpen?: boolean;
+  onCloseParticipants?: () => void;
+  mutedParticipantIds?: number[];
 }
 
 const TypingIndicator = ({ charInitials, accent, imageSrc }: { charInitials: string; accent?: [string, string]; imageSrc?: string }) => (
@@ -73,7 +77,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc }: { charInitials: s
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onEdit, onSend, aiLoading, isFollowupPending, characterName, character, characters, chatId, sceneOpen, onCloseScene, authorNote, worldTags }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onEdit, onSend, aiLoading, isFollowupPending, characterName, character, characters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, participantsOpen, onCloseParticipants, mutedParticipantIds }) => {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
@@ -385,6 +389,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
           authorNote={authorNote}
           worldTags={worldTags}
           onClose={onCloseScene || (() => {})}
+        />
+      )}
+
+      {participantsOpen && chatId != null && characters && characters.length > 1 && (
+        <ParticipantsPanel
+          chatId={chatId}
+          characters={characters}
+          mutedParticipantIds={mutedParticipantIds}
+          onClose={onCloseParticipants || (() => {})}
         />
       )}
     </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, updateChatAutoReply, incrementChatUsage, updateChatPersona, setPendingFollowupAt } from "../features/chatSlice";
+import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, updateChatAutoReply, updateChatMutedParticipants, incrementChatUsage, updateChatPersona, setPendingFollowupAt } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
 import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage } from "../features/aiSlice";
 import { parseSize, autoCoverCropToBlob, savePortraitBlob } from "../features/ai/utils/portraitUtils";
@@ -10,16 +10,18 @@ import Header, { HeaderAction } from "../components/Header";
 import Modal from "../components/Modal";
 import ToggleSwitch from "../components/ToggleSwitch";
 import { TextInput, FieldLabel } from "../components/ui/FormControls";
-import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaBookOpen, FaHistory, FaUserCircle, FaCheck, FaTimes } from "react-icons/fa";
+import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaBookOpen, FaHistory, FaUserCircle, FaCheck, FaTimes, FaUsers } from "react-icons/fa";
 import { Button } from "../components/ui/button";
 import { cn } from "../utils/cn";
 import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { Message, Chat } from "../types";
+import { Message, Chat, Character } from "../types";
 import { stripLeakedBase64 } from "../features/ai/utils/apiUtils";
-import { buildChatHistory, buildSystemInstruction, buildTurnContext, AUTO_REPLY_DIRECTIVE } from "../features/ai/utils/promptComposition";
+import { buildChatHistory, buildSystemInstruction, buildTurnContext, AUTO_REPLY_DIRECTIVE, RoomContext } from "../features/ai/utils/promptComposition";
 import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
 import { mergeMemory } from "../features/ai/utils/memoryExtraction";
+import { resolveNextSpeaker, parseMention, stripSpeakerPrefix } from "../features/ai/utils/roomRouting";
+import ParticipantStrip from "../components/chat/ParticipantStrip";
 import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo } from "../features/chat/messageTree";
 import { estimateTokens, estimateHistoryTokens } from "../features/ai/utils/tokenEstimator";
 import { truncateHistory } from "../features/ai/utils/chatHistoryUtils";
@@ -122,6 +124,44 @@ const ChatPage = () => {
     () => (currentChat?.characterIds || []).map((id) => characters.find((c) => c.id === id)).filter((c): c is NonNullable<typeof c> => Boolean(c)),
     [characters, currentChat]
   );
+  const isRoom = roomCharacters.length > 1;
+
+  // Only built for a real room - a 1:1 chat's buildTurnContext call gets
+  // `undefined` here and its prompt/history come out exactly as before
+  // Phase 12. `speaker` is whoever is about to reply; every OTHER room
+  // member's name goes in `otherParticipants` (that speaker's own "who else
+  // is here" context), and `speakerNames` labels every participant's lines
+  // in history so a reply can tell who said what.
+  const buildRoomContext = (speaker: Character): RoomContext | undefined => {
+    if (!isRoom) return undefined;
+    return {
+      speakerNames: Object.fromEntries(roomCharacters.map((c) => [c.id, c.name])),
+      otherParticipants: roomCharacters.filter((c) => c.id !== speaker.id).map((c) => c.name),
+    };
+  };
+
+  // Defensive cleanup for a room reply: some models imitate the "Name: "
+  // format used to label history lines even after being told not to (see
+  // stripSpeakerPrefix's own comment). Only applied in an actual room - a
+  // 1:1 chat's reply is never touched, so there's no behavior change there.
+  const finalizeSpeakerText = (rawText: string, speaker: Character): string =>
+    isRoom ? stripSpeakerPrefix(rawText, speaker.name) : rawText;
+
+  // The Scene panel's author's note was stored/editable but never actually
+  // reached the model - buildTurnContext had no parameter for it. Folded in
+  // here as an extraDirective (the mechanism that already exists for
+  // one-off directives like AUTO_REPLY_DIRECTIVE) rather than adding a new
+  // buildSystemInstruction param, so every call site picks it up by routing
+  // through this instead of passing `extraDirectives` directly. For a room
+  // (Phase 12), this doubles as the shared scene-setting every participant
+  // sees, since it's the same field the Room Creator's "Scenario" field
+  // writes into.
+  const withAuthorNote = (extra?: string[]): string[] | undefined => {
+    const note = currentChat?.authorNote?.trim();
+    if (!note) return extra;
+    const directive = `Scene direction / author's note for the current scene (from the user, not spoken dialogue - weave it into the scene naturally): ${note}`;
+    return extra && extra.length > 0 ? [directive, ...extra] : [directive];
+  };
 
   // Which persona this chat actually speaks as: its own override if set,
   // otherwise whichever persona is globally active (Settings > Personas).
@@ -205,10 +245,11 @@ const ChatPage = () => {
   // so this reflects what will really be sent - not the full stored
   // conversation - once maxChatLength is set to something other than 0.
   const contextTokenEstimate = useMemo(() => {
-    const { text: systemInstructionText } = buildSystemInstruction(characterData, undefined, replyLengthLimit, activePersona, messages);
+    const { text: systemInstructionText } = buildSystemInstruction(characterData, withAuthorNote(), replyLengthLimit, activePersona, messages);
     const effectiveHistory = truncateHistory(buildChatHistory(messages), maxChatLength);
     return estimateTokens(systemInstructionText) + estimateHistoryTokens(effectiveHistory.map((m) => m.text));
-  }, [characterData, replyLengthLimit, messages, maxChatLength, activePersona]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [characterData, replyLengthLimit, messages, maxChatLength, activePersona, currentChat?.authorNote]);
   const maxContextTokens = useMemo(
     () => getModelContextWindow(chatProvider, selectedModel),
     [chatProvider, selectedModel]
@@ -252,9 +293,11 @@ const ChatPage = () => {
 
   useEffect(() => {
     if (messages.length > 0) {
-      if (currentChat?.characterIds?.[0]) {
-        dispatch(fetchCharacterById(currentChat.characterIds[0]));
-      }
+      // Every room member, not just the primary character - a group chat
+      // needs all of them resolved (avatars, voices, personas) even though
+      // only characterIds[0] necessarily got fetched by whatever navigation
+      // led here.
+      (currentChat?.characterIds || []).forEach((id) => dispatch(fetchCharacterById(id)));
     }
   }, [dispatch, messages, currentChat]);
 
@@ -262,18 +305,21 @@ const ChatPage = () => {
   // recent conversation into the character's long-term memory. Independent of the
   // compression threshold (which defaults to off) so it works for every character.
   // Best-effort/silent: a failure here shouldn't interrupt the conversation.
-  const maybeExtractMemory = async (allMessages: Message[]) => {
-    if (!characterData || allMessages.length === 0 || allMessages.length % MEMORY_EXTRACTION_INTERVAL !== 0) return;
+  // `speaker` defaults to the chat's primary character (unchanged behavior
+  // for a 1:1 chat) but a room passes whichever bot actually just replied,
+  // so a group chat's memory doesn't all silently accrue onto characterIds[0].
+  const maybeExtractMemory = async (allMessages: Message[], speaker = characterData) => {
+    if (!speaker || allMessages.length === 0 || allMessages.length % MEMORY_EXTRACTION_INTERVAL !== 0) return;
 
     try {
       const recentMessages = allMessages.slice(-MEMORY_EXTRACTION_INTERVAL);
       const newFacts = await dispatch(
-        extractCharacterMemory({ recentMessages, existingMemory: characterData.memory || [] })
+        extractCharacterMemory({ recentMessages, existingMemory: speaker.memory || [] })
       ).unwrap();
 
       if (newFacts && newFacts.length > 0) {
-        const merged = mergeMemory(characterData.memory, newFacts);
-        dispatch(updateCharacter({ ...characterData, memory: merged }));
+        const merged = mergeMemory(speaker.memory, newFacts);
+        dispatch(updateCharacter({ ...speaker, memory: merged }));
       }
     } catch (err) {
       console.warn("Memory extraction failed (non-fatal):", err);
@@ -299,6 +345,7 @@ const ChatPage = () => {
   // scanning, and nothing fires once the tab/app is closed.
   const [isAutoReplyModalOpen, setIsAutoReplyModalOpen] = useState(false);
   const [sceneOpen, setSceneOpen] = useState(false);
+  const [participantsOpen, setParticipantsOpen] = useState(false);
   const autoReplySettings = normalizeAutoReply(currentChat?.autoReply);
   const autoReplyInFlightRef = useRef(false);
   const [lastTypingActivityAt, setLastTypingActivityAt] = useState<number | null>(null);
@@ -327,11 +374,13 @@ const ChatPage = () => {
   };
 
   // Generates and appends one character-initiated follow-up message. Shared by
-  // the automatic scheduler and the manual "follow up now" button - neither
-  // touches followupCount itself, so a manual click never eats into the
-  // automatic streak's budget.
-  const sendCharacterFollowup = async (): Promise<boolean> => {
-    if (!chatIdNum || !characterData || !currentChat) return false;
+  // the automatic scheduler, the manual "follow up now" button, and a room's
+  // participant strip (forcing a specific bot to speak up) - neither of the
+  // first two touch followupCount, so a manual click never eats into the
+  // automatic streak's budget. `forcedSpeakerId` is the participant-strip
+  // path; omitted, it round-robins like a normal turn would.
+  const sendCharacterFollowup = async (forcedSpeakerId?: number): Promise<boolean> => {
+    if (!chatIdNum || !currentChat || roomCharacters.length === 0) return false;
 
     // Read the chat fresh from the DB rather than trusting the component's local
     // `messages` state, which lags behind by a render cycle right after actions
@@ -342,6 +391,11 @@ const ChatPage = () => {
     const freshChat = await dispatch(fetchChatById(chatIdNum)).unwrap();
     const { content: freshMessages } = getOrBuildTree(freshChat);
 
+    const speaker = (forcedSpeakerId != null ? roomCharacters.find((c) => c.id === forcedSpeakerId) : undefined)
+      || resolveNextSpeaker(roomCharacters, freshMessages, currentChat.mutedParticipantIds)
+      || characterData;
+    if (!speaker) return false;
+
     // Only the first follow-up after an image-toggled user turn also carries a
     // picture - once a follow-up (auto or manual) has already fired since that
     // user message, later ones go back to text-only.
@@ -349,7 +403,7 @@ const ChatPage = () => {
     const aiMessagesSinceLastUser = lastUserIndex >= 0 ? freshMessages.slice(lastUserIndex + 1).filter((m) => m.role === AI).length : 0;
     const echoesUserImage = lastUserIndex >= 0 && Boolean(freshMessages[lastUserIndex].isImageRequest) && aiMessagesSinceLastUser === 1;
 
-    const autoSelfieCfg = characterData?.autoSelfie;
+    const autoSelfieCfg = speaker.autoSelfie;
     const shouldAutoSelfie = !echoesUserImage && !!autoSelfieCfg?.enabled &&
       Math.random() * 100 < (autoSelfieCfg.frequency ?? DEFAULT_AUTO_SELFIE_FREQUENCY);
     const includeImage = echoesUserImage || shouldAutoSelfie;
@@ -359,10 +413,11 @@ const ChatPage = () => {
 
     const { history, systemInstruction, characterImages, characterName } = buildTurnContext(
       compressedFreshMessages,
-      characterData,
-      [AUTO_REPLY_DIRECTIVE],
+      speaker,
+      withAuthorNote([AUTO_REPLY_DIRECTIVE]),
       undefined,
-      activePersona
+      activePersona,
+      buildRoomContext(speaker)
     );
     const aiResponse = await dispatch(generateAIResponse({
       prompt: "Please continue the conversation naturally, as if reaching out again.",
@@ -378,13 +433,13 @@ const ChatPage = () => {
     const aiAddResult = await dispatch(addMessage({
       chatId: chatIdNum,
       role: AI,
-      text: typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string),
+      text: finalizeSpeakerText(typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string), speaker),
       images: generatedImages,
       isImageRequest: Boolean(generatedImages && generatedImages.length > 0),
       emotion: payloadObj?.emotion,
       imagePrompt: payloadObj?.imagePrompt,
       imageParams: payloadObj?.imageParams,
-      speakerId: characterData.id,
+      speakerId: speaker.id,
     }));
 
     // Await the refresh before the caller can act on it (e.g. bump followupCount) -
@@ -394,10 +449,10 @@ const ChatPage = () => {
     await dispatch(fetchChats());
 
     if (generatedImages && generatedImages.length > 0) {
-      dispatch(updateCharacter({ ...characterData, gallery: [...(characterData.gallery || []), ...generatedImages] }));
+      dispatch(updateCharacter({ ...speaker, gallery: [...(speaker.gallery || []), ...generatedImages] }));
     }
 
-    maybeExtractMemory((aiAddResult.payload as Message[]) || []);
+    maybeExtractMemory((aiAddResult.payload as Message[]) || [], speaker);
     return true;
   };
 
@@ -423,6 +478,22 @@ const ChatPage = () => {
       await sendCharacterFollowup();
     } catch (err) {
       console.error("Manual follow-up failed:", err);
+    } finally {
+      autoReplyInFlightRef.current = false;
+    }
+  };
+
+  // Participant strip's manual override (Phase 12) - clicking a bot's avatar
+  // forces them to speak up next, bypassing the round-robin pick. Shares the
+  // same in-flight guard as the regular manual follow-up so the two can't
+  // both fire generations at once.
+  const handleForceReply = async (characterId: number) => {
+    if (autoReplyInFlightRef.current || aiLoading) return;
+    autoReplyInFlightRef.current = true;
+    try {
+      await sendCharacterFollowup(characterId);
+    } catch (err) {
+      console.error("Forced reply failed:", err);
     } finally {
       autoReplyInFlightRef.current = false;
     }
@@ -498,11 +569,23 @@ const ChatPage = () => {
       const { messages: contextMessages, tokens: compressTokens, cost: compressCost } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: updatedMessages })).unwrap();
       await trackUsage(compressTokens, compressCost);
 
-      const autoSelfieCfg = characterData?.autoSelfie;
+      // Who replies: an @mention wins outright, otherwise round-robin to
+      // whoever's turn it is among unmuted participants. A plain 1:1 chat
+      // has exactly one active participant, so this always resolves to
+      // characterData there - unchanged behavior. @mention checks the FULL
+      // room (not just active participants) - muting only sits someone out
+      // of the automatic rotation, an explicit @mention can still call on
+      // them deliberately.
+      const speaker = (isRoom ? parseMention(text, roomCharacters) : undefined)
+        || resolveNextSpeaker(roomCharacters, contextMessages, currentChat?.mutedParticipantIds)
+        || characterData;
+      if (!speaker) return;
+
+      const autoSelfieCfg = speaker.autoSelfie;
       const shouldAutoSelfie = !isImageRequest && !!autoSelfieCfg?.enabled &&
         Math.random() * 100 < (autoSelfieCfg.frequency ?? DEFAULT_AUTO_SELFIE_FREQUENCY);
 
-      const { history, systemInstruction, characterImages, characterName } = buildTurnContext(contextMessages, characterData, undefined, replyLengthLimit, activePersona);
+      const { history, systemInstruction, characterImages, characterName } = buildTurnContext(contextMessages, speaker, withAuthorNote(), replyLengthLimit, activePersona, buildRoomContext(speaker));
       aiPromiseRef.current = dispatch(generateAIResponse({ prompt: text, history, systemInstruction, characterImages, characterName, isImageRequest: isImageRequest || shouldAutoSelfie, isAutoSelfie: shouldAutoSelfie }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
@@ -514,19 +597,19 @@ const ChatPage = () => {
         const aiAddResult = await dispatch(addMessage({
           chatId: chatIdNum,
           role: AI,
-          text: typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string),
+          text: finalizeSpeakerText(typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string), speaker),
           images: generatedImages,
           emotion: payloadObj?.emotion,
           imagePrompt: payloadObj?.imagePrompt,
           imageParams: payloadObj?.imageParams,
-          speakerId: characterData?.id,
+          speakerId: speaker.id,
         }));
 
-        if (generatedImages && generatedImages.length > 0 && characterData) {
-          dispatch(updateCharacter({ ...characterData, gallery: [...(characterData.gallery || []), ...generatedImages] }));
+        if (generatedImages && generatedImages.length > 0) {
+          dispatch(updateCharacter({ ...speaker, gallery: [...(speaker.gallery || []), ...generatedImages] }));
         }
 
-        maybeExtractMemory((aiAddResult.payload as Message[]) || []);
+        maybeExtractMemory((aiAddResult.payload as Message[]) || [], speaker);
       }
 
       dispatch(fetchChats());
@@ -562,7 +645,12 @@ const ChatPage = () => {
         // Persist the branch point immediately so it survives even if generation fails.
         await dispatch(updateChatTree({ chatId: chatIdNum, content: contentUpToEdit, tree: treeWithEdit, activeLeafId: editedNodeId }));
 
-        const { history, systemInstruction, characterImages, characterName } = buildTurnContext(contentUpToEdit, characterData, undefined, replyLengthLimit, activePersona);
+        const speaker = (isRoom ? parseMention(newText, roomCharacters) : undefined)
+          || resolveNextSpeaker(roomCharacters, contentUpToEdit, currentChat?.mutedParticipantIds)
+          || characterData;
+        if (!speaker) return;
+
+        const { history, systemInstruction, characterImages, characterName } = buildTurnContext(contentUpToEdit, speaker, withAuthorNote(), replyLengthLimit, activePersona, buildRoomContext(speaker));
         aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, characterImages, characterName, isImageRequest }));
         const aiResponse = await aiPromiseRef.current;
         aiPromiseRef.current = null;
@@ -573,21 +661,21 @@ const ChatPage = () => {
           const generatedImages = payloadObj?.images || undefined;
           const newAiMsg: Message = {
             role: AI,
-            txt: typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string),
+            txt: finalizeSpeakerText(typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string), speaker),
             images: generatedImages,
             emotion: payloadObj?.emotion,
-            speakerId: characterData?.id,
+            speakerId: speaker.id,
             timestamp: Date.now(),
           };
           const { tree: finalTree, nodeId: aiNodeId } = addChildNode(treeWithEdit, editedNodeId, newAiMsg);
           const finalContent = flattenPath(finalTree, aiNodeId);
           await dispatch(updateChatTree({ chatId: chatIdNum, content: finalContent, tree: finalTree, activeLeafId: aiNodeId }));
 
-          if (generatedImages && generatedImages.length > 0 && characterData) {
-            dispatch(updateCharacter({ ...characterData, gallery: [...(characterData.gallery || []), ...generatedImages] }));
+          if (generatedImages && generatedImages.length > 0) {
+            dispatch(updateCharacter({ ...speaker, gallery: [...(speaker.gallery || []), ...generatedImages] }));
           }
 
-          maybeExtractMemory(finalContent);
+          maybeExtractMemory(finalContent, speaker);
         }
       } else {
         // Mid-conversation edit: update this node's text in place, no branch, no regeneration.
@@ -634,9 +722,19 @@ const ChatPage = () => {
       // For a followup, whether it had a picture is recorded on the followup
       // message itself (no preceding user turn to read it off of).
       const isImageRequest = isFollowup ? (targetMessage?.isImageRequest || false) : (precedingMessage.isImageRequest || false);
-      const extraDirectives = isFollowup ? [AUTO_REPLY_DIRECTIVE] : undefined;
+      const extraDirectives = withAuthorNote(isFollowup ? [AUTO_REPLY_DIRECTIVE] : undefined);
 
-      const { history, systemInstruction, characterImages, characterName } = buildTurnContext(historyUpToTarget, characterData, extraDirectives, replyLengthLimit, activePersona);
+      // Regenerating replies as whoever originally said it - not a fresh
+      // round-robin pick - so "regenerate" reliably means "a different
+      // answer from this same bot", never "let someone else answer instead".
+      // Falls back to round-robin only for a message with no recorded
+      // speaker (predates this field).
+      const speaker = roomCharacters.find((c) => c.id === targetMessage?.speakerId)
+        || resolveNextSpeaker(roomCharacters, historyUpToTarget, currentChat?.mutedParticipantIds)
+        || characterData;
+      if (!speaker) return;
+
+      const { history, systemInstruction, characterImages, characterName } = buildTurnContext(historyUpToTarget, speaker, extraDirectives, replyLengthLimit, activePersona, buildRoomContext(speaker));
       aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, characterImages, characterName, isImageRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
@@ -647,24 +745,24 @@ const ChatPage = () => {
         const generatedImages = payloadObj?.images || undefined;
         const newMessage: Message = {
           role: AI,
-          txt: typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string),
+          txt: finalizeSpeakerText(typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string), speaker),
           images: generatedImages,
           isImageRequest: isFollowup ? Boolean(generatedImages && generatedImages.length > 0) : undefined,
           emotion: payloadObj?.emotion,
           imagePrompt: payloadObj?.imagePrompt,
           imageParams: payloadObj?.imageParams,
-          speakerId: characterData?.id,
+          speakerId: speaker.id,
           timestamp: Date.now(),
         };
         const { tree: newTree, nodeId: newNodeId } = addChildNode(tree, parentId, newMessage);
         const newContent = flattenPath(newTree, newNodeId);
         await dispatch(updateChatTree({ chatId: chatIdNum, content: newContent, tree: newTree, activeLeafId: newNodeId }));
 
-        if (generatedImages && generatedImages.length > 0 && characterData) {
-          dispatch(updateCharacter({ ...characterData, gallery: [...(characterData.gallery || []), ...generatedImages] }));
+        if (generatedImages && generatedImages.length > 0) {
+          dispatch(updateCharacter({ ...speaker, gallery: [...(speaker.gallery || []), ...generatedImages] }));
         }
 
-        maybeExtractMemory(newContent);
+        maybeExtractMemory(newContent, speaker);
       }
 
       dispatch(fetchChats());
@@ -768,14 +866,19 @@ const ChatPage = () => {
       }
 
       const historyUpToTarget = getPathToNode(tree, targetNodeId);
+      // Continuing is always the same character finishing their own
+      // sentence - never a fresh speaker pick.
+      const speaker = roomCharacters.find((c) => c.id === targetMessage.speakerId) || characterData;
+      if (!speaker) return;
       const continueDirective =
         "The previous assistant message got cut off before finishing. Continue writing directly from exactly where it left off - do not repeat any earlier text, do not restart the sentence, and add no preamble or acknowledgement. Keep going in the same voice, tone, and format.";
       const { history, systemInstruction, characterImages, characterName } = buildTurnContext(
         [...historyUpToTarget, targetMessage],
-        characterData,
-        [continueDirective],
+        speaker,
+        withAuthorNote([continueDirective]),
         replyLengthLimit,
-        activePersona
+        activePersona,
+        buildRoomContext(speaker)
       );
 
       aiPromiseRef.current = dispatch(generateAIResponse({ prompt: "Continue.", history, systemInstruction, characterImages, characterName }));
@@ -785,7 +888,7 @@ const ChatPage = () => {
       if (aiResponse.payload) {
         const payloadObj = aiResponse.payload as any;
         await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
-        const continuationText = typeof payloadObj?.text === "string" ? payloadObj.text : (payloadObj as string);
+        const continuationText = finalizeSpeakerText(typeof payloadObj?.text === "string" ? payloadObj.text : (payloadObj as string), speaker);
         const existingText = targetMessage.txt || "";
 
         // A trailing "[Image Context: ...]" tag must stay at the very end -
@@ -801,7 +904,7 @@ const ChatPage = () => {
         const updatedContent = flattenPath(updatedTree, currentActiveLeafId);
         await dispatch(updateChatTree({ chatId: chatIdNum, content: updatedContent, tree: updatedTree, activeLeafId: currentActiveLeafId }));
 
-        maybeExtractMemory(updatedContent);
+        maybeExtractMemory(updatedContent, speaker);
       }
 
       dispatch(fetchChats());
@@ -879,10 +982,13 @@ const ChatPage = () => {
       ? [{ icon: FaCompressArrowsAlt, label: "Summarize and compress older messages to save tokens", onClick: handleCompress, disabled: aiCompressing }]
       : []),
     ...(messages.length > 0
-      ? [{ icon: FaBolt, label: `Make ${characterData?.name || "them"} send a follow-up now`, onClick: handleManualFollowup, disabled: aiLoading }]
+      ? [{ icon: FaBolt, label: isRoom ? "Make the next bot send a follow-up now" : `Make ${characterData?.name || "them"} send a follow-up now`, onClick: handleManualFollowup, disabled: aiLoading }]
       : []),
     { icon: FaClock, label: "Auto follow-up settings", onClick: () => setIsAutoReplyModalOpen(true), active: autoReplySettings.enabled },
-    { icon: FaBookOpen, label: "Scene panel", onClick: () => setSceneOpen((v) => !v), active: sceneOpen },
+    { icon: FaBookOpen, label: "Scene panel", onClick: () => { setSceneOpen((v) => !v); setParticipantsOpen(false); }, active: sceneOpen },
+    ...(isRoom
+      ? [{ icon: FaUsers, label: "Participants", onClick: () => { setParticipantsOpen((v) => !v); setSceneOpen(false); }, active: participantsOpen }]
+      : []),
     ...(personas.length > 1
       ? [{ icon: FaUserCircle, label: `Persona: ${activePersona?.name || "None"}`, onClick: () => setIsPersonaModalOpen(true), active: Boolean(currentChat?.personaId) }]
       : []),
@@ -892,7 +998,7 @@ const ChatPage = () => {
     <div className="flex flex-col w-full h-screen bg-background relative">
       <Header
         title={character || "Chat"}
-        subtitle={characterData?.relationship || characterData?.description}
+        subtitle={isRoom ? `With ${roomCharacters.map((c) => c.name).join(", ")}` : (characterData?.relationship || characterData?.description)}
         avatar={
           <button
             type="button"
@@ -1057,11 +1163,19 @@ const ChatPage = () => {
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden relative">
-        <ChatWindow characterName={character} character={characterData} characters={roomCharacters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} />
+        <ChatWindow characterName={character} character={characterData} characters={roomCharacters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} />
       </div>
 
       {/* Message Input Floating */}
       <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-full max-w-4xl px-4 z-20">
+        {isRoom && (
+          <ParticipantStrip
+            characters={roomCharacters}
+            mutedParticipantIds={currentChat?.mutedParticipantIds}
+            disabled={aiLoading}
+            onForceReply={handleForceReply}
+          />
+        )}
         <MessageInput onSend={handleSend} disabled={aiLoading} onStop={handleStopGenerating} onDraftActivity={handleDraftActivity} tokenCount={aiTokenCount} costEstimate={aiCostEstimate} characterName={characterData?.name || character} contextTokens={contextTokenEstimate} maxContextTokens={maxContextTokens} totalChatTokens={currentChat?.totalTokensUsed} totalChatCost={currentChat?.totalCostEstimate} />
       </div>
     </div>
