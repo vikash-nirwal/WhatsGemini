@@ -3,9 +3,14 @@ import { dbService } from '../services/dbService';
 
 interface DisplayImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   srcContext: string | undefined;
+  // Rendered instead of the default "Failed to load image" placeholder when
+  // there's no image or it fails to load - lets small/decorative usages
+  // (e.g. an avatar circle) fall back to something that fits their shape
+  // instead of unreadable tiny text.
+  renderError?: React.ReactNode;
 }
 
-export const DisplayImage: React.FC<DisplayImageProps> = ({ srcContext, className, alt, ...props }) => {
+export const DisplayImage: React.FC<DisplayImageProps> = ({ srcContext, className, alt, renderError, ...props }) => {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<boolean>(false);
 
@@ -67,6 +72,7 @@ export const DisplayImage: React.FC<DisplayImageProps> = ({ srcContext, classNam
   }, [srcContext]);
 
   if (error || !srcContext) {
+    if (renderError) return <>{renderError}</>;
     return <div className={`bg-muted flex items-center justify-center text-muted-foreground text-xs p-2 rounded ${className}`}>Failed to load image</div>;
   }
 

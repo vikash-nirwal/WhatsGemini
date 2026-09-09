@@ -6,6 +6,7 @@ import { Message, Character, ConversationTree } from "../types";
 import { getSiblingInfo } from "../features/chat/messageTree";
 import { speak, stopSpeaking } from "../utils/speech";
 import { stripImageContextTag } from "../features/ai/utils/imageGeneration";
+import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
 import { DisplayImage } from "./DisplayImage";
 import ToggleSwitch from "./ToggleSwitch";
 import ChatMessage from "./chat/ChatMessage";
@@ -36,9 +37,9 @@ interface ChatWindowProps {
   worldTags?: string[];
 }
 
-const TypingIndicator = ({ charInitials, accent }: { charInitials: string; accent?: [string, string] }) => (
+const TypingIndicator = ({ charInitials, accent, imageSrc }: { charInitials: string; accent?: [string, string]; imageSrc?: string }) => (
   <div className="flex items-end gap-3 mb-6">
-    <CharacterAvatar name={charInitials} accent={accent} size={32} className="mt-1" />
+    <CharacterAvatar name={charInitials} accent={accent} imageSrc={imageSrc} size={32} className="mt-1" />
     <div className="flex items-center gap-1 px-4 py-3.5 bg-card/[0.88] border border-border/40 shadow-soft rounded-2xl rounded-tl-[5px]">
       {[0, 1, 2].map((i) => (
         <motion.span
@@ -55,9 +56,9 @@ const TypingIndicator = ({ charInitials, accent }: { charInitials: string; accen
 // Shown while an autonomous follow-up's random delay is still counting down
 // - distinct from TypingIndicator (which means a reply is actually
 // generating) so the two are never shown at once.
-const FollowupIndicator = ({ charInitials, accent }: { charInitials: string; accent?: [string, string] }) => (
+const FollowupIndicator = ({ charInitials, accent, imageSrc }: { charInitials: string; accent?: [string, string]; imageSrc?: string }) => (
   <div className="flex items-end gap-3 mb-6">
-    <CharacterAvatar name={charInitials} accent={accent} size={32} className="mt-1" />
+    <CharacterAvatar name={charInitials} accent={accent} imageSrc={imageSrc} size={32} className="mt-1" />
     <div className="flex items-center gap-1.5 px-4 py-3.5 bg-card/[0.88] border border-border/40 shadow-soft rounded-2xl rounded-tl-[5px]">
       <motion.span
         animate={{ opacity: [0.4, 1, 0.4] }}
@@ -269,6 +270,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
   };
   const charInitials = getInitials(characterName);
 
+  // Most recent AI message that reported an emotion - drives the "current
+  // mood" portrait shown while a reply/follow-up is pending, distinct from
+  // each individual message's own (historical) emotion below.
+  const latestEmotion = useMemo(() => {
+    for (let i = filteredMessages.length - 1; i >= 0; i--) {
+      if (filteredMessages[i].role !== YOU && filteredMessages[i].emotion) return filteredMessages[i].emotion;
+    }
+    return undefined;
+  }, [filteredMessages]);
+  const currentEmotionImageSrc = resolveEmotionPortrait(character, latestEmotion);
+
   return (
     <>
     <div className="relative h-full w-full flex overflow-hidden">
@@ -313,6 +325,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
                     msg={msg}
                     charInitials={charInitials}
                     accent={character?.accent}
+                    avatarImageSrc={resolveEmotionPortrait(character, msg.emotion)}
                     aiLoading={aiLoading || false}
                     onCopy={handleCopyMessage}
                     onRegenerate={handleRegenerate}
@@ -330,9 +343,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
               })
             )}
             {aiLoading ? (
-              <TypingIndicator charInitials={charInitials} accent={character?.accent} />
+              <TypingIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} />
             ) : isFollowupPending ? (
-              <FollowupIndicator charInitials={charInitials} accent={character?.accent} />
+              <FollowupIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} />
             ) : null}
             <div ref={chatEndRef} />
           </div>

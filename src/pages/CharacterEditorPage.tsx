@@ -5,7 +5,7 @@ import { FaTimes, FaUpload, FaPlay, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, F
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Character } from "../types";
 import { dbService } from "../services/dbService";
-import { generateAssistText } from "../features/aiSlice";
+import { generateAssistText, generateAvatarImage } from "../features/aiSlice";
 import { DisplayImage } from "../components/DisplayImage";
 import { TextInput, TextArea, Select, FieldLabel, Slider, TagInput } from "../components/ui/FormControls";
 import { CharacterAvatar } from "../components/ui/CharacterAvatar";
@@ -14,7 +14,7 @@ import { Card } from "../components/ui/card";
 import { cn } from "../utils/cn";
 import ToggleSwitch from "../components/ToggleSwitch";
 import Header from "../components/Header";
-import { CHARACTER_SWATCHES, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY } from "../utils/constants";
+import { CHARACTER_SWATCHES, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, EMOTIONS } from "../utils/constants";
 import { isSpeechSynthesisSupported, getVoices, speak } from "../utils/speech";
 import { estimateTokens } from "../features/ai/utils/tokenEstimator";
 import TestChatPane from "../components/character/TestChatPane";
@@ -62,6 +62,8 @@ const CharacterEditorPage = () => {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [autoSelfieEnabled, setAutoSelfieEnabled] = useState(false);
   const [autoSelfieFrequency, setAutoSelfieFrequency] = useState(DEFAULT_AUTO_SELFIE_FREQUENCY);
+  const [emotionPortraitsEnabled, setEmotionPortraitsEnabled] = useState(false);
+  const [emotionPortraitImages, setEmotionPortraitImages] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!isSpeechSynthesisSupported()) return;
@@ -87,6 +89,8 @@ const CharacterEditorPage = () => {
       setVoiceURI(source.voiceURI || "");
       setAutoSelfieEnabled(source.autoSelfie?.enabled || false);
       setAutoSelfieFrequency(source.autoSelfie?.frequency ?? DEFAULT_AUTO_SELFIE_FREQUENCY);
+      setEmotionPortraitsEnabled(source.emotionPortraits?.enabled || false);
+      setEmotionPortraitImages(source.emotionPortraits?.images || {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [characterId]);
@@ -97,9 +101,12 @@ const CharacterEditorPage = () => {
   const [generatingGreeting, setGeneratingGreeting] = useState(false);
   const [assistError, setAssistError] = useState<string | null>(null);
 
-  // Avatar crop dialog state.
+  // Avatar crop dialog state - shared by the main portrait and every emotion
+  // slot below. `cropTargetEmotion` is null for the main portrait, or the
+  // emotion key the crop result should be saved under.
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
   const [cropImageSrc, setCropImageSrc] = useState("");
+  const [cropTargetEmotion, setCropTargetEmotion] = useState<string | null>(null);
 
   const handleExpandIdea = async () => {
     if (!prompt.trim()) {
@@ -143,7 +150,7 @@ const CharacterEditorPage = () => {
       alert("Character name and prompt are required.");
       return;
     }
-    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency } }));
+    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages } }));
     navigate("/characters");
   };
 
@@ -152,7 +159,7 @@ const CharacterEditorPage = () => {
       alert("Character name and prompt are required.");
       return;
     }
-    dispatch(updateCharacter({ id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency } }));
+    dispatch(updateCharacter({ id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages } }));
     navigate("/characters");
   };
 
@@ -257,12 +264,100 @@ const CharacterEditorPage = () => {
 
   // Called when AvatarGenerateButton returns a generated image data URL.
   const handleAvatarGenerated = (dataUrl: string) => {
+    setCropTargetEmotion(null);
     setCropImageSrc(dataUrl);
     setCropDialogOpen(true);
   };
 
-  // Called when the crop dialog produces a saved local: ref.
+  // Generates one emotion slot's portrait - same pipeline as the main avatar
+  // (reference images keep it recognizably the same character), just with the
+  // target emotion folded into the prompt. Opens the same crop dialog on
+  // success, routed back into emotionPortraitImages via cropTargetEmotion.
+  const [generatingEmotion, setGeneratingEmotion] = useState<string | null>(null);
+  const [emotionGenError, setEmotionGenError] = useState<string | null>(null);
+  const handleGenerateEmotion = async (emotion: string) => {
+    if (!name.trim()) {
+      setEmotionGenError("Give the character a name first.");
+      return;
+    }
+    setEmotionGenError(null);
+    setGeneratingEmotion(emotion);
+    try {
+      const referenceImages = appearanceImages.length > 0 ? appearanceImages : undefined;
+      const result = await dispatch(generateAvatarImage({ name, appearance, appearanceImages: referenceImages, emotion })).unwrap();
+      if (result.images && result.images.length > 0) {
+        setCropTargetEmotion(emotion);
+        setCropImageSrc(result.images[0]);
+        setCropDialogOpen(true);
+      } else {
+        setEmotionGenError("No image was returned.");
+      }
+    } catch (err: any) {
+      setEmotionGenError(typeof err === "string" ? err : "Failed to generate portrait. Check your API key and image provider in Settings.");
+    } finally {
+      setGeneratingEmotion(null);
+    }
+  };
+  // Batch path: unlike the single-emotion button above, this doesn't open the
+  // interactive crop dialog per image (looping that would mean firing every
+  // generation before the user could ever crop the first one) - it saves
+  // each raw generated portrait directly, uncropped. Framing usually comes
+  // out reasonable given the prompt already asks for a head-and-shoulders 3:4
+  // shot; anyone can re-generate + manually crop a specific slot afterward.
+  const [generatingAllEmotions, setGeneratingAllEmotions] = useState(false);
+  const handleGenerateAllEmotions = async () => {
+    if (!name.trim()) {
+      setEmotionGenError("Give the character a name first.");
+      return;
+    }
+    setEmotionGenError(null);
+    setGeneratingAllEmotions(true);
+    try {
+      const dirHandle = await dbService.getSetting("image_save_directory");
+      if (!dirHandle) {
+        setEmotionGenError("Set an Image Save Directory in Settings first.");
+        return;
+      }
+      const referenceImages = appearanceImages.length > 0 ? appearanceImages : undefined;
+      const missing = EMOTIONS.filter((e) => e !== "neutral" && !emotionPortraitImages[e]);
+      for (const emo of missing) {
+        setGeneratingEmotion(emo);
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const result = await dispatch(generateAvatarImage({ name, appearance, appearanceImages: referenceImages, emotion: emo })).unwrap();
+          const dataUrl = result.images?.[0];
+          if (!dataUrl) continue;
+          const [, base64] = dataUrl.split(",");
+          const mimeMatch = dataUrl.match(/^data:(.*?);/);
+          // eslint-disable-next-line no-await-in-loop
+          const blob = await (await fetch(`data:${mimeMatch?.[1] || "image/png"};base64,${base64}`)).blob();
+          const filename = `avatar_${emo}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.png`;
+          const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
+          const writable = await fileHandle.createWritable();
+          // eslint-disable-next-line no-await-in-loop
+          await writable.write(blob);
+          // eslint-disable-next-line no-await-in-loop
+          await writable.close();
+          setEmotionPortraitImages((prev) => ({ ...prev, [emo]: `local:${filename}` }));
+        } catch (err: any) {
+          console.error(`Failed to generate ${emo} portrait:`, err);
+          setEmotionGenError(`Failed on "${emo}" (${err?.message || err}) - stopped, already-generated slots are kept.`);
+          break;
+        }
+      }
+    } finally {
+      setGeneratingEmotion(null);
+      setGeneratingAllEmotions(false);
+    }
+  };
+
+  // Called when the crop dialog produces a saved local: ref - routed to the
+  // main portrait or a specific emotion slot depending on what triggered it.
   const handleCropComplete = (localRef: string) => {
+    if (cropTargetEmotion) {
+      setEmotionPortraitImages((prev) => ({ ...prev, [cropTargetEmotion]: localRef }));
+      return;
+    }
     // Replace the first image (portrait slot) or insert as the first.
     setAppearanceImages((prev) =>
       prev.length > 0 ? [localRef, ...prev.slice(1)] : [localRef]
@@ -572,6 +667,61 @@ const CharacterEditorPage = () => {
                       style={{ display: "none" }}
                     />
                   </div>
+                </Card>
+
+                <Card className="p-5 flex flex-col gap-3">
+                  <div className="flex items-baseline justify-between gap-4">
+                    <h3 className="font-semibold text-[15px] text-foreground">Emotion Portraits</h3>
+                    <span className="text-xs text-subtle">Swaps the avatar to match their mood as you chat</span>
+                  </div>
+                  <ToggleSwitch
+                    checked={emotionPortraitsEnabled}
+                    onChange={setEmotionPortraitsEnabled}
+                    label="Show a matching portrait for their current emotion"
+                    title="The AI reports its mood each reply; the chat avatar swaps to a matching portrait you generate below. Neutral always uses the main portrait above."
+                  />
+                  {emotionPortraitsEnabled && (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex flex-wrap gap-2.5">
+                        {EMOTIONS.filter((e) => e !== "neutral").map((emo) => (
+                          <div key={emo} className="flex flex-col items-center gap-1 w-[76px]">
+                            <div className="relative w-[76px] h-[76px] rounded-lg overflow-hidden border border-border bg-muted">
+                              {emotionPortraitImages[emo] ? (
+                                <DisplayImage srcContext={emotionPortraitImages[emo]} alt={emo} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-subtle">
+                                  <FaMagic size={14} />
+                                </div>
+                              )}
+                              {generatingEmotion === emo && (
+                                <div className="absolute inset-0 bg-background/70 flex items-center justify-center text-[10px] text-foreground font-medium">
+                                  Generating...
+                                </div>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleGenerateEmotion(emo)}
+                              disabled={Boolean(generatingEmotion) || generatingAllEmotions}
+                              className="text-[10.5px] font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline capitalize"
+                            >
+                              {emo} {emotionPortraitImages[emo] ? "· Regenerate" : "· Generate"}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="panel"
+                        onClick={handleGenerateAllEmotions}
+                        disabled={Boolean(generatingEmotion) || generatingAllEmotions}
+                        className="h-auto w-full px-3 py-1.5 text-xs font-medium border border-border hover:border-primary hover:text-primary"
+                      >
+                        <FaMagic size={11} /> {generatingAllEmotions ? `Generating${generatingEmotion ? ` (${generatingEmotion})` : ""}...` : "Generate all missing"}
+                      </Button>
+                      {emotionGenError && <p className="text-xs text-destructive">{emotionGenError}</p>}
+                    </div>
+                  )}
                 </Card>
               </>
             )}

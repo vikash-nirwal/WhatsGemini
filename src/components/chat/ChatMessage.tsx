@@ -23,6 +23,7 @@ interface ChatMessageProps {
   msg: Message;
   charInitials: string;
   accent?: [string, string];
+  avatarImageSrc?: string;
   aiLoading: boolean;
   onCopy: (text: string) => void;
   onRegenerate: (msg: Message) => void;
@@ -41,6 +42,7 @@ const ChatMessage = React.memo(({
   msg,
   charInitials,
   accent,
+  avatarImageSrc,
   aiLoading,
   onCopy,
   onRegenerate,
@@ -115,7 +117,7 @@ const ChatMessage = React.memo(({
     >
       {/* AI Avatar */}
       {!isUser && (
-        <CharacterAvatar name={charInitials} accent={accent} size={32} className="mt-1 mr-3 shadow-md" />
+        <CharacterAvatar name={charInitials} accent={accent} imageSrc={avatarImageSrc} size={32} className="mt-1 mr-3 shadow-md" />
       )}
 
       <div

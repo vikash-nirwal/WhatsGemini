@@ -181,7 +181,7 @@ Files touched: `src/types/index.ts` (`Message.isImpersonated`), `src/features/ch
 
 ---
 
-## Phase 8: Character Emotion Portraits 📋 Planned (not yet built - awaiting go-ahead)
+## Phase 8: Character Emotion Portraits ✅ Done
 *A per-character set of expression portraits (happy, sad, angry, ...) that swaps in live as the AI's mood shifts during the conversation, generated from a reference image the user supplies. Replaces the originally-planned "Advanced Generation Settings" phase (Top-P/Top-K/etc.), which was explicitly dropped as controls a regular user has no reason to touch.*
 
 **Design decisions (recommendations below, pending confirmation before build):**
@@ -206,13 +206,17 @@ OpenAI's `quality`/`size` params and an SD WebUI lighter preset (both still rele
 - **Chat:** the header avatar and message-bubble avatar for that character show the current emotion's portrait instead of initials, updating after each AI reply that carries a recognized `[Emotion: ...]` tag. An unrecognized/missing emotion shows `neutral` plus the inline "Generate {emotion} portrait?" prompt described above.
 
 **Implementation Steps:**
-- [ ] `Character.emotionPortraits` field + `Message.emotion` field (`types/index.ts`).
-- [ ] `CharacterAvatar` gains an optional image-src mode (falls back to today's initials-only rendering when absent) - used by the chat header and message bubbles when a character has emotion portraits enabled and a matching image.
-- [ ] System-instruction addition (`promptComposition.ts`) - only when `character.emotionPortraits?.enabled` - instructing the model to end replies with `[Emotion: <one of the fixed list>]`; parse/strip it in `aiSlice.ts`'s response handling the same way `imagePrompt`/`imageParams` are already derived, storing the result on the new AI message as `emotion`.
-- [ ] Batch + single-image generation flow in the Character Editor, reusing `generateAvatarImage` + `AvatarCropDialog` per emotion, writing results into `Character.emotionPortraits.images`.
-- [ ] Inline "Generate {emotion} portrait?" affordance in the chat UI for a reported emotion with no saved image yet, wired to the same single-image flow.
+- [x] `Character.emotionPortraits` field + `Message.emotion` field (`types/index.ts`).
+- [x] `CharacterAvatar` gains an optional `imageSrc` mode (`DisplayImage` internally, falling back to the usual initials on load failure via a new `DisplayImage.renderError` prop) - used by the chat header, message bubbles, and the typing/follow-up indicators.
+- [x] System-instruction addition (`emotionUtils.ts`'s `buildEmotionDirective`, wired into `promptComposition.ts`) - only when `character.emotionPortraits?.enabled` - instructs the model to end replies with `[Emotion: <one of the fixed list>]`. Parsed/stripped unconditionally (cheap no-op otherwise) in `aiSlice.ts`'s `generateAIResponse` via `extractEmotionTag`, threaded through all four places in `ChatPage.tsx` where an AI reply becomes a persisted `Message` (`sendCharacterFollowup`, `handleSend`, `handleRegenerate`, `handleEditMessage`).
+- [x] Batch + single-image generation flow in the Character Editor (`CharacterEditorPage.tsx`), reusing `generateAvatarImage` (now takes an optional `emotion` param that folds a "showing a clear X expression" clause into the prompt) with the existing reference images for likeness. Single "Generate" per emotion opens the interactive `AvatarCropDialog` (shared with the main portrait, routed by a new `cropTargetEmotion` state); "Generate all missing" instead saves each raw result directly with no crop step, since looping the interactive dialog would fire every generation before the user could crop the first one - anyone can re-generate + manually crop a specific slot afterward if the framing's off.
+- [x] Inline "{Character} looks {emotion} - generate a portrait for this mood?" banner in the chat UI (`ChatPage.tsx`) for a reported emotion with no saved image yet, dismissible per-emotion. Uses the same uncropped one-click save as "Generate all" for a fast in-chat fix.
 - [x] Gemini adapter: `imageSize`/`aspectRatio` support via `imageConfig`, plus a gated "Image size" (1K/2K/4K) Settings control - done ahead of the rest of this phase, see "Image quality vs. budget" above.
 - [ ] OpenAI adapter: add `quality`/`size` to `ImageGenCallOptions` and the request body. SD WebUI path: a lighter width/height/steps preset for emotion-set generation. (Deferred - Gemini-only for now.)
+
+Files touched: `src/types/index.ts` (`Character.emotionPortraits`, `Message.emotion`), `src/utils/constants.ts` (`EMOTIONS`), `src/features/ai/utils/emotionUtils.ts` (new - directive, tag parsing, `resolveEmotionPortrait`), `src/features/ai/utils/promptComposition.ts`, `src/features/aiSlice.ts` (`generateAIResponse` parsing, `generateAvatarImage`'s new `emotion` param), `src/features/chatSlice.ts` (`addMessage` threading), `src/components/DisplayImage.tsx` (`renderError`), `src/components/ui/CharacterAvatar.tsx` (`imageSrc`), `src/components/ChatWindow.tsx` (per-message + indicator avatars), `src/components/chat/ChatMessage.tsx`, `src/pages/ChatPage.tsx` (header avatar, missing-emotion banner), `src/pages/CharacterEditorPage.tsx` (Emotion Portraits section).
+
+Verified: `tsc --noEmit` clean, `messageTree.test.ts` (27 tests) passes throughout. Live-verified the generation half against a real character with an existing reference portrait: enabled the toggle, saw the 8-slot grid render, generated "happy" for real - the model correctly returned a genuinely smiling portrait while keeping the same face/glasses/outfit as the reference image, and the interactive crop dialog opened on it correctly. The browser session ended (closed outside this work, not caused by it) before the crop-save step and the chat-side round trip (directive → real reply → tag stripped → avatar swap, or the missing-emotion banner appearing) could be exercised live - worth a manual pass next session. The crop-and-save step depends on the same Image Save Directory permission as Phase 4's avatar cropping (pre-existing, unrelated limitation, not re-verified here either).
 
 ---
 

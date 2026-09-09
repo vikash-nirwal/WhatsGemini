@@ -1,6 +1,7 @@
 import { Character, Message, UserProfile } from "../../../types";
 import { YOU } from "../../../utils/constants";
 import { stripLeakedBase64 } from "./apiUtils";
+import { buildEmotionDirective } from "./emotionUtils";
 import { ChatMessage } from "../types";
 
 // Converts stored DB messages into the provider-agnostic ChatMessage shape,
@@ -73,6 +74,9 @@ export const buildSystemInstruction = (
     sections.push(
       `Example dialogue showing ${character.name}'s speech style, tone, and formatting (e.g. use of asterisks for actions) - use this only as a style reference, never repeat these lines verbatim:\n${character.mes_example}`
     );
+  }
+  if (character.emotionPortraits?.enabled) {
+    sections.push(buildEmotionDirective());
   }
   if (extraDirectives && extraDirectives.length > 0) {
     sections.push(...extraDirectives);

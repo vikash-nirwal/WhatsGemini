@@ -44,6 +44,12 @@ export const imageModels = [
   "gemini-3.1-flash-image",
   "gemini-3-pro-image",
 ];
+// Fixed vocabulary for Phase 8's Emotion Portraits - closed set so the model's
+// reported mood reliably maps to a generated image key, and so generating "the
+// full set" is a bounded batch rather than open-ended. "neutral" needs no
+// generation of its own - it's just the character's existing portrait.
+export const EMOTIONS = ["neutral", "happy", "sad", "angry", "surprised", "excited", "shy", "scared", "thinking"];
+
 // Rough USD-per-1M-token rates (standard tier) used only for the in-app cost estimate
 // shown next to the token counter — not billing-accurate. Simplifications: pro-tier
 // models with >200k-token pricing tiers use their <=200k rate; image models blend

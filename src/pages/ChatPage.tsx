@@ -2,20 +2,23 @@ import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, updateChatAutoReply, incrementChatUsage, updateChatPersona, setPendingFollowupAt } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
-import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat } from "../features/aiSlice";
+import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage } from "../features/aiSlice";
+import { dbService } from "../services/dbService";
 import ChatWindow from "../components/ChatWindow";
 import MessageInput from "../components/MessageInput";
 import Header, { HeaderAction } from "../components/Header";
 import Modal from "../components/Modal";
 import ToggleSwitch from "../components/ToggleSwitch";
 import { TextInput, FieldLabel } from "../components/ui/FormControls";
-import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaBookOpen, FaHistory, FaUserCircle, FaCheck } from "react-icons/fa";
+import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaBookOpen, FaHistory, FaUserCircle, FaCheck, FaTimes } from "react-icons/fa";
+import { Button } from "../components/ui/button";
 import { cn } from "../utils/cn";
 import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Message, Chat } from "../types";
 import { stripLeakedBase64 } from "../features/ai/utils/apiUtils";
 import { buildChatHistory, buildSystemInstruction, buildTurnContext, AUTO_REPLY_DIRECTIVE } from "../features/ai/utils/promptComposition";
+import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
 import { mergeMemory } from "../features/ai/utils/memoryExtraction";
 import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo } from "../features/chat/messageTree";
 import { estimateTokens, estimateHistoryTokens } from "../features/ai/utils/tokenEstimator";
@@ -117,6 +120,75 @@ const ChatPage = () => {
     () => personas.find((p) => p.id === globalActivePersonaId) || personas[0],
     [personas, globalActivePersonaId]
   );
+
+  // The character's most recently reported mood - drives the header avatar
+  // (via resolveEmotionPortrait below) and, when that emotion has no saved
+  // portrait yet, the inline "generate it now" prompt underneath the header.
+  // Same "latest emotion wins" logic ChatWindow uses for its typing/follow-up
+  // indicators, kept as a separate computation since the header renders
+  // outside ChatWindow.
+  const latestEmotion = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === AI && messages[i].emotion) return messages[i].emotion;
+    }
+    return undefined;
+  }, [messages]);
+  const headerEmotionImageSrc = resolveEmotionPortrait(characterData, latestEmotion);
+  const missingEmotionPortrait =
+    characterData?.emotionPortraits?.enabled && latestEmotion && latestEmotion !== "neutral" && !characterData.emotionPortraits.images[latestEmotion]
+      ? latestEmotion
+      : undefined;
+  const [dismissedMissingEmotion, setDismissedMissingEmotion] = useState<string | null>(null);
+  const [generatingMissingEmotion, setGeneratingMissingEmotion] = useState(false);
+  const [missingEmotionError, setMissingEmotionError] = useState<string | null>(null);
+
+  // One-click, uncropped generate-and-save for the currently-missing emotion,
+  // reached from the inline chat prompt rather than the full Character Editor
+  // - mirrors the editor's "Generate all" batch path (no interactive crop;
+  // framing usually comes out reasonable from the prompt alone).
+  const handleGenerateMissingEmotionPortrait = async () => {
+    if (!missingEmotionPortrait || !characterData) return;
+    setMissingEmotionError(null);
+    setGeneratingMissingEmotion(true);
+    try {
+      const dirHandle = await dbService.getSetting("image_save_directory");
+      if (!dirHandle) {
+        setMissingEmotionError("Set an Image Save Directory in Settings first.");
+        return;
+      }
+      const referenceImages = characterData.appearanceImages && characterData.appearanceImages.length > 0 ? characterData.appearanceImages : undefined;
+      const result = await dispatch(generateAvatarImage({
+        name: characterData.name,
+        appearance: characterData.appearance,
+        appearanceImages: referenceImages,
+        emotion: missingEmotionPortrait,
+      })).unwrap();
+      const dataUrl = result.images?.[0];
+      if (!dataUrl) {
+        setMissingEmotionError("No image was returned.");
+        return;
+      }
+      const mimeMatch = dataUrl.match(/^data:(.*?);/);
+      const base64 = dataUrl.split(",")[1];
+      const blob = await (await fetch(`data:${mimeMatch?.[1] || "image/png"};base64,${base64}`)).blob();
+      const filename = `avatar_${missingEmotionPortrait}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.png`;
+      const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      dispatch(updateCharacter({
+        ...characterData,
+        emotionPortraits: {
+          enabled: true,
+          images: { ...characterData.emotionPortraits?.images, [missingEmotionPortrait]: `local:${filename}` },
+        },
+      }));
+    } catch (err: any) {
+      setMissingEmotionError(typeof err === "string" ? err : "Failed to generate portrait. Check your API key and image provider in Settings.");
+    } finally {
+      setGeneratingMissingEmotion(false);
+    }
+  };
 
   // Pre-send context budget: estimated tokens already committed (system
   // prompt + history) plus the model's max context window, both purely
@@ -302,6 +374,7 @@ const ChatPage = () => {
       text: typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string),
       images: generatedImages,
       isImageRequest: Boolean(generatedImages && generatedImages.length > 0),
+      emotion: payloadObj?.emotion,
       imagePrompt: payloadObj?.imagePrompt,
       imageParams: payloadObj?.imageParams,
     }));
@@ -435,6 +508,7 @@ const ChatPage = () => {
           role: AI,
           text: typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string),
           images: generatedImages,
+          emotion: payloadObj?.emotion,
           imagePrompt: payloadObj?.imagePrompt,
           imageParams: payloadObj?.imageParams
         }));
@@ -495,6 +569,7 @@ const ChatPage = () => {
             role: AI,
             txt: typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string),
             images: generatedImages,
+            emotion: payloadObj?.emotion,
             timestamp: Date.now(),
           };
           const { tree: finalTree, nodeId: aiNodeId } = addChildNode(treeWithEdit, editedNodeId, newAiMsg);
@@ -571,6 +646,7 @@ const ChatPage = () => {
           txt: typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string),
           images: generatedImages,
           isImageRequest: isFollowup ? Boolean(generatedImages && generatedImages.length > 0) : undefined,
+          emotion: payloadObj?.emotion,
           imagePrompt: payloadObj?.imagePrompt,
           imageParams: payloadObj?.imageParams,
           timestamp: Date.now(),
@@ -816,7 +892,7 @@ const ChatPage = () => {
       <Header
         title={character || "Chat"}
         subtitle={characterData?.relationship || characterData?.description}
-        avatar={<CharacterAvatar name={characterData?.name || character} accent={characterData?.accent} size={34} />}
+        avatar={<CharacterAvatar name={characterData?.name || character} accent={characterData?.accent} imageSrc={headerEmotionImageSrc} size={34} />}
         actionGroups={[chatActions]}
       />
 
@@ -913,6 +989,37 @@ const ChatPage = () => {
           <Alert variant="destructive" className="max-w-md">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
+        </div>
+      )}
+
+      {/* Missing emotion portrait prompt */}
+      {missingEmotionPortrait && dismissedMissingEmotion !== missingEmotionPortrait && (
+        <div className="absolute top-16 w-full z-20 px-4 flex justify-center">
+          <div className="max-w-md w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-card border border-border shadow-soft text-sm">
+            <span className="flex-1 text-foreground">
+              {characterData?.name || "This character"} looks <span className="font-semibold capitalize">{missingEmotionPortrait}</span> - generate a portrait for this mood?
+              {missingEmotionError && <span className="block text-destructive text-xs mt-1">{missingEmotionError}</span>}
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleGenerateMissingEmotionPortrait}
+              disabled={generatingMissingEmotion}
+              className="h-auto px-3 py-1.5 text-xs font-semibold flex-shrink-0"
+            >
+              {generatingMissingEmotion ? "Generating..." : "Generate"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setDismissedMissingEmotion(missingEmotionPortrait)}
+              className="h-7 w-7 flex-shrink-0 text-muted-foreground hover:text-foreground"
+              aria-label="Dismiss"
+            >
+              <FaTimes size={11} />
+            </Button>
+          </div>
         </div>
       )}
 

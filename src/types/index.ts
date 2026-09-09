@@ -26,6 +26,7 @@ export interface Message {
   isCompressionSummary?: boolean; // true for the persisted auto-compress summary message
   isImageRequest?: boolean; // True if it triggered image generation
   isImpersonated?: boolean; // role AI, but the user wrote it themselves (Impersonate mode) - not a real generation
+  emotion?: string; // one of EMOTIONS, parsed from the AI's own reply when the character has emotionPortraits enabled
   imagePrompt?: string; // The derived SD prompt used to generate this image
   imageParams?: SDImageParams; // The derived SD params
   sampler_name?: string; // The specific sampler name used
@@ -93,6 +94,14 @@ export interface Character {
   autoSelfie?: {
     enabled: boolean;
     frequency: number; // 1-100, % chance each of the character's own replies spontaneously includes a selfie
+  };
+  // Per-emotion portraits (see EMOTIONS in utils/constants.ts) shown in place
+  // of the initials avatar as the AI's reported mood shifts. "neutral" isn't
+  // stored here - it's always appearanceImages[0]. Keys are a subset of
+  // EMOTIONS; a reported emotion with no entry here falls back to neutral.
+  emotionPortraits?: {
+    enabled: boolean;
+    images: Record<string, string>;
   };
 }
 

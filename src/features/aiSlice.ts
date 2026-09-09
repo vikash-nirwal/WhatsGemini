@@ -4,6 +4,7 @@ import { AI, YOU, getModelPricing } from "../utils/constants";
 import { getProviderApiKey, getOllamaBaseUrl } from "./ai/utils/settings";
 import { extractAndSaveBase64ImagesLocally, stripLeakedBase64 } from "./ai/utils/apiUtils";
 import { deriveImagePrompt, generateImage } from "./ai/utils/imageGeneration";
+import { extractEmotionTag } from "./ai/utils/emotionUtils";
 import { extractMemoryFacts } from "./ai/utils/memoryExtraction";
 import { CHAT_PROVIDERS, IMAGE_PROVIDERS } from "./ai/providers/registry";
 import { ProviderRuntimeConfig } from "./ai/providers/types";
@@ -19,6 +20,7 @@ export interface GenerateAIResponseResult {
   imagePrompt: string;
   imageParams: SDImageParams;
   images?: string[];
+  emotion?: string;
 }
 
 // Resolves the runtime config (API key / base URL) a chat or image provider
@@ -124,14 +126,21 @@ export const generateAIResponse = createAsyncThunk(
         response = streamed.text;
       }
 
-      const finalResponseText = await extractAndSaveBase64ImagesLocally(response, generatedImages);
+      // Parsed and stripped unconditionally (cheap no-op when the tag isn't
+      // present) rather than gated on the character having Emotion Portraits
+      // enabled right now - a toggle flip mid-conversation shouldn't require
+      // extra plumbing here to stay correct.
+      const { text: responseWithoutEmotion, emotion } = extractEmotionTag(response);
+
+      const finalResponseText = await extractAndSaveBase64ImagesLocally(responseWithoutEmotion, generatedImages);
 
       const returnPayload: GenerateAIResponseResult = {
         text: finalResponseText.trim(),
         tokenCount: totalTokens,
         costEstimate: costEstimate,
         imagePrompt: finalDerivedImagePrompt,
-        imageParams: finalDerivedImageParams
+        imageParams: finalDerivedImageParams,
+        emotion,
       };
 
       if (generatedImages.length > 0) {
@@ -250,7 +259,7 @@ export const generateAssistText = createAsyncThunk(
 export const generateAvatarImage = createAsyncThunk(
   "ai/generateAvatarImage",
   async (
-    { name, appearance, appearanceImages }: { name: string; appearance?: string; appearanceImages?: string[] },
+    { name, appearance, appearanceImages, emotion }: { name: string; appearance?: string; appearanceImages?: string[]; emotion?: string },
     { getState, rejectWithValue }
   ) => {
     try {
@@ -265,8 +274,12 @@ export const generateAvatarImage = createAsyncThunk(
       const imageModelName = settings.imageModel;
 
       // Build a portrait-optimized prompt from the character's name + appearance.
+      // For an emotion portrait, the reference images (ideally including the
+      // existing neutral portrait) keep it recognizably the same character
+      // while the prompt's only job is to change the expression/pose.
       const parts = [`Character portrait of ${name}`];
       if (appearance) parts.push(appearance);
+      if (emotion) parts.push(`Showing a clear, unmistakable "${emotion}" facial expression and body language, same character and outfit as usual`);
       parts.push("Head and shoulders, 3:4 aspect ratio, stylized, high quality, detailed");
       const prompt = parts.join(". ") + ".";
 
