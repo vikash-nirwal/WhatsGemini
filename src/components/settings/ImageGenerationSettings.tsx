@@ -1,5 +1,5 @@
 import React from 'react';
-import { IMAGE_RESOLUTIONS } from '../../utils/constants';
+import { IMAGE_RESOLUTIONS, GEMINI_IMAGE_SIZES, GEMINI_IMAGE_SIZE_SUPPORTED_MODELS } from '../../utils/constants';
 import { TextInput, TextArea, Select, Slider } from '../ui/FormControls';
 import { IMAGE_PROVIDER_META } from '../../features/ai/providers/registry';
 import { Button } from '../ui/button';
@@ -35,6 +35,8 @@ interface ImageGenerationSettingsProps {
   setImageGenPrompt: (prompt: string) => void;
   imageResolution: string;
   setImageResolution: (res: string) => void;
+  geminiImageSize: string;
+  setGeminiImageSize: (size: string) => void;
   imageSaveDirName: string;
   handleSelectDirectory: () => void;
   LS_SD_WEBUI_MODEL: string;
@@ -74,6 +76,8 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
   setImageGenPrompt,
   imageResolution,
   setImageResolution,
+  geminiImageSize,
+  setGeminiImageSize,
   imageSaveDirName,
   handleSelectDirectory,
   LS_SD_WEBUI_MODEL,
@@ -218,13 +222,25 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
           />
         </SettingsRow>
 
-        <SettingsRow label="Default resolution">
-          <SegmentedControl
-            value={imageResolution}
-            onChange={setImageResolution}
-            options={IMAGE_RESOLUTIONS.map((res) => ({ value: res, label: res }))}
-          />
-        </SettingsRow>
+        {imageProvider === 'sdwebui' && (
+          <SettingsRow label="Default resolution">
+            <SegmentedControl
+              value={imageResolution}
+              onChange={setImageResolution}
+              options={IMAGE_RESOLUTIONS.map((res) => ({ value: res, label: res }))}
+            />
+          </SettingsRow>
+        )}
+
+        {imageProvider === 'gemini' && GEMINI_IMAGE_SIZE_SUPPORTED_MODELS.includes(imageModel) && (
+          <SettingsRow label="Image size" hint="Higher sizes cost more and take longer. Applies to this model's generations, including character portraits.">
+            <SegmentedControl
+              value={geminiImageSize}
+              onChange={setGeminiImageSize}
+              options={GEMINI_IMAGE_SIZES.map((size) => ({ value: size, label: size }))}
+            />
+          </SettingsRow>
+        )}
 
         <SettingsRow label="Save generated images to" hint="Browsers may ask you to re-approve write access when you return.">
           <div className="flex items-center gap-2.5">

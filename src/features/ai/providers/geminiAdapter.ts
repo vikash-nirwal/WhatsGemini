@@ -107,10 +107,14 @@ const generateImage = async (opts: ImageGenCallOptions, config: ProviderRuntimeC
     promptParts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
   }
 
+  const imageConfig = (opts.imageSize || opts.aspectRatio)
+    ? { imageSize: opts.imageSize, aspectRatio: opts.aspectRatio }
+    : undefined;
+
   const imageRes = await ai.models.generateContent({
     model: opts.model,
     contents: promptParts,
-    config: { safetySettings: formatSafetySettings(opts.safetySettings), abortSignal: opts.signal },
+    config: { safetySettings: formatSafetySettings(opts.safetySettings), abortSignal: opts.signal, imageConfig },
   });
 
   const images: string[] = [];

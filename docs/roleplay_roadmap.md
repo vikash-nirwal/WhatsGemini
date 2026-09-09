@@ -181,17 +181,38 @@ Files touched: `src/types/index.ts` (`Message.isImpersonated`), `src/features/ch
 
 ---
 
-## Phase 8: Advanced Generation Settings
-*Exposing granular LLM controls (Temperature, Top-P, Top-K, Repetition Penalty) globally and per-character.*
+## Phase 8: Character Emotion Portraits 📋 Planned (not yet built - awaiting go-ahead)
+*A per-character set of expression portraits (happy, sad, angry, ...) that swaps in live as the AI's mood shifts during the conversation, generated from a reference image the user supplies. Replaces the originally-planned "Advanced Generation Settings" phase (Top-P/Top-K/etc.), which was explicitly dropped as controls a regular user has no reason to touch.*
+
+**Design decisions (recommendations below, pending confirmation before build):**
+- **Emotion vocabulary is fixed, not freeform:** `neutral, happy, sad, angry, surprised, excited, shy, scared, thinking`. A closed set is required so the model's reported emotion reliably maps to a known image key, and so the generation step is a bounded batch, not open-ended. `neutral` needs no generation - it's just the character's existing `appearanceImages[0]`, so enabling this feature costs zero images until the user asks for more.
+- **Where the portrait shows - recommended: the chat header avatar and the message-bubble avatar, both already-existing image slots** (`CharacterAvatar`, today initials-only) - swapping in the current-emotion image there needs no new screen real estate and is consistent with how this app already surfaces the character (header slot, per-AI-message slot). A bigger, always-visible portrait panel (reusing the Scene panel's slide-in pattern) is possible later if this feels too subtle in practice, but isn't needed for a first version.
+- **Getting the emotion out of the model - reuse this codebase's existing pattern**, not JSON mode or function calling (no provider adapter here implements either): append a small trailing tag the model is instructed to end its reply with, e.g. `[Emotion: happy]`, and strip/parse it out of the plain text exactly like `[Image Context: ...]` already is (`stripImageContextTag` in `imageGeneration.ts`). Only characters with this feature enabled get the extra instruction, so it costs nothing for characters that don't use it. The parsed emotion is stored on the message itself (`Message.emotion?: string`) so scrolling back shows the mood that was active at the time, and Regenerate/Continue re-derive it the same way.
+- **Generating the set:** reuse Phase 4's `generateAvatarImage` pipeline (name + appearance + reference images) with the target emotion folded into the prompt, and the same `AvatarCropDialog` crop step per image so each portrait is well-framed - not new plumbing, an extra loop over the emotion list plus a per-emotion prompt suffix.
+- **Missing emotion → generate on the fly:** if the model reports an emotion with no saved image yet, fall back to displaying `neutral` and show a small "Generate {emotion} portrait?" affordance next to the avatar; accepting it runs the same single-image generate+crop flow and caches the result into `Character.emotionPortraits.images` for every future reply with that emotion.
+- **Toggle:** `Character.emotionPortraits?: { enabled: boolean; images: Record<string, string> }` (same shape/spirit as the existing `autoSelfie` toggle) - off by default, an accordion/section in the Character Editor next to Avatar Generation.
+
+**Image quality vs. budget - Gemini-only for now ✅ Done (OpenAI/SD WebUI quality-tier work explicitly out of scope for this pass):**
+`ImageGenCallOptions` (`providers/types.ts`) gained optional `imageSize`/`aspectRatio` fields; the Gemini adapter's `generateImage` now passes them through as `config.imageConfig` on the `generateContent` call (the SDK - `@google/genai` v2.1.0, already installed - exposes this today, the app just wasn't using it). A new global "Image size" setting (`geminiImageSize`, 1K/2K/4K, default 1K) shows in Settings → Image Generation only when the provider is Gemini and the selected model is one of the Gemini 3.x image models (`gemini-3.1-flash-lite-image`, `gemini-3.1-flash-image`, `gemini-3-pro-image`) - hidden for `gemini-2.5-flash-image`, which predates this parameter. It's threaded through both existing image-generation call sites (the conversational image-request path and `generateAvatarImage`), so it applies uniformly rather than needing separate wiring for emotion portraits later. The avatar path also now sends a real `aspectRatio: "3:4"` (previously only a text hint in the prompt, not an actual parameter).
+
+Known caveat, not a bug in this app: as of now there's an open upstream issue where `gemini-3.1-flash-image` (non-lite) silently ignores `imageSize: "2K"/"4K"` and always returns 1K, while `gemini-3-pro-image` correctly honors it up to 4K - worth knowing if a size bump on plain Flash doesn't visibly change anything; Pro is the reliable one to test with.
+
+Verified live: switching provider/model correctly shows/hides the control; set model to Nano Banana Pro (`gemini-3-pro-image`) + size to 4K, generated a real character avatar - succeeded with no API error, and took noticeably longer than a default-resolution generation (consistent with a heavier request actually reaching the model). Didn't decode exact pixel dimensions from the response (would have needed a second paid Pro+4K call to compare against) - the parameter is sent per the documented/typed SDK contract, and the generation behavior change is consistent with it taking effect. `tsc --noEmit` clean, `messageTree.test.ts` (27 tests) passes. The avatar crop-and-save step itself still needs an Image Save Directory (pre-existing Phase 4 limitation, unrelated to this resolution work) - not re-verified here since it needs a real File System Access directory picker.
+
+OpenAI's `quality`/`size` params and an SD WebUI lighter preset (both still relevant to emotion portraits' own "Fast/cheap vs. Best quality" choice below) are deferred, not done - only Gemini was in scope for this pass.
 
 **UI / Screen Flow:**
-- **Global Settings:** Advanced sliders in the AI Settings menu for Top-P, Top-K, etc., dynamically gated by the selected provider.
-- **Character Overrides:** An "Advanced Options" accordion in the Character Editor to set character-specific generation rules (e.g., high temp for a chaotic bot).
+- **Character Editor:** An "Emotion Portraits" toggle + section (mirrors the existing Avatar Generation card) - once enabled, a grid of the 9 emotion slots, each showing its image or a "Generate" button, plus a "Generate all" batch action; a "Portrait quality" choice (Fast/cheap vs. Best quality) where it actually does something (OpenAI, SD WebUI) and is inert with a note where it doesn't (Gemini).
+- **Chat:** the header avatar and message-bubble avatar for that character show the current emotion's portrait instead of initials, updating after each AI reply that carries a recognized `[Emotion: ...]` tag. An unrecognized/missing emotion shows `neutral` plus the inline "Generate {emotion} portrait?" prompt described above.
 
 **Implementation Steps:**
-- [ ] **Widen the Adapter Contract:** Add `topP`, `topK`, and penalty fields to `ChatCallOptions` in `types.ts`. Implement mapping for these in the Gemini and OpenAI adapters. Use `ProviderCapabilities` to disable unsupported fields (like Top-K for OpenAI).
-- [ ] **Global Settings State:** Add these fields to the Redux `settings` slice.
-- [ ] **Per-Character Overrides:** Add a `generationOverrides` object to the `Character` schema. Update `aiSlice.ts` to merge these overrides over the global settings when building `turnConfig`.
+- [ ] `Character.emotionPortraits` field + `Message.emotion` field (`types/index.ts`).
+- [ ] `CharacterAvatar` gains an optional image-src mode (falls back to today's initials-only rendering when absent) - used by the chat header and message bubbles when a character has emotion portraits enabled and a matching image.
+- [ ] System-instruction addition (`promptComposition.ts`) - only when `character.emotionPortraits?.enabled` - instructing the model to end replies with `[Emotion: <one of the fixed list>]`; parse/strip it in `aiSlice.ts`'s response handling the same way `imagePrompt`/`imageParams` are already derived, storing the result on the new AI message as `emotion`.
+- [ ] Batch + single-image generation flow in the Character Editor, reusing `generateAvatarImage` + `AvatarCropDialog` per emotion, writing results into `Character.emotionPortraits.images`.
+- [ ] Inline "Generate {emotion} portrait?" affordance in the chat UI for a reported emotion with no saved image yet, wired to the same single-image flow.
+- [x] Gemini adapter: `imageSize`/`aspectRatio` support via `imageConfig`, plus a gated "Image size" (1K/2K/4K) Settings control - done ahead of the rest of this phase, see "Image quality vs. budget" above.
+- [ ] OpenAI adapter: add `quality`/`size` to `ImageGenCallOptions` and the request body. SD WebUI path: a lighter width/height/steps preset for emotion-set generation. (Deferred - Gemini-only for now.)
 
 ---
 

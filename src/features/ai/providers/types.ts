@@ -36,6 +36,11 @@ export interface ImageGenCallOptions {
   referenceImages?: NormalizedImage[];
   signal?: AbortSignal;
   safetySettings?: AISafetySettings;
+  // Gemini-only for now (Gemini 3.x image models' `imageConfig`) - other
+  // adapters ignore these. imageSize: "1K" | "2K" | "4K" (model default is 1K
+  // if omitted). aspectRatio: e.g. "1:1", "3:4", "16:9".
+  imageSize?: string;
+  aspectRatio?: string;
 }
 
 export interface ImageGenCallResult {

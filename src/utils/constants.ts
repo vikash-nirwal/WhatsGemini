@@ -189,6 +189,20 @@ export const IMAGE_RESOLUTIONS = [
   "1024x1024"
 ];
 export const DEFAULT_IMAGE_RESOLUTION = "512x512";
+
+// Gemini-only image resolution tier (distinct from IMAGE_RESOLUTIONS above,
+// which is SD WebUI's pixel-dimension control) - maps to Gemini 3.x image
+// models' `imageConfig.imageSize`. Only the Gemini 3 family documents support
+// for this; gemini-2.5-flash-image predates it, so the control is hidden for
+// that model rather than sent and silently ignored.
+export const LS_GEMINI_IMAGE_SIZE = "gemini_image_size";
+export const GEMINI_IMAGE_SIZES = ["1K", "2K", "4K"];
+export const DEFAULT_GEMINI_IMAGE_SIZE = "1K";
+export const GEMINI_IMAGE_SIZE_SUPPORTED_MODELS = [
+  "gemini-3.1-flash-lite-image",
+  "gemini-3.1-flash-image",
+  "gemini-3-pro-image",
+];
 export const LS_USER_PROFILE = "whatsgemini_user_profile"; // legacy single-persona shape, read only for migration
 export const LS_USER_PERSONAS = "whatsgemini_user_personas";
 export const LS_ACTIVE_PERSONA_ID = "whatsgemini_active_persona_id";

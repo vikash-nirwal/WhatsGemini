@@ -149,7 +149,10 @@ export const generateImage = async (
   characterImages: string[] | undefined,
   characterName: string | undefined,
   safetySettings: AISafetySettings,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  // Gemini-only for now - ignored by SD WebUI/other providers.
+  imageSize?: string,
+  aspectRatio?: string
 ): Promise<ImageGenerationResult> => {
   try {
     if (useSdWebui) {
@@ -163,7 +166,7 @@ export const generateImage = async (
       : undefined;
 
     const result = await adapter.generateImage(
-      { model: imageModelName, prompt: derivedImagePrompt, referenceImages, signal, safetySettings },
+      { model: imageModelName, prompt: derivedImagePrompt, referenceImages, signal, safetySettings, imageSize, aspectRatio },
       imageConfig
     );
     return { images: result.images, usage: result.usage };

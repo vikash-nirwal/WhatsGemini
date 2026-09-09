@@ -101,7 +101,7 @@ export const generateAIResponse = createAsyncThunk(
 
         const imageResult = await generateImage(
           imageProviderId, imageConfig, useSdWebui, imageModelName, derivation.derivedImagePrompt, derivation.derivedParams,
-          characterImages, characterName, settings.safetySettings, signal
+          characterImages, characterName, settings.safetySettings, signal, settings.geminiImageSize
         );
         trackUsage(imageResult.usage, imageProviderId, imageModelName);
         generatedImages = imageResult.images;
@@ -274,7 +274,7 @@ export const generateAvatarImage = createAsyncThunk(
         imageProviderId, imageConfig, useSdWebui, imageModelName,
         prompt, {}, // no SD-specific params
         appearanceImages, name,
-        settings.safetySettings
+        settings.safetySettings, undefined, settings.geminiImageSize, "3:4"
       );
 
       if (!result.images || result.images.length === 0) {

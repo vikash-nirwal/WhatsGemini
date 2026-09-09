@@ -17,6 +17,8 @@ import {
   LS_ACTIVE_PERSONA_ID,
   LS_IMAGE_RESOLUTION,
   DEFAULT_IMAGE_RESOLUTION,
+  LS_GEMINI_IMAGE_SIZE,
+  DEFAULT_GEMINI_IMAGE_SIZE,
   LS_IMAGE_MODEL,
   DEFAULT_IMAGE_MODEL,
   LS_IMAGE_GEN_PROMPT,
@@ -97,6 +99,7 @@ export interface SettingsState {
   safetySettings: AISafetySettings;
   fontSize: string;
   imageResolution: string;
+  geminiImageSize: string;
 }
 
 const initialPersonas = loadInitialPersonas();
@@ -130,6 +133,7 @@ const initialState: SettingsState = {
   safetySettings: getStoredValue(LS_SAFETY_SETTINGS, DEFAULT_SAFETY_SETTINGS as unknown as AISafetySettings),
   fontSize: localStorage.getItem(LS_FONT_SIZE) || '16px',
   imageResolution: localStorage.getItem(LS_IMAGE_RESOLUTION) || DEFAULT_IMAGE_RESOLUTION,
+  geminiImageSize: localStorage.getItem(LS_GEMINI_IMAGE_SIZE) || DEFAULT_GEMINI_IMAGE_SIZE,
 };
 
 const settingsSlice = createSlice({
@@ -233,6 +237,9 @@ const settingsSlice = createSlice({
     setImageResolution: (state, action: PayloadAction<string>) => {
       state.imageResolution = action.payload;
     },
+    setGeminiImageSize: (state, action: PayloadAction<string>) => {
+      state.geminiImageSize = action.payload;
+    },
   },
 });
 
@@ -264,6 +271,7 @@ export const {
   setSafetySettings,
   setFontSize,
   setImageResolution,
+  setGeminiImageSize,
 } = settingsSlice.actions;
 
 // The persona characters actually see: the active one, falling back to the
