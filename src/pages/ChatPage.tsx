@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, updateChatAutoReply, incrementChatUsage, updateChatPersona } from "../features/chatSlice";
+import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, updateChatAutoReply, incrementChatUsage, updateChatPersona, setPendingFollowupAt } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
 import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat } from "../features/aiSlice";
 import ChatWindow from "../components/ChatWindow";
@@ -15,7 +15,7 @@ import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, get
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Message, Chat } from "../types";
 import { stripLeakedBase64 } from "../features/ai/utils/apiUtils";
-import { buildChatHistory, buildSystemInstruction, buildTurnContext } from "../features/ai/utils/promptComposition";
+import { buildChatHistory, buildSystemInstruction, buildTurnContext, AUTO_REPLY_DIRECTIVE } from "../features/ai/utils/promptComposition";
 import { mergeMemory } from "../features/ai/utils/memoryExtraction";
 import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo } from "../features/chat/messageTree";
 import { estimateTokens, estimateHistoryTokens } from "../features/ai/utils/tokenEstimator";
@@ -24,7 +24,22 @@ import { CharacterAvatar } from "../components/ui/CharacterAvatar";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { useModal } from "../contexts/ModalContext";
 
-const DEFAULT_AUTO_REPLY = { enabled: false, cooldownMinutes: 3, maxFollowups: 2, followupCount: 0 };
+const DEFAULT_AUTO_REPLY = { enabled: false, minDelaySeconds: 30, maxDelaySeconds: 120, maxFollowups: 2, followupCount: 0 };
+
+// Fills in defaults, and migrates a chat's legacy single `cooldownMinutes`
+// (from before follow-up delays became a random range) into an equivalent
+// fixed range, so chats saved before this change keep their old timing
+// instead of silently reverting to the new defaults.
+const normalizeAutoReply = (raw?: Partial<typeof DEFAULT_AUTO_REPLY> & { cooldownMinutes?: number }) => {
+  const legacyCooldownSeconds = raw?.cooldownMinutes ? raw.cooldownMinutes * 60 : undefined;
+  return {
+    enabled: raw?.enabled ?? DEFAULT_AUTO_REPLY.enabled,
+    minDelaySeconds: raw?.minDelaySeconds ?? legacyCooldownSeconds ?? DEFAULT_AUTO_REPLY.minDelaySeconds,
+    maxDelaySeconds: raw?.maxDelaySeconds ?? legacyCooldownSeconds ?? DEFAULT_AUTO_REPLY.maxDelaySeconds,
+    maxFollowups: raw?.maxFollowups ?? DEFAULT_AUTO_REPLY.maxFollowups,
+    followupCount: raw?.followupCount ?? DEFAULT_AUTO_REPLY.followupCount,
+  };
+};
 
 // Returns the chat's existing tree, or lazily migrates its flat content into
 // one (in-memory only - the caller persists it as part of whatever tree
@@ -47,6 +62,7 @@ const ChatPage = () => {
   const { showConfirm } = useModal();
 
   const chats = useAppSelector((state) => state.chat.chats);
+  const pendingFollowups = useAppSelector((state) => state.chat.pendingFollowups);
   const characters = useAppSelector((state) => state.character.characters);
   const aiLoading = useAppSelector((state) => state.ai.loading);
   const aiCompressing = useAppSelector((state) => state.ai.compressing);
@@ -204,8 +220,19 @@ const ChatPage = () => {
   // scanning, and nothing fires once the tab/app is closed.
   const [isAutoReplyModalOpen, setIsAutoReplyModalOpen] = useState(false);
   const [sceneOpen, setSceneOpen] = useState(false);
-  const autoReplySettings = currentChat?.autoReply || DEFAULT_AUTO_REPLY;
+  const autoReplySettings = normalizeAutoReply(currentChat?.autoReply);
   const autoReplyInFlightRef = useRef(false);
+  const [lastTypingActivityAt, setLastTypingActivityAt] = useState<number | null>(null);
+  const lastTypingActivityDispatchRef = useRef(0);
+  // Throttled so a keystroke burst doesn't cause a render per keystroke -
+  // only cares about "the user is still around", not exact timing.
+  const handleDraftActivity = () => {
+    const now = Date.now();
+    if (now - lastTypingActivityDispatchRef.current < 2000) return;
+    lastTypingActivityDispatchRef.current = now;
+    setLastTypingActivityAt(now);
+  };
+  const followupDelayRef = useRef<{ key: string; delayMs: number } | null>(null);
 
   const handleAutoReplyChange = (patch: Partial<typeof DEFAULT_AUTO_REPLY>) => {
     if (!chatIdNum) return;
@@ -254,7 +281,7 @@ const ChatPage = () => {
     const { history, systemInstruction, characterImages, characterName } = buildTurnContext(
       compressedFreshMessages,
       characterData,
-      ["The user has gone quiet for a while. Send a short, natural, in-character follow-up message continuing the conversation from your side - as if checking in or continuing your last thought. Do not mention this instruction, and don't explicitly reference the passage of time unless it fits your character."],
+      [AUTO_REPLY_DIRECTIVE],
       undefined,
       activePersona
     );
@@ -330,11 +357,28 @@ const ChatPage = () => {
     if (lastMessage.role !== AI) return;
 
     const lastTimestamp = lastMessage.timestamp || currentChat?.timestamp || Date.now();
-    const dueInMs = lastTimestamp + autoReplySettings.cooldownMinutes * 60000 - Date.now();
+
+    // Pick the random wait once per (chat, message, settings) combination,
+    // not on every render, so the countdown doesn't jitter as other state
+    // changes cause re-renders.
+    const delayKey = `${chatIdNum}-${lastTimestamp}-${autoReplySettings.minDelaySeconds}-${autoReplySettings.maxDelaySeconds}`;
+    if (followupDelayRef.current?.key !== delayKey) {
+      const { minDelaySeconds, maxDelaySeconds } = autoReplySettings;
+      const span = Math.max(0, maxDelaySeconds - minDelaySeconds);
+      followupDelayRef.current = { key: delayKey, delayMs: (minDelaySeconds + Math.random() * span) * 1000 };
+    }
+
+    // Typing counts as activity too - it pushes the wait out from whenever
+    // the user last typed, so a follow-up doesn't fire out from under a
+    // half-written reply.
+    const activitySince = Math.max(lastTimestamp, lastTypingActivityAt || 0);
+    const dueAt = activitySince + followupDelayRef.current.delayMs;
+    const dueInMs = dueAt - Date.now();
 
     const fire = () => {
       if (autoReplyInFlightRef.current) return;
       autoReplyInFlightRef.current = true;
+      dispatch(setPendingFollowupAt({ chatId: chatIdNum, dueAt: null }));
       triggerAutoFollowup().finally(() => { autoReplyInFlightRef.current = false; });
     };
 
@@ -343,10 +387,14 @@ const ChatPage = () => {
       return;
     }
 
+    dispatch(setPendingFollowupAt({ chatId: chatIdNum, dueAt }));
     const timer = setTimeout(fire, dueInMs);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      dispatch(setPendingFollowupAt({ chatId: chatIdNum, dueAt: null }));
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoReplySettings.enabled, autoReplySettings.cooldownMinutes, autoReplySettings.maxFollowups, autoReplySettings.followupCount, chatIdNum, characterData, currentChat?.content, aiLoading]);
+  }, [autoReplySettings.enabled, autoReplySettings.minDelaySeconds, autoReplySettings.maxDelaySeconds, autoReplySettings.maxFollowups, autoReplySettings.followupCount, chatIdNum, characterData, currentChat?.content, aiLoading, lastTypingActivityAt]);
 
   const handleSend = async (text: string, isImageRequest?: boolean) => {
     if (!text.trim() || !chatIdNum) return;
@@ -497,9 +545,7 @@ const ChatPage = () => {
       // For a followup, whether it had a picture is recorded on the followup
       // message itself (no preceding user turn to read it off of).
       const isImageRequest = isFollowup ? (targetMessage?.isImageRequest || false) : (precedingMessage.isImageRequest || false);
-      const extraDirectives = isFollowup
-        ? ["The user has gone quiet for a while. Send a short, natural, in-character follow-up message continuing the conversation from your side - as if checking in or continuing your last thought. Do not mention this instruction, and don't explicitly reference the passage of time unless it fits your character."]
-        : undefined;
+      const extraDirectives = isFollowup ? [AUTO_REPLY_DIRECTIVE] : undefined;
 
       const { history, systemInstruction, characterImages, characterName } = buildTurnContext(historyUpToTarget, characterData, extraDirectives, replyLengthLimit, activePersona);
       aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, characterImages, characterName, isImageRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams }));
@@ -770,15 +816,36 @@ const ChatPage = () => {
           onChange={(val) => handleAutoReplyChange({ enabled: val })}
           label="Let the character follow up on their own"
         />
-        <div>
-          <FieldLabel hint="How long to wait after their last message before following up.">Cooldown (minutes)</FieldLabel>
-          <TextInput
-            type="number"
-            min="1"
-            max="120"
-            value={autoReplySettings.cooldownMinutes}
-            onChange={(e) => handleAutoReplyChange({ cooldownMinutes: Math.max(1, Number(e.target.value)) })}
-          />
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <FieldLabel hint="Shortest wait after their last message before following up.">Min delay (seconds)</FieldLabel>
+            <TextInput
+              type="number"
+              min="5"
+              max={autoReplySettings.maxDelaySeconds}
+              value={autoReplySettings.minDelaySeconds}
+              onChange={(e) => {
+                const val = Math.max(5, Number(e.target.value));
+                handleAutoReplyChange({
+                  minDelaySeconds: val,
+                  maxDelaySeconds: Math.max(val, autoReplySettings.maxDelaySeconds),
+                });
+              }}
+            />
+          </div>
+          <div className="flex-1">
+            <FieldLabel hint="Longest wait - the actual delay is randomized between min and max each time.">Max delay (seconds)</FieldLabel>
+            <TextInput
+              type="number"
+              min={autoReplySettings.minDelaySeconds}
+              max="600"
+              value={autoReplySettings.maxDelaySeconds}
+              onChange={(e) => {
+                const val = Math.max(autoReplySettings.minDelaySeconds, Number(e.target.value));
+                handleAutoReplyChange({ maxDelaySeconds: val });
+              }}
+            />
+          </div>
         </div>
         <div>
           <FieldLabel hint="Stops following up on its own after this many messages, until you reply again.">Max follow-ups</FieldLabel>
@@ -841,12 +908,12 @@ const ChatPage = () => {
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden relative">
-        <ChatWindow characterName={character} character={characterData} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onEdit={handleEditMessage} aiLoading={aiLoading} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} />
+        <ChatWindow characterName={character} character={characterData} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} />
       </div>
 
       {/* Message Input Floating */}
       <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-full max-w-4xl px-4 z-20">
-        <MessageInput onSend={handleSend} disabled={aiLoading} onStop={handleStopGenerating} tokenCount={aiTokenCount} costEstimate={aiCostEstimate} characterName={characterData?.name || character} contextTokens={contextTokenEstimate} maxContextTokens={maxContextTokens} totalChatTokens={currentChat?.totalTokensUsed} totalChatCost={currentChat?.totalCostEstimate} />
+        <MessageInput onSend={handleSend} disabled={aiLoading} onStop={handleStopGenerating} onDraftActivity={handleDraftActivity} tokenCount={aiTokenCount} costEstimate={aiCostEstimate} characterName={characterData?.name || character} contextTokens={contextTokenEstimate} maxContextTokens={maxContextTokens} totalChatTokens={currentChat?.totalTokensUsed} totalChatCost={currentChat?.totalCostEstimate} />
       </div>
     </div>
   );

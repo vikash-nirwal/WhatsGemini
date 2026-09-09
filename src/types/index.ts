@@ -55,7 +55,8 @@ export interface Chat {
   activeLeafId?: string | null;
   autoReply?: {
     enabled: boolean;
-    cooldownMinutes: number;
+    minDelaySeconds: number; // random delay before a follow-up is picked from [min, max]
+    maxDelaySeconds: number;
     maxFollowups: number;
     followupCount: number;
   };

@@ -81,6 +81,7 @@ const Sidebar = () => {
   }, [location.pathname]);
 
   const chats = useAppSelector((state) => state.chat.chats);
+  const pendingFollowups = useAppSelector((state) => state.chat.pendingFollowups);
   const characters = useAppSelector((state) => state.character.characters);
   const activePersona = useAppSelector(selectActivePersona);
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
@@ -247,7 +248,7 @@ const Sidebar = () => {
                   <div className="text-[10.5px] font-semibold tracking-[0.09em] uppercase text-subtle px-3 pt-2 pb-1.5">
                     Pinned
                   </div>
-                  <ChatList items={pinnedItems} characters={characters} onDeleteChat={handleDeleteChat} onTogglePin={handleTogglePin} onNavigate={close} query={search.trim()} activeChatId={activeChatId} />
+                  <ChatList items={pinnedItems} characters={characters} onDeleteChat={handleDeleteChat} onTogglePin={handleTogglePin} onNavigate={close} query={search.trim()} activeChatId={activeChatId} pendingFollowups={pendingFollowups} />
                 </>
               )}
               {unpinnedItems.length > 0 && (
@@ -255,7 +256,7 @@ const Sidebar = () => {
                   <div className="text-[10.5px] font-semibold tracking-[0.09em] uppercase text-subtle px-3 pt-2 pb-1.5">
                     {pinnedItems.length > 0 ? "Other chats" : "Recent"}
                   </div>
-                  <ChatList items={unpinnedItems} characters={characters} onDeleteChat={handleDeleteChat} onTogglePin={handleTogglePin} onNavigate={close} query={search.trim()} activeChatId={activeChatId} />
+                  <ChatList items={unpinnedItems} characters={characters} onDeleteChat={handleDeleteChat} onTogglePin={handleTogglePin} onNavigate={close} query={search.trim()} activeChatId={activeChatId} pendingFollowups={pendingFollowups} />
                 </>
               )}
             </>
@@ -393,12 +394,20 @@ const Sidebar = () => {
   );
 };
 
-const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, query, activeChatId }: { items: { chat: Chat; snippet?: string }[], characters: Character[], onDeleteChat: (id: number) => void, onTogglePin: (id: number, pinned: boolean) => void, onNavigate: () => void, query: string, activeChatId: number | null }) => {
+const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, query, activeChatId, pendingFollowups }: { items: { chat: Chat; snippet?: string }[], characters: Character[], onDeleteChat: (id: number) => void, onTogglePin: (id: number, pinned: boolean) => void, onNavigate: () => void, query: string, activeChatId: number | null, pendingFollowups: Record<number, number> }) => {
   return (
     <div className="flex-1 flex flex-col gap-0.5">
       {items.map(({ chat, snippet }) => {
         const character = characters.find((c) => c.id === chat.characterId);
         const isActive = chat.id === activeChatId;
+        // "Typing..." only ever applies to the chat currently open in this tab
+        // (autonomous follow-ups aren't scheduled for closed chats), while
+        // "Waiting for you" is derived straight from the persisted follow-up
+        // streak, so it shows correctly for any chat in the list.
+        const isFollowupTyping = Boolean(pendingFollowups[chat.id]);
+        const isWaitingForUser = Boolean(
+          chat.autoReply?.enabled && chat.autoReply.followupCount >= chat.autoReply.maxFollowups
+        );
 
         return (
           <Link
@@ -419,7 +428,17 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, qu
                 <span className="flex-1 min-w-0 text-foreground font-semibold text-[13.5px] truncate">
                   <HighlightedText text={chat.title} query={query} />
                 </span>
-                <span className="text-[10.5px] text-ink-faint flex-shrink-0">{formatChatTime(chat.timestamp)}</span>
+                {isFollowupTyping ? (
+                  <span className="text-[10.5px] font-medium px-1.5 py-0.5 rounded-full bg-primary/10 text-primary flex-shrink-0">
+                    Typing...
+                  </span>
+                ) : isWaitingForUser ? (
+                  <span className="text-[10.5px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground flex-shrink-0">
+                    Waiting for you
+                  </span>
+                ) : (
+                  <span className="text-[10.5px] text-ink-faint flex-shrink-0">{formatChatTime(chat.timestamp)}</span>
+                )}
               </div>
               {snippet ? (
                 <span className="text-xs text-muted-foreground truncate">

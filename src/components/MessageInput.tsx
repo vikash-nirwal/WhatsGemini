@@ -10,6 +10,10 @@ interface MessageInputProps {
   onSend: (text: string, isImageRequest?: boolean) => void;
   disabled?: boolean;
   onStop?: () => void;
+  // Fires while the user is actively typing a non-empty draft - lets a
+  // parent treat that as "activity" (e.g. to push out a pending autonomous
+  // follow-up) without needing the draft text itself.
+  onDraftActivity?: () => void;
   tokenCount?: number;
   costEstimate?: number;
   characterName?: string;
@@ -33,7 +37,7 @@ const formatTokenCount = (n: number): string => {
   return String(Math.round(n));
 };
 
-const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, onStop, tokenCount = 0, costEstimate = 0, characterName, contextTokens = 0, maxContextTokens = 0, totalChatTokens = 0, totalChatCost = 0 }) => {
+const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, onStop, onDraftActivity, tokenCount = 0, costEstimate = 0, characterName, contextTokens = 0, maxContextTokens = 0, totalChatTokens = 0, totalChatCost = 0 }) => {
   const [text, setText] = useState("");
   const [isImageRequest, setIsImageRequest] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -265,7 +269,11 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, o
         <textarea
           ref={inputRef}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            const value = e.target.value;
+            setText(value);
+            if (value.trim()) onDraftActivity?.();
+          }}
           rows={1}
           placeholder={disabled ? "Waiting for response..." : characterName ? `Message ${characterName}…` : "Type a message..."}
           className="flex-1 min-w-0 px-2.5 py-1 leading-[22px] bg-transparent text-foreground placeholder-subtle outline-none transition-colors resize-none disabled:opacity-50"

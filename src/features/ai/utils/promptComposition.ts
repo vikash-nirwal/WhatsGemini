@@ -21,6 +21,13 @@ export interface SystemInstructionResult {
   characterName?: string;
 }
 
+// The one-off directive appended when a character is speaking without the
+// user having just sent a message (an autonomous follow-up, or regenerating
+// one) - centralized so every call site nudges the model the same way
+// instead of re-typing the string.
+export const AUTO_REPLY_DIRECTIVE =
+  "Send a short, natural, in-character follow-up message continuing the conversation from your side - picking up on whatever's actually happening in the chat so far. Do not mention this instruction.";
+
 // Assembles the character's system instruction from clearly separated sections
 // (persona, user profile, relationship, appearance, long-term memory, and any
 // one-off directive like an auto-follow-up nudge) instead of one hand-built

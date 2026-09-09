@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useCallback, useMemo, useState } from "react";
-import { FaCheck, FaTimes, FaArrowDown } from "react-icons/fa";
+import { FaCheck, FaTimes, FaArrowDown, FaClock } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { YOU, LS_INITIAL_MESSAGES } from "../utils/constants";
 import { Message, Character, ConversationTree } from "../types";
@@ -26,6 +26,7 @@ interface ChatWindowProps {
   onEdit?: (index: number, text: string, isImageRequest?: boolean) => void;
   onSend?: (text: string, isImageRequest?: boolean) => void;
   aiLoading?: boolean;
+  isFollowupPending?: boolean;
   characterName?: string;
   character?: Character;
   chatId?: number;
@@ -51,7 +52,26 @@ const TypingIndicator = ({ charInitials, accent }: { charInitials: string; accen
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onEdit, onSend, aiLoading, characterName, character, chatId, sceneOpen, onCloseScene, authorNote, worldTags }) => {
+// Shown while an autonomous follow-up's random delay is still counting down
+// - distinct from TypingIndicator (which means a reply is actually
+// generating) so the two are never shown at once.
+const FollowupIndicator = ({ charInitials, accent }: { charInitials: string; accent?: [string, string] }) => (
+  <div className="flex items-end gap-3 mb-6">
+    <CharacterAvatar name={charInitials} accent={accent} size={32} className="mt-1" />
+    <div className="flex items-center gap-1.5 px-4 py-3.5 bg-card/[0.88] border border-border/40 shadow-soft rounded-2xl rounded-tl-[5px]">
+      <motion.span
+        animate={{ opacity: [0.4, 1, 0.4] }}
+        transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+        className="text-subtle"
+      >
+        <FaClock size={11} />
+      </motion.span>
+      <span className="text-xs text-subtle">thinking of reaching out...</span>
+    </div>
+  </div>
+);
+
+const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onEdit, onSend, aiLoading, isFollowupPending, characterName, character, chatId, sceneOpen, onCloseScene, authorNote, worldTags }) => {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
@@ -309,7 +329,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
                 );
               })
             )}
-            {aiLoading && <TypingIndicator charInitials={charInitials} accent={character?.accent} />}
+            {aiLoading ? (
+              <TypingIndicator charInitials={charInitials} accent={character?.accent} />
+            ) : isFollowupPending ? (
+              <FollowupIndicator charInitials={charInitials} accent={character?.accent} />
+            ) : null}
             <div ref={chatEndRef} />
           </div>
         </div>

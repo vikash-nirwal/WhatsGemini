@@ -290,18 +290,34 @@ interface ChatState {
   chats: Chat[];
   loading: boolean;
   error: string | null;
+  // Ephemeral, not persisted: chatId -> the timestamp its next autonomous
+  // follow-up is due to fire. Only ever set for the chat currently open in
+  // this tab (see ChatPage's scheduling effect), but keyed by chatId in
+  // Redux rather than component state so the Sidebar can render a "Typing..."
+  // badge on that chat's row without needing its own timer.
+  pendingFollowups: Record<number, number>;
 }
 
 const initialState: ChatState = {
   chats: [],
   loading: false,
   error: null,
+  pendingFollowups: {},
 };
 
 const chatSlice = createSlice({
   name: "chat",
   initialState,
-  reducers: {},
+  reducers: {
+    setPendingFollowupAt: (state, action: { payload: { chatId: number; dueAt: number | null } }) => {
+      const { chatId, dueAt } = action.payload;
+      if (dueAt === null) {
+        delete state.pendingFollowups[chatId];
+      } else {
+        state.pendingFollowups[chatId] = dueAt;
+      }
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchChats.pending, (state) => {
@@ -418,4 +434,5 @@ const chatSlice = createSlice({
   },
 });
 
+export const { setPendingFollowupAt } = chatSlice.actions;
 export default chatSlice.reducer;
