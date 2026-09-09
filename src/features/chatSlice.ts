@@ -210,6 +210,28 @@ export const updateChatWorldTags = createAsyncThunk(
   }
 );
 
+// Adds to (never replaces) a chat's running usage totals - called after every
+// real provider call (a normal reply, or a compression/summarization call),
+// so the total reflects everything ever spent on this chat even after older
+// messages get folded away by compression.
+export const incrementChatUsage = createAsyncThunk(
+  "chat/incrementChatUsage",
+  async ({ chatId, tokens, cost }: { chatId: number; tokens: number; cost: number }, { rejectWithValue }) => {
+    try {
+      if (!tokens && !cost) return null;
+      const chat = await dbService.getChatById(chatId);
+      const totalTokensUsed = (chat.totalTokensUsed || 0) + tokens;
+      const totalCostEstimate = (chat.totalCostEstimate || 0) + cost;
+      chat.totalTokensUsed = totalTokensUsed;
+      chat.totalCostEstimate = totalCostEstimate;
+      await dbService.updateChat(chat);
+      return { chatId, totalTokensUsed, totalCostEstimate };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
 export const importChat = createAsyncThunk("chat/import", async (chatData: any, { rejectWithValue }) => {
   try {
     const isArray = Array.isArray(chatData);
@@ -339,6 +361,17 @@ const chatSlice = createSlice({
         }
       })
       .addCase(updateChatWorldTags.rejected, (state, action) => {
+        state.error = action.payload as string;
+      })
+      .addCase(incrementChatUsage.fulfilled, (state, action) => {
+        if (!action.payload) return;
+        const chat = state.chats.find((c) => c.id === action.payload!.chatId);
+        if (chat) {
+          chat.totalTokensUsed = action.payload!.totalTokensUsed;
+          chat.totalCostEstimate = action.payload!.totalCostEstimate;
+        }
+      })
+      .addCase(incrementChatUsage.rejected, (state, action) => {
         state.error = action.payload as string;
       })
       .addCase(updateMessages.rejected, (state, action) => {

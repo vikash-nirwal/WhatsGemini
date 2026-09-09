@@ -1,5 +1,5 @@
 import { getStoredValue, getInitialMessages, getProviderApiKey, getOllamaBaseUrl } from "./settings";
-import { LS_CHAT_PROVIDER, DEFAULT_CHAT_PROVIDER, LS_AI_MODEL, DEFAULT_AI_MODEL, YOU, AI } from "../../../utils/constants";
+import { LS_CHAT_PROVIDER, DEFAULT_CHAT_PROVIDER, LS_AI_MODEL, DEFAULT_AI_MODEL, YOU, AI, getModelPricing } from "../../../utils/constants";
 import { ChatMessage, UsageInfo } from "../types";
 import { ChatProviderAdapter, ProviderRuntimeConfig } from "../providers/types";
 import { CHAT_PROVIDERS } from "../providers/registry";
@@ -171,7 +171,13 @@ export const trimTrailingUserMessages = (validHistory: ChatMessage[]): ChatMessa
   return validHistory;
 };
 
-export const performChatCompression = async (history: ChatMessage[], systemInstruction?: string): Promise<string> => {
+// Returns the summary text plus this call's own real usage/cost (priced off
+// the same provider/model that served it) so the manual "Compress" button's
+// spend can be folded into the chat's running total instead of being dropped.
+export const performChatCompression = async (
+  history: ChatMessage[],
+  systemInstruction?: string
+): Promise<{ summary: string; tokens: number; cost: number }> => {
   const providerId = getStoredValue(LS_CHAT_PROVIDER, DEFAULT_CHAT_PROVIDER);
   const adapter = CHAT_PROVIDERS[providerId] || CHAT_PROVIDERS[DEFAULT_CHAT_PROVIDER];
 
@@ -182,6 +188,9 @@ export const performChatCompression = async (history: ChatMessage[], systemInstr
   const baseUrl = adapter.capabilities.requiresBaseUrl ? getOllamaBaseUrl() : undefined;
   const selectedModel = getStoredValue(LS_AI_MODEL, DEFAULT_AI_MODEL);
 
-  const { summary } = await summarizeConversation(adapter, { apiKey, baseUrl }, selectedModel, history, systemInstruction);
-  return summary;
+  const { summary, usage } = await summarizeConversation(adapter, { apiKey, baseUrl }, selectedModel, history, systemInstruction);
+  const pricing = getModelPricing(providerId, selectedModel);
+  const tokens = usage?.totalTokens || 0;
+  const cost = usage ? (usage.inputTokens / 1_000_000) * pricing.input + (usage.outputTokens / 1_000_000) * pricing.output : 0;
+  return { summary, tokens, cost };
 };

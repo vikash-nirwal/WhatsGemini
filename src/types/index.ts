@@ -62,6 +62,12 @@ export interface Chat {
   pinned?: boolean;
   authorNote?: string; // freeform per-chat note injected into every reply
   worldTags?: string[]; // short user-authored lore/setting tags for this chat
+  // Running totals of real provider-reported usage across this chat's whole
+  // lifetime (every generateAIResponse call, plus compression/summarization
+  // calls) - monotonically increasing, never recomputed from current content,
+  // so compressing old messages away doesn't erase what was already spent.
+  totalTokensUsed?: number;
+  totalCostEstimate?: number;
 }
 
 export interface Character {

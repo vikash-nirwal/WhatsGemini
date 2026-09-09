@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, updateChatAutoReply } from "../features/chatSlice";
+import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, updateChatAutoReply, incrementChatUsage } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
 import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat } from "../features/aiSlice";
 import ChatWindow from "../components/ChatWindow";
@@ -18,6 +18,7 @@ import { buildChatHistory, buildSystemInstruction, buildTurnContext } from "../f
 import { mergeMemory } from "../features/ai/utils/memoryExtraction";
 import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo } from "../features/chat/messageTree";
 import { estimateTokens, estimateHistoryTokens } from "../features/ai/utils/tokenEstimator";
+import { truncateHistory } from "../features/ai/utils/chatHistoryUtils";
 import { CharacterAvatar } from "../components/ui/CharacterAvatar";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { useModal } from "../contexts/ModalContext";
@@ -53,6 +54,7 @@ const ChatPage = () => {
   const replyLengthLimit = useAppSelector((state) => state.settings.replyLengthLimit);
   const chatProvider = useAppSelector((state) => state.settings.chatProvider);
   const selectedModel = useAppSelector((state) => state.settings.selectedModel);
+  const maxChatLength = useAppSelector((state) => state.settings.maxChatLength);
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [character, setCharacter] = useState("");
@@ -88,11 +90,15 @@ const ChatPage = () => {
   // Pre-send context budget: estimated tokens already committed (system
   // prompt + history) plus the model's max context window, both purely
   // client-side heuristics - fed to MessageInput, which adds the live draft's
-  // own estimate on top as the user types.
+  // own estimate on top as the user types. Runs the history through the same
+  // truncateHistory() cap generateAIResponse actually applies at send time,
+  // so this reflects what will really be sent - not the full stored
+  // conversation - once maxChatLength is set to something other than 0.
   const contextTokenEstimate = useMemo(() => {
     const { text: systemInstructionText } = buildSystemInstruction(characterData, undefined, replyLengthLimit);
-    return estimateTokens(systemInstructionText) + estimateHistoryTokens(messages.map((m) => m.txt));
-  }, [characterData, replyLengthLimit, messages]);
+    const effectiveHistory = truncateHistory(buildChatHistory(messages), maxChatLength);
+    return estimateTokens(systemInstructionText) + estimateHistoryTokens(effectiveHistory.map((m) => m.text));
+  }, [characterData, replyLengthLimit, messages, maxChatLength]);
   const maxContextTokens = useMemo(
     () => getModelContextWindow(chatProvider, selectedModel),
     [chatProvider, selectedModel]
@@ -164,6 +170,20 @@ const ChatPage = () => {
     }
   };
 
+  // Adds a call's real usage/cost to this chat's running total - persisted,
+  // never reset by compression (compression's own summarization call goes
+  // through here too, so its spend is folded in rather than lost when the
+  // messages it summarized disappear from view). Every write to a chat's DB
+  // record (this one included) is a read-whole-object-then-put, not a
+  // partial patch, so callers must `await` this before starting any other
+  // write to the same chat (addMessage, updateChatTree, ...) - otherwise the
+  // two full-record writes race and whichever lands second silently wins,
+  // dropping the other's change.
+  const trackUsage = async (tokens?: number, cost?: number) => {
+    if (!chatIdNum || (!tokens && !cost)) return;
+    await dispatch(incrementChatUsage({ chatId: chatIdNum, tokens: tokens || 0, cost: cost || 0 }));
+  };
+
   // --- Auto follow-up: the character can message first after the user goes quiet.
   // Only runs for the chat currently open in this tab - no cross-chat background
   // scanning, and nothing fires once the tab/app is closed.
@@ -205,7 +225,8 @@ const ChatPage = () => {
       Math.random() * 100 < (autoSelfieCfg.frequency ?? DEFAULT_AUTO_SELFIE_FREQUENCY);
     const includeImage = echoesUserImage || shouldAutoSelfie;
 
-    const compressedFreshMessages = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: freshMessages })).unwrap();
+    const { messages: compressedFreshMessages, tokens: compressTokens, cost: compressCost } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: freshMessages })).unwrap();
+    await trackUsage(compressTokens, compressCost);
 
     const { history, systemInstruction, characterImages, characterName } = buildTurnContext(
       compressedFreshMessages,
@@ -221,6 +242,7 @@ const ChatPage = () => {
     if (!aiResponse.payload) return false;
 
     const payloadObj = aiResponse.payload as any;
+    await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
     const generatedImages = payloadObj?.images || undefined;
     const aiAddResult = await dispatch(addMessage({
       chatId: chatIdNum,
@@ -309,7 +331,8 @@ const ChatPage = () => {
     try {
       const resultAction = await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, isImageRequest }));
       const updatedMessages = resultAction.payload as Message[] || [];
-      const contextMessages = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: updatedMessages })).unwrap();
+      const { messages: contextMessages, tokens: compressTokens, cost: compressCost } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: updatedMessages })).unwrap();
+      await trackUsage(compressTokens, compressCost);
 
       const autoSelfieCfg = characterData?.autoSelfie;
       const shouldAutoSelfie = !isImageRequest && !!autoSelfieCfg?.enabled &&
@@ -322,6 +345,7 @@ const ChatPage = () => {
 
       if (aiResponse.payload) {
         const payloadObj = aiResponse.payload as any;
+        await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
         const generatedImages = payloadObj?.images || undefined;
         const aiAddResult = await dispatch(addMessage({
           chatId: chatIdNum,
@@ -382,6 +406,7 @@ const ChatPage = () => {
 
         if (aiResponse.payload) {
           const payloadObj = aiResponse.payload as any;
+          await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
           const generatedImages = payloadObj?.images || undefined;
           const newAiMsg: Message = {
             role: AI,
@@ -458,6 +483,7 @@ const ChatPage = () => {
 
       if (aiResponse.payload) {
         const payloadObj = aiResponse.payload as any;
+        await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
         const generatedImages = payloadObj?.images || undefined;
         const newMessage: Message = {
           role: AI,
@@ -598,6 +624,7 @@ const ChatPage = () => {
 
       if (aiResponse.payload) {
         const payloadObj = aiResponse.payload as any;
+        await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
         const continuationText = typeof payloadObj?.text === "string" ? payloadObj.text : (payloadObj as string);
         const existingText = targetMessage.txt || "";
 
@@ -642,14 +669,15 @@ const ChatPage = () => {
       const historyToCompress = buildChatHistory(msgsToCompress);
       const { text: systemInstructionText } = buildSystemInstruction(characterData);
 
-      const summaryObj = await dispatch(compressChatHistory({ history: historyToCompress, systemInstruction: systemInstructionText })).unwrap();
+      const { summary, tokens: compressTokens, cost: compressCost } = await dispatch(compressChatHistory({ history: historyToCompress, systemInstruction: systemInstructionText })).unwrap();
+      await trackUsage(compressTokens, compressCost);
 
-      if (summaryObj) {
+      if (summary) {
         const retainedMsgs = messages.slice(cutoff);
-        
+
         // Create new memory initialization format messages
         const newMessages: Message[] = [
-          { role: YOU, txt: "[SYSTEM DIRECTIVE]: I will provide you with a summary of our conversation so far. Treat this summary as the exact events that have already occurred between us. Please strictly maintain the language (e.g. Hinglish, informal English, etc.), tone, and emotional feeling indicated in the summary as we continue.\n\nSummary:\n" + summaryObj },
+          { role: YOU, txt: "[SYSTEM DIRECTIVE]: I will provide you with a summary of our conversation so far. Treat this summary as the exact events that have already occurred between us. Please strictly maintain the language (e.g. Hinglish, informal English, etc.), tone, and emotional feeling indicated in the summary as we continue.\n\nSummary:\n" + summary },
           { role: AI, txt: "Understood. I will remember our history and continue speaking in the exact same language, tone, and emotional state as before." },
           ...retainedMsgs
         ];
@@ -756,7 +784,7 @@ const ChatPage = () => {
 
       {/* Message Input Floating */}
       <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-full max-w-4xl px-4 z-20">
-        <MessageInput onSend={handleSend} disabled={aiLoading} onStop={handleStopGenerating} tokenCount={aiTokenCount} costEstimate={aiCostEstimate} characterName={characterData?.name || character} contextTokens={contextTokenEstimate} maxContextTokens={maxContextTokens} />
+        <MessageInput onSend={handleSend} disabled={aiLoading} onStop={handleStopGenerating} tokenCount={aiTokenCount} costEstimate={aiCostEstimate} characterName={characterData?.name || character} contextTokens={contextTokenEstimate} maxContextTokens={maxContextTokens} totalChatTokens={currentChat?.totalTokensUsed} totalChatCost={currentChat?.totalCostEstimate} />
       </div>
     </div>
   );

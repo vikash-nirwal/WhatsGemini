@@ -172,6 +172,10 @@ const initialState: AIState = {
 // Called from ChatPage before building turn context for a new send, so the
 // compression - and its cost - happens once, up front, rather than being
 // silently redone on every subsequent turn.
+// Return shape carries this call's own real usage/cost (0 when no summarization
+// call actually happened) alongside the resulting message list, so the caller
+// can fold a compression's spend into the chat's running total instead of it
+// being silently dropped.
 export const autoCompressChat = createAsyncThunk(
   "ai/autoCompressChat",
   async ({ chatId, messages }: { chatId: number; messages: Message[] }, { getState, dispatch }) => {
@@ -180,22 +184,28 @@ export const autoCompressChat = createAsyncThunk(
       const settings = state.settings;
       const chatAdapter = CHAT_PROVIDERS[settings.chatProvider] || CHAT_PROVIDERS.gemini;
       const chatConfig = await resolveProviderConfig(settings.chatProvider, chatAdapter.capabilities.requiresBaseUrl);
-      if (!chatConfig.apiKey && chatAdapter.capabilities.requiresApiKey) return messages;
+      if (!chatConfig.apiKey && chatAdapter.capabilities.requiresApiKey) return { messages, tokens: 0, cost: 0 };
 
       const result = await buildAutoCompressedMessages(chatAdapter, chatConfig, settings.selectedModel, messages, settings.compressThreshold);
-      if (!result.compressed) return messages;
+      if (!result.compressed) return { messages, tokens: 0, cost: 0 };
 
       await dispatch(updateMessages({ chatId, newMessages: result.messages }));
       dispatch(fetchChats());
-      return result.messages;
+
+      const pricing = getModelPricing(settings.chatProvider, settings.selectedModel);
+      const tokens = result.usage?.totalTokens || 0;
+      const cost = result.usage
+        ? (result.usage.inputTokens / 1_000_000) * pricing.input + (result.usage.outputTokens / 1_000_000) * pricing.output
+        : 0;
+      return { messages: result.messages, tokens, cost };
     } catch (error) {
       console.warn("Auto-compression failed, continuing with full history.", error);
-      return messages;
+      return { messages, tokens: 0, cost: 0 };
     }
   }
 );
 
-// Async Thunk for compressing chat history
+// Async Thunk for compressing chat history (manual "Compress" button)
 export const compressChatHistory = createAsyncThunk(
   "ai/compressHistory",
   async ({ history = [], systemInstruction }: { history: ChatMessage[], systemInstruction?: string }, { rejectWithValue }) => {

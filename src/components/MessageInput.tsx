@@ -18,6 +18,11 @@ interface MessageInputProps {
   // drive the live pre-send budget bar below, updated as the draft grows.
   contextTokens?: number;
   maxContextTokens?: number;
+  // Running real-usage totals for this chat's whole lifetime (persisted on
+  // the Chat record) - keeps growing across turns and compressions, unlike
+  // tokenCount/costEstimate above which reset to just the latest turn.
+  totalChatTokens?: number;
+  totalChatCost?: number;
 }
 
 const MAX_TEXTAREA_HEIGHT = 120;
@@ -28,7 +33,7 @@ const formatTokenCount = (n: number): string => {
   return String(Math.round(n));
 };
 
-const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, onStop, tokenCount = 0, costEstimate = 0, characterName, contextTokens = 0, maxContextTokens = 0 }) => {
+const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, onStop, tokenCount = 0, costEstimate = 0, characterName, contextTokens = 0, maxContextTokens = 0, totalChatTokens = 0, totalChatCost = 0 }) => {
   const [text, setText] = useState("");
   const [isImageRequest, setIsImageRequest] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -157,9 +162,17 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, o
         </div>
       )}
 
-      {tokenCount > 0 && (
+      {(tokenCount > 0 || totalChatTokens > 0) && (
         <div className="flex justify-center text-xs text-ink-faint font-mono">
-          <span>~ {tokenCount.toLocaleString()} tokens last turn ({costEstimate > 0.0001 ? `$${costEstimate.toFixed(4)}` : '< $0.0001'} est.)</span>
+          <span>
+            {tokenCount > 0 && (
+              <>~ {tokenCount.toLocaleString()} tokens last turn ({costEstimate > 0.0001 ? `$${costEstimate.toFixed(4)}` : '< $0.0001'} est.)</>
+            )}
+            {tokenCount > 0 && totalChatTokens > 0 && "  ·  "}
+            {totalChatTokens > 0 && (
+              <>{formatTokenCount(totalChatTokens)} tokens total this chat (~{totalChatCost > 0.0001 ? `$${totalChatCost.toFixed(4)}` : '< $0.0001'})</>
+            )}
+          </span>
         </div>
       )}
 
