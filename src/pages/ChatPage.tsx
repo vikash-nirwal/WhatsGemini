@@ -9,7 +9,7 @@ import Header, { HeaderAction } from "../components/Header";
 import Modal from "../components/Modal";
 import ToggleSwitch from "../components/ToggleSwitch";
 import { TextInput, FieldLabel } from "../components/ui/FormControls";
-import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaBookOpen } from "react-icons/fa";
+import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaBookOpen, FaHistory } from "react-icons/fa";
 import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Message, Chat } from "../types";
@@ -484,29 +484,128 @@ const ChatPage = () => {
     await dispatch(updateChatTree({ chatId: chatIdNum, content: newContent, tree, activeLeafId: leafId }));
   };
 
-  // Deletes a branch variant - and everything generated after it in that
-  // branch - the counterpart to the pager's switch action. Only reachable
-  // when the node has siblings (a lone variant is just "the conversation",
-  // not something to delete from here).
+  // Deletes a message node and everything generated after it. When the node
+  // has sibling variants this is just "delete this variant" (the counterpart
+  // to the pager's switch action); when it doesn't, it's a plain "delete this
+  // message" that rewinds the conversation back to whatever preceded it -
+  // deleteBranch already removes the node's entire descendant subtree either
+  // way, so both cases share this one handler.
   const handleDeleteBranch = async (nodeId: string) => {
-    if (!chatIdNum || !currentChat?.tree) return;
-    const tree = currentChat.tree;
+    if (!chatIdNum || !currentChat) return;
+    const { tree } = getOrBuildTree(currentChat);
     if (!tree.nodes[nodeId]) return;
 
     const { siblingIds } = getSiblingInfo(tree, nodeId);
-    if (siblingIds.length <= 1) return;
+    const hasSiblings = siblingIds.length > 1;
 
-    const confirmed = await showConfirm("Delete Variant", "Delete this variant and everything that came after it in this branch? This can't be undone.");
+    const confirmed = await showConfirm(
+      "Delete Message",
+      hasSiblings
+        ? "Delete this variant and everything that came after it in this branch? This can't be undone."
+        : "Delete this message and everything that came after it in the conversation? This can't be undone."
+    );
     if (!confirmed) return;
 
-    const { tree: newTree } = deleteBranch(tree, nodeId);
-    const remainingSiblingIds = siblingIds.filter((id) => id !== nodeId);
-    // Land on whichever remaining variant was closest to the one just deleted.
-    const deletedIndex = siblingIds.indexOf(nodeId);
-    const fallbackId = remainingSiblingIds[Math.min(deletedIndex, remainingSiblingIds.length - 1)];
-    const newLeafId = findDefaultLeafFrom(newTree, fallbackId);
-    const newContent = flattenPath(newTree, newLeafId);
+    const { tree: newTree, parentId } = deleteBranch(tree, nodeId);
+
+    let newLeafId: string | null = null;
+    if (hasSiblings) {
+      const remainingSiblingIds = siblingIds.filter((id) => id !== nodeId);
+      // Land on whichever remaining variant was closest to the one just deleted.
+      const deletedIndex = siblingIds.indexOf(nodeId);
+      const fallbackId = remainingSiblingIds[Math.min(deletedIndex, remainingSiblingIds.length - 1)];
+      newLeafId = findDefaultLeafFrom(newTree, fallbackId);
+    } else if (parentId && newTree.nodes[parentId]) {
+      newLeafId = findDefaultLeafFrom(newTree, parentId);
+    }
+
+    const newContent = newLeafId ? flattenPath(newTree, newLeafId) : [];
     await dispatch(updateChatTree({ chatId: chatIdNum, content: newContent, tree: newTree, activeLeafId: newLeafId }));
+    dispatch(fetchChats());
+  };
+
+  // "Rewind" - a chat-level shortcut for the same delete primitive above,
+  // targeting the last user turn (and everything the character said after
+  // it) so a bad exchange can be quickly undone without hunting for the
+  // right message. Falls back to the very last message if the active path
+  // has no user turn at all (e.g. it ends on a character-initiated follow-up).
+  const handleRewindLastTurn = async () => {
+    if (!chatIdNum || !currentChat) return;
+    const { content: treeContent } = getOrBuildTree(currentChat);
+    if (treeContent.length === 0) return;
+
+    let targetIndex = treeContent.length - 1;
+    for (let i = treeContent.length - 1; i >= 0; i--) {
+      if (treeContent[i].role === YOU) {
+        targetIndex = i;
+        break;
+      }
+    }
+    const targetNodeId = treeContent[targetIndex]?.id;
+    if (targetNodeId) {
+      await handleDeleteBranch(targetNodeId);
+    }
+  };
+
+  // "Continue" - re-invokes the model on a truncated/short AI reply instead
+  // of requiring a new user turn. History includes the partial message
+  // itself as the trailing assistant turn so the model can see what it
+  // already said; the completion is appended (not branched) onto the same
+  // node via updateNodeMessage, so it reads as one continued reply.
+  const handleContinueMessage = async (index: number) => {
+    if (index < 0 || index >= messages.length || !chatIdNum || !currentChat) return;
+
+    setError(null);
+
+    try {
+      const { tree, activeLeafId: currentActiveLeafId, content: treeContent } = getOrBuildTree(currentChat);
+      const targetMessage = treeContent[index];
+      const targetNodeId = targetMessage?.id;
+      if (!targetNodeId || !tree.nodes[targetNodeId] || targetMessage.role !== AI) {
+        console.warn("Cannot continue: message not found or not an AI message.");
+        return;
+      }
+
+      const historyUpToTarget = getPathToNode(tree, targetNodeId);
+      const continueDirective =
+        "The previous assistant message got cut off before finishing. Continue writing directly from exactly where it left off - do not repeat any earlier text, do not restart the sentence, and add no preamble or acknowledgement. Keep going in the same voice, tone, and format.";
+      const { history, systemInstruction, characterImages, characterName } = buildTurnContext(
+        [...historyUpToTarget, targetMessage],
+        characterData,
+        [continueDirective],
+        replyLengthLimit
+      );
+
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: "Continue.", history, systemInstruction, characterImages, characterName }));
+      const aiResponse = await aiPromiseRef.current;
+      aiPromiseRef.current = null;
+
+      if (aiResponse.payload) {
+        const payloadObj = aiResponse.payload as any;
+        const continuationText = typeof payloadObj?.text === "string" ? payloadObj.text : (payloadObj as string);
+        const existingText = targetMessage.txt || "";
+
+        // A trailing "[Image Context: ...]" tag must stay at the very end -
+        // stripImageContextTag only strips it when it's anchored there for
+        // display - so splice the continuation in before it rather than after.
+        const imageContextMatch = existingText.match(/\n*\[Image Context:[\s\S]*?\]\s*$/i);
+        const tag = imageContextMatch?.[0] || "";
+        const base = tag ? existingText.slice(0, existingText.length - tag.length) : existingText;
+        const separator = base && !/\s$/.test(base) ? " " : "";
+        const mergedMessage: Message = { ...targetMessage, txt: base + separator + continuationText + tag };
+
+        const updatedTree = updateNodeMessage(tree, targetNodeId, mergedMessage);
+        const updatedContent = flattenPath(updatedTree, currentActiveLeafId);
+        await dispatch(updateChatTree({ chatId: chatIdNum, content: updatedContent, tree: updatedTree, activeLeafId: currentActiveLeafId }));
+
+        maybeExtractMemory(updatedContent);
+      }
+
+      dispatch(fetchChats());
+    } catch (err) {
+      console.error("Error continuing response:", err);
+      setError("Failed to continue response. Please try again.");
+    }
   };
 
   const handleStopGenerating = () => {
@@ -570,6 +669,9 @@ const ChatPage = () => {
   // buttons on desktop and as labeled rows in the mobile "more" menu.
   const chatActions: HeaderAction[] = [
     { icon: FaDownload, label: "Export chat", onClick: handleExport },
+    ...(messages.length > 0
+      ? [{ icon: FaHistory, label: "Rewind last turn", onClick: handleRewindLastTurn, disabled: aiLoading, danger: true }]
+      : []),
     ...(messages.length > 4
       ? [{ icon: FaCompressArrowsAlt, label: "Summarize and compress older messages to save tokens", onClick: handleCompress, disabled: aiCompressing }]
       : []),
@@ -633,7 +735,7 @@ const ChatPage = () => {
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden relative">
-        <ChatWindow characterName={character} character={characterData} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onEdit={handleEditMessage} aiLoading={aiLoading} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} />
+        <ChatWindow characterName={character} character={characterData} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onEdit={handleEditMessage} aiLoading={aiLoading} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} />
       </div>
 
       {/* Message Input Floating */}

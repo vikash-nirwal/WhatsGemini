@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from "react";
-import { FaCopy, FaRedo, FaEdit, FaEllipsisV, FaChevronLeft, FaChevronRight, FaTrash, FaVolumeUp, FaStop, FaCompressArrowsAlt } from "react-icons/fa";
+import { FaCopy, FaRedo, FaEdit, FaEllipsisV, FaChevronLeft, FaChevronRight, FaTrash, FaVolumeUp, FaStop, FaCompressArrowsAlt, FaForward } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { cn } from "../../utils/cn";
 import { Message } from "../../types";
@@ -26,6 +26,8 @@ interface ChatMessageProps {
   aiLoading: boolean;
   onCopy: (text: string) => void;
   onRegenerate: (msg: Message) => void;
+  onContinue?: (msg: Message) => void;
+  isLastMessage?: boolean;
   onStartEdit: (msg: Message) => void;
   setFullscreenImage: (src: string) => void;
   siblingInfo?: SiblingInfo;
@@ -42,6 +44,8 @@ const ChatMessage = React.memo(({
   aiLoading,
   onCopy,
   onRegenerate,
+  onContinue,
+  isLastMessage,
   onStartEdit,
   setFullscreenImage,
   siblingInfo,
@@ -55,6 +59,7 @@ const ChatMessage = React.memo(({
 
   const handleCopy = useCallback(() => onCopy(stripImageContextTag(msg.txt || "")), [onCopy, msg.txt]);
   const handleRegenerate = useCallback(() => onRegenerate(msg), [onRegenerate, msg]);
+  const handleContinue = useCallback(() => onContinue?.(msg), [onContinue, msg]);
   const handleEdit = useCallback(() => onStartEdit(msg), [onStartEdit, msg]);
   const handleDeleteBranch = useCallback(() => msg.id && onDeleteBranch?.(msg.id), [onDeleteBranch, msg.id]);
   const handleToggleSpeak = useCallback(() => onToggleSpeak?.(msg), [onToggleSpeak, msg]);
@@ -142,14 +147,16 @@ const ChatMessage = React.memo(({
         ))}
 
         {/* User messages: dropdown is the only action surface (always visible so it's reachable on touch devices) */}
-        {isUser && siblingInfo && (
+        {isUser && (
           <div className="flex items-center justify-end gap-1.5 mt-2 font-sans">
-            <span
-              className="text-[11px] font-mono font-semibold text-subtle tabular-nums"
-              title={`${siblingInfo.total} variants of this message`}
-            >
-              {siblingInfo.index + 1}/{siblingInfo.total}
-            </span>
+            {siblingInfo && (
+              <span
+                className="text-[11px] font-mono font-semibold text-subtle tabular-nums"
+                title={`${siblingInfo.total} variants of this message`}
+              >
+                {siblingInfo.index + 1}/{siblingInfo.total}
+              </span>
+            )}
             {onDeleteBranch && (
               <Button
                 variant="ghost"
@@ -157,8 +164,8 @@ const ChatMessage = React.memo(({
                 onClick={handleDeleteBranch}
                 disabled={aiLoading}
                 className="h-auto w-auto p-1 rounded-full text-subtle hover:bg-destructive/15 hover:text-destructive"
-                aria-label="Delete this variant"
-                title="Delete this variant"
+                aria-label={siblingInfo ? "Delete this variant" : "Delete message"}
+                title={siblingInfo ? "Delete this variant" : "Delete message"}
               >
                 <FaTrash size={9} />
               </Button>
@@ -203,6 +210,17 @@ const ChatMessage = React.memo(({
             <Button variant="ghost" onClick={handleRegenerate} className="h-auto w-auto px-2 py-1 gap-1.5 rounded-md text-xs font-normal text-muted-foreground hover:bg-secondary hover:text-foreground">
               <FaRedo size={12} /> Regenerate
             </Button>
+            {isLastMessage && onContinue && (
+              <Button
+                variant="ghost"
+                onClick={handleContinue}
+                disabled={aiLoading}
+                className="h-auto w-auto px-2 py-1 gap-1.5 rounded-md text-xs font-normal text-muted-foreground hover:bg-secondary hover:text-foreground"
+                title="Ask the model to keep writing from where this reply left off"
+              >
+                <FaForward size={12} /> Continue
+              </Button>
+            )}
             {speechSupported && (
               <Button
                 variant="ghost"
@@ -218,29 +236,27 @@ const ChatMessage = React.memo(({
             <Button variant="ghost" onClick={handleEdit} className="h-auto w-auto px-2 py-1 gap-1.5 rounded-md text-xs font-normal text-muted-foreground hover:bg-secondary hover:text-foreground">
               <FaEdit size={12} /> Edit
             </Button>
+            <div className="flex-1" />
             {siblingInfo && (
-              <>
-                <div className="flex-1" />
-                <span
-                  className="text-[11px] font-mono font-semibold text-subtle tabular-nums"
-                  title={`${siblingInfo.total} variants of this message`}
-                >
-                  {siblingInfo.index + 1}/{siblingInfo.total}
-                </span>
-                {onDeleteBranch && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleDeleteBranch}
-                    disabled={aiLoading}
-                    className="h-auto w-auto p-1.5 rounded-md text-subtle hover:bg-destructive/15 hover:text-destructive"
-                    aria-label="Delete this variant"
-                    title="Delete this variant"
-                  >
-                    <FaTrash size={10} />
-                  </Button>
-                )}
-              </>
+              <span
+                className="text-[11px] font-mono font-semibold text-subtle tabular-nums"
+                title={`${siblingInfo.total} variants of this message`}
+              >
+                {siblingInfo.index + 1}/{siblingInfo.total}
+              </span>
+            )}
+            {onDeleteBranch && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleDeleteBranch}
+                disabled={aiLoading}
+                className="h-auto w-auto p-1.5 rounded-md text-subtle hover:bg-destructive/15 hover:text-destructive"
+                aria-label={siblingInfo ? "Delete this variant" : "Delete message"}
+                title={siblingInfo ? "Delete this variant" : "Delete message"}
+              >
+                <FaTrash size={10} />
+              </Button>
             )}
           </div>
         )}

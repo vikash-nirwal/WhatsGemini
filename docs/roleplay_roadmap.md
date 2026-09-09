@@ -25,7 +25,7 @@ Worth knowing before reading the phases below, so they aren't accidentally re-bu
   OpenAI/local SD WebUI for images) behind one shared `ChatProviderAdapter` interface,
   with a `ProviderCapabilities` flag system (`requiresApiKey`, `requiresBaseUrl`,
   `supportsImageGen`, Gemini-only safety settings) already used to gate Settings UI per
-  provider. Any new per-provider capability (Phase 6) should follow this same pattern.
+  provider. Any new per-provider capability (Phase 7) should follow this same pattern.
 - **Context-length management, by message count.** `compressThreshold` auto-summarizes
   aged-out history into one pinned message (`autoCompressChat`,
   `src/features/aiSlice.ts`), `maxChatLength` hard-truncates the oldest messages
@@ -41,202 +41,170 @@ Worth knowing before reading the phases below, so they aren't accidentally re-bu
   global `AISafetySettings`) — not revisited below.
 - **A single global user persona already exists** — `UserProfileSettings.tsx`, just
   `{ name, bio }`, read directly out of `localStorage` inside `promptComposition.ts`
-  rather than passed in as data. Phase 4 builds on this.
+  rather than passed in as data. Phase 5 builds on this.
 - **Custom character JSON import/export already exists** (`CharacterPage.tsx`) but is
   WhatsGemini's own ad-hoc shape — it shares no fields with the TavernAI/SillyTavern
-  "Character Card V2" spec that most community characters are distributed in. Phase 7
+  "Character Card V2" spec that most community characters are distributed in. Phase 8
   is about closing that gap, not adding import/export from scratch.
 
 ---
 
-## Phase 1: Message Timeline Controls
-*Rewind, delete, and continue — all built on the conversation tree that already exists,
-so this is mostly UI plus a couple of small new code paths, not new data-model work.*
+## Phase 1: Message Timeline Controls ✅ Done
+*Rewind, delete, and continue — all built on the conversation tree that already exists. This phase gives users full editorial control over the narrative flow.*
 
-- [ ] **Delete a Message:** Let any message be deleted, not just a losing variant.
-  Today `ChatMessage.tsx`'s delete action only appears when a message already has
-  sibling variants (`siblingInfo.total > 1`), because it's wired straight to
-  `deleteBranch` via the branching UI. Relaxing that guard and adding a plain "Delete"
-  entry to every message's menu (with a confirmation, since it also removes everything
-  that came after it) covers this with the primitive that already exists.
-- [ ] **Rewind / Truncate Chat:** "Roll back to here" is the exact same
-  `deleteBranch(tree, nodeId)` call as message deletion above, just framed as a
-  chat-level action rather than a per-message one (e.g. a control in the chat header
-  or a long-press on any message). No new primitive needed — Phase 1's two items are
-  really one feature with two entry points.
-- [ ] **"Continue" Generation:** Re-invoke the model to keep writing from where it left
-  off, instead of requiring a new user turn. New work needed: a prompt path that sends
-  history ending on the last AI message plus a "continue, don't repeat yourself"
-  instruction, then appends the result via `addChildNode` under *that same node*
-  (not as a sibling) so it reads as one continued reply rather than a regenerated one.
+**UI / Screen Flow:**
+- **Message Context Menu:** Clicking/long-pressing a message reveals new options: "Delete from here" and "Continue generating".
+- **Chat Header/Footer:** A "Rewind" button to quickly undo the last turn.
+
+**Implementation Steps:**
+- [x] **Delete a Message:** `ChatPage.handleDeleteBranch` no longer requires sibling variants — it now works on any message, always showing a trash icon (both the user dropdown-adjacent row and the AI inline action row). When the node has siblings it behaves exactly as before ("delete this variant"); when it doesn't, `deleteBranch` still removes the node's entire descendant subtree, but the fallback leaf becomes the node's *parent* instead of a sibling — i.e. it rewinds the chat back to just before that message. Confirmation copy adapts to which case applies.
+- [x] **Rewind / Truncate Chat:** Added a "Rewind last turn" icon (`FaHistory`, danger-styled) to the chat header actions (`ChatPage.tsx`). `handleRewindLastTurn` finds the last user message in the active path and calls the same `handleDeleteBranch` primitive on it — one primitive, two entry points, as intended.
+- [x] **"Continue" Generation:** Added a "Continue" button (next to Regenerate) shown only on the last message in the active path when it's from the AI. `handleContinueMessage` builds history ending on the partial AI message itself (so the model can see what it already said), adds a "continue, don't repeat yourself" directive, and on completion concatenates the new text onto the *same* tree node via `updateNodeMessage` (not a new sibling). Handles messages that end in an embedded `[Image Context: ...]` tag by splicing the continuation in *before* the tag so it stays anchored at the end (required for `stripImageContextTag`'s display-time stripping).
 - [x] *Message Editing (Already Implemented)*
 - [x] *Regenerate Response (Already Implemented)*
+
+Files touched: `src/pages/ChatPage.tsx`, `src/components/ChatWindow.tsx`, `src/components/chat/ChatMessage.tsx`. Verified in-browser (dev server) against a real chat: delete-with-siblings, delete-without-siblings (rewind), header rewind button, and continue (including the image-context-tag edge case) all confirmed working; `messageTree.test.ts` (27 tests) still passes unchanged since no tree primitives needed modification.
 
 ---
 
 ## Phase 2: Token-Aware Context Budget
-*Making the context-management machinery that already exists (auto-compress, max chat
-length) token-accurate instead of message-count-accurate, plus a pre-send estimate.*
+*Transitioning from message-count limits to precise token-based memory management, ensuring the AI never "forgets" unpredictably due to varying message lengths.*
 
-- [ ] **Client-Side Token Estimator:** Add a lightweight token-count approximation
-  (a tiktoken-style heuristic is enough to start; a provider's real `countTokens` call,
-  where available, can replace it later) for the assembled system prompt + history.
-- [ ] **Token-Aware Compression/Truncation:** Extend `compressThreshold` and
-  `maxChatLength` (or add token-based siblings to them) so history management responds
-  to actual context size rather than an arbitrary message count — a threshold of "50
-  messages" means very different things depending on how long those messages are.
-- [ ] **Pre-Send Budget Indicator:** Surface the estimate in `MessageInput.tsx` (near
-  the existing post-reply token/cost readout) so a user can see they're approaching a
-  model's context window *before* sending, not just find out after.
+**UI / Screen Flow:**
+- **Chat Input Bar:** A small dynamic badge (e.g., "Tokens: 4.2k / 8k") that updates as the user types.
+- **Settings Menu:** Sliders for context limits are now represented in tokens (e.g., 4096 tokens) rather than message counts (e.g., 50 messages).
+
+**Implementation Steps:**
+- [ ] **Client-Side Token Estimator:** Implement a lightweight token-count heuristic (e.g., a simple character-to-token ratio or a lightweight JS tiktoken port) to estimate the size of the assembled system prompt + history in real-time.
+- [ ] **Pre-Send Budget Indicator:** Integrate the token estimator into `MessageInput.tsx`. Display a progress bar or text indicator showing current context utilization. Color-code it (green -> yellow -> red) as it approaches the model's maximum context window.
+- [ ] **Token-Aware Compression/Truncation:** Refactor `compressThreshold` and `maxChatLength` in `aiSlice.ts` and `chatHistoryUtils.ts`. Instead of truncating when `messages.length > N`, iterate backwards from the newest message, accumulating token counts. Truncate or compress older messages once the accumulated token count hits the defined limit.
 
 ---
 
 ## Phase 3: Character Depth — Structured Fields
-*Splitting the character's single freeform "prompt" field into the distinct fields a
-real persona needs, and fixing a real bug found along the way. All additive to the
-`Character` type, and `buildSystemInstruction`/`buildTurnContext`
-(`src/features/ai/utils/promptComposition.ts`) are the one place that needs to grow to
-consume them.*
+*Splitting the character's single freeform "prompt" into the distinct fields a real persona needs for consistent behavior.*
 
-- [ ] **Fix the "Example Dialogue" mislabel:** `promptComposition.ts` currently sends
-  `character.prompt` to the model labeled as `"Example dialogue: ..."`, while the
-  Character editor UI labels that same field "Character Prompt (Personality, Style,
-  etc.)" — the model is being told the wrong thing about what it's reading. Fix this as
-  part of the split below rather than patching the label in isolation.
-- [ ] **Personality / Instructions field:** What `character.prompt` should have meant
-  all along — style, voice, and behavioral instructions, sent to the model correctly
-  labeled as instructions rather than as example dialogue.
-- [ ] **Example Dialogues field:** A real, separate few-shot field so creators can show
-  (not just tell) the model how the character talks — this is what most improves
-  in-character consistency and formatting (`*actions*` vs "speech") in practice.
-- [ ] **First Message / Greeting (per character):** Today only a global
-  `LS_INITIAL_MESSAGES` pair seeds *any* fresh chat. Add a character-specific greeting
-  that's used instead when starting a chat with that character, establishing the scene
-  in their own voice rather than a generic opener.
-- [ ] **Scenario field:** A short "current situation" field injected into the system
-  prompt alongside personality/description — separate from the persona itself so the
-  same character can be dropped into different settings without editing their core
-  definition.
+**UI / Screen Flow:**
+- **Basic Character Editor:** Form fields are split into distinct sections: Personality, Scenario, First Message, and Example Dialogues.
+
+**Implementation Steps:**
+- [ ] **Fix the "Example Dialogue" mislabel:** Update `promptComposition.ts` so `character.prompt` is correctly labeled as instructions instead of `"Example dialogue: ..."`.
+- [ ] **Personality / Instructions field:** Define a `personality` string field on the `Character` type. Update the builder to inject this as behavioral instructions.
+- [ ] **Example Dialogues field:** Add a `mes_example` string field. Update prompt composition to format these clearly as few-shot user/bot exchanges so the LLM adopts the tone and format (e.g., using asterisks for actions).
+- [ ] **First Message / Greeting:** Add a `first_mes` field. When a new chat initializes with this character, use this string instead of the generic `LS_INITIAL_MESSAGES`.
+- [ ] **Scenario field:** Add a `scenario` string field. Inject this into the system prompt to define the current environmental context or plot setup.
 
 ---
 
-## Phase 4: User Persona Expansion
-*The single global `{ name, bio }` persona is real but thin. Round it out and make it
-data-driven instead of a direct `localStorage` read.*
+## Phase 4: Detailed Character Creation System
+*A full-fledged, multi-step creator for characters from scratch, replacing the single-page basic form. This brings the creation tools on par with dedicated roleplay apps like Character.ai or JanitorAI.*
 
-- [ ] **Richer Persona Fields:** Add appearance and backstory alongside the existing
-  name/bio.
-- [ ] **Pass Persona as Data:** Refactor `buildSystemInstruction` to accept the active
-  persona as a parameter instead of reading `LS_USER_PROFILE` from `localStorage`
-  directly — required groundwork for the next item, and a general code-health win
-  (makes prompt assembly testable and predictable from its inputs alone).
-- [ ] **Multiple Personas:** Support more than one saved persona (e.g. "Myself" vs. a
-  fictional self-insert) with a way to pick the active one globally or per chat.
+**UI / Screen Flow:**
+- **Screen 1: Basic Identity:** Avatar uploader (with AI generation & cropping), Name, Tagline, and discoverability Tags (Fantasy, Sci-Fi, NSFW, etc.).
+- **Screen 2: Core Persona:** Text areas for Personality and Instructions, with a live token-cost preview and an "AI Assist: Expand my idea" button.
+- **Screen 3: Scenario & Context:** World setup, First Message, and an AI button to "Generate Greeting from Scenario". Includes Alternate Greetings.
+- **Screen 4: Example Dialogues:** A mock chat UI to build examples, plus an AI generator to draft examples based on tone.
+- **Screen 5: Test & Finalize:** A live side-by-side Test Chat panel to chat with the draft character before saving.
 
----
-
-## Phase 5: Impersonation
-*Small and self-contained: let the user occasionally speak *as* the character to steer
-a scene, rather than only ever replying as themselves.*
-
-- [ ] **Impersonate:** An input mode where the text the user writes gets saved with
-  `role: "model"` (the AI role — already a plain string on `Message.role`, no schema
-  change needed) via the existing `addChildNode`/tree flow, instead of `role: "user"`.
-  The main design question is UI: a mode toggle vs. a distinct "send as character"
-  action, and whether the real AI should be allowed to react to an impersonated line on
-  the next turn (it should, since the tree treats it like any other node in history).
+**Implementation Steps:**
+- [ ] **Guided Creation Wizard:** Implement a multi-step form UI (using a stepper component) that handles the `Character` object state across the 5 screens.
+- [ ] **Advanced Prompt Authoring Tools:** Add real-time token calculation per field. Build the "Test Chat" pane utilizing a temporary in-memory chat session that bypasses the database until the character is saved.
+- [ ] **Auto-Generation Assistants:** Wire up lightweight prompt chains to the AI provider to power the "Expand my idea" and "Generate Greeting" buttons.
+- [ ] **Avatar Generation & Cropping:** Integrate the existing image generator adapter. Add a simple canvas-based cropping tool for avatars.
+- [ ] **Tags & Categories:** Add a `tags: string[]` array to the `Character` schema and build a multi-select chip UI component.
 
 ---
 
-## Phase 6: Advanced Generation Settings
-*Larger than it looks: today only `temperature` and `maxOutputTokens` exist anywhere in
-the stack — state, the `ChatCallOptions` adapter contract, and every adapter body. This
-phase is "widen one shared interface and every implementation of it," not just "add
-sliders to Settings."*
+## Phase 5: User Persona Expansion
+*Fleshing out the user's side of the roleplay with detailed, data-driven personas.*
 
-- [ ] **Widen the Adapter Contract:** Add `topP`/`topK`/penalty fields to
-  `ChatCallOptions` (`src/features/ai/providers/types.ts`) and wire them through the
-  Gemini adapter (the underlying `@google/genai` SDK already supports `topP`/`topK`,
-  they're just not passed today) and the shared OpenAI-compatible adapter (which maps
-  cleanly to `top_p`, but has no `top_k` equivalent — needs the same
-  provider-capability-gating already used for Gemini-only `safetySettings`, not a
-  one-size-fits-all field set).
-- [ ] **Global Settings UI:** Expose the newly-supported params in Settings, gated per
-  provider the same way `requiresBaseUrl`/`supportsImageGen` already gate other
-  controls.
-- [ ] **Per-Character Overrides:** Add optional generation-param overrides to the
-  `Character` type itself, consumed when building `turnConfig` in `aiSlice.ts` (which
-  currently sources it solely from global `state.settings`) so a chaotic character can
-  run hotter than a precise one without a global settings change.
+**UI / Screen Flow:**
+- **Persona Manager:** A dedicated settings page listing saved personas (e.g., "Myself", "Elven Mage").
+- **Persona Editor:** Fields for Name, Appearance, Backstory, and writing style preferences.
+- **Chat Interface:** A dropdown near the chat input to swap personas on the fly.
+
+**Implementation Steps:**
+- [ ] **Richer Persona Fields:** Expand the global `UserProfile` type to include `appearance` and `backstory`.
+- [ ] **Pass Persona as Data:** Refactor `buildSystemInstruction` to accept the persona object as a parameter rather than reading `localStorage` directly, decoupling the logic.
+- [ ] **Multiple Personas:** Migrate from a single object to an array of personas with an `activePersonaId`. Update the UI to allow creating, editing, and switching between them globally or per-chat.
 
 ---
 
-## Phase 7: Character Card Portability
-*WhatsGemini's own JSON export already works for backing up/restoring your own
-characters — this phase is about interoperating with the wider community character
-ecosystem, which standardizes on the TavernAI / SillyTavern "Character Card V2" JSON
-shape (`name`, `description`, `personality`, `scenario`, `first_mes`, `mes_example`,
-`alternate_greetings`, `creator_notes`, etc., often embedded in a PNG's `tEXt` chunk).*
+## Phase 6: Impersonation
+*Allowing the user to steer the scene by writing dialogue/actions as the AI character.*
 
-- [ ] **Field Mapping:** Map V2 spec fields onto WhatsGemini's (by then, post-Phase-3)
-  richer `Character` shape — most map directly once personality/scenario/first-message/
-  example-dialogue exist as distinct fields.
-- [ ] **V2 JSON Import/Export:** Read and write plain `.json` V2 cards first — no new
-  binary handling required, and this alone makes most community characters usable.
-- [ ] **PNG Card Import/Export (stretch):** Many community cards are distributed as a
-  character-art PNG with the JSON embedded in a `tEXt` chunk. Reading these requires a
-  small PNG chunk parser; writing them means embedding JSON into an exported PNG. Worth
-  doing once JSON import/export is solid, since it's the more common distribution
-  format in practice, but it's meaningfully more work than plain JSON and shouldn't
-  block shipping the JSON path first.
+**UI / Screen Flow:**
+- **Composer Mode Toggle:** A button in the input bar (e.g., a "Mask" icon) that switches the input field color to indicate "Impersonation Mode".
+
+**Implementation Steps:**
+- [ ] **Impersonate Mode State:** Add a toggle in `MessageInput.tsx`. When active, submitted text is processed with `role: "model"` instead of `role: "user"`.
+- [ ] **Tree Insertion:** Pass the custom role through `addChildNode`. The tree structure inherently supports consecutive AI messages, so the next actual AI generation will simply read the impersonated message as part of its own history.
 
 ---
 
-## Phase 8: Lorebooks / World Info
-*Confirmed nowhere in the codebase today — fully new, self-contained feature.*
+## Phase 7: Advanced Generation Settings
+*Exposing granular LLM controls (Temperature, Top-P, Top-K, Repetition Penalty) globally and per-character.*
 
-- [ ] **World Info Entries:** A per-character (or global) list of `{ keywords[],
-  content }` entries.
-- [ ] **Keyword-Triggered Injection:** Scan recent chat history for entry keywords each
-  turn; inject matched entries' `content` into the system prompt (via a new
-  `extraDirectives`-style section in `buildSystemInstruction`, which already supports
-  appending conditional sections) only when triggered, keeping untriggered lore out of
-  the token budget entirely.
-- [ ] **Entry Management UI:** Create/edit/delete entries from the character editor,
-  with a token-cost-aware entry list once Phase 2's estimator exists.
+**UI / Screen Flow:**
+- **Global Settings:** Advanced sliders in the AI Settings menu for Top-P, Top-K, etc., dynamically gated by the selected provider.
+- **Character Overrides:** An "Advanced Options" accordion in the Character Editor to set character-specific generation rules (e.g., high temp for a chaotic bot).
 
----
-
-## Phase 9: Multi-Character Chatrooms — Data Model
-*The real hard part, split into two phases so the risky schema migration ships and
-stabilizes before the UI work on top of it. Today a chat is hard-enforced 1:1 with a
-character: `Chat.characterId` is a scalar field, indexed as a scalar in Dexie
-(`src/services/dbService.ts`), and `getChatByCharacterId()` returns only the first
-match — `CharacterPage.tsx` relies on exactly that assumption to decide whether to
-reuse or create a chat.*
-
-- [ ] **Schema Migration:** `Chat.characterId` (scalar) → `Chat.characterIds: number[]`.
-  Add a `speakerId` to `Message` for AI turns (there's already an unused-for-routing
-  `Message.characterId` field to repurpose or rename). Write a Dexie migration for
-  existing 1-character chats.
-- [ ] **Speaker-Labeled History:** Rewrite `buildChatHistory`/`buildSystemInstruction`
-  (currently built around exactly one `Character`) to prefix each turn with its
-  speaker's name (`User: hello`, `Bot A: hi`, `Bot B: greetings`) so the model can tell
-  characters apart in a shared history.
-- [ ] **Backward Compatibility:** Every single-character code path (image generation
-  context, memory extraction, auto-selfie, voice) currently assumes one character per
-  chat — audit and update each to handle the multi-character case before UI work
-  begins, so Phase 10 isn't blocked mid-stream by a missed assumption.
+**Implementation Steps:**
+- [ ] **Widen the Adapter Contract:** Add `topP`, `topK`, and penalty fields to `ChatCallOptions` in `types.ts`. Implement mapping for these in the Gemini and OpenAI adapters. Use `ProviderCapabilities` to disable unsupported fields (like Top-K for OpenAI).
+- [ ] **Global Settings State:** Add these fields to the Redux `settings` slice.
+- [ ] **Per-Character Overrides:** Add a `generationOverrides` object to the `Character` schema. Update `aiSlice.ts` to merge these overrides over the global settings when building `turnConfig`.
 
 ---
 
-## Phase 10: Multi-Character Chatrooms — Room UI
-*Builds on Phase 9's data model. This is genuinely new UI, not a reskin of anything
-that exists today.*
+## Phase 8: Character Card Portability
+*Supporting the community standard "Character Card V2" spec (TavernAI/SillyTavern) for importing/exporting characters.*
 
-- [ ] **Room Creation UI:** Create a room, set a topic, and select multiple existing
-  characters into it.
-- [ ] **Turn Routing:** Controls for who replies next — manual "request a reply from
-  this bot" buttons, plus an `@BotName` mention trigger in the composer.
-- [ ] **Room Management:** Per-character mute toggles and a "force this character to
-  reply now" action.
+**UI / Screen Flow:**
+- **Import/Export Buttons:** In the Character Library, add options to "Import JSON/PNG Card" and "Export as V2 Card".
+
+**Implementation Steps:**
+- [ ] **Field Mapping Spec:** Write a translation layer mapping V2 spec fields (`name`, `description`, `personality`, `first_mes`, `mes_example`) to WhatsGemini's internal schema.
+- [ ] **JSON Import/Export:** Implement file reader/writer logic for `.json` files conforming to the spec.
+- [ ] **PNG Card Parsing (Stretch):** Implement a lightweight PNG chunk reader to extract the `tEXt` chunk labeled `chara`, parse the Base64 JSON inside it, and load it into the app. Implement the reverse for exporting.
+
+---
+
+## Phase 9: Lorebooks / World Info
+*A dynamic memory injection system that brings specific lore into context only when relevant keywords are mentioned.*
+
+**UI / Screen Flow:**
+- **Lorebook Editor:** A new tab in the Character Editor (or a global page) listing entries. Each entry has a "Keywords" input tag box and a "Content" text area.
+- **Token Preview:** A metric showing how much context an entry will consume when triggered.
+
+**Implementation Steps:**
+- [ ] **World Info Schema:** Create a `LoreEntry` type (`{ id, keywords: string[], content: string }`) and store it either per-character or globally.
+- [ ] **Keyword Trigger System:** Before generating a reply, run a fast string matching algorithm (e.g., Aho-Corasick or simple regex) against the last N messages to find active keywords.
+- [ ] **Dynamic Injection:** Append the `content` of triggered entries to a dedicated section (e.g., `[World Info]`) in the system prompt via `buildSystemInstruction`.
+
+---
+
+## Phase 10: Multi-Character Chatrooms — Data Model
+*The foundational schema changes required to support group chats with multiple AI bots.*
+
+**UI / Screen Flow:**
+- *(No direct UI yet, this is purely data layer migration).*
+
+**Implementation Steps:**
+- [ ] **Schema Migration:** Change `Chat.characterId` (string/scalar) to `Chat.characterIds: string[]`. Add a `speakerId` to `Message` for AI turns to identify which bot generated the message. Write a Dexie DB migration script to upgrade existing chats safely.
+- [ ] **Speaker-Labeled History:** Update `buildChatHistory` to prefix each message with the speaker's name (e.g., `User: hello`, `BotName: hi`) so the LLM understands the multi-party context.
+- [ ] **Audit Single-Character Assumptions:** Refactor image generation, auto-selfie, memory extraction, and voice paths to query the specific `speakerId` of the current message rather than assuming a single `chat.characterId`.
+
+---
+
+## Phase 11: Multi-Character Chatrooms — Room UI
+*The frontend interfaces for creating and managing group chats.*
+
+**UI / Screen Flow:**
+- **Room Creator:** A UI to name the room, set a scenario, and pick multiple characters from the library using a checkbox list.
+- **Chat Interface:** A multi-select or swipeable UI above the input box to dictate who should reply next.
+- **Participant Sidebar:** A drawer showing members in the room with quick mute/unmute toggles.
+
+**Implementation Steps:**
+- [ ] **Room Creation UI:** Build the form and wire it to create a new `Chat` record with multiple `characterIds`.
+- [ ] **Turn Routing Engine:** Implement logic to determine the next speaker. Allow manual overriding (e.g., clicking a bot's avatar to force their reply). Support `@BotName` parsing in the user's message to trigger a specific bot.
+- [ ] **Mute/Active State:** Add a `mutedParticipantIds` array to the `Chat` state so bots can be temporarily silenced without being removed from the room.

@@ -22,6 +22,7 @@ interface ChatWindowProps {
   onSwitchBranch?: (nodeId: string) => void;
   onDeleteBranch?: (nodeId: string) => void;
   onRegenerate?: (index: number) => void;
+  onContinue?: (index: number) => void;
   onEdit?: (index: number, text: string, isImageRequest?: boolean) => void;
   onSend?: (text: string, isImageRequest?: boolean) => void;
   aiLoading?: boolean;
@@ -50,7 +51,7 @@ const TypingIndicator = ({ charInitials, accent }: { charInitials: string; accen
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onEdit, onSend, aiLoading, characterName, character, chatId, sceneOpen, onCloseScene, authorNote, worldTags }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onEdit, onSend, aiLoading, characterName, character, chatId, sceneOpen, onCloseScene, authorNote, worldTags }) => {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
@@ -173,6 +174,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
     [onRegenerate, messages]
   );
 
+  const handleContinue = useCallback(
+    (msg: Message) => {
+      if (onContinue) {
+        const originalIndex = messages.indexOf(msg);
+        if (originalIndex !== -1) {
+          onContinue(originalIndex);
+        }
+      }
+    },
+    [onContinue, messages]
+  );
+
   const startEdit = useCallback((msg: Message) => {
     const originalIndex = messages.indexOf(msg);
     if (originalIndex !== -1) {
@@ -283,6 +296,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
                     aiLoading={aiLoading || false}
                     onCopy={handleCopyMessage}
                     onRegenerate={handleRegenerate}
+                    onContinue={handleContinue}
+                    isLastMessage={i === filteredMessages.length - 1}
                     onStartEdit={startEdit}
                     setFullscreenImage={setFullscreenImage}
                     siblingInfo={siblingInfo && siblingInfo.total > 1 ? siblingInfo : undefined}
