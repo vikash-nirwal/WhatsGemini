@@ -50,6 +50,12 @@ export const imageModels = [
 // generation of its own - it's just the character's existing portrait.
 export const EMOTIONS = ["neutral", "happy", "sad", "angry", "surprised", "excited", "shy", "scared", "thinking"];
 
+export const ART_STYLES: { value: "anime" | "realistic"; label: string }[] = [
+  { value: "anime", label: "Anime" },
+  { value: "realistic", label: "Realistic" },
+];
+export const DEFAULT_ART_STYLE: "anime" | "realistic" = "anime";
+
 // Rough USD-per-1M-token rates (standard tier) used only for the in-app cost estimate
 // shown next to the token counter — not billing-accurate. Simplifications: pro-tier
 // models with >200k-token pricing tiers use their <=200k rate; image models blend

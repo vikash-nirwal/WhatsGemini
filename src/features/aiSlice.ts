@@ -259,7 +259,7 @@ export const generateAssistText = createAsyncThunk(
 export const generateAvatarImage = createAsyncThunk(
   "ai/generateAvatarImage",
   async (
-    { name, appearance, appearanceImages, emotion }: { name: string; appearance?: string; appearanceImages?: string[]; emotion?: string },
+    { name, appearance, appearanceImages, emotion, artStyle }: { name: string; appearance?: string; appearanceImages?: string[]; emotion?: string; artStyle?: "anime" | "realistic" },
     { getState, rejectWithValue }
   ) => {
     try {
@@ -277,10 +277,17 @@ export const generateAvatarImage = createAsyncThunk(
       // For an emotion portrait, the reference images (ideally including the
       // existing neutral portrait) keep it recognizably the same character
       // while the prompt's only job is to change the expression/pose.
+      // The style clause is pinned explicitly (rather than left as a vague
+      // "stylized") so separate generation calls for the same character don't
+      // drift between anime/realistic/in-between looks.
+      const styleClause = artStyle === "realistic"
+        ? "Photorealistic style, realistic photography, natural lighting and lifelike skin/hair detail"
+        : "Anime illustration art style, clean line art, cel-shaded coloring, vibrant anime aesthetic";
       const parts = [`Character portrait of ${name}`];
       if (appearance) parts.push(appearance);
       if (emotion) parts.push(`Showing a clear, unmistakable "${emotion}" facial expression and body language, same character and outfit as usual`);
-      parts.push("Head and shoulders, 3:4 aspect ratio, stylized, high quality, detailed");
+      parts.push(`Head and shoulders, 3:4 aspect ratio, ${styleClause}, high quality, detailed`);
+      parts.push("Plain, uncluttered solid-color background, no scenery or props, only the character visible, PNG output");
       const prompt = parts.join(". ") + ".";
 
       const result = await generateImage(

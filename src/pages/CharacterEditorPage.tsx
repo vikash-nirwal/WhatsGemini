@@ -14,7 +14,8 @@ import { Card } from "../components/ui/card";
 import { cn } from "../utils/cn";
 import ToggleSwitch from "../components/ToggleSwitch";
 import Header from "../components/Header";
-import { CHARACTER_SWATCHES, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, EMOTIONS } from "../utils/constants";
+import { CHARACTER_SWATCHES, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, EMOTIONS, ART_STYLES, DEFAULT_ART_STYLE } from "../utils/constants";
+import { SegmentedControl } from "../components/settings/SegmentedControl";
 import { isSpeechSynthesisSupported, getVoices, speak } from "../utils/speech";
 import { estimateTokens } from "../features/ai/utils/tokenEstimator";
 import TestChatPane from "../components/character/TestChatPane";
@@ -59,6 +60,7 @@ const CharacterEditorPage = () => {
   const [relationship, setRelationship] = useState("");
   const [appearance, setAppearance] = useState("");
   const [appearanceImages, setAppearanceImages] = useState<string[]>([]);
+  const [artStyle, setArtStyle] = useState<"anime" | "realistic">(DEFAULT_ART_STYLE);
   const [accentIndex, setAccentIndex] = useState(0);
   const [voiceURI, setVoiceURI] = useState("");
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -87,6 +89,7 @@ const CharacterEditorPage = () => {
       setRelationship(source.relationship || "");
       setAppearance(source.appearance || "");
       setAppearanceImages(source.appearanceImages || []);
+      setArtStyle(source.artStyle || DEFAULT_ART_STYLE);
       setAccentIndex(findSwatchIndex(source.accent));
       setVoiceURI(source.voiceURI || "");
       setAutoSelfieEnabled(source.autoSelfie?.enabled || false);
@@ -152,7 +155,7 @@ const CharacterEditorPage = () => {
       alert("Character name and prompt are required.");
       return;
     }
-    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages } }));
+    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages } }));
     navigate("/characters");
   };
 
@@ -161,7 +164,7 @@ const CharacterEditorPage = () => {
       alert("Character name and prompt are required.");
       return;
     }
-    dispatch(updateCharacter({ id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages } }));
+    dispatch(updateCharacter({ id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages } }));
     navigate("/characters");
   };
 
@@ -286,7 +289,7 @@ const CharacterEditorPage = () => {
     setGeneratingEmotion(emotion);
     try {
       const referenceImages = appearanceImages.length > 0 ? appearanceImages : undefined;
-      const result = await dispatch(generateAvatarImage({ name, appearance, appearanceImages: referenceImages, emotion })).unwrap();
+      const result = await dispatch(generateAvatarImage({ name, appearance, appearanceImages: referenceImages, emotion, artStyle })).unwrap();
       if (result.images && result.images.length > 0) {
         setCropTargetEmotion(emotion);
         setCropImageSrc(result.images[0]);
@@ -341,7 +344,7 @@ const CharacterEditorPage = () => {
         setGeneratingEmotion(emo);
         try {
           // eslint-disable-next-line no-await-in-loop
-          const result = await dispatch(generateAvatarImage({ name, appearance, appearanceImages: referenceImages, emotion: emo })).unwrap();
+          const result = await dispatch(generateAvatarImage({ name, appearance, appearanceImages: referenceImages, emotion: emo, artStyle })).unwrap();
           const dataUrl = result.images?.[0];
           if (!dataUrl) continue;
           // eslint-disable-next-line no-await-in-loop
@@ -492,6 +495,7 @@ const CharacterEditorPage = () => {
                   name={name}
                   appearance={appearance}
                   appearanceImages={appearanceImages}
+                  artStyle={artStyle}
                   onGenerated={handleAvatarGenerated}
                 />
                 {appearanceImages[0] && (
@@ -644,6 +648,14 @@ const CharacterEditorPage = () => {
                     onChange={(e) => setAppearance(e.target.value)}
                     className="resize-none"
                   />
+                  <div>
+                    <FieldLabel hint="Pins a consistent look for the main avatar and every generated emotion portrait, instead of the AI picking a style per call.">Art style</FieldLabel>
+                    <SegmentedControl
+                      value={artStyle}
+                      onChange={(v) => setArtStyle(v as "anime" | "realistic")}
+                      options={ART_STYLES}
+                    />
+                  </div>
                   <div>
                     <label className="block text-sm text-foreground font-medium mb-2">Reference Images</label>
                     <div className="flex flex-wrap gap-2 mb-2">

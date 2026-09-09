@@ -24,6 +24,7 @@ import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMess
 import { estimateTokens, estimateHistoryTokens } from "../features/ai/utils/tokenEstimator";
 import { truncateHistory } from "../features/ai/utils/chatHistoryUtils";
 import { CharacterAvatar } from "../components/ui/CharacterAvatar";
+import { DisplayImage } from "../components/DisplayImage";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { useModal } from "../contexts/ModalContext";
 
@@ -139,6 +140,9 @@ const ChatPage = () => {
     characterData?.emotionPortraits?.enabled && latestEmotion && latestEmotion !== "neutral" && !characterData.emotionPortraits.images[latestEmotion]
       ? latestEmotion
       : undefined;
+  // Header avatar is only ~34px - too small to actually see the current
+  // mood portrait. Clicking it opens this full-size preview instead.
+  const [portraitPreviewOpen, setPortraitPreviewOpen] = useState(false);
   const [dismissedMissingEmotion, setDismissedMissingEmotion] = useState<string | null>(null);
   const [generatingMissingEmotion, setGeneratingMissingEmotion] = useState(false);
   const [missingEmotionError, setMissingEmotionError] = useState<string | null>(null);
@@ -158,6 +162,7 @@ const ChatPage = () => {
         appearance: characterData.appearance,
         appearanceImages: referenceImages,
         emotion: missingEmotionPortrait,
+        artStyle: characterData.artStyle,
       })).unwrap();
       const dataUrl = result.images?.[0];
       if (!dataUrl) {
@@ -883,9 +888,40 @@ const ChatPage = () => {
       <Header
         title={character || "Chat"}
         subtitle={characterData?.relationship || characterData?.description}
-        avatar={<CharacterAvatar name={characterData?.name || character} accent={characterData?.accent} imageSrc={headerEmotionImageSrc} size={34} />}
+        avatar={
+          <button
+            type="button"
+            onClick={() => setPortraitPreviewOpen(true)}
+            className="rounded-full"
+            aria-label="View current portrait"
+            title="View current portrait"
+          >
+            <CharacterAvatar name={characterData?.name || character} accent={characterData?.accent} imageSrc={headerEmotionImageSrc} size={34} />
+          </button>
+        }
         actionGroups={[chatActions]}
       />
+
+      <Modal
+        isOpen={portraitPreviewOpen}
+        onClose={() => setPortraitPreviewOpen(false)}
+        title={characterData?.name || character || "Portrait"}
+        subtitle={latestEmotion && latestEmotion !== "neutral" ? `Current mood: ${latestEmotion}` : undefined}
+      >
+        <div className="w-full max-w-[280px] mx-auto aspect-[3/4] rounded-xl overflow-hidden bg-muted">
+          {headerEmotionImageSrc ? (
+            <DisplayImage
+              srcContext={headerEmotionImageSrc}
+              alt={`${characterData?.name || "Character"} portrait`}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <CharacterAvatar name={characterData?.name || character} accent={characterData?.accent} size={120} />
+            </div>
+          )}
+        </div>
+      </Modal>
 
       <Modal isOpen={isAutoReplyModalOpen} onClose={() => setIsAutoReplyModalOpen(false)} title="Auto Follow-up">
         <ToggleSwitch

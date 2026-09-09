@@ -85,6 +85,10 @@ export interface Character {
   relationship?: string;
   appearance?: string;
   appearanceImages?: string[];
+  // Art style used to compose portrait-generation prompts (main avatar and
+  // emotion portraits alike) - pins a consistent look across separate
+  // generation calls instead of leaving style to the model's whim per call.
+  artStyle?: "anime" | "realistic";
   avatar?: string;
   gallery?: string[];
   accent?: [string, string]; // two-color avatar gradient, e.g. ["#10B981", "#0EA5A0"]

@@ -8,6 +8,7 @@ interface AvatarGenerateButtonProps {
   name: string;
   appearance: string;
   appearanceImages?: string[];
+  artStyle?: "anime" | "realistic";
   disabled?: boolean;
   /** Called with the first generated image's data URL on success. */
   onGenerated: (dataUrl: string) => void;
@@ -21,6 +22,7 @@ const AvatarGenerateButton: React.FC<AvatarGenerateButtonProps> = ({
   name,
   appearance,
   appearanceImages,
+  artStyle,
   disabled,
   onGenerated,
 }) => {
@@ -38,7 +40,7 @@ const AvatarGenerateButton: React.FC<AvatarGenerateButtonProps> = ({
 
     try {
       const result = await dispatch(
-        generateAvatarImage({ name, appearance, appearanceImages })
+        generateAvatarImage({ name, appearance, appearanceImages, artStyle })
       ).unwrap();
 
       if (result.images && result.images.length > 0) {
