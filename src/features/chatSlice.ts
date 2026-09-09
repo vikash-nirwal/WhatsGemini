@@ -30,23 +30,12 @@ export const fetchChatById = createAsyncThunk("chat/fetchById", async (id: numbe
   }
 });
 
-export const fetchChatByCharacterId = createAsyncThunk(
-  "chat/fetchByCharacterId",
-  async (characterId: number, { rejectWithValue }) => {
-    try {
-      return await dbService.getChatByCharacterId(characterId);
-    } catch (error) {
-      return handleDbError(error, rejectWithValue);
-    }
-  }
-);
-
 export const addChat = createAsyncThunk(
   "chat/add",
-  async ({ title, characterId }: { title: string; characterId?: number }, { rejectWithValue }) => {
+  async ({ title, characterIds }: { title: string; characterIds?: number[] }, { rejectWithValue }) => {
     try {
       const timestamp = Date.now();
-      const newChat = { title, timestamp, content: [], characterId: characterId || null };
+      const newChat = { title, timestamp, content: [], characterIds: characterIds || [] };
       const id = await dbService.addChat(newChat);
       return { id, ...newChat };
     } catch (error) {
@@ -57,18 +46,22 @@ export const addChat = createAsyncThunk(
 
 export const addMessage = createAsyncThunk(
   "chat/addMessage",
-  async ({ chatId, role, text, images, isImageRequest, isImpersonated, emotion, imagePrompt, imageParams }: { chatId: number; role: string; text: string; images?: string[], isImageRequest?: boolean, isImpersonated?: boolean, emotion?: string, imagePrompt?: string, imageParams?: any }, { dispatch, rejectWithValue }) => {
+  async ({ chatId, role, text, images, isImageRequest, isImpersonated, emotion, imagePrompt, imageParams, speakerId }: { chatId: number; role: string; text: string; images?: string[], isImageRequest?: boolean, isImpersonated?: boolean, emotion?: string, imagePrompt?: string, imageParams?: any, speakerId?: number }, { dispatch, rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
 
-      // If it's the first message, prepopulate with the character's own greeting
-      // (if it has one) instead of the generic global initial messages.
+      // If it's the first message, prepopulate with the primary character's
+      // own greeting (if it has one) instead of the generic global initial
+      // messages. For a room with several characters, only the first one
+      // (characterIds[0]) greets - Phase 12's room creation flow decides
+      // who that is.
       if (chat.content.length === 0) {
-        const character = chat.characterId ? await dbService.getCharacterById(chat.characterId).catch(() => undefined) : undefined;
+        const primaryCharacterId = chat.characterIds?.[0];
+        const character = primaryCharacterId ? await dbService.getCharacterById(primaryCharacterId).catch(() => undefined) : undefined;
         if (character?.first_mes) {
           // Unlike the generic seed messages below, this is a real visible greeting
           // (not a hidden priming message), so it's left unflagged as `isSystem`.
-          chat.content.push({ role: AI, txt: character.first_mes, id: generateNodeId(), timestamp: Date.now() });
+          chat.content.push({ role: AI, txt: character.first_mes, speakerId: character.id, id: generateNodeId(), timestamp: Date.now() });
         } else {
           const savedMessages = JSON.parse(localStorage.getItem(LS_INITIAL_MESSAGES) || "[]") as any[];
           savedMessages.forEach((msg) => {
@@ -79,7 +72,7 @@ export const addMessage = createAsyncThunk(
         }
       }
 
-      const newMessage: Message = { role, txt: text, images, isImageRequest, isImpersonated, emotion, imagePrompt, imageParams, id: generateNodeId(), timestamp: Date.now() };
+      const newMessage: Message = { role, txt: text, images, isImageRequest, isImpersonated, emotion, imagePrompt, imageParams, speakerId, id: generateNodeId(), timestamp: Date.now() };
 
       // A real reply from the user - or the user speaking as the character via
       // Impersonate mode - both mean the user is actively here, so any pending
@@ -262,7 +255,12 @@ export const importChat = createAsyncThunk("chat/import", async (chatData: any, 
     const isArray = Array.isArray(chatData);
     const content = isArray ? chatData : (chatData.content || chatData.messages);
     const title = !isArray && chatData.title ? chatData.title : "Imported Chat";
-    const characterId = !isArray && chatData.characterId ? chatData.characterId : null;
+    // Accepts a pre-migration export (`characterId` scalar) alongside the
+    // current `characterIds` array shape, so an old exported chat JSON file
+    // sitting on someone's disk still imports correctly.
+    const characterIds = !isArray && Array.isArray(chatData.characterIds)
+      ? chatData.characterIds
+      : (!isArray && chatData.characterId ? [chatData.characterId] : []);
     const timestamp = !isArray && chatData.timestamp ? chatData.timestamp : Date.now();
 
     if (!content || !Array.isArray(content)) {
@@ -275,7 +273,7 @@ export const importChat = createAsyncThunk("chat/import", async (chatData: any, 
     const newChat = {
       title,
       content,
-      characterId,
+      characterIds,
       timestamp,
       authorNote,
       worldTags,

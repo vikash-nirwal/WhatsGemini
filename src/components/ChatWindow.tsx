@@ -29,7 +29,8 @@ interface ChatWindowProps {
   aiLoading?: boolean;
   isFollowupPending?: boolean;
   characterName?: string;
-  character?: Character;
+  character?: Character; // the chat's primary character - header, empty state, and the fallback for any message with no resolvable speaker
+  characters?: Character[]; // every character in the chat/room (Phase 12); per-message avatar/emotion/voice resolve against this via Message.speakerId, falling back to `character` above
   chatId?: number;
   sceneOpen?: boolean;
   onCloseScene?: () => void;
@@ -72,7 +73,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc }: { charInitials: s
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onEdit, onSend, aiLoading, isFollowupPending, characterName, character, chatId, sceneOpen, onCloseScene, authorNote, worldTags }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onEdit, onSend, aiLoading, isFollowupPending, characterName, character, characters, chatId, sceneOpen, onCloseScene, authorNote, worldTags }) => {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
@@ -235,6 +236,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
     navigator.clipboard.writeText(text);
   }, []);
 
+  // Resolves the character who actually said a given message - its
+  // speakerId within `characters` (the room's full participant list) when
+  // set, otherwise the chat's primary `character` (every message predating
+  // this field, and every message in a plain 1:1 chat where speakerId always
+  // just echoes the sole character anyway).
+  const resolveSpeaker = useCallback(
+    (msg: Message): Character | undefined => (msg.speakerId != null && characters?.find((c) => c.id === msg.speakerId)) || character,
+    [characters, character]
+  );
+
   const handleToggleSpeak = useCallback((msg: Message) => {
     if (!msg.id) return;
     if (speakingMessageId === msg.id) {
@@ -243,11 +254,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
       return;
     }
     const id = msg.id;
-    speak(stripImageContextTag(msg.txt || ""), character?.voiceURI, () => {
+    speak(stripImageContextTag(msg.txt || ""), resolveSpeaker(msg)?.voiceURI, () => {
       setSpeakingMessageId((current) => (current === id ? null : current));
     });
     setSpeakingMessageId(id);
-  }, [speakingMessageId, character?.voiceURI]);
+  }, [speakingMessageId, resolveSpeaker]);
 
   // If the message currently being read aloud disappears from the active
   // path (chat switch, edit, regenerate, branch-delete), stop instead of
@@ -319,13 +330,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
             ) : (
               filteredMessages.map((msg, i) => {
                 const siblingInfo = tree && msg.id ? getSiblingInfo(tree, msg.id) : undefined;
+                const speaker = resolveSpeaker(msg);
                 return (
                   <ChatMessage
                     key={msg.id || i}
                     msg={msg}
-                    charInitials={charInitials}
-                    accent={character?.accent}
-                    avatarImageSrc={resolveEmotionPortrait(character, msg.emotion)}
+                    charInitials={speaker === character ? charInitials : getInitials(speaker?.name)}
+                    accent={speaker?.accent}
+                    avatarImageSrc={resolveEmotionPortrait(speaker, msg.emotion)}
                     aiLoading={aiLoading || false}
                     onCopy={handleCopyMessage}
                     onRegenerate={handleRegenerate}

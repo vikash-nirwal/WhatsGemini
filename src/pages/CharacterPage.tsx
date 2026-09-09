@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from "react";
 import { addCharacter, deleteCharacter } from "../features/characterSlice";
-import { addChat } from "../features/chatSlice";
+import { addChat, fetchChats } from "../features/chatSlice";
 import { useNavigate } from "react-router-dom";
 import { FaTrash, FaEdit, FaDownload, FaImages, FaPlus, FaComment, FaEllipsisV, FaSearch, FaCopy, FaFileImage, FaUpload } from "react-icons/fa";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../components/ui/dropdown-menu";
@@ -39,19 +39,26 @@ const CharacterPage = () => {
   };
 
   const handleDeleteCharacter = async (id: number) => {
-    const confirmed = await showConfirm("Delete Character", "Are you sure you want to delete this character and their chats?");
+    const confirmed = await showConfirm("Delete Character", "Are you sure you want to delete this character? Their 1:1 chat is deleted too; in a group chat they're just removed, and the rest of the conversation stays.");
     if (confirmed) {
-      dispatch(deleteCharacter(id));
+      await dispatch(deleteCharacter(id));
+      // deleteCharacter only updates Redux's character list - refresh chats
+      // too, since deleting a character can delete (1:1) or shrink (a group
+      // room's characterIds) a chat, and the sidebar reads directly off this
+      // state rather than the DB.
+      dispatch(fetchChats());
     }
   };
 
   const handleChatWithCharacter = async (char: Character) => {
-    const existingChat = chats.find((chat: Chat) => chat.characterId === char.id);
+    // The character's own 1:1 chat specifically - not just any room they
+    // happen to be a member of.
+    const existingChat = chats.find((chat: Chat) => chat.characterIds?.length === 1 && chat.characterIds[0] === char.id);
     if (existingChat) {
       navigate(`/chat/${existingChat.id}`);
       return;
     }
-    const result = await dispatch(addChat({ title: char.name, characterId: char.id }));
+    const result = await dispatch(addChat({ title: char.name, characterIds: [char.id] }));
     if (result.payload && (result.payload as Chat).id) {
       navigate(`/chat/${(result.payload as Chat).id}`);
     }
@@ -176,7 +183,7 @@ const CharacterPage = () => {
 
   const chattedThisWeek = useMemo(() => {
     const cutoff = Date.now() - WEEK_MS;
-    return characters.filter((c) => chats.some((chat) => chat.characterId === c.id && chat.timestamp >= cutoff)).length;
+    return characters.filter((c) => chats.some((chat) => chat.characterIds?.includes(c.id) && chat.timestamp >= cutoff)).length;
   }, [characters, chats]);
 
   return (

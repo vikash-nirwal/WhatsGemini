@@ -48,9 +48,13 @@ export const restoreChatsAndCharacters = async (
 
   let chatsRestored = 0;
   for (const chat of chats) {
-    const { id, characterId, ...rest } = chat;
-    const remappedCharacterId = characterId != null ? (idMap.get(characterId) ?? null) : null;
-    await dbService.addChat({ ...rest, characterId: remappedCharacterId });
+    // Accepts a pre-migration backup (`characterId` scalar) alongside the
+    // current `characterIds` array shape - a backup zip made before Phase 11
+    // restored on a build after it shouldn't lose its character links.
+    const { id, characterId, characterIds, ...rest } = chat as Chat & { characterId?: number | null };
+    const sourceIds = Array.isArray(characterIds) ? characterIds : (characterId != null ? [characterId] : []);
+    const remappedCharacterIds = sourceIds.map((cid) => idMap.get(cid)).filter((cid): cid is number => cid != null);
+    await dbService.addChat({ ...rest, characterIds: remappedCharacterIds });
     chatsRestored++;
   }
 

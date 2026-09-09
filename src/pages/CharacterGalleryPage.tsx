@@ -41,9 +41,9 @@ const CharacterGalleryPage = () => {
     // Get explicitly saved gallery images
     const galleryImages = character.gallery || [];
 
-    // Also find any images generated in previous chats associated with this character
+    // Also find any images generated in previous chats this character was part of
     const chatImages = chats
-      .filter(chat => chat.characterId === characterIdNum)
+      .filter(chat => chat.characterIds?.includes(characterIdNum as number))
       .flatMap(chat => chat.content)
       .flatMap(msg => msg.images || []);
 

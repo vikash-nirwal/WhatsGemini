@@ -16,6 +16,25 @@ class WhatsGeminiDB extends Dexie {
     }).upgrade(tx => {
       // Upgrade logic if needed from v3 to v4
     });
+    // Phase 11: Chat.characterId (scalar) -> Chat.characterIds (array), so a
+    // chat can hold more than one character (multi-character rooms, Phase
+    // 12). `*characterIds` is a Dexie multi-entry index - `.where("characterIds")`
+    // matches any chat whose array contains the given id, the array
+    // equivalent of the old single-value `characterId` index. The legacy
+    // `characterId` field is left in place on existing rows (unused by the
+    // app from here on, but harmless) rather than deleted, so this upgrade
+    // has nothing destructive to roll back if something goes wrong.
+    this.version(5).stores({
+      chats: "++id, title, timestamp, content, characterId, *characterIds",
+      characters: "++id, name, description, prompt, relationship, appearance, avatar",
+      settings: "key",
+    }).upgrade(async (tx) => {
+      await tx.table("chats").toCollection().modify((chat: any) => {
+        if (!Array.isArray(chat.characterIds)) {
+          chat.characterIds = chat.characterId != null ? [chat.characterId] : [];
+        }
+      });
+    });
   }
 }
 
@@ -42,10 +61,6 @@ export const dbService = {
     return chat;
   },
 
-  async getChatByCharacterId(characterId: number): Promise<Chat | undefined> {
-    return await db.chats.where("characterId").equals(characterId).first();
-  },
-
   async addChat(chat: Omit<Chat, "id">): Promise<number> {
     return await db.chats.add(chat as Chat);
   },
@@ -58,8 +73,21 @@ export const dbService = {
     await db.chats.delete(id);
   },
 
-  async deleteChatsByCharacterId(characterId: number): Promise<void> {
-    await db.chats.where("characterId").equals(characterId).delete();
+  // Removes a deleted character from every chat/room it belonged to - a
+  // 1:1 chat (its only member) is deleted outright, matching the old
+  // behavior; a group room just loses that one participant and keeps
+  // running with whoever's left, instead of the whole room (and everyone
+  // else's history in it) disappearing because one member was removed.
+  async removeCharacterFromChats(characterId: number): Promise<void> {
+    const affected = await db.chats.where("characterIds").equals(characterId).toArray();
+    for (const chat of affected) {
+      const remaining = (chat.characterIds || []).filter((id) => id !== characterId);
+      if (remaining.length === 0) {
+        await db.chats.delete(chat.id);
+      } else {
+        await db.chats.update(chat.id, { characterIds: remaining });
+      }
+    }
   },
 
   // Characters

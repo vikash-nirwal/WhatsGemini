@@ -107,11 +107,14 @@ const Sidebar = () => {
   }, [dispatch]);
 
   const handleCharacterClick = useCallback(async (characterId: number, characterName: string) => {
-    const existingChat = chats.find((chat: Chat) => chat.characterId === characterId);
+    // The character's own 1:1 chat specifically - not just any room they
+    // happen to be a member of - so this always resumes/creates the same
+    // one-on-one conversation a tap on their card has always opened.
+    const existingChat = chats.find((chat: Chat) => chat.characterIds?.length === 1 && chat.characterIds[0] === characterId);
     if (existingChat) {
       navigate(`/chat/${existingChat.id}`);
     } else {
-      const result = await dispatch(addChat({ title: characterName, characterId }));
+      const result = await dispatch(addChat({ title: characterName, characterIds: [characterId] }));
       if (result.payload && (result.payload as Chat).id) {
         navigate(`/chat/${(result.payload as Chat).id}`);
       }
@@ -154,8 +157,10 @@ const Sidebar = () => {
     const lowerQ = q.toLowerCase();
     const results: { chat: Chat; snippet?: string }[] = [];
     for (const chat of chats) {
-      const character = characters.find((c) => c.id === chat.characterId);
-      const titleMatches = chat.title.toLowerCase().includes(lowerQ) || Boolean(character?.name.toLowerCase().includes(lowerQ));
+      // Any member's name counts as a match, not just the primary one - a
+      // group room should be findable by any of its participants.
+      const memberNames = (chat.characterIds || []).map((id) => characters.find((c) => c.id === id)?.name).filter(Boolean) as string[];
+      const titleMatches = chat.title.toLowerCase().includes(lowerQ) || memberNames.some((name) => name.toLowerCase().includes(lowerQ));
       const snippet = titleMatches ? undefined : findMessageSnippet(chat, q);
       if (titleMatches || snippet) {
         results.push({ chat, snippet });
@@ -398,7 +403,10 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, qu
   return (
     <div className="flex-1 flex flex-col gap-0.5">
       {items.map(({ chat, snippet }) => {
-        const character = characters.find((c) => c.id === chat.characterId);
+        // The row's avatar/subtitle show the primary (first) member - a
+        // group room's own participant strip (Phase 12) is where the rest
+        // of the cast actually shows up.
+        const character = characters.find((c) => c.id === chat.characterIds?.[0]);
         const isActive = chat.id === activeChatId;
         // "Typing..." only ever applies to the chat currently open in this tab
         // (autonomous follow-ups aren't scheduled for closed chats), while

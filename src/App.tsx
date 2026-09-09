@@ -55,7 +55,7 @@ const EmptyChatState = () => {
     setCreatingSample(true);
     try {
       const character = await dispatch(addCharacter(SAMPLE_CHARACTER)).unwrap();
-      const chat = await dispatch(addChat({ title: character.name, characterId: character.id })).unwrap();
+      const chat = await dispatch(addChat({ title: character.name, characterIds: [character.id] })).unwrap();
       if (chat?.id) navigate(`/chat/${chat.id}`);
     } catch (err) {
       console.error("Failed to create sample character:", err);

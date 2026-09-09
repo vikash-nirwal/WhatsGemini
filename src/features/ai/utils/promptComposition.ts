@@ -8,12 +8,21 @@ import { ChatMessage } from "../types";
 // Converts stored DB messages into the provider-agnostic ChatMessage shape,
 // stripping any leaked base64 image data and falling back to a single space
 // since every provider's API requires non-empty message text.
-export const buildChatHistory = (messages: Message[]): ChatMessage[] =>
+//
+// `speakerNames` is only ever passed for a multi-character room (Phase 12) -
+// a normal 1:1 chat leaves it undefined so its history renders exactly as
+// before. When present, every AI-role line is prefixed with that speaker's
+// name (e.g. "Aria: hey there") so the model replying next can tell who said
+// what in a multi-party conversation instead of seeing one undifferentiated
+// "assistant" voice.
+export const buildChatHistory = (messages: Message[], speakerNames?: Record<number, string>): ChatMessage[] =>
   messages.map((msg) => {
     const text = stripLeakedBase64(msg.txt || "");
+    const trimmed = text.trim() || " ";
+    const speakerName = speakerNames && msg.role !== YOU && msg.speakerId != null ? speakerNames[msg.speakerId] : undefined;
     return {
       role: msg.role === YOU ? "user" : "assistant",
-      text: text.trim() || " ",
+      text: speakerName ? `${speakerName}: ${trimmed}` : trimmed,
     };
   });
 
@@ -40,13 +49,27 @@ export const buildSystemInstruction = (
   extraDirectives?: string[],
   replyLengthLimit?: number,
   activePersona?: UserProfile,
-  recentMessages?: Message[]
+  recentMessages?: Message[],
+  otherParticipants?: string[]
 ): SystemInstructionResult => {
   if (!character) return { text: undefined, images: undefined, characterName: undefined };
 
   const sections: string[] = [
     `Role play as, Character Name: ${character.name}.\nCharacter description: ${character.description}.\nPersonality & instructions: ${character.prompt}`,
   ];
+
+  // Only set for a multi-character room (Phase 12) - a normal 1:1 chat never
+  // passes this, so its prompt is unchanged. Each line in the history is
+  // already prefixed with its speaker's name (buildChatHistory), so this just
+  // orients the model to the fact that others exist and it must stay in its
+  // own lane rather than narrating or speaking for them.
+  if (otherParticipants && otherParticipants.length > 0) {
+    sections.push(
+      `You are in a group conversation, not a private one-on-one chat. Also present: ${otherParticipants.join(", ")}. ` +
+      `Every line in the conversation history is prefixed with who said it. Reply only as yourself, ${character.name} - ` +
+      `never write dialogue, actions, or narration for the user or for any other character present.`
+    );
+  }
 
   if (character.scenario) {
     sections.push(`Current scenario / setting: ${character.scenario}`);
@@ -112,6 +135,14 @@ export interface TurnContext {
   characterName?: string;
 }
 
+// Only passed for a multi-character room (Phase 12); a normal 1:1 chat
+// passes neither, so its history/system-instruction come out byte-identical
+// to before this existed.
+export interface RoomContext {
+  speakerNames: Record<number, string>; // characterId -> name, for prefixing history lines
+  otherParticipants: string[]; // names of every OTHER character in the room, for the replying character's own system instruction
+}
+
 // The single function replacing the copy-pasted "build history + build system
 // instruction" block that used to appear separately in handleSend,
 // handleEditMessage, and handleRegenerate.
@@ -120,9 +151,12 @@ export const buildTurnContext = (
   character: Character | undefined,
   extraDirectives?: string[],
   replyLengthLimit?: number,
-  activePersona?: UserProfile
+  activePersona?: UserProfile,
+  roomContext?: RoomContext
 ): TurnContext => {
-  const history = buildChatHistory(messages);
-  const { text, images, characterName } = buildSystemInstruction(character, extraDirectives, replyLengthLimit, activePersona, messages);
+  const history = buildChatHistory(messages, roomContext?.speakerNames);
+  const { text, images, characterName } = buildSystemInstruction(
+    character, extraDirectives, replyLengthLimit, activePersona, messages, roomContext?.otherParticipants
+  );
   return { history, systemInstruction: text, characterImages: images, characterName };
 };

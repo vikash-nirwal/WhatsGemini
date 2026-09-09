@@ -21,7 +21,11 @@ export interface Message {
   role: "user" | "model" | string;
   txt?: string; // The markdown text
   images?: string[]; // Array of local paths or object URLs
-  characterId?: number;
+  // Which character (see Chat.characterIds) generated this AI-role message -
+  // lets a multi-character room (Phase 12) know who actually said what.
+  // Unset on user messages and on messages predating this field, where the
+  // chat's sole/primary character (characterIds[0]) is implied instead.
+  speakerId?: number;
   isSystem?: boolean;
   isCompressionSummary?: boolean; // true for the persisted auto-compress summary message
   isImageRequest?: boolean; // True if it triggered image generation
@@ -52,7 +56,12 @@ export interface Chat {
   title: string;
   timestamp: number;
   content: Message[];
-  characterId?: number | null;
+  // Every character in this chat, in join order (not turn order). A normal
+  // 1:1 chat has exactly one; a multi-character room (Phase 12) has 2+.
+  // Replaces the old single `characterId` scalar (Phase 11 migration) -
+  // characterIds[0] is "the primary character" wherever single-character
+  // code still needs just one (headers, avatars, 1:1-chat quick-launch).
+  characterIds?: number[];
   tree?: ConversationTree; // undefined until the chat's first branch action
   activeLeafId?: string | null;
   autoReply?: {

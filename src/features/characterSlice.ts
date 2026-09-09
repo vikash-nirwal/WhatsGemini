@@ -55,7 +55,7 @@ export const deleteCharacter = createAsyncThunk(
   "character/delete",
   async (characterId: number, { rejectWithValue }) => {
     try {
-      await dbService.deleteChatsByCharacterId(characterId);
+      await dbService.removeCharacterFromChats(characterId);
       await dbService.deleteCharacter(characterId);
       return characterId;
     } catch (error) {

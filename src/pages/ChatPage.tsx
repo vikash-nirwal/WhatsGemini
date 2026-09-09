@@ -107,8 +107,19 @@ const ChatPage = () => {
   }, [dispatch, chatIdNum]);
 
   const currentChat = useMemo(() => chats.find((chat) => chat.id === chatIdNum), [chats, chatIdNum]);
+  // The chat's primary character - characterIds[0]. Every single-character
+  // feature below (header, avatar, voice, memory, auto-selfie, ...) is keyed
+  // off this; a real multi-bot room UI (Phase 12) is what actually makes
+  // characterIds hold more than one id day-to-day.
   const characterData = useMemo(
-    () => characters.find((c) => c.id === currentChat?.characterId),
+    () => characters.find((c) => c.id === currentChat?.characterIds?.[0]),
+    [characters, currentChat]
+  );
+  // Every character in the chat/room, resolved for ChatWindow to attribute
+  // each message's avatar/emotion/voice by its own speakerId - a plain 1:1
+  // chat still just resolves to `[characterData]`.
+  const roomCharacters = useMemo(
+    () => (currentChat?.characterIds || []).map((id) => characters.find((c) => c.id === id)).filter((c): c is NonNullable<typeof c> => Boolean(c)),
     [characters, currentChat]
   );
 
@@ -241,8 +252,8 @@ const ChatPage = () => {
 
   useEffect(() => {
     if (messages.length > 0) {
-      if (currentChat?.characterId) {
-        dispatch(fetchCharacterById(currentChat.characterId as number));
+      if (currentChat?.characterIds?.[0]) {
+        dispatch(fetchCharacterById(currentChat.characterIds[0]));
       }
     }
   }, [dispatch, messages, currentChat]);
@@ -373,6 +384,7 @@ const ChatPage = () => {
       emotion: payloadObj?.emotion,
       imagePrompt: payloadObj?.imagePrompt,
       imageParams: payloadObj?.imageParams,
+      speakerId: characterData.id,
     }));
 
     // Await the refresh before the caller can act on it (e.g. bump followupCount) -
@@ -476,7 +488,7 @@ const ChatPage = () => {
         // as the character's own turn and stop. No generation to trigger; the
         // next real AI reply, whenever it comes, just reads this as part of its
         // own history (buildChatHistory only special-cases the YOU role).
-        await dispatch(addMessage({ chatId: chatIdNum, role: AI, text, isImpersonated: true }));
+        await dispatch(addMessage({ chatId: chatIdNum, role: AI, text, isImpersonated: true, speakerId: characterData?.id }));
         dispatch(fetchChats());
         return;
       }
@@ -506,14 +518,12 @@ const ChatPage = () => {
           images: generatedImages,
           emotion: payloadObj?.emotion,
           imagePrompt: payloadObj?.imagePrompt,
-          imageParams: payloadObj?.imageParams
+          imageParams: payloadObj?.imageParams,
+          speakerId: characterData?.id,
         }));
 
-        if (generatedImages && generatedImages.length > 0 && currentChat?.characterId) {
-          const charToUpdate = characters.find(c => c.id === currentChat.characterId);
-          if (charToUpdate) {
-            dispatch(updateCharacter({ ...charToUpdate, gallery: [...(charToUpdate.gallery || []), ...generatedImages] }));
-          }
+        if (generatedImages && generatedImages.length > 0 && characterData) {
+          dispatch(updateCharacter({ ...characterData, gallery: [...(characterData.gallery || []), ...generatedImages] }));
         }
 
         maybeExtractMemory((aiAddResult.payload as Message[]) || []);
@@ -566,17 +576,15 @@ const ChatPage = () => {
             txt: typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string),
             images: generatedImages,
             emotion: payloadObj?.emotion,
+            speakerId: characterData?.id,
             timestamp: Date.now(),
           };
           const { tree: finalTree, nodeId: aiNodeId } = addChildNode(treeWithEdit, editedNodeId, newAiMsg);
           const finalContent = flattenPath(finalTree, aiNodeId);
           await dispatch(updateChatTree({ chatId: chatIdNum, content: finalContent, tree: finalTree, activeLeafId: aiNodeId }));
 
-          if (generatedImages && generatedImages.length > 0 && currentChat?.characterId) {
-            const charToUpdate = characters.find(c => c.id === currentChat.characterId);
-            if (charToUpdate) {
-              dispatch(updateCharacter({ ...charToUpdate, gallery: [...(charToUpdate.gallery || []), ...generatedImages] }));
-            }
+          if (generatedImages && generatedImages.length > 0 && characterData) {
+            dispatch(updateCharacter({ ...characterData, gallery: [...(characterData.gallery || []), ...generatedImages] }));
           }
 
           maybeExtractMemory(finalContent);
@@ -645,17 +653,15 @@ const ChatPage = () => {
           emotion: payloadObj?.emotion,
           imagePrompt: payloadObj?.imagePrompt,
           imageParams: payloadObj?.imageParams,
+          speakerId: characterData?.id,
           timestamp: Date.now(),
         };
         const { tree: newTree, nodeId: newNodeId } = addChildNode(tree, parentId, newMessage);
         const newContent = flattenPath(newTree, newNodeId);
         await dispatch(updateChatTree({ chatId: chatIdNum, content: newContent, tree: newTree, activeLeafId: newNodeId }));
 
-        if (generatedImages && generatedImages.length > 0 && currentChat?.characterId) {
-          const charToUpdate = characters.find(c => c.id === currentChat.characterId);
-          if (charToUpdate) {
-            dispatch(updateCharacter({ ...charToUpdate, gallery: [...(charToUpdate.gallery || []), ...generatedImages] }));
-          }
+        if (generatedImages && generatedImages.length > 0 && characterData) {
+          dispatch(updateCharacter({ ...characterData, gallery: [...(characterData.gallery || []), ...generatedImages] }));
         }
 
         maybeExtractMemory(newContent);
@@ -836,8 +842,7 @@ const ChatPage = () => {
           ...retainedMsgs
         ];
 
-        // Ensure characterId and timestamp propagates safely if needed on the slice update
-        // We do a full DB overwrite of the chat's content
+        // Full DB overwrite of the chat's content - characterIds/timestamp etc. are untouched.
         await dispatch(updateMessages({ chatId: chatIdNum, newMessages }));
         dispatch(fetchChats());
       }
@@ -1052,7 +1057,7 @@ const ChatPage = () => {
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden relative">
-        <ChatWindow characterName={character} character={characterData} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} />
+        <ChatWindow characterName={character} character={characterData} characters={roomCharacters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} />
       </div>
 
       {/* Message Input Floating */}
