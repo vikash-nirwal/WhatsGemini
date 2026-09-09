@@ -67,7 +67,7 @@ Files touched: `src/pages/ChatPage.tsx`, `src/components/ChatWindow.tsx`, `src/c
 
 ---
 
-## Phase 2: Token-Aware Context Budget
+## Phase 2: Token-Aware Context Budget ✅ Done
 *Transitioning from message-count limits to precise token-based memory management, ensuring the AI never "forgets" unpredictably due to varying message lengths.*
 
 **UI / Screen Flow:**
@@ -75,9 +75,11 @@ Files touched: `src/pages/ChatPage.tsx`, `src/components/ChatWindow.tsx`, `src/c
 - **Settings Menu:** Sliders for context limits are now represented in tokens (e.g., 4096 tokens) rather than message counts (e.g., 50 messages).
 
 **Implementation Steps:**
-- [ ] **Client-Side Token Estimator:** Implement a lightweight token-count heuristic (e.g., a simple character-to-token ratio or a lightweight JS tiktoken port) to estimate the size of the assembled system prompt + history in real-time.
-- [ ] **Pre-Send Budget Indicator:** Integrate the token estimator into `MessageInput.tsx`. Display a progress bar or text indicator showing current context utilization. Color-code it (green -> yellow -> red) as it approaches the model's maximum context window.
-- [ ] **Token-Aware Compression/Truncation:** Refactor `compressThreshold` and `maxChatLength` in `aiSlice.ts` and `chatHistoryUtils.ts`. Instead of truncating when `messages.length > N`, iterate backwards from the newest message, accumulating token counts. Truncate or compress older messages once the accumulated token count hits the defined limit.
+- [x] **Client-Side Token Estimator:** New `src/features/ai/utils/tokenEstimator.ts` — `estimateTokens` (chars/4 heuristic, the commonly-cited rule of thumb for English text; there's no tokenizer dependency in this project), `estimateMessageTokens` (adds a small fixed per-message overhead), and `estimateHistoryTokens`. No new dependency added.
+- [x] **Pre-Send Budget Indicator:** `MessageInput.tsx` now takes `contextTokens`/`maxContextTokens` props (computed in `ChatPage.tsx` from `buildSystemInstruction` + the active chat's messages, and a new `getModelContextWindow(providerId, model)` lookup in `constants.ts` alongside the existing `MODEL_PRICING` tables). Renders a "Context: 4.2k / 1.0M tokens" row + thin progress bar above the input, recomputing the draft's own token estimate live via `useMemo` on every keystroke and color-coding green→amber→red at 60%/85% utilization.
+- [x] **Token-Aware Compression/Truncation:** `truncateHistory` and `buildAutoCompressedMessages` (`chatHistoryUtils.ts`) now walk backwards from the newest message accumulating `estimateMessageTokens`, cutting off/summarizing once the accumulated count exceeds `maxChatLength`/`compressThreshold` (same settings fields, reinterpreted as tokens instead of message counts - both still default to `0` = disabled/unlimited, so existing users see no behavior change unless they'd set a nonzero value). The newest message always survives regardless of its own size, so neither path can empty the history. Settings UI hints in `TextModelSettings.tsx`/`ChatInterfaceSettings.tsx` updated to describe tokens.
+
+Files touched: `src/features/ai/utils/tokenEstimator.ts` (new), `src/features/ai/utils/chatHistoryUtils.ts`, `src/features/aiSlice.ts` (comments only), `src/utils/constants.ts` (`MODEL_CONTEXT_WINDOW`/`PROVIDER_MODEL_CONTEXT_WINDOW`/`getModelContextWindow`), `src/pages/ChatPage.tsx`, `src/components/MessageInput.tsx`, `src/components/settings/TextModelSettings.tsx`, `src/components/settings/ChatInterfaceSettings.tsx`. Verified in-browser: live budget bar updates per keystroke; set `compressThreshold` to a deliberately tiny value (80 tokens) and sent a message - the "Compressed history" summary card correctly fired once the token budget (not message count) was exceeded, then reset the setting back to `0`.
 
 ---
 

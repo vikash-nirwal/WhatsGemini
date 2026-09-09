@@ -98,6 +98,51 @@ export const getModelPricing = (providerId: string, model: string): { input: num
   if (providerId === "gemini") return MODEL_PRICING[model] || DEFAULT_MODEL_PRICING;
   return PROVIDER_MODEL_PRICING[`${providerId}:${model}`] || DEFAULT_MODEL_PRICING;
 };
+// Rough max-context-window sizes (in tokens) per model, used only to color-code
+// the pre-send context budget indicator - not authoritative, and intentionally
+// conservative for anything not explicitly listed below.
+export const MODEL_CONTEXT_WINDOW: Record<string, number> = {
+  "gemini-2.5-flash": 1_048_576,
+  "gemini-2.5-flash-lite": 1_048_576,
+  "gemini-2.5-pro": 1_048_576,
+  "gemini-3.5-flash-lite": 1_048_576,
+  "gemini-3.5-flash": 1_048_576,
+  "gemini-3.6-flash": 1_048_576,
+  "gemini-3.1-flash-lite": 1_048_576,
+  "gemini-3.1-pro-preview": 1_048_576,
+  "gemini-2.5-flash-image": 32_768,
+  "gemini-3.1-flash-lite-image": 32_768,
+  "gemini-3.1-flash-image": 32_768,
+  "gemini-3-pro-image": 32_768,
+};
+export const PROVIDER_MODEL_CONTEXT_WINDOW: Record<string, number> = {
+  "openai:gpt-4.1": 1_047_576,
+  "openai:gpt-4.1-mini": 1_047_576,
+  "openai:gpt-4o": 128_000,
+  "openai:gpt-4o-mini": 128_000,
+  "openai:o4-mini": 200_000,
+  "anthropic:claude-opus-4-1": 200_000,
+  "anthropic:claude-sonnet-4-5": 200_000,
+  "anthropic:claude-haiku-4-5": 200_000,
+  "deepseek:deepseek-chat": 64_000,
+  "deepseek:deepseek-reasoner": 64_000,
+  "qwen:qwen-plus": 131_072,
+  "qwen:qwen-turbo": 1_000_000,
+  "qwen:qwen-max": 32_768,
+  "kimi:moonshot-v1-8k": 8_192,
+  "kimi:moonshot-v1-32k": 32_768,
+  "kimi:moonshot-v1-128k": 131_072,
+};
+// Fallback for a custom/unrecognized model (hand-entered Ollama model, or an
+// imported settings file referencing a model not in the tables above).
+export const DEFAULT_MODEL_CONTEXT_WINDOW = 32_768;
+
+export const getModelContextWindow = (providerId: string, model: string): number => {
+  if (providerId === "gemini") return MODEL_CONTEXT_WINDOW[model] || DEFAULT_MODEL_CONTEXT_WINDOW;
+  if (providerId === "ollama") return DEFAULT_MODEL_CONTEXT_WINDOW;
+  return PROVIDER_MODEL_CONTEXT_WINDOW[`${providerId}:${model}`] || DEFAULT_MODEL_CONTEXT_WINDOW;
+};
+
 // How many new messages accumulate in a chat before long-term memory extraction
 // runs again (independent of the compression threshold, which defaults to off).
 export const MEMORY_EXTRACTION_INTERVAL = 12;

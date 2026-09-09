@@ -73,9 +73,9 @@ export const generateAIResponse = createAsyncThunk(
         costEstimate += (usage.inputTokens / 1_000_000) * pricing.input + (usage.outputTokens / 1_000_000) * pricing.output;
       };
 
-      // Prepare the context: dedupe, hard-cap length, and make sure it ends on an
-      // assistant turn. (Auto-compression already happened, if needed, before this
-      // thunk was dispatched - see autoCompressChat.)
+      // Prepare the context: dedupe, hard-cap by estimated token count, and make
+      // sure it ends on an assistant turn. (Auto-compression already happened, if
+      // needed, before this thunk was dispatched - see autoCompressChat.)
       let validHistory = buildValidHistory(history, prompt);
       validHistory = truncateHistory(validHistory, settings.maxChatLength);
       validHistory = trimTrailingUserMessages(validHistory);
@@ -166,11 +166,12 @@ const initialState: AIState = {
 
 
 
-// If the chat has grown past settings.compressThreshold, summarizes the aged-out
-// portion into one persisted, visible message and returns the resulting (shorter)
-// message list; otherwise returns `messages` unchanged. Called from ChatPage before
-// building turn context for a new send, so the compression - and its cost - happens
-// once, up front, rather than being silently redone on every subsequent turn.
+// If the chat's estimated token count has grown past settings.compressThreshold,
+// summarizes the aged-out portion into one persisted, visible message and returns
+// the resulting (shorter) message list; otherwise returns `messages` unchanged.
+// Called from ChatPage before building turn context for a new send, so the
+// compression - and its cost - happens once, up front, rather than being
+// silently redone on every subsequent turn.
 export const autoCompressChat = createAsyncThunk(
   "ai/autoCompressChat",
   async ({ chatId, messages }: { chatId: number; messages: Message[] }, { getState, dispatch }) => {

@@ -4,6 +4,7 @@ import { cn } from "../utils/cn";
 import { Button } from "./ui/button";
 import ImageSettingsModal from "./ImageSettingsModal";
 import { isSpeechRecognitionSupported, createSpeechRecognition } from "../utils/speech";
+import { estimateTokens } from "../features/ai/utils/tokenEstimator";
 
 interface MessageInputProps {
   onSend: (text: string, isImageRequest?: boolean) => void;
@@ -12,11 +13,22 @@ interface MessageInputProps {
   tokenCount?: number;
   costEstimate?: number;
   characterName?: string;
+  // Estimated tokens already committed to this chat's context (system prompt +
+  // history), and the selected model's max context window - together these
+  // drive the live pre-send budget bar below, updated as the draft grows.
+  contextTokens?: number;
+  maxContextTokens?: number;
 }
 
 const MAX_TEXTAREA_HEIGHT = 120;
 
-const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, onStop, tokenCount = 0, costEstimate = 0, characterName }) => {
+const formatTokenCount = (n: number): string => {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(Math.round(n));
+};
+
+const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, onStop, tokenCount = 0, costEstimate = 0, characterName, contextTokens = 0, maxContextTokens = 0 }) => {
   const [text, setText] = useState("");
   const [isImageRequest, setIsImageRequest] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -115,8 +127,36 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, o
 
   const canSend = Boolean(text.trim() && !disabled);
 
+  // Live pre-send estimate: context already committed to this chat, plus
+  // whatever's currently typed but not sent yet - recomputed on every
+  // keystroke, purely client-side (no API round-trip).
+  const draftTokens = useMemo(() => estimateTokens(text), [text]);
+  const estimatedTotalTokens = contextTokens + draftTokens;
+  const contextUtilization = maxContextTokens > 0 ? estimatedTotalTokens / maxContextTokens : 0;
+  const budgetColorClass =
+    contextUtilization >= 0.85 ? "text-destructive" : contextUtilization >= 0.6 ? "text-amber-500" : "text-ink-faint";
+  const budgetBarColorClass =
+    contextUtilization >= 0.85 ? "bg-destructive" : contextUtilization >= 0.6 ? "bg-amber-500" : "bg-primary/60";
+
   return (
     <div className="flex flex-col gap-2">
+      {maxContextTokens > 0 && (
+        <div className="flex flex-col gap-1 px-1">
+          <div className={cn("flex justify-between text-[11px] font-mono", budgetColorClass)}>
+            <span>Context</span>
+            <span className="tabular-nums">
+              {formatTokenCount(estimatedTotalTokens)} / {formatTokenCount(maxContextTokens)} tokens
+            </span>
+          </div>
+          <div className="h-1 rounded-full bg-accent/40 overflow-hidden">
+            <div
+              className={cn("h-full rounded-full transition-all", budgetBarColorClass)}
+              style={{ width: `${Math.min(contextUtilization * 100, 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {tokenCount > 0 && (
         <div className="flex justify-center text-xs text-ink-faint font-mono">
           <span>~ {tokenCount.toLocaleString()} tokens last turn ({costEstimate > 0.0001 ? `$${costEstimate.toFixed(4)}` : '< $0.0001'} est.)</span>

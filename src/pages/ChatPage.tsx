@@ -10,13 +10,14 @@ import Modal from "../components/Modal";
 import ToggleSwitch from "../components/ToggleSwitch";
 import { TextInput, FieldLabel } from "../components/ui/FormControls";
 import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaBookOpen, FaHistory } from "react-icons/fa";
-import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY } from "../utils/constants";
+import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Message, Chat } from "../types";
 import { stripLeakedBase64 } from "../features/ai/utils/apiUtils";
 import { buildChatHistory, buildSystemInstruction, buildTurnContext } from "../features/ai/utils/promptComposition";
 import { mergeMemory } from "../features/ai/utils/memoryExtraction";
 import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo } from "../features/chat/messageTree";
+import { estimateTokens, estimateHistoryTokens } from "../features/ai/utils/tokenEstimator";
 import { CharacterAvatar } from "../components/ui/CharacterAvatar";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { useModal } from "../contexts/ModalContext";
@@ -50,6 +51,8 @@ const ChatPage = () => {
   const aiTokenCount = useAppSelector((state) => state.ai.tokenCount);
   const aiCostEstimate = useAppSelector((state) => state.ai.costEstimate);
   const replyLengthLimit = useAppSelector((state) => state.settings.replyLengthLimit);
+  const chatProvider = useAppSelector((state) => state.settings.chatProvider);
+  const selectedModel = useAppSelector((state) => state.settings.selectedModel);
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [character, setCharacter] = useState("");
@@ -80,6 +83,19 @@ const ChatPage = () => {
   const characterData = useMemo(
     () => characters.find((c) => c.id === currentChat?.characterId),
     [characters, currentChat]
+  );
+
+  // Pre-send context budget: estimated tokens already committed (system
+  // prompt + history) plus the model's max context window, both purely
+  // client-side heuristics - fed to MessageInput, which adds the live draft's
+  // own estimate on top as the user types.
+  const contextTokenEstimate = useMemo(() => {
+    const { text: systemInstructionText } = buildSystemInstruction(characterData, undefined, replyLengthLimit);
+    return estimateTokens(systemInstructionText) + estimateHistoryTokens(messages.map((m) => m.txt));
+  }, [characterData, replyLengthLimit, messages]);
+  const maxContextTokens = useMemo(
+    () => getModelContextWindow(chatProvider, selectedModel),
+    [chatProvider, selectedModel]
   );
 
   useEffect(() => {
@@ -740,7 +756,7 @@ const ChatPage = () => {
 
       {/* Message Input Floating */}
       <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-full max-w-4xl px-4 z-20">
-        <MessageInput onSend={handleSend} disabled={aiLoading} onStop={handleStopGenerating} tokenCount={aiTokenCount} costEstimate={aiCostEstimate} characterName={characterData?.name || character} />
+        <MessageInput onSend={handleSend} disabled={aiLoading} onStop={handleStopGenerating} tokenCount={aiTokenCount} costEstimate={aiCostEstimate} characterName={characterData?.name || character} contextTokens={contextTokenEstimate} maxContextTokens={maxContextTokens} />
       </div>
     </div>
   );

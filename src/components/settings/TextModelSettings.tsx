@@ -147,12 +147,13 @@ const TextModelSettings: React.FC<TextModelSettingsProps> = ({
 
         <SettingsRow
           label="Auto-compress history"
-          hint="After this many messages, older ones are summarized into one pinned note. 0 = disabled."
+          hint="Tokens (est.). Once older messages add up to roughly this many, they're summarized into one pinned note. 0 = disabled."
           align="start"
         >
           <TextInput
             type="number"
             min="0"
+            step="500"
             value={compressThreshold}
             onChange={(e) => setCompressThreshold(Number(e.target.value))}
             placeholder="0 to disable"

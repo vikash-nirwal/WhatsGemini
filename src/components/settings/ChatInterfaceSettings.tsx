@@ -43,12 +43,13 @@ const ChatInterfaceSettings: React.FC<ChatInterfaceSettingsProps> = ({
           </div>
         </SettingsRow>
 
-        <SettingsRow label="Max chat length" hint="Messages kept in a conversation. 0 = unlimited.">
+        <SettingsRow label="Max chat length" hint="Tokens (est.) of history kept in a conversation. 0 = unlimited.">
           <TextInput
             type="number"
             value={maxChatLength}
             onChange={(e) => setMaxChatLength(Number(e.target.value))}
-            min="1"
+            min="0"
+            step="500"
             className="w-40"
           />
         </SettingsRow>
