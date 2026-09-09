@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchChats, deleteChat, addChat, importChat, updateChatPinned } from "../features/chatSlice";
+import { selectActivePersona } from "../features/settingsSlice";
 import { fetchCharacters } from "../features/characterSlice";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { FaTrash, FaFileImport, FaPlus, FaSearch, FaThumbtack, FaUser, FaPencilAlt, FaChevronRight } from "react-icons/fa";
@@ -81,7 +82,7 @@ const Sidebar = () => {
 
   const chats = useAppSelector((state) => state.chat.chats);
   const characters = useAppSelector((state) => state.character.characters);
-  const userProfile = useAppSelector((state) => state.settings.userProfile);
+  const activePersona = useAppSelector(selectActivePersona);
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [characterSearch, setCharacterSearch] = useState("");
@@ -273,10 +274,10 @@ const Sidebar = () => {
           </div>
           <div className="flex-1 min-w-0 leading-tight">
             <div className="text-[13px] font-semibold text-foreground truncate">
-              {userProfile?.name?.trim() || "Your persona"}
+              {activePersona?.name?.trim() || "Your persona"}
             </div>
             <div className="text-[11.5px] text-subtle truncate mt-0.5">
-              {userProfile?.bio?.trim() || "Set up your name and bio"}
+              {activePersona?.bio?.trim() || "Set up your name and bio"}
             </div>
           </div>
           <FaPencilAlt size={12} className="text-subtle group-hover:text-foreground flex-shrink-0 transition" />

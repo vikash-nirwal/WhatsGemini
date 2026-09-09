@@ -243,6 +243,52 @@ export const generateAssistText = createAsyncThunk(
   }
 );
 
+// Generates a character portrait image from a text prompt. Uses the configured
+// image provider (Gemini Imagen / OpenAI DALL-E / SD WebUI) with a simple
+// portrait-optimized prompt rather than the full deriveImagePrompt pipeline
+// (which expects chat history and a conversational context).
+export const generateAvatarImage = createAsyncThunk(
+  "ai/generateAvatarImage",
+  async (
+    { name, appearance, appearanceImages }: { name: string; appearance?: string; appearanceImages?: string[] },
+    { getState, rejectWithValue }
+  ) => {
+    try {
+      const state = getState() as RootState;
+      const settings = state.settings;
+
+      const imageProviderId = settings.imageProvider;
+      const useSdWebui = imageProviderId === "sdwebui";
+      const imageConfig = useSdWebui
+        ? { apiKey: null }
+        : await resolveProviderConfig(imageProviderId, IMAGE_PROVIDERS[imageProviderId]?.capabilities.requiresBaseUrl || false);
+      const imageModelName = settings.imageModel;
+
+      // Build a portrait-optimized prompt from the character's name + appearance.
+      const parts = [`Character portrait of ${name}`];
+      if (appearance) parts.push(appearance);
+      parts.push("Head and shoulders, 3:4 aspect ratio, stylized, high quality, detailed");
+      const prompt = parts.join(". ") + ".";
+
+      const result = await generateImage(
+        imageProviderId, imageConfig, useSdWebui, imageModelName,
+        prompt, {}, // no SD-specific params
+        appearanceImages, name,
+        settings.safetySettings
+      );
+
+      if (!result.images || result.images.length === 0) {
+        throw new Error("No image was generated. The image provider returned an empty result.");
+      }
+
+      return { images: result.images };
+    } catch (error: any) {
+      console.error("Avatar generation error:", error);
+      return rejectWithValue(error.message || "Failed to generate avatar.");
+    }
+  }
+);
+
 // Async Thunk for extracting long-term character memory from a slice of recent messages
 export const extractCharacterMemory = createAsyncThunk(
   "ai/extractCharacterMemory",

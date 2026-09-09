@@ -62,6 +62,7 @@ export interface Chat {
   pinned?: boolean;
   authorNote?: string; // freeform per-chat note injected into every reply
   worldTags?: string[]; // short user-authored lore/setting tags for this chat
+  personaId?: string; // overrides the global active persona for just this chat; unset = use the global one
   // Running totals of real provider-reported usage across this chat's whole
   // lifetime (every generateAIResponse call, plus compression/summarization
   // calls) - monotonically increasing, never recomputed from current content,
@@ -93,9 +94,15 @@ export interface Character {
   };
 }
 
+// One user persona - "Myself", "Elven Mage", etc. The active one (see
+// SettingsState.activePersonaId) is what characters see and address by
+// default; a chat can override it via Chat.personaId.
 export interface UserProfile {
+  id: string;
   name: string;
   bio: string;
+  appearance?: string; // physical description, given to image-capable models
+  backstory?: string; // background/history a character might reference
 }
 
 export interface AISafetySettings {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { addCharacter, updateCharacter } from "../features/characterSlice";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { FaTimes, FaUpload, FaPlay, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaMagic } from "react-icons/fa";
+import { FaTimes, FaUpload, FaPlay, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaMagic, FaCrop } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Character } from "../types";
 import { dbService } from "../services/dbService";
@@ -17,6 +17,9 @@ import Header from "../components/Header";
 import { CHARACTER_SWATCHES, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY } from "../utils/constants";
 import { isSpeechSynthesisSupported, getVoices, speak } from "../utils/speech";
 import { estimateTokens } from "../features/ai/utils/tokenEstimator";
+import TestChatPane from "../components/character/TestChatPane";
+import AvatarCropDialog from "../components/character/AvatarCropDialog";
+import AvatarGenerateButton from "../components/character/AvatarGenerateButton";
 
 const findSwatchIndex = (accent?: [string, string]) => {
   if (!accent) return 0;
@@ -24,7 +27,7 @@ const findSwatchIndex = (accent?: [string, string]) => {
   return idx === -1 ? 0 : idx;
 };
 
-const STEPS = ["Identity", "Personality", "Scenario & Greeting", "Example Dialogues", "Review & Save"];
+const STEPS = ["Identity", "Personality", "Scenario & Greeting", "Example Dialogues", "Test & Finalize"];
 
 const CharacterEditorPage = () => {
   const dispatch = useAppDispatch();
@@ -93,6 +96,10 @@ const CharacterEditorPage = () => {
   const [expanding, setExpanding] = useState(false);
   const [generatingGreeting, setGeneratingGreeting] = useState(false);
   const [assistError, setAssistError] = useState<string | null>(null);
+
+  // Avatar crop dialog state.
+  const [cropDialogOpen, setCropDialogOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState("");
 
   const handleExpandIdea = async () => {
     if (!prompt.trim()) {
@@ -221,7 +228,17 @@ const CharacterEditorPage = () => {
          newImageRefs.push(`local:${filename}`);
       }
 
+      // If the user had no portrait yet and is adding their first image, open
+      // the crop dialog so they can reframe it to the 3:4 portrait aspect.
+      const isFirstPortrait = appearanceImages.length === 0 && newImageRefs.length > 0;
       setAppearanceImages((prev) => [...prev, ...newImageRefs]);
+
+      if (isFirstPortrait) {
+        // Create a temporary object URL from the original file for the crop canvas.
+        const blobUrl = URL.createObjectURL(files[0]);
+        setCropImageSrc(blobUrl);
+        setCropDialogOpen(true);
+      }
     } catch (err: any) {
       console.error("Error saving image files to directory:", err);
       if (err.name === 'NotAllowedError') {
@@ -236,6 +253,20 @@ const CharacterEditorPage = () => {
 
   const removeAppearanceImage = (index: number) => {
     setAppearanceImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Called when AvatarGenerateButton returns a generated image data URL.
+  const handleAvatarGenerated = (dataUrl: string) => {
+    setCropImageSrc(dataUrl);
+    setCropDialogOpen(true);
+  };
+
+  // Called when the crop dialog produces a saved local: ref.
+  const handleCropComplete = (localRef: string) => {
+    // Replace the first image (portrait slot) or insert as the first.
+    setAppearanceImages((prev) =>
+      prev.length > 0 ? [localRef, ...prev.slice(1)] : [localRef]
+    );
   };
 
   const handleRemoveMemoryFact = (index: number) => {
@@ -349,6 +380,46 @@ const CharacterEditorPage = () => {
                   <DisplayImage srcContext={appearanceImages[0]} alt="Portrait" className="w-full h-full object-cover" />
                 ) : (
                   <CharacterAvatar name={name || "?"} accent={accent} size={96} />
+                )}
+              </div>
+              <div className="p-2.5 flex flex-col gap-2">
+                <AvatarGenerateButton
+                  name={name}
+                  appearance={appearance}
+                  appearanceImages={appearanceImages}
+                  onGenerated={handleAvatarGenerated}
+                />
+                {appearanceImages[0] && (
+                  <Button
+                    type="button"
+                    variant="panel"
+                    onClick={() => {
+                      // For local: refs we need to resolve to a blob URL for the crop canvas.
+                      // The simplest approach: if the first image is local:, load it via
+                      // DisplayImage's same path (dbService). For data: URLs, use directly.
+                      const src = appearanceImages[0];
+                      if (src.startsWith("data:") || src.startsWith("blob:")) {
+                        setCropImageSrc(src);
+                        setCropDialogOpen(true);
+                      } else if (src.startsWith("local:")) {
+                        const filename = src.substring(6);
+                        dbService.getSetting("image_save_directory").then(async (dirHandle: any) => {
+                          if (!dirHandle) return;
+                          try {
+                            const fh = await dirHandle.getFileHandle(filename);
+                            const file = await fh.getFile();
+                            const blobUrl = URL.createObjectURL(file);
+                            setCropImageSrc(blobUrl);
+                            setCropDialogOpen(true);
+                          } catch (e) { console.error("Failed to load image for cropping:", e); }
+                        });
+                      }
+                    }}
+                    className="h-auto w-full px-3 py-1.5 text-xs font-medium border border-border hover:border-primary hover:text-primary"
+                    title="Re-crop the portrait to 3:4 aspect ratio"
+                  >
+                    <FaCrop size={11} /> Re-crop Portrait
+                  </Button>
                 )}
               </div>
             </Card>
@@ -583,79 +654,97 @@ const CharacterEditorPage = () => {
             )}
 
             {step === 4 && (
-              <>
-                <Card className="p-5 flex flex-col gap-4">
-                  <h3 className="font-semibold text-[15px] text-foreground">Review</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <div className="text-xs text-subtle mb-1">Name</div>
-                      <div className="text-foreground">{name || <span className="text-subtle">-</span>}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-subtle mb-1">Tagline</div>
-                      <div className="text-foreground">{relationship || <span className="text-subtle">-</span>}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-subtle mb-1">Tags</div>
-                      <div className="text-foreground">{tags.length > 0 ? tags.join(", ") : <span className="text-subtle">-</span>}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-subtle mb-1">First message</div>
-                      <div className="text-foreground truncate">{firstMes || <span className="text-subtle">Uses default greeting</span>}</div>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-subtle mb-1">Personality</div>
-                    <p className="text-sm text-foreground whitespace-pre-wrap line-clamp-4">{prompt || <span className="text-subtle">-</span>}</p>
-                  </div>
-                  {scenario && (
-                    <div>
-                      <div className="text-xs text-subtle mb-1">Scenario</div>
-                      <p className="text-sm text-foreground whitespace-pre-wrap line-clamp-3">{scenario}</p>
-                    </div>
-                  )}
-                  {mesExample && (
-                    <div>
-                      <div className="text-xs text-subtle mb-1">Example dialogue</div>
-                      <p className="text-sm text-foreground whitespace-pre-wrap line-clamp-3">{mesExample}</p>
-                    </div>
-                  )}
-                </Card>
-
-                {editCharacter && (
-                  <Card className="p-5 flex flex-col gap-3">
-                    <div className="flex items-baseline justify-between gap-4">
-                      <h3 className="font-semibold text-[15px] text-foreground">
-                        Memory {editCharacter.memory && editCharacter.memory.length > 0 && (
-                          <span className="text-subtle font-normal text-xs">({editCharacter.memory.length} facts remembered)</span>
-                        )}
-                      </h3>
-                    </div>
-                    {editCharacter.memory && editCharacter.memory.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {editCharacter.memory.map((fact, idx) => (
-                          <span key={idx} className="inline-flex items-center gap-2 pl-3 pr-1 py-1 rounded-full bg-background border border-input text-xs">
-                            {fact}
-                            <Button
-                              onClick={() => handleRemoveMemoryFact(idx)}
-                              variant="ghost"
-                              size="icon"
-                              className="h-5 w-5 rounded-full text-subtle hover:bg-destructive/10 hover:text-destructive flex-shrink-0"
-                              title="Forget this fact"
-                              aria-label="Forget this fact"
-                            >
-                              <FaTimes size={10} />
-                            </Button>
-                          </span>
-                        ))}
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                {/* Left: Review summary + Memory */}
+                <div className="flex flex-col gap-4">
+                  <Card className="p-5 flex flex-col gap-4">
+                    <h3 className="font-semibold text-[15px] text-foreground">Review</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <div className="text-xs text-subtle mb-1">Name</div>
+                        <div className="text-foreground">{name || <span className="text-subtle">-</span>}</div>
                       </div>
-                    ) : (
-                      <p className="text-xs text-subtle">No facts remembered yet.</p>
+                      <div>
+                        <div className="text-xs text-subtle mb-1">Tagline</div>
+                        <div className="text-foreground">{relationship || <span className="text-subtle">-</span>}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-subtle mb-1">Tags</div>
+                        <div className="text-foreground">{tags.length > 0 ? tags.join(", ") : <span className="text-subtle">-</span>}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-subtle mb-1">First message</div>
+                        <div className="text-foreground truncate">{firstMes || <span className="text-subtle">Uses default greeting</span>}</div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-subtle mb-1">Personality</div>
+                      <p className="text-sm text-foreground whitespace-pre-wrap line-clamp-4">{prompt || <span className="text-subtle">-</span>}</p>
+                    </div>
+                    {scenario && (
+                      <div>
+                        <div className="text-xs text-subtle mb-1">Scenario</div>
+                        <p className="text-sm text-foreground whitespace-pre-wrap line-clamp-3">{scenario}</p>
+                      </div>
                     )}
-                    <p className="text-xs text-subtle">Automatically learned from your conversations, every {MEMORY_EXTRACTION_INTERVAL} messages or so.</p>
+                    {mesExample && (
+                      <div>
+                        <div className="text-xs text-subtle mb-1">Example dialogue</div>
+                        <p className="text-sm text-foreground whitespace-pre-wrap line-clamp-3">{mesExample}</p>
+                      </div>
+                    )}
                   </Card>
-                )}
-              </>
+
+                  {editCharacter && (
+                    <Card className="p-5 flex flex-col gap-3">
+                      <div className="flex items-baseline justify-between gap-4">
+                        <h3 className="font-semibold text-[15px] text-foreground">
+                          Memory {editCharacter.memory && editCharacter.memory.length > 0 && (
+                            <span className="text-subtle font-normal text-xs">({editCharacter.memory.length} facts remembered)</span>
+                          )}
+                        </h3>
+                      </div>
+                      {editCharacter.memory && editCharacter.memory.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {editCharacter.memory.map((fact, idx) => (
+                            <span key={idx} className="inline-flex items-center gap-2 pl-3 pr-1 py-1 rounded-full bg-background border border-input text-xs">
+                              {fact}
+                              <Button
+                                onClick={() => handleRemoveMemoryFact(idx)}
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 rounded-full text-subtle hover:bg-destructive/10 hover:text-destructive flex-shrink-0"
+                                title="Forget this fact"
+                                aria-label="Forget this fact"
+                              >
+                                <FaTimes size={10} />
+                              </Button>
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-subtle">No facts remembered yet.</p>
+                      )}
+                      <p className="text-xs text-subtle">Automatically learned from your conversations, every {MEMORY_EXTRACTION_INTERVAL} messages or so.</p>
+                    </Card>
+                  )}
+                </div>
+
+                {/* Right: Test Chat */}
+                <TestChatPane
+                  name={name}
+                  description={description}
+                  prompt={prompt}
+                  scenario={scenario}
+                  firstMes={firstMes}
+                  mesExample={mesExample}
+                  relationship={relationship}
+                  appearance={appearance}
+                  appearanceImages={appearanceImages}
+                  accent={accent}
+                  memory={editCharacter?.memory}
+                />
+              </div>
             )}
 
             <div className="sticky bottom-0 pt-6 pb-1 bg-gradient-to-t from-background via-background to-transparent flex gap-3 justify-end">
@@ -721,6 +810,14 @@ const CharacterEditorPage = () => {
         </div>
       </div>
       </div>
+
+      {/* Avatar crop dialog — rendered as a portal overlay */}
+      <AvatarCropDialog
+        open={cropDialogOpen}
+        onClose={() => setCropDialogOpen(false)}
+        imageSrc={cropImageSrc}
+        onCropped={handleCropComplete}
+      />
     </div>
   );
 };

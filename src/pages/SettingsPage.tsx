@@ -4,7 +4,8 @@ import { useSelector } from "react-redux";
 import { RootState } from "../store/store";
 import { useAppDispatch } from "../store/hooks";
 import {
-  setUserProfile, setSelectedModel, setImageModel, setImageGenPrompt,
+  addPersona, updatePersona, deletePersona, setActivePersonaId, setPersonas,
+  setSelectedModel, setImageModel, setImageGenPrompt,
   setSdWebuiApiUrl, setSdWebuiBatchSize, setSdWebuiRefMode,
   setSdWebuiDenoising, setSdWebuiControlnetModel, setSdWebuiModels,
   setSdWebuiModel, setMaxOutputTokens, setReplyLengthLimit, setCompressThreshold, setMaxChatLength,
@@ -37,6 +38,8 @@ import {
   LS_TEMPRATURE,
   LS_FONT_SIZE,
   LS_USER_PROFILE,
+  LS_USER_PERSONAS,
+  LS_ACTIVE_PERSONA_ID,
   LS_IMAGE_RESOLUTION,
   // IMAGE_RESOLUTIONS,
   // DEFAULT_IMAGE_RESOLUTION,
@@ -66,7 +69,7 @@ import {
   PROVIDER_CHAT_MODELS,
   PROVIDER_IMAGE_MODELS,
 } from "../utils/constants";
-import { AISafetySettings } from "../types";
+import { AISafetySettings, UserProfile } from "../types";
 import { dbService } from "../services/dbService";
 import ChatInterfaceSettings from "../components/settings/ChatInterfaceSettings";
 import SafetySettings from "../components/settings/SafetySettings";
@@ -174,7 +177,7 @@ const SettingsPage = () => {
   const settings = useSelector((state: RootState) => state.settings);
 
   const {
-    userProfile, chatProvider, imageProvider, ollamaBaseUrl, selectedModel, imageModel,
+    personas, activePersonaId, chatProvider, imageProvider, ollamaBaseUrl, selectedModel, imageModel,
     imageGenPrompt, sdWebuiApiUrl,
     sdWebuiBatchSize, sdWebuiRefMode, sdWebuiDenoising, sdWebuiControlnetModel, sdWebuiModels,
     sdWebuiModel, maxOutputTokens, replyLengthLimit, compressThreshold, maxChatLength, temperature,
@@ -343,9 +346,10 @@ const SettingsPage = () => {
     [LS_MAX_CHAT_LENGTH]: maxChatLength,
     [LS_FONT_SIZE]: fontSize,
     [LS_IMAGE_RESOLUTION]: imageResolution,
-    [LS_USER_PROFILE]: userProfile,
+    [LS_USER_PERSONAS]: personas,
+    [LS_ACTIVE_PERSONA_ID]: activePersonaId,
     [LS_INITIAL_MESSAGES]: JSON.parse(localStorage.getItem(LS_INITIAL_MESSAGES) || "[]"),
-  }), [selectedModel, maxOutputTokens, replyLengthLimit, compressThreshold, temperature, safetySettings, maxChatLength, fontSize, imageResolution, userProfile]);
+  }), [selectedModel, maxOutputTokens, replyLengthLimit, compressThreshold, temperature, safetySettings, maxChatLength, fontSize, imageResolution, personas, activePersonaId]);
 
   const downloadJson = (data: unknown, filename: string) => {
     const jsonString = JSON.stringify(data, null, 2);
@@ -411,8 +415,15 @@ const SettingsPage = () => {
     if (settings[LS_IMAGE_RESOLUTION]) {
         dispatch(setImageResolution(settings[LS_IMAGE_RESOLUTION]));
     }
-    if (settings[LS_USER_PROFILE]) {
-        dispatch(setUserProfile(settings[LS_USER_PROFILE]));
+    if (settings[LS_USER_PERSONAS]) {
+        dispatch(setPersonas(settings[LS_USER_PERSONAS]));
+        if (settings[LS_ACTIVE_PERSONA_ID]) dispatch(setActivePersonaId(settings[LS_ACTIVE_PERSONA_ID]));
+    } else if (settings[LS_USER_PROFILE]) {
+        // Backward-compat: importing an older export that still has the single-persona shape.
+        const legacy = settings[LS_USER_PROFILE];
+        if (legacy?.name || legacy?.bio) {
+            dispatch(setPersonas([{ name: legacy.name || '', bio: legacy.bio || '' } as UserProfile]));
+        }
     }
     if (settings[LS_INITIAL_MESSAGES]) {
         localStorage.setItem(LS_INITIAL_MESSAGES, JSON.stringify(settings[LS_INITIAL_MESSAGES]));
@@ -571,8 +582,12 @@ const SettingsPage = () => {
             <>
                 {selectedSection === "profile" && (
                   <UserProfileSettings
-                    userProfile={userProfile}
-                    setUserProfile={(val) => dispatch(setUserProfile(val))}
+                    personas={personas}
+                    activePersonaId={activePersonaId}
+                    onAddPersona={() => dispatch(addPersona({ name: '', bio: '' }))}
+                    onUpdatePersona={(val) => dispatch(updatePersona(val))}
+                    onDeletePersona={(id) => dispatch(deletePersona(id))}
+                    onSetActivePersonaId={(id) => dispatch(setActivePersonaId(id))}
                   />
                 )}
 

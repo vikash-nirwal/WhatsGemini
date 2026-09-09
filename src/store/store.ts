@@ -11,7 +11,8 @@ import {
   LS_SAFETY_SETTINGS,
   LS_TEMPRATURE,
   LS_FONT_SIZE,
-  LS_USER_PROFILE,
+  LS_USER_PERSONAS,
+  LS_ACTIVE_PERSONA_ID,
   LS_IMAGE_RESOLUTION,
   LS_IMAGE_MODEL,
   LS_IMAGE_GEN_PROMPT,
@@ -47,7 +48,8 @@ export type AppDispatch = typeof store.dispatch;
 // Subscribe to store changes to sync settings to localStorage
 store.subscribe(() => {
   const state = store.getState().settings;
-  localStorage.setItem(LS_USER_PROFILE, JSON.stringify(state.userProfile));
+  localStorage.setItem(LS_USER_PERSONAS, JSON.stringify(state.personas));
+  localStorage.setItem(LS_ACTIVE_PERSONA_ID, state.activePersonaId);
   localStorage.setItem(LS_CHAT_PROVIDER, state.chatProvider);
   localStorage.setItem(LS_IMAGE_PROVIDER, state.imageProvider);
   localStorage.setItem(LS_OLLAMA_BASE_URL, state.ollamaBaseUrl);

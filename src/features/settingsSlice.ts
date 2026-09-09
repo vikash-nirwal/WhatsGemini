@@ -13,6 +13,8 @@ import {
   LS_TEMPRATURE,
   LS_FONT_SIZE,
   LS_USER_PROFILE,
+  LS_USER_PERSONAS,
+  LS_ACTIVE_PERSONA_ID,
   LS_IMAGE_RESOLUTION,
   DEFAULT_IMAGE_RESOLUTION,
   LS_IMAGE_MODEL,
@@ -44,6 +46,7 @@ import {
   models,
 } from '../utils/constants';
 import { AISafetySettings, UserProfile } from '../types';
+import { RootState } from '../store/store';
 
 const getStoredValue = <T>(key: string, defaultValue: T): T => {
   try {
@@ -54,8 +57,24 @@ const getStoredValue = <T>(key: string, defaultValue: T): T => {
   }
 };
 
+const generatePersonaId = () => `persona_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+// Migrates the old single { name, bio } LS_USER_PROFILE object (if present
+// and no personas array has been saved yet) into a one-item personas array,
+// so upgrading users don't lose the persona they already set up.
+const loadInitialPersonas = (): UserProfile[] => {
+  const stored = getStoredValue<UserProfile[] | null>(LS_USER_PERSONAS, null);
+  if (stored && stored.length > 0) return stored;
+  const legacy = getStoredValue<{ name: string; bio: string } | null>(LS_USER_PROFILE, null);
+  if (legacy && (legacy.name || legacy.bio)) {
+    return [{ id: generatePersonaId(), name: legacy.name || '', bio: legacy.bio || '' }];
+  }
+  return [];
+};
+
 export interface SettingsState {
-  userProfile: UserProfile;
+  personas: UserProfile[];
+  activePersonaId: string;
   chatProvider: string;
   imageProvider: string;
   ollamaBaseUrl: string;
@@ -80,8 +99,11 @@ export interface SettingsState {
   imageResolution: string;
 }
 
+const initialPersonas = loadInitialPersonas();
+
 const initialState: SettingsState = {
-  userProfile: getStoredValue<UserProfile>(LS_USER_PROFILE, { name: '', bio: '' }),
+  personas: initialPersonas,
+  activePersonaId: localStorage.getItem(LS_ACTIVE_PERSONA_ID) || initialPersonas[0]?.id || '',
   chatProvider: localStorage.getItem(LS_CHAT_PROVIDER) || DEFAULT_CHAT_PROVIDER,
   // Migrates the old useSdWebui boolean into the new imageProvider choice for
   // existing users who never saw an explicit provider picker before.
@@ -114,8 +136,33 @@ const settingsSlice = createSlice({
   name: 'settings',
   initialState,
   reducers: {
-    setUserProfile: (state, action: PayloadAction<UserProfile>) => {
-      state.userProfile = action.payload;
+    addPersona: (state, action: PayloadAction<Omit<UserProfile, 'id'>>) => {
+      const persona: UserProfile = { ...action.payload, id: generatePersonaId() };
+      state.personas.push(persona);
+      if (!state.activePersonaId) state.activePersonaId = persona.id;
+    },
+    updatePersona: (state, action: PayloadAction<UserProfile>) => {
+      const i = state.personas.findIndex((p) => p.id === action.payload.id);
+      if (i !== -1) state.personas[i] = action.payload;
+    },
+    deletePersona: (state, action: PayloadAction<string>) => {
+      state.personas = state.personas.filter((p) => p.id !== action.payload);
+      if (state.activePersonaId === action.payload) {
+        state.activePersonaId = state.personas[0]?.id || '';
+      }
+    },
+    setActivePersonaId: (state, action: PayloadAction<string>) => {
+      state.activePersonaId = action.payload;
+    },
+    // Bulk-replaces the whole personas array - used by settings import/restore.
+    // Entries missing an id (e.g. from a legacy single-profile import) get one
+    // generated; if the current active id no longer exists, falls back to the
+    // first persona.
+    setPersonas: (state, action: PayloadAction<UserProfile[]>) => {
+      state.personas = action.payload.map((p) => (p.id ? p : { ...p, id: generatePersonaId() }));
+      if (!state.personas.find((p) => p.id === state.activePersonaId)) {
+        state.activePersonaId = state.personas[0]?.id || '';
+      }
     },
     setChatProvider: (state, action: PayloadAction<string>) => {
       state.chatProvider = action.payload;
@@ -190,7 +237,11 @@ const settingsSlice = createSlice({
 });
 
 export const {
-  setUserProfile,
+  addPersona,
+  updatePersona,
+  deletePersona,
+  setActivePersonaId,
+  setPersonas,
   setChatProvider,
   setImageProvider,
   setOllamaBaseUrl,
@@ -214,5 +265,10 @@ export const {
   setFontSize,
   setImageResolution,
 } = settingsSlice.actions;
+
+// The persona characters actually see: the active one, falling back to the
+// first persona if activePersonaId somehow points at nothing (stale id).
+export const selectActivePersona = (state: RootState): UserProfile | undefined =>
+  state.settings.personas.find((p) => p.id === state.settings.activePersonaId) || state.settings.personas[0];
 
 export default settingsSlice.reducer;

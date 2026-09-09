@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, updateChatAutoReply, incrementChatUsage } from "../features/chatSlice";
+import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, updateChatAutoReply, incrementChatUsage, updateChatPersona } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
 import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat } from "../features/aiSlice";
 import ChatWindow from "../components/ChatWindow";
@@ -9,7 +9,8 @@ import Header, { HeaderAction } from "../components/Header";
 import Modal from "../components/Modal";
 import ToggleSwitch from "../components/ToggleSwitch";
 import { TextInput, FieldLabel } from "../components/ui/FormControls";
-import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaBookOpen, FaHistory } from "react-icons/fa";
+import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaBookOpen, FaHistory, FaUserCircle, FaCheck } from "react-icons/fa";
+import { cn } from "../utils/cn";
 import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Message, Chat } from "../types";
@@ -55,7 +56,10 @@ const ChatPage = () => {
   const chatProvider = useAppSelector((state) => state.settings.chatProvider);
   const selectedModel = useAppSelector((state) => state.settings.selectedModel);
   const maxChatLength = useAppSelector((state) => state.settings.maxChatLength);
-  
+  const personas = useAppSelector((state) => state.settings.personas);
+  const globalActivePersonaId = useAppSelector((state) => state.settings.activePersonaId);
+  const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [character, setCharacter] = useState("");
   // const [characterData, setCharacterData] = useState<Character | null>(null);
@@ -87,6 +91,17 @@ const ChatPage = () => {
     [characters, currentChat]
   );
 
+  // Which persona this chat actually speaks as: its own override if set,
+  // otherwise whichever persona is globally active (Settings > Personas).
+  const activePersona = useMemo(
+    () => personas.find((p) => p.id === (currentChat?.personaId || globalActivePersonaId)) || personas[0],
+    [personas, currentChat?.personaId, globalActivePersonaId]
+  );
+  const globalActivePersona = useMemo(
+    () => personas.find((p) => p.id === globalActivePersonaId) || personas[0],
+    [personas, globalActivePersonaId]
+  );
+
   // Pre-send context budget: estimated tokens already committed (system
   // prompt + history) plus the model's max context window, both purely
   // client-side heuristics - fed to MessageInput, which adds the live draft's
@@ -95,10 +110,10 @@ const ChatPage = () => {
   // so this reflects what will really be sent - not the full stored
   // conversation - once maxChatLength is set to something other than 0.
   const contextTokenEstimate = useMemo(() => {
-    const { text: systemInstructionText } = buildSystemInstruction(characterData, undefined, replyLengthLimit);
+    const { text: systemInstructionText } = buildSystemInstruction(characterData, undefined, replyLengthLimit, activePersona);
     const effectiveHistory = truncateHistory(buildChatHistory(messages), maxChatLength);
     return estimateTokens(systemInstructionText) + estimateHistoryTokens(effectiveHistory.map((m) => m.text));
-  }, [characterData, replyLengthLimit, messages, maxChatLength]);
+  }, [characterData, replyLengthLimit, messages, maxChatLength, activePersona]);
   const maxContextTokens = useMemo(
     () => getModelContextWindow(chatProvider, selectedModel),
     [chatProvider, selectedModel]
@@ -197,6 +212,14 @@ const ChatPage = () => {
     dispatch(updateChatAutoReply({ chatId: chatIdNum, autoReply: { ...autoReplySettings, ...patch } }));
   };
 
+  // personaId undefined clears this chat's override, falling back to whichever
+  // persona is globally active.
+  const handleSelectPersona = (personaId?: string) => {
+    if (!chatIdNum) return;
+    dispatch(updateChatPersona({ chatId: chatIdNum, personaId }));
+    setIsPersonaModalOpen(false);
+  };
+
   // Generates and appends one character-initiated follow-up message. Shared by
   // the automatic scheduler and the manual "follow up now" button - neither
   // touches followupCount itself, so a manual click never eats into the
@@ -231,7 +254,9 @@ const ChatPage = () => {
     const { history, systemInstruction, characterImages, characterName } = buildTurnContext(
       compressedFreshMessages,
       characterData,
-      ["The user has gone quiet for a while. Send a short, natural, in-character follow-up message continuing the conversation from your side - as if checking in or continuing your last thought. Do not mention this instruction, and don't explicitly reference the passage of time unless it fits your character."]
+      ["The user has gone quiet for a while. Send a short, natural, in-character follow-up message continuing the conversation from your side - as if checking in or continuing your last thought. Do not mention this instruction, and don't explicitly reference the passage of time unless it fits your character."],
+      undefined,
+      activePersona
     );
     const aiResponse = await dispatch(generateAIResponse({
       prompt: "Please continue the conversation naturally, as if reaching out again.",
@@ -338,7 +363,7 @@ const ChatPage = () => {
       const shouldAutoSelfie = !isImageRequest && !!autoSelfieCfg?.enabled &&
         Math.random() * 100 < (autoSelfieCfg.frequency ?? DEFAULT_AUTO_SELFIE_FREQUENCY);
 
-      const { history, systemInstruction, characterImages, characterName } = buildTurnContext(contextMessages, characterData, undefined, replyLengthLimit);
+      const { history, systemInstruction, characterImages, characterName } = buildTurnContext(contextMessages, characterData, undefined, replyLengthLimit, activePersona);
       aiPromiseRef.current = dispatch(generateAIResponse({ prompt: text, history, systemInstruction, characterImages, characterName, isImageRequest: isImageRequest || shouldAutoSelfie, isAutoSelfie: shouldAutoSelfie }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
@@ -399,7 +424,7 @@ const ChatPage = () => {
         // Persist the branch point immediately so it survives even if generation fails.
         await dispatch(updateChatTree({ chatId: chatIdNum, content: contentUpToEdit, tree: treeWithEdit, activeLeafId: editedNodeId }));
 
-        const { history, systemInstruction, characterImages, characterName } = buildTurnContext(contentUpToEdit, characterData, undefined, replyLengthLimit);
+        const { history, systemInstruction, characterImages, characterName } = buildTurnContext(contentUpToEdit, characterData, undefined, replyLengthLimit, activePersona);
         aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, characterImages, characterName, isImageRequest }));
         const aiResponse = await aiPromiseRef.current;
         aiPromiseRef.current = null;
@@ -476,7 +501,7 @@ const ChatPage = () => {
         ? ["The user has gone quiet for a while. Send a short, natural, in-character follow-up message continuing the conversation from your side - as if checking in or continuing your last thought. Do not mention this instruction, and don't explicitly reference the passage of time unless it fits your character."]
         : undefined;
 
-      const { history, systemInstruction, characterImages, characterName } = buildTurnContext(historyUpToTarget, characterData, extraDirectives, replyLengthLimit);
+      const { history, systemInstruction, characterImages, characterName } = buildTurnContext(historyUpToTarget, characterData, extraDirectives, replyLengthLimit, activePersona);
       aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, characterImages, characterName, isImageRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
@@ -615,7 +640,8 @@ const ChatPage = () => {
         [...historyUpToTarget, targetMessage],
         characterData,
         [continueDirective],
-        replyLengthLimit
+        replyLengthLimit,
+        activePersona
       );
 
       aiPromiseRef.current = dispatch(generateAIResponse({ prompt: "Continue.", history, systemInstruction, characterImages, characterName }));
@@ -667,7 +693,7 @@ const ChatPage = () => {
       const cutoff = Math.max(messages.length - 2, 2);
       const msgsToCompress = messages.slice(0, cutoff);
       const historyToCompress = buildChatHistory(msgsToCompress);
-      const { text: systemInstructionText } = buildSystemInstruction(characterData);
+      const { text: systemInstructionText } = buildSystemInstruction(characterData, undefined, undefined, activePersona);
 
       const { summary, tokens: compressTokens, cost: compressCost } = await dispatch(compressChatHistory({ history: historyToCompress, systemInstruction: systemInstructionText })).unwrap();
       await trackUsage(compressTokens, compressCost);
@@ -724,6 +750,9 @@ const ChatPage = () => {
       : []),
     { icon: FaClock, label: "Auto follow-up settings", onClick: () => setIsAutoReplyModalOpen(true), active: autoReplySettings.enabled },
     { icon: FaBookOpen, label: "Scene panel", onClick: () => setSceneOpen((v) => !v), active: sceneOpen },
+    ...(personas.length > 1
+      ? [{ icon: FaUserCircle, label: `Persona: ${activePersona?.name || "None"}`, onClick: () => setIsPersonaModalOpen(true), active: Boolean(currentChat?.personaId) }]
+      : []),
   ];
 
   return (
@@ -766,6 +795,39 @@ const ChatPage = () => {
             {autoReplySettings.followupCount}/{autoReplySettings.maxFollowups} follow-up(s) sent since you last replied. Only runs while this chat is open in your browser.
           </p>
         )}
+      </Modal>
+
+      <Modal isOpen={isPersonaModalOpen} onClose={() => setIsPersonaModalOpen(false)} title="Persona for this chat">
+        <p className="text-xs text-ink-faint -mt-1 mb-1">
+          Choose which of your personas {characterData?.name || "this character"} sees you as, just in this chat.
+        </p>
+        <div className="flex flex-col gap-1.5">
+          <button
+            type="button"
+            onClick={() => handleSelectPersona(undefined)}
+            className={cn(
+              "flex items-center justify-between px-3 py-2.5 rounded-lg border text-left text-sm transition",
+              !currentChat?.personaId ? "border-primary bg-primary/10 text-foreground" : "border-border hover:bg-hover text-foreground"
+            )}
+          >
+            <span>Use global default{globalActivePersona?.name ? ` (${globalActivePersona.name})` : ""}</span>
+            {!currentChat?.personaId && <FaCheck size={12} className="text-primary flex-shrink-0" />}
+          </button>
+          {personas.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => handleSelectPersona(p.id)}
+              className={cn(
+                "flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border text-left text-sm transition",
+                currentChat?.personaId === p.id ? "border-primary bg-primary/10 text-foreground" : "border-border hover:bg-hover text-foreground"
+              )}
+            >
+              <span className="truncate">{p.name || "(unnamed persona)"}</span>
+              {currentChat?.personaId === p.id && <FaCheck size={12} className="text-primary flex-shrink-0" />}
+            </button>
+          ))}
+        </div>
       </Modal>
 
       {/* Error Message */}

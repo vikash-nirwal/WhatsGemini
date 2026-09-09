@@ -216,6 +216,23 @@ export const updateChatWorldTags = createAsyncThunk(
   }
 );
 
+// Overrides which user persona this chat uses, independent of the global
+// active persona (Settings > Personas). `personaId: undefined` clears the
+// override so the chat falls back to whichever persona is globally active.
+export const updateChatPersona = createAsyncThunk(
+  "chat/updateChatPersona",
+  async ({ chatId, personaId }: { chatId: number; personaId?: string }, { rejectWithValue }) => {
+    try {
+      const chat = await dbService.getChatById(chatId);
+      chat.personaId = personaId;
+      await dbService.updateChat(chat);
+      return { chatId, personaId };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
 // Adds to (never replaces) a chat's running usage totals - called after every
 // real provider call (a normal reply, or a compression/summarization call),
 // so the total reflects everything ever spent on this chat even after older
@@ -367,6 +384,15 @@ const chatSlice = createSlice({
         }
       })
       .addCase(updateChatWorldTags.rejected, (state, action) => {
+        state.error = action.payload as string;
+      })
+      .addCase(updateChatPersona.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c.id === action.payload.chatId);
+        if (chat) {
+          chat.personaId = action.payload.personaId;
+        }
+      })
+      .addCase(updateChatPersona.rejected, (state, action) => {
         state.error = action.payload as string;
       })
       .addCase(incrementChatUsage.fulfilled, (state, action) => {

@@ -1,5 +1,5 @@
 import { Character, Message, UserProfile } from "../../../types";
-import { YOU, LS_USER_PROFILE } from "../../../utils/constants";
+import { YOU } from "../../../utils/constants";
 import { stripLeakedBase64 } from "./apiUtils";
 import { ChatMessage } from "../types";
 
@@ -29,7 +29,8 @@ export interface SystemInstructionResult {
 export const buildSystemInstruction = (
   character: Character | undefined,
   extraDirectives?: string[],
-  replyLengthLimit?: number
+  replyLengthLimit?: number,
+  activePersona?: UserProfile
 ): SystemInstructionResult => {
   if (!character) return { text: undefined, images: undefined, characterName: undefined };
 
@@ -41,18 +42,15 @@ export const buildSystemInstruction = (
     sections.push(`Current scenario / setting: ${character.scenario}`);
   }
 
-  try {
-    const userProfileRaw = localStorage.getItem(LS_USER_PROFILE);
-    if (userProfileRaw) {
-      const userProfile: UserProfile = JSON.parse(userProfileRaw);
-      const userNameStr = userProfile.name ? `User's Name: ${userProfile.name}.` : "";
-      const userBioStr = userProfile.bio ? `User's Bio/Details: ${userProfile.bio}.` : "";
-      if (userNameStr || userBioStr) {
-        sections.push(`About the User you are talking to:\n${userNameStr} ${userBioStr}`);
-      }
+  if (activePersona) {
+    const parts: string[] = [];
+    if (activePersona.name) parts.push(`User's Name: ${activePersona.name}.`);
+    if (activePersona.bio) parts.push(`User's Bio/Details: ${activePersona.bio}.`);
+    if (activePersona.appearance) parts.push(`User's Appearance: ${activePersona.appearance}.`);
+    if (activePersona.backstory) parts.push(`User's Backstory: ${activePersona.backstory}.`);
+    if (parts.length > 0) {
+      sections.push(`About the User you are talking to:\n${parts.join(" ")}`);
     }
-  } catch (e) {
-    console.error("Error parsing user profile for context:", e);
   }
 
   if (character.relationship) {
@@ -101,9 +99,10 @@ export const buildTurnContext = (
   messages: Message[],
   character: Character | undefined,
   extraDirectives?: string[],
-  replyLengthLimit?: number
+  replyLengthLimit?: number,
+  activePersona?: UserProfile
 ): TurnContext => {
   const history = buildChatHistory(messages);
-  const { text, images, characterName } = buildSystemInstruction(character, extraDirectives, replyLengthLimit);
+  const { text, images, characterName } = buildSystemInstruction(character, extraDirectives, replyLengthLimit, activePersona);
   return { history, systemInstruction: text, characterImages: images, characterName };
 };

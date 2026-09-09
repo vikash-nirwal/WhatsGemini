@@ -189,7 +189,9 @@ export const IMAGE_RESOLUTIONS = [
   "1024x1024"
 ];
 export const DEFAULT_IMAGE_RESOLUTION = "512x512";
-export const LS_USER_PROFILE = "whatsgemini_user_profile";
+export const LS_USER_PROFILE = "whatsgemini_user_profile"; // legacy single-persona shape, read only for migration
+export const LS_USER_PERSONAS = "whatsgemini_user_personas";
+export const LS_ACTIVE_PERSONA_ID = "whatsgemini_active_persona_id";
 export const LS_USE_SD_WEBUI = "use_sd_webui";
 export const LS_SD_WEBUI_API_URL = "sd_webui_api_url";
 export const DEFAULT_SD_WEBUI_API_URL = "http://127.0.0.1:7860";
