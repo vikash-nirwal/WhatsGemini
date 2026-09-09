@@ -25,7 +25,7 @@ Worth knowing before reading the phases below, so they aren't accidentally re-bu
   OpenAI/local SD WebUI for images) behind one shared `ChatProviderAdapter` interface,
   with a `ProviderCapabilities` flag system (`requiresApiKey`, `requiresBaseUrl`,
   `supportsImageGen`, Gemini-only safety settings) already used to gate Settings UI per
-  provider. Any new per-provider capability (Phase 7) should follow this same pattern.
+  provider. Any new per-provider capability (Phase 8) should follow this same pattern.
 - **Context-length management, by message count.** `compressThreshold` auto-summarizes
   aged-out history into one pinned message (`autoCompressChat`,
   `src/features/aiSlice.ts`), `maxChatLength` hard-truncates the oldest messages
@@ -44,7 +44,7 @@ Worth knowing before reading the phases below, so they aren't accidentally re-bu
   rather than passed in as data. Phase 5 builds on this.
 - **Custom character JSON import/export already exists** (`CharacterPage.tsx`) but is
   WhatsGemini's own ad-hoc shape — it shares no fields with the TavernAI/SillyTavern
-  "Character Card V2" spec that most community characters are distributed in. Phase 8
+  "Character Card V2" spec that most community characters are distributed in. Phase 9
   is about closing that gap, not adding import/export from scratch.
 
 ---
@@ -83,18 +83,19 @@ Files touched: `src/features/ai/utils/tokenEstimator.ts` (new), `src/features/ai
 
 ---
 
-## Phase 3: Character Depth — Structured Fields
+## Phase 3: Character Depth — Structured Fields ✅ Done
 *Splitting the character's single freeform "prompt" into the distinct fields a real persona needs for consistent behavior.*
 
 **UI / Screen Flow:**
 - **Basic Character Editor:** Form fields are split into distinct sections: Personality, Scenario, First Message, and Example Dialogues.
 
 **Implementation Steps:**
-- [ ] **Fix the "Example Dialogue" mislabel:** Update `promptComposition.ts` so `character.prompt` is correctly labeled as instructions instead of `"Example dialogue: ..."`.
-- [ ] **Personality / Instructions field:** Define a `personality` string field on the `Character` type. Update the builder to inject this as behavioral instructions.
-- [ ] **Example Dialogues field:** Add a `mes_example` string field. Update prompt composition to format these clearly as few-shot user/bot exchanges so the LLM adopts the tone and format (e.g., using asterisks for actions).
-- [ ] **First Message / Greeting:** Add a `first_mes` field. When a new chat initializes with this character, use this string instead of the generic `LS_INITIAL_MESSAGES`.
-- [ ] **Scenario field:** Add a `scenario` string field. Inject this into the system prompt to define the current environmental context or plot setup.
+- [x] **Fix the "Example Dialogue" mislabel:** `promptComposition.ts`'s `buildSystemInstruction` now labels `character.prompt` as `"Personality & instructions: ..."` instead of the old, incorrect `"Example dialogue: ..."`. `character.prompt` itself is kept as the one personality/instructions field (already exactly what its UI card and placeholder described) rather than adding a second, redundant `personality` field with no distinct purpose.
+- [x] **Example Dialogues field:** Added a new `mes_example` string field on `Character`. When present, `buildSystemInstruction` injects it as a clearly-labeled style-reference block ("Example dialogue showing {name}'s speech style... use only as a style reference, never repeat these lines verbatim").
+- [x] **First Message / Greeting:** Added a new `first_mes` string field on `Character`. `chatSlice.addMessage` now seeds a brand-new chat (`chat.content.length === 0`) with this as a normal, visible AI message when the character has one set, falling back to the existing generic `LS_INITIAL_MESSAGES` seed otherwise. Unlike the generic seed pair, it is *not* flagged `isSystem` — it's a real greeting the user should see, not a hidden priming message.
+- [x] **Scenario field:** Added a new `scenario` string field on `Character`. Injected into the system prompt via `buildSystemInstruction` as `"Current scenario / setting: ..."`, right after the personality line.
+
+Files touched: `src/types/index.ts` (`scenario`/`first_mes`/`mes_example` on `Character`), `src/features/ai/utils/promptComposition.ts`, `src/features/chatSlice.ts` (`addMessage`'s first-message seeding), `src/features/characterSlice.ts` (`addCharacter` destructure), `src/pages/CharacterEditorPage.tsx` (three new form cards + create/edit/import wiring), `src/pages/CharacterPage.tsx` (character JSON export). Verified live in-browser end to end: created a character ("Nova") with all four fields filled in, confirmed the First Message rendered as a normal visible chat bubble on first open (not hidden), and confirmed the model's actual reply picked up the personality (dry wit), the scenario (coming home after work), and the example dialogue's asterisk-action formatting. `messageTree.test.ts` (27 tests) still passes unchanged.
 
 ---
 
@@ -132,7 +133,23 @@ Files touched: `src/features/ai/utils/tokenEstimator.ts` (new), `src/features/ai
 
 ---
 
-## Phase 6: Impersonation
+## Phase 6: Autonomous Auto-Reply System
+*Overhauling the existing basic `autoReply` flag into a robust, autonomous follow-up system. This makes characters feel alive and proactive by sending timed follow-ups when the user is silent, up to a configurable limit.*
+
+**UI / Screen Flow:**
+- **Character Editor:** A new toggle for "Autonomous Follow-ups" (disabled by default) with sliders for "Max consecutive follow-ups" (e.g., 3) and "Delay interval" (e.g., 30s - 2m).
+- **Sidebar Chat List:** A dynamic badge on the character's chat row. Shows "Typing..." when a follow-up is ticking down, and a "Waiting for you" icon when the auto-reply limit is reached.
+- **Main Chat Window:** A typing indicator displays while the delay timer is active. If the user starts typing, the indicator pauses/cancels.
+
+**Implementation Steps:**
+- [ ] **Evaluate Existing System:** Assess the current `Chat.autoReply` implementation. Decide whether to refactor it to support timers and limits, or rip it out and replace it with a dedicated background worker/timer queue in Redux.
+- [ ] **State & Limit Tracking:** Add `autoReplyCount` to the active chat state. Increment it on every autonomous send. Reset it to 0 the moment the user sends a message. Stop scheduling follow-ups if `autoReplyCount >= maxFollowUps`.
+- [ ] **Delay Engine & Smart Cancellation:** Implement a timer mechanism (e.g., `setTimeout` linked to Redux or a saga) that waits before triggering the next generation. Add an interrupt listener so if the user types or sends a message, the pending auto-reply timer is cleared immediately.
+- [ ] **Context-Aware Push Prompting:** Modify `buildSystemInstruction` or the message dispatch payload. If `isAutoReply` is true, append a hidden system directive to the prompt: *"[System Note: The user has not responded. Take the initiative, advance the plot, ask a direct question, or perform a physical action.]"* to prevent the LLM from simply repeating its last message.
+
+---
+
+## Phase 7: Impersonation
 *Allowing the user to steer the scene by writing dialogue/actions as the AI character.*
 
 **UI / Screen Flow:**
@@ -144,7 +161,7 @@ Files touched: `src/features/ai/utils/tokenEstimator.ts` (new), `src/features/ai
 
 ---
 
-## Phase 7: Advanced Generation Settings
+## Phase 8: Advanced Generation Settings
 *Exposing granular LLM controls (Temperature, Top-P, Top-K, Repetition Penalty) globally and per-character.*
 
 **UI / Screen Flow:**
@@ -158,7 +175,7 @@ Files touched: `src/features/ai/utils/tokenEstimator.ts` (new), `src/features/ai
 
 ---
 
-## Phase 8: Character Card Portability
+## Phase 9: Character Card Portability
 *Supporting the community standard "Character Card V2" spec (TavernAI/SillyTavern) for importing/exporting characters.*
 
 **UI / Screen Flow:**
@@ -171,7 +188,7 @@ Files touched: `src/features/ai/utils/tokenEstimator.ts` (new), `src/features/ai
 
 ---
 
-## Phase 9: Lorebooks / World Info
+## Phase 10: Lorebooks / World Info
 *A dynamic memory injection system that brings specific lore into context only when relevant keywords are mentioned.*
 
 **UI / Screen Flow:**
@@ -185,7 +202,7 @@ Files touched: `src/features/ai/utils/tokenEstimator.ts` (new), `src/features/ai
 
 ---
 
-## Phase 10: Multi-Character Chatrooms — Data Model
+## Phase 11: Multi-Character Chatrooms — Data Model
 *The foundational schema changes required to support group chats with multiple AI bots.*
 
 **UI / Screen Flow:**
@@ -198,7 +215,7 @@ Files touched: `src/features/ai/utils/tokenEstimator.ts` (new), `src/features/ai
 
 ---
 
-## Phase 11: Multi-Character Chatrooms — Room UI
+## Phase 12: Multi-Character Chatrooms — Room UI
 *The frontend interfaces for creating and managing group chats.*
 
 **UI / Screen Flow:**

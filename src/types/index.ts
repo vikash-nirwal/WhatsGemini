@@ -75,6 +75,9 @@ export interface Character {
   name: string;
   description: string;
   prompt: string;
+  scenario?: string; // current setting/plot context injected into the system prompt
+  first_mes?: string; // greeting used to seed a brand-new chat, instead of the generic global initial messages
+  mes_example?: string; // freeform example exchanges, given to the model purely as a style/format reference
   relationship?: string;
   appearance?: string;
   appearanceImages?: string[];

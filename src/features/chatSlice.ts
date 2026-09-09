@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { dbService } from "../services/dbService";
-import { LS_INITIAL_MESSAGES, YOU } from "../utils/constants";
+import { LS_INITIAL_MESSAGES, YOU, AI } from "../utils/constants";
 import { Chat, Message, ConversationTree } from "../types";
 import { addChildNode, flattenPath, generateNodeId } from "./chat/messageTree";
 
@@ -61,16 +61,22 @@ export const addMessage = createAsyncThunk(
     try {
       const chat = await dbService.getChatById(chatId);
 
-      // Retrieve initial messages from localStorage
-      const savedMessages = JSON.parse(localStorage.getItem(LS_INITIAL_MESSAGES) || "[]") as any[];
-
-      // If it's the first message, prepopulate with system messages
+      // If it's the first message, prepopulate with the character's own greeting
+      // (if it has one) instead of the generic global initial messages.
       if (chat.content.length === 0) {
-        savedMessages.forEach((msg) => {
-          if (msg.role && msg.message) {
-            chat.content.push({ role: msg.role, txt: msg.message, isSystem: true, id: generateNodeId(), timestamp: Date.now() });
-          }
-        });
+        const character = chat.characterId ? await dbService.getCharacterById(chat.characterId).catch(() => undefined) : undefined;
+        if (character?.first_mes) {
+          // Unlike the generic seed messages below, this is a real visible greeting
+          // (not a hidden priming message), so it's left unflagged as `isSystem`.
+          chat.content.push({ role: AI, txt: character.first_mes, id: generateNodeId(), timestamp: Date.now() });
+        } else {
+          const savedMessages = JSON.parse(localStorage.getItem(LS_INITIAL_MESSAGES) || "[]") as any[];
+          savedMessages.forEach((msg) => {
+            if (msg.role && msg.message) {
+              chat.content.push({ role: msg.role, txt: msg.message, isSystem: true, id: generateNodeId(), timestamp: Date.now() });
+            }
+          });
+        }
       }
 
       const newMessage: Message = { role, txt: text, images, isImageRequest, imagePrompt, imageParams, id: generateNodeId(), timestamp: Date.now() };

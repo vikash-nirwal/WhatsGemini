@@ -34,8 +34,12 @@ export const buildSystemInstruction = (
   if (!character) return { text: undefined, images: undefined, characterName: undefined };
 
   const sections: string[] = [
-    `Role play as, Character Name: ${character.name}.\nCharacter description: ${character.description}.\nExample dialogue: ${character.prompt}`,
+    `Role play as, Character Name: ${character.name}.\nCharacter description: ${character.description}.\nPersonality & instructions: ${character.prompt}`,
   ];
+
+  if (character.scenario) {
+    sections.push(`Current scenario / setting: ${character.scenario}`);
+  }
 
   try {
     const userProfileRaw = localStorage.getItem(LS_USER_PROFILE);
@@ -59,6 +63,11 @@ export const buildSystemInstruction = (
   }
   if (character.memory && character.memory.length > 0) {
     sections.push(`Known facts about the user and your relationship, remembered from past conversations:\n- ${character.memory.join("\n- ")}`);
+  }
+  if (character.mes_example) {
+    sections.push(
+      `Example dialogue showing ${character.name}'s speech style, tone, and formatting (e.g. use of asterisks for actions) - use this only as a style reference, never repeat these lines verbatim:\n${character.mes_example}`
+    );
   }
   if (extraDirectives && extraDirectives.length > 0) {
     sections.push(...extraDirectives);

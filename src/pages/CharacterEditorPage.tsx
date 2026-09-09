@@ -41,6 +41,9 @@ const CharacterEditorPage = () => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [prompt, setPrompt] = useState("");
+  const [scenario, setScenario] = useState("");
+  const [firstMes, setFirstMes] = useState("");
+  const [mesExample, setMesExample] = useState("");
   const [relationship, setRelationship] = useState("");
   const [appearance, setAppearance] = useState("");
   const [appearanceImages, setAppearanceImages] = useState<string[]>([]);
@@ -63,6 +66,9 @@ const CharacterEditorPage = () => {
       setName(editCharacter ? source.name : `${source.name} (Copy)`);
       setDescription(source.description);
       setPrompt(source.prompt);
+      setScenario(source.scenario || "");
+      setFirstMes(source.first_mes || "");
+      setMesExample(source.mes_example || "");
       setRelationship(source.relationship || "");
       setAppearance(source.appearance || "");
       setAppearanceImages(source.appearanceImages || []);
@@ -79,7 +85,7 @@ const CharacterEditorPage = () => {
       alert("Character name and prompt are required.");
       return;
     }
-    dispatch(addCharacter({ name, description, prompt, relationship, appearance, appearanceImages, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency } }));
+    dispatch(addCharacter({ name, description, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency } }));
     navigate("/characters");
   };
 
@@ -88,7 +94,7 @@ const CharacterEditorPage = () => {
       alert("Character name and prompt are required.");
       return;
     }
-    dispatch(updateCharacter({ id: editCharacter.id, name, description, prompt, relationship, appearance, appearanceImages, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency } }));
+    dispatch(updateCharacter({ id: editCharacter.id, name, description, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency } }));
     navigate("/characters");
   };
 
@@ -116,6 +122,9 @@ const CharacterEditorPage = () => {
             name: parsed.name,
             description: parsed.description || "",
             prompt: parsed.prompt,
+            scenario: parsed.scenario || "",
+            first_mes: parsed.first_mes || "",
+            mes_example: parsed.mes_example || "",
             relationship: parsed.relationship || "",
             appearance: parsed.appearance || "",
             appearanceImages: parsed.appearanceImages || [],
@@ -362,6 +371,36 @@ const CharacterEditorPage = () => {
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 className="resize-none min-h-[120px]"
+              />
+            </Card>
+
+            <Card className="p-5 flex flex-col gap-3">
+              <FieldLabel hint="The current setting or plot context, given to the AI alongside the personality above.">Scenario</FieldLabel>
+              <TextArea
+                placeholder="Scenario (e.g. You run into each other at a rainy bus stop after years apart) (Optional)"
+                value={scenario}
+                onChange={(e) => setScenario(e.target.value)}
+                className="resize-none"
+              />
+            </Card>
+
+            <Card className="p-5 flex flex-col gap-3">
+              <FieldLabel hint="Sent as this character's opening message when a brand-new chat is started. Leave blank to use the app's default greeting instead.">First Message</FieldLabel>
+              <TextArea
+                placeholder="First Message / Greeting (Optional)"
+                value={firstMes}
+                onChange={(e) => setFirstMes(e.target.value)}
+                className="resize-none"
+              />
+            </Card>
+
+            <Card className="p-5 flex flex-col gap-3">
+              <FieldLabel hint="Sample exchanges given to the AI purely as a style/format reference (e.g. use asterisks for actions) - never repeated verbatim in the chat.">Example Dialogues</FieldLabel>
+              <TextArea
+                placeholder={`Example Dialogues (Optional)\nUser: Hey, how was your day?\n${name || "Character"}: *stretches* Long. Yours?`}
+                value={mesExample}
+                onChange={(e) => setMesExample(e.target.value)}
+                className="resize-none min-h-[100px]"
               />
             </Card>
 
