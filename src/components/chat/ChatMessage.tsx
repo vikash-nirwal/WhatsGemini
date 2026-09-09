@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { FaCopy, FaRedo, FaEdit, FaEllipsisV, FaChevronLeft, FaChevronRight, FaTrash, FaVolumeUp, FaStop, FaCompressArrowsAlt, FaForward } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { cn } from "../../utils/cn";
@@ -56,6 +56,7 @@ const ChatMessage = React.memo(({
 }: ChatMessageProps) => {
   const isUser = msg.role === YOU;
   const speechSupported = useMemo(() => isSpeechSynthesisSupported(), []);
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
 
   const handleCopy = useCallback(() => onCopy(stripImageContextTag(msg.txt || "")), [onCopy, msg.txt]);
   const handleRegenerate = useCallback(() => onRegenerate(msg), [onRegenerate, msg]);
@@ -78,7 +79,27 @@ const ChatMessage = React.memo(({
               <FaCompressArrowsAlt size={11} />
               Compressed history
             </div>
-            <p className="text-xs text-ink-faint whitespace-pre-wrap text-left">{msg.txt}</p>
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setIsSummaryExpanded((v) => !v)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setIsSummaryExpanded((v) => !v);
+                }
+              }}
+              className="text-left text-xs text-ink-faint cursor-pointer"
+              aria-expanded={isSummaryExpanded}
+              title={isSummaryExpanded ? "Click to collapse" : "Click to show the full summary"}
+            >
+              <div className={cn(!isSummaryExpanded && "line-clamp-3")}>
+                <MarkdownRenderer msgText={msg.txt || ""} isUser={false} />
+              </div>
+              <span className="mt-1 inline-block text-[11px] font-medium text-primary hover:underline">
+                {isSummaryExpanded ? "Show less" : "Show more"}
+              </span>
+            </div>
           </CardContent>
         </Card>
       </motion.div>
