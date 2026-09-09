@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { addCharacter, updateCharacter } from "../features/characterSlice";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { FaTimes, FaUpload, FaPlay, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck } from "react-icons/fa";
+import { FaTimes, FaUpload, FaPlay, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaMagic } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Character } from "../types";
 import { dbService } from "../services/dbService";
+import { generateAssistText } from "../features/aiSlice";
 import { DisplayImage } from "../components/DisplayImage";
 import { TextInput, TextArea, Select, FieldLabel, Slider, TagInput } from "../components/ui/FormControls";
 import { CharacterAvatar } from "../components/ui/CharacterAvatar";
@@ -89,6 +90,47 @@ const CharacterEditorPage = () => {
 
   const promptTokens = useMemo(() => estimateTokens(prompt), [prompt]);
 
+  const [expanding, setExpanding] = useState(false);
+  const [generatingGreeting, setGeneratingGreeting] = useState(false);
+  const [assistError, setAssistError] = useState<string | null>(null);
+
+  const handleExpandIdea = async () => {
+    if (!prompt.trim()) {
+      setAssistError("Write a short idea first, then expand it.");
+      return;
+    }
+    setAssistError(null);
+    setExpanding(true);
+    try {
+      const instruction = `Expand this short character idea into a detailed, vivid personality and behavior description for a roleplay AI character, written as direct instructions to the character (second person, "You are..."). Stay grounded in the original idea; 3-5 sentences. Output only the expanded description, no preamble.\n\nIdea: ${prompt}`;
+      const text = await dispatch(generateAssistText({ instruction })).unwrap();
+      if (text) setPrompt(text);
+    } catch (err: any) {
+      setAssistError(typeof err === "string" ? err : "Failed to expand idea. Check your API key in Settings.");
+    } finally {
+      setExpanding(false);
+    }
+  };
+
+  const handleGenerateGreeting = async () => {
+    if (!prompt.trim()) {
+      setAssistError("Add a personality first so the greeting matches their voice.");
+      return;
+    }
+    setAssistError(null);
+    setGeneratingGreeting(true);
+    try {
+      const who = name || "the character";
+      const instruction = `You are ${who}. Personality: ${prompt}.${scenario ? ` Scenario: ${scenario}.` : ""}\n\nWrite a short, natural opening greeting (1-3 sentences) that ${who} would say to open this roleplay scene, fully in character. Use *asterisks* for physical actions where natural. Output only the greeting line, nothing else.`;
+      const text = await dispatch(generateAssistText({ instruction })).unwrap();
+      if (text) setFirstMes(text);
+    } catch (err: any) {
+      setAssistError(typeof err === "string" ? err : "Failed to generate greeting. Check your API key in Settings.");
+    } finally {
+      setGeneratingGreeting(false);
+    }
+  };
+
   const handleCreateCharacter = () => {
     if (!name || !prompt) {
       alert("Character name and prompt are required.");
@@ -169,7 +211,7 @@ const CharacterEditorPage = () => {
 
       for (const file of Array.from(files)) {
          const ext = file.name.split('.').pop() || 'png';
-         const filename = `char_ref_${Date.now()}_${Math.random().toString(36).substr(2, 5)}.${ext}`;
+         const filename = `char_ref_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`;
 
          const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
          const writable = await fileHandle.createWritable();
@@ -219,6 +261,11 @@ const CharacterEditorPage = () => {
     if (blockedMessage && !stepError(step)) setBlockedMessage(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, prompt, step]);
+
+  // AI-assist errors are step-scoped - don't let one linger after navigating away.
+  useEffect(() => {
+    setAssistError(null);
+  }, [step]);
 
   const goNext = () => {
     const error = stepError(step);
@@ -470,6 +517,19 @@ const CharacterEditorPage = () => {
                   onChange={(e) => setPrompt(e.target.value)}
                   className="resize-none min-h-[220px]"
                 />
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="panel"
+                    onClick={handleExpandIdea}
+                    disabled={expanding}
+                    className="h-auto px-3 py-1.5 text-xs font-medium border border-border hover:border-primary hover:text-primary"
+                    title="Have the AI turn your short idea into a fuller personality description"
+                  >
+                    <FaMagic size={11} /> {expanding ? "Expanding..." : "AI Assist: Expand my idea"}
+                  </Button>
+                </div>
+                {assistError && <p className="text-xs text-destructive">{assistError}</p>}
               </Card>
             )}
 
@@ -493,6 +553,19 @@ const CharacterEditorPage = () => {
                     onChange={(e) => setFirstMes(e.target.value)}
                     className="resize-none min-h-[100px]"
                   />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="panel"
+                      onClick={handleGenerateGreeting}
+                      disabled={generatingGreeting}
+                      className="h-auto px-3 py-1.5 text-xs font-medium border border-border hover:border-primary hover:text-primary"
+                      title="Have the AI draft a greeting from the personality and scenario above"
+                    >
+                      <FaMagic size={11} /> {generatingGreeting ? "Generating..." : "Generate Greeting from Scenario"}
+                    </Button>
+                  </div>
+                  {assistError && <p className="text-xs text-destructive">{assistError}</p>}
                 </Card>
               </>
             )}

@@ -218,6 +218,31 @@ export const compressChatHistory = createAsyncThunk(
   }
 );
 
+// Bare one-shot call with a caller-built instruction and no history - backs the
+// Character Editor's "AI assist" buttons (expand a personality idea, draft a
+// greeting from the scenario). Same generateOnce path summarization/memory
+// extraction use, just with a freeform instruction instead of a fixed prompt.
+export const generateAssistText = createAsyncThunk(
+  "ai/generateAssistText",
+  async ({ instruction }: { instruction: string }, { getState, rejectWithValue }) => {
+    try {
+      const state = getState() as RootState;
+      const settings = state.settings;
+      const chatProviderId = settings.chatProvider;
+      const chatAdapter = CHAT_PROVIDERS[chatProviderId] || CHAT_PROVIDERS.gemini;
+      const chatConfig = await resolveProviderConfig(chatProviderId, chatAdapter.capabilities.requiresBaseUrl);
+      if (!chatConfig.apiKey && chatAdapter.capabilities.requiresApiKey) {
+        throw new Error("API key is missing. Please log in.");
+      }
+      const result = await chatAdapter.generateOnce(instruction, settings.selectedModel, chatConfig);
+      return result.text.trim();
+    } catch (error: any) {
+      console.error("AI Assist Error:", error);
+      return rejectWithValue(error.message || "Failed to generate text.");
+    }
+  }
+);
+
 // Async Thunk for extracting long-term character memory from a slice of recent messages
 export const extractCharacterMemory = createAsyncThunk(
   "ai/extractCharacterMemory",
