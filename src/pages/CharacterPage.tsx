@@ -63,6 +63,7 @@ const CharacterPage = () => {
       relationship: char.relationship || "",
       appearance: char.appearance || "",
       appearanceImages: char.appearanceImages || [],
+      tags: char.tags || [],
       accent: char.accent,
       voiceURI: char.voiceURI,
       autoSelfie: char.autoSelfie,

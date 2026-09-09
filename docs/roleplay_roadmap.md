@@ -99,7 +99,7 @@ Files touched: `src/types/index.ts` (`scenario`/`first_mes`/`mes_example` on `Ch
 
 ---
 
-## Phase 4: Detailed Character Creation System
+## Phase 4: Detailed Character Creation System 🟡 Partially done
 *A full-fledged, multi-step creator for characters from scratch, replacing the single-page basic form. This brings the creation tools on par with dedicated roleplay apps like Character.ai or JanitorAI.*
 
 **UI / Screen Flow:**
@@ -110,11 +110,14 @@ Files touched: `src/types/index.ts` (`scenario`/`first_mes`/`mes_example` on `Ch
 - **Screen 5: Test & Finalize:** A live side-by-side Test Chat panel to chat with the draft character before saving.
 
 **Implementation Steps:**
-- [ ] **Guided Creation Wizard:** Implement a multi-step form UI (using a stepper component) that handles the `Character` object state across the 5 screens.
-- [ ] **Advanced Prompt Authoring Tools:** Add real-time token calculation per field. Build the "Test Chat" pane utilizing a temporary in-memory chat session that bypasses the database until the character is saved.
-- [ ] **Auto-Generation Assistants:** Wire up lightweight prompt chains to the AI provider to power the "Expand my idea" and "Generate Greeting" buttons.
-- [ ] **Avatar Generation & Cropping:** Integrate the existing image generator adapter. Add a simple canvas-based cropping tool for avatars.
-- [ ] **Tags & Categories:** Add a `tags: string[]` array to the `Character` schema and build a multi-select chip UI component.
+- [x] **Guided Creation Wizard:** `CharacterEditorPage.tsx` is now a 5-step stepper (Identity → Personality → Scenario & Greeting → Example Dialogues → Review & Save) instead of one long scrolling form. A clickable step pill row shows progress (checkmark for completed steps); jumping forward re-validates every step in between. Step 5 is "Review & Save" rather than the roadmap's live "Test & Finalize" chat pane - deferred, see below.
+- [x] **Tags & Categories:** Added `tags: string[]` on `Character`, plus a new reusable `TagInput` chip component (`components/ui/FormControls.tsx`) wired into step 1 and into character export/import/duplicate.
+- [x] **Advanced Prompt Authoring Tools (partial):** Real-time token count added for the Personality field only (`~N tokens`, live via the existing `estimateTokens` heuristic). The in-memory "Test Chat" pane is deferred (see below).
+- [ ] **Test Chat pane:** Deferred - step 5 is a static review summary, not a live in-memory chat session.
+- [ ] **Auto-Generation Assistants:** Deferred - no "Expand my idea" / "Generate Greeting" AI-assist buttons yet.
+- [ ] **Avatar Generation & Cropping:** Deferred - avatar upload still has no AI generation or canvas cropping step.
+
+Files touched: `src/types/index.ts` (`tags` on `Character`), `src/components/ui/FormControls.tsx` (new `TagInput`), `src/features/characterSlice.ts`, `src/pages/CharacterEditorPage.tsx` (full stepper rewrite), `src/pages/CharacterPage.tsx` (export). Note: step validation surfaces inline (a dismissable banner keyed off `blockedMessage` state) rather than via `alert()` - a blocking native dialog is both bad UX and breaks browser-automation testing (confirmed live: it froze the tab until closed). Verified live in-browser end to end: stepped through all 5 screens creating a character with tags, personality, scenario, greeting, and example dialogue; confirmed the empty-name guard shows inline (no dialog) and clears once fixed; confirmed tags round-tripped correctly through save and re-edit. `messageTree.test.ts` (27 tests) still passes unchanged.
 
 ---
 

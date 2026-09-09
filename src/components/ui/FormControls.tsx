@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import { FaTimes } from "react-icons/fa";
 import { cn } from "../../utils/cn";
 import { Input } from "./input";
 import { Textarea } from "./textarea";
@@ -101,3 +102,60 @@ export const Slider: React.FC<SliderProps> = ({ value, min, max, step, onChange,
     className={className}
   />
 );
+
+interface TagInputProps {
+  value: string[];
+  onChange: (tags: string[]) => void;
+  placeholder?: string;
+  className?: string;
+}
+
+// Freeform chip input: type a tag and press Enter or "," to commit it,
+// Backspace on the empty draft removes the last chip. Dedupes case-insensitively.
+export const TagInput: React.FC<TagInputProps> = ({ value, onChange, placeholder, className }) => {
+  const [draft, setDraft] = useState("");
+
+  const commitDraft = () => {
+    const tag = draft.trim();
+    setDraft("");
+    if (!tag) return;
+    if (value.some((t) => t.toLowerCase() === tag.toLowerCase())) return;
+    onChange([...value, tag]);
+  };
+
+  const removeTag = (index: number) => onChange(value.filter((_, i) => i !== index));
+
+  return (
+    <div className={cn("flex flex-wrap items-center gap-2 p-2 rounded-md border border-input bg-transparent min-h-[42px]", className)}>
+      {value.map((tag, i) => (
+        <span key={tag} className="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-full bg-secondary text-secondary-foreground text-xs font-medium">
+          {tag}
+          <button
+            type="button"
+            onClick={() => removeTag(i)}
+            className="rounded-full p-0.5 hover:bg-destructive/15 hover:text-destructive"
+            aria-label={`Remove tag ${tag}`}
+          >
+            <FaTimes size={9} />
+          </button>
+        </span>
+      ))}
+      <input
+        type="text"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === ",") {
+            e.preventDefault();
+            commitDraft();
+          } else if (e.key === "Backspace" && !draft && value.length > 0) {
+            removeTag(value.length - 1);
+          }
+        }}
+        onBlur={commitDraft}
+        placeholder={value.length === 0 ? placeholder : ""}
+        className="flex-1 min-w-[100px] bg-transparent outline-none text-sm placeholder-subtle"
+      />
+    </div>
+  );
+};
