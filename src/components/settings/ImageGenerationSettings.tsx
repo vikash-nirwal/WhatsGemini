@@ -37,6 +37,8 @@ interface ImageGenerationSettingsProps {
   setImageResolution: (res: string) => void;
   geminiImageSize: string;
   setGeminiImageSize: (size: string) => void;
+  portraitSaveSize: string;
+  setPortraitSaveSize: (size: string) => void;
   imageSaveDirName: string;
   handleSelectDirectory: () => void;
   LS_SD_WEBUI_MODEL: string;
@@ -78,6 +80,8 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
   setImageResolution,
   geminiImageSize,
   setGeminiImageSize,
+  portraitSaveSize,
+  setPortraitSaveSize,
   imageSaveDirName,
   handleSelectDirectory,
   LS_SD_WEBUI_MODEL,
@@ -241,6 +245,35 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
             />
           </SettingsRow>
         )}
+
+        <SettingsRow label="Portrait save size" hint="Every character portrait - main avatar and emotion portraits alike, generated or uploaded - is resized to this before being saved, regardless of what resolution it came in at.">
+          {(() => {
+            const [w, h] = portraitSaveSize.split("x").map((n) => parseInt(n, 10) || 0);
+            const clamp = (n: number) => Math.max(32, Math.min(2048, n));
+            return (
+              <div className="flex items-center gap-2">
+                <TextInput
+                  type="number"
+                  min="32"
+                  max="2048"
+                  value={w}
+                  onChange={(e) => setPortraitSaveSize(`${clamp(Number(e.target.value))}x${h}`)}
+                  className="w-24"
+                />
+                <span className="text-muted-foreground text-sm">×</span>
+                <TextInput
+                  type="number"
+                  min="32"
+                  max="2048"
+                  value={h}
+                  onChange={(e) => setPortraitSaveSize(`${w}x${clamp(Number(e.target.value))}`)}
+                  className="w-24"
+                />
+                <span className="text-xs text-subtle">px</span>
+              </div>
+            );
+          })()}
+        </SettingsRow>
 
         <SettingsRow label="Save generated images to" hint="Browsers may ask you to re-approve write access when you return.">
           <div className="flex items-center gap-2.5">

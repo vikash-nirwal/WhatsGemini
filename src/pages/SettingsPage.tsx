@@ -9,7 +9,7 @@ import {
   setSdWebuiApiUrl, setSdWebuiBatchSize, setSdWebuiRefMode,
   setSdWebuiDenoising, setSdWebuiControlnetModel, setSdWebuiModels,
   setSdWebuiModel, setMaxOutputTokens, setReplyLengthLimit, setCompressThreshold, setMaxChatLength,
-  setTemperature, setSafetySettings, setFontSize, setImageResolution, setGeminiImageSize,
+  setTemperature, setSafetySettings, setFontSize, setImageResolution, setGeminiImageSize, setPortraitSaveSize,
   setChatProvider, setImageProvider, setOllamaBaseUrl
 } from "../features/settingsSlice";
 import { FaInfoCircle, FaUser, FaMicrochip, FaImage, FaComments, FaShieldAlt, FaDatabase } from "react-icons/fa";
@@ -42,6 +42,7 @@ import {
   LS_ACTIVE_PERSONA_ID,
   LS_IMAGE_RESOLUTION,
   LS_GEMINI_IMAGE_SIZE,
+  LS_PORTRAIT_SAVE_SIZE,
   // IMAGE_RESOLUTIONS,
   // DEFAULT_IMAGE_RESOLUTION,
   LS_IMAGE_MODEL,
@@ -182,7 +183,7 @@ const SettingsPage = () => {
     imageGenPrompt, sdWebuiApiUrl,
     sdWebuiBatchSize, sdWebuiRefMode, sdWebuiDenoising, sdWebuiControlnetModel, sdWebuiModels,
     sdWebuiModel, maxOutputTokens, replyLengthLimit, compressThreshold, maxChatLength, temperature,
-    safetySettings, fontSize, imageResolution, geminiImageSize
+    safetySettings, fontSize, imageResolution, geminiImageSize, portraitSaveSize
   } = settings;
 
   const chatProviderCapabilities = CHAT_PROVIDERS[chatProvider]?.capabilities || CHAT_PROVIDERS.gemini.capabilities;
@@ -348,10 +349,11 @@ const SettingsPage = () => {
     [LS_FONT_SIZE]: fontSize,
     [LS_IMAGE_RESOLUTION]: imageResolution,
     [LS_GEMINI_IMAGE_SIZE]: geminiImageSize,
+    [LS_PORTRAIT_SAVE_SIZE]: portraitSaveSize,
     [LS_USER_PERSONAS]: personas,
     [LS_ACTIVE_PERSONA_ID]: activePersonaId,
     [LS_INITIAL_MESSAGES]: JSON.parse(localStorage.getItem(LS_INITIAL_MESSAGES) || "[]"),
-  }), [selectedModel, maxOutputTokens, replyLengthLimit, compressThreshold, temperature, safetySettings, maxChatLength, fontSize, imageResolution, geminiImageSize, personas, activePersonaId]);
+  }), [selectedModel, maxOutputTokens, replyLengthLimit, compressThreshold, temperature, safetySettings, maxChatLength, fontSize, imageResolution, geminiImageSize, portraitSaveSize, personas, activePersonaId]);
 
   const downloadJson = (data: unknown, filename: string) => {
     const jsonString = JSON.stringify(data, null, 2);
@@ -419,6 +421,9 @@ const SettingsPage = () => {
     }
     if (settings[LS_GEMINI_IMAGE_SIZE]) {
         dispatch(setGeminiImageSize(settings[LS_GEMINI_IMAGE_SIZE]));
+    }
+    if (settings[LS_PORTRAIT_SAVE_SIZE]) {
+        dispatch(setPortraitSaveSize(settings[LS_PORTRAIT_SAVE_SIZE]));
     }
     if (settings[LS_USER_PERSONAS]) {
         dispatch(setPersonas(settings[LS_USER_PERSONAS]));
@@ -649,6 +654,8 @@ const SettingsPage = () => {
                     setImageResolution={(val) => dispatch(setImageResolution(val))}
                     geminiImageSize={geminiImageSize}
                     setGeminiImageSize={(val) => dispatch(setGeminiImageSize(val))}
+                    portraitSaveSize={portraitSaveSize}
+                    setPortraitSaveSize={(val) => dispatch(setPortraitSaveSize(val))}
                     imageSaveDirName={imageSaveDirName}
                     handleSelectDirectory={handleSelectDirectory}
                     LS_SD_WEBUI_MODEL={LS_SD_WEBUI_MODEL}

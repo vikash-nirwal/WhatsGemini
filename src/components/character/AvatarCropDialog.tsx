@@ -9,7 +9,7 @@ import {
 } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { FaCrop, FaTimes } from "react-icons/fa";
-import { dbService } from "../../services/dbService";
+import { savePortraitBlob } from "../../features/ai/utils/portraitUtils";
 
 interface AvatarCropDialogProps {
   open: boolean;
@@ -18,22 +18,33 @@ interface AvatarCropDialogProps {
   imageSrc: string;
   /** Called with the local: reference after cropping and saving. */
   onCropped: (localRef: string) => void;
+  /** The pixel size the crop is actually saved at (defaults to 300x400) -
+   * independent of the interactive viewport below, which is sized to the
+   * same aspect ratio but capped for comfortable dragging. */
+  exportSize?: { width: number; height: number };
 }
 
-// A simple "pan & zoom inside a fixed 3:4 viewport" crop dialog.
-// The user drags the image within a fixed-aspect frame and can scale it
-// with a slider. Confirming extracts the visible region to a Blob, saves it
-// via the File System Access directory handle, and returns a local: ref.
+// A "pan & zoom inside a fixed-aspect viewport" crop dialog. The user drags
+// the image within a frame shaped like `exportSize`'s aspect ratio (but
+// capped to a comfortable on-screen size) and can scale it with a slider.
+// Confirming re-renders the same crop at the exact configured exportSize
+// (which can be smaller or larger than the interactive viewport - offset is
+// tracked in image-space pixels, so it reproduces identically at any output
+// resolution), saves it via the File System Access directory handle, and
+// returns a local: ref.
 
-const CROP_W = 300;
-const CROP_H = 400; // 3:4
+const DISPLAY_MAX_H = 400;
 
 const AvatarCropDialog: React.FC<AvatarCropDialogProps> = ({
   open,
   onClose,
   imageSrc,
   onCropped,
+  exportSize = { width: 300, height: 400 },
 }) => {
+  const aspect = exportSize.width / exportSize.height;
+  const CROP_H = DISPLAY_MAX_H;
+  const CROP_W = Math.round(DISPLAY_MAX_H * aspect);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
 
@@ -87,7 +98,7 @@ const AvatarCropDialog: React.FC<AvatarCropDialogProps> = ({
     const dy = (CROP_H - drawH) / 2 + offset.y * s;
 
     ctx.drawImage(img, dx, dy, drawW, drawH);
-  }, [imgNat, baseScale, scale, offset]);
+  }, [imgNat, baseScale, scale, offset, CROP_W, CROP_H]);
 
   useEffect(() => {
     draw();
@@ -111,44 +122,51 @@ const AvatarCropDialog: React.FC<AvatarCropDialogProps> = ({
 
   const handlePointerUp = () => setDragging(false);
 
-  // Save the cropped canvas content.
-  const handleApply = async () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  // Re-renders the same crop (same offset/scale, both image-space and thus
+  // resolution-independent) onto an offscreen canvas at the configured
+  // exportSize, rather than exporting the (possibly differently-sized)
+  // interactive display canvas directly.
+  const renderExportBlob = (): Promise<Blob | null> => {
+    const img = imgRef.current;
+    if (!img || !imgNat) return Promise.resolve(null);
+    const canvas = document.createElement("canvas");
+    canvas.width = exportSize.width;
+    canvas.height = exportSize.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return Promise.resolve(null);
 
+    const exportBaseScale = Math.max(exportSize.width / imgNat.w, exportSize.height / imgNat.h);
+    const s = exportBaseScale * scale;
+    const drawW = imgNat.w * s;
+    const drawH = imgNat.h * s;
+    const dx = (exportSize.width - drawW) / 2 + offset.x * s;
+    const dy = (exportSize.height - drawH) / 2 + offset.y * s;
+    ctx.drawImage(img, dx, dy, drawW, drawH);
+
+    return new Promise((res) => canvas.toBlob(res, "image/png"));
+  };
+
+  // Save the cropped image.
+  const handleApply = async () => {
     setSaving(true);
     setError(null);
 
     try {
-      const dirHandle = await dbService.getSetting("image_save_directory");
-      if (!dirHandle) {
-        setError("Set an Image Save Directory in Settings first.");
-        setSaving(false);
-        return;
-      }
-
-      const blob = await new Promise<Blob | null>((res) =>
-        canvas.toBlob(res, "image/png")
-      );
+      const blob = await renderExportBlob();
       if (!blob) {
         setError("Failed to export cropped image.");
         setSaving(false);
         return;
       }
 
-      const filename = `avatar_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.png`;
-      const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
-      const writable = await fileHandle.createWritable();
-      await writable.write(blob);
-      await writable.close();
-
-      onCropped(`local:${filename}`);
+      const localRef = await savePortraitBlob(blob, "avatar");
+      onCropped(localRef);
       onClose();
     } catch (err: any) {
       console.error("Crop save error:", err);
       setError(err.name === "NotAllowedError"
         ? "Permission denied. Re-select the directory in Settings."
-        : "Failed to save cropped image.");
+        : err.message || "Failed to save cropped image.");
     } finally {
       setSaving(false);
     }

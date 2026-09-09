@@ -202,13 +202,22 @@ export const DEFAULT_IMAGE_RESOLUTION = "512x512";
 // for this; gemini-2.5-flash-image predates it, so the control is hidden for
 // that model rather than sent and silently ignored.
 export const LS_GEMINI_IMAGE_SIZE = "gemini_image_size";
-export const GEMINI_IMAGE_SIZES = ["1K", "2K", "4K"];
+export const GEMINI_IMAGE_SIZES = ["512", "1K", "2K", "4K"];
 export const DEFAULT_GEMINI_IMAGE_SIZE = "1K";
 export const GEMINI_IMAGE_SIZE_SUPPORTED_MODELS = [
   "gemini-3.1-flash-lite-image",
   "gemini-3.1-flash-image",
   "gemini-3-pro-image",
 ];
+
+// Independent of the Gemini-generation-tier control above: every avatar-style
+// portrait (main character portrait + emotion portraits, generated OR
+// uploaded) is downscaled client-side to this size before being saved to
+// disk, regardless of what resolution it came in at - avatars only ever
+// render at 32-96px in the UI, so there's no reason to keep multi-megabyte
+// full-resolution files around. "WxH" string, same shape as IMAGE_RESOLUTIONS.
+export const LS_PORTRAIT_SAVE_SIZE = "portrait_save_size";
+export const DEFAULT_PORTRAIT_SAVE_SIZE = "256x342";
 export const LS_USER_PROFILE = "whatsgemini_user_profile"; // legacy single-persona shape, read only for migration
 export const LS_USER_PERSONAS = "whatsgemini_user_personas";
 export const LS_ACTIVE_PERSONA_ID = "whatsgemini_active_persona_id";

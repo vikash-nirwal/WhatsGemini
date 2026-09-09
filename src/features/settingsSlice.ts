@@ -19,6 +19,8 @@ import {
   DEFAULT_IMAGE_RESOLUTION,
   LS_GEMINI_IMAGE_SIZE,
   DEFAULT_GEMINI_IMAGE_SIZE,
+  LS_PORTRAIT_SAVE_SIZE,
+  DEFAULT_PORTRAIT_SAVE_SIZE,
   LS_IMAGE_MODEL,
   DEFAULT_IMAGE_MODEL,
   LS_IMAGE_GEN_PROMPT,
@@ -100,6 +102,7 @@ export interface SettingsState {
   fontSize: string;
   imageResolution: string;
   geminiImageSize: string;
+  portraitSaveSize: string;
 }
 
 const initialPersonas = loadInitialPersonas();
@@ -134,6 +137,7 @@ const initialState: SettingsState = {
   fontSize: localStorage.getItem(LS_FONT_SIZE) || '16px',
   imageResolution: localStorage.getItem(LS_IMAGE_RESOLUTION) || DEFAULT_IMAGE_RESOLUTION,
   geminiImageSize: localStorage.getItem(LS_GEMINI_IMAGE_SIZE) || DEFAULT_GEMINI_IMAGE_SIZE,
+  portraitSaveSize: localStorage.getItem(LS_PORTRAIT_SAVE_SIZE) || DEFAULT_PORTRAIT_SAVE_SIZE,
 };
 
 const settingsSlice = createSlice({
@@ -240,6 +244,9 @@ const settingsSlice = createSlice({
     setGeminiImageSize: (state, action: PayloadAction<string>) => {
       state.geminiImageSize = action.payload;
     },
+    setPortraitSaveSize: (state, action: PayloadAction<string>) => {
+      state.portraitSaveSize = action.payload;
+    },
   },
 });
 
@@ -272,6 +279,7 @@ export const {
   setFontSize,
   setImageResolution,
   setGeminiImageSize,
+  setPortraitSaveSize,
 } = settingsSlice.actions;
 
 // The persona characters actually see: the active one, falling back to the

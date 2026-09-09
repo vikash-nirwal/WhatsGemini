@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, updateChatAutoReply, incrementChatUsage, updateChatPersona, setPendingFollowupAt } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
 import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage } from "../features/aiSlice";
-import { dbService } from "../services/dbService";
+import { parseSize, autoCoverCropToBlob, savePortraitBlob } from "../features/ai/utils/portraitUtils";
 import ChatWindow from "../components/ChatWindow";
 import MessageInput from "../components/MessageInput";
 import Header, { HeaderAction } from "../components/Header";
@@ -77,6 +77,7 @@ const ChatPage = () => {
   const maxChatLength = useAppSelector((state) => state.settings.maxChatLength);
   const personas = useAppSelector((state) => state.settings.personas);
   const globalActivePersonaId = useAppSelector((state) => state.settings.activePersonaId);
+  const portraitSaveSize = useAppSelector((state) => state.settings.portraitSaveSize);
   const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -151,11 +152,6 @@ const ChatPage = () => {
     setMissingEmotionError(null);
     setGeneratingMissingEmotion(true);
     try {
-      const dirHandle = await dbService.getSetting("image_save_directory");
-      if (!dirHandle) {
-        setMissingEmotionError("Set an Image Save Directory in Settings first.");
-        return;
-      }
       const referenceImages = characterData.appearanceImages && characterData.appearanceImages.length > 0 ? characterData.appearanceImages : undefined;
       const result = await dispatch(generateAvatarImage({
         name: characterData.name,
@@ -168,19 +164,14 @@ const ChatPage = () => {
         setMissingEmotionError("No image was returned.");
         return;
       }
-      const mimeMatch = dataUrl.match(/^data:(.*?);/);
-      const base64 = dataUrl.split(",")[1];
-      const blob = await (await fetch(`data:${mimeMatch?.[1] || "image/png"};base64,${base64}`)).blob();
-      const filename = `avatar_${missingEmotionPortrait}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.png`;
-      const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
-      const writable = await fileHandle.createWritable();
-      await writable.write(blob);
-      await writable.close();
+      const { width, height } = parseSize(portraitSaveSize);
+      const blob = await autoCoverCropToBlob(dataUrl, width, height);
+      const localRef = await savePortraitBlob(blob, `avatar_${missingEmotionPortrait}`);
       dispatch(updateCharacter({
         ...characterData,
         emotionPortraits: {
           enabled: true,
-          images: { ...characterData.emotionPortraits?.images, [missingEmotionPortrait]: `local:${filename}` },
+          images: { ...characterData.emotionPortraits?.images, [missingEmotionPortrait]: localRef },
         },
       }));
     } catch (err: any) {

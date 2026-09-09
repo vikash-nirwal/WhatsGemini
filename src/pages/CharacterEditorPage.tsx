@@ -20,6 +20,7 @@ import { estimateTokens } from "../features/ai/utils/tokenEstimator";
 import TestChatPane from "../components/character/TestChatPane";
 import AvatarCropDialog from "../components/character/AvatarCropDialog";
 import AvatarGenerateButton from "../components/character/AvatarGenerateButton";
+import { parseSize, autoCoverCropToBlob, savePortraitBlob } from "../features/ai/utils/portraitUtils";
 
 const findSwatchIndex = (accent?: [string, string]) => {
   if (!accent) return 0;
@@ -38,6 +39,7 @@ const CharacterEditorPage = () => {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const characters = useAppSelector((state) => state.character.characters);
   const loading = useAppSelector((state) => state.character.loading);
+  const portraitSaveSize = useAppSelector((state) => parseSize(state.settings.portraitSaveSize));
 
   const editCharacter = characterId
     ? characters.find((c) => c.id === Number(characterId)) || null
@@ -298,12 +300,32 @@ const CharacterEditorPage = () => {
       setGeneratingEmotion(null);
     }
   };
+  // Lets a specific emotion slot be filled from a local file instead of AI
+  // generation - opens the same interactive crop dialog (so it's framed and
+  // saved at the same configured size), just skipping generateAvatarImage.
+  const emotionUploadInputRef = useRef<HTMLInputElement>(null);
+  const [uploadTargetEmotion, setUploadTargetEmotion] = useState<string | null>(null);
+  const handleTriggerEmotionUpload = (emotion: string) => {
+    setUploadTargetEmotion(emotion);
+    emotionUploadInputRef.current?.click();
+  };
+  const handleEmotionFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !uploadTargetEmotion) return;
+    setCropTargetEmotion(uploadTargetEmotion);
+    setCropImageSrc(URL.createObjectURL(file));
+    setCropDialogOpen(true);
+  };
+
   // Batch path: unlike the single-emotion button above, this doesn't open the
   // interactive crop dialog per image (looping that would mean firing every
-  // generation before the user could ever crop the first one) - it saves
-  // each raw generated portrait directly, uncropped. Framing usually comes
-  // out reasonable given the prompt already asks for a head-and-shoulders 3:4
-  // shot; anyone can re-generate + manually crop a specific slot afterward.
+  // generation before the user could ever crop the first one) - each result
+  // is auto-cover-cropped to the configured portrait save size (same
+  // resizing the interactive dialog itself exports at) and saved directly.
+  // Framing usually comes out reasonable given the prompt already asks for a
+  // head-and-shoulders shot; anyone can re-generate + manually crop a
+  // specific slot afterward if it isn't.
   const [generatingAllEmotions, setGeneratingAllEmotions] = useState(false);
   const handleGenerateAllEmotions = async () => {
     if (!name.trim()) {
@@ -313,11 +335,6 @@ const CharacterEditorPage = () => {
     setEmotionGenError(null);
     setGeneratingAllEmotions(true);
     try {
-      const dirHandle = await dbService.getSetting("image_save_directory");
-      if (!dirHandle) {
-        setEmotionGenError("Set an Image Save Directory in Settings first.");
-        return;
-      }
       const referenceImages = appearanceImages.length > 0 ? appearanceImages : undefined;
       const missing = EMOTIONS.filter((e) => e !== "neutral" && !emotionPortraitImages[e]);
       for (const emo of missing) {
@@ -327,18 +344,11 @@ const CharacterEditorPage = () => {
           const result = await dispatch(generateAvatarImage({ name, appearance, appearanceImages: referenceImages, emotion: emo })).unwrap();
           const dataUrl = result.images?.[0];
           if (!dataUrl) continue;
-          const [, base64] = dataUrl.split(",");
-          const mimeMatch = dataUrl.match(/^data:(.*?);/);
           // eslint-disable-next-line no-await-in-loop
-          const blob = await (await fetch(`data:${mimeMatch?.[1] || "image/png"};base64,${base64}`)).blob();
-          const filename = `avatar_${emo}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.png`;
-          const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
-          const writable = await fileHandle.createWritable();
+          const blob = await autoCoverCropToBlob(dataUrl, portraitSaveSize.width, portraitSaveSize.height);
           // eslint-disable-next-line no-await-in-loop
-          await writable.write(blob);
-          // eslint-disable-next-line no-await-in-loop
-          await writable.close();
-          setEmotionPortraitImages((prev) => ({ ...prev, [emo]: `local:${filename}` }));
+          const localRef = await savePortraitBlob(blob, `avatar_${emo}`);
+          setEmotionPortraitImages((prev) => ({ ...prev, [emo]: localRef }));
         } catch (err: any) {
           console.error(`Failed to generate ${emo} portrait:`, err);
           setEmotionGenError(`Failed on "${emo}" (${err?.message || err}) - stopped, already-generated slots are kept.`);
@@ -511,7 +521,7 @@ const CharacterEditorPage = () => {
                       }
                     }}
                     className="h-auto w-full px-3 py-1.5 text-xs font-medium border border-border hover:border-primary hover:text-primary"
-                    title="Re-crop the portrait to 3:4 aspect ratio"
+                    title="Re-crop the portrait"
                   >
                     <FaCrop size={11} /> Re-crop Portrait
                   </Button>
@@ -684,7 +694,7 @@ const CharacterEditorPage = () => {
                     <div className="flex flex-col gap-3">
                       <div className="flex flex-wrap gap-2.5">
                         {EMOTIONS.filter((e) => e !== "neutral").map((emo) => (
-                          <div key={emo} className="flex flex-col items-center gap-1 w-[76px]">
+                          <div key={emo} className="flex flex-col items-center gap-1 w-[92px]">
                             <div className="relative w-[76px] h-[76px] rounded-lg overflow-hidden border border-border bg-muted">
                               {emotionPortraitImages[emo] ? (
                                 <DisplayImage srcContext={emotionPortraitImages[emo]} alt={emo} className="w-full h-full object-cover" />
@@ -699,17 +709,36 @@ const CharacterEditorPage = () => {
                                 </div>
                               )}
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => handleGenerateEmotion(emo)}
-                              disabled={Boolean(generatingEmotion) || generatingAllEmotions}
-                              className="text-[10.5px] font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline capitalize"
-                            >
-                              {emo} {emotionPortraitImages[emo] ? "· Regenerate" : "· Generate"}
-                            </button>
+                            <span className="capitalize text-[10.5px] font-medium text-foreground">{emo}</span>
+                            <div className="flex items-center justify-center flex-wrap gap-1 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleGenerateEmotion(emo)}
+                                disabled={Boolean(generatingEmotion) || generatingAllEmotions}
+                                className="text-[10.5px] font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                              >
+                                {emotionPortraitImages[emo] ? "Regenerate" : "Generate"}
+                              </button>
+                              <span className="text-[10.5px] text-subtle">·</span>
+                              <button
+                                type="button"
+                                onClick={() => handleTriggerEmotionUpload(emo)}
+                                disabled={Boolean(generatingEmotion) || generatingAllEmotions}
+                                className="text-[10.5px] font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                              >
+                                Upload
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
+                      <input
+                        type="file"
+                        ref={emotionUploadInputRef}
+                        onChange={handleEmotionFileSelected}
+                        accept="image/*"
+                        style={{ display: "none" }}
+                      />
                       <Button
                         type="button"
                         variant="panel"
@@ -967,6 +996,7 @@ const CharacterEditorPage = () => {
         onClose={() => setCropDialogOpen(false)}
         imageSrc={cropImageSrc}
         onCropped={handleCropComplete}
+        exportSize={portraitSaveSize}
       />
     </div>
   );

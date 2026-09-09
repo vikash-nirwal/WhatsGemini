@@ -15,6 +15,7 @@ import {
   LS_ACTIVE_PERSONA_ID,
   LS_IMAGE_RESOLUTION,
   LS_GEMINI_IMAGE_SIZE,
+  LS_PORTRAIT_SAVE_SIZE,
   LS_IMAGE_MODEL,
   LS_IMAGE_GEN_PROMPT,
   LS_USE_SD_WEBUI,
@@ -74,6 +75,7 @@ store.subscribe(() => {
   localStorage.setItem(LS_FONT_SIZE, state.fontSize);
   localStorage.setItem(LS_IMAGE_RESOLUTION, state.imageResolution);
   localStorage.setItem(LS_GEMINI_IMAGE_SIZE, state.geminiImageSize);
+  localStorage.setItem(LS_PORTRAIT_SAVE_SIZE, state.portraitSaveSize);
 });
 
 // Debug Logging (Only in Development)
