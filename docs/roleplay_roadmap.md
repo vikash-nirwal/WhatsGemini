@@ -264,7 +264,7 @@ Also fixed in passing while wiring this in: discovered the native `alert()` call
 
 ---
 
-## Phase 10: Lorebooks / World Info
+## Phase 10: Lorebooks / World Info ✅ Done
 *A dynamic memory injection system that brings specific lore into context only when relevant keywords are mentioned.*
 
 **UI / Screen Flow:**
@@ -272,9 +272,20 @@ Also fixed in passing while wiring this in: discovered the native `alert()` call
 - **Token Preview:** A metric showing how much context an entry will consume when triggered.
 
 **Implementation Steps:**
-- [ ] **World Info Schema:** Create a `LoreEntry` type (`{ id, keywords: string[], content: string }`) and store it either per-character or globally.
-- [ ] **Keyword Trigger System:** Before generating a reply, run a fast string matching algorithm (e.g., Aho-Corasick or simple regex) against the last N messages to find active keywords.
-- [ ] **Dynamic Injection:** Append the `content` of triggered entries to a dedicated section (e.g., `[World Info]`) in the system prompt via `buildSystemInstruction`.
+- [x] **World Info Schema:** `LoreEntry` (`{ id, keywords: string[], content: string, enabled?: boolean }`) added to `types/index.ts`, stored per-character as `Character.loreEntries?: LoreEntry[]` (not global) - matching this app's existing pattern of every other character-specific system (memory, emotion portraits, auto-selfie all live on `Character`, not a shared table), and consistent with the roadmap's own "per-character or globally" either/or.
+- [x] **Keyword Trigger System:** `src/features/ai/utils/loreUtils.ts`'s `matchLoreEntries` - a plain case-insensitive substring scan (not Aho-Corasick) over the last `LORE_SCAN_MESSAGE_COUNT` (10, `constants.ts`) messages joined into one haystack. Aho-Corasick was explicitly skipped: entry/keyword counts here are small (a handful of entries, a few keywords each) and this runs once per reply, not per character of a large corpus - a multi-pattern automaton would be premature optimization for the actual scale. Skips disabled entries (`enabled === false`) and entries with blank content.
+- [x] **Dynamic Injection:** `buildWorldInfoSection` renders matched entries under a `[World Info]` header; wired into `buildSystemInstruction` (`promptComposition.ts`), which now takes an optional trailing `recentMessages` param used only for lore matching. `buildTurnContext` (the function every real call site already uses) passes its own `messages` through automatically, so every existing caller - `ChatPage.tsx`'s send/edit/regenerate/continue/follow-up paths and `TestChatPane.tsx` - picked up world info injection with no call-site changes beyond the pre-send token-budget estimate, which now also passes `messages` through so the "Context: X / Y tokens" bar reflects any currently-triggered lore instead of undercounting it.
+
+**UI:** New "Lorebook" step inserted into the Character Editor's wizard (`CharacterEditorPage.tsx`, `STEPS` now Identity → Personality → Scenario & Greeting → Example Dialogues → **Lorebook** → Test & Finalize) rather than a separate global page - keeps lore authoring in the same per-character flow as personality/scenario, and reuses the wizard's existing step-validation/jump machinery for free. Each entry card shows a live `~N tokens` count (`estimateTokens` on `content`, the same heuristic Phase 2/4 already use), a `TagInput` for keywords (same shared component as character Tags), an enable/disable `ToggleSwitch`, and a delete button; "Add Lore Entry" appends a blank entry. The Review step's summary card gained a "Lore entries" count row. `TestChatPane` takes a new `loreEntries` prop threaded into its transient draft `Character`, so the Test Chat pane exercises the exact same matching/injection path as real chat.
+
+**Also wired for consistency with existing systems:**
+- `characterSlice.ts`'s `addCharacter` destructure gained `loreEntries` - the same silent-drop bug Phase 8 found and fixed for `emotionPortraits`/`artStyle` would otherwise have hit any new field added to that fixed list again.
+- `characterCard.ts` (Phase 9's V2 card portability) carries `loreEntries` through `extensions.whatsgemini` for lossless round-trip export/import, following the same pattern as the other WhatsGemini-only fields already there.
+- No Dexie schema/version bump needed - `loreEntries` is unindexed, and Dexie persists the whole character object regardless of the indexed-field list in `dbService.ts`.
+
+Files touched: `src/types/index.ts` (`LoreEntry`, `Character.loreEntries`), `src/utils/constants.ts` (`LORE_SCAN_MESSAGE_COUNT`), `src/features/ai/utils/loreUtils.ts` (new - `matchLoreEntries`, `buildWorldInfoSection`), `src/features/ai/utils/loreUtils.test.ts` (new - 8 unit tests), `src/features/ai/utils/promptComposition.ts` (`recentMessages` param, `[World Info]` section), `src/features/characterSlice.ts` (`addCharacter` destructure fix), `src/features/character/characterCard.ts` (extensions round-trip), `src/pages/CharacterEditorPage.tsx` (Lorebook step, state, handlers, save wiring), `src/pages/ChatPage.tsx` (token-budget estimate now passes `messages`), `src/components/character/TestChatPane.tsx` (`loreEntries` prop).
+
+Verified: `tsc --noEmit` clean; `loreUtils.test.ts` (8 tests, covering no-match, case-insensitive match, multi-keyword OR-match, disabled entries, blank content, the recent-message-count cutoff, and blank/whitespace keywords) plus `messageTree.test.ts` (27 tests) both pass. Live-verified end to end in-browser with a real Gemini call: created a character with the personality "A mysterious traveler who knows ancient lore" (no world-specific facts) plus one lore entry - keywords `silver court`/`fae kingdom`, content "The Silver Court is a hidden fae kingdom ruled by Queen Lyra, accessible only through moonlit mirrors" - then asked the Test Chat pane "Tell me what you know about the silver court." The real reply used the injected facts verbatim ("Queen Lyra", "moonlit mirrors", "The Silver Court") that appear nowhere in the personality prompt, confirming the keyword match → injection → model pipeline actually works, not just that it type-checks. Also verified the entry round-trips correctly through IndexedDB (saved, then re-opened in Edit mode with keywords/content/token-count/toggle all intact) and that the Review step's "Lore entries: 1 entry" count is accurate. Test character deleted after verification via the app's own non-blocking confirm dialog.
 
 ---
 

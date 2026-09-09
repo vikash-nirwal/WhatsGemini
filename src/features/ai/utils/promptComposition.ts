@@ -2,6 +2,7 @@ import { Character, Message, UserProfile } from "../../../types";
 import { YOU } from "../../../utils/constants";
 import { stripLeakedBase64 } from "./apiUtils";
 import { buildEmotionDirective } from "./emotionUtils";
+import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
 import { ChatMessage } from "../types";
 
 // Converts stored DB messages into the provider-agnostic ChatMessage shape,
@@ -38,7 +39,8 @@ export const buildSystemInstruction = (
   character: Character | undefined,
   extraDirectives?: string[],
   replyLengthLimit?: number,
-  activePersona?: UserProfile
+  activePersona?: UserProfile,
+  recentMessages?: Message[]
 ): SystemInstructionResult => {
   if (!character) return { text: undefined, images: undefined, characterName: undefined };
 
@@ -48,6 +50,13 @@ export const buildSystemInstruction = (
 
   if (character.scenario) {
     sections.push(`Current scenario / setting: ${character.scenario}`);
+  }
+
+  if (character.loreEntries && character.loreEntries.length > 0 && recentMessages) {
+    const matched = matchLoreEntries(character.loreEntries, recentMessages);
+    if (matched.length > 0) {
+      sections.push(buildWorldInfoSection(matched));
+    }
   }
 
   if (activePersona) {
@@ -114,6 +123,6 @@ export const buildTurnContext = (
   activePersona?: UserProfile
 ): TurnContext => {
   const history = buildChatHistory(messages);
-  const { text, images, characterName } = buildSystemInstruction(character, extraDirectives, replyLengthLimit, activePersona);
+  const { text, images, characterName } = buildSystemInstruction(character, extraDirectives, replyLengthLimit, activePersona, messages);
   return { history, systemInstruction: text, characterImages: images, characterName };
 };

@@ -107,6 +107,17 @@ export interface Character {
     enabled: boolean;
     images: Record<string, string>;
   };
+  loreEntries?: LoreEntry[]; // keyword-triggered world info, injected into the system prompt only when relevant
+}
+
+// A single Lorebook / World Info entry - a chunk of lore that's only injected
+// into the system prompt when one of its keywords actually appears in the
+// recent conversation, instead of bloating every reply's context up front.
+export interface LoreEntry {
+  id: string;
+  keywords: string[];
+  content: string;
+  enabled?: boolean; // defaults to true when unset
 }
 
 // One user persona - "Myself", "Elven Mage", etc. The active one (see

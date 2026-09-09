@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { addCharacter, updateCharacter } from "../features/characterSlice";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { FaTimes, FaUpload, FaPlay, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaMagic, FaCrop } from "react-icons/fa";
+import { FaTimes, FaUpload, FaPlay, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaMagic, FaCrop, FaTrash, FaBook } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { Character } from "../types";
+import { Character, LoreEntry } from "../types";
 import { dbService } from "../services/dbService";
 import { generateAssistText, generateAvatarImage } from "../features/aiSlice";
 import { DisplayImage } from "../components/DisplayImage";
@@ -14,7 +14,7 @@ import { Card } from "../components/ui/card";
 import { cn } from "../utils/cn";
 import ToggleSwitch from "../components/ToggleSwitch";
 import Header from "../components/Header";
-import { CHARACTER_SWATCHES, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, EMOTIONS, ART_STYLES, DEFAULT_ART_STYLE } from "../utils/constants";
+import { CHARACTER_SWATCHES, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, EMOTIONS, ART_STYLES, DEFAULT_ART_STYLE, LORE_SCAN_MESSAGE_COUNT } from "../utils/constants";
 import { SegmentedControl } from "../components/settings/SegmentedControl";
 import { isSpeechSynthesisSupported, getVoices, speak } from "../utils/speech";
 import { estimateTokens } from "../features/ai/utils/tokenEstimator";
@@ -31,7 +31,9 @@ const findSwatchIndex = (accent?: [string, string]) => {
   return idx === -1 ? 0 : idx;
 };
 
-const STEPS = ["Identity", "Personality", "Scenario & Greeting", "Example Dialogues", "Test & Finalize"];
+const STEPS = ["Identity", "Personality", "Scenario & Greeting", "Example Dialogues", "Lorebook", "Test & Finalize"];
+
+const makeLoreEntryId = () => `lore_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
 
 const CharacterEditorPage = () => {
   const dispatch = useAppDispatch();
@@ -71,6 +73,7 @@ const CharacterEditorPage = () => {
   const [autoSelfieFrequency, setAutoSelfieFrequency] = useState(DEFAULT_AUTO_SELFIE_FREQUENCY);
   const [emotionPortraitsEnabled, setEmotionPortraitsEnabled] = useState(false);
   const [emotionPortraitImages, setEmotionPortraitImages] = useState<Record<string, string>>({});
+  const [loreEntries, setLoreEntries] = useState<LoreEntry[]>([]);
 
   useEffect(() => {
     if (!isSpeechSynthesisSupported()) return;
@@ -99,6 +102,7 @@ const CharacterEditorPage = () => {
       setAutoSelfieFrequency(source.autoSelfie?.frequency ?? DEFAULT_AUTO_SELFIE_FREQUENCY);
       setEmotionPortraitsEnabled(source.emotionPortraits?.enabled || false);
       setEmotionPortraitImages(source.emotionPortraits?.images || {});
+      setLoreEntries(source.loreEntries || []);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [characterId]);
@@ -158,7 +162,7 @@ const CharacterEditorPage = () => {
       alert("Character name and prompt are required.");
       return;
     }
-    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages } }));
+    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages }, loreEntries }));
     navigate("/characters");
   };
 
@@ -167,7 +171,7 @@ const CharacterEditorPage = () => {
       alert("Character name and prompt are required.");
       return;
     }
-    dispatch(updateCharacter({ id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages } }));
+    dispatch(updateCharacter({ id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages }, loreEntries }));
     navigate("/characters");
   };
 
@@ -353,6 +357,16 @@ const CharacterEditorPage = () => {
     setAppearanceImages((prev) =>
       prev.length > 0 ? [localRef, ...prev.slice(1)] : [localRef]
     );
+  };
+
+  const handleAddLoreEntry = () => {
+    setLoreEntries((prev) => [...prev, { id: makeLoreEntryId(), keywords: [], content: "", enabled: true }]);
+  };
+  const handleUpdateLoreEntry = (id: string, patch: Partial<LoreEntry>) => {
+    setLoreEntries((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+  };
+  const handleRemoveLoreEntry = (id: string) => {
+    setLoreEntries((prev) => prev.filter((e) => e.id !== id));
   };
 
   const handleRemoveMemoryFact = (index: number) => {
@@ -823,6 +837,82 @@ const CharacterEditorPage = () => {
             )}
 
             {step === 4 && (
+              <Card className="p-5 flex flex-col gap-4">
+                <div className="flex items-baseline justify-between gap-4">
+                  <h3 className="font-semibold text-[15px] text-foreground flex items-center gap-2">
+                    <FaBook size={13} className="text-subtle" /> Lorebook / World Info
+                  </h3>
+                  <span className="text-xs text-subtle">Injected into the prompt only when a keyword is mentioned</span>
+                </div>
+                <p className="text-xs text-subtle -mt-2">
+                  Add lore entries for places, factions, items, or backstory that shouldn't live in the personality
+                  prompt full-time. Each entry is only added to the conversation when one of its keywords shows up in
+                  the last {LORE_SCAN_MESSAGE_COUNT} messages - keeping unrelated lore out of the context budget.
+                </p>
+
+                {loreEntries.length === 0 && (
+                  <p className="text-xs text-subtle italic">No lore entries yet.</p>
+                )}
+
+                <div className="flex flex-col gap-3">
+                  {loreEntries.map((entry, idx) => {
+                    const entryTokens = estimateTokens(entry.content);
+                    return (
+                      <div key={entry.id} className="rounded-lg border border-border p-3.5 flex flex-col gap-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-semibold text-subtle">Entry {idx + 1}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-[11px] text-subtle font-mono">~{entryTokens.toLocaleString()} tokens</span>
+                            <ToggleSwitch
+                              checked={entry.enabled !== false}
+                              onChange={(v) => handleUpdateLoreEntry(entry.id, { enabled: v })}
+                              label="Enabled"
+                              className="text-xs"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRemoveLoreEntry(entry.id)}
+                              className="h-7 w-7 text-subtle hover:bg-destructive/10 hover:text-destructive flex-shrink-0"
+                              title="Delete this lore entry"
+                              aria-label="Delete this lore entry"
+                            >
+                              <FaTrash size={11} />
+                            </Button>
+                          </div>
+                        </div>
+                        <div>
+                          <FieldLabel hint="Any of these words/phrases appearing in the recent conversation triggers this entry.">Keywords</FieldLabel>
+                          <TagInput
+                            value={entry.keywords}
+                            onChange={(kws) => handleUpdateLoreEntry(entry.id, { keywords: kws })}
+                            placeholder="Add a keyword..."
+                          />
+                        </div>
+                        <TextArea
+                          placeholder="Lore content injected into the system prompt when triggered (e.g. The Silver Court is a hidden fae kingdom ruled by...)"
+                          value={entry.content}
+                          onChange={(e) => handleUpdateLoreEntry(entry.id, { content: e.target.value })}
+                          className="resize-none min-h-[80px]"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <Button
+                  type="button"
+                  variant="panel"
+                  onClick={handleAddLoreEntry}
+                  className="h-auto w-full px-3 py-2 text-xs font-medium border border-dashed border-border hover:border-primary hover:text-primary"
+                >
+                  <FaPlus size={11} /> Add Lore Entry
+                </Button>
+              </Card>
+            )}
+
+            {step === 5 && (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 {/* Left: Review summary + Memory */}
                 <div className="flex flex-col gap-4">
@@ -844,6 +934,10 @@ const CharacterEditorPage = () => {
                       <div>
                         <div className="text-xs text-subtle mb-1">First message</div>
                         <div className="text-foreground truncate">{firstMes || <span className="text-subtle">Uses default greeting</span>}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-subtle mb-1">Lore entries</div>
+                        <div className="text-foreground">{loreEntries.length > 0 ? `${loreEntries.length} entr${loreEntries.length === 1 ? "y" : "ies"}` : <span className="text-subtle">-</span>}</div>
                       </div>
                     </div>
                     <div>
@@ -912,6 +1006,7 @@ const CharacterEditorPage = () => {
                   appearanceImages={appearanceImages}
                   accent={accent}
                   memory={editCharacter?.memory}
+                  loreEntries={loreEntries}
                 />
               </div>
             )}

@@ -37,12 +37,12 @@ export const fetchCharacterById = createAsyncThunk(
 
 export const addCharacter = createAsyncThunk(
   "character/add",
-  async ({ name, description, prompt, scenario, first_mes, mes_example, relationship, appearance, appearanceImages, artStyle, avatar, accent, tags, voiceURI, autoSelfie, emotionPortraits }: Omit<Character, "id">, { rejectWithValue }) => {
+  async ({ name, description, prompt, scenario, first_mes, mes_example, relationship, appearance, appearanceImages, artStyle, avatar, accent, tags, voiceURI, autoSelfie, emotionPortraits, loreEntries }: Omit<Character, "id">, { rejectWithValue }) => {
     try {
       if (!name.trim() || !prompt.trim()) {
         throw new Error("Character name and prompt are required.");
       }
-      const newChar = { name, description, prompt, scenario, first_mes, mes_example, relationship, appearance, appearanceImages, artStyle, avatar, accent, tags, voiceURI, autoSelfie, emotionPortraits };
+      const newChar = { name, description, prompt, scenario, first_mes, mes_example, relationship, appearance, appearanceImages, artStyle, avatar, accent, tags, voiceURI, autoSelfie, emotionPortraits, loreEntries };
       const id = await dbService.addCharacter(newChar);
       return { id, ...newChar } as Character;
     } catch (error) {

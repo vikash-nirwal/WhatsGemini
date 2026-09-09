@@ -3,7 +3,7 @@ import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { generateAIResponse } from "../../features/aiSlice";
 import { selectActivePersona } from "../../features/settingsSlice";
 import { buildTurnContext } from "../../features/ai/utils/promptComposition";
-import { Character, Message } from "../../types";
+import { Character, LoreEntry, Message } from "../../types";
 import { YOU, AI } from "../../utils/constants";
 import { CharacterAvatar } from "../ui/CharacterAvatar";
 import { Button } from "../ui/button";
@@ -31,6 +31,7 @@ export interface TestChatPaneProps {
   appearanceImages: string[];
   accent: [string, string];
   memory?: string[];
+  loreEntries?: LoreEntry[];
 }
 
 // Builds a transient Character object from the wizard's form state so we can
@@ -49,6 +50,7 @@ const buildDraftCharacter = (props: TestChatPaneProps): Character => ({
   appearanceImages: props.appearanceImages,
   accent: props.accent,
   memory: props.memory,
+  loreEntries: props.loreEntries,
 });
 
 const TestChatPane: React.FC<TestChatPaneProps> = (props) => {

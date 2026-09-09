@@ -160,6 +160,10 @@ export const getModelContextWindow = (providerId: string, model: string): number
 export const MEMORY_EXTRACTION_INTERVAL = 12;
 // Oldest facts are trimmed once a character's memory list exceeds this size.
 export const MAX_MEMORY_ENTRIES = 40;
+// How many of the most recent messages are scanned for Lorebook/World Info
+// keyword matches before each reply - recent-only keeps matching cheap and
+// keeps lore relevant to what's actually being talked about right now.
+export const LORE_SCAN_MESSAGE_COUNT = 10;
 
 // Preset 2-color avatar gradients offered when creating/editing a character.
 export const CHARACTER_SWATCHES: [string, string][] = [

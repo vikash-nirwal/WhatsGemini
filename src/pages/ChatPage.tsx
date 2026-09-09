@@ -194,7 +194,7 @@ const ChatPage = () => {
   // so this reflects what will really be sent - not the full stored
   // conversation - once maxChatLength is set to something other than 0.
   const contextTokenEstimate = useMemo(() => {
-    const { text: systemInstructionText } = buildSystemInstruction(characterData, undefined, replyLengthLimit, activePersona);
+    const { text: systemInstructionText } = buildSystemInstruction(characterData, undefined, replyLengthLimit, activePersona, messages);
     const effectiveHistory = truncateHistory(buildChatHistory(messages), maxChatLength);
     return estimateTokens(systemInstructionText) + estimateHistoryTokens(effectiveHistory.map((m) => m.text));
   }, [characterData, replyLengthLimit, messages, maxChatLength, activePersona]);
