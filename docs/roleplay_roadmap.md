@@ -165,15 +165,19 @@ Files touched: `src/types/index.ts` (`Chat.autoReply` shape), `src/features/ai/u
 
 ---
 
-## Phase 7: Impersonation
+## Phase 7: Impersonation ✅ Done
 *Allowing the user to steer the scene by writing dialogue/actions as the AI character.*
 
 **UI / Screen Flow:**
-- **Composer Mode Toggle:** A button in the input bar (e.g., a "Mask" icon) that switches the input field color to indicate "Impersonation Mode".
+- **Composer Mode Toggle:** A "Mask" icon button in the input bar toggles Impersonation Mode - the input bar's border/background tints violet, a banner explains "this message is sent as {character}, not you", and the placeholder changes to "Write as {character}…".
 
 **Implementation Steps:**
-- [ ] **Impersonate Mode State:** Add a toggle in `MessageInput.tsx`. When active, submitted text is processed with `role: "model"` instead of `role: "user"`.
-- [ ] **Tree Insertion:** Pass the custom role through `addChildNode`. The tree structure inherently supports consecutive AI messages, so the next actual AI generation will simply read the impersonated message as part of its own history.
+- [x] **Impersonate Mode State:** `MessageInput.tsx` has an `isImpersonated` toggle (mirrors the existing `isImageRequest` toggle pattern exactly - same button styling, same auto-reset-after-send). `onSend`/`ChatPage.handleSend` gained a third param; when true, `handleSend` appends the message with `role: AI` (not `YOU`) via `addMessage({ ..., isImpersonated: true })` and returns immediately - no `generateAIResponse` call, so the user can keep chatting normally right after.
+- [x] **Tree Insertion:** No changes needed - `addChildNode`/the tree already took a plain `Message` object with no role-specific logic, so consecutive AI-role messages (the impersonated line followed by, eventually, a real AI reply) just work. `buildChatHistory` already only special-cases the `YOU` role, so an impersonated message flows into the next real generation's history as an ordinary assistant turn, with no extra plumbing.
+- [x] **Display:** New `Message.isImpersonated?: boolean` flag. `ChatMessage.tsx` renders it in the character's normal position/avatar (it *is* the character's turn) but adds a small "You, in character" badge and hides Regenerate/Continue (nothing to regenerate/continue - it wasn't generated), keeping Copy/Speak/Edit/Delete.
+- [x] A user-authored impersonated line is "the user showing up" the same way a real message is, so it also resets any pending auto-follow-up streak (`chatSlice.addMessage`'s `followupCount` reset now checks `role === YOU || isImpersonated`).
+
+Files touched: `src/types/index.ts` (`Message.isImpersonated`), `src/features/chatSlice.ts` (`addMessage` threading + follow-up reset), `src/pages/ChatPage.tsx` (`handleSend`'s early-return branch), `src/components/MessageInput.tsx` (toggle, banner, placeholder, border tint), `src/components/chat/ChatMessage.tsx` (badge, suppressed actions). Verified live in-browser against a real chat: toggled impersonation on, confirmed the banner/placeholder/border change, sent an in-character line, confirmed it landed in the character's slot with the "You, in character" badge and only Copy/Speak/Edit actions, confirmed the toggle auto-reset after send, and confirmed no AI generation fired. `tsc --noEmit` clean, `messageTree.test.ts` (27 tests) passes.
 
 ---
 

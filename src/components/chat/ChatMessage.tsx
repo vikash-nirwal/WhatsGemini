@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { FaCopy, FaRedo, FaEdit, FaEllipsisV, FaChevronLeft, FaChevronRight, FaTrash, FaVolumeUp, FaStop, FaCompressArrowsAlt, FaForward } from "react-icons/fa";
+import { FaCopy, FaRedo, FaEdit, FaEllipsisV, FaChevronLeft, FaChevronRight, FaTrash, FaVolumeUp, FaStop, FaCompressArrowsAlt, FaForward, FaMask } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { cn } from "../../utils/cn";
 import { Message } from "../../types";
@@ -153,6 +153,13 @@ const ChatMessage = React.memo(({
           </Button>
         )}
 
+        {msg.isImpersonated && (
+          <div className="flex items-center gap-1.5 mb-1.5 text-[11px] font-semibold text-primary/80">
+            <FaMask size={10} />
+            You, in character
+          </div>
+        )}
+
         <div className="font-serif">
           <MarkdownRenderer msgText={stripImageContextTag(msg.txt || "")} isUser={isUser} />
         </div>
@@ -228,10 +235,12 @@ const ChatMessage = React.memo(({
             <Button variant="ghost" onClick={handleCopy} className="h-auto w-auto px-2 py-1 gap-1.5 rounded-md text-xs font-normal text-muted-foreground hover:bg-secondary hover:text-foreground">
               <FaCopy size={12} /> Copy
             </Button>
-            <Button variant="ghost" onClick={handleRegenerate} className="h-auto w-auto px-2 py-1 gap-1.5 rounded-md text-xs font-normal text-muted-foreground hover:bg-secondary hover:text-foreground">
-              <FaRedo size={12} /> Regenerate
-            </Button>
-            {isLastMessage && onContinue && (
+            {!msg.isImpersonated && (
+              <Button variant="ghost" onClick={handleRegenerate} className="h-auto w-auto px-2 py-1 gap-1.5 rounded-md text-xs font-normal text-muted-foreground hover:bg-secondary hover:text-foreground">
+                <FaRedo size={12} /> Regenerate
+              </Button>
+            )}
+            {!msg.isImpersonated && isLastMessage && onContinue && (
               <Button
                 variant="ghost"
                 onClick={handleContinue}

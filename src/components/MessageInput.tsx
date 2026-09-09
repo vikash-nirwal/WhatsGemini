@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { FaPaperPlane, FaStop, FaCog, FaImage, FaTimes, FaMicrophone } from "react-icons/fa";
+import { FaPaperPlane, FaStop, FaCog, FaImage, FaTimes, FaMicrophone, FaMask } from "react-icons/fa";
 import { cn } from "../utils/cn";
 import { Button } from "./ui/button";
 import ImageSettingsModal from "./ImageSettingsModal";
@@ -7,7 +7,7 @@ import { isSpeechRecognitionSupported, createSpeechRecognition } from "../utils/
 import { estimateTokens } from "../features/ai/utils/tokenEstimator";
 
 interface MessageInputProps {
-  onSend: (text: string, isImageRequest?: boolean) => void;
+  onSend: (text: string, isImageRequest?: boolean, isImpersonated?: boolean) => void;
   disabled?: boolean;
   onStop?: () => void;
   // Fires while the user is actively typing a non-empty draft - lets a
@@ -40,6 +40,7 @@ const formatTokenCount = (n: number): string => {
 const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, onStop, onDraftActivity, tokenCount = 0, costEstimate = 0, characterName, contextTokens = 0, maxContextTokens = 0, totalChatTokens = 0, totalChatCost = 0 }) => {
   const [text, setText] = useState("");
   const [isImageRequest, setIsImageRequest] = useState(false);
+  const [isImpersonated, setIsImpersonated] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
 
@@ -122,10 +123,11 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, o
     if (!trimmedText) return;
 
     if (isListening) stopListening();
-    onSend(trimmedText, isImageRequest);
+    onSend(trimmedText, isImageRequest, isImpersonated);
     setText("");
     setIsImageRequest(false); // Disable/uncheck it afterward
-  }, [text, isImageRequest, onSend, disabled, isListening, stopListening]);
+    setIsImpersonated(false);
+  }, [text, isImageRequest, isImpersonated, onSend, disabled, isListening, stopListening]);
 
   // Scroll input into view when focused (helps with mobile keyboards)
   const handleFocus = useCallback(() => {
@@ -198,6 +200,24 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, o
         </div>
       )}
 
+      {isImpersonated && (
+        <div className="flex items-center gap-2.5 px-3 py-2 bg-violet-500/10 border border-violet-500/50 rounded-lg">
+          <span className="text-violet-500 flex-shrink-0 flex"><FaMask size={13} /></span>
+          <span className="flex-1 text-[12.5px] text-foreground font-medium">
+            Impersonation on — this message is sent as {characterName || "the character"}, not you.
+          </span>
+          <Button
+            onClick={() => setIsImpersonated(false)}
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground flex-shrink-0"
+            aria-label="Turn off impersonation"
+          >
+            <FaTimes size={11} />
+          </Button>
+        </div>
+      )}
+
       {isListening && (
         <div className="flex items-center gap-2.5 px-3 py-2 bg-destructive/10 border border-destructive/50 rounded-lg">
           <span className="relative flex-shrink-0 w-2.5 h-2.5">
@@ -219,7 +239,14 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, o
         </div>
       )}
 
-      <div className="flex items-center gap-1 h-14 px-2 rounded-xl bg-card/[0.85] backdrop-blur-md border border-border/10 shadow-soft">
+      <div
+        className={cn(
+          "flex items-center gap-1 h-14 px-2 rounded-xl backdrop-blur-md shadow-soft transition-colors",
+          isImpersonated
+            ? "bg-violet-500/[0.06] border border-violet-500/40"
+            : "bg-card/[0.85] border border-border/10"
+        )}
+      >
         <Button
           onClick={() => setIsImageRequest((v) => !v)}
           disabled={disabled}
@@ -235,6 +262,23 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, o
           )}
         >
           <FaImage size={16} />
+        </Button>
+
+        <Button
+          onClick={() => setIsImpersonated((v) => !v)}
+          disabled={disabled}
+          variant="ghost"
+          title={`Write as ${characterName || "the character"} instead of yourself`}
+          aria-label="Toggle impersonation mode"
+          aria-pressed={isImpersonated}
+          className={cn(
+            "h-10 w-10 flex-shrink-0 rounded-lg",
+            isImpersonated
+              ? "bg-violet-500/[0.14] text-violet-500 hover:bg-violet-500/[0.2]"
+              : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+          )}
+        >
+          <FaMask size={16} />
         </Button>
 
         {micSupported && (
@@ -275,7 +319,15 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, o
             if (value.trim()) onDraftActivity?.();
           }}
           rows={1}
-          placeholder={disabled ? "Waiting for response..." : characterName ? `Message ${characterName}…` : "Type a message..."}
+          placeholder={
+            disabled
+              ? "Waiting for response..."
+              : isImpersonated
+              ? `Write as ${characterName || "the character"}…`
+              : characterName
+              ? `Message ${characterName}…`
+              : "Type a message..."
+          }
           className="flex-1 min-w-0 px-2.5 py-1 leading-[22px] bg-transparent text-foreground placeholder-subtle outline-none transition-colors resize-none disabled:opacity-50"
           style={{ fontSize: 'var(--chat-font-size, 16px)', maxHeight: MAX_TEXTAREA_HEIGHT }}
           disabled={disabled}

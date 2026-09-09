@@ -25,6 +25,7 @@ export interface Message {
   isSystem?: boolean;
   isCompressionSummary?: boolean; // true for the persisted auto-compress summary message
   isImageRequest?: boolean; // True if it triggered image generation
+  isImpersonated?: boolean; // role AI, but the user wrote it themselves (Impersonate mode) - not a real generation
   imagePrompt?: string; // The derived SD prompt used to generate this image
   imageParams?: SDImageParams; // The derived SD params
   sampler_name?: string; // The specific sampler name used

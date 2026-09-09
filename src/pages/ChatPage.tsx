@@ -396,12 +396,22 @@ const ChatPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoReplySettings.enabled, autoReplySettings.minDelaySeconds, autoReplySettings.maxDelaySeconds, autoReplySettings.maxFollowups, autoReplySettings.followupCount, chatIdNum, characterData, currentChat?.content, aiLoading, lastTypingActivityAt]);
 
-  const handleSend = async (text: string, isImageRequest?: boolean) => {
+  const handleSend = async (text: string, isImageRequest?: boolean, isImpersonated?: boolean) => {
     if (!text.trim() || !chatIdNum) return;
 
     setError(null);
 
     try {
+      if (isImpersonated) {
+        // The user is speaking as the character (Impersonate mode) - append it
+        // as the character's own turn and stop. No generation to trigger; the
+        // next real AI reply, whenever it comes, just reads this as part of its
+        // own history (buildChatHistory only special-cases the YOU role).
+        await dispatch(addMessage({ chatId: chatIdNum, role: AI, text, isImpersonated: true }));
+        dispatch(fetchChats());
+        return;
+      }
+
       const resultAction = await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, isImageRequest }));
       const updatedMessages = resultAction.payload as Message[] || [];
       const { messages: contextMessages, tokens: compressTokens, cost: compressCost } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: updatedMessages })).unwrap();
