@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { performChatCompression, buildValidHistory, buildAutoCompressedMessages, truncateHistory, trimTrailingUserMessages } from "./ai/utils/chatHistoryUtils";
-import { AI, YOU, getModelPricing } from "../utils/constants";
+import { AI, YOU, getModelPricing, ART_STYLE_CLAUSES, DEFAULT_ART_STYLE } from "../utils/constants";
 import { getProviderApiKey, getOllamaBaseUrl } from "./ai/utils/settings";
 import { extractAndSaveBase64ImagesLocally, stripLeakedBase64 } from "./ai/utils/apiUtils";
 import { deriveImagePrompt, generateImage } from "./ai/utils/imageGeneration";
@@ -10,7 +10,7 @@ import { CHAT_PROVIDERS, IMAGE_PROVIDERS } from "./ai/providers/registry";
 import { ProviderRuntimeConfig } from "./ai/providers/types";
 import { ChatMessage, UsageInfo } from "./ai/types";
 import { RootState } from "../store/store";
-import { SDImageParams, Message } from "../types";
+import { SDImageParams, Message, ArtStyle } from "../types";
 import { updateMessages, fetchChats } from "./chatSlice";
 
 export interface GenerateAIResponseResult {
@@ -34,7 +34,7 @@ const resolveProviderConfig = async (providerId: string, requiresBaseUrl: boolea
 
 export const generateAIResponse = createAsyncThunk(
   "ai/generateResponse",
-  async ({ prompt, history = [], systemInstruction, characterImages, characterName, isImageRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, characterImages?: string[], characterName?: string, isImageRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams }, { getState, rejectWithValue, signal }) => {
+  async ({ prompt, history = [], systemInstruction, characterImages, characterName, artStyle, isImageRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams }, { getState, rejectWithValue, signal }) => {
     try {
       const state = getState() as RootState;
       const settings = state.settings;
@@ -93,7 +93,7 @@ export const generateAIResponse = createAsyncThunk(
         const derivation = await deriveImagePrompt(
           chatAdapter, chatConfig, selectedModel, turnConfig, historyForSdk, prompt,
           settings.imageGenPrompt, settings.sdWebuiModel, useSdWebui,
-          existingImagePrompt, existingImageParams, signal, isCharacterInitiated, isAutoSelfie
+          existingImagePrompt, existingImageParams, signal, isCharacterInitiated, isAutoSelfie, artStyle
         );
         trackUsage(derivation.usage, chatProviderId, selectedModel);
 
@@ -259,7 +259,7 @@ export const generateAssistText = createAsyncThunk(
 export const generateAvatarImage = createAsyncThunk(
   "ai/generateAvatarImage",
   async (
-    { name, appearance, appearanceImages, emotion, artStyle }: { name: string; appearance?: string; appearanceImages?: string[]; emotion?: string; artStyle?: "anime" | "realistic" },
+    { name, appearance, appearanceImages, emotion, artStyle, hint }: { name: string; appearance?: string; appearanceImages?: string[]; emotion?: string; artStyle?: ArtStyle; hint?: string },
     { getState, rejectWithValue }
   ) => {
     try {
@@ -280,12 +280,11 @@ export const generateAvatarImage = createAsyncThunk(
       // The style clause is pinned explicitly (rather than left as a vague
       // "stylized") so separate generation calls for the same character don't
       // drift between anime/realistic/in-between looks.
-      const styleClause = artStyle === "realistic"
-        ? "Photorealistic style, realistic photography, natural lighting and lifelike skin/hair detail"
-        : "Anime illustration art style, clean line art, cel-shaded coloring, vibrant anime aesthetic";
+      const styleClause = ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE];
       const parts = [`Character portrait of ${name}`];
       if (appearance) parts.push(appearance);
       if (emotion) parts.push(`Showing a clear, unmistakable "${emotion}" facial expression and body language, same character and outfit as usual`);
+      if (hint) parts.push(`Also incorporate this direction: ${hint}`);
       parts.push(`Head and shoulders, 3:4 aspect ratio, ${styleClause}, high quality, detailed`);
       // Emotion portraits are meant to eventually render as a backgroundless
       // sprite (see portraitUtils.ts's removeChromaKeyBackground), so they get

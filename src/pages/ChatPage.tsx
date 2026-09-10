@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, updateChatAutoReply, updateChatMutedParticipants, incrementChatUsage, updateChatPersona, setPendingFollowupAt } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
 import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage } from "../features/aiSlice";
-import { parseSize, autoCoverCropToBlob, savePortraitBlob } from "../features/ai/utils/portraitUtils";
+import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
 import ChatWindow from "../components/ChatWindow";
 import MessageInput from "../components/MessageInput";
 import Header, { HeaderAction } from "../components/Header";
@@ -220,8 +220,14 @@ const ChatPage = () => {
         setMissingEmotionError("No image was returned.");
         return;
       }
+      // Same chroma-key strip the Character Editor's own emotion-generation
+      // paths already apply (see portraitUtils.ts) - this quick in-chat path
+      // was missed when that fix went in, and was saving an opaque
+      // magenta-background PNG instead of a transparent one.
+      const keyedBlob = await removeChromaKeyBackground(dataUrl);
+      const keyedDataUrl = await blobToDataUrl(keyedBlob);
       const { width, height } = parseSize(portraitSaveSize);
-      const blob = await autoCoverCropToBlob(dataUrl, width, height);
+      const blob = await autoCoverCropToBlob(keyedDataUrl, width, height);
       const localRef = await savePortraitBlob(blob, `avatar_${missingEmotionPortrait}`);
       dispatch(updateCharacter({
         ...characterData,
@@ -421,7 +427,7 @@ const ChatPage = () => {
     );
     const aiResponse = await dispatch(generateAIResponse({
       prompt: "Please continue the conversation naturally, as if reaching out again.",
-      history, systemInstruction, characterImages, characterName,
+      history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle,
       isImageRequest: includeImage, isCharacterInitiated: true, isAutoSelfie: shouldAutoSelfie,
     }));
 
@@ -586,7 +592,7 @@ const ChatPage = () => {
         Math.random() * 100 < (autoSelfieCfg.frequency ?? DEFAULT_AUTO_SELFIE_FREQUENCY);
 
       const { history, systemInstruction, characterImages, characterName } = buildTurnContext(contextMessages, speaker, withAuthorNote(), replyLengthLimit, activePersona, buildRoomContext(speaker));
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: text, history, systemInstruction, characterImages, characterName, isImageRequest: isImageRequest || shouldAutoSelfie, isAutoSelfie: shouldAutoSelfie }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: text, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isAutoSelfie: shouldAutoSelfie }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
 
@@ -651,7 +657,7 @@ const ChatPage = () => {
         if (!speaker) return;
 
         const { history, systemInstruction, characterImages, characterName } = buildTurnContext(contentUpToEdit, speaker, withAuthorNote(), replyLengthLimit, activePersona, buildRoomContext(speaker));
-        aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, characterImages, characterName, isImageRequest }));
+        aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest }));
         const aiResponse = await aiPromiseRef.current;
         aiPromiseRef.current = null;
 
@@ -735,7 +741,7 @@ const ChatPage = () => {
       if (!speaker) return;
 
       const { history, systemInstruction, characterImages, characterName } = buildTurnContext(historyUpToTarget, speaker, extraDirectives, replyLengthLimit, activePersona, buildRoomContext(speaker));
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, characterImages, characterName, isImageRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
 
@@ -881,7 +887,7 @@ const ChatPage = () => {
         buildRoomContext(speaker)
       );
 
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: "Continue.", history, systemInstruction, characterImages, characterName }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: "Continue.", history, systemInstruction, characterImages, characterName, artStyle: speaker.artStyle }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
 

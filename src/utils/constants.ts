@@ -1,3 +1,5 @@
+import { ArtStyle } from "../types";
+
 export const YOU = "you";
 export const AI = "ai";
 export const MODEL = "model";
@@ -50,11 +52,22 @@ export const imageModels = [
 // generation of its own - it's just the character's existing portrait.
 export const EMOTIONS = ["neutral", "happy", "sad", "angry", "surprised", "excited", "shy", "scared", "thinking"];
 
-export const ART_STYLES: { value: "anime" | "realistic"; label: string }[] = [
+export const ART_STYLES: { value: ArtStyle; label: string }[] = [
   { value: "anime", label: "Anime" },
   { value: "realistic", label: "Realistic" },
+  { value: "3d", label: "3D Animated" },
 ];
-export const DEFAULT_ART_STYLE: "anime" | "realistic" = "anime";
+export const DEFAULT_ART_STYLE: ArtStyle = "anime";
+
+// Shared prompt clause per style - single source of truth for both the
+// avatar/emotion-portrait generator (aiSlice.ts's generateAvatarImage) and
+// the in-chat image-prompt deriver (imageGeneration.ts's deriveImagePrompt),
+// so the two never describe a given style differently.
+export const ART_STYLE_CLAUSES: Record<ArtStyle, string> = {
+  anime: "Anime illustration art style, clean line art, cel-shaded coloring, vibrant anime aesthetic",
+  realistic: "Photorealistic style, realistic photography, natural lighting and lifelike skin/hair detail",
+  "3d": "3D animated movie style, Pixar/Disney-inspired character design, smooth stylized 3D rendering, soft global illumination, expressive large eyes",
+};
 
 // Rough USD-per-1M-token rates (standard tier) used only for the in-app cost estimate
 // shown next to the token counter — not billing-accurate. Simplifications: pro-tier

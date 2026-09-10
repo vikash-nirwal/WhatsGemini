@@ -3,7 +3,7 @@ import { addCharacter, updateCharacter } from "../features/characterSlice";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { FaTimes, FaUpload, FaPlay, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaMagic, FaCrop, FaTrash, FaBook, FaDice } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { Character, LoreEntry } from "../types";
+import { Character, LoreEntry, ArtStyle } from "../types";
 import { dbService } from "../services/dbService";
 import { generateAssistText, generateAvatarImage } from "../features/aiSlice";
 import { DisplayImage } from "../components/DisplayImage";
@@ -84,7 +84,7 @@ const CharacterEditorPage = () => {
   const [relationship, setRelationship] = useState("");
   const [appearance, setAppearance] = useState("");
   const [appearanceImages, setAppearanceImages] = useState<string[]>([]);
-  const [artStyle, setArtStyle] = useState<"anime" | "realistic">(DEFAULT_ART_STYLE);
+  const [artStyle, setArtStyle] = useState<ArtStyle>(DEFAULT_ART_STYLE);
   const [accentIndex, setAccentIndex] = useState(0);
   const [voiceURI, setVoiceURI] = useState("");
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -179,6 +179,7 @@ const CharacterEditorPage = () => {
   };
 
   const [surprising, setSurprising] = useState(false);
+  const [surpriseHint, setSurpriseHint] = useState("");
   // Rolls a random Relationship/Tags/Personality Traits combo from the same
   // presets the fields themselves offer, then has the AI invent a whole
   // character around that combo in one call - a fast on-ramp for "I don't
@@ -193,8 +194,9 @@ const CharacterEditorPage = () => {
       const randomTags = pickRandomN(TAG_PRESETS, 2 + Math.floor(Math.random() * 2));
       const randomTraits = pickRandomN(PERSONALITY_TRAIT_PRESETS, 3 + Math.floor(Math.random() * 2));
 
+      const trimmedHint = surpriseHint.trim();
       const instruction = `Invent a complete, original roleplay AI character. The user has a "${randomRelationship}" relationship with them. They fit these genre/vibe tags: ${randomTags.join(", ")}. Their personality traits are: ${randomTraits.join(", ")}.
-
+${trimmedHint ? `\nIf a direction is provided, lean into it: ${trimmedHint}\n` : ""}
 Output in exactly this format and nothing else - no markdown, no preamble, no extra commentary:
 NAME: <a first name, or first and last name>
 DESCRIPTION: <one sentence describing them>
@@ -328,6 +330,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
   // success, routed back into emotionPortraitImages via cropTargetEmotion.
   const [generatingEmotion, setGeneratingEmotion] = useState<string | null>(null);
   const [emotionGenError, setEmotionGenError] = useState<string | null>(null);
+  const [emotionHint, setEmotionHint] = useState("");
   const handleGenerateEmotion = async (emotion: string) => {
     if (!name.trim()) {
       setEmotionGenError("Give the character a name first.");
@@ -337,7 +340,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     setGeneratingEmotion(emotion);
     try {
       const referenceImages = appearanceImages.length > 0 ? appearanceImages : undefined;
-      const result = await dispatch(generateAvatarImage({ name, appearance, appearanceImages: referenceImages, emotion, artStyle })).unwrap();
+      const result = await dispatch(generateAvatarImage({ name, appearance, appearanceImages: referenceImages, emotion, artStyle, hint: emotionHint.trim() || undefined })).unwrap();
       if (result.images && result.images.length > 0) {
         // Generated against a chroma-key backdrop (see the emotion-only prompt
         // clause in aiSlice.ts) - strip it to real transparency before the crop
@@ -397,7 +400,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
         setGeneratingEmotion(emo);
         try {
           // eslint-disable-next-line no-await-in-loop
-          const result = await dispatch(generateAvatarImage({ name, appearance, appearanceImages: referenceImages, emotion: emo, artStyle })).unwrap();
+          const result = await dispatch(generateAvatarImage({ name, appearance, appearanceImages: referenceImages, emotion: emo, artStyle, hint: emotionHint.trim() || undefined })).unwrap();
           const dataUrl = result.images?.[0];
           if (!dataUrl) continue;
           // Same chroma-key strip as the single-emotion path above, just
@@ -694,6 +697,15 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                       </Button>
                     )}
                   </div>
+                  {!editCharacter && (
+                    <TextInput
+                      type="text"
+                      value={surpriseHint}
+                      onChange={(e) => setSurpriseHint(e.target.value)}
+                      placeholder="Optional: steer the surprise (e.g. cyberpunk hacker, medieval knight)..."
+                      className="-mt-1"
+                    />
+                  )}
                   {assistError && <p className="text-xs text-destructive -mt-1">{assistError}</p>}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -745,7 +757,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                     <FieldLabel hint="Pins a consistent look for the main avatar and every generated emotion portrait, instead of the AI picking a style per call.">Art style</FieldLabel>
                     <SegmentedControl
                       value={artStyle}
-                      onChange={(v) => setArtStyle(v as "anime" | "realistic")}
+                      onChange={(v) => setArtStyle(v as ArtStyle)}
                       options={ART_STYLES}
                     />
                   </div>
@@ -797,6 +809,12 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   />
                   {emotionPortraitsEnabled && (
                     <div className="flex flex-col gap-3">
+                      <TextInput
+                        type="text"
+                        value={emotionHint}
+                        onChange={(e) => setEmotionHint(e.target.value)}
+                        placeholder="Optional direction for generated portraits (e.g. wearing glasses)..."
+                      />
                       <div className="flex flex-wrap gap-2.5">
                         {EMOTIONS.filter((e) => e !== "neutral").map((emo) => (
                           <div key={emo} className="flex flex-col items-center gap-1 w-[92px]">

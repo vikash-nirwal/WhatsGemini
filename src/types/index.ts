@@ -88,6 +88,12 @@ export interface Chat {
   totalCostEstimate?: number;
 }
 
+// Art style used to compose every character-related image generation prompt
+// (main avatar, emotion portraits, and in-chat auto-selfies/requested images
+// alike) - pins a consistent look across separate generation calls instead
+// of leaving style to the model's whim per call.
+export type ArtStyle = "anime" | "realistic" | "3d";
+
 export interface Character {
   id: number;
   name: string;
@@ -99,10 +105,7 @@ export interface Character {
   relationship?: string;
   appearance?: string;
   appearanceImages?: string[];
-  // Art style used to compose portrait-generation prompts (main avatar and
-  // emotion portraits alike) - pins a consistent look across separate
-  // generation calls instead of leaving style to the model's whim per call.
-  artStyle?: "anime" | "realistic";
+  artStyle?: ArtStyle;
   avatar?: string;
   gallery?: string[];
   accent?: [string, string]; // two-color avatar gradient, e.g. ["#10B981", "#0EA5A0"]

@@ -1,9 +1,10 @@
-import { AISafetySettings, SDImageParams } from "../../../types";
+import { AISafetySettings, SDImageParams, ArtStyle } from "../../../types";
 import { appendCharacterImages } from "./imageProcessing";
 import { generateSDImage } from "./sdWebuiUtils";
 import { UsageInfo } from "../types";
 import { ChatProviderAdapter, ImageProviderAdapter, ProviderRuntimeConfig } from "../providers/types";
 import { IMAGE_PROVIDERS } from "../providers/registry";
+import { ART_STYLE_CLAUSES, DEFAULT_ART_STYLE } from "../../../utils/constants";
 
 // The derivation prompt below instructs the model to append a trailing
 // [Image Context: ...] tag to its reply so it can recall what it sent in later
@@ -47,7 +48,8 @@ export const deriveImagePrompt = async (
   existingImageParams: SDImageParams | undefined,
   signal?: AbortSignal,
   isCharacterInitiated = false,
-  isAutoSelfie = false
+  isAutoSelfie = false,
+  artStyle?: ArtStyle
 ): Promise<ImageDerivationResult> => {
   if (existingImagePrompt) {
     const regenSummary = isCharacterInitiated || isAutoSelfie
@@ -85,7 +87,14 @@ export const deriveImagePrompt = async (
     ? " This should read as a casual selfie-style self-portrait (close/medium shot, as if you took it yourself) - but you have full creative freedom over your pose, expression, outfit, setting, and mood to fit the moment."
     : "";
 
-  const derivationPrompt = `${requestContext}${useSdWebui ? sdModelInfo : ""}\n\nYou must function as an expert prompt engineer. Prioritize this base style rule:\n${imageGenPrompt}\n\nPlease output EXACTLY ${parseSection}\n\nPROMPT:\n<write a highly detailed, clean, and optimized tag-based SD 1.5 image generation prompt that fits the scene and context. Make sure the subject matches your visual description.${selfieStyleHint}>${sdInstruction}\n\nSUMMARY:\n${summaryInstruction} MUST INCLUDE: At the end of your response, append [Image Context: <short visual description of the generated image>] so you can remember what you sent in future turns.>`;
+  // Folds the character's chosen art style (see ArtStyle/ART_STYLE_CLAUSES,
+  // constants.ts) into the same instruction that already carries the user's
+  // global base-style preference, so an in-chat auto-selfie or requested
+  // image matches the character's established look the same way their main
+  // avatar and emotion portraits already do (generateAvatarImage, aiSlice.ts).
+  const artStyleClause = ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE];
+
+  const derivationPrompt = `${requestContext}${useSdWebui ? sdModelInfo : ""}\n\nYou must function as an expert prompt engineer. Prioritize this base style rule:\n${imageGenPrompt}\nAlso match this character's established art style: ${artStyleClause}.\n\nPlease output EXACTLY ${parseSection}\n\nPROMPT:\n<write a highly detailed, clean, and optimized tag-based SD 1.5 image generation prompt that fits the scene and context. Make sure the subject matches your visual description.${selfieStyleHint}>${sdInstruction}\n\nSUMMARY:\n${summaryInstruction} MUST INCLUDE: At the end of your response, append [Image Context: <short visual description of the generated image>] so you can remember what you sent in future turns.>`;
 
   const derivationResult = await chatAdapter.generateChat(
     {

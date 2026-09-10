@@ -2,13 +2,15 @@ import React, { useState } from "react";
 import { useAppDispatch } from "../../store/hooks";
 import { generateAvatarImage } from "../../features/aiSlice";
 import { Button } from "../ui/button";
+import { TextInput } from "../ui/FormControls";
 import { FaMagic } from "react-icons/fa";
+import { ArtStyle } from "../../types";
 
 interface AvatarGenerateButtonProps {
   name: string;
   appearance: string;
   appearanceImages?: string[];
-  artStyle?: "anime" | "realistic";
+  artStyle?: ArtStyle;
   disabled?: boolean;
   /** Called with the first generated image's data URL on success. */
   onGenerated: (dataUrl: string) => void;
@@ -29,6 +31,7 @@ const AvatarGenerateButton: React.FC<AvatarGenerateButtonProps> = ({
   const dispatch = useAppDispatch();
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hint, setHint] = useState("");
 
   const handleGenerate = async () => {
     if (!name.trim()) {
@@ -40,7 +43,7 @@ const AvatarGenerateButton: React.FC<AvatarGenerateButtonProps> = ({
 
     try {
       const result = await dispatch(
-        generateAvatarImage({ name, appearance, appearanceImages, artStyle })
+        generateAvatarImage({ name, appearance, appearanceImages, artStyle, hint: hint.trim() || undefined })
       ).unwrap();
 
       if (result.images && result.images.length > 0) {
@@ -61,6 +64,13 @@ const AvatarGenerateButton: React.FC<AvatarGenerateButtonProps> = ({
 
   return (
     <div className="flex flex-col gap-1">
+      <TextInput
+        type="text"
+        value={hint}
+        onChange={(e) => setHint(e.target.value)}
+        placeholder="Optional direction (e.g. wearing sunglasses)..."
+        className="h-8 text-xs"
+      />
       <Button
         type="button"
         variant="panel"
