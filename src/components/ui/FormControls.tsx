@@ -4,6 +4,7 @@ import { cn } from "../../utils/cn";
 import { Input } from "./input";
 import { Textarea } from "./textarea";
 import { Label } from "./label";
+import { Tooltip, TooltipTrigger, TooltipContent } from "./tooltip";
 import { Slider as ShadcnSlider } from "./slider";
 import {
   Select as ShadcnSelect,
@@ -67,6 +68,27 @@ export const Select = React.forwardRef<HTMLButtonElement, React.SelectHTMLAttrib
 );
 Select.displayName = "Select";
 
+// A small "i" dot that reveals `hint` on hover/focus instead of it sitting
+// on the page as a permanent caption line - the same move the approved
+// density-pass mockup used for every field hint. Shared so any label-style
+// hint (FieldLabel below, or an ad-hoc section heading elsewhere) renders
+// identically.
+export const InfoTooltip: React.FC<{ hint: React.ReactNode }> = ({ hint }) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <span
+        tabIndex={0}
+        role="button"
+        aria-label="More info"
+        className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-subtle text-subtle text-[9px] leading-none flex-shrink-0 cursor-help hover:border-primary hover:text-primary transition-colors"
+      >
+        i
+      </span>
+    </TooltipTrigger>
+    <TooltipContent className="max-w-[240px] whitespace-normal">{hint}</TooltipContent>
+  </Tooltip>
+);
+
 interface FieldLabelProps {
   children: React.ReactNode;
   hint?: React.ReactNode;
@@ -76,12 +98,12 @@ interface FieldLabelProps {
 }
 
 export const FieldLabel: React.FC<FieldLabelProps> = ({ children, hint, className, htmlFor, action }) => (
-  <div className={cn("mb-1.5", className)}>
-    <div className="flex items-center justify-between gap-2">
+  <div className={cn("mb-1.5 flex items-center justify-between gap-2", className)}>
+    <div className="flex items-center gap-1.5">
       <Label htmlFor={htmlFor}>{children}</Label>
-      {action}
+      {hint && <InfoTooltip hint={hint} />}
     </div>
-    {hint && <p className="text-xs text-muted-foreground mt-0.5">{hint}</p>}
+    {action}
   </div>
 );
 

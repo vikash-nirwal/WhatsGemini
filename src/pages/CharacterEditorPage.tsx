@@ -7,7 +7,7 @@ import { Character, LoreEntry, ArtStyle } from "../types";
 import { dbService } from "../services/dbService";
 import { generateAssistText, generateAvatarImage } from "../features/aiSlice";
 import { DisplayImage } from "../components/DisplayImage";
-import { TextInput, TextArea, Select, FieldLabel, Slider, TagInput, PresetSelectField, ChipSelectField } from "../components/ui/FormControls";
+import { TextInput, TextArea, Select, FieldLabel, InfoTooltip, Slider, TagInput, PresetSelectField, ChipSelectField } from "../components/ui/FormControls";
 import { CharacterAvatar } from "../components/ui/CharacterAvatar";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
@@ -781,9 +781,9 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   {/* Appearance fields live in this same card, not a separate
                       one - a lighter sub-heading marks the shift in topic
                       instead of a full second card's worth of chrome. */}
-                  <div className="flex items-baseline justify-between gap-4 pt-2 mt-1 border-t border-border/30">
+                  <div className="flex items-center gap-1.5 pt-2 mt-1 border-t border-border/30">
                     <h4 className="text-xs font-semibold uppercase tracking-wide text-subtle">Appearance</h4>
-                    <span className="text-[11px] text-subtle">Given to image-capable models to keep looks consistent</span>
+                    <InfoTooltip hint="Given to image-capable models to keep generated looks consistent" />
                   </div>
                   <TextArea
                     placeholder="Character Appearance/Looks (e.g. Blonde hair, wears a red jacket) (Optional)"
@@ -835,9 +835,9 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                 </Card>
 
                 <Card className="p-5 flex flex-col gap-3">
-                  <div className="flex items-baseline justify-between gap-4">
+                  <div className="flex items-center gap-1.5">
                     <h3 className="font-semibold text-[15px] text-foreground">Emotion Portraits</h3>
-                    <span className="text-xs text-subtle">Swaps the avatar to match their mood as you chat</span>
+                    <InfoTooltip hint="Swaps the avatar to match their mood as you chat" />
                   </div>
                   <ToggleSwitch
                     checked={emotionPortraitsEnabled}
