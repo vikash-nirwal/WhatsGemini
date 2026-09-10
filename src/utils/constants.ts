@@ -48,8 +48,11 @@ export const imageModels = [
 ];
 // Fixed vocabulary for Phase 8's Emotion Portraits - closed set so the model's
 // reported mood reliably maps to a generated image key, and so generating "the
-// full set" is a bounded batch rather than open-ended. "neutral" needs no
-// generation of its own - it's just the character's existing portrait.
+// full set" is a bounded batch rather than open-ended. "neutral" can have its
+// own generated portrait like any other mood (a calm/resting expression,
+// still chroma-keyed for transparency); until one's generated it simply falls
+// back to the character's ordinary main portrait, same as any other
+// ungenerated mood (see resolveEmotionPortrait, emotionUtils.ts).
 export const EMOTIONS = ["neutral", "happy", "sad", "angry", "surprised", "excited", "shy", "scared", "thinking"];
 
 export const ART_STYLES: { value: ArtStyle; label: string }[] = [

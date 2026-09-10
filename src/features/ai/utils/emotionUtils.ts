@@ -27,13 +27,13 @@ export const extractEmotionTag = (text: string): { text: string; emotion?: strin
 
 // The image to show for a character in a given emotion, or undefined to fall
 // back to the usual initials avatar (feature disabled, or no portrait set at
-// all yet). "neutral" - including the fallback when a reported emotion has
-// no saved image of its own - is always the character's existing portrait,
-// not a separate generated slot.
+// all yet). "neutral" can have its own generated slot like any other mood;
+// an emotion (neutral included) with no saved image of its own falls back to
+// the character's ordinary main portrait.
 export const resolveEmotionPortrait = (character: Character | undefined, emotion: string | undefined): string | undefined => {
   if (!character?.emotionPortraits?.enabled) return undefined;
   const key = emotion && EMOTIONS.includes(emotion) ? emotion : "neutral";
-  if (key !== "neutral" && character.emotionPortraits.images[key]) {
+  if (character.emotionPortraits.images[key]) {
     return character.emotionPortraits.images[key];
   }
   return character.appearanceImages?.[0];

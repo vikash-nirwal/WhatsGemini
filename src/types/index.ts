@@ -117,9 +117,9 @@ export interface Character {
     frequency: number; // 1-100, % chance each of the character's own replies spontaneously includes a selfie
   };
   // Per-emotion portraits (see EMOTIONS in utils/constants.ts) shown in place
-  // of the initials avatar as the AI's reported mood shifts. "neutral" isn't
-  // stored here - it's always appearanceImages[0]. Keys are a subset of
-  // EMOTIONS; a reported emotion with no entry here falls back to neutral.
+  // of the initials avatar as the AI's reported mood shifts, "neutral"
+  // included. Keys are a subset of EMOTIONS; any mood (neutral included)
+  // with no entry here falls back to appearanceImages[0] instead.
   emotionPortraits?: {
     enabled: boolean;
     images: Record<string, string>;

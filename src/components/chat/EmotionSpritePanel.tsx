@@ -16,12 +16,14 @@ interface EmotionSpritePanelProps {
 // surface with the chat column, not a separate boxed panel - don't add a
 // background/border here without deliberately revisiting that choice.
 //
-// Only really seamless once an emotion-specific portrait is showing - those
-// alone are generated against a chroma-key backdrop and stripped to real
-// transparency (see portraitUtils.ts's removeChromaKeyBackground). The
-// neutral/no-portrait-yet fallback (resolveEmotionPortrait, emotionUtils.ts)
-// is the character's ordinary main avatar, an opaque image with its own
-// plain background baked in.
+// Only really seamless once a specifically-generated portrait is showing
+// (neutral included, once one's been generated for it) - those alone are
+// generated against a chroma-key backdrop and stripped to real transparency
+// (see portraitUtils.ts's removeChromaKeyBackground). The no-portrait-yet
+// fallback (resolveEmotionPortrait, emotionUtils.ts) is the character's
+// ordinary main avatar, an opaque image with its own plain background baked
+// in - ChatWindow.tsx's dockedSpriteImageSrc is deliberately stricter than
+// that and never passes this component that fallback image.
 //
 // `relative z-30`: the message composer (ChatPage.tsx) is a sibling of
 // ChatWindow entirely, floated via `absolute ... z-20` over the whole page -
@@ -36,12 +38,12 @@ interface EmotionSpritePanelProps {
 // blocks clicks/typing on whatever it visually overlaps.
 const EmotionSpritePanel: React.FC<EmotionSpritePanelProps> = ({ imageSrc, characterName, emotion, showName }) => (
   <aside className="relative z-30 w-[200px] flex-none hidden lg:flex flex-col items-center justify-end overflow-hidden pointer-events-none">
-    {(showName || (emotion && emotion !== "neutral")) && (
+    {(showName || emotion) && (
       <div className="mb-2 flex flex-col items-center text-center">
         {showName && characterName && (
           <span className="text-[12px] font-semibold text-foreground">{characterName}</span>
         )}
-        {emotion && emotion !== "neutral" && (
+        {emotion && (
           <span className="text-[11px] font-medium text-subtle capitalize">{emotion}</span>
         )}
       </div>

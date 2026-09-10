@@ -313,10 +313,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
   // removeChromaKeyBackground). The main avatar is a normal opaque photo
   // with its own plain background baked into the pixels, which looked like
   // a boxed panel instead of blending with the page when it showed here.
-  // "neutral" never has a portrait of its own (emotionUtils.ts) - it's
-  // always the opaque main avatar - so the panel simply stays hidden then.
+  // "neutral" can have its own generated slot like any other mood
+  // (emotionUtils.ts) - reading straight off images[latestEmotion] here (no
+  // special-casing "neutral") means the panel shows it when one exists and
+  // simply stays hidden otherwise, same as any other ungenerated mood.
   const dockedSpriteImageSrc =
-    latestSpeaker?.emotionPortraits?.enabled && latestEmotion && latestEmotion !== "neutral"
+    latestSpeaker?.emotionPortraits?.enabled && latestEmotion
       ? latestSpeaker.emotionPortraits.images[latestEmotion]
       : undefined;
 

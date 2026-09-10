@@ -395,7 +395,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     setGeneratingAllEmotions(true);
     try {
       const referenceImages = appearanceImages.length > 0 ? appearanceImages : undefined;
-      const missing = EMOTIONS.filter((e) => e !== "neutral" && !emotionPortraitImages[e]);
+      const missing = EMOTIONS.filter((e) => !emotionPortraitImages[e]);
       for (const emo of missing) {
         setGeneratingEmotion(emo);
         try {
@@ -805,7 +805,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                     checked={emotionPortraitsEnabled}
                     onChange={setEmotionPortraitsEnabled}
                     label="Show a matching portrait for their current emotion"
-                    title="The AI reports its mood each reply; the chat avatar swaps to a matching portrait you generate below. Neutral always uses the main portrait above."
+                    title="The AI reports its mood each reply; the chat avatar swaps to a matching portrait you generate below, including for neutral. Any mood without a generated portrait falls back to the main portrait above."
                   />
                   {emotionPortraitsEnabled && (
                     <div className="flex flex-col gap-3">
@@ -816,7 +816,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                         placeholder="Optional direction for generated portraits (e.g. wearing glasses)..."
                       />
                       <div className="flex flex-wrap gap-2.5">
-                        {EMOTIONS.filter((e) => e !== "neutral").map((emo) => (
+                        {EMOTIONS.map((emo) => (
                           <div key={emo} className="flex flex-col items-center gap-1 w-[92px]">
                             <div className="relative w-[76px] h-[76px] rounded-lg overflow-hidden border border-border bg-muted">
                               {emotionPortraitImages[emo] ? (

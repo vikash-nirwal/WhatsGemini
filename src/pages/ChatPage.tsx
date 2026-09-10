@@ -188,7 +188,7 @@ const ChatPage = () => {
   }, [messages]);
   const headerEmotionImageSrc = resolveEmotionPortrait(characterData, latestEmotion);
   const missingEmotionPortrait =
-    characterData?.emotionPortraits?.enabled && latestEmotion && latestEmotion !== "neutral" && !characterData.emotionPortraits.images[latestEmotion]
+    characterData?.emotionPortraits?.enabled && latestEmotion && !characterData.emotionPortraits.images[latestEmotion]
       ? latestEmotion
       : undefined;
   // Header avatar is only ~34px - too small to actually see the current
@@ -1023,7 +1023,7 @@ const ChatPage = () => {
         isOpen={portraitPreviewOpen}
         onClose={() => setPortraitPreviewOpen(false)}
         title={characterData?.name || character || "Portrait"}
-        subtitle={latestEmotion && latestEmotion !== "neutral" ? `Current mood: ${latestEmotion}` : undefined}
+        subtitle={latestEmotion ? `Current mood: ${latestEmotion}` : undefined}
       >
         <div className="w-full max-w-[280px] mx-auto aspect-[3/4] rounded-xl overflow-hidden bg-muted">
           {headerEmotionImageSrc ? (
