@@ -107,6 +107,14 @@ const characterSlice = createSlice({
         state.loading = false;
         state.error = action.payload as string;
       })
+      .addCase(fetchCharacterById.fulfilled, (state, action) => {
+        // Refreshes one character in place - used when entering a chat to
+        // pick up edits made elsewhere (Character Editor, an in-chat
+        // generate/gallery action) without needing a full app reload.
+        const idx = state.characters.findIndex((c) => c.id === action.payload.id);
+        if (idx !== -1) state.characters[idx] = action.payload;
+        else state.characters.push(action.payload);
+      })
       .addCase(fetchCharacterById.rejected, (state, action) => {
         state.error = action.payload as string;
       })
@@ -114,6 +122,17 @@ const characterSlice = createSlice({
         state.characters.push(action.payload);
       })
       .addCase(addCharacter.rejected, (state, action) => {
+        state.error = action.payload as string;
+      })
+      .addCase(updateCharacter.fulfilled, (state, action) => {
+        // Without this, an edit (Character Editor save, memory/gallery
+        // updates from ScenePanel/ChatPage) persists to IndexedDB fine but
+        // the rest of the running app keeps showing the pre-edit character
+        // until something else happens to refetch it.
+        const idx = state.characters.findIndex((c) => c.id === action.payload.id);
+        if (idx !== -1) state.characters[idx] = action.payload;
+      })
+      .addCase(updateCharacter.rejected, (state, action) => {
         state.error = action.payload as string;
       })
       .addCase(deleteCharacter.fulfilled, (state, action) => {
