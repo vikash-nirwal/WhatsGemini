@@ -35,6 +35,7 @@ export interface CharacterCardV2 {
         autoSelfie?: Character["autoSelfie"];
         artStyle?: Character["artStyle"];
         loreEntries?: Character["loreEntries"];
+        personalityTraits?: Character["personalityTraits"];
       };
       [key: string]: unknown;
     };
@@ -67,6 +68,7 @@ export const characterToCardV2 = (char: Character): CharacterCardV2 => ({
         autoSelfie: char.autoSelfie,
         artStyle: char.artStyle,
         loreEntries: char.loreEntries,
+        personalityTraits: char.personalityTraits,
       },
     },
   },
@@ -114,6 +116,7 @@ export const parseCharacterCardJson = (parsed: any): ParsedCharacterCard => {
       autoSelfie: ext.autoSelfie,
       artStyle: ext.artStyle,
       loreEntries: ext.loreEntries,
+      personalityTraits: ext.personalityTraits,
     });
   }
 

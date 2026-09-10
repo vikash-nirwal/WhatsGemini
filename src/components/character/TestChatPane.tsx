@@ -32,6 +32,7 @@ export interface TestChatPaneProps {
   accent: [string, string];
   memory?: string[];
   loreEntries?: LoreEntry[];
+  personalityTraits?: string[];
 }
 
 // Builds a transient Character object from the wizard's form state so we can
@@ -51,6 +52,7 @@ const buildDraftCharacter = (props: TestChatPaneProps): Character => ({
   accent: props.accent,
   memory: props.memory,
   loreEntries: props.loreEntries,
+  personalityTraits: props.personalityTraits,
 });
 
 const TestChatPane: React.FC<TestChatPaneProps> = (props) => {

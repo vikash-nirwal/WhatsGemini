@@ -346,3 +346,25 @@ Verified: `tsc --noEmit` clean, all 48 tests pass (8 new, covering `buildChatHis
 Files touched: `src/types/index.ts` (`Chat.mutedParticipantIds`), `src/features/chatSlice.ts` (`addChat`'s `authorNote` param, `updateChatMutedParticipants`), `src/features/ai/utils/roomRouting.ts` (new - `getActiveParticipants`, `resolveNextSpeaker`, `parseMention`, `stripSpeakerPrefix`), `src/features/ai/utils/roomRouting.test.ts` (new - 23 tests), `src/features/ai/utils/promptComposition.ts` (group-conversation directive wording), `src/components/chat/ParticipantsPanel.tsx` (new), `src/components/chat/ParticipantStrip.tsx` (new), `src/components/ChatWindow.tsx` (Participants panel wiring), `src/components/Sidebar.tsx` (Room Creator UI), `src/pages/ChatPage.tsx` (`withAuthorNote`, `buildRoomContext`, `finalizeSpeakerText`, speaker resolution threaded through every generation call site, Participants header action + panel + strip wiring).
 
 Verified: `tsc --noEmit` clean, all 71 tests pass (23 new in `roomRouting.test.ts`, covering round-robin rotation/wraparound/muting, mention matching including multi-word names and longest-match precedence, and the speaker-prefix strip). Live-verified end to end in the browser with real Gemini calls, using the pre-existing "Test dev"/"john" test characters plus one throwaway "Ghost": created a real 2-character room ("Debug Squad") with a scenario ("stuck in an elevator") via the new Room Creator UI; confirmed the scenario actually shaped the very first reply (mentioned "stuck between 13 and 14" verbatim); confirmed round-robin alternated correctly across three plain messages; confirmed `@john` correctly overrode the rotation out-of-turn; confirmed clicking the participant-strip avatar force-triggered that bot's reply with no preceding user message; confirmed muting "john" via the Participants panel made round-robin skip him while `@john` could still reach him directly (after finding and fixing the bug where it couldn't); confirmed Regenerate on a muted-but-@mentioned reply kept the same speaker across 3 variants; and confirmed deleting a throwaway character from a real 2-member room shrank it to 1 member (`characterIds`) instead of deleting the chat, via direct IndexedDB inspection (`indexedDB.open` + raw transaction reads, not just the UI). Also caught and fixed the model self-labeling its own dialogue with its character name live, mid-verification. All test chats/characters cleaned up afterward; the pre-existing "Test dev" and "john" characters were left as they were found.
+
+---
+
+## Future Ideas (Backlog)
+
+*Not phases, not committed to - candidates raised in conversation for a later session. All 12 original roadmap phases are done as of Phase 12; this section is where "what's next" ideas land instead of being lost.*
+
+**Cleanup from known-unfinished work:**
+- The pre-existing blocking `alert()` calls in `CharacterEditorPage.tsx` (image upload errors, etc.) were explicitly left alone in Phase 9 ("worth a cleanup pass sometime") - never migrated to the non-blocking `showAlert` the rest of the app uses.
+- OpenAI/SD WebUI `quality`/`size` params for emotion portraits - deferred in Phase 8, Gemini-only for now.
+- Auto-selfie and memory extraction in a multi-character room still only ever target the primary character (`characterIds[0]`), never whichever bot actually just replied - a known gap called out when Phase 12 shipped.
+
+**Room UX polish (Phase 12 shipped the mechanics, not everything around them):**
+- Rename a room, or add/remove a participant after creation - today the only way to change membership is deleting a character (shrinks the room) or picking members once at creation time.
+- A visible "up next" indicator, or a lighter per-bot typing state, instead of one global spinner in a room.
+
+**Streaming responses:** `generateChat` is `await`ed for the full text and lands on screen all at once, even though the underlying provider call is stream-based internally (the adapter already consumes a stream, just joins it before returning). Surfacing that as a visible typing-as-it-generates effect would be a real UX upgrade, and is fairly contained - provider adapters + `generateAIResponse`, no schema/design decisions like Phase 12 needed.
+
+**Bigger, new-territory ideas:**
+- Voice *input* (speech-to-text) to pair with the speech-output feature that already exists.
+- A cross-chat spend/usage dashboard - per-chat token/cost tracking already exists, but there's no aggregate view across every chat/character.
+- PWA polish (installable, offline-tolerant) - the app is already mobile-responsive but not installable.

@@ -68,4 +68,14 @@ describe("buildSystemInstruction", () => {
     const { text } = buildSystemInstruction(makeCharacter(), undefined, undefined, undefined, undefined, []);
     expect(text).not.toMatch(/group conversation/i);
   });
+
+  it("has no personality traits section when personalityTraits is unset or empty", () => {
+    expect(buildSystemInstruction(makeCharacter()).text).not.toMatch(/key personality traits/i);
+    expect(buildSystemInstruction(makeCharacter({ personalityTraits: [] })).text).not.toMatch(/key personality traits/i);
+  });
+
+  it("adds a joined key personality traits section when personalityTraits is set", () => {
+    const { text } = buildSystemInstruction(makeCharacter({ personalityTraits: ["Kind", "Sarcastic", "Shy"] }));
+    expect(text).toContain("Key personality traits: Kind, Sarcastic, Shy.");
+  });
 });

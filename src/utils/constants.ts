@@ -174,6 +174,24 @@ export const CHARACTER_SWATCHES: [string, string][] = [
   ["#1E293B", "#475569"], // Slate / Gray
 ];
 
+// Common preset options offered by the Character Creation wizard's
+// select/chip-select fields, alongside a "Custom"/free-text fallback for
+// anything not in these lists.
+export const RELATIONSHIP_PRESETS = [
+  "Best Friend", "Girlfriend", "Boyfriend", "Wife", "Husband", "Sister", "Brother",
+  "Mentor", "Student", "Boss", "Coworker", "Rival", "Enemy", "Stranger", "Assistant",
+  "Roommate", "Crush", "Ex",
+];
+export const TAG_PRESETS = [
+  "Fantasy", "Sci-Fi", "Romance", "Horror", "Comedy", "Slice of Life", "Adventure",
+  "Mystery", "Drama", "Historical", "Modern", "Anime", "NSFW", "Wholesome", "Dark", "Action",
+];
+export const PERSONALITY_TRAIT_PRESETS = [
+  "Kind", "Sarcastic", "Shy", "Confident", "Playful", "Flirty", "Cold", "Warm",
+  "Mischievous", "Loyal", "Intelligent", "Naive", "Brave", "Cautious", "Funny",
+  "Blunt", "Gentle", "Dominant", "Submissive", "Stoic", "Energetic", "Calm",
+];
+
 export const ROLE = "role";
 export const MESSAGE = "message";
 export const LIGHT = "light";

@@ -58,6 +58,10 @@ export const buildSystemInstruction = (
     `Role play as, Character Name: ${character.name}.\nCharacter description: ${character.description}.\nPersonality & instructions: ${character.prompt}`,
   ];
 
+  if (character.personalityTraits && character.personalityTraits.length > 0) {
+    sections.push(`Key personality traits: ${character.personalityTraits.join(", ")}.`);
+  }
+
   // Only set for a multi-character room (Phase 12) - a normal 1:1 chat never
   // passes this, so its prompt is unchanged. Each line in the history is
   // already prefixed with its speaker's name (buildChatHistory), so this just

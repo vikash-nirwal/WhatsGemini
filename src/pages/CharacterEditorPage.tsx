@@ -7,14 +7,14 @@ import { Character, LoreEntry } from "../types";
 import { dbService } from "../services/dbService";
 import { generateAssistText, generateAvatarImage } from "../features/aiSlice";
 import { DisplayImage } from "../components/DisplayImage";
-import { TextInput, TextArea, Select, FieldLabel, Slider, TagInput } from "../components/ui/FormControls";
+import { TextInput, TextArea, Select, FieldLabel, Slider, TagInput, PresetSelectField, ChipSelectField } from "../components/ui/FormControls";
 import { CharacterAvatar } from "../components/ui/CharacterAvatar";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { cn } from "../utils/cn";
 import ToggleSwitch from "../components/ToggleSwitch";
 import Header from "../components/Header";
-import { CHARACTER_SWATCHES, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, EMOTIONS, ART_STYLES, DEFAULT_ART_STYLE, LORE_SCAN_MESSAGE_COUNT } from "../utils/constants";
+import { CHARACTER_SWATCHES, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, EMOTIONS, ART_STYLES, DEFAULT_ART_STYLE, LORE_SCAN_MESSAGE_COUNT, RELATIONSHIP_PRESETS, TAG_PRESETS, PERSONALITY_TRAIT_PRESETS } from "../utils/constants";
 import { SegmentedControl } from "../components/settings/SegmentedControl";
 import { isSpeechSynthesisSupported, getVoices, speak } from "../utils/speech";
 import { estimateTokens } from "../features/ai/utils/tokenEstimator";
@@ -74,6 +74,7 @@ const CharacterEditorPage = () => {
   const [emotionPortraitsEnabled, setEmotionPortraitsEnabled] = useState(false);
   const [emotionPortraitImages, setEmotionPortraitImages] = useState<Record<string, string>>({});
   const [loreEntries, setLoreEntries] = useState<LoreEntry[]>([]);
+  const [personalityTraits, setPersonalityTraits] = useState<string[]>([]);
 
   useEffect(() => {
     if (!isSpeechSynthesisSupported()) return;
@@ -103,6 +104,7 @@ const CharacterEditorPage = () => {
       setEmotionPortraitsEnabled(source.emotionPortraits?.enabled || false);
       setEmotionPortraitImages(source.emotionPortraits?.images || {});
       setLoreEntries(source.loreEntries || []);
+      setPersonalityTraits(source.personalityTraits || []);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [characterId]);
@@ -162,7 +164,7 @@ const CharacterEditorPage = () => {
       alert("Character name and prompt are required.");
       return;
     }
-    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages }, loreEntries }));
+    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages }, loreEntries, personalityTraits }));
     navigate("/characters");
   };
 
@@ -171,7 +173,7 @@ const CharacterEditorPage = () => {
       alert("Character name and prompt are required.");
       return;
     }
-    dispatch(updateCharacter({ id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages }, loreEntries }));
+    dispatch(updateCharacter({ id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages }, loreEntries, personalityTraits }));
     navigate("/characters");
   };
 
@@ -604,17 +606,22 @@ const CharacterEditorPage = () => {
                 <Card className="p-5 flex flex-col gap-3">
                   <h3 className="font-semibold text-[15px] text-foreground">Identity</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <TextInput
-                      type="text"
-                      placeholder="Character Name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                    />
-                    <TextInput
-                      type="text"
-                      placeholder="Tagline / Relationship with User (e.g. Best Friend, Enemy)"
+                    <div>
+                      <FieldLabel htmlFor="char-name">Character Name</FieldLabel>
+                      <TextInput
+                        id="char-name"
+                        type="text"
+                        placeholder="Character Name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                      />
+                    </div>
+                    <PresetSelectField
+                      label="Tagline / Relationship"
                       value={relationship}
-                      onChange={(e) => setRelationship(e.target.value)}
+                      onChange={setRelationship}
+                      presets={RELATIONSHIP_PRESETS}
+                      customPlaceholder="Tagline / Relationship with User (e.g. Best Friend, Enemy)"
                     />
                   </div>
                   <TextArea
@@ -623,10 +630,14 @@ const CharacterEditorPage = () => {
                     onChange={(e) => setDescription(e.target.value)}
                     className="resize-none"
                   />
-                  <div>
-                    <FieldLabel hint="Discoverability tags for your library (e.g. Fantasy, Sci-Fi, NSFW). Press Enter or comma to add.">Tags</FieldLabel>
-                    <TagInput value={tags} onChange={setTags} placeholder="Add a tag..." />
-                  </div>
+                  <ChipSelectField
+                    label="Tags"
+                    hint="Discoverability tags for your library. Press Enter or comma to add a custom one."
+                    value={tags}
+                    onChange={setTags}
+                    presets={TAG_PRESETS}
+                    placeholder="Add a tag..."
+                  />
                 </Card>
 
                 <Card className="p-5 flex flex-col gap-3">
@@ -765,6 +776,14 @@ const CharacterEditorPage = () => {
                   <h3 className="font-semibold text-[15px] text-foreground">Personality</h3>
                   <span className="text-xs text-subtle font-mono">~{promptTokens.toLocaleString()} tokens</span>
                 </div>
+                <ChipSelectField
+                  label="Personality Traits"
+                  hint="Quick-pick traits folded into the prompt alongside the full personality below."
+                  value={personalityTraits}
+                  onChange={setPersonalityTraits}
+                  presets={PERSONALITY_TRAIT_PRESETS}
+                  placeholder="Add a trait..."
+                />
                 <TextArea
                   placeholder="Character Prompt (Personality, Style, etc.)"
                   value={prompt}
@@ -1007,6 +1026,7 @@ const CharacterEditorPage = () => {
                   accent={accent}
                   memory={editCharacter?.memory}
                   loreEntries={loreEntries}
+                  personalityTraits={personalityTraits}
                 />
               </div>
             )}

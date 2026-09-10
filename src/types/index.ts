@@ -122,6 +122,7 @@ export interface Character {
     images: Record<string, string>;
   };
   loreEntries?: LoreEntry[]; // keyword-triggered world info, injected into the system prompt only when relevant
+  personalityTraits?: string[]; // quick-pick trait chips, folded into the system prompt alongside the main `prompt` field
 }
 
 // A single Lorebook / World Info entry - a chunk of lore that's only injected
