@@ -287,7 +287,19 @@ export const generateAvatarImage = createAsyncThunk(
       if (appearance) parts.push(appearance);
       if (emotion) parts.push(`Showing a clear, unmistakable "${emotion}" facial expression and body language, same character and outfit as usual`);
       parts.push(`Head and shoulders, 3:4 aspect ratio, ${styleClause}, high quality, detailed`);
-      parts.push("Plain, uncluttered solid-color background, no scenery or props, only the character visible, PNG output");
+      // Emotion portraits are meant to eventually render as a backgroundless
+      // sprite (see portraitUtils.ts's removeChromaKeyBackground), so they get
+      // a specific, unnatural chroma-key backdrop instead of the main avatar's
+      // ordinary "plain background" - magenta rather than the traditional
+      // green-screen green, since green shows up far more often in character
+      // coloring (eyes, clothing, magic effects) and would get punched out
+      // along with the real background. The main avatar (no emotion) keeps
+      // the plain-background look with no chroma-key/removal step applied.
+      parts.push(
+        emotion
+          ? 'Solid, perfectly flat, uniform chroma-key background in pure magenta (hex #FF00FF) - no gradient, no shadow, no vignette, no texture, the entire background must be one single uniform color for background removal, only the character visible in the foreground, PNG output'
+          : "Plain, uncluttered solid-color background, no scenery or props, only the character visible, PNG output"
+      );
       const prompt = parts.join(". ") + ".";
 
       const result = await generateImage(

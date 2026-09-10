@@ -36,6 +36,63 @@ export const autoCoverCropToBlob = (imageSrc: string, width: number, height: num
     img.src = imageSrc;
   });
 
+// Chroma-key color emotion portraits are generated against (see
+// generateAvatarImage's emotion-only prompt clause in aiSlice.ts) - pure
+// magenta rather than the traditional green-screen green, since green shows
+// up far more often in character coloring (eyes, clothing, magic effects)
+// and would get incorrectly punched out along with the real background.
+export const CHROMA_KEY_COLOR: [number, number, number] = [255, 0, 255];
+
+// Distance (max-channel, 0-255) from CHROMA_KEY_COLOR within which a pixel is
+// fully keyed out, and the wider distance it's feathered out to (linear alpha
+// ramp) so the cutout edge isn't a hard, jagged line.
+const FULL_KEY_DISTANCE = 40;
+const FEATHER_KEY_DISTANCE = 90;
+
+// Converts a chroma-keyed image (a solid CHROMA_KEY_COLOR background, from an
+// AI-generated emotion portrait) into a real alpha-transparent PNG blob, by
+// keying out pixels close to that color. This is a plain color-distance key,
+// not real matting - it can't perfectly separate fine hair-strand edges, and
+// a character whose own coloring happens to land close to the key color will
+// get incorrectly punched out too. "Regenerate for a cleaner result" is the
+// expected fallback when a specific portrait doesn't key out well, same as
+// this app already expects for occasional bad framing on a generated portrait.
+export const removeChromaKeyBackground = (
+  imageSrc: string,
+  keyColor: [number, number, number] = CHROMA_KEY_COLOR
+): Promise<Blob> =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Failed to get canvas context."));
+        return;
+      }
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const { data } = imageData;
+      const [kr, kg, kb] = keyColor;
+      for (let i = 0; i < data.length; i += 4) {
+        const dist = Math.max(Math.abs(data[i] - kr), Math.abs(data[i + 1] - kg), Math.abs(data[i + 2] - kb));
+        if (dist <= FULL_KEY_DISTANCE) {
+          data[i + 3] = 0;
+        } else if (dist < FEATHER_KEY_DISTANCE) {
+          const t = (dist - FULL_KEY_DISTANCE) / (FEATHER_KEY_DISTANCE - FULL_KEY_DISTANCE);
+          data[i + 3] = Math.round(data[i + 3] * t);
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Failed to export image."))), "image/png");
+    };
+    img.onerror = () => reject(new Error("Failed to load image."));
+    img.src = imageSrc;
+  });
+
 // Converts a data: URL (e.g. straight from a provider's generateImage
 // result) into a Blob, without any resizing.
 export const dataUrlToBlob = async (dataUrl: string): Promise<Blob> => {

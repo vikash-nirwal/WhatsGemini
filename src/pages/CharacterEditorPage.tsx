@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { addCharacter, updateCharacter } from "../features/characterSlice";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { FaTimes, FaUpload, FaPlay, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaMagic, FaCrop, FaTrash, FaBook } from "react-icons/fa";
+import { FaTimes, FaUpload, FaPlay, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaMagic, FaCrop, FaTrash, FaBook, FaDice } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Character, LoreEntry } from "../types";
 import { dbService } from "../services/dbService";
@@ -21,7 +21,7 @@ import { estimateTokens } from "../features/ai/utils/tokenEstimator";
 import TestChatPane from "../components/character/TestChatPane";
 import AvatarCropDialog from "../components/character/AvatarCropDialog";
 import AvatarGenerateButton from "../components/character/AvatarGenerateButton";
-import { parseSize, autoCoverCropToBlob, savePortraitBlob } from "../features/ai/utils/portraitUtils";
+import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
 import { parseCharacterCardJson } from "../features/character/characterCard";
 import { useModal } from "../contexts/ModalContext";
 
@@ -34,6 +34,25 @@ const findSwatchIndex = (accent?: [string, string]) => {
 const STEPS = ["Identity", "Personality", "Scenario & Greeting", "Example Dialogues", "Lorebook", "Test & Finalize"];
 
 const makeLoreEntryId = () => `lore_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
+
+// Fisher-Yates shuffle, sliced to n - used to pick a random preset combo for
+// "Surprise Me" without ever repeating a preset within one roll.
+const pickRandomN = <T,>(arr: T[], n: number): T[] => {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy.slice(0, n);
+};
+
+// Pulls one labeled section out of the AI's "Surprise Me" response (see
+// SURPRISE_ME_FORMAT below) - stops at the next ALL-CAPS label or end of text,
+// so it tolerates the model wrapping a section across multiple lines.
+const extractSurpriseSection = (text: string, label: string): string => {
+  const match = text.match(new RegExp(`${label}:\\s*([\\s\\S]*?)(?=\\n[A-Z][A-Z ]*:|$)`, "i"));
+  return match ? match[1].trim() : "";
+};
 
 const CharacterEditorPage = () => {
   const dispatch = useAppDispatch();
@@ -159,6 +178,51 @@ const CharacterEditorPage = () => {
     }
   };
 
+  const [surprising, setSurprising] = useState(false);
+  // Rolls a random Relationship/Tags/Personality Traits combo from the same
+  // presets the fields themselves offer, then has the AI invent a whole
+  // character around that combo in one call - a fast on-ramp for "I don't
+  // know what I want, just give me something" instead of filling six fields
+  // by hand. Only offered for a brand-new character (see the render below) -
+  // rerolling an existing one's fields wholesale isn't what an edit is for.
+  const handleSurpriseMe = async () => {
+    setAssistError(null);
+    setSurprising(true);
+    try {
+      const randomRelationship = RELATIONSHIP_PRESETS[Math.floor(Math.random() * RELATIONSHIP_PRESETS.length)];
+      const randomTags = pickRandomN(TAG_PRESETS, 2 + Math.floor(Math.random() * 2));
+      const randomTraits = pickRandomN(PERSONALITY_TRAIT_PRESETS, 3 + Math.floor(Math.random() * 2));
+
+      const instruction = `Invent a complete, original roleplay AI character. The user has a "${randomRelationship}" relationship with them. They fit these genre/vibe tags: ${randomTags.join(", ")}. Their personality traits are: ${randomTraits.join(", ")}.
+
+Output in exactly this format and nothing else - no markdown, no preamble, no extra commentary:
+NAME: <a first name, or first and last name>
+DESCRIPTION: <one sentence describing them>
+PERSONALITY: <3-5 sentences of personality/instructions written as direct second-person instructions to the character, e.g. "You are...">
+SCENARIO: <1-2 sentences setting the current scene/context the roleplay opens in>
+GREETING: <a short, in-character opening line they'd say to the user, 1-3 sentences, using *asterisks* for physical actions where natural>`;
+
+      const text = await dispatch(generateAssistText({ instruction })).unwrap();
+      const generatedPersonality = extractSurpriseSection(text, "PERSONALITY");
+      if (!generatedPersonality) {
+        throw new Error("Couldn't parse a character from the AI's response - try again.");
+      }
+
+      setName(extractSurpriseSection(text, "NAME") || name);
+      setDescription(extractSurpriseSection(text, "DESCRIPTION") || description);
+      setPrompt(generatedPersonality);
+      setScenario(extractSurpriseSection(text, "SCENARIO") || scenario);
+      setFirstMes(extractSurpriseSection(text, "GREETING") || firstMes);
+      setRelationship(randomRelationship);
+      setTags(randomTags);
+      setPersonalityTraits(randomTraits);
+    } catch (err: any) {
+      setAssistError(typeof err === "string" ? err : err?.message || "Failed to generate a surprise character. Check your API key in Settings.");
+    } finally {
+      setSurprising(false);
+    }
+  };
+
   const handleCreateCharacter = () => {
     if (!name || !prompt) {
       alert("Character name and prompt are required.");
@@ -275,8 +339,13 @@ const CharacterEditorPage = () => {
       const referenceImages = appearanceImages.length > 0 ? appearanceImages : undefined;
       const result = await dispatch(generateAvatarImage({ name, appearance, appearanceImages: referenceImages, emotion, artStyle })).unwrap();
       if (result.images && result.images.length > 0) {
+        // Generated against a chroma-key backdrop (see the emotion-only prompt
+        // clause in aiSlice.ts) - strip it to real transparency before the crop
+        // dialog gets it, so what's cropped/saved is already backgroundless.
+        const keyedBlob = await removeChromaKeyBackground(result.images[0]);
+        const keyedDataUrl = await blobToDataUrl(keyedBlob);
         setCropTargetEmotion(emotion);
-        setCropImageSrc(result.images[0]);
+        setCropImageSrc(keyedDataUrl);
         setCropDialogOpen(true);
       } else {
         setEmotionGenError("No image was returned.");
@@ -331,8 +400,14 @@ const CharacterEditorPage = () => {
           const result = await dispatch(generateAvatarImage({ name, appearance, appearanceImages: referenceImages, emotion: emo, artStyle })).unwrap();
           const dataUrl = result.images?.[0];
           if (!dataUrl) continue;
+          // Same chroma-key strip as the single-emotion path above, just
+          // ahead of the auto-crop instead of the interactive dialog.
           // eslint-disable-next-line no-await-in-loop
-          const blob = await autoCoverCropToBlob(dataUrl, portraitSaveSize.width, portraitSaveSize.height);
+          const keyedBlob = await removeChromaKeyBackground(dataUrl);
+          // eslint-disable-next-line no-await-in-loop
+          const keyedDataUrl = await blobToDataUrl(keyedBlob);
+          // eslint-disable-next-line no-await-in-loop
+          const blob = await autoCoverCropToBlob(keyedDataUrl, portraitSaveSize.width, portraitSaveSize.height);
           // eslint-disable-next-line no-await-in-loop
           const localRef = await savePortraitBlob(blob, `avatar_${emo}`);
           setEmotionPortraitImages((prev) => ({ ...prev, [emo]: localRef }));
@@ -604,7 +679,22 @@ const CharacterEditorPage = () => {
             {step === 0 && (
               <>
                 <Card className="p-5 flex flex-col gap-3">
-                  <h3 className="font-semibold text-[15px] text-foreground">Identity</h3>
+                  <div className="flex items-center justify-between gap-4">
+                    <h3 className="font-semibold text-[15px] text-foreground">Identity</h3>
+                    {!editCharacter && (
+                      <Button
+                        type="button"
+                        variant="panel"
+                        onClick={handleSurpriseMe}
+                        disabled={surprising}
+                        className="h-auto px-3 py-1.5 text-xs font-medium border border-border hover:border-primary hover:text-primary"
+                        title="Roll a random relationship, tags, and personality traits, then have the AI invent a whole character around them"
+                      >
+                        <FaDice size={12} /> {surprising ? "Rolling..." : "Surprise Me"}
+                      </Button>
+                    )}
+                  </div>
+                  {assistError && <p className="text-xs text-destructive -mt-1">{assistError}</p>}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <FieldLabel htmlFor="char-name">Character Name</FieldLabel>

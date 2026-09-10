@@ -349,22 +349,41 @@ Verified: `tsc --noEmit` clean, all 71 tests pass (23 new in `roomRouting.test.t
 
 ---
 
+## Phase 13: "Surprise Me" Character Generator ✅ Done
+*One-click random character generation for the New Character wizard, built directly on the Relationship/Tags/Personality Traits preset fields.*
+
+**Implementation Steps:**
+- [x] **Random preset roll:** `pickRandomN` (new, `CharacterEditorPage.tsx`) Fisher-Yates shuffles-and-slices `RELATIONSHIP_PRESETS`/`TAG_PRESETS`/`PERSONALITY_TRAIT_PRESETS` to pick one relationship, 2-3 tags, and 3-4 traits per roll.
+- [x] **AI-authored character around the roll:** `handleSurpriseMe` sends one `generateAssistText` call asking the model to invent a name, description, personality, scenario, and greeting consistent with the rolled combo, in a plain labeled format (`NAME:`/`DESCRIPTION:`/`PERSONALITY:`/`SCENARIO:`/`GREETING:`) rather than JSON - parsed by the new `extractSurpriseSection` regex helper, which stops at the next ALL-CAPS label so it tolerates a section wrapping across lines. Labeled text was chosen over JSON mode because `generateAssistText` calls whichever provider's plain `generateOnce` with no structured-output guarantee across all 6 supported chat providers.
+- [x] **Surprise Me button:** New `FaDice` button in the Identity step's card header, shown only for a brand-new character (`!editCharacter`) - rerolling an existing character's fields wholesale isn't what an edit is for. Reuses the existing `assistError` banner and loading-state pattern already used by "Expand my idea" / "Generate Greeting from Scenario."
+
+Verified: `tsc --noEmit` clean, all 83 tests still pass (no new unit tests - this feature is a thin, non-deterministic orchestration layer over already-tested pieces: the preset arrays, the field components, and `generateAssistText`; `extractSurpriseSection`'s regex was instead checked by hand against real model output). Live-verified with two real rolls against Gemini: confirmed every field (name, tagline, tags, description, personality, traits, scenario, greeting) filled in coherently and consistently with that roll's combo, and that a second roll produced a fully distinct character rather than repeating the first.
+
+---
+
 ## Future Ideas (Backlog)
 
-*Not phases, not committed to - candidates raised in conversation for a later session. All 12 original roadmap phases are done as of Phase 12; this section is where "what's next" ideas land instead of being lost.*
+*Not phases, not committed to - candidates raised in conversation for a later session. All 12 original roadmap phases are done as of Phase 12 (Phase 13 above was a later, smaller add-on); this section is where "what's next" ideas land instead of being lost.*
 
 **Cleanup from known-unfinished work:**
 - The pre-existing blocking `alert()` calls in `CharacterEditorPage.tsx` (image upload errors, etc.) were explicitly left alone in Phase 9 ("worth a cleanup pass sometime") - never migrated to the non-blocking `showAlert` the rest of the app uses.
 - OpenAI/SD WebUI `quality`/`size` params for emotion portraits - deferred in Phase 8, Gemini-only for now.
 - Auto-selfie and memory extraction in a multi-character room still only ever target the primary character (`characterIds[0]`), never whichever bot actually just replied - a known gap called out when Phase 12 shipped.
 
+**Character library polish (a natural follow-on from Phase 13's presets):**
+- Tag-based filtering/search on the Characters gallery - Tags now come from real presets (`TAG_PRESETS`), but nothing lets you filter/browse the gallery by them yet.
+- A "safe mode" toggle that hides NSFW-tagged characters from the gallery - cheap now that NSFW is a real preset tag instead of free text, and worth having before tags get used for anything more automated.
+- Emotion/mood persistence - a character's last reported emotion carries into the next session instead of resetting to neutral (`appearanceImages[0]`) on reload mid-conversation.
+
 **Room UX polish (Phase 12 shipped the mechanics, not everything around them):**
 - Rename a room, or add/remove a participant after creation - today the only way to change membership is deleting a character (shrinks the room) or picking members once at creation time.
 - A visible "up next" indicator, or a lighter per-bot typing state, instead of one global spinner in a room.
+- Room templates - a couple of preset multi-character setups ("Study group," "Family dinner") that pre-fill the Room Creator's scenario and suggested character slots, same spirit as Phase 13's preset roll but one level up.
 
 **Streaming responses:** `generateChat` is `await`ed for the full text and lands on screen all at once, even though the underlying provider call is stream-based internally (the adapter already consumes a stream, just joins it before returning). Surfacing that as a visible typing-as-it-generates effect would be a real UX upgrade, and is fairly contained - provider adapters + `generateAIResponse`, no schema/design decisions like Phase 12 needed.
 
 **Bigger, new-territory ideas:**
 - Voice *input* (speech-to-text) to pair with the speech-output feature that already exists.
 - A cross-chat spend/usage dashboard - per-chat token/cost tracking already exists, but there's no aggregate view across every chat/character.
+- Export a chat transcript (markdown or plain text) for a favorite conversation - complements the existing character card export (Phase 9), but nothing on the chat side does this today.
 - PWA polish (installable, offline-tolerant) - the app is already mobile-responsive but not installable.
