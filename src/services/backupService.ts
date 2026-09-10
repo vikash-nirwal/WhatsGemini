@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { dbService } from "./dbService";
-import { Chat, Character } from "../types";
+import { Chat, Character, Message, ConversationTree } from "../types";
 
 export const BACKUP_FILE_TYPE = "whatsgemini-backup";
 export const BACKUP_FILE_VERSION = 1;
@@ -29,11 +29,41 @@ export const getFullBackupData = async (): Promise<BackupData> => {
   };
 };
 
+// Remaps an array of character ids (Chat.characterIds, Chat.mutedParticipantIds)
+// through the old-id->new-id map, dropping any id whose character wasn't
+// part of this restore (e.g. deleted before the backup was taken) rather
+// than leaving a dangling reference to nothing.
+export const remapIdArray = (ids: number[] | undefined, idMap: Map<number, number>): number[] | undefined =>
+  ids ? ids.map((cid) => idMap.get(cid)).filter((cid): cid is number => cid != null) : undefined;
+
+// Remaps a single message's speakerId through the same map - used for both a
+// chat's flat `content` and every node's message inside its `tree`
+// (branching means the same message can live in more than one place). Same
+// "drop rather than dangle" rule as remapIdArray.
+export const remapMessageSpeaker = (message: Message, idMap: Map<number, number>): Message => {
+  if (message.speakerId == null) return message;
+  const remapped = idMap.get(message.speakerId);
+  return remapped != null ? { ...message, speakerId: remapped } : { ...message, speakerId: undefined };
+};
+
+export const remapTree = (tree: ConversationTree | undefined, idMap: Map<number, number>): ConversationTree | undefined => {
+  if (!tree) return tree;
+  return {
+    nodes: Object.fromEntries(
+      Object.entries(tree.nodes).map(([nodeId, node]) => [nodeId, { ...node, message: remapMessageSpeaker(node.message, idMap) }])
+    ),
+  };
+};
+
 // Restores chats and characters as new records - never overwrites or collides
 // with anything already in the database, so it's safe to run against a browser
 // that already has data (or to import the same backup twice). Characters are
 // restored first and their old->new id remapped, so restored chats keep
-// pointing at the right (newly assigned) character.
+// pointing at the right (newly assigned) character - and so does every
+// individual message's speakerId and the chat's own mutedParticipantIds,
+// both of which reference character ids just as much as characterIds does
+// but are easy to miss since they're nested inside `content`/`tree` rather
+// than sitting on the chat record itself.
 export const restoreChatsAndCharacters = async (
   chats: Chat[],
   characters: Character[]
@@ -51,10 +81,16 @@ export const restoreChatsAndCharacters = async (
     // Accepts a pre-migration backup (`characterId` scalar) alongside the
     // current `characterIds` array shape - a backup zip made before Phase 11
     // restored on a build after it shouldn't lose its character links.
-    const { id, characterId, characterIds, ...rest } = chat as Chat & { characterId?: number | null };
+    const { id, characterId, characterIds, content, tree, mutedParticipantIds, ...rest } = chat as Chat & { characterId?: number | null };
     const sourceIds = Array.isArray(characterIds) ? characterIds : (characterId != null ? [characterId] : []);
-    const remappedCharacterIds = sourceIds.map((cid) => idMap.get(cid)).filter((cid): cid is number => cid != null);
-    await dbService.addChat({ ...rest, characterIds: remappedCharacterIds });
+
+    await dbService.addChat({
+      ...rest,
+      characterIds: remapIdArray(sourceIds, idMap) || [],
+      mutedParticipantIds: remapIdArray(mutedParticipantIds, idMap),
+      content: (content || []).map((m) => remapMessageSpeaker(m, idMap)),
+      tree: remapTree(tree, idMap),
+    });
     chatsRestored++;
   }
 
