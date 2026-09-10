@@ -24,6 +24,7 @@ import AvatarGenerateButton from "../components/character/AvatarGenerateButton";
 import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
 import { parseCharacterCardJson } from "../features/character/characterCard";
 import { useModal } from "../contexts/ModalContext";
+import { toast } from "sonner";
 
 const findSwatchIndex = (accent?: [string, string]) => {
   if (!accent) return 0;
@@ -101,9 +102,16 @@ const CharacterEditorPage = () => {
   }, []);
 
   // Seed the form from whichever source applies: editing an existing
-  // character, duplicating one, or a blank create.
+  // character, duplicating one, or a blank create. Always runs on
+  // characterId change (not just when there's a source to seed from) - the
+  // sidebar's "New Character" action is reachable from inside the editor
+  // itself, navigating straight from editing one character to
+  // /characters/new without a page reload, so a missing else branch here
+  // used to leave the previous character's data (and wizard step) sitting
+  // in the "new" form instead of a blank one.
   useEffect(() => {
     const source = editCharacter || duplicateFrom;
+    setStep(0);
     if (source) {
       setName(editCharacter ? source.name : `${source.name} (Copy)`);
       setDescription(source.description);
@@ -124,6 +132,26 @@ const CharacterEditorPage = () => {
       setEmotionPortraitImages(source.emotionPortraits?.images || {});
       setLoreEntries(source.loreEntries || []);
       setPersonalityTraits(source.personalityTraits || []);
+    } else {
+      setName("");
+      setDescription("");
+      setTags([]);
+      setPrompt("");
+      setScenario("");
+      setFirstMes("");
+      setMesExample("");
+      setRelationship("");
+      setAppearance("");
+      setAppearanceImages([]);
+      setArtStyle(DEFAULT_ART_STYLE);
+      setAccentIndex(0);
+      setVoiceURI("");
+      setAutoSelfieEnabled(false);
+      setAutoSelfieFrequency(DEFAULT_AUTO_SELFIE_FREQUENCY);
+      setEmotionPortraitsEnabled(false);
+      setEmotionPortraitImages({});
+      setLoreEntries([]);
+      setPersonalityTraits([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [characterId]);
@@ -234,13 +262,22 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     navigate("/characters");
   };
 
-  const handleSaveEdit = () => {
+  // `stay: true` is the per-step "Save" button - persists in place without
+  // leaving the wizard, so a long editing session (especially one involving
+  // slow steps like generating a batch of emotion portraits) doesn't risk
+  // losing everything if the user never makes it to the final step's Save
+  // Changes, which still navigates away as before.
+  const handleSaveEdit = (options?: { stay?: boolean }) => {
     if (!name || !prompt || !editCharacter) {
       alert("Character name and prompt are required.");
       return;
     }
     dispatch(updateCharacter({ id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages }, loreEntries, personalityTraits }));
-    navigate("/characters");
+    if (options?.stay) {
+      toast.success("Character saved");
+    } else {
+      navigate("/characters");
+    }
   };
 
   const handleImportClick = () => {
@@ -1168,6 +1205,16 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   <FaArrowLeft size={12} /> Back
                 </Button>
               )}
+              {editCharacter && (
+                <Button
+                  onClick={() => handleSaveEdit({ stay: true })}
+                  variant="panel"
+                  className="h-auto px-4 py-2.5 border border-border hover:border-primary font-medium"
+                  title="Save without leaving the editor"
+                >
+                  <FaCheck size={12} /> Save
+                </Button>
+              )}
               {step < STEPS.length - 1 ? (
                 <Button
                   onClick={goNext}
@@ -1178,7 +1225,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                 </Button>
               ) : (
                 <Button
-                  onClick={editCharacter ? handleSaveEdit : handleCreateCharacter}
+                  onClick={() => (editCharacter ? handleSaveEdit() : handleCreateCharacter())}
                   variant="default"
                   className="h-auto px-5 py-2.5 font-semibold"
                   disabled={loading}
