@@ -261,7 +261,7 @@ const CharacterPage = () => {
               return (
               <Card
                 key={char.id}
-                className="relative overflow-hidden rounded-xl border hover:border-primary/40 transition shadow-soft flex flex-col justify-end"
+                className="relative overflow-hidden rounded-xl border border-transparent hover:border-primary/40 transition shadow-soft flex flex-col justify-end"
                 style={{ aspectRatio: "3 / 3.9" }}
               >
                 <div className="absolute inset-0">

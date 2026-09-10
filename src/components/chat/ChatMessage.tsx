@@ -11,6 +11,7 @@ import { DisplayImage } from "../DisplayImage";
 import { CharacterAvatar } from "../ui/CharacterAvatar";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
+import { Tooltip, TooltipTrigger, TooltipContent } from "../ui/tooltip";
 import { isSpeechSynthesisSupported } from "../../utils/speech";
 
 interface SiblingInfo {
@@ -124,8 +125,8 @@ const ChatMessage = React.memo(({
         className={cn(
           "relative p-4 rounded-2xl max-w-[85%] md:max-w-[70%] min-w-0 group",
           isUser
-            ? "bg-primary/[0.16] border border-primary/[0.28] text-foreground rounded-br-[5px]"
-            : "bg-card/[0.88] border border-border/40 shadow-soft text-foreground rounded-tl-[5px]"
+            ? "bg-primary/[0.16] text-foreground rounded-br-[5px]"
+            : "bg-card/[0.88] shadow-soft text-foreground rounded-tl-[5px]"
         )}
         style={{ fontSize: "var(--chat-font-size, 16px)" }}
       >
@@ -172,7 +173,7 @@ const ChatMessage = React.memo(({
             srcContext={imgSrc}
             alt="Generated"
             onClick={() => setFullscreenImage(imgSrc)}
-            className="mt-2 max-w-full rounded-lg shadow-sm border border-border cursor-zoom-in hover:opacity-90 transition-opacity"
+            className="mt-2 max-w-full rounded-lg shadow-sm cursor-zoom-in hover:opacity-90 transition-opacity"
           />
         ))}
 
@@ -231,43 +232,94 @@ const ChatMessage = React.memo(({
           </div>
         )}
 
-        {/* AI messages: one inline action row, no duplicate dropdown */}
+        {/* AI messages: icon-only actions, hidden until the message is hovered
+            or a button inside it has focus (keyboard/touch) - a permanently
+            visible labeled row under every single reply added a lot of
+            constant weight for something used occasionally. The outer
+            bubble already carries the `group` class this reveal keys off. */}
         {!isUser && (
-          <div className="flex items-center gap-1 mt-3 pt-2.5 border-t border-border/30 font-sans">
-            <Button variant="ghost" onClick={handleCopy} className="h-auto w-auto px-2 py-1 gap-1.5 rounded-md text-xs font-normal text-muted-foreground hover:bg-secondary hover:text-foreground">
-              <FaCopy size={12} /> Copy
-            </Button>
-            {!msg.isImpersonated && (
-              <Button variant="ghost" onClick={handleRegenerate} className="h-auto w-auto px-2 py-1 gap-1.5 rounded-md text-xs font-normal text-muted-foreground hover:bg-secondary hover:text-foreground">
-                <FaRedo size={12} /> Regenerate
-              </Button>
-            )}
-            {!msg.isImpersonated && isLastMessage && onContinue && (
-              <Button
-                variant="ghost"
-                onClick={handleContinue}
-                disabled={aiLoading}
-                className="h-auto w-auto px-2 py-1 gap-1.5 rounded-md text-xs font-normal text-muted-foreground hover:bg-secondary hover:text-foreground"
-                title="Ask the model to keep writing from where this reply left off"
-              >
-                <FaForward size={12} /> Continue
-              </Button>
-            )}
-            {speechSupported && (
-              <Button
-                variant="ghost"
-                onClick={handleToggleSpeak}
-                className={cn(
-                  "h-auto w-auto px-2 py-1 gap-1.5 rounded-md text-xs font-normal hover:bg-secondary",
-                  isSpeaking ? "text-primary hover:text-primary" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {isSpeaking ? <FaStop size={12} /> : <FaVolumeUp size={12} />} {isSpeaking ? "Stop" : "Speak"}
-              </Button>
-            )}
-            <Button variant="ghost" onClick={handleEdit} className="h-auto w-auto px-2 py-1 gap-1.5 rounded-md text-xs font-normal text-muted-foreground hover:bg-secondary hover:text-foreground">
-              <FaEdit size={12} /> Edit
-            </Button>
+          <div className="flex items-center gap-1 mt-2 font-sans">
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={handleCopy} aria-label="Copy" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
+                    <FaCopy size={12} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Copy</TooltipContent>
+              </Tooltip>
+              {!msg.isImpersonated && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" onClick={handleRegenerate} aria-label="Regenerate" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
+                      <FaRedo size={12} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Regenerate</TooltipContent>
+                </Tooltip>
+              )}
+              {!msg.isImpersonated && isLastMessage && onContinue && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleContinue}
+                      disabled={aiLoading}
+                      aria-label="Continue"
+                      className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    >
+                      <FaForward size={12} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Ask the model to keep writing from where this reply left off</TooltipContent>
+                </Tooltip>
+              )}
+              {speechSupported && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleToggleSpeak}
+                      aria-label={isSpeaking ? "Stop" : "Speak"}
+                      className={cn(
+                        "h-auto w-auto p-1.5 rounded-md hover:bg-secondary",
+                        isSpeaking ? "text-primary hover:text-primary" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {isSpeaking ? <FaStop size={12} /> : <FaVolumeUp size={12} />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{isSpeaking ? "Stop" : "Speak"}</TooltipContent>
+                </Tooltip>
+              )}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={handleEdit} aria-label="Edit" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
+                    <FaEdit size={12} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Edit</TooltipContent>
+              </Tooltip>
+              {onDeleteBranch && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleDeleteBranch}
+                      disabled={aiLoading}
+                      className="h-auto w-auto p-1.5 rounded-md text-subtle hover:bg-destructive/15 hover:text-destructive"
+                      aria-label={siblingInfo ? "Delete this variant" : "Delete message"}
+                    >
+                      <FaTrash size={10} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{siblingInfo ? "Delete this variant" : "Delete message"}</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
             <div className="flex-1" />
             {siblingInfo && (
               <span
@@ -276,19 +328,6 @@ const ChatMessage = React.memo(({
               >
                 {siblingInfo.index + 1}/{siblingInfo.total}
               </span>
-            )}
-            {onDeleteBranch && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleDeleteBranch}
-                disabled={aiLoading}
-                className="h-auto w-auto p-1.5 rounded-md text-subtle hover:bg-destructive/15 hover:text-destructive"
-                aria-label={siblingInfo ? "Delete this variant" : "Delete message"}
-                title={siblingInfo ? "Delete this variant" : "Delete message"}
-              >
-                <FaTrash size={10} />
-              </Button>
             )}
           </div>
         )}

@@ -12,8 +12,9 @@ import { Button } from "./ui/button";
 import KeyboardShortcutsModal from "./KeyboardShortcutsModal";
 
 // A single header icon action, described once and rendered two ways: as a
-// tooltipped icon button in the desktop row, and as a labeled row in the
-// mobile "more" menu - so page-specific actions (e.g. ChatPage's Export/
+// tooltipped icon button (desktop, `primary` actions only) and as a labeled
+// row in a "more" dropdown (mobile always; desktop for everything not
+// flagged `primary`) - so page-specific actions (e.g. ChatPage's Export/
 // Compress/Follow-up) don't need to hand-build both layouts themselves.
 export interface HeaderAction {
   icon: React.ComponentType<{ size?: number; className?: string }>;
@@ -22,6 +23,11 @@ export interface HeaderAction {
   disabled?: boolean;
   active?: boolean;
   danger?: boolean;
+  // Stays as an always-visible icon button in the desktop row; everything
+  // else (unflagged page actions, plus the built-in app/session groups)
+  // collapses into the trailing "more" menu instead of a long flat row of
+  // icons - same idea the mobile menu below already applies to everything.
+  primary?: boolean;
 }
 
 interface HeaderProps {
@@ -78,6 +84,34 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, avatar, onBack, action
 
   const groups = [...actionGroups, appGroup, sessionGroup].filter((g) => g.length > 0);
 
+  // Desktop only shows `primary`-flagged actions as standalone icons;
+  // everything else (from every group, app/session groups included) moves
+  // into one trailing "more" menu - the same collapsed shape the mobile
+  // menu below already uses for the full set.
+  const primaryActions = groups.flatMap((group) => group.filter((action) => action.primary));
+  const overflowGroups = groups.map((group) => group.filter((action) => !action.primary)).filter((g) => g.length > 0);
+
+  const renderMenuGroups = (groupsToRender: HeaderAction[][]) =>
+    groupsToRender.map((group, gi) => (
+      <React.Fragment key={gi}>
+        {gi > 0 && <DropdownMenuSeparator />}
+        {group.map((action, ai) => (
+          <DropdownMenuItem
+            key={ai}
+            onSelect={action.onClick}
+            disabled={action.disabled}
+            className={cn(
+              action.danger && "text-destructive focus:text-destructive",
+              action.active && "text-primary focus:text-primary"
+            )}
+          >
+            <action.icon className="mr-2 h-4 w-4" />
+            <span>{action.label}</span>
+          </DropdownMenuItem>
+        ))}
+      </React.Fragment>
+    ));
+
   return (
     <header className="h-[60px] flex-shrink-0 border-b border-border/40 bg-card flex items-center gap-2.5 px-3 md:px-4 z-20">
       <Button onClick={open} variant="outline" size="icon" title="Menu" aria-label="Open menu" className={cn(iconBtnClass, "md:hidden")}>
@@ -111,36 +145,42 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, avatar, onBack, action
 
       <div className="flex-1" />
 
-      {/* Desktop: full row of tooltipped icon buttons, grouped with dividers */}
+      {/* Desktop: primary actions stay as tooltipped icon buttons; everything
+          else collapses into the trailing "more" menu. */}
       <div className="hidden md:flex items-center gap-1">
-        {groups.map((group, gi) => (
-          <React.Fragment key={gi}>
-            {gi > 0 && <div className="w-px h-6 bg-border/50 mx-1 flex-shrink-0" />}
-            {group.map((action, ai) => (
-              <Tooltip key={ai}>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={action.onClick}
-                    disabled={action.disabled}
-                    variant="outline"
-                    size="icon"
-                    aria-label={action.label}
-                    className={cn(
-                      action.danger ? iconBtnDangerClass : action.active ? iconBtnActiveClass : iconBtnClass,
-                      action.disabled && "opacity-50 cursor-not-allowed"
-                    )}
-                  >
-                    <action.icon size={15} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{action.label}</TooltipContent>
-              </Tooltip>
-            ))}
-          </React.Fragment>
+        {primaryActions.map((action, ai) => (
+          <Tooltip key={ai}>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={action.onClick}
+                disabled={action.disabled}
+                variant="outline"
+                size="icon"
+                aria-label={action.label}
+                className={cn(
+                  action.danger ? iconBtnDangerClass : action.active ? iconBtnActiveClass : iconBtnClass,
+                  action.disabled && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                <action.icon size={15} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{action.label}</TooltipContent>
+          </Tooltip>
         ))}
+        {overflowGroups.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" aria-label="More options" className={iconBtnClass}>
+                <FaEllipsisV size={15} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">{renderMenuGroups(overflowGroups)}</DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
-      {/* Mobile: everything above collapses into one menu so buttons stop crowding the header */}
+      {/* Mobile: everything collapses into one menu so buttons stop crowding the header */}
       <div className="md:hidden">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -148,27 +188,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, avatar, onBack, action
               <FaEllipsisV size={15} />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {groups.map((group, gi) => (
-              <React.Fragment key={gi}>
-                {gi > 0 && <DropdownMenuSeparator />}
-                {group.map((action, ai) => (
-                  <DropdownMenuItem
-                    key={ai}
-                    onSelect={action.onClick}
-                    disabled={action.disabled}
-                    className={cn(
-                      action.danger && "text-destructive focus:text-destructive",
-                      action.active && "text-primary focus:text-primary"
-                    )}
-                  >
-                    <action.icon className="mr-2 h-4 w-4" />
-                    <span>{action.label}</span>
-                  </DropdownMenuItem>
-                ))}
-              </React.Fragment>
-            ))}
-          </DropdownMenuContent>
+          <DropdownMenuContent align="end">{renderMenuGroups(groups)}</DropdownMenuContent>
         </DropdownMenu>
       </div>
 
