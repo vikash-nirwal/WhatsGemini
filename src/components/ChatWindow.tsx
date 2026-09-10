@@ -289,13 +289,21 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
   // Most recent AI message that reported an emotion - drives the "current
   // mood" portrait shown while a reply/follow-up is pending, distinct from
   // each individual message's own (historical) emotion below.
-  const latestEmotion = useMemo(() => {
+  const latestEmotionMessage = useMemo(() => {
     for (let i = filteredMessages.length - 1; i >= 0; i--) {
-      if (filteredMessages[i].role !== YOU && filteredMessages[i].emotion) return filteredMessages[i].emotion;
+      if (filteredMessages[i].role !== YOU && filteredMessages[i].emotion) return filteredMessages[i];
     }
     return undefined;
   }, [filteredMessages]);
+  const latestEmotion = latestEmotionMessage?.emotion;
   const currentEmotionImageSrc = resolveEmotionPortrait(character, latestEmotion);
+
+  // Who actually spoke that latest-emotion message - in a room this can be
+  // any participant (resolveSpeaker follows the message's own speakerId),
+  // not always the chat's primary `character`. The docked sprite below docks
+  // whoever most recently spoke, same "last speaker" notion roomRouting.ts
+  // already uses to decide whose turn is next.
+  const latestSpeaker = latestEmotionMessage ? resolveSpeaker(latestEmotionMessage) : character;
 
   // Unlike currentEmotionImageSrc above (which falls back to the character's
   // ordinary main avatar for the small typing/follow-up indicator, where an
@@ -308,8 +316,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
   // "neutral" never has a portrait of its own (emotionUtils.ts) - it's
   // always the opaque main avatar - so the panel simply stays hidden then.
   const dockedSpriteImageSrc =
-    character?.emotionPortraits?.enabled && latestEmotion && latestEmotion !== "neutral"
-      ? character.emotionPortraits.images[latestEmotion]
+    latestSpeaker?.emotionPortraits?.enabled && latestEmotion && latestEmotion !== "neutral"
+      ? latestSpeaker.emotionPortraits.images[latestEmotion]
       : undefined;
 
   return (
@@ -398,8 +406,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
         )}
       </div>
 
-      {(!characters || characters.length <= 1) && dockedSpriteImageSrc && (
-        <EmotionSpritePanel imageSrc={dockedSpriteImageSrc} characterName={characterName} emotion={latestEmotion} />
+      {dockedSpriteImageSrc && (
+        <EmotionSpritePanel
+          imageSrc={dockedSpriteImageSrc}
+          characterName={latestSpeaker?.name || characterName}
+          emotion={latestEmotion}
+          showName={Boolean(characters && characters.length > 1)}
+        />
       )}
 
       {sceneOpen && chatId != null && (

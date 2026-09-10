@@ -5,6 +5,7 @@ interface EmotionSpritePanelProps {
   imageSrc: string;
   characterName?: string;
   emotion?: string;
+  showName?: boolean; // multi-character rooms: label whose face this is, since it's no longer always the one named in the chat header
 }
 
 // Docks the character's current mood portrait beside the chat, larger than
@@ -33,10 +34,17 @@ interface EmotionSpritePanelProps {
 // (unpositioned, so effectively z-0) - the sprite is meant to read as the
 // frontmost thing in the room. Still pointer-events-none, so it never
 // blocks clicks/typing on whatever it visually overlaps.
-const EmotionSpritePanel: React.FC<EmotionSpritePanelProps> = ({ imageSrc, characterName, emotion }) => (
+const EmotionSpritePanel: React.FC<EmotionSpritePanelProps> = ({ imageSrc, characterName, emotion, showName }) => (
   <aside className="relative z-30 w-[200px] flex-none hidden lg:flex flex-col items-center justify-end overflow-hidden pointer-events-none">
-    {emotion && emotion !== "neutral" && (
-      <span className="mb-2 text-[11px] font-medium text-subtle capitalize">{emotion}</span>
+    {(showName || (emotion && emotion !== "neutral")) && (
+      <div className="mb-2 flex flex-col items-center text-center">
+        {showName && characterName && (
+          <span className="text-[12px] font-semibold text-foreground">{characterName}</span>
+        )}
+        {emotion && emotion !== "neutral" && (
+          <span className="text-[11px] font-medium text-subtle capitalize">{emotion}</span>
+        )}
+      </div>
     )}
     <DisplayImage
       srcContext={imageSrc}
