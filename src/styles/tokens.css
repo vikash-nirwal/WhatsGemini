@@ -199,6 +199,184 @@
   --radius: 0.5rem;
 }
 
+/* ================================================================
+   Neumorphic theme
+   ================================================================
+   A cool gray-green palette with soft raised surfaces, sourced from the
+   "WhatsGemini Redesign" Claude Design canvas (the neumorphic exploration).
+   Colors/radius swap through the same bridge variables every component
+   already reads (see COLOR_THEMES in constants.ts and ThemeContext's
+   data-theme wiring). The raised/inset shadow look itself needs the five
+   primitives shadcn's border-and-flat style doesn't hand us for free -
+   Button, Card, Input/Textarea/SelectTrigger, Dialog/AlertDialog, and this
+   app's SegmentedControl (its Tabs equivalent) - each of those opts into
+   the .shadow-raised/.shadow-inset/.shadow-accent utilities defined below
+   when colorTheme === "neumorphic". Selected via Settings -> Appearance.
+   ================================================================ */
+[data-theme="neumorphic"] {
+  --background: 232 234 236; /* #E8EAEC */
+  --foreground: 34 38 43; /* #22262B */
+  --card: 244 246 247; /* #F4F6F7 */
+  --card-foreground: 34 38 43;
+  --popover: 244 246 247;
+  --popover-foreground: 34 38 43;
+  --primary: 38 139 104; /* #268B68 */
+  --primary-foreground: 255 255 255;
+  --primary-hover: 53 163 126; /* #35A37E */
+  --secondary: 244 246 247;
+  --secondary-foreground: 34 38 43;
+  --muted: 232 234 236;
+  --muted-foreground: 117 120 124; /* #22262B at 58% over the page bg */
+  --accent: 244 246 247;
+  --accent-foreground: 34 38 43;
+  /* Additions the canvas's own token block has beyond shadcn's standard set:
+     --elevated is the raised surface (message bubbles, the emotion rail's
+     portrait card - lighter than the page here, a lifted neutral in dark).
+     --accent-soft/--accent-ink are the tinted-chip pair (outgoing bubbles,
+     emotion badges): a light accent tint plus a text color that holds
+     4.5:1 contrast on it. */
+  --elevated: 244 246 247;
+  --elevated-foreground: 34 38 43;
+  --accent-soft: 221 239 231; /* #DDEFE7 */
+  --accent-ink: 28 111 82; /* #1C6F52 */
+  --destructive: 214 69 80; /* #D64550 */
+  --destructive-foreground: 255 255 255;
+  --success: 59 165 92; /* #3BA55C */
+  --success-foreground: 255 255 255;
+  --overlay: 34 38 43;
+  --subtle: 117 120 124;
+  --border: 209 214 218; /* #97A1AB at 28% over the page bg */
+  /* Matches --border, not --card/--elevated: shadcn's own primitives already
+     override border-input's color to transparent via .shadow-inset (see the
+     shadow-utilities block below), but plenty of hand-rolled bordered boxes
+     elsewhere in the app use border-input directly without that override -
+     equal to the card fill it'd be an invisible border on those, same
+     pattern the cozy theme already follows (--input: var(--color-border-main)). */
+  --input: 209 214 218;
+  --ring: 53 163 126;
+  --radius: 18px;
+  --shadow-soft: rgba(151, 161, 171, 0.25);
+  --shadow-mid: rgba(151, 161, 171, 0.35);
+  --shadow-strong: rgba(151, 161, 171, 0.45);
+
+  --color-app-bg: 232 234 236;
+  --color-panel-bg: 244 246 247;
+  --color-panel2-bg: 232 234 236;
+  --color-panel3-bg: 232 234 236;
+  --color-hover-bg: 224 227 229;
+  --color-chat-bg: 232 234 236;
+  --color-text-main: 34 38 43;
+  --color-text-muted: 117 120 124;
+  --color-text-faint: 160 165 170;
+  --color-primary: 38 139 104;
+  --color-primary-hover: 53 163 126;
+  --color-accent: 38 139 104;
+  --color-accent-2: 53 163 126;
+  --color-on-accent: 255 255 255;
+  --color-secondary: 244 246 247;
+  --color-secondary-hover: 232 234 236;
+  --color-on-secondary: 34 38 43;
+  --color-border-main: 209 214 218;
+}
+
+[data-theme="neumorphic"].dark {
+  --background: 19 20 23; /* #131417 */
+  --foreground: 232 234 238; /* #E8EAEE */
+  --card: 30 32 36; /* #1E2024 */
+  --card-foreground: 232 234 238;
+  --popover: 30 32 36;
+  --popover-foreground: 232 234 238;
+  --primary: 63 178 140; /* #3FB28C */
+  --primary-foreground: 13 21 18;
+  --primary-hover: 46 146 115; /* #2E9273 */
+  --secondary: 30 32 36;
+  --secondary-foreground: 232 234 238;
+  --muted: 30 32 36;
+  --muted-foreground: 151 153 156; /* #E8EAEE at 62% over the page bg */
+  --accent: 30 32 36;
+  --accent-foreground: 232 234 238;
+  --elevated: 30 32 36;
+  --elevated-foreground: 232 234 238;
+  --accent-soft: 26 45 42; /* rgba(63,178,140,.16) blended over the page bg */
+  --accent-ink: 127 217 184; /* #7FD9B8 */
+  --destructive: 255 111 111; /* #FF6F6F */
+  --destructive-foreground: 26 15 15;
+  --success: 74 222 128; /* #4ADE80 */
+  --success-foreground: 15 21 18;
+  --overlay: 19 20 23;
+  --subtle: 151 153 156;
+  --border: 36 37 39; /* white at 7% over the page bg */
+  --input: 36 37 39; /* matches --border - see the light block's comment */
+  --ring: 63 178 140;
+  --shadow-soft: rgba(0, 0, 0, 0.4);
+  --shadow-mid: rgba(0, 0, 0, 0.55);
+  --shadow-strong: rgba(0, 0, 0, 0.7);
+
+  --color-app-bg: 19 20 23;
+  --color-panel-bg: 30 32 36;
+  --color-panel2-bg: 30 32 36;
+  --color-panel3-bg: 30 32 36;
+  --color-hover-bg: 38 40 45;
+  --color-chat-bg: 19 20 23;
+  --color-text-main: 232 234 238;
+  --color-text-muted: 151 153 156;
+  --color-text-faint: 110 112 116;
+  --color-primary: 63 178 140;
+  --color-primary-hover: 46 146 115;
+  --color-accent: 63 178 140;
+  --color-accent-2: 46 146 115;
+  --color-on-accent: 13 21 18;
+  --color-secondary: 30 32 36;
+  --color-secondary-hover: 38 40 45;
+  --color-on-secondary: 232 234 238;
+  --color-border-main: 36 37 39;
+}
+
+/* ----------------------------------------------------------------
+   Neumorphic shadow utilities
+   ----------------------------------------------------------------
+   Raised = anything sitting above the page (cards, buttons, avatars).
+   Inset = anything typed into or reading as selected (inputs, the
+   active row in a picker). Defined outside any @layer, so - per CSS
+   cascade-layer rules - they win over Tailwind's own (layered) shadow/
+   border utilities without needing !important, whether or not the
+   component that opts in also still carries its original `shadow`/
+   `border` class. Every other theme leaves --shadow-dark/light unset,
+   so a component that references these classes only when colorTheme
+   === "neumorphic" never renders them under any other theme. */
+[data-theme="neumorphic"] {
+  --shadow-dark: rgba(151, 161, 171, 0.5);
+  --shadow-light: rgba(255, 255, 255, 0.95);
+}
+[data-theme="neumorphic"].dark {
+  --shadow-dark: rgba(0, 0, 0, 0.62);
+  --shadow-light: rgba(255, 255, 255, 0.045);
+}
+[data-theme="neumorphic"] .shadow-raised,
+[data-theme="neumorphic"] .shadow-raised-sm,
+[data-theme="neumorphic"] .shadow-inset,
+[data-theme="neumorphic"] .shadow-accent {
+  border-color: transparent;
+}
+[data-theme="neumorphic"] .shadow-raised {
+  box-shadow: 6px 6px 14px var(--shadow-dark), -6px -6px 14px var(--shadow-light);
+}
+[data-theme="neumorphic"] .shadow-raised-sm {
+  box-shadow: 3px 3px 7px var(--shadow-dark), -3px -3px 7px var(--shadow-light);
+}
+[data-theme="neumorphic"] .shadow-inset {
+  box-shadow: inset 4px 4px 9px var(--shadow-dark), inset -4px -4px 9px var(--shadow-light);
+  background-color: rgb(var(--card));
+}
+[data-theme="neumorphic"] .shadow-accent {
+  box-shadow: 6px 6px 14px color-mix(in srgb, rgb(var(--primary)) 40%, transparent), -3px -3px 9px var(--shadow-light);
+}
+[data-theme="neumorphic"] button.shadow-raised:active,
+[data-theme="neumorphic"] button.shadow-raised-sm:active,
+[data-theme="neumorphic"] button.shadow-accent:active {
+  box-shadow: inset 4px 4px 9px var(--shadow-dark), inset -4px -4px 9px var(--shadow-light);
+}
+
 [data-theme="shadcn-default"].dark {
   --background: 10 10 10; /* hsl(0 0% 3.9%) */
   --foreground: 250 250 250; /* hsl(0 0% 98%) */

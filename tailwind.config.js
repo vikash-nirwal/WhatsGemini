@@ -52,6 +52,15 @@ module.exports = {
           DEFAULT: 'rgb(var(--popover) / <alpha-value>)',
           foreground: 'rgb(var(--popover-foreground) / <alpha-value>)',
         },
+        // Additions beyond shadcn's canonical set, from the neumorphic canvas's
+        // own token block - only defined under [data-theme="neumorphic"] in
+        // tokens.css (see there), so these classes are a no-op elsewhere.
+        elevated: {
+          DEFAULT: 'rgb(var(--elevated) / <alpha-value>)',
+          foreground: 'rgb(var(--elevated-foreground) / <alpha-value>)',
+        },
+        'accent-soft': 'rgb(var(--accent-soft) / <alpha-value>)',
+        'accent-ink': 'rgb(var(--accent-ink) / <alpha-value>)',
         muted: {
           DEFAULT: 'rgb(var(--muted) / <alpha-value>)',
           foreground: 'rgb(var(--muted-foreground) / <alpha-value>)',

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useContext } from "react";
+import { ThemeContext } from "../contexts/ThemeContext";
 import { addCharacter, updateCharacter } from "../features/characterSlice";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { FaTimes, FaUpload, FaPlay, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaMagic, FaCrop, FaTrash, FaBook, FaDice } from "react-icons/fa";
@@ -57,6 +58,8 @@ const extractSurpriseSection = (text: string, label: string): string => {
 
 const CharacterEditorPage = () => {
   const dispatch = useAppDispatch();
+  const { colorTheme } = useContext(ThemeContext);
+  const neumorphic = colorTheme === "neumorphic";
   const { showAlert } = useModal();
   const navigate = useNavigate();
   const location = useLocation();
@@ -584,66 +587,69 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-6 items-start">
+        <div className="flex flex-col gap-6">
 
-          {/* Persistent left rail: portrait + accent/voice/auto-selfie */}
-          <div className="flex flex-col gap-4 lg:sticky lg:top-0">
-            <Card className="overflow-hidden">
-              <div
-                className="relative aspect-[3/4] flex items-center justify-center"
-                style={!appearanceImages[0] ? { background: `linear-gradient(135deg, ${accent[0]}26, ${accent[1]}26)` } : undefined}
-              >
-                {appearanceImages[0] ? (
-                  <DisplayImage srcContext={appearanceImages[0]} alt="Portrait" className="w-full h-full object-cover" />
-                ) : (
-                  <CharacterAvatar name={name || "?"} accent={accent} size={96} />
-                )}
+          {/* Persistent avatar strip: portrait + accent/voice/auto-selfie, shared
+              across every step - per the redesign's spec, a single horizontal
+              card (not a tall sidebar) whose controls flex-wrap, so Voice drops
+              to its own line on narrow widths instead of overflowing. */}
+          <Card className="p-6">
+            <div className="flex flex-wrap gap-6">
+              <div className="flex gap-3 flex-1 basis-[220px] min-w-0">
+                <div
+                  className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center"
+                  style={!appearanceImages[0] ? { background: `linear-gradient(135deg, ${accent[0]}26, ${accent[1]}26)` } : undefined}
+                >
+                  {appearanceImages[0] ? (
+                    <DisplayImage srcContext={appearanceImages[0]} alt="Portrait" className="w-full h-full object-cover" />
+                  ) : (
+                    <CharacterAvatar name={name || "?"} accent={accent} size={64} />
+                  )}
+                </div>
+                <div className="flex flex-col gap-1.5 justify-center min-w-0 flex-1">
+                  <AvatarGenerateButton
+                    name={name}
+                    appearance={appearance}
+                    appearanceImages={appearanceImages}
+                    artStyle={artStyle}
+                    onGenerated={handleAvatarGenerated}
+                  />
+                  {appearanceImages[0] && (
+                    <Button
+                      type="button"
+                      variant="panel"
+                      onClick={() => {
+                        // For local: refs we need to resolve to a blob URL for the crop canvas.
+                        // The simplest approach: if the first image is local:, load it via
+                        // DisplayImage's same path (dbService). For data: URLs, use directly.
+                        const src = appearanceImages[0];
+                        if (src.startsWith("data:") || src.startsWith("blob:")) {
+                          setCropImageSrc(src);
+                          setCropDialogOpen(true);
+                        } else if (src.startsWith("local:")) {
+                          const filename = src.substring(6);
+                          dbService.getSetting("image_save_directory").then(async (dirHandle: any) => {
+                            if (!dirHandle) return;
+                            try {
+                              const fh = await dirHandle.getFileHandle(filename);
+                              const file = await fh.getFile();
+                              const blobUrl = URL.createObjectURL(file);
+                              setCropImageSrc(blobUrl);
+                              setCropDialogOpen(true);
+                            } catch (e) { console.error("Failed to load image for cropping:", e); }
+                          });
+                        }
+                      }}
+                      className="h-auto w-full px-3 py-1.5 text-xs font-medium border border-border hover:border-primary hover:text-primary"
+                      title="Re-crop the portrait"
+                    >
+                      <FaCrop size={11} /> Re-crop Portrait
+                    </Button>
+                  )}
+                </div>
               </div>
-              <div className="p-2.5 flex flex-col gap-2">
-                <AvatarGenerateButton
-                  name={name}
-                  appearance={appearance}
-                  appearanceImages={appearanceImages}
-                  artStyle={artStyle}
-                  onGenerated={handleAvatarGenerated}
-                />
-                {appearanceImages[0] && (
-                  <Button
-                    type="button"
-                    variant="panel"
-                    onClick={() => {
-                      // For local: refs we need to resolve to a blob URL for the crop canvas.
-                      // The simplest approach: if the first image is local:, load it via
-                      // DisplayImage's same path (dbService). For data: URLs, use directly.
-                      const src = appearanceImages[0];
-                      if (src.startsWith("data:") || src.startsWith("blob:")) {
-                        setCropImageSrc(src);
-                        setCropDialogOpen(true);
-                      } else if (src.startsWith("local:")) {
-                        const filename = src.substring(6);
-                        dbService.getSetting("image_save_directory").then(async (dirHandle: any) => {
-                          if (!dirHandle) return;
-                          try {
-                            const fh = await dirHandle.getFileHandle(filename);
-                            const file = await fh.getFile();
-                            const blobUrl = URL.createObjectURL(file);
-                            setCropImageSrc(blobUrl);
-                            setCropDialogOpen(true);
-                          } catch (e) { console.error("Failed to load image for cropping:", e); }
-                        });
-                      }
-                    }}
-                    className="h-auto w-full px-3 py-1.5 text-xs font-medium border border-border hover:border-primary hover:text-primary"
-                    title="Re-crop the portrait"
-                  >
-                    <FaCrop size={11} /> Re-crop Portrait
-                  </Button>
-                )}
-              </div>
-            </Card>
 
-            <Card className="p-4 flex flex-col gap-4">
-              <div>
+              <div className="flex-1 basis-[160px] min-w-0">
                 <label className="block text-[11.5px] text-muted-foreground mb-1.5">Accent</label>
                 <div className="flex gap-[7px]">
                   {CHARACTER_SWATCHES.map((sw, i) => (
@@ -664,61 +670,56 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
               </div>
 
               {isSpeechSynthesisSupported() && (
-                <>
-                  <div className="h-px bg-border" />
-                  <div>
-                    <FieldLabel hint="Used to read this character's replies aloud with the speak button in chat.">Voice (optional)</FieldLabel>
-                    <div className="flex gap-2">
-                      <Select value={voiceURI} onChange={(e) => setVoiceURI(e.target.value)} className="flex-1">
-                        <option value="">Browser default</option>
-                        {voices.map((v) => (
-                          <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>
-                        ))}
-                      </Select>
-                      <Button
-                        type="button"
-                        variant="panel"
-                        onClick={() => speak(`Hi, I'm ${name || "your character"}.`, voiceURI || undefined)}
-                        disabled={voices.length === 0}
-                        className="w-11 h-11 flex-shrink-0 border border-border hover:border-primary hover:text-primary"
-                        title="Preview voice"
-                        aria-label="Preview voice"
-                      >
-                        <FaPlay size={12} />
-                      </Button>
-                    </div>
+                <div className="flex-1 basis-[200px] min-w-0">
+                  <FieldLabel hint="Used to read this character's replies aloud with the speak button in chat.">Voice (optional)</FieldLabel>
+                  <div className="flex gap-2">
+                    <Select value={voiceURI} onChange={(e) => setVoiceURI(e.target.value)} className="flex-1">
+                      <option value="">Browser default</option>
+                      {voices.map((v) => (
+                        <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>
+                      ))}
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="panel"
+                      onClick={() => speak(`Hi, I'm ${name || "your character"}.`, voiceURI || undefined)}
+                      disabled={voices.length === 0}
+                      className="w-11 h-11 flex-shrink-0 border border-border hover:border-primary hover:text-primary"
+                      title="Preview voice"
+                      aria-label="Preview voice"
+                    >
+                      <FaPlay size={12} />
+                    </Button>
                   </div>
-                </>
+                </div>
               )}
+            </div>
 
-              <div className="h-px bg-border" />
-
-              <div>
-                <ToggleSwitch
-                  checked={autoSelfieEnabled}
-                  onChange={setAutoSelfieEnabled}
-                  label="Sends selfies on their own"
-                  title="Let this character spontaneously attach a selfie-style picture to their replies, without you asking for one."
-                />
-                {autoSelfieEnabled && (
-                  <div className="mt-3">
-                    <div className="flex justify-between text-xs text-muted-foreground mb-2">
-                      <span>Frequency</span>
-                      <span className="font-mono">{autoSelfieFrequency}%</span>
-                    </div>
-                    <Slider value={autoSelfieFrequency} min={5} max={100} step={5} onChange={setAutoSelfieFrequency} />
-                    <p className="text-xs text-subtle mt-1.5">Chance each of their replies includes a spontaneous selfie - lower saves AI credits.</p>
+            <div className="mt-6 pt-6 border-t border-border/30">
+              <ToggleSwitch
+                checked={autoSelfieEnabled}
+                onChange={setAutoSelfieEnabled}
+                label="Sends selfies on their own"
+                title="Let this character spontaneously attach a selfie-style picture to their replies, without you asking for one."
+              />
+              {autoSelfieEnabled && (
+                <div className="mt-3 max-w-sm">
+                  <div className="flex justify-between text-xs text-muted-foreground mb-2">
+                    <span>Frequency</span>
+                    <span className="font-mono">{autoSelfieFrequency}%</span>
                   </div>
-                )}
-              </div>
-            </Card>
-          </div>
+                  <Slider value={autoSelfieFrequency} min={5} max={100} step={5} onChange={setAutoSelfieFrequency} />
+                  <p className="text-xs text-subtle mt-1.5">Chance each of their replies includes a spontaneous selfie - lower saves AI credits.</p>
+                </div>
+              )}
+            </div>
+          </Card>
 
           {/* Stepped field cards */}
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-6">
             {step === 0 && (
               <>
-                <Card className="p-5 flex flex-col gap-3">
+                <Card className="p-6 flex flex-col gap-5">
                   <div className="flex items-center justify-between gap-4">
                     <h3 className="font-semibold text-[15px] text-foreground">Identity</h3>
                     {!editCharacter && (
@@ -744,7 +745,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                     />
                   )}
                   {assistError && <p className="text-xs text-destructive -mt-1">{assistError}</p>}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div>
                       <FieldLabel htmlFor="char-name">Character Name</FieldLabel>
                       <TextInput
@@ -816,7 +817,10 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                       ))}
                       <button
                         onClick={() => imageInputRef.current?.click()}
-                        className="w-20 h-20 flex flex-col justify-center items-center rounded-lg border-2 border-dashed border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors"
+                        className={cn(
+                          "w-20 h-20 flex flex-col justify-center items-center rounded-lg text-muted-foreground hover:text-primary transition-colors",
+                          neumorphic ? "shadow-inset" : "border-2 border-dashed border-border hover:border-primary"
+                        )}
                       >
                         <FaUpload size={16} />
                         <span className="text-[10px] mt-1 text-center font-medium">Add Image</span>
@@ -834,7 +838,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   </div>
                 </Card>
 
-                <Card className="p-5 flex flex-col gap-3">
+                <Card className="p-6 flex flex-col gap-5">
                   <div className="flex items-center gap-1.5">
                     <h3 className="font-semibold text-[15px] text-foreground">Emotion Portraits</h3>
                     <InfoTooltip hint="Swaps the avatar to match their mood as you chat" />
@@ -917,7 +921,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
             )}
 
             {step === 1 && (
-              <Card className="p-5 flex flex-col gap-3">
+              <Card className="p-6 flex flex-col gap-5">
                 <div className="flex items-baseline justify-between gap-4">
                   <h3 className="font-semibold text-[15px] text-foreground">Personality</h3>
                   <span className="text-xs text-subtle font-mono">~{promptTokens.toLocaleString()} tokens</span>
@@ -954,7 +958,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
 
             {step === 2 && (
               <>
-                <Card className="p-5 flex flex-col gap-3">
+                <Card className="p-6 flex flex-col gap-5">
                   <FieldLabel hint="The current setting or plot context, given to the AI alongside the personality above.">Scenario</FieldLabel>
                   <TextArea
                     placeholder="Scenario (e.g. You run into each other at a rainy bus stop after years apart) (Optional)"
@@ -964,7 +968,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   />
                 </Card>
 
-                <Card className="p-5 flex flex-col gap-3">
+                <Card className="p-6 flex flex-col gap-5">
                   <FieldLabel hint="Sent as this character's opening message when a brand-new chat is started. Leave blank to use the app's default greeting instead.">First Message</FieldLabel>
                   <TextArea
                     placeholder="First Message / Greeting (Optional)"
@@ -990,7 +994,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
             )}
 
             {step === 3 && (
-              <Card className="p-5 flex flex-col gap-3">
+              <Card className="p-6 flex flex-col gap-5">
                 <FieldLabel hint="Sample exchanges given to the AI purely as a style/format reference (e.g. use asterisks for actions) - never repeated verbatim in the chat.">Example Dialogues</FieldLabel>
                 <TextArea
                   placeholder={`Example Dialogues (Optional)\nUser: Hey, how was your day?\n${name || "Character"}: *stretches* Long. Yours?`}
@@ -1002,7 +1006,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
             )}
 
             {step === 4 && (
-              <Card className="p-5 flex flex-col gap-4">
+              <Card className="p-6 flex flex-col gap-5">
                 <div className="flex items-baseline justify-between gap-4">
                   <h3 className="font-semibold text-[15px] text-foreground flex items-center gap-2">
                     <FaBook size={13} className="text-subtle" /> Lorebook / World Info
@@ -1070,7 +1074,10 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   type="button"
                   variant="panel"
                   onClick={handleAddLoreEntry}
-                  className="h-auto w-full px-3 py-2 text-xs font-medium border border-dashed border-border hover:border-primary hover:text-primary"
+                  className={cn(
+                    "h-auto w-full px-3 py-2 text-xs font-medium hover:text-primary",
+                    neumorphic ? "shadow-inset" : "border border-dashed border-border hover:border-primary"
+                  )}
                 >
                   <FaPlus size={11} /> Add Lore Entry
                 </Button>
@@ -1078,12 +1085,12 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
             )}
 
             {step === 5 && (
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 {/* Left: Review summary + Memory */}
-                <div className="flex flex-col gap-4">
-                  <Card className="p-5 flex flex-col gap-4">
+                <div className="flex flex-col gap-6">
+                  <Card className="p-6 flex flex-col gap-5">
                     <h3 className="font-semibold text-[15px] text-foreground">Review</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-sm">
                       <div>
                         <div className="text-xs text-subtle mb-1">Name</div>
                         <div className="text-foreground">{name || <span className="text-subtle">-</span>}</div>
@@ -1124,7 +1131,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   </Card>
 
                   {editCharacter && (
-                    <Card className="p-5 flex flex-col gap-3">
+                    <Card className="p-6 flex flex-col gap-5">
                       <div className="flex items-baseline justify-between gap-4">
                         <h3 className="font-semibold text-[15px] text-foreground">
                           Memory {editCharacter.memory && editCharacter.memory.length > 0 && (

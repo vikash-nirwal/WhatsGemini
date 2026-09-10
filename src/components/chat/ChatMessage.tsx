@@ -1,4 +1,5 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useContext, useMemo, useState } from "react";
+import { ThemeContext } from "../../contexts/ThemeContext";
 import { FaCopy, FaRedo, FaEdit, FaEllipsisV, FaChevronLeft, FaChevronRight, FaTrash, FaVolumeUp, FaStop, FaCompressArrowsAlt, FaForward, FaMask } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { cn } from "../../utils/cn";
@@ -58,6 +59,8 @@ const ChatMessage = React.memo(({
   onToggleSpeak,
 }: ChatMessageProps) => {
   const isUser = msg.role === YOU;
+  const { colorTheme } = useContext(ThemeContext);
+  const neumorphic = colorTheme === "neumorphic";
   const speechSupported = useMemo(() => isSpeechSynthesisSupported(), []);
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
 
@@ -124,9 +127,16 @@ const ChatMessage = React.memo(({
       <div
         className={cn(
           "relative p-4 rounded-2xl max-w-[85%] md:max-w-[70%] min-w-0 group",
+          // Canvas spec: "plain div. Incoming: bg-elevated shadow-raised.
+          // Outgoing: bg-accent-soft text-accent-ink." Cozy keeps its own
+          // translucent-tint look untouched.
           isUser
-            ? "bg-primary/[0.16] text-foreground rounded-br-[5px]"
-            : "bg-card/[0.88] shadow-soft text-foreground rounded-tl-[5px]"
+            ? neumorphic
+              ? "bg-accent-soft text-accent-ink rounded-br-[5px]"
+              : "bg-primary/[0.16] text-foreground rounded-br-[5px]"
+            : neumorphic
+              ? "bg-elevated shadow-raised text-foreground rounded-tl-[5px]"
+              : "bg-card/[0.88] shadow-soft text-foreground rounded-tl-[5px]"
         )}
         style={{ fontSize: "var(--chat-font-size, 16px)" }}
       >

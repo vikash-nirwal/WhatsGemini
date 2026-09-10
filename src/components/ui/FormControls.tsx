@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useContext } from "react";
 import { FaTimes } from "react-icons/fa";
 import { cn } from "../../utils/cn";
+import { ThemeContext } from "../../contexts/ThemeContext";
 import { Input } from "./input";
 import { Textarea } from "./textarea";
 import { Label } from "./label";
@@ -140,6 +141,8 @@ interface TagInputProps {
 // Backspace on the empty draft removes the last chip. Dedupes case-insensitively.
 export const TagInput: React.FC<TagInputProps> = ({ value, onChange, placeholder, className }) => {
   const [draft, setDraft] = useState("");
+  const { colorTheme } = useContext(ThemeContext);
+  const neumorphic = colorTheme === "neumorphic";
 
   const commitDraft = () => {
     const tag = draft.trim();
@@ -152,9 +155,21 @@ export const TagInput: React.FC<TagInputProps> = ({ value, onChange, placeholder
   const removeTag = (index: number) => onChange(value.filter((_, i) => i !== index));
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-2 p-2 rounded-md border border-input bg-transparent min-h-[42px]", className)}>
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-2 p-2 rounded-md bg-transparent min-h-[42px]",
+        neumorphic ? "shadow-inset" : "border border-input",
+        className
+      )}
+    >
       {value.map((tag, i) => (
-        <span key={tag} className="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-full bg-secondary text-secondary-foreground text-xs font-medium">
+        <span
+          key={tag}
+          className={cn(
+            "inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-full bg-secondary text-secondary-foreground text-xs font-medium",
+            neumorphic && "shadow-raised-sm"
+          )}
+        >
           {tag}
           <button
             type="button"
@@ -296,6 +311,8 @@ export const ChipSelectField: React.FC<ChipSelectFieldProps> = ({
   className,
 }) => {
   const [showPresets, setShowPresets] = useState(true);
+  const { colorTheme } = useContext(ThemeContext);
+  const neumorphic = colorTheme === "neumorphic";
 
   const toggle = (preset: string) => {
     if (value.includes(preset)) onChange(value.filter((v) => v !== preset));
@@ -325,10 +342,14 @@ export const ChipSelectField: React.FC<ChipSelectFieldProps> = ({
                 type="button"
                 onClick={() => toggle(preset)}
                 className={cn(
-                  "px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
-                  active
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-transparent text-muted-foreground border-input hover:bg-secondary"
+                  "px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                  neumorphic
+                    ? active
+                      ? "bg-primary text-primary-foreground shadow-accent"
+                      : "bg-transparent text-muted-foreground shadow-raised hover:text-foreground"
+                    : active
+                      ? "border bg-primary text-primary-foreground border-primary"
+                      : "border bg-transparent text-muted-foreground border-input hover:bg-secondary"
                 )}
               >
                 {preset}

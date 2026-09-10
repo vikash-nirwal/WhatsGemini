@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useContext } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchChats, deleteChat, addChat, importChat, updateChatPinned } from "../features/chatSlice";
 import { selectActivePersona } from "../features/settingsSlice";
@@ -17,6 +17,7 @@ import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { SegmentedControl } from "./settings/SegmentedControl";
 import Logo from "./ui/Logo";
+import { ThemeContext } from "../contexts/ThemeContext";
 import { stripLeakedBase64 } from "../features/ai/utils/apiUtils";
 
 const formatChatTime = (timestamp?: number) => {
@@ -76,6 +77,8 @@ const Sidebar = () => {
   const location = useLocation();
   const { showConfirm } = useModal();
   const { isOpen, close } = useSidebar();
+  const { colorTheme } = useContext(ThemeContext);
+  const neumorphic = colorTheme === "neumorphic";
 
   const activeChatId = useMemo(() => {
     const match = location.pathname.match(/^\/chat\/(\d+)/);
@@ -231,7 +234,11 @@ const Sidebar = () => {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed z-50 top-0 left-0 w-[300px] h-full bg-card border-r border-border/40 flex flex-col transition-transform transform md:relative md:translate-x-0",
+          "fixed z-50 top-0 left-0 w-[300px] h-full flex flex-col transition-transform transform md:relative md:translate-x-0",
+          // Canvas spec: "custom aside ... no shadcn Sidebar - its border-and-
+          // panel model fights the soft ground." Cozy keeps the bordered card
+          // look; neumorphic sits flush with the page instead.
+          neumorphic ? "bg-background" : "bg-card border-r border-border/40",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
         aria-label="Sidebar"
@@ -319,7 +326,10 @@ const Sidebar = () => {
           to="/settings"
           state={{ openSection: "profile" }}
           onClick={close}
-          className="flex-shrink-0 flex items-center gap-3 px-4 py-3 border-t border-border/40 group hover:bg-hover transition"
+          className={cn(
+            "flex-shrink-0 flex items-center gap-3 px-4 py-3 group hover:bg-hover transition",
+            !neumorphic && "border-t border-border/40"
+          )}
         >
           <div className="w-[34px] h-[34px] rounded-full bg-muted flex items-center justify-center text-muted-foreground flex-shrink-0">
             <FaUser size={14} />
@@ -514,6 +524,8 @@ const Sidebar = () => {
 };
 
 const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, query, activeChatId, pendingFollowups }: { items: { chat: Chat; snippet?: string }[], characters: Character[], onDeleteChat: (id: number) => void, onTogglePin: (id: number, pinned: boolean) => void, onNavigate: () => void, query: string, activeChatId: number | null, pendingFollowups: Record<number, number> }) => {
+  const { colorTheme } = useContext(ThemeContext);
+  const neumorphic = colorTheme === "neumorphic";
   return (
     <div className="flex-1 flex flex-col gap-0.5">
       {items.map(({ chat, snippet }) => {
@@ -538,7 +550,9 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, qu
             onClick={onNavigate}
             className={cn(
               "relative flex items-center gap-3 p-2.5 rounded-lg cursor-pointer group transition",
-              isActive ? "bg-secondary" : "hover:bg-hover"
+              // Canvas spec: "Active row is the only one with shadow-inset;
+              // the rest are transparent."
+              isActive ? (neumorphic ? "shadow-inset" : "bg-secondary") : "hover:bg-hover"
             )}
           >
             {isActive && (

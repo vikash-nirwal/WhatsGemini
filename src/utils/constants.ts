@@ -213,6 +213,15 @@ export const MESSAGE = "message";
 export const LIGHT = "light";
 export const DARK = "dark";
 
+// Color theme (palette), independent of the light/dark mode above - see
+// ThemeContext. "cozy" is the app's existing warm terracotta look and stays
+// the default; other entries add a [data-theme="x"] block to tokens.css.
+export const COLOR_THEMES: { value: string; label: string; description: string }[] = [
+  { value: "cozy", label: "Cozy", description: "Warm terracotta and cream - the original look" },
+  { value: "neumorphic", label: "Neumorphic", description: "Soft gray-green palette with raised, pillowy surfaces" },
+];
+export const DEFAULT_COLOR_THEME = "cozy";
+
 // Local storage variables
 export const LS_AI_MODEL = "ai_model";
 export const LS_COMPRESS_THRESHOLD = "compress_threshold";
@@ -228,6 +237,7 @@ export const LS_SAFETY_SETTINGS = "safety_settings";
 export const LS_INITIAL_CHAT_MESSAGE = "initial_chat_message";
 export const LS_GOOGLE_API_KEY = "google_api_key";
 export const LS_THEME = "theme";
+export const LS_COLOR_THEME = "color_theme";
 export const LS_INITIAL_MESSAGES = "initial_messages";
 export const LS_FONT_SIZE = "app_font_size";
 export const API_KEY_STORAGE_KEY = "genAI_api_key";

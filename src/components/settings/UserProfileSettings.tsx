@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { FaUser, FaPlus, FaTrash, FaCheckCircle } from 'react-icons/fa';
 import { UserProfile } from '../../types';
 import { TextInput, TextArea } from '../ui/FormControls';
 import { Button } from '../ui/button';
 import { SettingsCard } from './SettingsCard';
 import { cn } from '../../utils/cn';
+import { ThemeContext } from '../../contexts/ThemeContext';
 
 interface UserProfileSettingsProps {
   personas: UserProfile[];
@@ -29,6 +30,8 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
   onDeletePersona,
   onSetActivePersonaId,
 }) => {
+  const { colorTheme } = useContext(ThemeContext);
+  const neumorphic = colorTheme === "neumorphic";
   return (
     <div className="flex flex-col gap-4">
       <SettingsCard className="p-5">
@@ -47,7 +50,12 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
       </SettingsCard>
 
       {personas.length === 0 && (
-        <div className="rounded-xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
+        <div
+          className={cn(
+            "rounded-xl p-6 text-center text-sm text-muted-foreground",
+            neumorphic ? "shadow-inset" : "border border-dashed border-border/60"
+          )}
+        >
           No personas yet. Add one so characters know who they're talking to.
         </div>
       )}

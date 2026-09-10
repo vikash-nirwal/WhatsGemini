@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef, useContext } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { RootState } from "../store/store";
@@ -12,12 +12,14 @@ import {
   setTemperature, setSafetySettings, setFontSize, setImageResolution, setGeminiImageSize, setPortraitSaveSize,
   setChatProvider, setImageProvider, setOllamaBaseUrl
 } from "../features/settingsSlice";
-import { FaInfoCircle, FaUser, FaMicrochip, FaImage, FaComments, FaShieldAlt, FaDatabase } from "react-icons/fa";
+import { FaInfoCircle, FaUser, FaMicrochip, FaImage, FaComments, FaShieldAlt, FaDatabase, FaPalette } from "react-icons/fa";
 import Header from "../components/Header";
 import { toast } from "sonner";
+import { ThemeContext } from "../contexts/ThemeContext";
 import UserProfileSettings from "../components/settings/UserProfileSettings";
 import TextModelSettings from "../components/settings/TextModelSettings";
 import ImageGenerationSettings from "../components/settings/ImageGenerationSettings";
+import AppearanceSettings from "../components/settings/AppearanceSettings";
 import { getAPIKey, getProviderApiKey, saveProviderApiKey } from "../features/ai/utils/settings";
 import { CHAT_PROVIDERS } from "../features/ai/providers/registry";
 import { useModal } from "../contexts/ModalContext";
@@ -83,6 +85,7 @@ const SettingsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { showConfirm } = useModal();
+  const { colorTheme, setColorTheme } = useContext(ThemeContext);
   const [initialMessagesKey, setInitialMessagesKey] = useState(0);
 
   const [modelList, setModelList] = useState<{value: string, label: string}[]>(() => {
@@ -536,6 +539,7 @@ const SettingsPage = () => {
     { id: "text", icon: <FaMicrochip size={13} />, title: "Text Generation Model", subtitle: "Provider, model, temperature, tokens" },
     { id: "image", icon: <FaImage size={13} />, title: "Image Generation Settings", subtitle: "Provider, model, ratio, count" },
     { id: "chat", icon: <FaComments size={13} />, title: "Chat Interface Settings", subtitle: "System prompt, bubbles, sending" },
+    { id: "appearance", icon: <FaPalette size={13} />, title: "Appearance", subtitle: "Color theme" },
     { id: "safety", icon: <FaShieldAlt size={13} />, title: "Safety Settings", subtitle: chatProvider === "gemini" ? "Content filtering thresholds" : "Gemini only - not used by other providers" },
     { id: "data", icon: <FaDatabase size={13} />, title: "Data & Import/Export", subtitle: "Import / export conversations" },
   ];
@@ -670,6 +674,13 @@ const SettingsPage = () => {
                     setFontSize={(val) => dispatch(setFontSize(val))}
                     initialMessagesKey={initialMessagesKey}
                     onInitialMessagesSave={handleInitialMessagesSave}
+                  />
+                )}
+
+                {selectedSection === "appearance" && (
+                  <AppearanceSettings
+                    colorTheme={colorTheme}
+                    setColorTheme={setColorTheme}
                   />
                 )}
 

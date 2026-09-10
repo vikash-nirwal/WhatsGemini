@@ -40,9 +40,14 @@ interface HeaderProps {
   actionGroups?: HeaderAction[][];
 }
 
-export const iconBtnClass = "flex items-center justify-center w-9 h-9 rounded-lg border-0 shadow-none bg-transparent text-muted-foreground hover:bg-secondary hover:text-foreground transition flex-shrink-0";
-const iconBtnActiveClass = "flex items-center justify-center w-9 h-9 rounded-lg border-0 shadow-none bg-primary/[0.14] text-primary hover:bg-primary/[0.2] transition flex-shrink-0";
-const iconBtnDangerClass = "flex items-center justify-center w-9 h-9 rounded-lg border-0 shadow-none bg-transparent text-subtle hover:bg-destructive/10 hover:text-destructive transition flex-shrink-0";
+// Circular per the canvas spec ("Header icon buttons: Button size='icon'
+// variant='secondary', circular, shadow-raised"). shadow-raised itself is a
+// no-op class outside the neumorphic theme (see tokens.css), so it's safe
+// to always include - Button.tsx also auto-applies it for outline/secondary
+// under neumorphic, this just makes it explicit and theme-independent here.
+export const iconBtnClass = "flex items-center justify-center w-9 h-9 rounded-full border-0 shadow-none shadow-raised bg-transparent text-muted-foreground hover:bg-secondary hover:text-foreground transition flex-shrink-0";
+const iconBtnActiveClass = "flex items-center justify-center w-9 h-9 rounded-full border-0 shadow-none shadow-accent bg-primary/[0.14] text-primary hover:bg-primary/[0.2] transition flex-shrink-0";
+const iconBtnDangerClass = "flex items-center justify-center w-9 h-9 rounded-full border-0 shadow-none shadow-raised bg-transparent text-subtle hover:bg-destructive/10 hover:text-destructive transition flex-shrink-0";
 
 const Header: React.FC<HeaderProps> = ({ title, subtitle, avatar, onBack, actionGroups = [] }) => {
   const navigate = useNavigate();
@@ -71,12 +76,16 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, avatar, onBack, action
   }, []);
 
   // Built-in groups, always appended after any page-specific ones: app-level
-  // navigation, then the destructive session action on its own.
+  // navigation, then the destructive session action on its own. Flagged
+  // `primary` so these stay as the canvas's four always-visible circular
+  // header icons on desktop (theme/shortcuts/library/settings) instead of
+  // collapsing into the "more" menu - only page-specific actions and the
+  // destructive session group overflow there.
   const appGroup: HeaderAction[] = [
-    { icon: isDark ? FaSun : FaMoon, label: "Toggle theme", onClick: toggleTheme },
-    { icon: FaQuestionCircle, label: "Keyboard shortcuts", onClick: () => setShowShortcuts(true) },
-    { icon: FaUserFriends, label: "Characters", onClick: () => navigate("/characters"), active: isCharacters },
-    { icon: FaCog, label: "Settings", onClick: () => navigate("/settings"), active: isSettings },
+    { icon: isDark ? FaSun : FaMoon, label: "Toggle theme", onClick: toggleTheme, primary: true },
+    { icon: FaQuestionCircle, label: "Keyboard shortcuts", onClick: () => setShowShortcuts(true), primary: true },
+    { icon: FaUserFriends, label: "Characters", onClick: () => navigate("/characters"), active: isCharacters, primary: true },
+    { icon: FaCog, label: "Settings", onClick: () => navigate("/settings"), active: isSettings, primary: true },
   ];
   const sessionGroup: HeaderAction[] = [
     { icon: FaSignOutAlt, label: "Log out", onClick: logout, danger: true },

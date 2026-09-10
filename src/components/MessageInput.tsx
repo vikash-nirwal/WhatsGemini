@@ -1,7 +1,8 @@
-import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useRef, useEffect, useMemo, useContext } from "react";
 import { FaPaperPlane, FaStop, FaCog, FaImage, FaTimes, FaMicrophone, FaMask } from "react-icons/fa";
 import { cn } from "../utils/cn";
 import { Button } from "./ui/button";
+import { ThemeContext } from "../contexts/ThemeContext";
 import ImageSettingsModal from "./ImageSettingsModal";
 import { isSpeechRecognitionSupported, createSpeechRecognition } from "../utils/speech";
 import { estimateTokens } from "../features/ai/utils/tokenEstimator";
@@ -38,6 +39,8 @@ const formatTokenCount = (n: number): string => {
 };
 
 const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, onStop, onDraftActivity, tokenCount = 0, costEstimate = 0, characterName, contextTokens = 0, maxContextTokens = 0, totalChatTokens = 0, totalChatCost = 0 }) => {
+  const { colorTheme } = useContext(ThemeContext);
+  const neumorphic = colorTheme === "neumorphic";
   const [text, setText] = useState("");
   const [isImageRequest, setIsImageRequest] = useState(false);
   const [isImpersonated, setIsImpersonated] = useState(false);
@@ -159,7 +162,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, o
               {formatTokenCount(estimatedTotalTokens)} / {formatTokenCount(maxContextTokens)} tokens
             </span>
           </div>
-          <div className="h-1 rounded-full bg-accent/40 overflow-hidden">
+          <div className={cn("h-1.5 rounded-full bg-accent/40 overflow-hidden", neumorphic && "shadow-inset")}>
             <div
               className={cn("h-full rounded-full transition-all", budgetBarColorClass)}
               style={{ width: `${Math.min(contextUtilization * 100, 100)}%` }}
@@ -241,7 +244,8 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, o
 
       <div
         className={cn(
-          "flex items-center gap-1 h-14 px-2 rounded-xl backdrop-blur-md shadow-soft transition-colors",
+          "flex items-center gap-1 h-14 px-2 rounded-full backdrop-blur-md transition-colors",
+          neumorphic && !isImpersonated ? "shadow-inset" : "shadow-soft",
           isImpersonated
             ? "bg-violet-500/[0.06] border border-violet-500/40"
             : "bg-card/[0.85] border border-border/10"

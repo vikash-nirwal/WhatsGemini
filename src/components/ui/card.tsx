@@ -1,20 +1,25 @@
 import * as React from "react"
 
 import { cn } from "src/utils/cn"
+import { ThemeContext } from "src/contexts/ThemeContext"
 
 const Card = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn(
-      "rounded-lg bg-card text-card-foreground shadow",
-      className
-    )}
-    {...props}
-  />
-))
+>(({ className, ...props }, ref) => {
+  const { colorTheme } = React.useContext(ThemeContext)
+  return (
+    <div
+      ref={ref}
+      className={cn(
+        "rounded-lg bg-card text-card-foreground shadow",
+        colorTheme === "neumorphic" && "shadow-raised rounded-[24px]",
+        className
+      )}
+      {...props}
+    />
+  )
+})
 Card.displayName = "Card"
 
 const CardHeader = React.forwardRef<
