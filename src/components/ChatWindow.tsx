@@ -12,6 +12,7 @@ import ToggleSwitch from "./ToggleSwitch";
 import ChatMessage from "./chat/ChatMessage";
 import ScenePanel from "./chat/ScenePanel";
 import ParticipantsPanel from "./chat/ParticipantsPanel";
+import EmotionSpritePanel from "./chat/EmotionSpritePanel";
 import { Dialog, DialogContent, DialogTitle, DialogClose } from "./ui/dialog";
 import { CharacterAvatar } from "./ui/CharacterAvatar";
 import { Button } from "./ui/button";
@@ -296,6 +297,21 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
   }, [filteredMessages]);
   const currentEmotionImageSrc = resolveEmotionPortrait(character, latestEmotion);
 
+  // Unlike currentEmotionImageSrc above (which falls back to the character's
+  // ordinary main avatar for the small typing/follow-up indicator, where an
+  // opaque image is perfectly fine), the docked sprite panel must only ever
+  // show a real, specifically-generated emotion portrait - those alone are
+  // chroma-keyed to real transparency (portraitUtils.ts's
+  // removeChromaKeyBackground). The main avatar is a normal opaque photo
+  // with its own plain background baked into the pixels, which looked like
+  // a boxed panel instead of blending with the page when it showed here.
+  // "neutral" never has a portrait of its own (emotionUtils.ts) - it's
+  // always the opaque main avatar - so the panel simply stays hidden then.
+  const dockedSpriteImageSrc =
+    character?.emotionPortraits?.enabled && latestEmotion && latestEmotion !== "neutral"
+      ? character.emotionPortraits.images[latestEmotion]
+      : undefined;
+
   return (
     <>
     <div className="relative h-full w-full flex overflow-hidden">
@@ -381,6 +397,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
           </Button>
         )}
       </div>
+
+      {(!characters || characters.length <= 1) && dockedSpriteImageSrc && (
+        <EmotionSpritePanel imageSrc={dockedSpriteImageSrc} characterName={characterName} emotion={latestEmotion} />
+      )}
 
       {sceneOpen && chatId != null && (
         <ScenePanel
