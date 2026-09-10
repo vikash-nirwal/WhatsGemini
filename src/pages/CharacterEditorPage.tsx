@@ -777,12 +777,13 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                     presets={TAG_PRESETS}
                     placeholder="Add a tag..."
                   />
-                </Card>
 
-                <Card className="p-5 flex flex-col gap-3">
-                  <div className="flex items-baseline justify-between gap-4">
-                    <h3 className="font-semibold text-[15px] text-foreground">Appearance</h3>
-                    <span className="text-xs text-subtle">Given to image-capable models to keep generated looks consistent</span>
+                  {/* Appearance fields live in this same card, not a separate
+                      one - a lighter sub-heading marks the shift in topic
+                      instead of a full second card's worth of chrome. */}
+                  <div className="flex items-baseline justify-between gap-4 pt-2 mt-1 border-t border-border/30">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-subtle">Appearance</h4>
+                    <span className="text-[11px] text-subtle">Given to image-capable models to keep looks consistent</span>
                   </div>
                   <TextArea
                     placeholder="Character Appearance/Looks (e.g. Blonde hair, wears a red jacket) (Optional)"
