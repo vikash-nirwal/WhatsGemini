@@ -11,7 +11,7 @@ import { useSidebar } from "../../contexts/SidebarContext";
 import Modal from "src/components/molecules/Modal";
 import { Chat, Character } from "../../types";
 import { cn } from "../../utils/cn";
-import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
+import { CharacterAvatar, getInitials } from "src/components/molecules/CharacterAvatar";
 import { Button } from "src/components/atoms/button";
 import { Input } from "src/components/atoms/input";
 import { Textarea } from "src/components/atoms/textarea";
@@ -79,6 +79,7 @@ const Sidebar = () => {
   const { isOpen, close } = useSidebar();
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
+  const terminal = is("terminal");
 
   const activeChatId = useMemo(() => {
     const match = location.pathname.match(/^\/chat\/(\d+)/);
@@ -89,6 +90,7 @@ const Sidebar = () => {
   const pendingFollowups = useAppSelector((state) => state.chat.pendingFollowups);
   const characters = useAppSelector((state) => state.character.characters);
   const activePersona = useAppSelector(selectActivePersona);
+  const personaName = activePersona?.name?.trim();
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [characterSearch, setCharacterSearch] = useState("");
@@ -246,22 +248,44 @@ const Sidebar = () => {
         {/* Logo header - h-[60px] to match Header.tsx so the border-b seam lines up */}
         <div className="h-[60px] px-4 flex items-center gap-3 border-b border-border/40 flex-shrink-0">
           <Logo size={34} className="shadow-[0_6px_18px_rgb(var(--primary)/0.35)] rounded-full flex-shrink-0" />
-          <div className="leading-tight flex-1 min-w-0">
-            <div className="font-bold text-[16px] tracking-tight text-foreground">WhatsGemini</div>
-            <div className="text-[11px] text-subtle font-medium">Your characters, your stories</div>
-          </div>
+          {terminal ? (
+            <div className="leading-tight flex-1 min-w-0">
+              <div className="font-bold text-[12px] text-foreground truncate">whatsgemini@local</div>
+              <div className="text-[10px] text-muted-foreground truncate lowercase"># session: {personaName || "guest"}</div>
+            </div>
+          ) : (
+            <div className="leading-tight flex-1 min-w-0">
+              <div className="font-bold text-[16px] tracking-tight text-foreground">WhatsGemini</div>
+              <div className="text-[11px] text-subtle font-medium">Your characters, your stories</div>
+            </div>
+          )}
         </div>
 
         {/* New chat / Import */}
         <div className="px-4 pt-4 pb-2.5 flex gap-2 flex-shrink-0">
-          <Button
-            onClick={() => setIsNewChatModalOpen(true)}
-            variant="default"
-            className="flex-1 h-auto py-[11px] text-[13.5px] font-semibold shadow-[0_8px_20px_rgb(var(--primary)/0.28)]"
-          >
-            <FaPlus size={12} />
-            <span>New chat</span>
-          </Button>
+          {terminal ? (
+            <Button
+              onClick={() => setIsNewChatModalOpen(true)}
+              variant="outline"
+              className="flex-1 h-auto py-[9px] text-[12px] border-border-bright text-foreground normal-case"
+            >
+              [+] new_chat.sh
+            </Button>
+          ) : (
+            <Button
+              onClick={() => setIsNewChatModalOpen(true)}
+              variant="default"
+              className="flex-1 h-auto py-[11px] text-[13.5px] font-semibold shadow-[0_8px_20px_rgb(var(--primary)/0.28)]"
+            >
+              <FaPlus size={12} />
+              <span>New chat</span>
+            </Button>
+          )}
+          {terminal ? (
+            <Button onClick={handleImportClick} variant="outline" title="Import chat" aria-label="Import chat" className="h-auto py-[9px] px-3 text-[12px] flex-shrink-0">
+              import
+            </Button>
+          ) : (
           <Button
             onClick={handleImportClick}
             variant="panel"
@@ -272,6 +296,7 @@ const Sidebar = () => {
           >
             <FaFileImport size={14} />
           </Button>
+          )}
           <input
             type="file"
             ref={fileInputRef}
@@ -283,16 +308,29 @@ const Sidebar = () => {
 
         {/* Search */}
         <div className="px-4 pb-3.5 flex-shrink-0">
-          <div className="relative">
-            <FaSearch size={12} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search chats and messages"
-              aria-label="Search chats and messages"
-              className="pl-8 text-[12.5px] rounded-lg bg-background border-border/10 shadow-none"
-            />
-          </div>
+          {terminal ? (
+            <div className="flex items-center gap-2 border border-border px-2.5 text-[12px] focus-within:border-ring">
+              <span className="text-muted-foreground flex-none">grep&gt;</span>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="search chats..."
+                aria-label="Search chats and messages"
+                className="flex-1 min-w-0 bg-transparent outline-none py-[7px] text-foreground placeholder:text-subtle"
+              />
+            </div>
+          ) : (
+            <div className="relative">
+              <FaSearch size={12} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search chats and messages"
+                aria-label="Search chats and messages"
+                className="pl-8 text-[12.5px] rounded-lg bg-background border-border/10 shadow-none"
+              />
+            </div>
+          )}
         </div>
 
         {/* Chat list */}
@@ -304,7 +342,7 @@ const Sidebar = () => {
               {pinnedItems.length > 0 && (
                 <>
                   <div className="text-[10.5px] font-semibold tracking-[0.09em] uppercase text-subtle px-3 pt-2 pb-1.5">
-                    Pinned
+                    {terminal ? <span className="normal-case tracking-normal font-normal text-[10px] text-muted-foreground"># pinned</span> : "Pinned"}
                   </div>
                   <ChatList items={pinnedItems} characters={characters} onDeleteChat={handleDeleteChat} onTogglePin={handleTogglePin} onNavigate={close} query={search.trim()} activeChatId={activeChatId} pendingFollowups={pendingFollowups} />
                 </>
@@ -312,7 +350,9 @@ const Sidebar = () => {
               {unpinnedItems.length > 0 && (
                 <>
                   <div className="text-[10.5px] font-semibold tracking-[0.09em] uppercase text-subtle px-3 pt-2 pb-1.5">
-                    {pinnedItems.length > 0 ? "Other chats" : "Recent"}
+                    {terminal ? (
+                      <span className="normal-case tracking-normal font-normal text-[10px] text-muted-foreground"># ls ~/chats -lt</span>
+                    ) : pinnedItems.length > 0 ? "Other chats" : "Recent"}
                   </div>
                   <ChatList items={unpinnedItems} characters={characters} onDeleteChat={handleDeleteChat} onTogglePin={handleTogglePin} onNavigate={close} query={search.trim()} activeChatId={activeChatId} pendingFollowups={pendingFollowups} />
                 </>
@@ -322,6 +362,22 @@ const Sidebar = () => {
         </div>
 
         {/* Your persona - links into Settings' User Profile section */}
+        {terminal ? (
+          <Link
+            to="/settings"
+            state={{ openSection: "profile" }}
+            onClick={close}
+            className="flex-shrink-0 mx-4 mb-4 mt-2 flex items-center gap-2.5 p-2.5 border border-border hover:border-border-bright transition-colors"
+          >
+            <span className="w-6 h-6 flex-none border border-border-bright flex items-center justify-center text-[10px] font-extrabold text-foreground">
+              {getInitials(personaName)}
+            </span>
+            <div className="flex-1 min-w-0 leading-tight">
+              <div className="text-[11px] font-bold text-foreground truncate lowercase">whoami: {personaName || "guest"}</div>
+              <div className="text-[10px] text-muted-foreground truncate mt-0.5"># {activePersona?.bio?.trim() || "set up your name and bio"}</div>
+            </div>
+          </Link>
+        ) : (
         <Link
           to="/settings"
           state={{ openSection: "profile" }}
@@ -344,6 +400,7 @@ const Sidebar = () => {
           </div>
           <FaPencilAlt size={12} className="text-subtle group-hover:text-foreground flex-shrink-0 transition" />
         </Link>
+        )}
       </aside>
 
       {/* Mobile Overlay */}
@@ -526,6 +583,7 @@ const Sidebar = () => {
 const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, query, activeChatId, pendingFollowups }: { items: { chat: Chat; snippet?: string }[], characters: Character[], onDeleteChat: (id: number) => void, onTogglePin: (id: number, pinned: boolean) => void, onNavigate: () => void, query: string, activeChatId: number | null, pendingFollowups: Record<number, number> }) => {
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
+  const terminal = is("terminal");
   return (
     <div className="flex-1 flex flex-col gap-0.5">
       {items.map(({ chat, snippet }) => {
@@ -550,38 +608,49 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, qu
             onClick={onNavigate}
             className={cn(
               "relative flex items-center gap-3 p-2.5 rounded-lg cursor-pointer group transition",
-              // Canvas spec: "Active row is the only one with surface-sunken;
-              // the rest are transparent."
-              isActive ? (neumorphic ? "surface-sunken" : "bg-secondary") : "hover:bg-hover"
+              terminal
+                ? cn("gap-2.5 p-2", isActive ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-primary/10")
+                : // Canvas spec: "Active row is the only one with surface-sunken;
+                  // the rest are transparent."
+                  isActive ? (neumorphic ? "surface-sunken" : "bg-secondary") : "hover:bg-hover"
             )}
           >
-            {isActive && (
+            {isActive && !terminal && (
               <span className="absolute left-[-8px] top-[14%] bottom-[14%] w-[3px] rounded-full bg-primary" />
             )}
-            <CharacterAvatar name={character?.name || chat.title} accent={character?.accent} size={34} />
+            {terminal ? (
+              <span className="w-[26px] flex-none font-extrabold text-[11px]">{getInitials(character?.name || chat.title)}</span>
+            ) : (
+              <CharacterAvatar name={character?.name || chat.title} accent={character?.accent} size={34} />
+            )}
             <div className="flex-1 flex flex-col overflow-hidden min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="flex-1 min-w-0 text-foreground font-semibold text-[13.5px] truncate">
+                <span className={cn("flex-1 min-w-0 font-semibold text-[13.5px] truncate", terminal ? "text-[12px] font-bold" : "text-foreground")}>
                   <HighlightedText text={chat.title} query={query} />
+                  {terminal && ".log"}
                 </span>
                 {isFollowupTyping ? (
-                  <span className="text-[10.5px] font-medium px-1.5 py-0.5 rounded-full bg-primary/10 text-primary flex-shrink-0">
-                    Typing...
+                  <span className={cn("text-[10.5px] font-medium px-1.5 py-0.5 rounded-full bg-primary/10 text-primary flex-shrink-0", terminal && "bg-transparent text-inherit text-[10px] px-0")}>
+                    {terminal ? "typing..." : "Typing..."}
                   </span>
                 ) : isWaitingForUser ? (
-                  <span className="text-[10.5px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground flex-shrink-0">
-                    Waiting for you
+                  <span className={cn("text-[10.5px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground flex-shrink-0", terminal && "bg-transparent text-inherit opacity-75 text-[10px] px-0")}>
+                    {terminal ? "waiting" : "Waiting for you"}
                   </span>
                 ) : (
-                  <span className="text-[10.5px] text-ink-faint flex-shrink-0">{formatChatTime(chat.timestamp)}</span>
+                  <span className={cn("text-[10.5px] flex-shrink-0", terminal ? "text-[10px] opacity-75" : "text-ink-faint")}>{formatChatTime(chat.timestamp)}</span>
                 )}
               </div>
               {snippet ? (
-                <span className="text-xs text-muted-foreground truncate">
+                <span className={cn("text-xs truncate", terminal ? "text-[11px] opacity-75" : "text-muted-foreground")}>
+                  {terminal && "# "}
                   <HighlightedText text={snippet} query={query} />
                 </span>
               ) : character?.description ? (
-                <span className="text-xs text-muted-foreground truncate">{character.description}</span>
+                <span className={cn("text-xs truncate", terminal ? "text-[11px] opacity-75" : "text-muted-foreground")}>
+                  {terminal && "# "}
+                  {character.description}
+                </span>
               ) : null}
             </div>
             <Button
@@ -592,7 +661,8 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, qu
                 "h-auto w-auto p-1.5 rounded-lg flex-shrink-0",
                 chat.pinned
                   ? "text-primary hover:bg-transparent"
-                  : "text-ink-faint opacity-0 group-hover:opacity-100 hover:text-primary hover:bg-primary/10"
+                  : "text-ink-faint opacity-0 group-hover:opacity-100 hover:text-primary hover:bg-primary/10",
+                terminal && isActive && "text-primary-foreground/80 hover:text-primary-foreground"
               )}
               title={chat.pinned ? "Unpin chat" : "Pin chat"}
               aria-label={chat.pinned ? `Unpin chat with ${chat.title}` : `Pin chat with ${chat.title}`}
@@ -603,7 +673,10 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, qu
               onClick={(e) => { e.preventDefault(); onDeleteChat(chat.id); }}
               variant="ghost"
               size="icon"
-              className="h-auto w-auto p-1.5 rounded-lg text-ink-faint hover:text-red-500 hover:bg-red-500/10 flex-shrink-0"
+              className={cn(
+                "h-auto w-auto p-1.5 rounded-lg text-ink-faint hover:text-red-500 hover:bg-red-500/10 flex-shrink-0",
+                terminal && isActive && "text-primary-foreground/80"
+              )}
               title="Delete Chat"
               aria-label={`Delete chat with ${chat.title}`}
             >

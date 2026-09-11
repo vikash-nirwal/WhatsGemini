@@ -3,7 +3,7 @@ import { cn } from "../../utils/cn";
 import { Avatar, AvatarFallback } from "src/components/atoms/avatar";
 import { DisplayImage } from "./DisplayImage";
 
-const getInitials = (name?: string) => {
+export const getInitials = (name?: string) => {
   if (!name || !name.trim()) return "?";
   const parts = name.trim().split(" ").filter(Boolean);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();

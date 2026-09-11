@@ -21,7 +21,7 @@ export const SettingsRow: React.FC<SettingsRowProps> = ({ label, hint, children,
     )}
   >
     <div>
-      <div className="text-sm font-medium text-foreground">{label}</div>
+      <div data-slot="settings-row-label" className="text-sm font-medium text-foreground">{label}</div>
       {hint && <div className="text-xs text-subtle mt-0.5 leading-relaxed">{hint}</div>}
     </div>
     <div className="min-w-0">{children}</div>

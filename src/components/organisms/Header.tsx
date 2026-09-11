@@ -10,6 +10,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "src/components/atoms/to
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "src/components/molecules/dropdown-menu";
 import { Button } from "src/components/atoms/button";
 import KeyboardShortcutsModal from "src/components/molecules/KeyboardShortcutsModal";
+import { TermLink } from "src/components/atoms/TermLink";
 
 // A single header icon action, described once and rendered two ways: as a
 // tooltipped icon button (desktop, `primary` actions only) and as a labeled
@@ -19,6 +20,9 @@ import KeyboardShortcutsModal from "src/components/molecules/KeyboardShortcutsMo
 export interface HeaderAction {
   icon: React.ComponentType<{ size?: number; className?: string }>;
   label: string;
+  // Terse `[label]` used by the terminal theme's text-link header; falls
+  // back to `label`.
+  shortLabel?: string;
   onClick: () => void;
   disabled?: boolean;
   active?: boolean;
@@ -89,8 +93,8 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, avatar, onBack, action
   // (Text Generation Model - it clears that provider's own API key) rather
   // than as a global header action.
   const appGroup: HeaderAction[] = [
-    { icon: isDark ? FaSun : FaMoon, label: "Toggle theme", onClick: toggleTheme, primary: true },
-    { icon: FaQuestionCircle, label: "Keyboard shortcuts", onClick: () => setShowShortcuts(true), primary: true },
+    { icon: isDark ? FaSun : FaMoon, label: "Toggle theme", shortLabel: isDark ? "light" : "dark", onClick: toggleTheme, primary: true },
+    { icon: FaQuestionCircle, label: "Keyboard shortcuts", shortLabel: "?", onClick: () => setShowShortcuts(true), primary: true },
     { icon: FaUserFriends, label: "Characters", onClick: () => navigate("/characters"), active: isCharacters, primary: true },
     { icon: FaCog, label: "Settings", onClick: () => navigate("/settings"), active: isSettings, primary: true },
   ];
@@ -124,6 +128,61 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, avatar, onBack, action
         ))}
       </React.Fragment>
     ));
+
+  if (is("terminal")) {
+    // Chat pages pass an avatar; they read as `~/chats/ name.log`, every
+    // other page as `~/title`.
+    const isChatPage = Boolean(avatar);
+    const moreMenu = (menuGroups: HeaderAction[][]) => (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <TermLink label="..." aria-label="More options" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">{renderMenuGroups(menuGroups)}</DropdownMenuContent>
+      </DropdownMenu>
+    );
+    return (
+      <header className="h-[60px] flex-shrink-0 border-b border-border bg-background flex items-center gap-3.5 px-3 md:px-[22px] z-20">
+        <TermLink label="≡" onClick={open} aria-label="Open menu" className="md:hidden" />
+        {onBack && (
+          <button type="button" onClick={onBack} aria-label="Back" className="text-[12px] font-bold text-ring hover:underline underline-offset-2 flex-shrink-0">
+            cd ..
+          </button>
+        )}
+        <div className="flex items-center gap-2.5 min-w-0">
+          {isChatPage && <span className="hidden sm:inline text-muted-foreground flex-shrink-0">~/chats/</span>}
+          {avatar}
+          <div className="min-w-0 leading-tight">
+            <div className="text-[13px] font-bold truncate text-foreground">
+              {isChatPage ? <>{title}.log</> : <span className="lowercase">~/{title}</span>}
+            </div>
+            {subtitle && <div className="text-[10px] text-muted-foreground truncate"># {subtitle}</div>}
+          </div>
+        </div>
+
+        <div className="flex-1" />
+
+        <div className="hidden md:flex items-center gap-3.5">
+          {primaryActions.map((action, ai) => (
+            <TermLink
+              key={ai}
+              label={action.shortLabel ?? action.label}
+              title={action.label}
+              aria-label={action.label}
+              onClick={action.onClick}
+              disabled={action.disabled}
+              active={action.active}
+              danger={action.danger}
+            />
+          ))}
+          {overflowGroups.length > 0 && moreMenu(overflowGroups)}
+        </div>
+        <div className="md:hidden">{moreMenu(groups)}</div>
+
+        <KeyboardShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+      </header>
+    );
+  }
 
   return (
     <header className="h-[60px] flex-shrink-0 border-b border-border/40 bg-card flex items-center gap-2.5 px-3 md:px-4 z-20">

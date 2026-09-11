@@ -76,6 +76,9 @@ module.exports = {
         overlay: 'rgb(var(--overlay) / <alpha-value>)',
         subtle: 'rgb(var(--subtle) / <alpha-value>)',
         border: 'rgb(var(--border) / <alpha-value>)',
+        // Terminal-only stronger outline (selected/primary edges); every other
+        // theme leaves --border-bright unset, so it falls back to --border.
+        'border-bright': 'rgb(var(--border-bright, var(--border)) / <alpha-value>)',
         input: 'rgb(var(--input) / <alpha-value>)',
         ring: 'rgb(var(--ring) / <alpha-value>)',
 

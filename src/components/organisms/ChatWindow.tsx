@@ -16,6 +16,7 @@ import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { Button } from "src/components/atoms/button";
 import { Card } from "src/components/atoms/card";
 import { Badge } from "src/components/atoms/badge";
+import { useColorTheme } from "../../hooks/useColorTheme";
 
 interface ChatWindowProps {
   messages: Message[];
@@ -29,6 +30,7 @@ interface ChatWindowProps {
   aiLoading?: boolean;
   isFollowupPending?: boolean;
   characterName?: string;
+  userName?: string;
   character?: Character; // the chat's primary character - header, empty state, and the fallback for any message with no resolvable speaker
   characters?: Character[]; // every character in the chat/room (Phase 12); per-message avatar/emotion resolve against this via Message.speakerId, falling back to `character` above
   allCharacters?: Character[]; // the full app-wide character roster, only needed by the Participants panel's invite picker
@@ -41,6 +43,13 @@ interface ChatWindowProps {
   onCloseParticipants?: () => void;
   mutedParticipantIds?: number[];
 }
+
+const TerminalCursorLine = ({ name, note }: { name?: string; note?: string }) => (
+  <div className="flex items-center gap-1.5 mb-5 text-[12px] text-muted-foreground">
+    <span>{name || "session"}@session:~$</span>
+    {note ? <span># {note}</span> : <span className="term-cursor" />}
+  </div>
+);
 
 const TypingIndicator = ({ charInitials, accent, imageSrc }: { charInitials: string; accent?: [string, string]; imageSrc?: string }) => (
   <div className="flex items-end gap-3 mb-6">
@@ -77,7 +86,9 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc }: { charInitials: s
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onEdit, onSend, aiLoading, isFollowupPending, characterName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, participantsOpen, onCloseParticipants, mutedParticipantIds }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, participantsOpen, onCloseParticipants, mutedParticipantIds }) => {
+  const { is } = useColorTheme();
+  const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
@@ -298,7 +309,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
     <>
     <div className="relative h-full w-full flex overflow-hidden">
       <div className="flex-1 min-w-0 relative flex flex-col overflow-hidden">
-        {character?.appearanceImages?.[0] && (
+        {character?.appearanceImages?.[0] && !terminal && (
           <>
             <div className="absolute inset-0 opacity-25 pointer-events-none overflow-hidden">
               <DisplayImage srcContext={character.appearanceImages[0]} alt="" aria-hidden="true" className="w-full h-full object-cover" />
@@ -311,7 +322,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
           ref={scrollContainerRef}
           onScroll={handleScroll}
         >
-          <div className="max-w-4xl mx-auto p-4 pb-32">
+          <div className={terminal ? "max-w-[760px] px-4 md:px-[26px] py-5" : "max-w-4xl mx-auto p-4 pb-32"}>
             {filteredMessages.length === 0 ? (
               <div className="flex flex-col items-center h-full w-full px-4 pt-10">
                 <Card className="flex flex-col items-center text-center gap-3 w-full max-w-[440px] px-5 py-8">
@@ -338,6 +349,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
                     key={msg.id || i}
                     msg={msg}
                     charInitials={speaker === character ? charInitials : getInitials(speaker?.name)}
+                    speakerName={speaker?.name || characterName}
+                    userName={userName}
                     accent={speaker?.accent}
                     avatarImageSrc={resolveEmotionPortrait(speaker, msg.emotion)}
                     aiLoading={aiLoading || false}
@@ -354,7 +367,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
                 );
               })
             )}
-            {aiLoading ? (
+            {terminal ? (
+              aiLoading ? (
+                <TerminalCursorLine name={characterName} />
+              ) : isFollowupPending ? (
+                <TerminalCursorLine name={characterName} note="thinking of reaching out..." />
+              ) : null
+            ) : aiLoading ? (
               <TypingIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} />
             ) : isFollowupPending ? (
               <FollowupIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} />

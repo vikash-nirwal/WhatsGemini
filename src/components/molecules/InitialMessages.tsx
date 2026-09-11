@@ -3,6 +3,8 @@ import { FaPlus, FaTimes, FaPencilAlt, FaCheck } from "react-icons/fa";
 import { AI, LS_INITIAL_MESSAGES, YOU } from "../../utils/constants";
 import { TextArea } from "src/components/molecules/form-controls";
 import { Button } from "src/components/atoms/button";
+import { TermLink } from "src/components/atoms/TermLink";
+import { useColorTheme } from "src/hooks/useColorTheme";
 
 interface InitialMessage {
   role: string;
@@ -30,6 +32,8 @@ const InitialMessages: React.FC<InitialMessagesProps> = ({ onSave }) => {
   // You/Model, see handleAddMessage) rather than user-editable, matching the
   // redesign's collapsed one-line-per-message list.
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const { is } = useColorTheme();
+  const terminal = is("terminal");
   const isFirstRender = React.useRef(true);
 
   // Save messages to localStorage on state change
@@ -97,6 +101,9 @@ const InitialMessages: React.FC<InitialMessagesProps> = ({ onSave }) => {
                 placeholder="Enter a message that will be sent as the first message in any new chat..."
                 className="flex-1 font-serif min-h-[40px]"
               />
+              {terminal ? (
+                <TermLink label="done" onClick={() => setEditingIdx(null)} aria-label="Done editing" className="flex-none" />
+              ) : (
               <Button
                 onClick={() => setEditingIdx(null)}
                 variant="ghost"
@@ -107,12 +114,16 @@ const InitialMessages: React.FC<InitialMessagesProps> = ({ onSave }) => {
               >
                 <FaCheck size={12} />
               </Button>
+              )}
             </>
           ) : (
             <>
               <span className="flex-1 min-w-0 font-serif text-sm text-foreground truncate">
                 {msg.message || <span className="text-subtle italic">Empty message</span>}
               </span>
+              {terminal ? (
+                <TermLink label="edit" onClick={() => setEditingIdx(idx)} aria-label="Edit message" className="flex-none" />
+              ) : (
               <Button
                 onClick={() => setEditingIdx(idx)}
                 variant="ghost"
@@ -123,9 +134,13 @@ const InitialMessages: React.FC<InitialMessagesProps> = ({ onSave }) => {
               >
                 <FaPencilAlt size={12} />
               </Button>
+              )}
             </>
           )}
-          {initialMessages.length > 1 && (
+          {initialMessages.length > 1 && terminal && (
+            <TermLink label="x" onClick={() => handleDeleteMessage(idx)} aria-label="Delete message" className="flex-none text-muted-foreground" />
+          )}
+          {initialMessages.length > 1 && !terminal && (
             <Button
               onClick={() => handleDeleteMessage(idx)}
               variant="ghost"
@@ -144,7 +159,7 @@ const InitialMessages: React.FC<InitialMessagesProps> = ({ onSave }) => {
         onClick={handleAddMessage}
         className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-dashed border-border text-subtle hover:text-primary hover:border-primary transition-colors text-sm"
       >
-        <FaPlus size={12} /> Add an opening line
+        {terminal ? <span className="text-[11px] font-bold text-ring">[+ add message]</span> : <><FaPlus size={12} /> Add an opening line</>}
       </button>
     </div>
   );

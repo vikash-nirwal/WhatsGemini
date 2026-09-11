@@ -16,7 +16,7 @@ interface NumberStepperProps {
 export const NumberStepper: React.FC<NumberStepperProps> = ({ value, min, max, onChange, className }) => {
   const { is } = useColorTheme();
   return (
-    <div className={cn("inline-flex items-center h-10 rounded-lg bg-background border border-input", is("aurora") && "surface-sunken", className)}>
+    <div className={cn("inline-flex items-center h-10 rounded-lg bg-background border border-input", is("aurora") && "surface-sunken", is("terminal") && "bg-transparent border-border", className)}>
       <button
         type="button"
         onClick={() => onChange(Math.max(min, value - 1))}

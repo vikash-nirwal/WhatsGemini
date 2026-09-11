@@ -33,12 +33,14 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({ value, onCha
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
   const aurora = is("aurora");
+  const terminal = is("terminal");
   return (
     <div
       className={cn(
         "inline-flex flex-wrap gap-0.5 p-[3px] rounded-lg bg-background border border-input",
         neumorphic && "bg-transparent border-0 gap-2 p-0",
         aurora && "gap-0 p-0 rounded-sm border-input bg-transparent overflow-hidden",
+        terminal && "gap-1.5 p-0 border-0 bg-transparent",
         disabled && "opacity-50 pointer-events-none",
         className
       )}
@@ -54,8 +56,15 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({ value, onCha
               "h-8 px-3.5 rounded-md text-[13px] font-medium whitespace-nowrap transition-colors",
               neumorphic &&
                 cn("rounded-[14px]", active ? "bg-primary text-primary-foreground cta-surface" : "surface-raised text-muted-foreground hover:text-foreground"),
-              !neumorphic && !aurora &&
+              !neumorphic && !aurora && !terminal &&
                 (active ? "bg-secondary text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"),
+              terminal &&
+                cn(
+                  "border text-[11px] font-bold",
+                  active
+                    ? "bg-primary text-primary-foreground border-border-bright"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-border-bright"
+                ),
               aurora &&
                 cn(
                   "rounded-none",

@@ -1,5 +1,6 @@
 import React from "react";
 import { DisplayImage } from "./DisplayImage";
+import { useColorTheme } from "src/hooks/useColorTheme";
 
 interface EmotionSpritePanelProps {
   imageSrc: string;
@@ -36,7 +37,34 @@ interface EmotionSpritePanelProps {
 // (unpositioned, so effectively z-0) - the sprite is meant to read as the
 // frontmost thing in the room. Still pointer-events-none, so it never
 // blocks clicks/typing on whatever it visually overlaps.
-const EmotionSpritePanel: React.FC<EmotionSpritePanelProps> = ({ imageSrc, characterName, emotion, showName }) => (
+const EmotionSpritePanel: React.FC<EmotionSpritePanelProps> = ({ imageSrc, characterName, emotion, showName }) => {
+  const { is } = useColorTheme();
+  if (is("terminal")) {
+    // Terminal boxes the portrait in a bordered frame with a name + mood
+    // badge instead of letting it float over the chat.
+    return (
+      <aside className="relative z-30 w-[210px] flex-none hidden lg:flex flex-col gap-3 px-5 py-5 border-l border-border bg-background overflow-y-auto pointer-events-none">
+        <span className="text-[10px] text-muted-foreground"># portrait</span>
+        <div className="border border-border-bright p-2 flex flex-col gap-2.5">
+          <div className="aspect-[3/4] overflow-hidden flex items-end justify-center">
+            <DisplayImage
+              srcContext={imageSrc}
+              alt={`${characterName || "Character"}'s current mood`}
+              className="max-w-full max-h-full object-contain object-bottom"
+            />
+          </div>
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <span className="text-xs font-bold text-foreground truncate">{characterName}</span>
+            {emotion && (
+              <span className="flex-none text-[9px] font-bold uppercase px-2 py-0.5 bg-primary text-primary-foreground">{emotion}</span>
+            )}
+          </div>
+        </div>
+        <p className="text-[10px] text-muted-foreground leading-relaxed"># portrait follows the current mood.</p>
+      </aside>
+    );
+  }
+  return (
   <aside className="relative z-30 w-[200px] flex-none hidden lg:flex flex-col items-center justify-end overflow-hidden pointer-events-none">
     {(showName || emotion) && (
       <div className="mb-2 flex flex-col items-center text-center">
@@ -54,6 +82,7 @@ const EmotionSpritePanel: React.FC<EmotionSpritePanelProps> = ({ imageSrc, chara
       className="max-w-full max-h-full object-contain object-bottom"
     />
   </aside>
-);
+  );
+};
 
 export default EmotionSpritePanel;

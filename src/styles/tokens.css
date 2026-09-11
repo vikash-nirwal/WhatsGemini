@@ -694,3 +694,496 @@
 [data-theme="aurora"] .surface-panel {
   background-color: rgb(var(--card));
 }
+
+/* ================================================================
+   Terminal theme
+   ================================================================
+   A CRT hacker-terminal look, sourced from a "WhatsGemini Redesign" Claude
+   Design canvas (the terminal exploration): near-black/paper backgrounds,
+   sharp corners, and a single monochrome phosphor color driving almost
+   every text/border/accent role at once. Like aurora, this theme exposes a
+   second, independent choice - which of 3 phosphor colors drives the look
+   (see TERMINAL_PALETTES in constants.ts and ThemeContext's
+   accentPalette/setAccentPalette, wired through data-palette, shared with
+   aurora's own axis). The base blocks below bake in "green", the canvas's
+   own default; the [data-palette="x"] overrides further down swap in the
+   other two.
+
+   Unlike aurora (where background/card/border etc. stay identical across
+   all 4 accent palettes and only --primary/--color-accent* change), this
+   theme's whole identity IS its one phosphor color - the canvas uses the
+   same hue for body text, borders, and the primary button alike. So a
+   palette switch here recolors --foreground/--border/--muted-foreground/
+   etc. too, not just the brand-hue tokens. --background/--card/--popover/
+   --secondary/--muted/--accent (surface role)/--success/--radius/--shadow-*
+   stay the same "screen enclosure" neutrals across all 3, same idea as a
+   real CRT's case not changing with the phosphor color. */
+[data-theme="terminal"] {
+  --background: 242 241 233; /* #F2F1E9 */
+  --foreground: 8 33 15; /* #08210F */
+  --card: 236 233 221; /* #ECE9DD */
+  --card-foreground: 8 33 15;
+  --popover: 233 232 222; /* #E9E8DE */
+  --popover-foreground: 8 33 15;
+  --primary: 28 61 42; /* #1C3D2A - green palette's phosphor color */
+  --primary-foreground: 242 241 233; /* #F2F1E9 */
+  --primary-hover: 19 84 81;
+  --secondary: 233 232 222;
+  --secondary-foreground: 8 33 15;
+  --muted: 233 232 222;
+  --muted-foreground: 114 133 118; /* #1C3D2A at 60% over the page bg */
+  --accent: 221 223 214; /* primary at 10% over the page bg - the hover/highlight fill */
+  --accent-foreground: 8 33 15;
+  --destructive: 168 50 31;
+  --destructive-foreground: 255 255 255;
+  --success: 22 130 74;
+  --success-foreground: 255 255 255;
+  --overlay: 8 33 15; /* modal-backdrop tint - no existing app token for this */
+  --subtle: 114 133 118;
+  --border: 178 187 176; /* #1C3D2A at 30% over the page bg */
+  --input: 178 187 176;
+  --ring: 10 107 120; /* #0A6B78 - green palette's secondary/link hue */
+  --radius: 0px; /* sharp, boxy corners - the canvas's signature look */
+  /* Terminal-only: the stronger outline used on selected/primary edges, and
+     the scanline tint painted over the whole screen. */
+  --border-bright: 114 133 118; /* #1C3D2A at 60% over the page bg */
+  --scan: rgba(28, 61, 42, 0.03);
+  --shadow-soft: rgba(28, 61, 42, 0.08);
+  --shadow-mid: rgba(28, 61, 42, 0.14);
+  --shadow-strong: rgba(28, 61, 42, 0.2);
+
+  --color-app-bg: 242 241 233;
+  --color-panel-bg: 236 233 221;
+  --color-panel2-bg: 233 232 222;
+  --color-panel3-bg: 233 232 222;
+  --color-hover-bg: 221 223 214;
+  --color-chat-bg: 242 241 233;
+  --color-text-main: 8 33 15;
+  --color-text-muted: 114 133 118;
+  --color-text-faint: 156 169 157;
+  --color-primary: 28 61 42;
+  --color-primary-hover: 19 84 81;
+  --color-accent: 10 107 120; /* #0A6B78 */
+  --color-accent-2: 28 61 42; /* #1C3D2A - teal-to-green gradient */
+  --color-on-accent: 242 241 233;
+  --color-secondary: 233 232 222;
+  --color-secondary-hover: 225 223 211;
+  --color-on-secondary: 8 33 15;
+  --color-border-main: 178 187 176;
+}
+
+[data-theme="terminal"].dark {
+  --background: 7 10 8; /* #070A08 */
+  --foreground: 186 255 212; /* #BAFFD4 */
+  --card: 10 15 11; /* #0A0F0B */
+  --card-foreground: 186 255 212;
+  --popover: 12 17 13; /* #0C110D */
+  --popover-foreground: 186 255 212;
+  --primary: 109 255 164; /* #6DFFA4 - green palette's phosphor color */
+  --primary-foreground: 10 6 0;
+  --primary-hover: 148 255 188;
+  --secondary: 12 17 13;
+  --secondary-foreground: 186 255 212;
+  --muted: 12 17 13;
+  --muted-foreground: 58 133 86; /* #6DFFA4 at 50% over the page bg */
+  --accent: 19 39 27; /* primary at 12% over the page bg - the hover/highlight fill */
+  --accent-foreground: 186 255 212;
+  --destructive: 255 107 107;
+  --destructive-foreground: 10 6 0;
+  --success: 74 222 128;
+  --success-foreground: 10 20 12;
+  --overlay: 7 10 8;
+  --subtle: 58 133 86;
+  --border: 36 79 52; /* #6DFFA4 at 28% over the page bg */
+  --input: 36 79 52;
+  --ring: 88 232 255; /* #58E8FF - green palette's secondary/link hue */
+  --border-bright: 68 157 102; /* #6DFFA4 at 60% over the page bg */
+  --scan: rgba(109, 255, 164, 0.035);
+  --shadow-soft: rgba(109, 255, 164, 0.08);
+  --shadow-mid: rgba(109, 255, 164, 0.14);
+  --shadow-strong: rgba(109, 255, 164, 0.2);
+
+  --color-app-bg: 7 10 8;
+  --color-panel-bg: 10 15 11;
+  --color-panel2-bg: 12 17 13;
+  --color-panel3-bg: 12 17 13;
+  --color-hover-bg: 19 39 27;
+  --color-chat-bg: 7 10 8;
+  --color-text-main: 186 255 212;
+  --color-text-muted: 58 133 86;
+  --color-text-faint: 38 84 55;
+  --color-primary: 109 255 164;
+  --color-primary-hover: 148 255 188;
+  --color-accent: 88 232 255; /* #58E8FF */
+  --color-accent-2: 109 255 164; /* #6DFFA4 - cyan-to-green gradient */
+  --color-on-accent: 10 6 0;
+  --color-secondary: 12 17 13;
+  --color-secondary-hover: 16 22 17;
+  --color-on-secondary: 186 255 212;
+  --color-border-main: 36 79 52;
+}
+
+/* Phosphor color overrides - green (terminal's default) is baked into the
+   base blocks above, so only the other 2 need an override here. As noted
+   above, this recolors the text/border tokens along with the brand-hue
+   ones - keep --background/--card/--popover/--secondary/--muted/--accent/
+   --success/--radius/--shadow-* untouched, they're shared across all 3. */
+[data-theme="terminal"][data-palette="amber"] {
+  --foreground: 61 36 0; /* #3D2400 */
+  --card-foreground: 61 36 0;
+  --popover-foreground: 61 36 0;
+  --primary: 122 74 0; /* #7A4A00 */
+  --primary-foreground: 242 241 233;
+  --primary-hover: 150 95 10;
+  --secondary-foreground: 61 36 0;
+  --muted-foreground: 170 141 93;
+  --accent-foreground: 61 36 0;
+  --destructive: 168 50 31;
+  --subtle: 170 141 93;
+  --border: 206 191 163;
+  --input: 206 191 163;
+  --ring: 184 57 31; /* #B8391F */
+  --accent: 230 224 210;
+  --border-bright: 170 141 93;
+  --scan: rgba(122, 74, 0, 0.03);
+  --color-hover-bg: 230 224 210;
+
+  --color-text-main: 61 36 0;
+  --color-text-muted: 170 141 93;
+  --color-text-faint: 194 174 140;
+  --color-primary: 122 74 0;
+  --color-primary-hover: 150 95 10;
+  --color-accent: 184 57 31; /* #B8391F */
+  --color-accent-2: 122 74 0; /* red-orange-to-amber gradient */
+  --color-on-accent: 242 241 233;
+  --color-on-secondary: 61 36 0;
+  --color-border-main: 206 191 163;
+}
+[data-theme="terminal"][data-palette="amber"].dark {
+  --foreground: 255 214 153; /* #FFD699 */
+  --card-foreground: 255 214 153;
+  --popover-foreground: 255 214 153;
+  --primary: 255 179 0; /* #FFB300 */
+  --primary-foreground: 10 6 0;
+  --primary-hover: 255 196 76;
+  --secondary-foreground: 255 214 153;
+  --muted-foreground: 131 95 4;
+  --accent-foreground: 255 214 153;
+  --destructive: 255 82 82;
+  --destructive-foreground: 10 6 0;
+  --subtle: 131 95 4;
+  --border: 76 57 6;
+  --input: 76 57 6;
+  --ring: 255 107 53; /* #FF6B35 */
+  --accent: 37 30 7;
+  --border-bright: 156 111 3;
+  --scan: rgba(255, 179, 0, 0.035);
+  --color-hover-bg: 37 30 7;
+
+  --color-text-main: 255 214 153;
+  --color-text-muted: 131 95 4;
+  --color-text-faint: 81 61 6;
+  --color-primary: 255 179 0;
+  --color-primary-hover: 255 196 76;
+  --color-accent: 255 107 53; /* #FF6B35 */
+  --color-accent-2: 255 179 0; /* red-orange-to-amber gradient */
+  --color-on-accent: 10 6 0;
+  --color-on-secondary: 255 214 153;
+  --color-border-main: 76 57 6;
+}
+
+[data-theme="terminal"][data-palette="blue"] {
+  --foreground: 10 31 61; /* #0A1F3D */
+  --card-foreground: 10 31 61;
+  --popover-foreground: 10 31 61;
+  --primary: 22 58 107; /* #163A6B */
+  --primary-foreground: 242 241 233;
+  --primary-hover: 35 80 140;
+  --secondary-foreground: 10 31 61;
+  --muted-foreground: 110 131 157;
+  --accent-foreground: 10 31 61;
+  --destructive: 168 50 79;
+  --subtle: 110 131 157;
+  --border: 176 186 195;
+  --input: 176 186 195;
+  --ring: 91 58 158; /* #5B3A9E */
+  --accent: 220 223 220;
+  --border-bright: 110 131 157;
+  --scan: rgba(22, 58, 107, 0.03);
+  --color-hover-bg: 220 223 220;
+
+  --color-text-main: 10 31 61;
+  --color-text-muted: 110 131 157;
+  --color-text-faint: 154 168 183;
+  --color-primary: 22 58 107;
+  --color-primary-hover: 35 80 140;
+  --color-accent: 91 58 158; /* #5B3A9E */
+  --color-accent-2: 22 58 107; /* purple-to-blue gradient */
+  --color-on-accent: 242 241 233;
+  --color-on-secondary: 10 31 61;
+  --color-border-main: 176 186 195;
+}
+[data-theme="terminal"][data-palette="blue"].dark {
+  --foreground: 207 238 255; /* #CFEEFF */
+  --card-foreground: 207 238 255;
+  --popover-foreground: 207 238 255;
+  --primary: 79 195 255; /* #4FC3FF */
+  --primary-foreground: 5 10 20;
+  --primary-hover: 143 225 255;
+  --secondary-foreground: 207 238 255;
+  --muted-foreground: 43 103 132;
+  --accent-foreground: 207 238 255;
+  --destructive: 255 85 119;
+  --destructive-foreground: 10 5 8;
+  --subtle: 43 103 132;
+  --border: 27 62 77;
+  --input: 27 62 77;
+  --ring: 179 136 255; /* #B388FF */
+  --accent: 16 32 38;
+  --border-bright: 50 121 156;
+  --scan: rgba(79, 195, 255, 0.035);
+  --color-hover-bg: 16 32 38;
+
+  --color-text-main: 207 238 255;
+  --color-text-muted: 43 103 132;
+  --color-text-faint: 29 66 82;
+  --color-primary: 79 195 255;
+  --color-primary-hover: 143 225 255;
+  --color-accent: 179 136 255; /* #B388FF */
+  --color-accent-2: 79 195 255; /* purple-to-blue gradient */
+  --color-on-accent: 5 10 20;
+  --color-on-secondary: 207 238 255;
+  --color-border-main: 27 62 77;
+}
+
+/* ----------------------------------------------------------------
+   Terminal component look
+   ----------------------------------------------------------------
+   Colors alone don't read as the canvas's terminal - its components are
+   shaped differently too: square and flat (no radius, shadow or blur), 1px
+   outlines, inverse-video blocks for anything selected or primary, `$ `/`# `
+   prefixed titles and comments, lowercase `[bracketed]` buttons, scanlines.
+
+   This block covers everything expressible in CSS, keyed off the `data-slot`
+   (+ `data-variant`/`data-size` on Button) hooks the shared atoms carry. The
+   bracketed button labels live in button.tsx, and the handful of screens
+   whose DOM genuinely differs (header, sidebar, chat log + composer,
+   settings nav, character library/editor) branch on `is("terminal")` - see
+   src/styles/THEMING.md.
+
+   Specificity matters here: this file is imported before Tailwind's
+   utilities, so a rule only wins if it's MORE specific than the utility it
+   competes with - a tie goes to the utility. Every rule below is scoped by
+   [data-theme] plus at least one more selector for that reason; the global
+   square/flat reset uses !important instead because it has to beat every
+   `rounded-*`/`shadow-*` utility, including state-variant ones. */
+
+/* Mono everywhere, including the serif chat/header text. Reuses the
+   "Geist Mono" face the app already loads for `font-mono` rather than the
+   canvas's JetBrains Mono. Targets the classes directly because an inherited
+   font-family loses to an element's own `.font-sans`/`.font-serif`. The
+   html/body pair covers Radix portals (dialogs, menus), which mount under
+   <body> outside App.tsx's `.font-sans` wrapper. */
+html[data-theme="terminal"],
+[data-theme="terminal"] body,
+[data-theme="terminal"] .font-sans,
+[data-theme="terminal"] .font-serif {
+  font-family: 'Geist Mono', ui-monospace, Menlo, monospace;
+}
+
+[data-theme="terminal"] *,
+[data-theme="terminal"] *::before,
+[data-theme="terminal"] *::after {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* box-shadow above also removes Tailwind's ring-based selection marks, so
+   swap the plain (non-state) ring utilities for an outline. */
+[data-theme="terminal"] .ring-1,
+[data-theme="terminal"] .ring-2 {
+  outline: 1px solid rgb(var(--border-bright));
+  outline-offset: 1px;
+}
+html[data-theme="terminal"] :focus-visible {
+  outline: 1px solid rgb(var(--ring));
+  outline-offset: 1px;
+}
+[data-theme="terminal"] ::selection {
+  background-color: rgb(var(--primary));
+  color: rgb(var(--primary-foreground));
+}
+[data-theme="terminal"] ::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+[data-theme="terminal"] ::-webkit-scrollbar-thumb {
+  background: rgb(var(--border-bright));
+}
+[data-theme="terminal"] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* CRT scanlines over the whole screen. */
+[data-theme="terminal"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  background: repeating-linear-gradient(to bottom, var(--scan) 0px, var(--scan) 1px, transparent 1px, transparent 3px);
+}
+
+/* Blinking block cursor after a `name@session:~$` prompt. */
+@keyframes term-blink {
+  0%, 50% { opacity: 1; }
+  50.01%, 100% { opacity: 0; }
+}
+[data-theme="terminal"] .term-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 15px;
+  vertical-align: -2px;
+  background: rgb(var(--primary));
+  animation: term-blink 1s step-end infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="terminal"] .term-cursor {
+    animation: none;
+  }
+}
+
+/* Buttons: primary stays an inverse block with a bright edge; every other
+   filled variant becomes a transparent 1px outline. */
+[data-theme="terminal"] [data-slot="button"] {
+  font-weight: 700;
+}
+[data-theme="terminal"] [data-slot="button"]:is([data-variant="default"], [data-variant="secondary"], [data-variant="panel"], [data-variant="outline"], [data-variant="destructive"]):not([data-size="icon"]) {
+  gap: 0;
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: lowercase;
+}
+[data-theme="terminal"] [data-slot="button"][data-variant="default"] {
+  border: 1px solid rgb(var(--border-bright));
+}
+/* Width/style only - the color comes from the variant's own `border-input`
+   (or Tailwind's default border color), so a call site can still brighten it
+   with `border-border-bright`. */
+[data-theme="terminal"] [data-slot="button"]:is([data-variant="secondary"], [data-variant="panel"], [data-variant="outline"]) {
+  background-color: transparent;
+  border-width: 1px;
+  border-style: solid;
+}
+[data-theme="terminal"] [data-slot="button"]:is([data-variant="secondary"], [data-variant="panel"], [data-variant="outline"]):hover:not(:disabled) {
+  background-color: rgb(var(--accent));
+  border-color: rgb(var(--border-bright));
+}
+[data-theme="terminal"] [data-slot="button"][data-variant="destructive"] {
+  background-color: transparent;
+  color: rgb(var(--destructive));
+  border: 1px solid rgb(var(--destructive) / 0.6);
+}
+[data-theme="terminal"] [data-slot="button"][data-variant="destructive"]:hover:not(:disabled) {
+  background-color: rgb(var(--destructive));
+  color: rgb(var(--destructive-foreground));
+}
+
+/* Inputs/textareas/select triggers: transparent with a hairline that lights
+   up on focus instead of a separate focus ring. */
+[data-theme="terminal"] .surface-sunken {
+  background-color: transparent;
+  border-color: rgb(var(--border));
+}
+[data-theme="terminal"] .surface-sunken:focus-visible,
+[data-theme="terminal"] .surface-sunken:focus-within {
+  outline: none;
+  border-color: rgb(var(--ring));
+}
+
+/* Cards get a hairline; dialogs sit on the page color with a bright edge. */
+[data-theme="terminal"] .surface-panel {
+  background-color: rgb(var(--card));
+  border: 1px solid rgb(var(--border));
+}
+[data-theme="terminal"] :is([role="dialog"], [role="alertdialog"]).surface-panel {
+  background-color: rgb(var(--background));
+  border-color: rgb(var(--border-bright));
+}
+
+/* Menus, select lists and tooltips: page-colored panels with a bright edge;
+   the highlighted row is an inverse block. */
+[data-theme="terminal"] [role="menu"],
+[data-theme="terminal"] [role="listbox"],
+[data-theme="terminal"] [data-slot="tooltip"] {
+  background-color: rgb(var(--background));
+  color: rgb(var(--foreground));
+  border: 1px solid rgb(var(--border-bright));
+}
+[data-theme="terminal"] :is([role="menuitem"], [role="option"])[data-highlighted] {
+  background-color: rgb(var(--primary));
+  color: rgb(var(--primary-foreground));
+}
+
+[data-theme="terminal"] [data-slot="badge"] {
+  background-color: rgb(var(--primary));
+  color: rgb(var(--primary-foreground));
+  border-color: rgb(var(--primary));
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* Bare initials in a bright square instead of a gradient circle.
+   !important: CharacterAvatar paints the per-character accent gradient as an
+   inline style, which nothing else can outrank. */
+[data-theme="terminal"] [data-slot="avatar-fallback"] {
+  background: transparent !important;
+  color: rgb(var(--foreground));
+  border: 1px solid rgb(var(--border-bright));
+  font-weight: 800;
+}
+
+[data-theme="terminal"] button[role="switch"] > span {
+  background-color: rgb(var(--background));
+}
+
+[data-theme="terminal"] [data-slot="kbd"] {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgb(var(--muted-foreground));
+}
+
+/* Shell-flavored text roles: `$ ` before dialog titles, `# ` before section
+   headings, row labels and comments, `name=` for form field labels. */
+[data-theme="terminal"] [data-slot="dialog-title"] {
+  font-size: 15px;
+  font-weight: 700;
+}
+[data-theme="terminal"] [data-slot="dialog-title"]::before {
+  content: "$ ";
+}
+[data-theme="terminal"] :is([data-slot="settings-card-title"], [data-slot="settings-row-label"], [data-slot="section-title"]) {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: lowercase;
+}
+[data-theme="terminal"] [data-slot="section-title"] {
+  color: rgb(var(--ring));
+}
+[data-theme="terminal"] :is([data-slot="settings-card-title"], [data-slot="settings-row-label"], [data-slot="section-title"], [data-slot="comment"])::before {
+  content: "# ";
+}
+[data-theme="terminal"] [data-slot="field-label"] {
+  font-size: 11px;
+  font-weight: 400;
+  color: rgb(var(--muted-foreground));
+  text-transform: lowercase;
+}
+[data-theme="terminal"] [data-slot="field-label"]::after {
+  content: "=";
+}

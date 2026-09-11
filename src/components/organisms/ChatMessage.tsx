@@ -13,6 +13,7 @@ import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { Button } from "src/components/atoms/button";
 import { Card, CardContent } from "src/components/atoms/card";
 import { Tooltip, TooltipTrigger, TooltipContent } from "src/components/atoms/tooltip";
+import { TermLink } from "src/components/atoms/TermLink";
 
 interface SiblingInfo {
   index: number;
@@ -23,6 +24,9 @@ interface SiblingInfo {
 interface ChatMessageProps {
   msg: Message;
   charInitials: string;
+  // Full names for the terminal theme's `[name@session]$` prompt lines.
+  speakerName?: string;
+  userName?: string;
   accent?: [string, string];
   avatarImageSrc?: string;
   aiLoading: boolean;
@@ -40,6 +44,8 @@ interface ChatMessageProps {
 const ChatMessage = React.memo(({
   msg,
   charInitials,
+  speakerName,
+  userName,
   accent,
   avatarImageSrc,
   aiLoading,
@@ -63,6 +69,93 @@ const ChatMessage = React.memo(({
   const handleContinue = useCallback(() => onContinue?.(msg), [onContinue, msg]);
   const handleEdit = useCallback(() => onStartEdit(msg), [onStartEdit, msg]);
   const handleDeleteBranch = useCallback(() => msg.id && onDeleteBranch?.(msg.id), [onDeleteBranch, msg.id]);
+
+  if (is("terminal")) {
+    if (msg.isRoomEvent) {
+      return <div className="mb-4 text-[12px] text-muted-foreground"># {msg.txt}</div>;
+    }
+    if (msg.isCompressionSummary) {
+      return (
+        <div className="mb-4 border border-border p-3">
+          <div className="text-[10px] font-bold text-ring mb-1.5"># compressed history</div>
+          <div className={cn("text-xs text-muted-foreground", !isSummaryExpanded && "line-clamp-3")}>
+            <MarkdownRenderer msgText={msg.txt || ""} isUser={false} />
+          </div>
+          <TermLink
+            label={isSummaryExpanded ? "less" : "more"}
+            onClick={() => setIsSummaryExpanded((v) => !v)}
+            aria-expanded={isSummaryExpanded}
+            className="mt-2"
+          />
+        </div>
+      );
+    }
+    const prompt = isUser
+      ? `[you@${(userName?.trim() || "you").toLowerCase()}]$`
+      : `[${speakerName || charInitials}@session]$`;
+    return (
+      <motion.div
+        className="mb-5 group"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.15 }}
+      >
+        <div className="flex items-center gap-x-3 gap-y-1 flex-wrap">
+          <span className={cn("font-bold text-[13px]", isUser ? "text-ring" : "text-foreground")}>{prompt}</span>
+          {msg.isImpersonated && <span className="text-[11px] text-muted-foreground"># you, in character</span>}
+          {siblingInfo && (
+            <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground tabular-nums" title={`${siblingInfo.total} variants of this message`}>
+              <TermLink
+                label="<"
+                onClick={() => onSwitchBranch?.(siblingInfo.siblingIds[siblingInfo.index - 1])}
+                disabled={siblingInfo.index === 0}
+                aria-label="Previous variant"
+              />
+              {siblingInfo.index + 1}/{siblingInfo.total}
+              <TermLink
+                label=">"
+                onClick={() => onSwitchBranch?.(siblingInfo.siblingIds[siblingInfo.index + 1])}
+                disabled={siblingInfo.index >= siblingInfo.total - 1}
+                aria-label="Next variant"
+              />
+            </span>
+          )}
+          <span className="flex items-center gap-2.5 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+            <TermLink label="copy" onClick={handleCopy} />
+            {!isUser && !msg.isImpersonated && <TermLink label="regen" onClick={handleRegenerate} />}
+            {!isUser && !msg.isImpersonated && isLastMessage && onContinue && (
+              <TermLink label="continue" onClick={handleContinue} disabled={aiLoading} title="Ask the model to keep writing from where this reply left off" />
+            )}
+            <TermLink label="edit" onClick={handleEdit} disabled={isUser && aiLoading} />
+            {onDeleteBranch && (
+              <TermLink
+                label="rm"
+                danger
+                onClick={handleDeleteBranch}
+                disabled={aiLoading}
+                aria-label={siblingInfo ? "Delete this variant" : "Delete message"}
+              />
+            )}
+          </span>
+        </div>
+        <div
+          className={cn("mt-1 pl-2 border-l-2 leading-relaxed", isUser ? "border-ring/55 text-foreground" : "border-border text-primary")}
+          style={{ fontSize: "var(--chat-font-size, 16px)" }}
+        >
+          <MarkdownRenderer msgText={stripImageContextTag(msg.txt || "")} isUser={isUser} />
+          {msg.images && msg.images.map((imgSrc, idx) => (
+            <DisplayImage
+              key={idx}
+              srcContext={imgSrc}
+              alt="Generated"
+              onClick={() => setFullscreenImage(imgSrc)}
+              className="mt-2 max-w-full md:max-w-[70%] border border-border-bright cursor-zoom-in hover:opacity-90 transition-opacity"
+            />
+          ))}
+        </div>
+      </motion.div>
+    );
+  }
 
   if (msg.isRoomEvent) {
     return (

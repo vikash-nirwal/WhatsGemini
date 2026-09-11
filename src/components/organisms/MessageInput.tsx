@@ -5,6 +5,7 @@ import { Button } from "src/components/atoms/button";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { useColorTheme } from "../../hooks/useColorTheme";
 import ImageSettingsModal from "./ImageSettingsModal";
+import { TermLink } from "src/components/atoms/TermLink";
 import { estimateTokens } from "../../features/ai/utils/tokenEstimator";
 import { Character } from "../../types";
 
@@ -23,6 +24,7 @@ interface MessageInputProps {
   tokenCount?: number;
   costEstimate?: number;
   characterName?: string;
+  userName?: string;
   // Estimated tokens already committed to this chat's context (system prompt +
   // history), and the selected model's max context window - together these
   // drive the live pre-send budget bar below, updated as the draft grows.
@@ -44,6 +46,7 @@ interface MessageInputProps {
 }
 
 const MAX_TEXTAREA_HEIGHT = 120;
+const ASCII_BAR_CELLS = 40;
 
 const formatTokenCount = (n: number): string => {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -59,6 +62,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   tokenCount = 0,
   costEstimate = 0,
   characterName,
+  userName,
   contextTokens = 0,
   maxContextTokens = 0,
   totalChatTokens = 0,
@@ -69,6 +73,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
 }) => {
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
+  const terminal = is("terminal");
   const [text, setText] = useState("");
   const [isImageRequest, setIsImageRequest] = useState(false);
   const [isImpersonated, setIsImpersonated] = useState(false);
@@ -218,10 +223,142 @@ const MessageInput: React.FC<MessageInputProps> = ({
     contextUtilization >= 0.85 ? "text-destructive" : contextUtilization >= 0.6 ? "text-amber-500" : "text-ink-faint";
   const budgetBarColorClass =
     contextUtilization >= 0.85 ? "bg-destructive" : contextUtilization >= 0.6 ? "bg-amber-500" : "bg-primary/60";
+  const filledCells = Math.round(Math.min(contextUtilization, 1) * ASCII_BAR_CELLS);
+  const promptName = isImpersonated
+    ? `${(characterName || "character").toLowerCase()}@session`
+    : `you@${(userName?.trim() || "you").toLowerCase()}`;
+
+  // Banner row for the image/impersonation/forced-speaker toggles - terminal
+  // renders it as a plain bordered `# note [x]` line.
+  const terminalBanner = (note: React.ReactNode, onClear: () => void, clearLabel: string) => (
+    <div className="flex items-center gap-2.5 px-3 py-2 border border-border-bright text-[12px] text-foreground">
+      <span className="flex-1"># {note}</span>
+      <TermLink label="x" onClick={onClear} aria-label={clearLabel} />
+    </div>
+  );
+
+  const participantPicker = roomCharacters && (
+    <div className="absolute bottom-full left-0 mb-2 flex items-center gap-1.5 p-1.5 rounded-full bg-card border border-border shadow-soft z-30">
+      {roomCharacters.map((char) => {
+        const isMuted = mutedParticipantIds?.includes(char.id);
+        return (
+          <button
+            key={char.id}
+            type="button"
+            onClick={() => handlePickParticipant(char)}
+            disabled={disabled || isMuted}
+            title={isMuted ? `${char.name} is muted` : text.trim() ? `Only ${char.name} replies to this message` : `Make ${char.name} reply now`}
+            aria-label={isMuted ? `${char.name} is muted` : `Reply as ${char.name}`}
+            className={cn(
+              "flex-shrink-0 rounded-full transition disabled:cursor-not-allowed",
+              isMuted ? "opacity-30" : "hover:scale-110 hover:ring-2 hover:ring-primary/50",
+              selectedSpeakerId === char.id && "ring-2 ring-primary"
+            )}
+          >
+            <CharacterAvatar name={char.name} accent={char.accent} size={32} />
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const composerTextarea = (
+  <textarea
+    ref={inputRef}
+    value={text}
+    onChange={(e) => {
+      const value = e.target.value;
+      setText(value);
+      if (value.trim()) onDraftActivity?.();
+      // A forced-speaker selection only makes sense for a message
+      // that's actually being composed - clearing the draft back to
+      // empty drops it too, instead of leaving a stale banner around.
+      if (!value.trim() && selectedSpeakerId != null) setSelectedSpeakerId(null);
+      setMention(detectMention(value, e.target.selectionStart ?? value.length));
+    }}
+    onClick={updateMentionFromCaret}
+    rows={1}
+    placeholder={
+      disabled
+        ? "Waiting for response..."
+        : isImpersonated
+        ? `Write as ${characterName || "the character"}…`
+        : selectedSpeaker
+        ? `Message ${selectedSpeaker.name}…`
+        : characterName
+        ? `Message ${characterName}…`
+        : "Type a message..."
+    }
+    className={cn(
+      "flex-1 min-w-0 px-2.5 py-1 leading-[22px] bg-transparent text-foreground placeholder-subtle outline-none transition-colors resize-none disabled:opacity-50",
+      terminal && "block w-full px-1 py-1.5"
+    )}
+    style={{ fontSize: 'var(--chat-font-size, 16px)', maxHeight: MAX_TEXTAREA_HEIGHT }}
+    disabled={disabled}
+    onFocus={handleFocus}
+    onBlur={() => setMention(null)}
+    onKeyUp={(e) => {
+      // Arrow keys are already claimed below for navigating an open
+      // mention list - only re-derive from the caret here once it's
+      // actually moved the cursor (i.e. the list is closed).
+      if (!mention && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
+        updateMentionFromCaret();
+      }
+    }}
+    onKeyDown={(e) => {
+      if (mention && mentionSuggestions.length > 0) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setMentionActiveIndex((i) => (i + 1) % mentionSuggestions.length);
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setMentionActiveIndex((i) => (i - 1 + mentionSuggestions.length) % mentionSuggestions.length);
+          return;
+        }
+        if (e.key === "Enter" || e.key === "Tab") {
+          e.preventDefault();
+          applyMention(mentionSuggestions[mentionActiveIndex]);
+          return;
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setMention(null);
+          return;
+        }
+      }
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+      }
+    }}
+    aria-label="Message input"
+    aria-busy={disabled}
+  />
+  );
+
 
   return (
     <div className="flex flex-col gap-2">
-      {maxContextTokens > 0 && (
+      {maxContextTokens > 0 && terminal && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex justify-between text-[10px] text-muted-foreground">
+            <span># context</span>
+            <span className={cn("tabular-nums", contextUtilization >= 0.6 && budgetColorClass)}>
+              {formatTokenCount(estimatedTotalTokens)} / {formatTokenCount(maxContextTokens)} tokens
+            </span>
+          </div>
+          <div
+            className={cn("text-[11px] tracking-[-1px] whitespace-nowrap overflow-hidden", contextUtilization >= 0.6 ? budgetColorClass : "text-foreground")}
+            aria-hidden="true"
+          >
+            [{"█".repeat(filledCells)}{"░".repeat(ASCII_BAR_CELLS - filledCells)}]
+          </div>
+        </div>
+      )}
+
+      {maxContextTokens > 0 && !terminal && (
         <div className="flex flex-col gap-1 px-1">
           <div className={cn("flex justify-between text-[11px] font-mono", budgetColorClass)}>
             <span>Context</span>
@@ -239,8 +376,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
       )}
 
       {(tokenCount > 0 || totalChatTokens > 0) && (
-        <div className="flex justify-center text-xs text-ink-faint font-mono">
+        <div className={cn("flex justify-center text-xs text-ink-faint font-mono", terminal && "justify-start text-[10px]")}>
           <span>
+            {terminal && "# "}
             {tokenCount > 0 && (
               <>~ {tokenCount.toLocaleString()} tokens last turn ({costEstimate > 0.0001 ? `$${costEstimate.toFixed(4)}` : '< $0.0001'} est.)</>
             )}
@@ -252,7 +390,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
         </div>
       )}
 
-      {isImageRequest && (
+      {isImageRequest && terminal && terminalBanner("image generation on - a picture will be created alongside the reply.", () => setIsImageRequest(false), "Turn off image generation")}
+      {isImageRequest && !terminal && (
         <div className="flex items-center gap-2.5 px-3 py-2 bg-primary/10 border border-primary rounded-lg">
           <span className="text-primary flex-shrink-0 flex"><FaImage size={13} /></span>
           <span className="flex-1 text-[12.5px] text-foreground font-medium">
@@ -270,7 +409,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
         </div>
       )}
 
-      {isImpersonated && (
+      {isImpersonated && terminal && terminalBanner(`impersonation on - this message is sent as ${characterName || "the character"}, not you.`, () => setIsImpersonated(false), "Turn off impersonation")}
+      {isImpersonated && !terminal && (
         <div className="flex items-center gap-2.5 px-3 py-2 bg-violet-500/10 border border-violet-500/50 rounded-lg">
           <span className="text-violet-500 flex-shrink-0 flex"><FaMask size={13} /></span>
           <span className="flex-1 text-[12.5px] text-foreground font-medium">
@@ -288,7 +428,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
         </div>
       )}
 
-      {selectedSpeaker && (
+      {selectedSpeaker && terminal && terminalBanner(`only ${selectedSpeaker.name} will reply to this message.`, () => setSelectedSpeakerId(null), "Clear selected replier")}
+      {selectedSpeaker && !terminal && (
         <div className="flex items-center gap-2.5 px-3 py-2 bg-primary/10 border border-primary rounded-lg">
           <CharacterAvatar name={selectedSpeaker.name} accent={selectedSpeaker.accent} size={18} className="flex-shrink-0" />
           <span className="flex-1 text-[12.5px] text-foreground font-medium">
@@ -331,6 +472,63 @@ const MessageInput: React.FC<MessageInputProps> = ({
         </div>
       )}
 
+      {terminal ? (
+        <div className="flex items-center gap-2.5 mt-1">
+          {isRoom && roomCharacters && (
+            <div className="relative flex-shrink-0" ref={pickerRef}>
+              <TermLink
+                label={selectedSpeaker ? selectedSpeaker.name : "cast"}
+                onClick={() => setPickerOpen((v) => !v)}
+                disabled={disabled}
+                active={Boolean(selectedSpeaker)}
+                title="Reply as..."
+                aria-label="Choose who replies"
+                aria-expanded={pickerOpen}
+              />
+              {pickerOpen && participantPicker}
+            </div>
+          )}
+          <TermLink
+            label="img"
+            onClick={() => setIsImageRequest((v) => !v)}
+            disabled={disabled}
+            aria-pressed={isImageRequest}
+            title="Request an image with this message"
+            aria-label="Request an image with this message"
+            className={cn(isImageRequest && "bg-primary text-primary-foreground no-underline")}
+          />
+          <TermLink
+            label="mask"
+            onClick={() => setIsImpersonated((v) => !v)}
+            disabled={disabled}
+            aria-pressed={isImpersonated}
+            title={`Write as ${characterName || "the character"} instead of yourself`}
+            aria-label="Toggle impersonation mode"
+            className={cn(isImpersonated && "bg-primary text-primary-foreground no-underline")}
+          />
+          <TermLink label="cfg" onClick={() => setIsSettingsModalOpen(true)} title="Image Generation Settings" aria-label="Image Generation Settings" />
+          <span className="hidden sm:inline flex-none font-bold text-[13px] text-ring">{promptName}:~$</span>
+          {/* Underline on a wrapper: a border on the auto-sized textarea itself
+              would overflow it by 1px and show a scrollbar. */}
+          <div className="flex-1 min-w-0 border-b border-border focus-within:border-ring">{composerTextarea}</div>
+          {disabled && onStop ? (
+            <Button onClick={onStop} variant="destructive" className="h-auto py-2 px-3.5 text-[11px] flex-shrink-0" title="Stop Generating" aria-label="Stop Generating">
+              stop
+            </Button>
+          ) : (
+            <Button
+              onClick={handleSend}
+              variant="outline"
+              disabled={!canSend}
+              className="h-auto py-2 px-3.5 text-[11px] border-border-bright text-foreground flex-shrink-0"
+              title="Send Message"
+              aria-label="Send Message"
+            >
+              enter
+            </Button>
+          )}
+        </div>
+      ) : (
       <div
         className={cn(
           "flex items-center gap-1 h-14 px-2 rounded-full backdrop-blur-md transition-colors",
@@ -364,30 +562,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
               )}
             </Button>
 
-            {pickerOpen && (
-              <div className="absolute bottom-full left-0 mb-2 flex items-center gap-1.5 p-1.5 rounded-full bg-card border border-border shadow-soft z-30">
-                {roomCharacters.map((char) => {
-                  const isMuted = mutedParticipantIds?.includes(char.id);
-                  return (
-                    <button
-                      key={char.id}
-                      type="button"
-                      onClick={() => handlePickParticipant(char)}
-                      disabled={disabled || isMuted}
-                      title={isMuted ? `${char.name} is muted` : text.trim() ? `Only ${char.name} replies to this message` : `Make ${char.name} reply now`}
-                      aria-label={isMuted ? `${char.name} is muted` : `Reply as ${char.name}`}
-                      className={cn(
-                        "flex-shrink-0 rounded-full transition disabled:cursor-not-allowed",
-                        isMuted ? "opacity-30" : "hover:scale-110 hover:ring-2 hover:ring-primary/50",
-                        selectedSpeakerId === char.id && "ring-2 ring-primary"
-                      )}
-                    >
-                      <CharacterAvatar name={char.name} accent={char.accent} size={32} />
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+            {pickerOpen && participantPicker}
           </div>
         )}
 
@@ -435,76 +610,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
           <FaCog size={16} />
         </Button>
 
-        <textarea
-          ref={inputRef}
-          value={text}
-          onChange={(e) => {
-            const value = e.target.value;
-            setText(value);
-            if (value.trim()) onDraftActivity?.();
-            // A forced-speaker selection only makes sense for a message
-            // that's actually being composed - clearing the draft back to
-            // empty drops it too, instead of leaving a stale banner around.
-            if (!value.trim() && selectedSpeakerId != null) setSelectedSpeakerId(null);
-            setMention(detectMention(value, e.target.selectionStart ?? value.length));
-          }}
-          onClick={updateMentionFromCaret}
-          rows={1}
-          placeholder={
-            disabled
-              ? "Waiting for response..."
-              : isImpersonated
-              ? `Write as ${characterName || "the character"}…`
-              : selectedSpeaker
-              ? `Message ${selectedSpeaker.name}…`
-              : characterName
-              ? `Message ${characterName}…`
-              : "Type a message..."
-          }
-          className="flex-1 min-w-0 px-2.5 py-1 leading-[22px] bg-transparent text-foreground placeholder-subtle outline-none transition-colors resize-none disabled:opacity-50"
-          style={{ fontSize: 'var(--chat-font-size, 16px)', maxHeight: MAX_TEXTAREA_HEIGHT }}
-          disabled={disabled}
-          onFocus={handleFocus}
-          onBlur={() => setMention(null)}
-          onKeyUp={(e) => {
-            // Arrow keys are already claimed below for navigating an open
-            // mention list - only re-derive from the caret here once it's
-            // actually moved the cursor (i.e. the list is closed).
-            if (!mention && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
-              updateMentionFromCaret();
-            }
-          }}
-          onKeyDown={(e) => {
-            if (mention && mentionSuggestions.length > 0) {
-              if (e.key === "ArrowDown") {
-                e.preventDefault();
-                setMentionActiveIndex((i) => (i + 1) % mentionSuggestions.length);
-                return;
-              }
-              if (e.key === "ArrowUp") {
-                e.preventDefault();
-                setMentionActiveIndex((i) => (i - 1 + mentionSuggestions.length) % mentionSuggestions.length);
-                return;
-              }
-              if (e.key === "Enter" || e.key === "Tab") {
-                e.preventDefault();
-                applyMention(mentionSuggestions[mentionActiveIndex]);
-                return;
-              }
-              if (e.key === "Escape") {
-                e.preventDefault();
-                setMention(null);
-                return;
-              }
-            }
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-          aria-label="Message input"
-          aria-busy={disabled}
-        />
+        {composerTextarea}
 
         {disabled && onStop ? (
           <Button
@@ -531,6 +637,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
           </Button>
         )}
       </div>
+      )}
 
       <ImageSettingsModal
         isOpen={isSettingsModalOpen}

@@ -1,4 +1,5 @@
 import React from "react";
+import { useColorTheme } from "src/hooks/useColorTheme";
 
 interface LogoProps {
   size?: number;
@@ -9,7 +10,21 @@ interface LogoProps {
 // language as Gemini's own icon, standing in for the previous placeholder
 // "G" letter tile. Colors are CSS custom properties so it stays correct
 // across the light/dark themes without a separate dark-mode variant.
-const Logo: React.FC<LogoProps> = ({ size = 36, className }) => (
+const Logo: React.FC<LogoProps> = ({ size = 36, className }) => {
+  const { is } = useColorTheme();
+  if (is("terminal")) {
+    return (
+      <div
+        role="img"
+        aria-label="WhatsGemini logo"
+        className="flex-none flex items-center justify-center border border-border-bright text-foreground font-extrabold"
+        style={{ width: size * 0.76, height: size * 0.76, fontSize: size * 0.38 }}
+      >
+        W
+      </div>
+    );
+  }
+  return (
   <svg
     width={size}
     height={size}
@@ -30,6 +45,7 @@ const Logo: React.FC<LogoProps> = ({ size = 36, className }) => (
       style={{ fill: "rgb(var(--color-on-accent))" }}
     />
   </svg>
-);
+  );
+};
 
 export default Logo;

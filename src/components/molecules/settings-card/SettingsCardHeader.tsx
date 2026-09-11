@@ -12,7 +12,7 @@ interface SettingsCardHeaderProps {
 // (like a pill picker) above its regular rows.
 export const SettingsCardHeader: React.FC<SettingsCardHeaderProps> = ({ title, hint, className }) => (
   <div className={cn("flex items-baseline justify-between gap-4 flex-wrap", className)}>
-    <h4 className="font-semibold text-[14.5px] text-foreground">{title}</h4>
-    {hint && <span className="text-xs text-subtle">{hint}</span>}
+    <h4 data-slot="settings-card-title" className="font-semibold text-[14.5px] text-foreground">{title}</h4>
+    {hint && <span data-slot="comment" className="text-xs text-subtle">{hint}</span>}
   </div>
 );

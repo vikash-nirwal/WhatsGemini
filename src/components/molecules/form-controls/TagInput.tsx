@@ -17,6 +17,7 @@ export const TagInput: React.FC<TagInputProps> = ({ value, onChange, placeholder
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
   const aurora = is("aurora");
+  const terminal = is("terminal");
 
   const commitDraft = () => {
     const tag = draft.trim();
@@ -46,6 +47,7 @@ export const TagInput: React.FC<TagInputProps> = ({ value, onChange, placeholder
           key={tag}
           className={cn(
             "inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-full bg-secondary text-secondary-foreground text-xs font-medium",
+            terminal && "bg-transparent border border-border text-[10px] font-bold text-foreground",
             "surface-raised-sm"
           )}
         >

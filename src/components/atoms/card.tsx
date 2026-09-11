@@ -9,6 +9,7 @@ const Card = React.forwardRef<
   return (
     <div
       ref={ref}
+      data-slot="card"
       className={cn(
         "rounded-lg bg-card text-card-foreground shadow surface-panel",
         className

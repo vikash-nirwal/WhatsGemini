@@ -3,6 +3,7 @@ import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "src/utils/cn"
+import { useColorTheme } from "src/hooks/useColorTheme"
 
 // Per-variant theme treatment (neumorphic's raised/accent shadow, aurora's
 // gradient/raise fill) lives directly in these static classes rather than a
@@ -54,15 +55,45 @@ export interface ButtonProps
   asChild?: boolean
 }
 
+const BRACKETED_VARIANTS = new Set(["default", "secondary", "panel", "destructive", "outline"])
+
+// Terminal renders text buttons as shell-style `[label]`s with no icon. An
+// element whose type is a component (react-icons) counts as an icon; strings,
+// numbers and host elements (<span>) count as the label. Icon-only buttons,
+// and labels that already start with "[" (e.g. "[+] new_chat.sh"), pass
+// through untouched.
+function toTerminalLabel(children: React.ReactNode): React.ReactNode {
+  const parts = React.Children.toArray(children)
+  const label = parts
+    .filter((child) => !(React.isValidElement(child) && typeof child.type !== "string"))
+    .filter((child) => typeof child !== "string" || child.trim() !== "")
+  if (label.length === 0) return children
+  const first = label[0]
+  const last = label[label.length - 1]
+  if (typeof first === "string") label[0] = first.trimStart()
+  if (typeof last === "string") label[label.length - 1] = (label[label.length - 1] as string).trimEnd()
+  if (typeof label[0] === "string" && (label[0] as string).startsWith("[")) return label
+  return <>[{label}]</>
+}
+
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, children, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
+    const { is } = useColorTheme()
+    const resolvedVariant = variant ?? "default"
+    const resolvedSize = size ?? "default"
+    const bracketed = is("terminal") && !asChild && resolvedSize !== "icon" && BRACKETED_VARIANTS.has(resolvedVariant)
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
+        data-slot="button"
+        data-variant={resolvedVariant}
+        data-size={resolvedSize}
         ref={ref}
         {...props}
-      />
+      >
+        {bracketed ? toTerminalLabel(children) : children}
+      </Comp>
     )
   }
 )

@@ -31,6 +31,7 @@ export const ChipSelectField: React.FC<ChipSelectFieldProps> = ({
   const [showPresets, setShowPresets] = useState(true);
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
+  const terminal = is("terminal");
 
   const toggle = (preset: string) => {
     if (value.includes(preset)) onChange(value.filter((v) => v !== preset));
@@ -61,7 +62,14 @@ export const ChipSelectField: React.FC<ChipSelectFieldProps> = ({
                 onClick={() => toggle(preset)}
                 className={cn(
                   "px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
-                  neumorphic
+                  terminal
+                    ? cn(
+                        "border text-[10px] font-bold",
+                        active
+                          ? "bg-primary text-primary-foreground border-border-bright"
+                          : "bg-transparent text-foreground border-border hover:border-border-bright"
+                      )
+                    : neumorphic
                     ? active
                       ? "bg-primary text-primary-foreground cta-surface"
                       : "bg-transparent text-muted-foreground surface-raised hover:text-foreground"

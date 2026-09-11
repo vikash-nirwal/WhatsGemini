@@ -28,6 +28,7 @@ import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { DisplayImage } from "src/components/molecules/DisplayImage";
 import { Alert, AlertDescription } from "src/components/atoms/alert";
 import { useModal } from "../contexts/ModalContext";
+import { useColorTheme } from "../hooks/useColorTheme";
 
 const DEFAULT_AUTO_REPLY = { enabled: false, minDelaySeconds: 30, maxDelaySeconds: 120, maxFollowups: 2, followupCount: 0 };
 
@@ -165,6 +166,8 @@ const ChatPage = () => {
 
   // Which persona this chat actually speaks as: its own override if set,
   // otherwise whichever persona is globally active (Settings > Personas).
+  const { is } = useColorTheme();
+  const terminal = is("terminal");
   const activePersona = useMemo(
     () => personas.find((p) => p.id === (currentChat?.personaId || globalActivePersonaId)) || personas[0],
     [personas, currentChat?.personaId, globalActivePersonaId]
@@ -1007,10 +1010,10 @@ const ChatPage = () => {
       ? [{ icon: FaCompressArrowsAlt, label: "Summarize and compress older messages to save tokens", onClick: handleCompress, disabled: aiCompressing }]
       : []),
     ...(messages.length > 0
-      ? [{ icon: FaBolt, label: isRoom ? "Make the next bot send a follow-up now" : `Make ${characterData?.name || "them"} send a follow-up now`, onClick: handleManualFollowup, disabled: aiLoading, primary: true }]
+      ? [{ icon: FaBolt, label: isRoom ? "Make the next bot send a follow-up now" : `Make ${characterData?.name || "them"} send a follow-up now`, onClick: handleManualFollowup, disabled: aiLoading, primary: true, shortLabel: "follow-up" }]
       : []),
     { icon: FaClock, label: "Auto follow-up settings", onClick: () => setIsAutoReplyModalOpen(true), active: autoReplySettings.enabled },
-    { icon: FaBookOpen, label: "Scene panel", onClick: () => { setSceneOpen((v) => !v); setParticipantsOpen(false); }, active: sceneOpen, primary: true },
+    { icon: FaBookOpen, label: "Scene panel", onClick: () => { setSceneOpen((v) => !v); setParticipantsOpen(false); }, active: sceneOpen, primary: true, shortLabel: "scene" },
     ...(roomCharacters.length > 0
       ? [{ icon: FaUsers, label: isRoom ? "Participants" : "Invite someone", onClick: () => { setParticipantsOpen((v) => !v); setSceneOpen(false); }, active: participantsOpen }]
       : []),
@@ -1188,12 +1191,20 @@ const ChatPage = () => {
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden relative">
-        <ChatWindow characterName={character} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} />
+        <ChatWindow characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} />
       </div>
 
-      {/* Message Input Floating */}
-      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-full max-w-4xl px-4 z-20">
+      {/* Message Input - floats over the chat, except under terminal where it
+          docks below it as a bordered prompt strip */}
+      <div
+        className={
+          terminal
+            ? "relative flex-none w-full px-4 md:px-[26px] pt-3.5 pb-5 border-t border-border bg-background z-20"
+            : "absolute bottom-6 left-1/2 transform -translate-x-1/2 w-full max-w-4xl px-4 z-20"
+        }
+      >
         <MessageInput
+          userName={activePersona?.name}
           onSend={handleSend}
           disabled={aiLoading}
           onStop={handleStopGenerating}

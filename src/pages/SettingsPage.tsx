@@ -86,7 +86,8 @@ const SettingsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { showConfirm } = useModal();
-  const { colorTheme, setColorTheme, accentPalette, setAccentPalette } = useColorTheme();
+  const { colorTheme, setColorTheme, accentPalette, setAccentPalette, is } = useColorTheme();
+  const terminal = is("terminal");
   const { logout } = useContext(AuthContext);
   const [initialMessagesKey, setInitialMessagesKey] = useState(0);
 
@@ -536,14 +537,15 @@ const SettingsPage = () => {
     }
   };
 
-  const sections: { id: string; icon: React.ReactNode; title: string; subtitle: string }[] = [
-    { id: "profile", icon: <FaUser size={13} />, title: "User Profile", subtitle: "Your name and bio" },
-    { id: "text", icon: <FaMicrochip size={13} />, title: "Text Generation Model", subtitle: "Provider, model, temperature, tokens" },
-    { id: "image", icon: <FaImage size={13} />, title: "Image Generation Settings", subtitle: "Provider, model, ratio, count" },
-    { id: "chat", icon: <FaComments size={13} />, title: "Chat Interface Settings", subtitle: "System prompt, bubbles, sending" },
-    { id: "appearance", icon: <FaPalette size={13} />, title: "Appearance", subtitle: "Color theme" },
-    { id: "safety", icon: <FaShieldAlt size={13} />, title: "Safety Settings", subtitle: chatProvider === "gemini" ? "Content filtering thresholds" : "Gemini only - not used by other providers" },
-    { id: "data", icon: <FaDatabase size={13} />, title: "Data & Import/Export", subtitle: "Import / export conversations" },
+  // `conf` names the section under the terminal theme's `$ cat <conf>.conf` title.
+  const sections: { id: string; icon: React.ReactNode; title: string; subtitle: string; conf: string }[] = [
+    { id: "profile", icon: <FaUser size={13} />, title: "User Profile", subtitle: "Your name and bio", conf: "user_profile" },
+    { id: "text", icon: <FaMicrochip size={13} />, title: "Text Generation Model", subtitle: "Provider, model, temperature, tokens", conf: "text_model" },
+    { id: "image", icon: <FaImage size={13} />, title: "Image Generation Settings", subtitle: "Provider, model, ratio, count", conf: "image_model" },
+    { id: "chat", icon: <FaComments size={13} />, title: "Chat Interface Settings", subtitle: "System prompt, bubbles, sending", conf: "chat_ui" },
+    { id: "appearance", icon: <FaPalette size={13} />, title: "Appearance", subtitle: "Color theme", conf: "appearance" },
+    { id: "safety", icon: <FaShieldAlt size={13} />, title: "Safety Settings", subtitle: chatProvider === "gemini" ? "Content filtering thresholds" : "Gemini only - not used by other providers", conf: "safety" },
+    { id: "data", icon: <FaDatabase size={13} />, title: "Data & Import/Export", subtitle: "Import / export conversations", conf: "data_io" },
   ];
   const activeSection = sections.find((s) => s.id === selectedSection) || sections[0];
 
@@ -553,15 +555,34 @@ const SettingsPage = () => {
       <div className="flex-1 overflow-auto p-4 md:p-8 flex justify-center">
       <div className="w-full max-w-5xl bg-transparent">
 
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">AI Provider Settings</h1>
-          <FaInfoCircle className="text-muted-foreground" size={18} />
-        </div>
+        {!terminal && (
+          <div className="mb-6 flex items-center justify-between">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">AI Provider Settings</h1>
+            <FaInfoCircle className="text-muted-foreground" size={18} />
+          </div>
+        )}
 
         <div className="flex flex-col md:flex-row gap-8 items-start">
-          <nav className="w-full md:w-60 flex-none flex flex-col gap-0.5">
-            {sections.map((s) => {
+          <nav className={cn("w-full md:w-60 flex-none flex flex-col gap-0.5", terminal && "gap-2")}>
+            {sections.map((s, i) => {
               const active = s.id === selectedSection;
+              if (terminal) {
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setSelectedSection(s.id)}
+                    className={cn(
+                      "px-3.5 py-2 text-[11px] font-bold text-left border transition-colors",
+                      active
+                        ? "bg-primary text-primary-foreground border-border-bright"
+                        : "border-border text-foreground hover:border-border-bright"
+                    )}
+                  >
+                    [{i + 1}] {s.title}
+                  </button>
+                );
+              }
               return (
                 <button
                   key={s.id}
@@ -581,6 +602,7 @@ const SettingsPage = () => {
             })}
 
             <div className="mt-5 p-3.5 rounded-lg bg-card border border-border/50 text-xs text-muted-foreground leading-relaxed">
+              {terminal && "# "}
               <span className="text-foreground font-semibold">Everything lives in this browser.</span>{" "}
               Last backup {lastBackupAt ? formatRelativeTime(lastBackupAt) : "never"}.{" "}
               <button type="button" onClick={() => setSelectedSection("data")} className="font-medium text-primary hover:underline">
@@ -590,10 +612,17 @@ const SettingsPage = () => {
           </nav>
 
           <div className="flex-1 min-w-0 max-w-[720px] flex flex-col gap-5">
-            <div>
-              <div className="text-[22px] font-bold tracking-tight text-foreground">{activeSection.title}</div>
-              <div className="text-sm text-muted-foreground mt-1">{activeSection.subtitle}</div>
-            </div>
+            {terminal ? (
+              <div>
+                <div className="text-[15px] font-bold text-foreground">$ cat {activeSection.conf}.conf</div>
+                <div className="text-[11px] text-muted-foreground mt-1 lowercase"># {activeSection.subtitle}</div>
+              </div>
+            ) : (
+              <div>
+                <div className="text-[22px] font-bold tracking-tight text-foreground">{activeSection.title}</div>
+                <div className="text-sm text-muted-foreground mt-1">{activeSection.subtitle}</div>
+              </div>
+            )}
 
             <>
                 {selectedSection === "profile" && (

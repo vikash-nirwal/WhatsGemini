@@ -109,7 +109,7 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, authorNote, 
         {/* Author's Note */}
         <div>
           <div className="flex items-baseline justify-between mb-2">
-            <span className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">Author's Note</span>
+            <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">Author's Note</span>
             <span className="text-[11px] text-subtle">every reply</span>
           </div>
           <Textarea
@@ -124,7 +124,7 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, authorNote, 
         {/* Memory */}
         <div>
           <div className="flex items-baseline justify-between mb-2">
-            <span className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">Memory</span>
+            <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">Memory</span>
             <span className="text-[11px] text-primary">{memory.length} facts</span>
           </div>
           <div className="flex flex-col gap-1.5">
@@ -212,7 +212,7 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, authorNote, 
 
         {/* World tags */}
         <div>
-          <div className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold mb-2">World</div>
+          <div data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold mb-2">World</div>
           <div className="flex flex-wrap gap-1.5">
             {tags.map((tag, idx) => (
               <span

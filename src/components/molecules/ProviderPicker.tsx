@@ -18,6 +18,7 @@ interface ProviderPickerProps {
 export const ProviderPicker: React.FC<ProviderPickerProps> = ({ providers, value, onChange }) => {
   const { is } = useColorTheme();
   const aurora = is("aurora");
+  const terminal = is("terminal");
   return (
     <div className="flex flex-wrap gap-1.5">
       {providers.map((p) => {
@@ -30,7 +31,14 @@ export const ProviderPicker: React.FC<ProviderPickerProps> = ({ providers, value
             className={cn(
               "h-[34px] px-3.5 text-[13px] font-medium whitespace-nowrap border transition-colors",
               aurora ? "rounded-sm" : "rounded-full",
-              aurora
+              terminal
+                ? cn(
+                    "text-[11px] font-bold",
+                    active
+                      ? "bg-primary text-primary-foreground border-border-bright"
+                      : "bg-transparent text-foreground border-border hover:border-border-bright"
+                  )
+                : aurora
                 ? active
                   ? "cta-surface text-primary-foreground"
                   : "surface-elevated border-input text-foreground hover:text-foreground"

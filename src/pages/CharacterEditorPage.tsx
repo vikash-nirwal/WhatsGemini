@@ -60,6 +60,7 @@ const CharacterEditorPage = () => {
   const dispatch = useAppDispatch();
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
+  const terminal = is("terminal");
   const { showAlert } = useModal();
   const navigate = useNavigate();
   const location = useLocation();
@@ -660,7 +661,21 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
 
         {/* Step indicator */}
         <div className="flex items-center gap-1 mb-6 overflow-x-auto pb-1">
-          {STEPS.map((label, i) => (
+          {STEPS.map((label, i) => terminal ? (
+            <React.Fragment key={label}>
+              <button
+                type="button"
+                onClick={() => goToStep(i)}
+                className={cn(
+                  "flex-none text-[11px] whitespace-nowrap hover:underline underline-offset-2",
+                  i === step ? "font-bold text-foreground" : "text-muted-foreground"
+                )}
+              >
+                [{i < step ? "x" : "\u00a0"}] {i + 1}. {label}
+              </button>
+              {i < STEPS.length - 1 && <div className="h-px flex-1 min-w-[18px] mx-2 bg-border" />}
+            </React.Fragment>
+          ) : (
             <React.Fragment key={label}>
               <button
                 type="button"
@@ -803,7 +818,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
               <>
                 <Card className="p-6 flex flex-col gap-5">
                   <div className="flex items-center justify-between gap-4">
-                    <h3 className="font-semibold text-[15px] text-foreground">Identity</h3>
+                    <h3 data-slot="section-title" className="font-semibold text-[15px] text-foreground">Identity</h3>
                     {!editCharacter && (
                       <Button
                         type="button"
@@ -865,7 +880,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                       one - a lighter sub-heading marks the shift in topic
                       instead of a full second card's worth of chrome. */}
                   <div className="flex items-center gap-1.5 pt-2 mt-1 border-t border-border/30">
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-subtle">Appearance</h4>
+                    <h4 data-slot="section-title" className="text-xs font-semibold uppercase tracking-wide text-subtle">Appearance</h4>
                     <InfoTooltip hint="Given to image-capable models to keep generated looks consistent" />
                   </div>
                   <TextArea
@@ -922,7 +937,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
 
                 <Card className="p-6 flex flex-col gap-5">
                   <div className="flex items-center gap-1.5">
-                    <h3 className="font-semibold text-[15px] text-foreground">Emotion Portraits</h3>
+                    <h3 data-slot="section-title" className="font-semibold text-[15px] text-foreground">Emotion Portraits</h3>
                     <InfoTooltip hint="Swaps the avatar to match their mood as you chat" />
                   </div>
                   <ToggleSwitch
@@ -1040,7 +1055,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
             {step === 1 && (
               <Card className="p-6 flex flex-col gap-5">
                 <div className="flex items-baseline justify-between gap-4">
-                  <h3 className="font-semibold text-[15px] text-foreground">Personality</h3>
+                  <h3 data-slot="section-title" className="font-semibold text-[15px] text-foreground">Personality</h3>
                   <span className="text-xs text-subtle font-mono">~{promptTokens.toLocaleString()} tokens</span>
                 </div>
                 <ChipSelectField
@@ -1231,7 +1246,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                 {/* Left: Review summary + Memory */}
                 <div className="flex flex-col gap-6">
                   <Card className="p-6 flex flex-col gap-5">
-                    <h3 className="font-semibold text-[15px] text-foreground">Review</h3>
+                    <h3 data-slot="section-title" className="font-semibold text-[15px] text-foreground">Review</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-sm">
                       <div>
                         <div className="text-xs text-subtle mb-1">Name</div>
@@ -1275,7 +1290,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   {editCharacter && (
                     <Card className="p-6 flex flex-col gap-5">
                       <div className="flex items-baseline justify-between gap-4">
-                        <h3 className="font-semibold text-[15px] text-foreground">
+                        <h3 data-slot="section-title" className="font-semibold text-[15px] text-foreground">
                           Memory {editCharacter.memory && editCharacter.memory.length > 0 && (
                             <span className="text-subtle font-normal text-xs">({editCharacter.memory.length} facts remembered)</span>
                           )}

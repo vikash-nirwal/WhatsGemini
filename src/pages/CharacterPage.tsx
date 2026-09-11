@@ -15,6 +15,7 @@ import { Button } from "src/components/atoms/button";
 import { Badge } from "src/components/atoms/badge";
 import { Card } from "src/components/atoms/card";
 import { Input } from "src/components/atoms/input";
+import { TermLink } from "src/components/atoms/TermLink";
 import Header from "src/components/organisms/Header";
 import { CHARACTER_SWATCHES, SAMPLE_CHARACTER } from "../utils/constants";
 import { characterToCardV2, parseCharacterCardJson, buildCharacterCardPng, extractCharacterCardFromPng } from "../features/character/characterCard";
@@ -31,6 +32,7 @@ const CharacterPage = () => {
   const { showConfirm, showAlert } = useModal();
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
+  const terminal = is("terminal");
   const portraitSaveSize = useAppSelector((state) => parseSize(state.settings.portraitSaveSize));
 
   const [gallerySearch, setGallerySearch] = useState("");
@@ -189,6 +191,38 @@ const CharacterPage = () => {
     return characters.filter((c) => chats.some((chat) => chat.characterIds?.includes(c.id) && chat.timestamp >= cutoff)).length;
   }, [characters, chats]);
 
+  const renderCharacterMenu = (char: Character) => (
+    <DropdownMenuContent align="end">
+      <DropdownMenuItem onSelect={() => navigate(`/characters/${char.id}/gallery`)}>
+        <FaImages className="mr-2 h-4 w-4" />
+        <span>View Gallery</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => handleExportCharacter(char)}>
+        <FaDownload className="mr-2 h-4 w-4" />
+        <span>Export</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => handleExportCharacterCardJson(char)}>
+        <FaDownload className="mr-2 h-4 w-4" />
+        <span>Export Card (V2 JSON)</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => handleExportCharacterCardPng(char)}>
+        <FaFileImage className="mr-2 h-4 w-4" />
+        <span>Export Card (V2 PNG)</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => navigate("/characters/new", { state: { duplicateFrom: char } })}>
+        <FaCopy className="mr-2 h-4 w-4" />
+        <span>Duplicate</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        onSelect={() => handleDeleteCharacter(char.id)}
+        className="text-destructive focus:text-destructive"
+      >
+        <FaTrash className="mr-2 h-4 w-4" />
+        <span>Delete</span>
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  );
+
   return (
     <div className="w-full h-screen flex flex-col">
       <Header
@@ -201,15 +235,32 @@ const CharacterPage = () => {
 
         <div className="flex items-end justify-between gap-4 flex-wrap mb-6">
           <div>
-            <h2 className="text-[26px] font-bold tracking-tight text-foreground">Your cast</h2>
-            <p className="text-sm text-muted-foreground mt-1">
+            {terminal ? (
+              <h2 className="text-[15px] font-bold text-foreground">$ ls -la ~/characters</h2>
+            ) : (
+              <h2 className="text-[26px] font-bold tracking-tight text-foreground">Your cast</h2>
+            )}
+            <p className={cn("text-sm text-muted-foreground mt-1", terminal && "text-[11px]")}>
+              {terminal && "# "}
               {loading
                 ? "Loading..."
                 : `${characters.length} character${characters.length === 1 ? "" : "s"}${chattedThisWeek > 0 ? ` · ${chattedThisWeek} chatted with this week` : ""}`}
             </p>
           </div>
           <div className="flex gap-2">
-            {characters.length > 0 && (
+            {characters.length > 0 && terminal && (
+              <div className="flex items-center gap-1.5 border border-border px-3 w-[220px] text-[11px] focus-within:border-ring">
+                <span className="text-muted-foreground flex-none">grep&gt;</span>
+                <input
+                  value={gallerySearch}
+                  onChange={(e) => setGallerySearch(e.target.value)}
+                  placeholder="search"
+                  aria-label="Search characters"
+                  className="flex-1 min-w-0 bg-transparent outline-none py-2 text-foreground placeholder:text-subtle"
+                />
+              </div>
+            )}
+            {characters.length > 0 && !terminal && (
               <div className="relative">
                 <FaSearch size={12} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
                 <Input
@@ -236,9 +287,15 @@ const CharacterPage = () => {
               accept=".json,application/json,.png,image/png"
               style={{ display: "none" }}
             />
-            <Button onClick={() => navigate("/characters/new")} variant="default">
-              <FaPlus size={12} /> New character
-            </Button>
+            {terminal ? (
+              <Button onClick={() => navigate("/characters/new")} variant="outline" className="border-border-bright text-foreground">
+                + new character
+              </Button>
+            ) : (
+              <Button onClick={() => navigate("/characters/new")} variant="default">
+                <FaPlus size={12} /> New character
+              </Button>
+            )}
           </div>
         </div>
 
@@ -258,9 +315,47 @@ const CharacterPage = () => {
         ) : filteredCharacters.length === 0 ? (
           <Card className="p-6 text-center text-muted-foreground text-sm">No characters match "{gallerySearch}".</Card>
         ) : (
-          <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))" }}>
+          <div className="grid gap-5" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${terminal ? 170 : 230}px, 1fr))` }}>
             {filteredCharacters.map((char) => {
               const charAccent = char.accent ?? CHARACTER_SWATCHES[0];
+              if (terminal) {
+                return (
+                  <div key={char.id} className="border border-border hover:border-border-bright transition-colors flex flex-col min-w-0">
+                    <div className="relative aspect-square m-2.5 border border-border-bright overflow-hidden flex items-center justify-center">
+                      {char.appearanceImages?.[0] ? (
+                        <DisplayImage srcContext={char.appearanceImages[0]} alt={char.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <CharacterAvatar name={char.name} accent={char.accent} size={72} />
+                      )}
+                    </div>
+                    <div className="px-3 pb-3.5 flex flex-col gap-1.5 min-w-0">
+                      {char.relationship && (
+                        <span className="self-start max-w-full truncate text-[9px] font-bold px-2 py-0.5 bg-primary text-primary-foreground">
+                          {char.relationship}
+                        </span>
+                      )}
+                      <div className="flex items-center justify-between gap-2 min-w-0">
+                        <div className="text-[13px] font-bold text-foreground truncate">{char.name}</div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <TermLink label="..." aria-label="More options" className="flex-none" />
+                          </DropdownMenuTrigger>
+                          {renderCharacterMenu(char)}
+                        </DropdownMenu>
+                      </div>
+                      {char.description && <div className="text-[10px] text-muted-foreground truncate"># {char.description}</div>}
+                      <div className="flex gap-1.5 mt-1.5">
+                        <Button onClick={() => handleChatWithCharacter(char)} variant="outline" className="flex-1 h-auto py-1.5 px-1 text-[10px]">
+                          chat
+                        </Button>
+                        <Button onClick={() => navigate(`/characters/${char.id}/edit`)} variant="outline" className="h-auto py-1.5 px-2.5 text-[10px]" title="Edit Character">
+                          edit
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
               return (
               <Card
                 key={char.id}
@@ -325,40 +420,22 @@ const CharacterPage = () => {
                           <FaEllipsisV size={13} />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => navigate(`/characters/${char.id}/gallery`)}>
-                          <FaImages className="mr-2 h-4 w-4" />
-                          <span>View Gallery</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => handleExportCharacter(char)}>
-                          <FaDownload className="mr-2 h-4 w-4" />
-                          <span>Export</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => handleExportCharacterCardJson(char)}>
-                          <FaDownload className="mr-2 h-4 w-4" />
-                          <span>Export Card (V2 JSON)</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => handleExportCharacterCardPng(char)}>
-                          <FaFileImage className="mr-2 h-4 w-4" />
-                          <span>Export Card (V2 PNG)</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => navigate("/characters/new", { state: { duplicateFrom: char } })}>
-                          <FaCopy className="mr-2 h-4 w-4" />
-                          <span>Duplicate</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onSelect={() => handleDeleteCharacter(char.id)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <FaTrash className="mr-2 h-4 w-4" />
-                          <span>Delete</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
+                      {renderCharacterMenu(char)}
                     </DropdownMenu>
                   </div>
                 </div>
               </Card>
             )})}
+            {terminal ? (
+              <button
+                type="button"
+                onClick={() => navigate("/characters/new")}
+                className="border border-dashed border-border hover:border-border-bright min-h-[190px] flex flex-col items-center justify-center gap-1 text-center transition-colors"
+              >
+                <span className="text-[12px] font-bold text-foreground">[+] new character</span>
+                <span className="text-[10px] text-muted-foreground"># define who Gemini becomes</span>
+              </button>
+            ) : (
             <button
               type="button"
               onClick={() => navigate("/characters/new")}
@@ -381,6 +458,7 @@ const CharacterPage = () => {
               <span className="font-semibold text-sm text-foreground">New character</span>
               <span className="text-xs text-center max-w-[160px] leading-relaxed">Define who Gemini becomes</span>
             </button>
+            )}
           </div>
         )}
 

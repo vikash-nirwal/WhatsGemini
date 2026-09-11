@@ -223,15 +223,16 @@ export const COLOR_THEMES = [
   { value: "cozy", label: "Cozy", description: "Warm terracotta and cream - the original look" },
   { value: "neumorphic", label: "Neumorphic", description: "Soft gray-green palette with raised, pillowy surfaces" },
   { value: "aurora", label: "Aurora", description: "Vibrant gradient look with a choice of 4 accent palettes" },
+  { value: "terminal", label: "Terminal", description: "CRT hacker aesthetic with a choice of 3 phosphor colors" },
 ] as const;
 export const DEFAULT_COLOR_THEME = "cozy";
 
-// Accent palette, a sub-choice available only within the "aurora" color
-// theme - see tokens.css's [data-theme="aurora"][data-palette="x"] blocks
-// and ThemeContext's accentPalette/setAccentPalette. Every other color
-// theme ignores data-palette entirely. "violet" is aurora's own default
-// and is baked into the base [data-theme="aurora"] block (no override
-// block needed for it).
+// Accent palette, a sub-choice available within the "aurora" and "terminal"
+// color themes - see tokens.css's [data-theme="x"][data-palette="y"] blocks
+// and ThemeContext's accentPalette/setAccentPalette. Every other color theme
+// ignores data-palette entirely. "violet" is aurora's own default and is
+// baked into the base [data-theme="aurora"] block (no override block needed
+// for it).
 export const AURORA_PALETTES: { value: string; label: string; colors: [string, string, string] }[] = [
   { value: "violet", label: "Violet", colors: ["#8b5cf6", "#ec4899", "#f97316"] },
   { value: "ocean", label: "Ocean", colors: ["#0ea5e9", "#22d3ee", "#6366f1"] },
@@ -239,6 +240,21 @@ export const AURORA_PALETTES: { value: string; label: string; colors: [string, s
   { value: "sunset", label: "Sunset", colors: ["#f43f5e", "#d946ef", "#f97316"] },
 ];
 export const DEFAULT_ACCENT_PALETTE = "violet";
+
+// Phosphor color, terminal's own sub-choice - see tokens.css's
+// [data-theme="terminal"][data-palette="x"] blocks. Shares the same
+// accentPalette/setAccentPalette/data-palette wiring as AURORA_PALETTES
+// above (it's generic, not aurora-specific). "green" is terminal's own
+// default - the color the source design shipped with - and is baked into
+// the base [data-theme="terminal"] block (no override block needed for it).
+// Unlike Aurora (where only the brand hue changes across palettes), picking
+// a phosphor color here recolors the theme's text/border hue too, since the
+// whole look is built around a single monochrome CRT color.
+export const TERMINAL_PALETTES: { value: string; label: string; colors: [string, string, string] }[] = [
+  { value: "green", label: "Green", colors: ["#58e8ff", "#6dffa4", "#baffd4"] },
+  { value: "amber", label: "Amber", colors: ["#ff6b35", "#ffb300", "#ffd699"] },
+  { value: "blue", label: "Blue", colors: ["#b388ff", "#4fc3ff", "#cfeeff"] },
+];
 
 // Local storage variables
 export const LS_AI_MODEL = "ai_model";
