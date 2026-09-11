@@ -96,6 +96,7 @@ const CharacterEditorPage = () => {
   const [autoSelfieFrequency, setAutoSelfieFrequency] = useState(DEFAULT_AUTO_SELFIE_FREQUENCY);
   const [emotionPortraitsEnabled, setEmotionPortraitsEnabled] = useState(false);
   const [emotionPortraitImages, setEmotionPortraitImages] = useState<Record<string, string>>({});
+  const [customEmotions, setCustomEmotions] = useState<string[]>([]);
   const [loreEntries, setLoreEntries] = useState<LoreEntry[]>([]);
   const [personalityTraits, setPersonalityTraits] = useState<string[]>([]);
 
@@ -133,6 +134,7 @@ const CharacterEditorPage = () => {
       setAutoSelfieFrequency(source.autoSelfie?.frequency ?? DEFAULT_AUTO_SELFIE_FREQUENCY);
       setEmotionPortraitsEnabled(source.emotionPortraits?.enabled || false);
       setEmotionPortraitImages(source.emotionPortraits?.images || {});
+      setCustomEmotions(source.emotionPortraits?.customEmotions || []);
       setLoreEntries(source.loreEntries || []);
       setPersonalityTraits(source.personalityTraits || []);
     } else {
@@ -153,6 +155,7 @@ const CharacterEditorPage = () => {
       setAutoSelfieFrequency(DEFAULT_AUTO_SELFIE_FREQUENCY);
       setEmotionPortraitsEnabled(false);
       setEmotionPortraitImages({});
+      setCustomEmotions([]);
       setLoreEntries([]);
       setPersonalityTraits([]);
     }
@@ -209,6 +212,30 @@ const CharacterEditorPage = () => {
     }
   };
 
+  // Drafts a couple of sample exchanges in the character's voice, from the
+  // personality/scenario already filled in - appended after whatever's
+  // already there (rather than replacing it) so this can be used more than
+  // once to build up a longer style reference instead of overwriting it.
+  const [generatingExample, setGeneratingExample] = useState(false);
+  const handleGenerateExampleDialogue = async () => {
+    if (!prompt.trim()) {
+      setAssistError("Add a personality first so the examples match their voice.");
+      return;
+    }
+    setAssistError(null);
+    setGeneratingExample(true);
+    try {
+      const who = name || "the character";
+      const instruction = `You are drafting SAMPLE dialogue exchanges for a roleplay AI character named ${who}, purely as a style/format reference (never shown to the user, never repeated verbatim in the actual chat). Personality: ${prompt}.${scenario ? ` Scenario: ${scenario}.` : ""}${mesExample.trim() ? `\n\nExisting examples already written (write NEW, different exchanges - do not repeat these):\n${mesExample.trim()}` : ""}\n\nWrite 2 short example exchanges that show off ${who}'s distinctive speech style, tone, and formatting (e.g. use of *asterisks* for physical actions). Each exchange formatted exactly as:\nUser: <line>\n${who}: <in-character reply>\n\nSeparate the two exchanges with a blank line. Output only the exchanges, no preamble or explanation.`;
+      const text = await dispatch(generateAssistText({ instruction })).unwrap();
+      if (text) setMesExample((prev) => (prev.trim() ? `${prev.trim()}\n\n${text.trim()}` : text.trim()));
+    } catch (err: any) {
+      setAssistError(typeof err === "string" ? err : "Failed to generate example dialogue. Check your API key in Settings.");
+    } finally {
+      setGeneratingExample(false);
+    }
+  };
+
   const [surprising, setSurprising] = useState(false);
   const [surpriseHint, setSurpriseHint] = useState("");
   // Rolls a random Relationship/Tags/Personality Traits combo from the same
@@ -261,7 +288,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
       alert("Character name and prompt are required.");
       return;
     }
-    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages }, loreEntries, personalityTraits }));
+    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits }));
     navigate("/characters");
   };
 
@@ -275,7 +302,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
       alert("Character name and prompt are required.");
       return;
     }
-    dispatch(updateCharacter({ id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages }, loreEntries, personalityTraits }));
+    dispatch(updateCharacter({ id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits }));
     if (options?.stay) {
       toast.success("Character saved");
     } else {
@@ -435,7 +462,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     setGeneratingAllEmotions(true);
     try {
       const referenceImages = appearanceImages.length > 0 ? appearanceImages : undefined;
-      const missing = EMOTIONS.filter((e) => !emotionPortraitImages[e]);
+      const missing = [...EMOTIONS, ...customEmotions].filter((e) => !emotionPortraitImages[e]);
       for (const emo of missing) {
         setGeneratingEmotion(emo);
         try {
@@ -479,12 +506,68 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     );
   };
 
+  // Lets a character report moods beyond the fixed EMOTIONS list (e.g.
+  // "smug", "flustered") - normalized to a single lowercase word so it stays
+  // compatible with the [Emotion: <word>] tag format the model is asked to
+  // reply in (see extractEmotionTag's regex, which only matches letters).
+  const [newCustomEmotion, setNewCustomEmotion] = useState("");
+  const handleAddCustomEmotion = () => {
+    const normalized = newCustomEmotion.trim().toLowerCase().replace(/[^a-z]/g, "");
+    if (!normalized) {
+      setEmotionGenError("Enter a single word (letters only) for the custom mood.");
+      return;
+    }
+    if (EMOTIONS.includes(normalized) || customEmotions.includes(normalized)) {
+      setEmotionGenError(`"${normalized}" is already in the list.`);
+      return;
+    }
+    setEmotionGenError(null);
+    setCustomEmotions((prev) => [...prev, normalized]);
+    setNewCustomEmotion("");
+  };
+  // Also drops any portrait already generated/uploaded for it - the slot is
+  // gone, so there's nothing left to show it for.
+  const handleRemoveCustomEmotion = (emotion: string) => {
+    setCustomEmotions((prev) => prev.filter((e) => e !== emotion));
+    setEmotionPortraitImages((prev) => {
+      if (!(emotion in prev)) return prev;
+      const next = { ...prev };
+      delete next[emotion];
+      return next;
+    });
+  };
+
   const handleAddLoreEntry = () => {
     setLoreEntries((prev) => [...prev, { id: makeLoreEntryId(), keywords: [], content: "", enabled: true }]);
   };
   const handleUpdateLoreEntry = (id: string, patch: Partial<LoreEntry>) => {
     setLoreEntries((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
   };
+  // Drafts/expands one lore entry's content from its keywords (and whatever
+  // rough note is already in `content`, if any) - the same "Expand" pattern
+  // as the personality idea field, just scoped to a single entry instead of
+  // the whole editor. Tracked by entry id (not a single boolean) so expanding
+  // one entry doesn't disable the button on every other one.
+  const [expandingLoreId, setExpandingLoreId] = useState<string | null>(null);
+  const handleExpandLoreEntry = async (entry: LoreEntry) => {
+    if (entry.keywords.length === 0 && !entry.content.trim()) {
+      setAssistError("Add a keyword or a short note first, then expand it.");
+      return;
+    }
+    setAssistError(null);
+    setExpandingLoreId(entry.id);
+    try {
+      const who = name || "this character";
+      const instruction = `Write a concise lorebook / world-info entry for the roleplay AI character ${who}, to be injected into their system prompt only when relevant.${prompt.trim() ? ` Character personality for tone reference: ${prompt.trim()}.` : ""}\nKeywords for this entry: ${entry.keywords.length > 0 ? entry.keywords.join(", ") : "(none yet - infer them from the note below)"}.${entry.content.trim() ? `\nExisting rough note to expand on, keeping its intent: ${entry.content.trim()}` : ""}\n\nWrite 2-4 sentences of clear, concrete factual lore/background (not dialogue, not instructions to the character - just world info). Output only the lore text, no preamble or headings.`;
+      const text = await dispatch(generateAssistText({ instruction })).unwrap();
+      if (text) handleUpdateLoreEntry(entry.id, { content: text });
+    } catch (err: any) {
+      setAssistError(typeof err === "string" ? err : "Failed to expand lore entry. Check your API key in Settings.");
+    } finally {
+      setExpandingLoreId(null);
+    }
+  };
+
   const handleRemoveLoreEntry = (id: string) => {
     setLoreEntries((prev) => prev.filter((e) => e.id !== id));
   };
@@ -858,7 +941,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                         placeholder="Optional direction for generated portraits (e.g. wearing glasses)..."
                       />
                       <div className="flex flex-wrap gap-2.5">
-                        {EMOTIONS.map((emo) => (
+                        {[...EMOTIONS.map((emo) => ({ emo, removable: false })), ...customEmotions.map((emo) => ({ emo, removable: true }))].map(({ emo, removable }) => (
                           <div key={emo} className="flex flex-col items-center gap-1 w-[92px]">
                             <div className="relative w-[76px] h-[76px] rounded-lg overflow-hidden border border-border bg-muted">
                               {emotionPortraitImages[emo] ? (
@@ -872,6 +955,18 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                                 <div className="absolute inset-0 bg-background/70 flex items-center justify-center text-[10px] text-foreground font-medium">
                                   Generating...
                                 </div>
+                              )}
+                              {removable && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveCustomEmotion(emo)}
+                                  disabled={Boolean(generatingEmotion) || generatingAllEmotions}
+                                  className="absolute top-1 right-1 h-4 w-4 rounded-full bg-background/80 text-subtle hover:text-destructive flex items-center justify-center"
+                                  title={`Remove the "${emo}" custom mood`}
+                                  aria-label={`Remove the "${emo}" custom mood`}
+                                >
+                                  <FaTimes size={8} />
+                                </button>
                               )}
                             </div>
                             <span className="capitalize text-[10.5px] font-medium text-foreground">{emo}</span>
@@ -896,6 +991,29 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                             </div>
                           </div>
                         ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <TextInput
+                          type="text"
+                          value={newCustomEmotion}
+                          onChange={(e) => setNewCustomEmotion(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleAddCustomEmotion();
+                            }
+                          }}
+                          placeholder="Add a custom mood (e.g. smug, flustered)..."
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="panel"
+                          onClick={handleAddCustomEmotion}
+                          className="h-auto px-3 py-2 text-xs font-medium border border-border hover:border-primary hover:text-primary flex-shrink-0"
+                        >
+                          <FaPlus size={10} /> Add mood
+                        </Button>
                       </div>
                       <input
                         type="file"
@@ -1002,6 +1120,19 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   onChange={(e) => setMesExample(e.target.value)}
                   className="resize-none min-h-[220px]"
                 />
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="panel"
+                    onClick={handleGenerateExampleDialogue}
+                    disabled={generatingExample}
+                    className="h-auto px-3 py-1.5 text-xs font-medium border border-border hover:border-primary hover:text-primary"
+                    title="Have the AI draft example exchanges from the personality and scenario - added after anything already here"
+                  >
+                    <FaMagic size={11} /> {generatingExample ? "Generating..." : "Generate Example with AI"}
+                  </Button>
+                </div>
+                {assistError && <p className="text-xs text-destructive">{assistError}</p>}
               </Card>
             )}
 
@@ -1065,6 +1196,17 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                           onChange={(e) => handleUpdateLoreEntry(entry.id, { content: e.target.value })}
                           className="resize-none min-h-[80px]"
                         />
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => handleExpandLoreEntry(entry)}
+                            disabled={expandingLoreId === entry.id}
+                            className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                            title="Have the AI draft or expand this entry's content from its keywords"
+                          >
+                            <FaMagic size={10} /> {expandingLoreId === entry.id ? "Expanding..." : "Expand with AI"}
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -1081,6 +1223,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                 >
                   <FaPlus size={11} /> Add Lore Entry
                 </Button>
+                {assistError && <p className="text-xs text-destructive">{assistError}</p>}
               </Card>
             )}
 

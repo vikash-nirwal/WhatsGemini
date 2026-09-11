@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, updateChatAutoReply, updateChatMutedParticipants, incrementChatUsage, updateChatPersona, setPendingFollowupAt } from "../features/chatSlice";
+import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, updateChatAutoReply, incrementChatUsage, updateChatPersona, setPendingFollowupAt } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
 import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage } from "../features/aiSlice";
 import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
@@ -414,6 +414,22 @@ const ChatPage = () => {
       Math.random() * 100 < (autoSelfieCfg.frequency ?? DEFAULT_AUTO_SELFIE_FREQUENCY);
     const includeImage = echoesUserImage || shouldAutoSelfie;
 
+    // generateAIResponse's history prep (trimTrailingUserMessages) always pops
+    // a trailing user turn off `history` before the call, since the API needs
+    // history to end on an assistant turn right before the new prompt turn.
+    // handleSend relies on that being a no-op: its prompt IS that same trailing
+    // message, already deduped out of history by buildValidHistory, so nothing
+    // is lost. A follow-up's prompt used to be a bare generic nudge instead -
+    // if the room's most recent message was still an unanswered user turn (the
+    // exact moment someone reaches for the participant strip's "reply as X" to
+    // redirect the reply), that real message got silently dropped from context
+    // entirely, leaving the forced speaker with nothing to go on. Threading it
+    // through as the prompt here mirrors handleSend and keeps it in context.
+    const lastMessage = freshMessages[freshMessages.length - 1];
+    const followupPrompt = lastMessage?.role === YOU && lastMessage.txt?.trim()
+      ? lastMessage.txt
+      : "Please continue the conversation naturally, as if reaching out again.";
+
     const { messages: compressedFreshMessages, tokens: compressTokens, cost: compressCost } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: freshMessages })).unwrap();
     await trackUsage(compressTokens, compressCost);
 
@@ -426,9 +442,10 @@ const ChatPage = () => {
       buildRoomContext(speaker)
     );
     const aiResponse = await dispatch(generateAIResponse({
-      prompt: "Please continue the conversation naturally, as if reaching out again.",
+      prompt: followupPrompt,
       history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle,
       isImageRequest: includeImage, isCharacterInitiated: true, isAutoSelfie: shouldAutoSelfie,
+      customEmotions: speaker.emotionPortraits?.customEmotions,
     }));
 
     if (!aiResponse.payload) return false;
@@ -592,7 +609,7 @@ const ChatPage = () => {
         Math.random() * 100 < (autoSelfieCfg.frequency ?? DEFAULT_AUTO_SELFIE_FREQUENCY);
 
       const { history, systemInstruction, characterImages, characterName } = buildTurnContext(contextMessages, speaker, withAuthorNote(), replyLengthLimit, activePersona, buildRoomContext(speaker));
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: text, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isAutoSelfie: shouldAutoSelfie }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: text, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
 
@@ -657,7 +674,7 @@ const ChatPage = () => {
         if (!speaker) return;
 
         const { history, systemInstruction, characterImages, characterName } = buildTurnContext(contentUpToEdit, speaker, withAuthorNote(), replyLengthLimit, activePersona, buildRoomContext(speaker));
-        aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest }));
+        aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, customEmotions: speaker.emotionPortraits?.customEmotions }));
         const aiResponse = await aiPromiseRef.current;
         aiPromiseRef.current = null;
 
@@ -741,7 +758,7 @@ const ChatPage = () => {
       if (!speaker) return;
 
       const { history, systemInstruction, characterImages, characterName } = buildTurnContext(historyUpToTarget, speaker, extraDirectives, replyLengthLimit, activePersona, buildRoomContext(speaker));
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
 
@@ -887,7 +904,7 @@ const ChatPage = () => {
         buildRoomContext(speaker)
       );
 
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: "Continue.", history, systemInstruction, characterImages, characterName, artStyle: speaker.artStyle }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: "Continue.", history, systemInstruction, characterImages, characterName, artStyle: speaker.artStyle, customEmotions: speaker.emotionPortraits?.customEmotions }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
 

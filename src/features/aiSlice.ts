@@ -34,7 +34,7 @@ const resolveProviderConfig = async (providerId: string, requiresBaseUrl: boolea
 
 export const generateAIResponse = createAsyncThunk(
   "ai/generateResponse",
-  async ({ prompt, history = [], systemInstruction, characterImages, characterName, artStyle, isImageRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams }, { getState, rejectWithValue, signal }) => {
+  async ({ prompt, history = [], systemInstruction, characterImages, characterName, artStyle, isImageRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[] }, { getState, rejectWithValue, signal }) => {
     try {
       const state = getState() as RootState;
       const settings = state.settings;
@@ -130,7 +130,7 @@ export const generateAIResponse = createAsyncThunk(
       // present) rather than gated on the character having Emotion Portraits
       // enabled right now - a toggle flip mid-conversation shouldn't require
       // extra plumbing here to stay correct.
-      const { text: responseWithoutEmotion, emotion } = extractEmotionTag(response);
+      const { text: responseWithoutEmotion, emotion } = extractEmotionTag(response, customEmotions);
 
       const finalResponseText = await extractAndSaveBase64ImagesLocally(responseWithoutEmotion, generatedImages);
 

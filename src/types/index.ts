@@ -118,11 +118,13 @@ export interface Character {
   };
   // Per-emotion portraits (see EMOTIONS in utils/constants.ts) shown in place
   // of the initials avatar as the AI's reported mood shifts, "neutral"
-  // included. Keys are a subset of EMOTIONS; any mood (neutral included)
-  // with no entry here falls back to appearanceImages[0] instead.
+  // included. Keys are a subset of EMOTIONS plus any of this character's own
+  // customEmotions; any mood (neutral included) with no entry here falls back
+  // to appearanceImages[0] instead.
   emotionPortraits?: {
     enabled: boolean;
     images: Record<string, string>;
+    customEmotions?: string[]; // extra single-word moods this character can report, beyond the fixed EMOTIONS list
   };
   loreEntries?: LoreEntry[]; // keyword-triggered world info, injected into the system prompt only when relevant
   personalityTraits?: string[]; // quick-pick trait chips, folded into the system prompt alongside the main `prompt` field

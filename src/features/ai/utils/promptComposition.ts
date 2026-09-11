@@ -114,7 +114,7 @@ export const buildSystemInstruction = (
     );
   }
   if (character.emotionPortraits?.enabled) {
-    sections.push(buildEmotionDirective());
+    sections.push(buildEmotionDirective(character.emotionPortraits.customEmotions));
   }
   if (extraDirectives && extraDirectives.length > 0) {
     sections.push(...extraDirectives);
