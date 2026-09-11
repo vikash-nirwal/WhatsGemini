@@ -1,0 +1,2 @@
+"use strict";(self.webpackChunkwhatsgemini=self.webpackChunkwhatsgemini||[]).push([[6086],{300:(e,a,c)=>{c.r(a),c.d(a,{default:()=>i});var l=c(5867);function i(e){e.register(l.default),e.languages.cilkc=e.languages.insertBefore("c","function",{"parallel-keyword":{pattern:/\bcilk_(?:for|reducer|s(?:cope|pawn|ync))\b/,alias:"keyword"}}),e.languages["cilk-c"]=e.languages.cilkc}i.displayName="cilkc",i.aliases=["cilk-c"]}}]);
+//# sourceMappingURL=react-syntax-highlighter_languages_refractor_cilkc.21047d48.chunk.js.map
