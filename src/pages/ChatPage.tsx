@@ -21,7 +21,6 @@ import { buildChatHistory, buildSystemInstruction, buildTurnContext, AUTO_REPLY_
 import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
 import { mergeMemory } from "../features/ai/utils/memoryExtraction";
 import { resolveNextSpeaker, parseMention, stripSpeakerPrefix } from "../features/ai/utils/roomRouting";
-import ParticipantStrip from "../components/chat/ParticipantStrip";
 import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo } from "../features/chat/messageTree";
 import { estimateTokens, estimateHistoryTokens } from "../features/ai/utils/tokenEstimator";
 import { truncateHistory } from "../features/ai/utils/chatHistoryUtils";
@@ -99,6 +98,7 @@ const ChatPage = () => {
       try {
         await dispatch(fetchChatById(chatIdNum)).unwrap();
         await dispatch(fetchChats()).unwrap();
+        setError(null);
       } catch (err) {
         console.error("Error fetching chat data:", err);
         setError("Failed to load chat. Please try again.");
@@ -571,7 +571,7 @@ const ChatPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoReplySettings.enabled, autoReplySettings.minDelaySeconds, autoReplySettings.maxDelaySeconds, autoReplySettings.maxFollowups, autoReplySettings.followupCount, chatIdNum, characterData, currentChat?.content, aiLoading, lastTypingActivityAt]);
 
-  const handleSend = async (text: string, isImageRequest?: boolean, isImpersonated?: boolean) => {
+  const handleSend = async (text: string, isImageRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number) => {
     if (!text.trim() || !chatIdNum) return;
 
     setError(null);
@@ -592,14 +592,16 @@ const ChatPage = () => {
       const { messages: contextMessages, tokens: compressTokens, cost: compressCost } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: updatedMessages })).unwrap();
       await trackUsage(compressTokens, compressCost);
 
-      // Who replies: an @mention wins outright, otherwise round-robin to
-      // whoever's turn it is among unmuted participants. A plain 1:1 chat
-      // has exactly one active participant, so this always resolves to
-      // characterData there - unchanged behavior. @mention checks the FULL
-      // room (not just active participants) - muting only sits someone out
-      // of the automatic rotation, an explicit @mention can still call on
-      // them deliberately.
-      const speaker = (isRoom ? parseMention(text, roomCharacters) : undefined)
+      // Who replies: a speaker explicitly picked from the composer's room
+      // picker (while this message was being typed) wins outright, then an
+      // @mention, otherwise round-robin to whoever's turn it is among
+      // unmuted participants. A plain 1:1 chat has exactly one active
+      // participant, so this always resolves to characterData there -
+      // unchanged behavior. @mention checks the FULL room (not just active
+      // participants) - muting only sits someone out of the automatic
+      // rotation, an explicit @mention can still call on them deliberately.
+      const speaker = (forcedSpeakerId != null ? roomCharacters.find((c) => c.id === forcedSpeakerId) : undefined)
+        || (isRoom ? parseMention(text, roomCharacters) : undefined)
         || resolveNextSpeaker(roomCharacters, contextMessages, currentChat?.mutedParticipantIds)
         || characterData;
       if (!speaker) return;
@@ -1191,15 +1193,22 @@ const ChatPage = () => {
 
       {/* Message Input Floating */}
       <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-full max-w-4xl px-4 z-20">
-        {isRoom && (
-          <ParticipantStrip
-            characters={roomCharacters}
-            mutedParticipantIds={currentChat?.mutedParticipantIds}
-            disabled={aiLoading}
-            onForceReply={handleForceReply}
-          />
-        )}
-        <MessageInput onSend={handleSend} disabled={aiLoading} onStop={handleStopGenerating} onDraftActivity={handleDraftActivity} tokenCount={aiTokenCount} costEstimate={aiCostEstimate} characterName={characterData?.name || character} contextTokens={contextTokenEstimate} maxContextTokens={maxContextTokens} totalChatTokens={currentChat?.totalTokensUsed} totalChatCost={currentChat?.totalCostEstimate} />
+        <MessageInput
+          onSend={handleSend}
+          disabled={aiLoading}
+          onStop={handleStopGenerating}
+          onDraftActivity={handleDraftActivity}
+          tokenCount={aiTokenCount}
+          costEstimate={aiCostEstimate}
+          characterName={characterData?.name || character}
+          contextTokens={contextTokenEstimate}
+          maxContextTokens={maxContextTokens}
+          totalChatTokens={currentChat?.totalTokensUsed}
+          totalChatCost={currentChat?.totalCostEstimate}
+          roomCharacters={roomCharacters}
+          mutedParticipantIds={currentChat?.mutedParticipantIds}
+          onForceReply={handleForceReply}
+        />
       </div>
     </div>
   );

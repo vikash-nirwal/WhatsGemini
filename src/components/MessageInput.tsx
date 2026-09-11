@@ -1,14 +1,19 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo, useContext } from "react";
-import { FaPaperPlane, FaStop, FaCog, FaImage, FaTimes, FaMicrophone, FaMask } from "react-icons/fa";
+import { FaPaperPlane, FaStop, FaCog, FaImage, FaTimes, FaMask, FaUserFriends } from "react-icons/fa";
 import { cn } from "../utils/cn";
 import { Button } from "./ui/button";
+import { CharacterAvatar } from "./ui/CharacterAvatar";
 import { ThemeContext } from "../contexts/ThemeContext";
 import ImageSettingsModal from "./ImageSettingsModal";
-import { isSpeechRecognitionSupported, createSpeechRecognition } from "../utils/speech";
 import { estimateTokens } from "../features/ai/utils/tokenEstimator";
+import { Character } from "../types";
 
 interface MessageInputProps {
-  onSend: (text: string, isImageRequest?: boolean, isImpersonated?: boolean) => void;
+  // `forcedSpeakerId` is set when the user picked a specific participant
+  // (via the room picker below) while a draft was in the box - only that
+  // character should reply to this particular message, bypassing the usual
+  // @mention/round-robin pick.
+  onSend: (text: string, isImageRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number) => void;
   disabled?: boolean;
   onStop?: () => void;
   // Fires while the user is actively typing a non-empty draft - lets a
@@ -28,6 +33,14 @@ interface MessageInputProps {
   // tokenCount/costEstimate above which reset to just the latest turn.
   totalChatTokens?: number;
   totalChatCost?: number;
+  // Room-only (Phase 12+): every member, for the "reply as" picker. Omitted
+  // (or a single-character list) for a plain 1:1 chat, which hides it entirely.
+  roomCharacters?: Character[];
+  mutedParticipantIds?: number[];
+  // Picking a participant while the draft is EMPTY skips composing
+  // altogether and asks that character to speak up now, same as before -
+  // this is that existing force-reply/follow-up action, not a new one.
+  onForceReply?: (characterId: number) => void;
 }
 
 const MAX_TEXTAREA_HEIGHT = 120;
@@ -38,75 +51,58 @@ const formatTokenCount = (n: number): string => {
   return String(Math.round(n));
 };
 
-const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, onStop, onDraftActivity, tokenCount = 0, costEstimate = 0, characterName, contextTokens = 0, maxContextTokens = 0, totalChatTokens = 0, totalChatCost = 0 }) => {
+const MessageInput: React.FC<MessageInputProps> = ({
+  onSend,
+  disabled = false,
+  onStop,
+  onDraftActivity,
+  tokenCount = 0,
+  costEstimate = 0,
+  characterName,
+  contextTokens = 0,
+  maxContextTokens = 0,
+  totalChatTokens = 0,
+  totalChatCost = 0,
+  roomCharacters,
+  mutedParticipantIds,
+  onForceReply,
+}) => {
   const { colorTheme } = useContext(ThemeContext);
   const neumorphic = colorTheme === "neumorphic";
   const [text, setText] = useState("");
   const [isImageRequest, setIsImageRequest] = useState(false);
   const [isImpersonated, setIsImpersonated] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [isListening, setIsListening] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [selectedSpeakerId, setSelectedSpeakerId] = useState<number | null>(null);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
-  // Text already in the box before this dictation session started, and the
-  // finalized (non-interim) speech recognized so far in it - rebuilt into
-  // `text` on every result event so live partial transcripts just update in
-  // place instead of needing a separate ghost-text overlay.
-  const baseTextRef = useRef("");
-  const finalTranscriptRef = useRef("");
-  const micSupported = useMemo(() => isSpeechRecognitionSupported(), []);
+  const pickerRef = useRef<HTMLDivElement>(null);
 
-  const stopListening = useCallback(() => {
-    recognitionRef.current?.stop();
-  }, []);
+  const isRoom = Boolean(roomCharacters && roomCharacters.length > 1);
+  const selectedSpeaker = selectedSpeakerId != null ? roomCharacters?.find((c) => c.id === selectedSpeakerId) : undefined;
 
-  const startListening = useCallback(() => {
-    const recognition = createSpeechRecognition();
-    if (!recognition) return;
-
-    baseTextRef.current = text;
-    finalTranscriptRef.current = "";
-
-    recognition.onresult = (event) => {
-      let interim = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscriptRef.current += transcript + " ";
-        } else {
-          interim += transcript;
-        }
+  // Click-based, not hover - a hover-triggered popover this close to the
+  // screen edge left no room to move the cursor from the icon into the
+  // popover without it closing first. Closes on picking someone (see
+  // handlePickParticipant), on Escape, or on clicking anywhere else.
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const handlePointerDown = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setPickerOpen(false);
       }
-      const base = baseTextRef.current;
-      const joinedBase = base && !base.endsWith(" ") ? base + " " : base;
-      setText((joinedBase + finalTranscriptRef.current + interim).trimStart());
     };
-    recognition.onerror = () => {
-      setIsListening(false);
-      recognitionRef.current = null;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPickerOpen(false);
     };
-    recognition.onend = () => {
-      setIsListening(false);
-      recognitionRef.current = null;
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
     };
-
-    recognitionRef.current = recognition;
-    recognition.start();
-    setIsListening(true);
-  }, [text]);
-
-  const toggleListening = useCallback(() => {
-    if (disabled) return;
-    if (isListening) {
-      stopListening();
-    } else {
-      startListening();
-    }
-  }, [disabled, isListening, startListening, stopListening]);
-
-  // Stop dictation if the composer unmounts mid-session (e.g. navigating away).
-  useEffect(() => () => recognitionRef.current?.stop(), []);
+  }, [pickerOpen]);
 
   const resize = useCallback(() => {
     const el = inputRef.current;
@@ -125,12 +121,28 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, o
     const trimmedText = text.trim();
     if (!trimmedText) return;
 
-    if (isListening) stopListening();
-    onSend(trimmedText, isImageRequest, isImpersonated);
+    onSend(trimmedText, isImageRequest, isImpersonated, selectedSpeakerId ?? undefined);
     setText("");
     setIsImageRequest(false); // Disable/uncheck it afterward
     setIsImpersonated(false);
-  }, [text, isImageRequest, isImpersonated, onSend, disabled, isListening, stopListening]);
+    setSelectedSpeakerId(null);
+  }, [text, isImageRequest, isImpersonated, selectedSpeakerId, onSend, disabled]);
+
+  // Picking a participant means something different depending on whether
+  // there's already a draft: with text in the box, it targets THIS message
+  // (cleared once sent, like the image/impersonate toggles above); with an
+  // empty box, there's nothing to target, so it goes straight to the
+  // existing "make them speak up now" action instead.
+  const handlePickParticipant = useCallback((character: Character) => {
+    if (disabled) return;
+    setPickerOpen(false);
+    if (text.trim()) {
+      setSelectedSpeakerId(character.id);
+      inputRef.current?.focus();
+    } else {
+      onForceReply?.(character.id);
+    }
+  }, [disabled, text, onForceReply]);
 
   // Scroll input into view when focused (helps with mobile keyboards)
   const handleFocus = useCallback(() => {
@@ -221,21 +233,18 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, o
         </div>
       )}
 
-      {isListening && (
-        <div className="flex items-center gap-2.5 px-3 py-2 bg-destructive/10 border border-destructive/50 rounded-lg">
-          <span className="relative flex-shrink-0 w-2.5 h-2.5">
-            <span className="absolute inset-0 rounded-full bg-destructive animate-ping opacity-75" />
-            <span className="absolute inset-0 rounded-full bg-destructive" />
-          </span>
+      {selectedSpeaker && (
+        <div className="flex items-center gap-2.5 px-3 py-2 bg-primary/10 border border-primary rounded-lg">
+          <CharacterAvatar name={selectedSpeaker.name} accent={selectedSpeaker.accent} size={18} className="flex-shrink-0" />
           <span className="flex-1 text-[12.5px] text-foreground font-medium">
-            Listening… speak, then tap the mic to stop.
+            Only {selectedSpeaker.name} will reply to this message.
           </span>
           <Button
-            onClick={stopListening}
+            onClick={() => setSelectedSpeakerId(null)}
             variant="ghost"
             size="icon"
             className="h-6 w-6 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground flex-shrink-0"
-            aria-label="Stop listening"
+            aria-label="Clear selected replier"
           >
             <FaTimes size={11} />
           </Button>
@@ -251,6 +260,57 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, o
             : "bg-card/[0.85] border border-border/10"
         )}
       >
+        {isRoom && roomCharacters && (
+          <div className="relative flex-shrink-0" ref={pickerRef}>
+            <Button
+              type="button"
+              onClick={() => setPickerOpen((v) => !v)}
+              disabled={disabled}
+              variant="ghost"
+              title="Reply as..."
+              aria-label="Choose who replies"
+              aria-expanded={pickerOpen}
+              className={cn(
+                "h-10 w-10 flex-shrink-0 rounded-lg",
+                selectedSpeaker
+                  ? "bg-primary/[0.14] text-primary hover:bg-primary/[0.2]"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              )}
+            >
+              {selectedSpeaker ? (
+                <CharacterAvatar name={selectedSpeaker.name} accent={selectedSpeaker.accent} size={22} />
+              ) : (
+                <FaUserFriends size={16} />
+              )}
+            </Button>
+
+            {pickerOpen && (
+              <div className="absolute bottom-full left-0 mb-2 flex items-center gap-1.5 p-1.5 rounded-full bg-card border border-border shadow-soft z-30">
+                {roomCharacters.map((char) => {
+                  const isMuted = mutedParticipantIds?.includes(char.id);
+                  return (
+                    <button
+                      key={char.id}
+                      type="button"
+                      onClick={() => handlePickParticipant(char)}
+                      disabled={disabled || isMuted}
+                      title={isMuted ? `${char.name} is muted` : text.trim() ? `Only ${char.name} replies to this message` : `Make ${char.name} reply now`}
+                      aria-label={isMuted ? `${char.name} is muted` : `Reply as ${char.name}`}
+                      className={cn(
+                        "flex-shrink-0 rounded-full transition disabled:cursor-not-allowed",
+                        isMuted ? "opacity-30" : "hover:scale-110 hover:ring-2 hover:ring-primary/50",
+                        selectedSpeakerId === char.id && "ring-2 ring-primary"
+                      )}
+                    >
+                      <CharacterAvatar name={char.name} accent={char.accent} size={32} />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         <Button
           onClick={() => setIsImageRequest((v) => !v)}
           disabled={disabled}
@@ -285,25 +345,6 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, o
           <FaMask size={16} />
         </Button>
 
-        {micSupported && (
-          <Button
-            onClick={toggleListening}
-            disabled={disabled}
-            variant="ghost"
-            title={isListening ? "Stop dictation" : "Dictate a message"}
-            aria-label={isListening ? "Stop dictation" : "Dictate a message"}
-            aria-pressed={isListening}
-            className={cn(
-              "h-10 w-10 flex-shrink-0 rounded-lg",
-              isListening
-                ? "bg-destructive/10 text-destructive hover:bg-destructive/10"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-            )}
-          >
-            <FaMicrophone size={16} />
-          </Button>
-        )}
-
         <Button
           onClick={() => setIsSettingsModalOpen(true)}
           variant="ghost"
@@ -321,6 +362,10 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, o
             const value = e.target.value;
             setText(value);
             if (value.trim()) onDraftActivity?.();
+            // A forced-speaker selection only makes sense for a message
+            // that's actually being composed - clearing the draft back to
+            // empty drops it too, instead of leaving a stale banner around.
+            if (!value.trim() && selectedSpeakerId != null) setSelectedSpeakerId(null);
           }}
           rows={1}
           placeholder={
@@ -328,6 +373,8 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, o
               ? "Waiting for response..."
               : isImpersonated
               ? `Write as ${characterName || "the character"}…`
+              : selectedSpeaker
+              ? `Message ${selectedSpeaker.name}…`
               : characterName
               ? `Message ${characterName}…`
               : "Type a message..."
