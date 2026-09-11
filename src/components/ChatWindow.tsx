@@ -4,8 +4,6 @@ import { motion } from "framer-motion";
 import { YOU, LS_INITIAL_MESSAGES } from "../utils/constants";
 import { Message, Character, ConversationTree } from "../types";
 import { getSiblingInfo } from "../features/chat/messageTree";
-import { speak, stopSpeaking } from "../utils/speech";
-import { stripImageContextTag } from "../features/ai/utils/imageGeneration";
 import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
 import { DisplayImage } from "./DisplayImage";
 import ToggleSwitch from "./ToggleSwitch";
@@ -32,7 +30,7 @@ interface ChatWindowProps {
   isFollowupPending?: boolean;
   characterName?: string;
   character?: Character; // the chat's primary character - header, empty state, and the fallback for any message with no resolvable speaker
-  characters?: Character[]; // every character in the chat/room (Phase 12); per-message avatar/emotion/voice resolve against this via Message.speakerId, falling back to `character` above
+  characters?: Character[]; // every character in the chat/room (Phase 12); per-message avatar/emotion resolve against this via Message.speakerId, falling back to `character` above
   chatId?: number;
   sceneOpen?: boolean;
   onCloseScene?: () => void;
@@ -86,7 +84,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
-  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
 
   const handleScroll = useCallback(() => {
     if (scrollContainerRef.current) {
@@ -251,32 +248,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
     [characters, character]
   );
 
-  const handleToggleSpeak = useCallback((msg: Message) => {
-    if (!msg.id) return;
-    if (speakingMessageId === msg.id) {
-      stopSpeaking();
-      setSpeakingMessageId(null);
-      return;
-    }
-    const id = msg.id;
-    speak(stripImageContextTag(msg.txt || ""), resolveSpeaker(msg)?.voiceURI, () => {
-      setSpeakingMessageId((current) => (current === id ? null : current));
-    });
-    setSpeakingMessageId(id);
-  }, [speakingMessageId, resolveSpeaker]);
-
-  // If the message currently being read aloud disappears from the active
-  // path (chat switch, edit, regenerate, branch-delete), stop instead of
-  // reading a message that's no longer even shown.
-  useEffect(() => {
-    if (speakingMessageId && !messages.some((m) => m.id === speakingMessageId)) {
-      stopSpeaking();
-      setSpeakingMessageId(null);
-    }
-  }, [messages, speakingMessageId]);
-
-  useEffect(() => () => stopSpeaking(), []);
-
   const getInitials = (name?: string) => {
     if (!name || name === "New Chat" || name.trim() === "Chat") return "G";
     const parts = name.split(" ").filter(Boolean);
@@ -378,8 +349,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
                     siblingInfo={siblingInfo && siblingInfo.total > 1 ? siblingInfo : undefined}
                     onSwitchBranch={onSwitchBranch}
                     onDeleteBranch={onDeleteBranch}
-                    isSpeaking={Boolean(msg.id) && speakingMessageId === msg.id}
-                    onToggleSpeak={handleToggleSpeak}
                   />
                 );
               })

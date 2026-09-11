@@ -81,7 +81,6 @@ const CharacterPage = () => {
       appearanceImages: char.appearanceImages || [],
       tags: char.tags || [],
       accent: char.accent,
-      voiceURI: char.voiceURI,
       autoSelfie: char.autoSelfie,
     };
 

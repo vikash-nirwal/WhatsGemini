@@ -9,10 +9,9 @@ import { ART_STYLE_CLAUSES, DEFAULT_ART_STYLE } from "../../../utils/constants";
 // The derivation prompt below instructs the model to append a trailing
 // [Image Context: ...] tag to its reply so it can recall what it sent in later
 // turns - that tag needs to stay in the persisted message text (it's fed back
-// as history), but isn't meant for the user to actually see, hear via
-// text-to-speech, or get when copying the message. Callers that render/copy/
-// speak message text should run it through this first; the DB/history copy
-// stays untouched.
+// as history), but isn't meant for the user to actually see or get when
+// copying the message. Callers that render/copy message text should run it
+// through this first; the DB/history copy stays untouched.
 export const stripImageContextTag = (text: string): string =>
   text.replace(/\n*\[Image Context:[\s\S]*?\]\s*$/i, "").trimEnd();
 

@@ -111,7 +111,6 @@ export interface Character {
   accent?: [string, string]; // two-color avatar gradient, e.g. ["#10B981", "#0EA5A0"]
   tags?: string[]; // discoverability tags, e.g. ["Fantasy", "Sci-Fi", "NSFW"]
   memory?: string[]; // durable facts about the user/relationship, extracted over time
-  voiceURI?: string; // SpeechSynthesisVoice.voiceURI used to read this character's messages aloud
   autoSelfie?: {
     enabled: boolean;
     frequency: number; // 1-100, % chance each of the character's own replies spontaneously includes a selfie

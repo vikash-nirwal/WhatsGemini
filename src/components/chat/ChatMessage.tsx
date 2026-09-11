@@ -1,6 +1,6 @@
-import React, { useCallback, useContext, useMemo, useState } from "react";
+import React, { useCallback, useContext, useState } from "react";
 import { ThemeContext } from "../../contexts/ThemeContext";
-import { FaCopy, FaRedo, FaEdit, FaEllipsisV, FaChevronLeft, FaChevronRight, FaTrash, FaVolumeUp, FaStop, FaCompressArrowsAlt, FaForward, FaMask } from "react-icons/fa";
+import { FaCopy, FaRedo, FaEdit, FaEllipsisV, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { cn } from "../../utils/cn";
 import { Message } from "../../types";
@@ -13,7 +13,6 @@ import { CharacterAvatar } from "../ui/CharacterAvatar";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { Tooltip, TooltipTrigger, TooltipContent } from "../ui/tooltip";
-import { isSpeechSynthesisSupported } from "../../utils/speech";
 
 interface SiblingInfo {
   index: number;
@@ -36,8 +35,6 @@ interface ChatMessageProps {
   siblingInfo?: SiblingInfo;
   onSwitchBranch?: (nodeId: string) => void;
   onDeleteBranch?: (nodeId: string) => void;
-  isSpeaking?: boolean;
-  onToggleSpeak?: (msg: Message) => void;
 }
 
 const ChatMessage = React.memo(({
@@ -55,13 +52,10 @@ const ChatMessage = React.memo(({
   siblingInfo,
   onSwitchBranch,
   onDeleteBranch,
-  isSpeaking,
-  onToggleSpeak,
 }: ChatMessageProps) => {
   const isUser = msg.role === YOU;
   const { colorTheme } = useContext(ThemeContext);
   const neumorphic = colorTheme === "neumorphic";
-  const speechSupported = useMemo(() => isSpeechSynthesisSupported(), []);
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
 
   const handleCopy = useCallback(() => onCopy(stripImageContextTag(msg.txt || "")), [onCopy, msg.txt]);
@@ -69,7 +63,6 @@ const ChatMessage = React.memo(({
   const handleContinue = useCallback(() => onContinue?.(msg), [onContinue, msg]);
   const handleEdit = useCallback(() => onStartEdit(msg), [onStartEdit, msg]);
   const handleDeleteBranch = useCallback(() => msg.id && onDeleteBranch?.(msg.id), [onDeleteBranch, msg.id]);
-  const handleToggleSpeak = useCallback(() => onToggleSpeak?.(msg), [onToggleSpeak, msg]);
 
   if (msg.isCompressionSummary) {
     return (
@@ -283,25 +276,6 @@ const ChatMessage = React.memo(({
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Ask the model to keep writing from where this reply left off</TooltipContent>
-                </Tooltip>
-              )}
-              {speechSupported && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleToggleSpeak}
-                      aria-label={isSpeaking ? "Stop" : "Speak"}
-                      className={cn(
-                        "h-auto w-auto p-1.5 rounded-md hover:bg-secondary",
-                        isSpeaking ? "text-primary hover:text-primary" : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      {isSpeaking ? <FaStop size={12} /> : <FaVolumeUp size={12} />}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{isSpeaking ? "Stop" : "Speak"}</TooltipContent>
                 </Tooltip>
               )}
               <Tooltip>

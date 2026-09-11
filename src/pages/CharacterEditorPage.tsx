@@ -2,13 +2,13 @@ import React, { useState, useEffect, useRef, useMemo, useContext } from "react";
 import { ThemeContext } from "../contexts/ThemeContext";
 import { addCharacter, updateCharacter } from "../features/characterSlice";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { FaTimes, FaUpload, FaPlay, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaMagic, FaCrop, FaTrash, FaBook, FaDice } from "react-icons/fa";
+import { FaTimes, FaUpload, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaMagic, FaCrop, FaTrash, FaBook, FaDice } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Character, LoreEntry, ArtStyle } from "../types";
 import { dbService } from "../services/dbService";
 import { generateAssistText, generateAvatarImage } from "../features/aiSlice";
 import { DisplayImage } from "../components/DisplayImage";
-import { TextInput, TextArea, Select, FieldLabel, InfoTooltip, Slider, TagInput, PresetSelectField, ChipSelectField } from "../components/ui/FormControls";
+import { TextInput, TextArea, FieldLabel, InfoTooltip, Slider, TagInput, PresetSelectField, ChipSelectField } from "../components/ui/FormControls";
 import { CharacterAvatar } from "../components/ui/CharacterAvatar";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
@@ -17,7 +17,6 @@ import ToggleSwitch from "../components/ToggleSwitch";
 import Header from "../components/Header";
 import { CHARACTER_SWATCHES, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, EMOTIONS, ART_STYLES, DEFAULT_ART_STYLE, LORE_SCAN_MESSAGE_COUNT, RELATIONSHIP_PRESETS, TAG_PRESETS, PERSONALITY_TRAIT_PRESETS } from "../utils/constants";
 import { SegmentedControl } from "../components/settings/SegmentedControl";
-import { isSpeechSynthesisSupported, getVoices, speak } from "../utils/speech";
 import { estimateTokens } from "../features/ai/utils/tokenEstimator";
 import TestChatPane from "../components/character/TestChatPane";
 import AvatarCropDialog from "../components/character/AvatarCropDialog";
@@ -90,8 +89,6 @@ const CharacterEditorPage = () => {
   const [appearanceImages, setAppearanceImages] = useState<string[]>([]);
   const [artStyle, setArtStyle] = useState<ArtStyle>(DEFAULT_ART_STYLE);
   const [accentIndex, setAccentIndex] = useState(0);
-  const [voiceURI, setVoiceURI] = useState("");
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [autoSelfieEnabled, setAutoSelfieEnabled] = useState(false);
   const [autoSelfieFrequency, setAutoSelfieFrequency] = useState(DEFAULT_AUTO_SELFIE_FREQUENCY);
   const [emotionPortraitsEnabled, setEmotionPortraitsEnabled] = useState(false);
@@ -99,11 +96,6 @@ const CharacterEditorPage = () => {
   const [customEmotions, setCustomEmotions] = useState<string[]>([]);
   const [loreEntries, setLoreEntries] = useState<LoreEntry[]>([]);
   const [personalityTraits, setPersonalityTraits] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (!isSpeechSynthesisSupported()) return;
-    getVoices().then(setVoices);
-  }, []);
 
   // Seed the form from whichever source applies: editing an existing
   // character, duplicating one, or a blank create. Always runs on
@@ -129,7 +121,6 @@ const CharacterEditorPage = () => {
       setAppearanceImages(source.appearanceImages || []);
       setArtStyle(source.artStyle || DEFAULT_ART_STYLE);
       setAccentIndex(findSwatchIndex(source.accent));
-      setVoiceURI(source.voiceURI || "");
       setAutoSelfieEnabled(source.autoSelfie?.enabled || false);
       setAutoSelfieFrequency(source.autoSelfie?.frequency ?? DEFAULT_AUTO_SELFIE_FREQUENCY);
       setEmotionPortraitsEnabled(source.emotionPortraits?.enabled || false);
@@ -150,7 +141,6 @@ const CharacterEditorPage = () => {
       setAppearanceImages([]);
       setArtStyle(DEFAULT_ART_STYLE);
       setAccentIndex(0);
-      setVoiceURI("");
       setAutoSelfieEnabled(false);
       setAutoSelfieFrequency(DEFAULT_AUTO_SELFIE_FREQUENCY);
       setEmotionPortraitsEnabled(false);
@@ -288,7 +278,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
       alert("Character name and prompt are required.");
       return;
     }
-    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits }));
+    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits }));
     navigate("/characters");
   };
 
@@ -302,7 +292,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
       alert("Character name and prompt are required.");
       return;
     }
-    dispatch(updateCharacter({ id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], voiceURI: voiceURI || undefined, gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits }));
+    dispatch(updateCharacter({ id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits }));
     if (options?.stay) {
       toast.success("Character saved");
     } else {
@@ -672,10 +662,10 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
 
         <div className="flex flex-col gap-6">
 
-          {/* Persistent avatar strip: portrait + accent/voice/auto-selfie, shared
+          {/* Persistent avatar strip: portrait + accent/auto-selfie, shared
               across every step - per the redesign's spec, a single horizontal
-              card (not a tall sidebar) whose controls flex-wrap, so Voice drops
-              to its own line on narrow widths instead of overflowing. */}
+              card (not a tall sidebar) whose controls flex-wrap on narrow
+              widths instead of overflowing. */}
           <Card className="p-6">
             <div className="flex flex-wrap gap-6">
               <div className="flex gap-3 flex-1 basis-[220px] min-w-0">
@@ -752,30 +742,6 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                 </div>
               </div>
 
-              {isSpeechSynthesisSupported() && (
-                <div className="flex-1 basis-[200px] min-w-0">
-                  <FieldLabel hint="Used to read this character's replies aloud with the speak button in chat.">Voice (optional)</FieldLabel>
-                  <div className="flex gap-2">
-                    <Select value={voiceURI} onChange={(e) => setVoiceURI(e.target.value)} className="flex-1">
-                      <option value="">Browser default</option>
-                      {voices.map((v) => (
-                        <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>
-                      ))}
-                    </Select>
-                    <Button
-                      type="button"
-                      variant="panel"
-                      onClick={() => speak(`Hi, I'm ${name || "your character"}.`, voiceURI || undefined)}
-                      disabled={voices.length === 0}
-                      className="w-11 h-11 flex-shrink-0 border border-border hover:border-primary hover:text-primary"
-                      title="Preview voice"
-                      aria-label="Preview voice"
-                    >
-                      <FaPlay size={12} />
-                    </Button>
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="mt-6 pt-6 border-t border-border/30">
