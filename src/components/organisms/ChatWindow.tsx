@@ -281,13 +281,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
   const latestEmotion = latestEmotionMessage?.emotion;
   const currentEmotionImageSrc = resolveEmotionPortrait(character, latestEmotion);
 
-  // Who actually spoke that latest-emotion message - in a room this can be
-  // any participant (resolveSpeaker follows the message's own speakerId),
-  // not always the chat's primary `character`. The docked sprite below docks
-  // whoever most recently spoke, same "last speaker" notion roomRouting.ts
-  // already uses to decide whose turn is next.
-  const latestSpeaker = latestEmotionMessage ? resolveSpeaker(latestEmotionMessage) : character;
-
+  // Group-chat presence: dock every participant's current-mood portrait, not
+  // just whoever spoke most recently - a multi-character room's whole mood
+  // should be visible at a glance. Each character's own most recent
+  // emotion-bearing message (resolveSpeaker follows the message's own
+  // speakerId, same as roomRouting.ts uses to decide whose turn is next)
+  // drives their own sprite.
+  //
   // Unlike currentEmotionImageSrc above (which falls back to the character's
   // ordinary main avatar for the small typing/follow-up indicator, where an
   // opaque image is perfectly fine), the docked sprite panel must only ever
@@ -297,13 +297,27 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
   // with its own plain background baked into the pixels, which looked like
   // a boxed panel instead of blending with the page when it showed here.
   // "neutral" can have its own generated slot like any other mood
-  // (emotionUtils.ts) - reading straight off images[latestEmotion] here (no
-  // special-casing "neutral") means the panel shows it when one exists and
-  // simply stays hidden otherwise, same as any other ungenerated mood.
-  const dockedSpriteImageSrc =
-    latestSpeaker?.emotionPortraits?.enabled && latestEmotion
-      ? latestSpeaker.emotionPortraits.images[latestEmotion]
-      : undefined;
+  // (emotionUtils.ts) - reading straight off images[emo] here (no
+  // special-casing "neutral") means a character's sprite shows when one
+  // exists and that character is simply skipped otherwise, same as any
+  // other ungenerated mood.
+  const dockedSprites = useMemo(() => {
+    const roster = characters && characters.length > 0 ? characters : character ? [character] : [];
+    const sprites: { imageSrc: string; characterName?: string; emotion?: string }[] = [];
+    for (const c of roster) {
+      let emo: string | undefined;
+      for (let i = filteredMessages.length - 1; i >= 0; i--) {
+        const msg = filteredMessages[i];
+        if (msg.role !== YOU && msg.emotion && resolveSpeaker(msg)?.id === c.id) {
+          emo = msg.emotion;
+          break;
+        }
+      }
+      const imageSrc = c.emotionPortraits?.enabled && emo ? c.emotionPortraits.images[emo] : undefined;
+      if (imageSrc) sprites.push({ imageSrc, characterName: c.name, emotion: emo });
+    }
+    return sprites;
+  }, [characters, character, filteredMessages, resolveSpeaker]);
 
   return (
     <>
@@ -397,14 +411,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
         )}
       </div>
 
-      {dockedSpriteImageSrc && (
-        <EmotionSpritePanel
-          imageSrc={dockedSpriteImageSrc}
-          characterName={latestSpeaker?.name || characterName}
-          emotion={latestEmotion}
-          showName={Boolean(characters && characters.length > 1)}
-        />
-      )}
+      {dockedSprites.length > 0 && <EmotionSpritePanel sprites={dockedSprites} />}
 
       {sceneOpen && chatId != null && (
         <ScenePanel

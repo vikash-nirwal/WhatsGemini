@@ -2,15 +2,19 @@ import React from "react";
 import { DisplayImage } from "./DisplayImage";
 import { useColorTheme } from "src/hooks/useColorTheme";
 
-interface EmotionSpritePanelProps {
+export interface EmotionSprite {
   imageSrc: string;
   characterName?: string;
   emotion?: string;
-  showName?: boolean; // multi-character rooms: label whose face this is, since it's no longer always the one named in the chat header
 }
 
-// Docks the character's current mood portrait beside the chat, larger than
-// the per-message avatar - a SillyTavern-style presence rather than a UI
+interface EmotionSpritePanelProps {
+  sprites: EmotionSprite[];
+  showNames?: boolean; // label whose face is whose; defaults to on once there's more than one sprite to tell apart
+}
+
+// Docks the room's current mood portraits beside the chat, larger than the
+// per-message avatar - a SillyTavern-style presence rather than a UI
 // drawer. Deliberately carries no bg-*/border-* classes (unlike ScenePanel/
 // ParticipantsPanel's `bg-card/70 border-l` drawer treatment) so the page's
 // own background shows straight through and it reads as one continuous
@@ -23,8 +27,8 @@ interface EmotionSpritePanelProps {
 // (see portraitUtils.ts's removeChromaKeyBackground). The no-portrait-yet
 // fallback (resolveEmotionPortrait, emotionUtils.ts) is the character's
 // ordinary main avatar, an opaque image with its own plain background baked
-// in - ChatWindow.tsx's dockedSpriteImageSrc is deliberately stricter than
-// that and never passes this component that fallback image.
+// in - ChatWindow.tsx's dockedSprites is deliberately stricter than that and
+// never feeds this component that fallback image.
 //
 // `relative z-30`: the message composer (ChatPage.tsx) is a sibling of
 // ChatWindow entirely, floated via `absolute ... z-20` over the whole page -
@@ -37,51 +41,72 @@ interface EmotionSpritePanelProps {
 // (unpositioned, so effectively z-0) - the sprite is meant to read as the
 // frontmost thing in the room. Still pointer-events-none, so it never
 // blocks clicks/typing on whatever it visually overlaps.
-const EmotionSpritePanel: React.FC<EmotionSpritePanelProps> = ({ imageSrc, characterName, emotion, showName }) => {
+//
+// Group chats dock every participant with a current mood, not just the last
+// speaker - `flex-1 min-w-0`/`min-h-0` per sprite (rather than a fixed size)
+// is what keeps them all *contained* as the roster grows: each portrait
+// shrinks to share the fixed-width panel instead of overflowing it or
+// forcing a scrollbar.
+const EmotionSpritePanel: React.FC<EmotionSpritePanelProps> = ({ sprites, showNames }) => {
   const { is } = useColorTheme();
+  if (sprites.length === 0) return null;
+  const namesOn = showNames ?? sprites.length > 1;
+
   if (is("terminal")) {
-    // Terminal boxes the portrait in a bordered frame with a name + mood
+    // Terminal boxes each portrait in a bordered frame with a name + mood
     // badge instead of letting it float over the chat.
     return (
       <aside className="relative z-30 w-[210px] flex-none hidden lg:flex flex-col gap-3 px-5 py-5 border-l border-border bg-background overflow-y-auto pointer-events-none">
-        <span className="text-[10px] text-muted-foreground"># portrait</span>
-        <div className="border border-border-bright p-2 flex flex-col gap-2.5">
-          <div className="aspect-[3/4] overflow-hidden flex items-end justify-center">
-            <DisplayImage
-              srcContext={imageSrc}
-              alt={`${characterName || "Character"}'s current mood`}
-              className="max-w-full max-h-full object-contain object-bottom"
-            />
+        <span className="text-[10px] text-muted-foreground"># portrait{sprites.length > 1 ? "s" : ""}</span>
+        {sprites.map((sprite, i) => (
+          <div key={i} className="flex-1 min-h-0 border border-border-bright p-2 flex flex-col gap-2.5">
+            <div
+              className={
+                sprites.length > 1
+                  ? "flex-1 min-h-0 overflow-hidden flex items-end justify-center"
+                  : "aspect-[3/4] overflow-hidden flex items-end justify-center"
+              }
+            >
+              <DisplayImage
+                srcContext={sprite.imageSrc}
+                alt={`${sprite.characterName || "Character"}'s current mood`}
+                className="max-w-full max-h-full object-contain object-bottom"
+              />
+            </div>
+            <div className="flex items-center justify-between gap-2 min-w-0">
+              <span className="text-xs font-bold text-foreground truncate">{sprite.characterName}</span>
+              {sprite.emotion && (
+                <span className="flex-none text-[9px] font-bold uppercase px-2 py-0.5 bg-primary text-primary-foreground">
+                  {sprite.emotion}
+                </span>
+              )}
+            </div>
           </div>
-          <div className="flex items-center justify-between gap-2 min-w-0">
-            <span className="text-xs font-bold text-foreground truncate">{characterName}</span>
-            {emotion && (
-              <span className="flex-none text-[9px] font-bold uppercase px-2 py-0.5 bg-primary text-primary-foreground">{emotion}</span>
-            )}
-          </div>
-        </div>
+        ))}
         <p className="text-[10px] text-muted-foreground leading-relaxed"># portrait follows the current mood.</p>
       </aside>
     );
   }
   return (
-  <aside className="relative z-30 w-[200px] flex-none hidden lg:flex flex-col items-center justify-end overflow-hidden pointer-events-none">
-    {(showName || emotion) && (
-      <div className="mb-2 flex flex-col items-center text-center">
-        {showName && characterName && (
-          <span className="text-[12px] font-semibold text-foreground">{characterName}</span>
-        )}
-        {emotion && (
-          <span className="text-[11px] font-medium text-subtle capitalize">{emotion}</span>
-        )}
-      </div>
-    )}
-    <DisplayImage
-      srcContext={imageSrc}
-      alt={`${characterName || "Character"}'s current mood`}
-      className="max-w-full max-h-full object-contain object-bottom"
-    />
-  </aside>
+    <aside className="relative z-30 w-[200px] flex-none hidden lg:flex flex-row items-end justify-center gap-1 overflow-hidden pointer-events-none">
+      {sprites.map((sprite, i) => (
+        <div key={i} className="flex-1 min-w-0 h-full flex flex-col items-center justify-end overflow-hidden">
+          {(namesOn || sprite.emotion) && (
+            <div className="mb-2 flex flex-col items-center text-center">
+              {namesOn && sprite.characterName && (
+                <span className="text-[12px] font-semibold text-foreground truncate max-w-full">{sprite.characterName}</span>
+              )}
+              {sprite.emotion && <span className="text-[11px] font-medium text-subtle capitalize">{sprite.emotion}</span>}
+            </div>
+          )}
+          <DisplayImage
+            srcContext={sprite.imageSrc}
+            alt={`${sprite.characterName || "Character"}'s current mood`}
+            className="max-w-full max-h-full object-contain object-bottom"
+          />
+        </div>
+      ))}
+    </aside>
   );
 };
 
