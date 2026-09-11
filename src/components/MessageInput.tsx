@@ -75,12 +75,66 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [selectedSpeakerId, setSelectedSpeakerId] = useState<number | null>(null);
+  // Set while the caret is sitting right after an in-progress "@word" with no
+  // space yet typed - `start` is where the "@" sits in `text`, `query` is
+  // whatever's been typed after it so far.
+  const [mention, setMention] = useState<{ start: number; query: string } | null>(null);
+  const [mentionActiveIndex, setMentionActiveIndex] = useState(0);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
 
   const isRoom = Boolean(roomCharacters && roomCharacters.length > 1);
   const selectedSpeaker = selectedSpeakerId != null ? roomCharacters?.find((c) => c.id === selectedSpeakerId) : undefined;
+
+  // Looks backward from the caret for an "@" that starts the current word
+  // (line start or preceded by whitespace, no space/newline/second "@" typed
+  // since) - the same shape of mention handleSend's own parseMention already
+  // understands, just detected live as a prefix instead of read back after
+  // the fact.
+  const detectMention = useCallback((value: string, cursorPos: number): { start: number; query: string } | null => {
+    if (!isRoom) return null;
+    const uptoCursor = value.slice(0, cursorPos);
+    const match = uptoCursor.match(/(?:^|\s)@([^\s@]*)$/);
+    if (!match) return null;
+    const query = match[1];
+    return { start: cursorPos - query.length - 1, query };
+  }, [isRoom]);
+
+  const mentionSuggestions = useMemo(() => {
+    if (!mention || !roomCharacters) return [];
+    const q = mention.query.toLowerCase();
+    return roomCharacters.filter((c) => c.name.toLowerCase().startsWith(q));
+  }, [mention, roomCharacters]);
+
+  // Reset the highlight to the top match every time the candidate list
+  // changes - narrowing it by typing another letter, or starting a whole
+  // new mention elsewhere - so it never points past the end or lingers on
+  // an unrelated character from a previous mention.
+  useEffect(() => {
+    setMentionActiveIndex(0);
+  }, [mentionSuggestions]);
+
+  const updateMentionFromCaret = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    setMention(detectMention(el.value, el.selectionStart ?? el.value.length));
+  }, [detectMention]);
+
+  const applyMention = useCallback((character: Character) => {
+    if (!mention) return;
+    const before = text.slice(0, mention.start);
+    const after = text.slice(mention.start + 1 + mention.query.length);
+    const insertion = `@${character.name} `;
+    const newText = `${before}${insertion}${after}`;
+    setText(newText);
+    setMention(null);
+    const cursorPos = before.length + insertion.length;
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.setSelectionRange(cursorPos, cursorPos);
+    });
+  }, [mention, text]);
 
   // Click-based, not hover - a hover-triggered popover this close to the
   // screen edge left no room to move the cursor from the icon into the
@@ -126,6 +180,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
     setIsImageRequest(false); // Disable/uncheck it afterward
     setIsImpersonated(false);
     setSelectedSpeakerId(null);
+    setMention(null);
   }, [text, isImageRequest, isImpersonated, selectedSpeakerId, onSend, disabled]);
 
   // Picking a participant means something different depending on whether
@@ -251,6 +306,31 @@ const MessageInput: React.FC<MessageInputProps> = ({
         </div>
       )}
 
+      {mention && mentionSuggestions.length > 0 && (
+        <div className="flex flex-col gap-0.5 p-1.5 rounded-lg bg-card border border-border shadow-soft max-h-48 overflow-y-auto">
+          {mentionSuggestions.map((char, i) => (
+            <button
+              key={char.id}
+              type="button"
+              // mousedown (not click) fires before the textarea would blur,
+              // so preventing default here keeps focus/caret in the input
+              // instead of losing it to this button first.
+              onMouseDown={(e) => {
+                e.preventDefault();
+                applyMention(char);
+              }}
+              className={cn(
+                "flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-[13px] transition-colors",
+                i === mentionActiveIndex ? "bg-primary/[0.14] text-primary" : "text-foreground hover:bg-secondary"
+              )}
+            >
+              <CharacterAvatar name={char.name} accent={char.accent} size={22} />
+              <span className="font-medium">{char.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div
         className={cn(
           "flex items-center gap-1 h-14 px-2 rounded-full backdrop-blur-md transition-colors",
@@ -366,7 +446,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
             // that's actually being composed - clearing the draft back to
             // empty drops it too, instead of leaving a stale banner around.
             if (!value.trim() && selectedSpeakerId != null) setSelectedSpeakerId(null);
+            setMention(detectMention(value, e.target.selectionStart ?? value.length));
           }}
+          onClick={updateMentionFromCaret}
           rows={1}
           placeholder={
             disabled
@@ -383,7 +465,38 @@ const MessageInput: React.FC<MessageInputProps> = ({
           style={{ fontSize: 'var(--chat-font-size, 16px)', maxHeight: MAX_TEXTAREA_HEIGHT }}
           disabled={disabled}
           onFocus={handleFocus}
+          onBlur={() => setMention(null)}
+          onKeyUp={(e) => {
+            // Arrow keys are already claimed below for navigating an open
+            // mention list - only re-derive from the caret here once it's
+            // actually moved the cursor (i.e. the list is closed).
+            if (!mention && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
+              updateMentionFromCaret();
+            }
+          }}
           onKeyDown={(e) => {
+            if (mention && mentionSuggestions.length > 0) {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setMentionActiveIndex((i) => (i + 1) % mentionSuggestions.length);
+                return;
+              }
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setMentionActiveIndex((i) => (i - 1 + mentionSuggestions.length) % mentionSuggestions.length);
+                return;
+              }
+              if (e.key === "Enter" || e.key === "Tab") {
+                e.preventDefault();
+                applyMention(mentionSuggestions[mentionActiveIndex]);
+                return;
+              }
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setMention(null);
+                return;
+              }
+            }
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               handleSend();
