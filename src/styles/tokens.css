@@ -167,6 +167,57 @@
 }
 
 /* ================================================================
+   Cozy accent palettes
+   ================================================================
+   Cozy is the default theme - it never gets a data-theme attribute (see
+   ThemeContext) - so its palette axis lives directly under :root/.dark
+   instead of a [data-theme="cozy"] selector, scoped with :not([data-theme])
+   so it never bleeds into another theme that also happens to have
+   data-palette set. "Terracotta" (the original look) is baked into the
+   plain :root/.dark blocks above, so only the other 3 need an override
+   here. --primary/--primary-hover/--ring above are themselves
+   `var(--color-primary...)`, so redefining just the --color-* tokens below
+   is enough - no need to also touch the shadcn-bridge names directly. */
+:root:not([data-theme])[data-palette="sage"] {
+  --color-primary: 107 143 78; /* #6B8F4E */
+  --color-primary-hover: 86 117 62; /* #56753E */
+  --color-accent: 107 143 78;
+  --color-accent-2: 86 117 62;
+}
+.dark:not([data-theme])[data-palette="sage"] {
+  --color-primary: 143 191 107; /* #8FBF6B */
+  --color-primary-hover: 166 212 133; /* #A6D485 */
+  --color-accent: 143 191 107;
+  --color-accent-2: 166 212 133;
+}
+
+:root:not([data-theme])[data-palette="plum"] {
+  --color-primary: 156 79 110; /* #9C4F6E */
+  --color-primary-hover: 126 63 88; /* #7E3F58 */
+  --color-accent: 156 79 110;
+  --color-accent-2: 126 63 88;
+}
+.dark:not([data-theme])[data-palette="plum"] {
+  --color-primary: 217 127 160; /* #D97FA0 */
+  --color-primary-hover: 232 157 184; /* #E89DB8 */
+  --color-accent: 217 127 160;
+  --color-accent-2: 232 157 184;
+}
+
+:root:not([data-theme])[data-palette="honey"] {
+  --color-primary: 201 138 43; /* #C98A2B */
+  --color-primary-hover: 168 114 31; /* #A8721F */
+  --color-accent: 201 138 43;
+  --color-accent-2: 168 114 31;
+}
+.dark:not([data-theme])[data-palette="honey"] {
+  --color-primary: 232 184 92; /* #E8B85C */
+  --color-primary-hover: 240 203 133; /* #F0CB85 */
+  --color-accent: 232 184 92;
+  --color-accent-2: 240 203 133;
+}
+
+/* ================================================================
    Additional themes
    ================================================================
    shadcn/ui's own stock "Neutral" default theme, kept as a literal,
@@ -332,6 +383,80 @@
   --color-secondary-hover: 38 40 45;
   --color-on-secondary: 232 234 238;
   --color-border-main: 36 37 39;
+}
+
+/* Accent palette overrides - teal (neumorphic's default) is baked into the
+   base blocks above, so only the other 3 need an override here. Same
+   pattern as aurora's own palette overrides further down: only the
+   brand-hue tokens (plus the chip pair, --accent-soft/--accent-ink) change,
+   every neutral surface stays as defined above. */
+[data-theme="neumorphic"][data-palette="lavender"] {
+  --primary: 109 93 158; /* #6D5D9E */
+  --primary-hover: 90 76 131; /* #5A4C83 */
+  --ring: 109 93 158;
+  --accent-soft: 232 228 245; /* #E8E4F5 */
+  --accent-ink: 68 56 104; /* #443868 */
+  --color-primary: 109 93 158;
+  --color-primary-hover: 90 76 131;
+  --color-accent: 109 93 158;
+  --color-accent-2: 90 76 131;
+}
+[data-theme="neumorphic"][data-palette="lavender"].dark {
+  --primary: 155 142 209; /* #9B8ED1 */
+  --primary-hover: 179 168 222; /* #B3A8DE */
+  --ring: 155 142 209;
+  --accent-soft: 41 40 53; /* #9B8ED1 at 16% over the page bg */
+  --accent-ink: 201 192 234; /* #C9C0EA */
+  --color-primary: 155 142 209;
+  --color-primary-hover: 179 168 222;
+  --color-accent: 155 142 209;
+  --color-accent-2: 179 168 222;
+}
+
+[data-theme="neumorphic"][data-palette="coral"] {
+  --primary: 193 99 63; /* #C1633F */
+  --primary-hover: 161 79 48; /* #A14F30 */
+  --ring: 193 99 63;
+  --accent-soft: 245 227 218; /* #F5E3DA */
+  --accent-ink: 122 59 34; /* #7A3B22 */
+  --color-primary: 193 99 63;
+  --color-primary-hover: 161 79 48;
+  --color-accent: 193 99 63;
+  --color-accent-2: 161 79 48;
+}
+[data-theme="neumorphic"][data-palette="coral"].dark {
+  --primary: 227 138 100; /* #E38A64 */
+  --primary-hover: 237 166 132; /* #EDA684 */
+  --ring: 227 138 100;
+  --accent-soft: 52 39 35; /* #E38A64 at 16% over the page bg */
+  --accent-ink: 240 196 172; /* #F0C4AC */
+  --color-primary: 227 138 100;
+  --color-primary-hover: 237 166 132;
+  --color-accent: 227 138 100;
+  --color-accent-2: 237 166 132;
+}
+
+[data-theme="neumorphic"][data-palette="slate"] {
+  --primary: 76 107 135; /* #4C6B87 */
+  --primary-hover: 61 86 112; /* #3D5670 */
+  --ring: 76 107 135;
+  --accent-soft: 222 231 237; /* #DEE7ED */
+  --accent-ink: 42 62 79; /* #2A3E4F */
+  --color-primary: 76 107 135;
+  --color-primary-hover: 61 86 112;
+  --color-accent: 76 107 135;
+  --color-accent-2: 61 86 112;
+}
+[data-theme="neumorphic"][data-palette="slate"].dark {
+  --primary: 127 163 194; /* #7FA3C2 */
+  --primary-hover: 156 187 214; /* #9CBBD6 */
+  --ring: 127 163 194;
+  --accent-soft: 36 43 50; /* #7FA3C2 at 16% over the page bg */
+  --accent-ink: 196 218 234; /* #C4DAEA */
+  --color-primary: 127 163 194;
+  --color-primary-hover: 156 187 214;
+  --color-accent: 127 163 194;
+  --color-accent-2: 156 187 214;
 }
 
 /* ----------------------------------------------------------------
@@ -824,10 +949,10 @@
 }
 
 /* Phosphor color overrides - green (terminal's default) is baked into the
-   base blocks above, so only the other 2 need an override here. As noted
+   base blocks above, so only the other 3 need an override here. As noted
    above, this recolors the text/border tokens along with the brand-hue
-   ones - keep --background/--card/--popover/--secondary/--muted/--accent/
-   --success/--radius/--shadow-* untouched, they're shared across all 3. */
+   ones - keep --background/--card/--popover/--secondary/--muted/--success/
+   --radius/--shadow-* untouched, they're shared across all 4. */
 [data-theme="terminal"][data-palette="amber"] {
   --foreground: 61 36 0; /* #3D2400 */
   --card-foreground: 61 36 0;
@@ -954,6 +1079,73 @@
   --color-on-accent: 5 10 20;
   --color-on-secondary: 207 238 255;
   --color-border-main: 27 62 77;
+}
+
+/* "Black Ice" - a cold monochrome white/silver phosphor (the hacker-fiction
+   sense: ICE = Intrusion Countermeasures Electronics), paired with an icy
+   blue secondary/link hue instead of green's cyan or blue's purple. */
+[data-theme="terminal"][data-palette="blackice"] {
+  --foreground: 13 15 16; /* #0D0F10 */
+  --card-foreground: 13 15 16;
+  --popover-foreground: 13 15 16;
+  --primary: 43 47 51; /* #2B2F33 */
+  --primary-foreground: 242 241 233;
+  --primary-hover: 66 71 76;
+  --secondary-foreground: 13 15 16;
+  --muted-foreground: 123 125 124;
+  --accent-foreground: 13 15 16;
+  --destructive: 168 50 50;
+  --subtle: 123 125 124;
+  --border: 182 183 178;
+  --input: 182 183 178;
+  --ring: 61 107 138; /* #3D6B8A */
+  --accent: 222 222 215;
+  --border-bright: 123 125 124;
+  --scan: rgba(43, 47, 51, 0.03);
+  --color-hover-bg: 222 222 215;
+
+  --color-text-main: 13 15 16;
+  --color-text-muted: 123 125 124;
+  --color-text-faint: 162 163 160;
+  --color-primary: 43 47 51;
+  --color-primary-hover: 66 71 76;
+  --color-accent: 61 107 138; /* #3D6B8A */
+  --color-accent-2: 43 47 51; /* steel-blue-to-charcoal gradient */
+  --color-on-accent: 242 241 233;
+  --color-on-secondary: 13 15 16;
+  --color-border-main: 182 183 178;
+}
+[data-theme="terminal"][data-palette="blackice"].dark {
+  --foreground: 255 255 255;
+  --card-foreground: 255 255 255;
+  --popover-foreground: 255 255 255;
+  --primary: 232 238 242; /* #E8EEF2 */
+  --primary-foreground: 8 10 12;
+  --primary-hover: 244 247 249;
+  --secondary-foreground: 255 255 255;
+  --muted-foreground: 120 124 125;
+  --accent-foreground: 255 255 255;
+  --destructive: 255 77 77;
+  --destructive-foreground: 8 10 12;
+  --subtle: 120 124 125;
+  --border: 70 74 74;
+  --input: 70 74 74;
+  --ring: 127 212 255; /* #7FD4FF */
+  --accent: 34 37 36;
+  --border-bright: 142 147 148;
+  --scan: rgba(232, 238, 242, 0.035);
+  --color-hover-bg: 34 37 36;
+
+  --color-text-main: 255 255 255;
+  --color-text-muted: 120 124 125;
+  --color-text-faint: 75 78 78;
+  --color-primary: 232 238 242;
+  --color-primary-hover: 244 247 249;
+  --color-accent: 127 212 255; /* #7FD4FF */
+  --color-accent-2: 232 238 242; /* icy-blue-to-white gradient */
+  --color-on-accent: 8 10 12;
+  --color-on-secondary: 255 255 255;
+  --color-border-main: 70 74 74;
 }
 
 /* ----------------------------------------------------------------

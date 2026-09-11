@@ -220,19 +220,22 @@ export const DARK = "dark";
 // `is()` helper can narrow its argument to the literal union of registered
 // theme values instead of accepting any string.
 export const COLOR_THEMES = [
-  { value: "cozy", label: "Cozy", description: "Warm terracotta and cream - the original look" },
-  { value: "neumorphic", label: "Neumorphic", description: "Soft gray-green palette with raised, pillowy surfaces" },
+  { value: "cozy", label: "Cozy", description: "Warm terracotta and cream, with a choice of 4 accent palettes" },
+  { value: "neumorphic", label: "Neumorphic", description: "Soft raised surfaces with a choice of 4 accent palettes" },
   { value: "aurora", label: "Aurora", description: "Vibrant gradient look with a choice of 4 accent palettes" },
-  { value: "terminal", label: "Terminal", description: "CRT hacker aesthetic with a choice of 3 phosphor colors" },
+  { value: "terminal", label: "Terminal", description: "CRT hacker aesthetic with a choice of 4 phosphor colors" },
 ] as const;
 export const DEFAULT_COLOR_THEME = "cozy";
 
-// Accent palette, a sub-choice available within the "aurora" and "terminal"
-// color themes - see tokens.css's [data-theme="x"][data-palette="y"] blocks
-// and ThemeContext's accentPalette/setAccentPalette. Every other color theme
-// ignores data-palette entirely. "violet" is aurora's own default and is
+// Accent palette, a sub-choice available within every color theme above -
+// see tokens.css's [data-theme="x"][data-palette="y"] blocks (cozy's own
+// live under :root/.dark instead, since cozy is the default theme and never
+// gets a data-theme attribute - see ThemeContext) and ThemeContext's
+// accentPalette/setAccentPalette. "violet" is aurora's own default and is
 // baked into the base [data-theme="aurora"] block (no override block needed
-// for it).
+// for it) - every other theme's own default palette is likewise baked into
+// its own base block, this shared DEFAULT_ACCENT_PALETTE constant only ever
+// matters for aurora itself.
 export const AURORA_PALETTES: { value: string; label: string; colors: [string, string, string] }[] = [
   { value: "violet", label: "Violet", colors: ["#8b5cf6", "#ec4899", "#f97316"] },
   { value: "ocean", label: "Ocean", colors: ["#0ea5e9", "#22d3ee", "#6366f1"] },
@@ -240,6 +243,29 @@ export const AURORA_PALETTES: { value: string; label: string; colors: [string, s
   { value: "sunset", label: "Sunset", colors: ["#f43f5e", "#d946ef", "#f97316"] },
 ];
 export const DEFAULT_ACCENT_PALETTE = "violet";
+
+// Cozy's own accent palette - see tokens.css's `:root:not([data-theme])
+// [data-palette="x"]` blocks (cozy has no data-theme attribute of its own to
+// key off, being the default theme). "Terracotta" is cozy's original look
+// and is baked into the bare :root/.dark blocks (no override needed for it).
+export const COZY_PALETTES: { value: string; label: string; colors: [string, string, string] }[] = [
+  { value: "terracotta", label: "Terracotta", colors: ["#e0562e", "#c84824", "#f2673f"] },
+  { value: "sage", label: "Sage", colors: ["#6b8f4e", "#56753e", "#8fbf6b"] },
+  { value: "plum", label: "Plum", colors: ["#9c4f6e", "#7e3f58", "#d97fa0"] },
+  { value: "honey", label: "Honey", colors: ["#c98a2b", "#a8721f", "#e8b85c"] },
+];
+export const DEFAULT_COZY_PALETTE = "terracotta";
+
+// Neumorphic's own accent palette - see tokens.css's
+// [data-theme="neumorphic"][data-palette="x"] blocks. "Teal" is neumorphic's
+// original look and is baked into the base [data-theme="neumorphic"] block.
+export const NEUMORPHIC_PALETTES: { value: string; label: string; colors: [string, string, string] }[] = [
+  { value: "teal", label: "Teal", colors: ["#268b68", "#35a37e", "#3fb28c"] },
+  { value: "lavender", label: "Lavender", colors: ["#6d5d9e", "#5a4c83", "#9b8ed1"] },
+  { value: "coral", label: "Coral", colors: ["#c1633f", "#a14f30", "#e38a64"] },
+  { value: "slate", label: "Slate", colors: ["#4c6b87", "#3d5670", "#7fa3c2"] },
+];
+export const DEFAULT_NEUMORPHIC_PALETTE = "teal";
 
 // Phosphor color, terminal's own sub-choice - see tokens.css's
 // [data-theme="terminal"][data-palette="x"] blocks. Shares the same
@@ -249,12 +275,15 @@ export const DEFAULT_ACCENT_PALETTE = "violet";
 // the base [data-theme="terminal"] block (no override block needed for it).
 // Unlike Aurora (where only the brand hue changes across palettes), picking
 // a phosphor color here recolors the theme's text/border hue too, since the
-// whole look is built around a single monochrome CRT color.
+// whole look is built around a single monochrome CRT color - "Black Ice"
+// (a cold monochrome white/silver phosphor) follows the same pattern.
 export const TERMINAL_PALETTES: { value: string; label: string; colors: [string, string, string] }[] = [
   { value: "green", label: "Green", colors: ["#58e8ff", "#6dffa4", "#baffd4"] },
   { value: "amber", label: "Amber", colors: ["#ff6b35", "#ffb300", "#ffd699"] },
   { value: "blue", label: "Blue", colors: ["#b388ff", "#4fc3ff", "#cfeeff"] },
+  { value: "blackice", label: "Black Ice", colors: ["#7fd4ff", "#e8eef2", "#ffffff"] },
 ];
+export const DEFAULT_TERMINAL_PALETTE = "green";
 
 // Local storage variables
 export const LS_AI_MODEL = "ai_model";

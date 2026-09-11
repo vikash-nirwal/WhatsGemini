@@ -1,7 +1,17 @@
 import React from 'react';
 import { cn } from '../../utils/cn';
 import { SettingsCard, SettingsCardHeader, SettingsRow } from 'src/components/molecules/settings-card';
-import { COLOR_THEMES, AURORA_PALETTES, TERMINAL_PALETTES } from '../../utils/constants';
+import {
+  COLOR_THEMES,
+  COZY_PALETTES,
+  DEFAULT_ACCENT_PALETTE,
+  DEFAULT_COZY_PALETTE,
+  DEFAULT_NEUMORPHIC_PALETTE,
+  DEFAULT_TERMINAL_PALETTE,
+  NEUMORPHIC_PALETTES,
+  AURORA_PALETTES,
+  TERMINAL_PALETTES,
+} from '../../utils/constants';
 
 interface AppearanceSettingsProps {
   colorTheme: string;
@@ -20,6 +30,21 @@ const THEME_SWATCHES: Record<string, [string, string, string]> = {
   terminal: ['#F2F1E9', '#0A6B78', '#08210F'],
 };
 
+// Every color theme's own accent-palette sub-choice - see tokens.css's
+// [data-theme="x"][data-palette="y"] blocks (cozy's own live under
+// :root/.dark instead, since it never gets a data-theme attribute). Keyed by
+// COLOR_THEMES value so adding a theme's palette picker is just adding an
+// entry here. `defaultValue` is that theme's OWN baked-in default (e.g.
+// terminal's "green") - distinct from the app-wide DEFAULT_ACCENT_PALETTE
+// ("violet", aurora's default), which is what accentPalette actually holds
+// until a user picks something under THIS theme specifically.
+const PALETTE_PICKERS: Record<string, { label: string; hint: string; palettes: { value: string; label: string; colors: [string, string, string] }[]; defaultValue: string }> = {
+  cozy: { label: "Accent palette", hint: "Cozy's own choice of accent color - has no effect under other color themes.", palettes: COZY_PALETTES, defaultValue: DEFAULT_COZY_PALETTE },
+  neumorphic: { label: "Accent palette", hint: "Neumorphic's own choice of accent color - has no effect under other color themes.", palettes: NEUMORPHIC_PALETTES, defaultValue: DEFAULT_NEUMORPHIC_PALETTE },
+  aurora: { label: "Accent palette", hint: "Aurora's own choice of gradient - has no effect under other color themes.", palettes: AURORA_PALETTES, defaultValue: DEFAULT_ACCENT_PALETTE },
+  terminal: { label: "Phosphor color", hint: "Terminal's own choice of CRT color - has no effect under other color themes.", palettes: TERMINAL_PALETTES, defaultValue: DEFAULT_TERMINAL_PALETTE },
+};
+
 // Palette picker, independent of the existing light/dark toggle (header icon) -
 // see ThemeContext's colorTheme/setColorTheme and tokens.css's [data-theme="x"]
 // blocks. Cozy is the app's original look and stays the default.
@@ -29,6 +54,7 @@ const AppearanceSettings: React.FC<AppearanceSettingsProps> = ({
   accentPalette,
   setAccentPalette,
 }) => {
+  const picker = PALETTE_PICKERS[colorTheme];
   return (
     <div className="flex flex-col gap-5">
       <SettingsCard>
@@ -72,43 +98,19 @@ const AppearanceSettings: React.FC<AppearanceSettingsProps> = ({
             })}
           </div>
         </SettingsRow>
-        {colorTheme === 'aurora' && (
-          <SettingsRow label="Accent palette" hint="Aurora's own choice of gradient - has no effect under other color themes." align="start">
+        {picker && (
+          <SettingsRow label={picker.label} hint={picker.hint} align="start">
             <div className="flex flex-wrap gap-3">
-              {AURORA_PALETTES.map((p) => {
-                const active = p.value === accentPalette;
-                return (
-                  <button
-                    key={p.value}
-                    type="button"
-                    onClick={() => setAccentPalette(p.value)}
-                    aria-pressed={active}
-                    className={cn(
-                      "w-32 text-left rounded-xl border p-3 transition-colors",
-                      active ? "border-primary bg-primary/[0.06]" : "border-border/60 hover:bg-muted/50"
-                    )}
-                  >
-                    <div
-                      className="w-full h-7 rounded-lg mb-2.5"
-                      style={{ background: `linear-gradient(135deg, ${p.colors[0]}, ${p.colors[1]} 55%, ${p.colors[2]})` }}
-                    />
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-foreground">{p.label}</span>
-                      {active && (
-                        <span className="text-[10px] font-medium text-primary uppercase tracking-wide">Active</span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </SettingsRow>
-        )}
-        {colorTheme === 'terminal' && (
-          <SettingsRow label="Phosphor color" hint="Terminal's own choice of CRT color - has no effect under other color themes." align="start">
-            <div className="flex flex-wrap gap-3">
-              {TERMINAL_PALETTES.map((p) => {
-                const active = p.value === accentPalette;
+              {picker.palettes.map((p) => {
+                // accentPalette holds the shared, app-wide value - it only
+                // names one of THIS theme's own palettes once the user has
+                // actually picked one under it. Until then (still sitting at
+                // DEFAULT_ACCENT_PALETTE, e.g. arriving fresh or from another
+                // theme) treat this theme's own default as the active one,
+                // matching what's actually rendered on screen.
+                const active = accentPalette === DEFAULT_ACCENT_PALETTE
+                  ? p.value === picker.defaultValue
+                  : p.value === accentPalette;
                 return (
                   <button
                     key={p.value}
