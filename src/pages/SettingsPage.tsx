@@ -16,6 +16,7 @@ import { FaInfoCircle, FaUser, FaMicrochip, FaImage, FaComments, FaShieldAlt, Fa
 import Header from "../components/Header";
 import { toast } from "sonner";
 import { ThemeContext } from "../contexts/ThemeContext";
+import { AuthContext } from "../contexts/AuthContext";
 import UserProfileSettings from "../components/settings/UserProfileSettings";
 import TextModelSettings from "../components/settings/TextModelSettings";
 import ImageGenerationSettings from "../components/settings/ImageGenerationSettings";
@@ -86,6 +87,7 @@ const SettingsPage = () => {
   const location = useLocation();
   const { showConfirm } = useModal();
   const { colorTheme, setColorTheme } = useContext(ThemeContext);
+  const { logout } = useContext(AuthContext);
   const [initialMessagesKey, setInitialMessagesKey] = useState(0);
 
   const [modelList, setModelList] = useState<{value: string, label: string}[]>(() => {
@@ -625,6 +627,7 @@ const SettingsPage = () => {
                     setReplyLengthLimit={(val) => dispatch(setReplyLengthLimit(val))}
                     compressThreshold={compressThreshold}
                     setCompressThreshold={(val) => dispatch(setCompressThreshold(val))}
+                    onLogout={logout}
                   />
                 )}
 

@@ -1,9 +1,8 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { FaBars, FaArrowLeft, FaSun, FaMoon, FaUserFriends, FaCog, FaSignOutAlt, FaEllipsisV, FaQuestionCircle } from "react-icons/fa";
+import { FaBars, FaArrowLeft, FaSun, FaMoon, FaUserFriends, FaCog, FaEllipsisV, FaQuestionCircle } from "react-icons/fa";
 import { useSidebar } from "../contexts/SidebarContext";
 import { ThemeContext } from "../contexts/ThemeContext";
-import { AuthContext } from "../contexts/AuthContext";
 import { DARK } from "../utils/constants";
 import { cn } from "../utils/cn";
 import { Tooltip, TooltipTrigger, TooltipContent } from "./ui/tooltip";
@@ -54,7 +53,6 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, avatar, onBack, action
   const location = useLocation();
   const { open } = useSidebar();
   const { theme, toggleTheme } = useContext(ThemeContext);
-  const { logout } = useContext(AuthContext);
   const isDark = theme === DARK;
   const isCharacters = location.pathname.startsWith("/characters");
   const isSettings = location.pathname.startsWith("/settings");
@@ -75,23 +73,21 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, avatar, onBack, action
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Built-in groups, always appended after any page-specific ones: app-level
-  // navigation, then the destructive session action on its own. Flagged
-  // `primary` so these stay as the canvas's four always-visible circular
-  // header icons on desktop (theme/shortcuts/library/settings) instead of
-  // collapsing into the "more" menu - only page-specific actions and the
-  // destructive session group overflow there.
+  // Built-in group, always appended after any page-specific ones: app-level
+  // navigation. Flagged `primary` so these stay as the canvas's four
+  // always-visible circular header icons on desktop (theme/shortcuts/
+  // library/settings) instead of collapsing into the "more" menu - only
+  // page-specific actions overflow there. Logging out lives in Settings
+  // (Text Generation Model - it clears that provider's own API key) rather
+  // than as a global header action.
   const appGroup: HeaderAction[] = [
     { icon: isDark ? FaSun : FaMoon, label: "Toggle theme", onClick: toggleTheme, primary: true },
     { icon: FaQuestionCircle, label: "Keyboard shortcuts", onClick: () => setShowShortcuts(true), primary: true },
     { icon: FaUserFriends, label: "Characters", onClick: () => navigate("/characters"), active: isCharacters, primary: true },
     { icon: FaCog, label: "Settings", onClick: () => navigate("/settings"), active: isSettings, primary: true },
   ];
-  const sessionGroup: HeaderAction[] = [
-    { icon: FaSignOutAlt, label: "Log out", onClick: logout, danger: true },
-  ];
 
-  const groups = [...actionGroups, appGroup, sessionGroup].filter((g) => g.length > 0);
+  const groups = [...actionGroups, appGroup].filter((g) => g.length > 0);
 
   // Desktop only shows `primary`-flagged actions as standalone icons;
   // everything else (from every group, app/session groups included) moves

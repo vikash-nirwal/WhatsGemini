@@ -25,6 +25,7 @@ interface TextModelSettingsProps {
   setReplyLengthLimit: (chars: number) => void;
   compressThreshold: number;
   setCompressThreshold: (threshold: number) => void;
+  onLogout: () => void;
 }
 
 const TextModelSettings: React.FC<TextModelSettingsProps> = ({
@@ -46,6 +47,7 @@ const TextModelSettings: React.FC<TextModelSettingsProps> = ({
   setReplyLengthLimit,
   compressThreshold,
   setCompressThreshold,
+  onLogout,
 }) => {
   const isOllama = chatProviderCapabilities.requiresBaseUrl;
 
@@ -65,6 +67,19 @@ const TextModelSettings: React.FC<TextModelSettingsProps> = ({
               onChange={(e) => setProviderApiKey(e.target.value)}
               placeholder="Paste your API key here..."
             />
+          </SettingsRow>
+        )}
+
+        {chatProviderCapabilities.requiresApiKey && (
+          <SettingsRow label="Log out" hint="Clears the saved API key for this provider on this device - you'll need to re-enter it to use the app again.">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onLogout}
+              className="text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+            >
+              Log out
+            </Button>
           </SettingsRow>
         )}
 
