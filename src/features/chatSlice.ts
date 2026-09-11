@@ -227,6 +227,75 @@ export const updateChatMutedParticipants = createAsyncThunk(
   }
 );
 
+// Invites a character into an existing chat, turning a 1:1 into a room (or
+// adding another member to an already-multi-character one). Drops a visible
+// "{Name} joined the chat." notice, plus that character's own `first_mes`
+// greeting when they have one - mirrors how a brand-new chat already seeds
+// itself from `first_mes` in `addMessage` above, so joining mid-conversation
+// feels the same as starting fresh with them.
+export const addChatParticipant = createAsyncThunk(
+  "chat/addChatParticipant",
+  async ({ chatId, characterId }: { chatId: number; characterId: number }, { dispatch, rejectWithValue }) => {
+    try {
+      const chat = await dbService.getChatById(chatId);
+      if (chat.characterIds?.includes(characterId)) {
+        return { chatId, characterIds: chat.characterIds, content: chat.content, tree: chat.tree, activeLeafId: chat.activeLeafId };
+      }
+      chat.characterIds = [...(chat.characterIds || []), characterId];
+
+      const character = await dbService.getCharacterById(characterId).catch(() => undefined);
+
+      const pushMessage = (message: Message) => {
+        if (chat.tree) {
+          const { tree, nodeId } = addChildNode(chat.tree, chat.activeLeafId || null, message);
+          chat.tree = tree;
+          chat.activeLeafId = nodeId;
+          chat.content = flattenPath(tree, nodeId);
+        } else {
+          chat.content.push(message);
+        }
+      };
+
+      pushMessage({
+        role: AI,
+        txt: `${character?.name || "Someone"} joined the chat.`,
+        isRoomEvent: true,
+        id: generateNodeId(),
+        timestamp: Date.now(),
+      });
+
+      if (character?.first_mes) {
+        pushMessage({ role: AI, txt: character.first_mes, speakerId: character.id, id: generateNodeId(), timestamp: Date.now() });
+      }
+
+      await dbService.updateChat(chat);
+      dispatch(fetchChats());
+      return { chatId, characterIds: chat.characterIds, content: chat.content, tree: chat.tree, activeLeafId: chat.activeLeafId };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
+// Removes a member from a room outright (distinct from muting, which just
+// sidelines them from the round-robin while keeping their history and
+// membership intact). Leaves past content/tree untouched - only future
+// turns stop including them.
+export const removeChatParticipant = createAsyncThunk(
+  "chat/removeChatParticipant",
+  async ({ chatId, characterId }: { chatId: number; characterId: number }, { rejectWithValue }) => {
+    try {
+      const chat = await dbService.getChatById(chatId);
+      chat.characterIds = (chat.characterIds || []).filter((id) => id !== characterId);
+      chat.mutedParticipantIds = (chat.mutedParticipantIds || []).filter((id) => id !== characterId);
+      await dbService.updateChat(chat);
+      return { chatId, characterIds: chat.characterIds, mutedParticipantIds: chat.mutedParticipantIds };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
 // Overrides which user persona this chat uses, independent of the global
 // active persona (Settings > Personas). `personaId: undefined` clears the
 // override so the chat falls back to whichever persona is globally active.
@@ -425,6 +494,28 @@ const chatSlice = createSlice({
         }
       })
       .addCase(updateChatMutedParticipants.rejected, (state, action) => {
+        state.error = action.payload as string;
+      })
+      .addCase(addChatParticipant.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c.id === action.payload.chatId);
+        if (chat) {
+          chat.characterIds = action.payload.characterIds;
+          chat.content = action.payload.content;
+          chat.tree = action.payload.tree;
+          chat.activeLeafId = action.payload.activeLeafId;
+        }
+      })
+      .addCase(addChatParticipant.rejected, (state, action) => {
+        state.error = action.payload as string;
+      })
+      .addCase(removeChatParticipant.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c.id === action.payload.chatId);
+        if (chat) {
+          chat.characterIds = action.payload.characterIds;
+          chat.mutedParticipantIds = action.payload.mutedParticipantIds;
+        }
+      })
+      .addCase(removeChatParticipant.rejected, (state, action) => {
         state.error = action.payload as string;
       })
       .addCase(updateChatPersona.fulfilled, (state, action) => {

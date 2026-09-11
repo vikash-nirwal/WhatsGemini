@@ -64,6 +64,21 @@ const ChatMessage = React.memo(({
   const handleEdit = useCallback(() => onStartEdit(msg), [onStartEdit, msg]);
   const handleDeleteBranch = useCallback(() => msg.id && onDeleteBranch?.(msg.id), [onDeleteBranch, msg.id]);
 
+  if (msg.isRoomEvent) {
+    return (
+      <motion.div
+        className="flex w-full mb-6 justify-center"
+        initial={{ opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
+      >
+        <span className="px-3 py-1 rounded-full bg-muted text-[11.5px] font-medium text-muted-foreground">
+          {msg.txt}
+        </span>
+      </motion.div>
+    );
+  }
+
   if (msg.isCompressionSummary) {
     return (
       <motion.div

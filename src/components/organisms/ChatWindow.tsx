@@ -31,6 +31,7 @@ interface ChatWindowProps {
   characterName?: string;
   character?: Character; // the chat's primary character - header, empty state, and the fallback for any message with no resolvable speaker
   characters?: Character[]; // every character in the chat/room (Phase 12); per-message avatar/emotion resolve against this via Message.speakerId, falling back to `character` above
+  allCharacters?: Character[]; // the full app-wide character roster, only needed by the Participants panel's invite picker
   chatId?: number;
   sceneOpen?: boolean;
   onCloseScene?: () => void;
@@ -76,7 +77,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc }: { charInitials: s
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onEdit, onSend, aiLoading, isFollowupPending, characterName, character, characters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, participantsOpen, onCloseParticipants, mutedParticipantIds }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onEdit, onSend, aiLoading, isFollowupPending, characterName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, participantsOpen, onCloseParticipants, mutedParticipantIds }) => {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
@@ -396,10 +397,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
         />
       )}
 
-      {participantsOpen && chatId != null && characters && characters.length > 1 && (
+      {participantsOpen && chatId != null && characters && characters.length > 0 && (
         <ParticipantsPanel
           chatId={chatId}
           characters={characters}
+          allCharacters={allCharacters}
           mutedParticipantIds={mutedParticipantIds}
           onClose={onCloseParticipants || (() => {})}
         />

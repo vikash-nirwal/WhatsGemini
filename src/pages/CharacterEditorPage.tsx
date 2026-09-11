@@ -11,11 +11,12 @@ import { DisplayImage } from "src/components/molecules/DisplayImage";
 import { TextInput, TextArea, FieldLabel, InfoTooltip, Slider, TagInput, PresetSelectField, ChipSelectField } from "src/components/molecules/form-controls";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { Button } from "src/components/atoms/button";
+import { Input } from "src/components/atoms/input";
 import { Card } from "src/components/atoms/card";
 import { cn } from "../utils/cn";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import Header from "src/components/organisms/Header";
-import { CHARACTER_SWATCHES, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, EMOTIONS, ART_STYLES, DEFAULT_ART_STYLE, LORE_SCAN_MESSAGE_COUNT, RELATIONSHIP_PRESETS, TAG_PRESETS, PERSONALITY_TRAIT_PRESETS } from "../utils/constants";
+import { CHARACTER_SWATCHES, MEMORY_EXTRACTION_INTERVAL, MAX_MEMORY_ENTRIES, DEFAULT_AUTO_SELFIE_FREQUENCY, EMOTIONS, ART_STYLES, DEFAULT_ART_STYLE, LORE_SCAN_MESSAGE_COUNT, RELATIONSHIP_PRESETS, TAG_PRESETS, PERSONALITY_TRAIT_PRESETS } from "../utils/constants";
 import { SegmentedControl } from "src/components/molecules/SegmentedControl";
 import { estimateTokens } from "../features/ai/utils/tokenEstimator";
 import TestChatPane from "src/components/organisms/TestChatPane";
@@ -566,6 +567,38 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     if (!editCharacter) return;
     const newMemory = (editCharacter.memory || []).filter((_, i) => i !== index);
     dispatch(updateCharacter({ ...editCharacter, memory: newMemory }));
+  };
+
+  const [editingFactIndex, setEditingFactIndex] = useState<number | null>(null);
+  const [factDraft, setFactDraft] = useState("");
+  const [addingFact, setAddingFact] = useState(false);
+
+  const startEditFact = (index: number) => {
+    setEditingFactIndex(index);
+    setFactDraft((editCharacter?.memory || [])[index] || "");
+  };
+
+  const commitFactEdit = () => {
+    if (!editCharacter || editingFactIndex === null) return;
+    const memory = editCharacter.memory || [];
+    const trimmed = factDraft.trim();
+    const newMemory = trimmed
+      ? memory.map((fact, i) => (i === editingFactIndex ? trimmed : fact))
+      : memory.filter((_, i) => i !== editingFactIndex);
+    dispatch(updateCharacter({ ...editCharacter, memory: newMemory }));
+    setEditingFactIndex(null);
+    setFactDraft("");
+  };
+
+  const commitNewFact = () => {
+    const trimmed = factDraft.trim();
+    if (trimmed && editCharacter) {
+      const withNewFact = [...(editCharacter.memory || []), trimmed];
+      const capped = withNewFact.length > MAX_MEMORY_ENTRIES ? withNewFact.slice(withNewFact.length - MAX_MEMORY_ENTRIES) : withNewFact;
+      dispatch(updateCharacter({ ...editCharacter, memory: capped }));
+    }
+    setFactDraft("");
+    setAddingFact(false);
   };
 
   const accent = CHARACTER_SWATCHES[accentIndex];
@@ -1250,24 +1283,82 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                       </div>
                       {editCharacter.memory && editCharacter.memory.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
-                          {editCharacter.memory.map((fact, idx) => (
-                            <span key={idx} className="inline-flex items-center gap-2 pl-3 pr-1 py-1 rounded-full bg-background border border-input text-xs">
-                              {fact}
-                              <Button
-                                onClick={() => handleRemoveMemoryFact(idx)}
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5 rounded-full text-subtle hover:bg-destructive/10 hover:text-destructive flex-shrink-0"
-                                title="Forget this fact"
-                                aria-label="Forget this fact"
-                              >
-                                <FaTimes size={10} />
-                              </Button>
-                            </span>
-                          ))}
+                          {editCharacter.memory.map((fact, idx) =>
+                            editingFactIndex === idx ? (
+                              <Input
+                                key={idx}
+                                autoFocus
+                                value={factDraft}
+                                onChange={(e) => setFactDraft(e.target.value)}
+                                onBlur={commitFactEdit}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    commitFactEdit();
+                                  } else if (e.key === "Escape") {
+                                    setEditingFactIndex(null);
+                                    setFactDraft("");
+                                  }
+                                }}
+                                className="h-7 w-48 text-xs px-2.5 py-0 rounded-full"
+                              />
+                            ) : (
+                              <span key={idx} className="inline-flex items-center gap-2 pl-3 pr-1 py-1 rounded-full bg-background border border-input text-xs">
+                                {fact}
+                                <Button
+                                  onClick={() => startEditFact(idx)}
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-5 w-5 rounded-full text-subtle hover:bg-primary/10 hover:text-primary flex-shrink-0"
+                                  title="Edit this fact"
+                                  aria-label="Edit this fact"
+                                >
+                                  <FaEdit size={9} />
+                                </Button>
+                                <Button
+                                  onClick={() => handleRemoveMemoryFact(idx)}
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-5 w-5 rounded-full text-subtle hover:bg-destructive/10 hover:text-destructive flex-shrink-0"
+                                  title="Forget this fact"
+                                  aria-label="Forget this fact"
+                                >
+                                  <FaTimes size={10} />
+                                </Button>
+                              </span>
+                            )
+                          )}
                         </div>
                       ) : (
-                        <p className="text-xs text-subtle">No facts remembered yet.</p>
+                        !addingFact && <p className="text-xs text-subtle">No facts remembered yet.</p>
+                      )}
+                      {addingFact ? (
+                        <Input
+                          autoFocus
+                          value={factDraft}
+                          onChange={(e) => setFactDraft(e.target.value)}
+                          onBlur={commitNewFact}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              commitNewFact();
+                            } else if (e.key === "Escape") {
+                              setFactDraft("");
+                              setAddingFact(false);
+                            }
+                          }}
+                          placeholder="A fact to remember…"
+                          className="h-7 w-48 text-xs px-2.5 py-0 rounded-full"
+                        />
+                      ) : (
+                        <Button
+                          onClick={() => setAddingFact(true)}
+                          variant="outline"
+                          size="sm"
+                          className="h-7 self-start text-xs rounded-full border-dashed"
+                        >
+                          <FaPlus size={9} className="mr-1.5" /> Add
+                        </Button>
                       )}
                       <p className="text-xs text-subtle">Automatically learned from your conversations, every {MEMORY_EXTRACTION_INTERVAL} messages or so.</p>
                     </Card>

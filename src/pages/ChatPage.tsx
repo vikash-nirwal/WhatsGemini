@@ -1011,8 +1011,8 @@ const ChatPage = () => {
       : []),
     { icon: FaClock, label: "Auto follow-up settings", onClick: () => setIsAutoReplyModalOpen(true), active: autoReplySettings.enabled },
     { icon: FaBookOpen, label: "Scene panel", onClick: () => { setSceneOpen((v) => !v); setParticipantsOpen(false); }, active: sceneOpen, primary: true },
-    ...(isRoom
-      ? [{ icon: FaUsers, label: "Participants", onClick: () => { setParticipantsOpen((v) => !v); setSceneOpen(false); }, active: participantsOpen }]
+    ...(roomCharacters.length > 0
+      ? [{ icon: FaUsers, label: isRoom ? "Participants" : "Invite someone", onClick: () => { setParticipantsOpen((v) => !v); setSceneOpen(false); }, active: participantsOpen }]
       : []),
     ...(personas.length > 1
       ? [{ icon: FaUserCircle, label: `Persona: ${activePersona?.name || "None"}`, onClick: () => setIsPersonaModalOpen(true), active: Boolean(currentChat?.personaId) }]
@@ -1188,7 +1188,7 @@ const ChatPage = () => {
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden relative">
-        <ChatWindow characterName={character} character={characterData} characters={roomCharacters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} />
+        <ChatWindow characterName={character} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} />
       </div>
 
       {/* Message Input Floating */}

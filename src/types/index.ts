@@ -28,6 +28,12 @@ export interface Message {
   speakerId?: number;
   isSystem?: boolean;
   isCompressionSummary?: boolean; // true for the persisted auto-compress summary message
+  // True for a room-membership notice (e.g. "Aria joined the chat.") added
+  // when a character is invited into an existing chat. Rendered as a
+  // centered, unattributed notice like isCompressionSummary - unlike
+  // isSystem, it stays visible in the log since the point is to mark the
+  // seam for the user, not just to prime the model quietly.
+  isRoomEvent?: boolean;
   isImageRequest?: boolean; // True if it triggered image generation
   isImpersonated?: boolean; // role AI, but the user wrote it themselves (Impersonate mode) - not a real generation
   emotion?: string; // one of EMOTIONS, parsed from the AI's own reply when the character has emotionPortraits enabled
