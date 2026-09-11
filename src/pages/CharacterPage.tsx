@@ -1,21 +1,21 @@
-import React, { useState, useMemo, useRef, useContext } from "react";
-import { ThemeContext } from "../contexts/ThemeContext";
+import React, { useState, useMemo, useRef } from "react";
+import { useColorTheme } from "../hooks/useColorTheme";
 import { addCharacter, deleteCharacter } from "../features/characterSlice";
 import { addChat, fetchChats } from "../features/chatSlice";
 import { useNavigate } from "react-router-dom";
 import { FaTrash, FaEdit, FaDownload, FaImages, FaPlus, FaComment, FaEllipsisV, FaSearch, FaCopy, FaFileImage, FaUpload } from "react-icons/fa";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "src/components/molecules/dropdown-menu";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Character, Chat } from "../types";
 import { cn } from "../utils/cn";
 import { useModal } from "../contexts/ModalContext";
-import { DisplayImage } from "../components/DisplayImage";
-import { CharacterAvatar } from "../components/ui/CharacterAvatar";
-import { Button } from "../components/ui/button";
-import { Badge } from "../components/ui/badge";
-import { Card } from "../components/ui/card";
-import { Input } from "../components/ui/input";
-import Header from "../components/Header";
+import { DisplayImage } from "src/components/molecules/DisplayImage";
+import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
+import { Button } from "src/components/atoms/button";
+import { Badge } from "src/components/atoms/badge";
+import { Card } from "src/components/atoms/card";
+import { Input } from "src/components/atoms/input";
+import Header from "src/components/organisms/Header";
 import { CHARACTER_SWATCHES, SAMPLE_CHARACTER } from "../utils/constants";
 import { characterToCardV2, parseCharacterCardJson, buildCharacterCardPng, extractCharacterCardFromPng } from "../features/character/characterCard";
 import { parseSize, resolveImageSrcToUrl, autoCoverCropToBlob, generatePlaceholderPortraitBlob, blobToDataUrl } from "../features/ai/utils/portraitUtils";
@@ -29,8 +29,8 @@ const CharacterPage = () => {
   const chats = useAppSelector((state) => state.chat.chats);
   const loading = useAppSelector((state) => state.character.loading);
   const { showConfirm, showAlert } = useModal();
-  const { colorTheme } = useContext(ThemeContext);
-  const neumorphic = colorTheme === "neumorphic";
+  const { is } = useColorTheme();
+  const neumorphic = is("neumorphic");
   const portraitSaveSize = useAppSelector((state) => parseSize(state.settings.portraitSaveSize));
 
   const [gallerySearch, setGallerySearch] = useState("");
@@ -243,7 +243,7 @@ const CharacterPage = () => {
         </div>
 
         {!loading && characters.length === 0 ? (
-          <Card className={cn("p-6 text-center flex flex-col items-center gap-3", neumorphic && "shadow-inset")}>
+          <Card className={cn("p-6 text-center flex flex-col items-center gap-3", neumorphic && "surface-sunken")}>
             <p className="text-muted-foreground">No characters created yet.</p>
             <p className="text-sm text-muted-foreground">Create your own, or jump straight into a chat with a ready-made one.</p>
             <div className="flex gap-2.5">
@@ -365,7 +365,7 @@ const CharacterPage = () => {
               className={cn(
                 "rounded-xl flex flex-col items-center justify-center gap-3 text-subtle hover:text-primary transition-colors",
                 neumorphic
-                  ? "shadow-inset hover:shadow-inset"
+                  ? "surface-sunken hover:surface-sunken"
                   : "border-[1.5px] border-dashed border-border hover:border-primary"
               )}
               style={{ aspectRatio: "3 / 3.9" }}
@@ -373,7 +373,7 @@ const CharacterPage = () => {
               <span
                 className={cn(
                   "w-[52px] h-[52px] rounded-full grid place-items-center",
-                  neumorphic ? "shadow-raised" : "border-[1.5px] border-dashed border-current"
+                  neumorphic ? "surface-raised" : "border-[1.5px] border-dashed border-current"
                 )}
               >
                 <FaPlus size={18} />

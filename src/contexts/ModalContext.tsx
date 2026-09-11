@@ -8,7 +8,7 @@ import {
   AlertDialogTitle,
   AlertDialogAction,
   AlertDialogCancel,
-} from "../components/ui/alert-dialog";
+} from "src/components/molecules/alert-dialog";
 
 interface ModalState {
   isOpen: boolean;

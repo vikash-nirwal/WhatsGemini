@@ -13,14 +13,14 @@ import {
   setChatProvider, setImageProvider, setOllamaBaseUrl
 } from "../features/settingsSlice";
 import { FaInfoCircle, FaUser, FaMicrochip, FaImage, FaComments, FaShieldAlt, FaDatabase, FaPalette } from "react-icons/fa";
-import Header from "../components/Header";
+import Header from "src/components/organisms/Header";
 import { toast } from "sonner";
-import { ThemeContext } from "../contexts/ThemeContext";
+import { useColorTheme } from "../hooks/useColorTheme";
 import { AuthContext } from "../contexts/AuthContext";
-import UserProfileSettings from "../components/settings/UserProfileSettings";
-import TextModelSettings from "../components/settings/TextModelSettings";
-import ImageGenerationSettings from "../components/settings/ImageGenerationSettings";
-import AppearanceSettings from "../components/settings/AppearanceSettings";
+import UserProfileSettings from "src/components/organisms/UserProfileSettings";
+import TextModelSettings from "src/components/organisms/TextModelSettings";
+import ImageGenerationSettings from "src/components/organisms/ImageGenerationSettings";
+import AppearanceSettings from "src/components/organisms/AppearanceSettings";
 import { getAPIKey, getProviderApiKey, saveProviderApiKey } from "../features/ai/utils/settings";
 import { CHAT_PROVIDERS } from "../features/ai/providers/registry";
 import { useModal } from "../contexts/ModalContext";
@@ -76,9 +76,9 @@ import {
 } from "../utils/constants";
 import { AISafetySettings, UserProfile } from "../types";
 import { dbService } from "../services/dbService";
-import ChatInterfaceSettings from "../components/settings/ChatInterfaceSettings";
-import SafetySettings from "../components/settings/SafetySettings";
-import DataBackupSettings from "../components/settings/DataBackupSettings";
+import ChatInterfaceSettings from "src/components/organisms/ChatInterfaceSettings";
+import SafetySettings from "src/components/organisms/SafetySettings";
+import DataBackupSettings from "src/components/organisms/DataBackupSettings";
 import { formatRelativeTime } from "../utils/formatRelativeTime";
 import { cn } from "../utils/cn";
 
@@ -86,7 +86,7 @@ const SettingsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { showConfirm } = useModal();
-  const { colorTheme, setColorTheme, accentPalette, setAccentPalette } = useContext(ThemeContext);
+  const { colorTheme, setColorTheme, accentPalette, setAccentPalette } = useColorTheme();
   const { logout } = useContext(AuthContext);
   const [initialMessagesKey, setInitialMessagesKey] = useState(0);
 

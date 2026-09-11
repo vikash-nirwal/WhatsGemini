@@ -37,13 +37,14 @@
  * that want the canvas's softer look use explicit `border-border/NN` opacity
  * modifiers instead.
  *
- * Multi-theme ready: nothing here wires up an actual theme switcher yet (no
- * JS/localStorage/attribute toggling exists in the app) - this file only
- * prepares the variable surface for one. To add a real theme later, add a
- * new [data-theme="name"] (+ [data-theme="name"].dark) block redefining
- * whichever of the vocabulary-2 variables that theme wants to change, and
- * set data-theme="name" on <html> (or wherever) from app code. Anything a
- * theme doesn't override falls back to :root/.dark.
+ * Multi-theme: cozy (:root/.dark, the default), neumorphic, and aurora are
+ * wired up today via ThemeContext, which sets data-theme="name" (+ .dark)
+ * on <html>. Adding another theme means a new [data-theme="name"] (+
+ * [data-theme="name"].dark) block here redefining whichever vocabulary-2
+ * variables it wants to change (anything left undefined falls back to
+ * :root/.dark), plus registering it in src/utils/constants.ts and
+ * src/components/organisms/AppearanceSettings.tsx. See src/styles/THEMING.md
+ * for the full token contract and checklist before adding one.
  */
 
 :root {
@@ -209,9 +210,10 @@
    data-theme wiring). The raised/inset shadow look itself needs the five
    primitives shadcn's border-and-flat style doesn't hand us for free -
    Button, Card, Input/Textarea/SelectTrigger, Dialog/AlertDialog, and this
-   app's SegmentedControl (its Tabs equivalent) - each of those opts into
-   the .shadow-raised/.shadow-inset/.shadow-accent utilities defined below
-   when colorTheme === "neumorphic". Selected via Settings -> Appearance.
+   app's SegmentedControl (its Tabs equivalent) - each of those applies the
+   .surface-raised/.surface-sunken/.cta-surface utilities defined below as
+   static classes (see src/styles/THEMING.md). Selected via Settings ->
+   Appearance.
    ================================================================ */
 [data-theme="neumorphic"] {
   --background: 232 234 236; /* #E8EAEC */
@@ -247,8 +249,8 @@
   --subtle: 117 120 124;
   --border: 209 214 218; /* #97A1AB at 28% over the page bg */
   /* Matches --border, not --card/--elevated: shadcn's own primitives already
-     override border-input's color to transparent via .shadow-inset (see the
-     shadow-utilities block below), but plenty of hand-rolled bordered boxes
+     override border-input's color to transparent via .surface-sunken (see the
+     themed-surface-utilities block below), but plenty of hand-rolled bordered boxes
      elsewhere in the app use border-input directly without that override -
      equal to the card fill it'd be an invisible border on those, same
      pattern the cozy theme already follows (--input: var(--color-border-main)). */
@@ -333,17 +335,29 @@
 }
 
 /* ----------------------------------------------------------------
-   Neumorphic shadow utilities
+   Themed surface utilities
    ----------------------------------------------------------------
-   Raised = anything sitting above the page (cards, buttons, avatars).
-   Inset = anything typed into or reading as selected (inputs, the
-   active row in a picker). Defined outside any @layer, so - per CSS
-   cascade-layer rules - they win over Tailwind's own (layered) shadow/
-   border utilities without needing !important, whether or not the
-   component that opts in also still carries its original `shadow`/
-   `border` class. Every other theme leaves --shadow-dark/light unset,
-   so a component that references these classes only when colorTheme
-   === "neumorphic" never renders them under any other theme. */
+   Generic, theme-agnostic surface-role classes - applied as STATIC
+   classes at call sites (no `colorTheme === "x" && ...` JS branch
+   needed) since each is only ever defined under its own [data-theme]
+   selector and is therefore a no-op everywhere else, cozy included.
+   See src/styles/THEMING.md for the full contract a new theme can
+   opt into.
+
+   .surface-raised / .surface-raised-sm - anything sitting above the
+     page (cards, buttons, avatars).
+   .surface-sunken - anything typed into or reading as recessed
+     (inputs, the active row in a picker).
+   .cta-surface - the primary call-to-action treatment.
+   .surface-elevated - a lighter chip than the page behind it
+     (secondary/outline buttons).
+   .surface-panel - a modal/dialog's own surface, distinct from the
+     page background behind its overlay.
+
+   Defined outside any @layer, so - per CSS cascade-layer rules - they
+   win over Tailwind's own (layered) shadow/border utilities without
+   needing !important, whether or not the component that opts in also
+   still carries its original `shadow`/`border` class. */
 [data-theme="neumorphic"] {
   --shadow-dark: rgba(151, 161, 171, 0.5);
   --shadow-light: rgba(255, 255, 255, 0.95);
@@ -352,28 +366,40 @@
   --shadow-dark: rgba(0, 0, 0, 0.62);
   --shadow-light: rgba(255, 255, 255, 0.045);
 }
-[data-theme="neumorphic"] .shadow-raised,
-[data-theme="neumorphic"] .shadow-raised-sm,
-[data-theme="neumorphic"] .shadow-inset,
-[data-theme="neumorphic"] .shadow-accent {
+[data-theme="neumorphic"] .surface-raised,
+[data-theme="neumorphic"] .surface-raised-sm,
+[data-theme="neumorphic"] .surface-sunken,
+[data-theme="neumorphic"] .cta-surface {
   border-color: transparent;
 }
-[data-theme="neumorphic"] .shadow-raised {
+[data-theme="neumorphic"] .surface-raised {
   box-shadow: 6px 6px 14px var(--shadow-dark), -6px -6px 14px var(--shadow-light);
 }
-[data-theme="neumorphic"] .shadow-raised-sm {
+/* Declared right after .surface-raised (before .surface-raised-sm/
+   .surface-sunken/.cta-surface below) so that when a consumer combines Card
+   with a conflicting box-shadow class - e.g. CharacterPage's empty-state
+   Card also applies .surface-sunken - the LATER-declared class still wins
+   the cascade, same outcome as when Card literally reused .surface-raised
+   itself pre-refactor. Keep this position if reordering the rules below. */
+[data-theme="neumorphic"] .surface-panel {
+  background-color: rgb(var(--card));
+  border-radius: 24px;
+  border-color: transparent;
+  box-shadow: 6px 6px 14px var(--shadow-dark), -6px -6px 14px var(--shadow-light);
+}
+[data-theme="neumorphic"] .surface-raised-sm {
   box-shadow: 3px 3px 7px var(--shadow-dark), -3px -3px 7px var(--shadow-light);
 }
-[data-theme="neumorphic"] .shadow-inset {
+[data-theme="neumorphic"] .surface-sunken {
   box-shadow: inset 4px 4px 9px var(--shadow-dark), inset -4px -4px 9px var(--shadow-light);
   background-color: rgb(var(--card));
 }
-[data-theme="neumorphic"] .shadow-accent {
+[data-theme="neumorphic"] .cta-surface {
   box-shadow: 6px 6px 14px color-mix(in srgb, rgb(var(--primary)) 40%, transparent), -3px -3px 9px var(--shadow-light);
 }
-[data-theme="neumorphic"] button.shadow-raised:active,
-[data-theme="neumorphic"] button.shadow-raised-sm:active,
-[data-theme="neumorphic"] button.shadow-accent:active {
+[data-theme="neumorphic"] button.surface-raised:active,
+[data-theme="neumorphic"] button.surface-raised-sm:active,
+[data-theme="neumorphic"] button.cta-surface:active {
   box-shadow: inset 4px 4px 9px var(--shadow-dark), inset -4px -4px 9px var(--shadow-light);
 }
 
@@ -449,8 +475,8 @@
   /* Recessed/elevated surfaces the canvas uses for inputs and secondary
      buttons - neither has a shadcn-canonical slot (--input is a border
      color, not a fill), so they're app-specific, aurora-only tokens. See
-     .aurora-sunken/.aurora-raised below. Identical to --card in light mode
-     (matches the canvas's own token block), diverge in dark. */
+     .surface-sunken/.surface-elevated below. Identical to --card in light
+     mode (matches the canvas's own token block), diverge in dark. */
   --sunken: 238 231 250; /* #EEE7FA */
   --raise: 255 255 255;
 
@@ -467,7 +493,7 @@
   --color-primary-hover: 236 72 153; /* #EC4899 */
   --color-accent: 139 92 246;
   --color-accent-2: 236 72 153;
-  --color-accent-3: 249 115 22; /* #F97316 - gradient's 3rd stop, see .aurora-gradient-btn */
+  --color-accent-3: 249 115 22; /* #F97316 - gradient's 3rd stop, see .cta-surface */
   --color-on-accent: 255 255 255;
   --color-secondary: 238 231 250;
   --color-secondary-hover: 236 228 248;
@@ -640,24 +666,31 @@
   border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 /* CTA-weight buttons get the canvas's 3-stop brand gradient instead of a
-   flat --primary fill - see NEUMORPHIC_SHADOW's sibling AURORA_GRADIENT
-   map in button.tsx for which variants opt in. */
-[data-theme="aurora"] .aurora-gradient-btn {
+   flat --primary fill - see the `.cta-surface` static class applied to
+   Button's `default` variant (and neumorphic's own .cta-surface rule
+   above, same class name, different theme scope). */
+[data-theme="aurora"] .cta-surface {
   background-image: linear-gradient(120deg, rgb(var(--color-accent)), rgb(var(--color-primary-hover)) 55%, rgb(var(--color-accent-3)));
   border-color: transparent;
 }
-[data-theme="aurora"] .aurora-gradient-btn:hover {
+[data-theme="aurora"] .cta-surface:hover {
   filter: brightness(1.08);
 }
 /* Inputs/textareas/selects are recessed pills in the canvas (background:
    var(--sunken)), not the plain bg-transparent + border every other theme
-   uses - see Input/Textarea/SelectTrigger/TagInput's colorTheme check. */
-[data-theme="aurora"] .aurora-sunken {
+   uses - see Input/Textarea/SelectTrigger/TagInput's static `.surface-sunken`
+   class (shared with neumorphic's own inset treatment above). */
+[data-theme="aurora"] .surface-sunken {
   background-color: rgb(var(--sunken));
 }
 /* The canvas's secondary/back buttons sit on var(--raise), a lighter chip
-   than the page behind them - see AURORA_RAISED in button.tsx (the
-   `outline` variant, which otherwise flat-fills with --background). */
-[data-theme="aurora"] .aurora-raised {
+   than the page behind them - see the `.surface-elevated` static class on
+   Button's `outline` variant, which otherwise flat-fills with --background. */
+[data-theme="aurora"] .surface-elevated {
   background-color: rgb(var(--raise));
+}
+/* Dialog/AlertDialog content - distinct from the page background behind
+   the overlay, same reasoning as neumorphic's .surface-panel above. */
+[data-theme="aurora"] .surface-panel {
+  background-color: rgb(var(--card));
 }

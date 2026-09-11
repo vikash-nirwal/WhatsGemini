@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo, useContext } from "react";
-import { ThemeContext } from "../contexts/ThemeContext";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useColorTheme } from "../hooks/useColorTheme";
 import { addCharacter, updateCharacter } from "../features/characterSlice";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { FaTimes, FaUpload, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaMagic, FaCrop, FaTrash, FaBook, FaDice } from "react-icons/fa";
@@ -7,20 +7,20 @@ import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Character, LoreEntry, ArtStyle } from "../types";
 import { dbService } from "../services/dbService";
 import { generateAssistText, generateAvatarImage } from "../features/aiSlice";
-import { DisplayImage } from "../components/DisplayImage";
-import { TextInput, TextArea, FieldLabel, InfoTooltip, Slider, TagInput, PresetSelectField, ChipSelectField } from "../components/ui/FormControls";
-import { CharacterAvatar } from "../components/ui/CharacterAvatar";
-import { Button } from "../components/ui/button";
-import { Card } from "../components/ui/card";
+import { DisplayImage } from "src/components/molecules/DisplayImage";
+import { TextInput, TextArea, FieldLabel, InfoTooltip, Slider, TagInput, PresetSelectField, ChipSelectField } from "src/components/molecules/form-controls";
+import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
+import { Button } from "src/components/atoms/button";
+import { Card } from "src/components/atoms/card";
 import { cn } from "../utils/cn";
-import ToggleSwitch from "../components/ToggleSwitch";
-import Header from "../components/Header";
+import ToggleSwitch from "src/components/atoms/ToggleSwitch";
+import Header from "src/components/organisms/Header";
 import { CHARACTER_SWATCHES, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, EMOTIONS, ART_STYLES, DEFAULT_ART_STYLE, LORE_SCAN_MESSAGE_COUNT, RELATIONSHIP_PRESETS, TAG_PRESETS, PERSONALITY_TRAIT_PRESETS } from "../utils/constants";
-import { SegmentedControl } from "../components/settings/SegmentedControl";
+import { SegmentedControl } from "src/components/molecules/SegmentedControl";
 import { estimateTokens } from "../features/ai/utils/tokenEstimator";
-import TestChatPane from "../components/character/TestChatPane";
-import AvatarCropDialog from "../components/character/AvatarCropDialog";
-import AvatarGenerateButton from "../components/character/AvatarGenerateButton";
+import TestChatPane from "src/components/organisms/TestChatPane";
+import AvatarCropDialog from "src/components/organisms/AvatarCropDialog";
+import AvatarGenerateButton from "src/components/molecules/AvatarGenerateButton";
 import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
 import { parseCharacterCardJson } from "../features/character/characterCard";
 import { useModal } from "../contexts/ModalContext";
@@ -57,8 +57,8 @@ const extractSurpriseSection = (text: string, label: string): string => {
 
 const CharacterEditorPage = () => {
   const dispatch = useAppDispatch();
-  const { colorTheme } = useContext(ThemeContext);
-  const neumorphic = colorTheme === "neumorphic";
+  const { is } = useColorTheme();
+  const neumorphic = is("neumorphic");
   const { showAlert } = useModal();
   const navigate = useNavigate();
   const location = useLocation();
@@ -868,7 +868,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                         onClick={() => imageInputRef.current?.click()}
                         className={cn(
                           "w-20 h-20 flex flex-col justify-center items-center rounded-lg text-muted-foreground hover:text-primary transition-colors",
-                          neumorphic ? "shadow-inset" : "border-2 border-dashed border-border hover:border-primary"
+                          neumorphic ? "surface-sunken" : "border-2 border-dashed border-border hover:border-primary"
                         )}
                       >
                         <FaUpload size={16} />
@@ -1184,7 +1184,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   onClick={handleAddLoreEntry}
                   className={cn(
                     "h-auto w-full px-3 py-2 text-xs font-medium hover:text-primary",
-                    neumorphic ? "shadow-inset" : "border border-dashed border-border hover:border-primary"
+                    neumorphic ? "surface-sunken" : "border border-dashed border-border hover:border-primary"
                   )}
                 >
                   <FaPlus size={11} /> Add Lore Entry

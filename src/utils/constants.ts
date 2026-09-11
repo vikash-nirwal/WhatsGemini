@@ -216,11 +216,14 @@ export const DARK = "dark";
 // Color theme (palette), independent of the light/dark mode above - see
 // ThemeContext. "cozy" is the app's existing warm terracotta look and stays
 // the default; other entries add a [data-theme="x"] block to tokens.css.
-export const COLOR_THEMES: { value: string; label: string; description: string }[] = [
+// `as const` (rather than an explicit `{...}[]` annotation) so useColorTheme's
+// `is()` helper can narrow its argument to the literal union of registered
+// theme values instead of accepting any string.
+export const COLOR_THEMES = [
   { value: "cozy", label: "Cozy", description: "Warm terracotta and cream - the original look" },
   { value: "neumorphic", label: "Neumorphic", description: "Soft gray-green palette with raised, pillowy surfaces" },
   { value: "aurora", label: "Aurora", description: "Vibrant gradient look with a choice of 4 accent palettes" },
-];
+] as const;
 export const DEFAULT_COLOR_THEME = "cozy";
 
 // Accent palette, a sub-choice available only within the "aurora" color

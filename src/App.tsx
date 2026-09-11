@@ -11,14 +11,14 @@ import { fetchChats, addChat } from "./features/chatSlice";
 import { fetchCharacters, addCharacter } from "./features/characterSlice";
 import { LS_FONT_SIZE, LS_FIRST_USED_AT, SAMPLE_CHARACTER } from "./utils/constants";
 
-import Sidebar from "./components/Sidebar";
-import Header from "./components/Header";
-import ServiceWorkerUpdater from "./components/ServiceWorkerUpdater";
-import BackupReminderBanner from "./components/BackupReminderBanner";
-import Logo from "./components/ui/Logo";
-import { TooltipProvider } from "./components/ui/tooltip";
-import { Toaster } from "./components/ui/sonner";
-import { Button } from "./components/ui/button";
+import Sidebar from "src/components/organisms/Sidebar";
+import Header from "src/components/organisms/Header";
+import ServiceWorkerUpdater from "src/components/molecules/ServiceWorkerUpdater";
+import BackupReminderBanner from "src/components/molecules/BackupReminderBanner";
+import Logo from "src/components/atoms/Logo";
+import { TooltipProvider } from "src/components/atoms/tooltip";
+import { Toaster } from "src/components/atoms/sonner";
+import { Button } from "src/components/atoms/button";
 
 const ChatPage = lazy(() => import("./pages/ChatPage"));
 const Login = lazy(() => import("./pages/Login"));

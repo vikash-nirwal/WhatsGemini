@@ -4,14 +4,14 @@ import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, 
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
 import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage } from "../features/aiSlice";
 import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
-import ChatWindow from "../components/ChatWindow";
-import MessageInput from "../components/MessageInput";
-import Header, { HeaderAction } from "../components/Header";
-import Modal from "../components/Modal";
-import ToggleSwitch from "../components/ToggleSwitch";
-import { TextInput, FieldLabel } from "../components/ui/FormControls";
+import ChatWindow from "src/components/organisms/ChatWindow";
+import MessageInput from "src/components/organisms/MessageInput";
+import Header, { HeaderAction } from "src/components/organisms/Header";
+import Modal from "src/components/molecules/Modal";
+import ToggleSwitch from "src/components/atoms/ToggleSwitch";
+import { TextInput, FieldLabel } from "src/components/molecules/form-controls";
 import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaBookOpen, FaHistory, FaUserCircle, FaCheck, FaTimes, FaUsers } from "react-icons/fa";
-import { Button } from "../components/ui/button";
+import { Button } from "src/components/atoms/button";
 import { cn } from "../utils/cn";
 import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
@@ -24,9 +24,9 @@ import { resolveNextSpeaker, parseMention, stripSpeakerPrefix } from "../feature
 import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo } from "../features/chat/messageTree";
 import { estimateTokens, estimateHistoryTokens } from "../features/ai/utils/tokenEstimator";
 import { truncateHistory } from "../features/ai/utils/chatHistoryUtils";
-import { CharacterAvatar } from "../components/ui/CharacterAvatar";
-import { DisplayImage } from "../components/DisplayImage";
-import { Alert, AlertDescription } from "../components/ui/alert";
+import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
+import { DisplayImage } from "src/components/molecules/DisplayImage";
+import { Alert, AlertDescription } from "src/components/atoms/alert";
 import { useModal } from "../contexts/ModalContext";
 
 const DEFAULT_AUTO_REPLY = { enabled: false, minDelaySeconds: 30, maxDelaySeconds: 120, maxFollowups: 2, followupCount: 0 };

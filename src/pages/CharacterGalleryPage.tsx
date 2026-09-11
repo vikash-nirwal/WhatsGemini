@@ -4,11 +4,11 @@ import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { fetchCharacterById } from "../features/characterSlice";
 import { fetchChats } from "../features/chatSlice";
 import { FaTimes, FaChevronLeft, FaChevronRight } from "react-icons/fa";
-import { DisplayImage } from "../components/DisplayImage";
-import { Dialog, DialogContent, DialogTitle, DialogClose } from "../components/ui/dialog";
-import Header from "../components/Header";
-import { CharacterAvatar } from "../components/ui/CharacterAvatar";
-import { Button } from "../components/ui/button";
+import { DisplayImage } from "src/components/molecules/DisplayImage";
+import { Dialog, DialogContent, DialogTitle, DialogClose } from "src/components/molecules/dialog";
+import Header from "src/components/organisms/Header";
+import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
+import { Button } from "src/components/atoms/button";
 
 const CharacterGalleryPage = () => {
   const { characterId } = useParams();
