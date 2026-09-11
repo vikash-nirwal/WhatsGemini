@@ -1020,7 +1020,7 @@ const ChatPage = () => {
   ];
 
   return (
-    <div className="flex flex-col w-full h-screen bg-background relative">
+    <div className="flex flex-col w-full h-screen relative">
       <Header
         title={character || "Chat"}
         subtitle={isRoom ? `With ${roomCharacters.map((c) => c.name).join(", ")}` : (characterData?.relationship || characterData?.description)}

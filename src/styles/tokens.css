@@ -398,3 +398,266 @@
   --input: 38 38 38; /* hsl(0 0% 14.9%) */
   --ring: 212 212 212; /* hsl(0 0% 83.1%) */
 }
+
+/* ================================================================
+   Aurora theme
+   ================================================================
+   A vibrant gradient look, sourced from the "WhatsGemini Redesign" Claude
+   Design canvas (the aurora exploration). Unlike cozy/neumorphic, this one
+   exposes a second, independent choice: which of 4 accent palettes drives
+   --primary/--color-accent(-2) (see AURORA_PALETTES in constants.ts and
+   ThemeContext's accentPalette/setAccentPalette, wired through
+   data-palette). The base blocks below bake in "violet", aurora's own
+   default; the [data-palette="x"] overrides further down swap in the
+   other three. Every other vocabulary-2 token (background/card/popover/
+   secondary/muted/accent/border/etc.) is shared across all four palettes -
+   only the brand hue itself changes. Logo.tsx's gradient already reads
+   --color-accent/--color-accent-2, so it re-colors automatically with
+   whichever palette is active. */
+[data-theme="aurora"] {
+  --background: 244 240 251; /* #F4F0FB */
+  --foreground: 26 19 48; /* #1A1330 */
+  --card: 255 255 255;
+  --card-foreground: 26 19 48;
+  --popover: 255 255 255;
+  --popover-foreground: 26 19 48;
+  --primary: 139 92 246; /* #8B5CF6 - violet palette's 1st color */
+  --primary-foreground: 255 255 255;
+  --primary-hover: 236 72 153; /* #EC4899 - violet palette's 2nd color */
+  --secondary: 238 231 250; /* #EEE7FA */
+  --secondary-foreground: 26 19 48;
+  --muted: 236 228 248; /* #ECE4F8 */
+  --muted-foreground: 104 99 121; /* #1A1330 at 64% over the page bg */
+  --accent: 236 228 248;
+  --accent-foreground: 26 19 48;
+  --destructive: 220 38 38; /* #DC2626 */
+  --destructive-foreground: 255 255 255;
+  --success: 22 163 74; /* #16A34A */
+  --success-foreground: 255 255 255;
+  --overlay: 26 19 48; /* modal-backdrop tint - no existing app token for this */
+  --subtle: var(--color-text-faint);
+  --border: 208 203 217; /* #140A28 at 16% over the page bg */
+  --input: 208 203 217;
+  --ring: 139 92 246;
+  --radius: 14px;
+  --shadow-soft: rgba(30, 15, 60, 0.1);
+  --shadow-mid: rgba(30, 15, 60, 0.16);
+  --shadow-strong: rgba(30, 15, 60, 0.22);
+  /* The canvas's signature glow - a soft radial wash of the accent color
+     behind the whole app shell (see .app-main below in App.tsx). */
+  --blob: radial-gradient(ellipse 90% 70% at 15% 0%, #8b5cf622 0%, #f3effa 42%, #ffffff 100%);
+  /* Recessed/elevated surfaces the canvas uses for inputs and secondary
+     buttons - neither has a shadcn-canonical slot (--input is a border
+     color, not a fill), so they're app-specific, aurora-only tokens. See
+     .aurora-sunken/.aurora-raised below. Identical to --card in light mode
+     (matches the canvas's own token block), diverge in dark. */
+  --sunken: 238 231 250; /* #EEE7FA */
+  --raise: 255 255 255;
+
+  --color-app-bg: 244 240 251;
+  --color-panel-bg: 255 255 255;
+  --color-panel2-bg: 236 228 248;
+  --color-panel3-bg: 236 228 248;
+  --color-hover-bg: 238 231 250;
+  --color-chat-bg: 244 240 251;
+  --color-text-main: 26 19 48;
+  --color-text-muted: 104 99 121;
+  --color-text-faint: 144 138 158;
+  --color-primary: 139 92 246; /* #8B5CF6 */
+  --color-primary-hover: 236 72 153; /* #EC4899 */
+  --color-accent: 139 92 246;
+  --color-accent-2: 236 72 153;
+  --color-accent-3: 249 115 22; /* #F97316 - gradient's 3rd stop, see .aurora-gradient-btn */
+  --color-on-accent: 255 255 255;
+  --color-secondary: 238 231 250;
+  --color-secondary-hover: 236 228 248;
+  --color-on-secondary: 26 19 48;
+  --color-border-main: 208 203 217;
+}
+
+[data-theme="aurora"].dark {
+  --background: 13 10 28; /* #0D0A1C */
+  --foreground: 255 255 255;
+  --card: 26 19 48; /* #1A1330 */
+  --card-foreground: 255 255 255;
+  --popover: 26 19 48;
+  --popover-foreground: 255 255 255;
+  --primary: 139 92 246; /* #8B5CF6 */
+  --primary-foreground: 255 255 255;
+  --primary-hover: 236 72 153; /* #EC4899 */
+  --secondary: 36 26 61; /* #241A3D */
+  --secondary-foreground: 255 255 255;
+  --muted: 20 15 38; /* #140F26 */
+  --muted-foreground: 173 172 178; /* #FFFFFF at 66% over the page bg */
+  --accent: 20 15 38;
+  --accent-foreground: 255 255 255;
+  --destructive: 248 113 113; /* #F87171 */
+  --destructive-foreground: 26 15 15;
+  --success: 74 222 128; /* #4ADE80 */
+  --success-foreground: 15 21 18;
+  --overlay: 13 10 28;
+  --subtle: var(--color-text-faint);
+  --border: 54 52 67; /* white at 17% over the page bg */
+  --input: 54 52 67;
+  --ring: 139 92 246;
+  --shadow-soft: rgba(0, 0, 0, 0.35);
+  --shadow-mid: rgba(0, 0, 0, 0.5);
+  --shadow-strong: rgba(0, 0, 0, 0.65);
+  --blob: radial-gradient(ellipse 80% 60% at 25% 100%, #8b5cf630 0%, #1c1236 45%, #0d0a1c 100%);
+  --sunken: 16 12 32; /* #100C20 */
+  --raise: 36 26 61; /* #241A3D */
+
+  --color-app-bg: 13 10 28;
+  --color-panel-bg: 26 19 48;
+  --color-panel2-bg: 20 15 38;
+  --color-panel3-bg: 20 15 38;
+  --color-hover-bg: 36 26 61;
+  --color-chat-bg: 13 10 28;
+  --color-text-main: 255 255 255;
+  --color-text-muted: 173 172 178;
+  --color-text-faint: 124 123 132;
+  --color-primary: 139 92 246;
+  --color-primary-hover: 236 72 153;
+  --color-accent: 139 92 246;
+  --color-accent-2: 236 72 153;
+  --color-accent-3: 249 115 22; /* #F97316 */
+  --color-on-accent: 255 255 255;
+  --color-secondary: 36 26 61;
+  --color-secondary-hover: 20 15 38;
+  --color-on-secondary: 255 255 255;
+  --color-border-main: 54 52 67;
+}
+
+/* Accent palette overrides - violet (aurora's default) is baked into the
+   base blocks above, so only the other 3 need an override here. Only the
+   brand-hue tokens change; every neutral surface stays as defined above. */
+[data-theme="aurora"][data-palette="ocean"] {
+  --primary: 14 165 233; /* #0EA5E9 */
+  --primary-hover: 34 211 238; /* #22D3EE */
+  --ring: 14 165 233;
+  --color-primary: 14 165 233;
+  --color-primary-hover: 34 211 238;
+  --color-accent: 14 165 233;
+  --color-accent-2: 34 211 238;
+  --color-accent-3: 99 102 241; /* #6366F1 */
+  --blob: radial-gradient(ellipse 90% 70% at 15% 0%, #0ea5e922 0%, #f3effa 42%, #ffffff 100%);
+}
+[data-theme="aurora"][data-palette="ocean"].dark {
+  --primary: 14 165 233;
+  --primary-hover: 34 211 238;
+  --ring: 14 165 233;
+  --color-primary: 14 165 233;
+  --color-primary-hover: 34 211 238;
+  --color-accent: 14 165 233;
+  --color-accent-2: 34 211 238;
+  --color-accent-3: 99 102 241;
+  --blob: radial-gradient(ellipse 80% 60% at 25% 100%, #0ea5e930 0%, #1c1236 45%, #0d0a1c 100%);
+}
+
+[data-theme="aurora"][data-palette="forest"] {
+  --primary: 34 197 94; /* #22C55E */
+  --primary-hover: 20 184 166; /* #14B8A6 */
+  --ring: 34 197 94;
+  --color-primary: 34 197 94;
+  --color-primary-hover: 20 184 166;
+  --color-accent: 34 197 94;
+  --color-accent-2: 20 184 166;
+  --color-accent-3: 163 230 53; /* #A3E635 */
+  --blob: radial-gradient(ellipse 90% 70% at 15% 0%, #22c55e22 0%, #f3effa 42%, #ffffff 100%);
+}
+[data-theme="aurora"][data-palette="forest"].dark {
+  --primary: 34 197 94;
+  --primary-hover: 20 184 166;
+  --ring: 34 197 94;
+  --color-primary: 34 197 94;
+  --color-primary-hover: 20 184 166;
+  --color-accent: 34 197 94;
+  --color-accent-2: 20 184 166;
+  --color-accent-3: 163 230 53;
+  --blob: radial-gradient(ellipse 80% 60% at 25% 100%, #22c55e30 0%, #1c1236 45%, #0d0a1c 100%);
+}
+
+[data-theme="aurora"][data-palette="sunset"] {
+  --primary: 244 63 94; /* #F43F5E */
+  --primary-hover: 217 70 239; /* #D946EF */
+  --ring: 244 63 94;
+  --color-primary: 244 63 94;
+  --color-primary-hover: 217 70 239;
+  --color-accent: 244 63 94;
+  --color-accent-2: 217 70 239;
+  --color-accent-3: 249 115 22; /* #F97316 */
+  --blob: radial-gradient(ellipse 90% 70% at 15% 0%, #f43f5e22 0%, #f3effa 42%, #ffffff 100%);
+}
+[data-theme="aurora"][data-palette="sunset"].dark {
+  --primary: 244 63 94;
+  --primary-hover: 217 70 239;
+  --ring: 244 63 94;
+  --color-primary: 244 63 94;
+  --color-primary-hover: 217 70 239;
+  --color-accent: 244 63 94;
+  --color-accent-2: 217 70 239;
+  --color-accent-3: 249 115 22;
+  --blob: radial-gradient(ellipse 80% 60% at 25% 100%, #f43f5e30 0%, #1c1236 45%, #0d0a1c 100%);
+}
+
+/* ----------------------------------------------------------------
+   Aurora structural look
+   ----------------------------------------------------------------
+   Flat surface colors alone don't read as "aurora" - the canvas's actual
+   signature is the glowing radial wash behind the app shell (--blob,
+   painted on App.tsx's <main class="app-main">, the one element every
+   routed page's own now-transparent background lets show through) plus a
+   frosted-glass sidebar/header floating over it. Every other theme keeps
+   its plain flat --card/--background fill on aside/header - this is
+   aurora-only, same reasoning as the neumorphic shadow utilities above:
+   left outside any @layer so it wins over Tailwind's layered utilities
+   without !important. */
+[data-theme="aurora"] .app-main {
+  background: var(--blob);
+}
+[data-theme="aurora"] aside[aria-label="Sidebar"] {
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.55));
+  border-right-color: rgba(20, 10, 40, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 8px 0 30px -20px rgba(20, 10, 40, 0.15);
+}
+[data-theme="aurora"].dark aside[aria-label="Sidebar"] {
+  background:
+    linear-gradient(165deg, rgba(28, 18, 54, 0.9), rgba(13, 10, 28, 0.85)),
+    linear-gradient(165deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015));
+  border-right-color: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+[data-theme="aurora"] header {
+  background: rgba(255, 255, 255, 0.55);
+  border-bottom-color: rgba(20, 10, 40, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+[data-theme="aurora"].dark header {
+  background: rgba(26, 19, 48, 0.55);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+/* CTA-weight buttons get the canvas's 3-stop brand gradient instead of a
+   flat --primary fill - see NEUMORPHIC_SHADOW's sibling AURORA_GRADIENT
+   map in button.tsx for which variants opt in. */
+[data-theme="aurora"] .aurora-gradient-btn {
+  background-image: linear-gradient(120deg, rgb(var(--color-accent)), rgb(var(--color-primary-hover)) 55%, rgb(var(--color-accent-3)));
+  border-color: transparent;
+}
+[data-theme="aurora"] .aurora-gradient-btn:hover {
+  filter: brightness(1.08);
+}
+/* Inputs/textareas/selects are recessed pills in the canvas (background:
+   var(--sunken)), not the plain bg-transparent + border every other theme
+   uses - see Input/Textarea/SelectTrigger/TagInput's colorTheme check. */
+[data-theme="aurora"] .aurora-sunken {
+  background-color: rgb(var(--sunken));
+}
+/* The canvas's secondary/back buttons sit on var(--raise), a lighter chip
+   than the page behind them - see AURORA_RAISED in button.tsx (the
+   `outline` variant, which otherwise flat-fills with --background). */
+[data-theme="aurora"] .aurora-raised {
+  background-color: rgb(var(--raise));
+}

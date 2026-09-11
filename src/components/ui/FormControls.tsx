@@ -143,6 +143,7 @@ export const TagInput: React.FC<TagInputProps> = ({ value, onChange, placeholder
   const [draft, setDraft] = useState("");
   const { colorTheme } = useContext(ThemeContext);
   const neumorphic = colorTheme === "neumorphic";
+  const aurora = colorTheme === "aurora";
 
   const commitDraft = () => {
     const tag = draft.trim();
@@ -159,6 +160,7 @@ export const TagInput: React.FC<TagInputProps> = ({ value, onChange, placeholder
       className={cn(
         "flex flex-wrap items-center gap-2 p-2 rounded-md bg-transparent min-h-[42px]",
         neumorphic ? "shadow-inset" : "border border-input",
+        aurora && "aurora-sunken",
         className
       )}
     >

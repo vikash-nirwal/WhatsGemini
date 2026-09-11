@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useContext } from 'react';
+import { cn } from '../../utils/cn';
+import { ThemeContext } from '../../contexts/ThemeContext';
 import { IMAGE_RESOLUTIONS, GEMINI_IMAGE_SIZES, GEMINI_IMAGE_SIZE_SUPPORTED_MODELS } from '../../utils/constants';
 import { TextInput, TextArea, Select, Slider } from '../ui/FormControls';
 import { IMAGE_PROVIDER_META } from '../../features/ai/providers/registry';
@@ -86,6 +88,7 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
   handleSelectDirectory,
   LS_SD_WEBUI_MODEL,
 }) => {
+  const { colorTheme } = useContext(ThemeContext);
   return (
     <div className="flex flex-col gap-5">
       <SettingsCard>
@@ -277,7 +280,7 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
 
         <SettingsRow label="Save generated images to" hint="Browsers may ask you to re-approve write access when you return.">
           <div className="flex items-center gap-2.5">
-            <div className="flex-1 h-10 rounded-lg bg-background border border-input flex items-center px-3 text-sm truncate">
+            <div className={cn("flex-1 h-10 rounded-lg bg-background border border-input flex items-center px-3 text-sm truncate", colorTheme === "aurora" && "aurora-sunken")}>
               {imageSaveDirName}
             </div>
             <Button onClick={handleSelectDirectory} variant="outline" className="whitespace-nowrap">

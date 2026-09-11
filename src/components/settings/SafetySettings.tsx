@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { FaShieldAlt } from 'react-icons/fa';
+import { cn } from '../../utils/cn';
+import { ThemeContext } from '../../contexts/ThemeContext';
 import { AISafetySettings } from '../../types';
 import { harmThresholds } from '../../utils/constants';
 import { SettingsCard, SettingsRow } from './SettingsCard';
@@ -22,9 +24,15 @@ const CATEGORY_LABELS: Record<string, string> = {
 const SafetySettings: React.FC<SafetySettingsProps> = ({
   chatProvider, safetySettings, safetyCategories, onSafetyChange,
 }) => {
+  const { colorTheme } = useContext(ThemeContext);
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-card border border-border/50 text-[13px] text-muted-foreground">
+      <div
+        className={cn(
+          "flex items-center gap-3 px-4 py-3 rounded-lg bg-card border border-border/50 text-[13px] text-muted-foreground",
+          colorTheme === "aurora" && "aurora-sunken border-none"
+        )}
+      >
         <FaShieldAlt className="text-primary flex-none" size={15} />
         <span>
           Applies to <span className="text-foreground font-medium">Google Gemini</span> only. Other providers don't

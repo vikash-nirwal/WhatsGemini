@@ -60,14 +60,32 @@ const NEUMORPHIC_SHADOW: Partial<Record<NonNullable<ButtonProps["variant"]>, str
   destructive: "shadow-raised",
 }
 
+// The only variant that gets aurora's 3-stop brand gradient instead of a
+// flat --primary fill (see [data-theme="aurora"] .aurora-gradient-btn in
+// tokens.css) - every other variant is a neutral/secondary surface in the
+// canvas too, so they stay flat.
+const AURORA_GRADIENT: Partial<Record<NonNullable<ButtonProps["variant"]>, string>> = {
+  default: "aurora-gradient-btn",
+}
+
+// `outline` flat-fills with --background (the page's own color) via
+// buttonVariants above - fine on every other theme's flat page, but the
+// canvas's own back/secondary buttons sit on var(--raise), a lighter chip
+// that stays legible over aurora's gradient page (see .aurora-raised).
+const AURORA_RAISED: Partial<Record<NonNullable<ButtonProps["variant"]>, string>> = {
+  outline: "aurora-raised",
+}
+
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
     const { colorTheme } = React.useContext(ThemeContext)
     const neumorphicShadow = colorTheme === "neumorphic" ? NEUMORPHIC_SHADOW[variant || "default"] : undefined
+    const auroraGradient = colorTheme === "aurora" ? AURORA_GRADIENT[variant || "default"] : undefined
+    const auroraRaised = colorTheme === "aurora" ? AURORA_RAISED[variant || "default"] : undefined
     return (
       <Comp
-        className={cn(buttonVariants({ variant, size, className }), neumorphicShadow)}
+        className={cn(buttonVariants({ variant, size, className }), neumorphicShadow, auroraGradient, auroraRaised)}
         ref={ref}
         {...props}
       />

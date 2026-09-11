@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useContext } from 'react';
+import { cn } from '../../utils/cn';
+import { ThemeContext } from '../../contexts/ThemeContext';
 import { TextInput } from '../ui/FormControls';
 import InitialMessages from '../InitialMessages';
 import { SettingsCard, SettingsCardHeader, SettingsRow } from './SettingsCard';
@@ -23,6 +25,7 @@ const FONT_SIZE_OPTIONS = [
 const ChatInterfaceSettings: React.FC<ChatInterfaceSettingsProps> = ({
   maxChatLength, setMaxChatLength, fontSize, setFontSize, initialMessagesKey, onInitialMessagesSave,
 }) => {
+  const { colorTheme } = useContext(ThemeContext);
   return (
     <div className="flex flex-col gap-5">
       <SettingsCard>
@@ -34,7 +37,10 @@ const ChatInterfaceSettings: React.FC<ChatInterfaceSettingsProps> = ({
           <div className="flex flex-col gap-3">
             <SegmentedControl value={fontSize} onChange={setFontSize} options={FONT_SIZE_OPTIONS} />
             <div
-              className="rounded-lg bg-background border border-input px-3.5 py-3 font-serif leading-relaxed"
+              className={cn(
+                "rounded-lg bg-background border border-input px-3.5 py-3 font-serif leading-relaxed",
+                colorTheme === "aurora" && "aurora-sunken border-none"
+              )}
               style={{ fontSize }}
             >
               <span className="italic text-muted-foreground">He checks the time again.</span> "Short messages,

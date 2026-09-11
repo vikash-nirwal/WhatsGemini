@@ -1,11 +1,13 @@
 import React from 'react';
 import { cn } from '../../utils/cn';
 import { SettingsCard, SettingsCardHeader, SettingsRow } from './SettingsCard';
-import { COLOR_THEMES } from '../../utils/constants';
+import { COLOR_THEMES, AURORA_PALETTES } from '../../utils/constants';
 
 interface AppearanceSettingsProps {
   colorTheme: string;
   setColorTheme: (value: string) => void;
+  accentPalette: string;
+  setAccentPalette: (value: string) => void;
 }
 
 // Light-mode swatches for each theme, just enough to preview the palette at a
@@ -14,12 +16,18 @@ interface AppearanceSettingsProps {
 const THEME_SWATCHES: Record<string, [string, string, string]> = {
   cozy: ['#F7F1EC', '#E0562E', '#2A1E1A'],
   neumorphic: ['#E8EAEC', '#268B68', '#22262B'],
+  aurora: ['#F4F0FB', '#8B5CF6', '#1A1330'],
 };
 
 // Palette picker, independent of the existing light/dark toggle (header icon) -
 // see ThemeContext's colorTheme/setColorTheme and tokens.css's [data-theme="x"]
 // blocks. Cozy is the app's original look and stays the default.
-const AppearanceSettings: React.FC<AppearanceSettingsProps> = ({ colorTheme, setColorTheme }) => {
+const AppearanceSettings: React.FC<AppearanceSettingsProps> = ({
+  colorTheme,
+  setColorTheme,
+  accentPalette,
+  setAccentPalette,
+}) => {
   return (
     <div className="flex flex-col gap-5">
       <SettingsCard>
@@ -63,6 +71,38 @@ const AppearanceSettings: React.FC<AppearanceSettingsProps> = ({ colorTheme, set
             })}
           </div>
         </SettingsRow>
+        {colorTheme === 'aurora' && (
+          <SettingsRow label="Accent palette" hint="Aurora's own choice of gradient - has no effect under other color themes." align="start">
+            <div className="flex flex-wrap gap-3">
+              {AURORA_PALETTES.map((p) => {
+                const active = p.value === accentPalette;
+                return (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => setAccentPalette(p.value)}
+                    aria-pressed={active}
+                    className={cn(
+                      "w-32 text-left rounded-xl border p-3 transition-colors",
+                      active ? "border-primary bg-primary/[0.06]" : "border-border/60 hover:bg-muted/50"
+                    )}
+                  >
+                    <div
+                      className="w-full h-7 rounded-lg mb-2.5"
+                      style={{ background: `linear-gradient(135deg, ${p.colors[0]}, ${p.colors[1]} 55%, ${p.colors[2]})` }}
+                    />
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-foreground">{p.label}</span>
+                      {active && (
+                        <span className="text-[10px] font-medium text-primary uppercase tracking-wide">Active</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </SettingsRow>
+        )}
       </SettingsCard>
     </div>
   );

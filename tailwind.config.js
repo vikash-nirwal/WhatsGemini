@@ -94,6 +94,16 @@ module.exports = {
         // counterpart, kept as its own token.
         chat: 'rgb(var(--color-chat-bg) / <alpha-value>)',
       },
+      // Tailwind's own borderColor theme (used by the bare `border` utility -
+      // no color suffix) otherwise falls back to core's stock gray-200
+      // default rather than anything above, since `colors` alone doesn't set
+      // borderColor's own DEFAULT. Every component that writes plain `border`
+      // (SelectContent, DialogContent, AlertDialogContent, ...) was silently
+      // getting that stock gray instead of --border - invisible-ish on the
+      // light cozy theme, glaringly wrong against aurora's dark surfaces.
+      borderColor: {
+        DEFAULT: 'rgb(var(--border) / <alpha-value>)',
+      },
       borderRadius: {
         'bubble': '1.5rem',
         lg: 'var(--radius)',

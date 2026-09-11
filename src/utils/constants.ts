@@ -219,8 +219,23 @@ export const DARK = "dark";
 export const COLOR_THEMES: { value: string; label: string; description: string }[] = [
   { value: "cozy", label: "Cozy", description: "Warm terracotta and cream - the original look" },
   { value: "neumorphic", label: "Neumorphic", description: "Soft gray-green palette with raised, pillowy surfaces" },
+  { value: "aurora", label: "Aurora", description: "Vibrant gradient look with a choice of 4 accent palettes" },
 ];
 export const DEFAULT_COLOR_THEME = "cozy";
+
+// Accent palette, a sub-choice available only within the "aurora" color
+// theme - see tokens.css's [data-theme="aurora"][data-palette="x"] blocks
+// and ThemeContext's accentPalette/setAccentPalette. Every other color
+// theme ignores data-palette entirely. "violet" is aurora's own default
+// and is baked into the base [data-theme="aurora"] block (no override
+// block needed for it).
+export const AURORA_PALETTES: { value: string; label: string; colors: [string, string, string] }[] = [
+  { value: "violet", label: "Violet", colors: ["#8b5cf6", "#ec4899", "#f97316"] },
+  { value: "ocean", label: "Ocean", colors: ["#0ea5e9", "#22d3ee", "#6366f1"] },
+  { value: "forest", label: "Forest", colors: ["#22c55e", "#14b8a6", "#a3e635"] },
+  { value: "sunset", label: "Sunset", colors: ["#f43f5e", "#d946ef", "#f97316"] },
+];
+export const DEFAULT_ACCENT_PALETTE = "violet";
 
 // Local storage variables
 export const LS_AI_MODEL = "ai_model";
@@ -238,6 +253,7 @@ export const LS_INITIAL_CHAT_MESSAGE = "initial_chat_message";
 export const LS_GOOGLE_API_KEY = "google_api_key";
 export const LS_THEME = "theme";
 export const LS_COLOR_THEME = "color_theme";
+export const LS_ACCENT_PALETTE = "accent_palette";
 export const LS_INITIAL_MESSAGES = "initial_messages";
 export const LS_FONT_SIZE = "app_font_size";
 export const API_KEY_STORAGE_KEY = "genAI_api_key";

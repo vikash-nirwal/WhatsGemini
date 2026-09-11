@@ -73,7 +73,9 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
                   className={cn(
                     "flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full transition",
                     isActive
-                      ? "bg-primary/15 text-primary cursor-default"
+                      ? colorTheme === "aurora"
+                        ? "aurora-gradient-btn text-primary-foreground cursor-default"
+                        : "bg-primary/15 text-primary cursor-default"
                       : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
                   )}
                   title={isActive ? "This is your active persona" : "Make this your active persona"}

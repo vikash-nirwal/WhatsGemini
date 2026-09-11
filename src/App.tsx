@@ -64,7 +64,7 @@ const EmptyChatState = () => {
   };
 
   return (
-    <div className="flex flex-col w-full h-screen bg-background">
+    <div className="flex flex-col w-full h-screen">
       <Header title="WhatsGemini" subtitle={isFirstRun ? "Welcome!" : "Select a chat to get started"} />
       <div className="flex-1 flex flex-col items-center justify-center gap-4 text-muted-foreground px-6 text-center">
         {isFirstRun ? (
@@ -186,7 +186,7 @@ const AppContent = () => {
         <BackupReminderBanner />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar />
-          <main className="flex-1 bg-background relative z-1 min-w-0">
+          <main className="app-main flex-1 bg-background relative z-1 min-w-0">
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/chat/:chatId" element={<ChatPage />} />

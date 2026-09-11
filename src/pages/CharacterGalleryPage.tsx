@@ -88,7 +88,7 @@ const CharacterGalleryPage = () => {
 
   if (!character) {
     return (
-      <div className="flex flex-col h-screen items-center justify-center bg-background text-foreground">
+      <div className="flex flex-col h-screen items-center justify-center text-foreground">
         <h2 className="text-2xl font-medium mb-4">Character not found</h2>
         <Button variant="link" onClick={() => navigate('/characters')} className="h-auto p-0 text-primary">Return to Characters</Button>
       </div>
@@ -96,7 +96,7 @@ const CharacterGalleryPage = () => {
   }
 
   return (
-    <div className="w-full h-screen flex flex-col bg-background relative">
+    <div className="w-full h-screen flex flex-col relative">
       <Header
         title={`${character.name}'s Gallery`}
         avatar={<CharacterAvatar name={character.name} accent={character.accent} size={34} />}

@@ -296,7 +296,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
   return (
     <>
     <div className="relative h-full w-full flex overflow-hidden">
-      <div className="flex-1 min-w-0 relative flex flex-col overflow-hidden bg-background">
+      <div className="flex-1 min-w-0 relative flex flex-col overflow-hidden">
         {character?.appearanceImages?.[0] && (
           <>
             <div className="absolute inset-0 opacity-25 pointer-events-none overflow-hidden">
