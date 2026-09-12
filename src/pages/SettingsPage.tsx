@@ -26,7 +26,6 @@ import { CHAT_PROVIDERS } from "../features/ai/providers/registry";
 import { useModal } from "../contexts/ModalContext";
 import { fetchChats } from "../features/chatSlice";
 import { fetchCharacters } from "../features/characterSlice";
-import { getFullBackupZip, parseBackupFile, applyParsedBackup } from "../services/backupService";
 import {
   // DEFAULT_CHAT_LENGTH,
   // DEFAULT_OUTPUT_TOKENS,
@@ -470,6 +469,7 @@ const SettingsPage = () => {
 
   const handleExportFullBackup = async () => {
     try {
+      const { getFullBackupZip } = await import("../services/backupService");
       const { blob, chats, characters, imagesIncluded, imagesSkipped } = await getFullBackupZip(buildSettingsExport());
       const dateStr = new Date().toISOString().slice(0, 10);
       downloadBlob(blob, `whatsgemini_backup_${dateStr}.zip`);
@@ -498,6 +498,7 @@ const SettingsPage = () => {
     if (!file) return;
 
     try {
+      const { parseBackupFile, applyParsedBackup } = await import("../services/backupService");
       const parsed = await parseBackupFile(file);
       const { data, imageFilenames } = parsed;
 

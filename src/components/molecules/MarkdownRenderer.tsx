@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import remarkGfm from 'remark-gfm';
 import { FaCheck, FaCopy } from 'react-icons/fa';
 import { cn } from '../../utils/cn';
 import { Button } from 'src/components/atoms/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './table';
+
+// react-syntax-highlighter (plus its registered language grammars) is a
+// large dependency - deferred to its own chunk so it's only fetched the
+// first time a message actually renders a fenced code block, not on every
+// chat open. See CodeHighlighter.tsx for the language set it registers.
+const CodeHighlighter = lazy(() => import('./CodeHighlighter'));
 
 // CodeBlock Component to handle syntax highlighting and copying
 const CodeBlock = ({ node, className, children, ...props }: any) => {
@@ -43,16 +47,15 @@ const CodeBlock = ({ node, className, children, ...props }: any) => {
           <span>{copied ? 'Copied!' : 'Copy'}</span>
         </Button>
       </div>
-      <SyntaxHighlighter
-        style={vscDarkPlus as any}
-        language={lang}
-        PreTag="div"
-        customStyle={{ margin: 0, padding: '1rem', background: 'transparent' }}
-        className="bg-[#1E1E1E] text-sm overflow-x-auto"
-        {...props}
+      <Suspense
+        fallback={
+          <pre className="bg-[#1E1E1E] text-sm overflow-x-auto m-0 p-4 text-gray-200">
+            <code>{codeString}</code>
+          </pre>
+        }
       >
-        {codeString}
-      </SyntaxHighlighter>
+        <CodeHighlighter language={lang}>{codeString}</CodeHighlighter>
+      </Suspense>
     </div>
   );
 };

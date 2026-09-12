@@ -1,31 +1,48 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import { useColorTheme } from "../hooks/useColorTheme";
 import { addCharacter, updateCharacter } from "../features/characterSlice";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { FaTimes, FaUpload, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaMagic, FaCrop, FaTrash, FaBook, FaDice } from "react-icons/fa";
+import { FaUpload, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaCrop } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Character, LoreEntry, ArtStyle } from "../types";
 import { dbService } from "../services/dbService";
 import { generateAssistText, generateAvatarImage } from "../features/aiSlice";
 import { DisplayImage } from "src/components/molecules/DisplayImage";
-import { TextInput, TextArea, FieldLabel, InfoTooltip, Slider, TagInput, PresetSelectField, ChipSelectField } from "src/components/molecules/form-controls";
+import { Slider } from "src/components/molecules/form-controls";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { Button } from "src/components/atoms/button";
-import { Input } from "src/components/atoms/input";
 import { Card } from "src/components/atoms/card";
 import { cn } from "../utils/cn";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import Header from "src/components/organisms/Header";
-import { CHARACTER_SWATCHES, MEMORY_EXTRACTION_INTERVAL, MAX_MEMORY_ENTRIES, DEFAULT_AUTO_SELFIE_FREQUENCY, EMOTIONS, ART_STYLES, DEFAULT_ART_STYLE, LORE_SCAN_MESSAGE_COUNT, RELATIONSHIP_PRESETS, TAG_PRESETS, PERSONALITY_TRAIT_PRESETS } from "../utils/constants";
-import { SegmentedControl } from "src/components/molecules/SegmentedControl";
+import { CHARACTER_SWATCHES, MAX_MEMORY_ENTRIES, DEFAULT_AUTO_SELFIE_FREQUENCY, EMOTIONS, DEFAULT_ART_STYLE, RELATIONSHIP_PRESETS, TAG_PRESETS, PERSONALITY_TRAIT_PRESETS } from "../utils/constants";
 import { estimateTokens } from "../features/ai/utils/tokenEstimator";
-import TestChatPane from "src/components/organisms/TestChatPane";
-import AvatarCropDialog from "src/components/organisms/AvatarCropDialog";
 import AvatarGenerateButton from "src/components/molecules/AvatarGenerateButton";
 import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
 import { parseCharacterCardJson } from "../features/character/characterCard";
 import { useModal } from "../contexts/ModalContext";
 import { toast } from "sonner";
+
+// Deferred to its own chunk - only fetched once the user actually opens the
+// crop dialog, instead of loading with the rest of this already-large page.
+const AvatarCropDialog = lazy(() => import("src/components/organisms/AvatarCropDialog"));
+
+// Each wizard step is its own chunk, fetched only as the user reaches it -
+// see steps/IdentityStep.tsx for the full rationale (this step in
+// particular used to make this whole page's chunk noticeably larger, since
+// it pulls in TestChatPane, a full AI chat simulator).
+const IdentityStep = lazy(() => import("./CharacterEditorPage/steps/IdentityStep"));
+const PersonalityStep = lazy(() => import("./CharacterEditorPage/steps/PersonalityStep"));
+const ScenarioGreetingStep = lazy(() => import("./CharacterEditorPage/steps/ScenarioGreetingStep"));
+const ExampleDialoguesStep = lazy(() => import("./CharacterEditorPage/steps/ExampleDialoguesStep"));
+const LorebookStep = lazy(() => import("./CharacterEditorPage/steps/LorebookStep"));
+const TestFinalizeStep = lazy(() => import("./CharacterEditorPage/steps/TestFinalizeStep"));
+
+const StepLoader = () => (
+  <div className="flex items-center justify-center py-16">
+    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+  </div>
+);
 
 const findSwatchIndex = (accent?: [string, string]) => {
   if (!accent) return 0;
@@ -166,6 +183,11 @@ const CharacterEditorPage = () => {
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
   const [cropImageSrc, setCropImageSrc] = useState("");
   const [cropTargetEmotion, setCropTargetEmotion] = useState<string | null>(null);
+  // Once true, stays true - keeps the (lazy-loaded) dialog mounted after its
+  // first open so its own open/close transition keeps working, while still
+  // not fetching its chunk before it's ever needed.
+  const cropDialogEverOpenedRef = useRef(false);
+  if (cropDialogOpen) cropDialogEverOpenedRef.current = true;
 
   const handleExpandIdea = async () => {
     if (!prompt.trim()) {
@@ -814,574 +836,104 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
 
           {/* Stepped field cards */}
           <div className="flex flex-col gap-6">
-            {step === 0 && (
-              <>
-                <Card className="p-6 flex flex-col gap-5">
-                  <div className="flex items-center justify-between gap-4">
-                    <h3 data-slot="section-title" className="font-semibold text-[15px] text-foreground">Identity</h3>
-                    {!editCharacter && (
-                      <Button
-                        type="button"
-                        variant="panel"
-                        onClick={handleSurpriseMe}
-                        disabled={surprising}
-                        className="h-auto px-3 py-1.5 text-xs font-medium border border-border hover:border-primary hover:text-primary"
-                        title="Roll a random relationship, tags, and personality traits, then have the AI invent a whole character around them"
-                      >
-                        <FaDice size={12} /> {surprising ? "Rolling..." : "Surprise Me"}
-                      </Button>
-                    )}
-                  </div>
-                  {!editCharacter && (
-                    <TextInput
-                      type="text"
-                      value={surpriseHint}
-                      onChange={(e) => setSurpriseHint(e.target.value)}
-                      placeholder="Optional: steer the surprise (e.g. cyberpunk hacker, medieval knight)..."
-                      className="-mt-1"
-                    />
-                  )}
-                  {assistError && <p className="text-xs text-destructive -mt-1">{assistError}</p>}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    <div>
-                      <FieldLabel htmlFor="char-name">Character Name</FieldLabel>
-                      <TextInput
-                        id="char-name"
-                        type="text"
-                        placeholder="Character Name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                      />
-                    </div>
-                    <PresetSelectField
-                      label="Tagline / Relationship"
-                      value={relationship}
-                      onChange={setRelationship}
-                      presets={RELATIONSHIP_PRESETS}
-                      customPlaceholder="Tagline / Relationship with User (e.g. Best Friend, Enemy)"
-                    />
-                  </div>
-                  <TextArea
-                    placeholder="Description (Optional)"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="resize-none"
-                  />
-                  <ChipSelectField
-                    label="Tags"
-                    hint="Discoverability tags for your library. Press Enter or comma to add a custom one."
-                    value={tags}
-                    onChange={setTags}
-                    presets={TAG_PRESETS}
-                    placeholder="Add a tag..."
-                  />
-
-                  {/* Appearance fields live in this same card, not a separate
-                      one - a lighter sub-heading marks the shift in topic
-                      instead of a full second card's worth of chrome. */}
-                  <div className="flex items-center gap-1.5 pt-2 mt-1 border-t border-border/30">
-                    <h4 data-slot="section-title" className="text-xs font-semibold uppercase tracking-wide text-subtle">Appearance</h4>
-                    <InfoTooltip hint="Given to image-capable models to keep generated looks consistent" />
-                  </div>
-                  <TextArea
-                    placeholder="Character Appearance/Looks (e.g. Blonde hair, wears a red jacket) (Optional)"
-                    value={appearance}
-                    onChange={(e) => setAppearance(e.target.value)}
-                    className="resize-none"
-                  />
-                  <div>
-                    <FieldLabel hint="Pins a consistent look for the main avatar and every generated emotion portrait, instead of the AI picking a style per call.">Art style</FieldLabel>
-                    <SegmentedControl
-                      value={artStyle}
-                      onChange={(v) => setArtStyle(v as ArtStyle)}
-                      options={ART_STYLES}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-foreground font-medium mb-2">Reference Images</label>
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      {appearanceImages.map((src, idx) => (
-                        <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border border-border bg-muted">
-                          <DisplayImage srcContext={src} alt="Appearance Reference" className="w-full h-full object-cover" />
-                          <Button
-                            onClick={() => removeAppearanceImage(idx)}
-                            variant="destructive"
-                            className="absolute top-1 right-1 h-auto w-auto rounded-full p-1"
-                          >
-                            <FaTimes size={10} />
-                          </Button>
-                        </div>
-                      ))}
-                      <button
-                        onClick={() => imageInputRef.current?.click()}
-                        className={cn(
-                          "w-20 h-20 flex flex-col justify-center items-center rounded-lg text-muted-foreground hover:text-primary transition-colors",
-                          neumorphic ? "surface-sunken" : "border-2 border-dashed border-border hover:border-primary"
-                        )}
-                      >
-                        <FaUpload size={16} />
-                        <span className="text-[10px] mt-1 text-center font-medium">Add Image</span>
-                      </button>
-                    </div>
-                    <p className="text-xs text-subtle">Provided to image-capable models to keep generated appearance consistent.</p>
-                    <input
-                      type="file"
-                      ref={imageInputRef}
-                      onChange={handleImageUpload}
-                      accept="image/*"
-                      multiple
-                      style={{ display: "none" }}
-                    />
-                  </div>
-                </Card>
-
-                <Card className="p-6 flex flex-col gap-5">
-                  <div className="flex items-center gap-1.5">
-                    <h3 data-slot="section-title" className="font-semibold text-[15px] text-foreground">Emotion Portraits</h3>
-                    <InfoTooltip hint="Swaps the avatar to match their mood as you chat" />
-                  </div>
-                  <ToggleSwitch
-                    checked={emotionPortraitsEnabled}
-                    onChange={setEmotionPortraitsEnabled}
-                    label="Show a matching portrait for their current emotion"
-                    title="The AI reports its mood each reply; the chat avatar swaps to a matching portrait you generate below, including for neutral. Any mood without a generated portrait falls back to the main portrait above."
-                  />
-                  {emotionPortraitsEnabled && (
-                    <div className="flex flex-col gap-3">
-                      <TextInput
-                        type="text"
-                        value={emotionHint}
-                        onChange={(e) => setEmotionHint(e.target.value)}
-                        placeholder="Optional direction for generated portraits (e.g. wearing glasses)..."
-                      />
-                      <div className="flex flex-wrap gap-2.5">
-                        {[...EMOTIONS.map((emo) => ({ emo, removable: false })), ...customEmotions.map((emo) => ({ emo, removable: true }))].map(({ emo, removable }) => (
-                          <div key={emo} className="flex flex-col items-center gap-1 w-[92px]">
-                            <div className="relative w-[76px] h-[76px] rounded-lg overflow-hidden border border-border bg-muted">
-                              {emotionPortraitImages[emo] ? (
-                                <DisplayImage srcContext={emotionPortraitImages[emo]} alt={emo} className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-subtle">
-                                  <FaMagic size={14} />
-                                </div>
-                              )}
-                              {generatingEmotion === emo && (
-                                <div className="absolute inset-0 bg-background/70 flex items-center justify-center text-[10px] text-foreground font-medium">
-                                  Generating...
-                                </div>
-                              )}
-                              {removable && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveCustomEmotion(emo)}
-                                  disabled={Boolean(generatingEmotion) || generatingAllEmotions}
-                                  className="absolute top-1 right-1 h-4 w-4 rounded-full bg-background/80 text-subtle hover:text-destructive flex items-center justify-center"
-                                  title={`Remove the "${emo}" custom mood`}
-                                  aria-label={`Remove the "${emo}" custom mood`}
-                                >
-                                  <FaTimes size={8} />
-                                </button>
-                              )}
-                            </div>
-                            <span className="capitalize text-[10.5px] font-medium text-foreground">{emo}</span>
-                            <div className="flex items-center justify-center flex-wrap gap-1 text-center">
-                              <button
-                                type="button"
-                                onClick={() => handleGenerateEmotion(emo)}
-                                disabled={Boolean(generatingEmotion) || generatingAllEmotions}
-                                className="text-[10.5px] font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
-                              >
-                                {emotionPortraitImages[emo] ? "Regenerate" : "Generate"}
-                              </button>
-                              <span className="text-[10.5px] text-subtle">·</span>
-                              <button
-                                type="button"
-                                onClick={() => handleTriggerEmotionUpload(emo)}
-                                disabled={Boolean(generatingEmotion) || generatingAllEmotions}
-                                className="text-[10.5px] font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
-                              >
-                                Upload
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <TextInput
-                          type="text"
-                          value={newCustomEmotion}
-                          onChange={(e) => setNewCustomEmotion(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              handleAddCustomEmotion();
-                            }
-                          }}
-                          placeholder="Add a custom mood (e.g. smug, flustered)..."
-                          className="flex-1"
-                        />
-                        <Button
-                          type="button"
-                          variant="panel"
-                          onClick={handleAddCustomEmotion}
-                          className="h-auto px-3 py-2 text-xs font-medium border border-border hover:border-primary hover:text-primary flex-shrink-0"
-                        >
-                          <FaPlus size={10} /> Add mood
-                        </Button>
-                      </div>
-                      <input
-                        type="file"
-                        ref={emotionUploadInputRef}
-                        onChange={handleEmotionFileSelected}
-                        accept="image/*"
-                        style={{ display: "none" }}
-                      />
-                      <Button
-                        type="button"
-                        variant="panel"
-                        onClick={handleGenerateAllEmotions}
-                        disabled={Boolean(generatingEmotion) || generatingAllEmotions}
-                        className="h-auto w-full px-3 py-1.5 text-xs font-medium border border-border hover:border-primary hover:text-primary"
-                      >
-                        <FaMagic size={11} /> {generatingAllEmotions ? `Generating${generatingEmotion ? ` (${generatingEmotion})` : ""}...` : "Generate all missing"}
-                      </Button>
-                      {emotionGenError && <p className="text-xs text-destructive">{emotionGenError}</p>}
-                    </div>
-                  )}
-                </Card>
-              </>
-            )}
-
-            {step === 1 && (
-              <Card className="p-6 flex flex-col gap-5">
-                <div className="flex items-baseline justify-between gap-4">
-                  <h3 data-slot="section-title" className="font-semibold text-[15px] text-foreground">Personality</h3>
-                  <span className="text-xs text-subtle font-mono">~{promptTokens.toLocaleString()} tokens</span>
-                </div>
-                <ChipSelectField
-                  label="Personality Traits"
-                  hint="Quick-pick traits folded into the prompt alongside the full personality below."
-                  value={personalityTraits}
-                  onChange={setPersonalityTraits}
-                  presets={PERSONALITY_TRAIT_PRESETS}
-                  placeholder="Add a trait..."
+            <Suspense fallback={<StepLoader />}>
+              {step === 0 && (
+                <IdentityStep
+                  editCharacter={editCharacter}
+                  surprising={surprising}
+                  handleSurpriseMe={handleSurpriseMe}
+                  surpriseHint={surpriseHint}
+                  setSurpriseHint={setSurpriseHint}
+                  assistError={assistError}
+                  name={name}
+                  setName={setName}
+                  relationship={relationship}
+                  setRelationship={setRelationship}
+                  description={description}
+                  setDescription={setDescription}
+                  tags={tags}
+                  setTags={setTags}
+                  appearance={appearance}
+                  setAppearance={setAppearance}
+                  artStyle={artStyle}
+                  setArtStyle={setArtStyle}
+                  appearanceImages={appearanceImages}
+                  imageInputRef={imageInputRef}
+                  handleImageUpload={handleImageUpload}
+                  removeAppearanceImage={removeAppearanceImage}
+                  neumorphic={neumorphic}
+                  emotionPortraitsEnabled={emotionPortraitsEnabled}
+                  setEmotionPortraitsEnabled={setEmotionPortraitsEnabled}
+                  emotionHint={emotionHint}
+                  setEmotionHint={setEmotionHint}
+                  customEmotions={customEmotions}
+                  emotionPortraitImages={emotionPortraitImages}
+                  generatingEmotion={generatingEmotion}
+                  generatingAllEmotions={generatingAllEmotions}
+                  handleGenerateEmotion={handleGenerateEmotion}
+                  handleTriggerEmotionUpload={handleTriggerEmotionUpload}
+                  handleRemoveCustomEmotion={handleRemoveCustomEmotion}
+                  newCustomEmotion={newCustomEmotion}
+                  setNewCustomEmotion={setNewCustomEmotion}
+                  handleAddCustomEmotion={handleAddCustomEmotion}
+                  emotionUploadInputRef={emotionUploadInputRef}
+                  handleEmotionFileSelected={handleEmotionFileSelected}
+                  handleGenerateAllEmotions={handleGenerateAllEmotions}
+                  emotionGenError={emotionGenError}
                 />
-                <TextArea
-                  placeholder="Character Prompt (Personality, Style, etc.)"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  className="resize-none min-h-[220px]"
+              )}
+
+              {step === 1 && (
+                <PersonalityStep
+                  promptTokens={promptTokens}
+                  personalityTraits={personalityTraits}
+                  setPersonalityTraits={setPersonalityTraits}
+                  prompt={prompt}
+                  setPrompt={setPrompt}
+                  handleExpandIdea={handleExpandIdea}
+                  expanding={expanding}
+                  assistError={assistError}
                 />
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="panel"
-                    onClick={handleExpandIdea}
-                    disabled={expanding}
-                    className="h-auto px-3 py-1.5 text-xs font-medium border border-border hover:border-primary hover:text-primary"
-                    title="Have the AI turn your short idea into a fuller personality description"
-                  >
-                    <FaMagic size={11} /> {expanding ? "Expanding..." : "AI Assist: Expand my idea"}
-                  </Button>
-                </div>
-                {assistError && <p className="text-xs text-destructive">{assistError}</p>}
-              </Card>
-            )}
+              )}
 
-            {step === 2 && (
-              <>
-                <Card className="p-6 flex flex-col gap-5">
-                  <FieldLabel hint="The current setting or plot context, given to the AI alongside the personality above.">Scenario</FieldLabel>
-                  <TextArea
-                    placeholder="Scenario (e.g. You run into each other at a rainy bus stop after years apart) (Optional)"
-                    value={scenario}
-                    onChange={(e) => setScenario(e.target.value)}
-                    className="resize-none min-h-[100px]"
-                  />
-                </Card>
-
-                <Card className="p-6 flex flex-col gap-5">
-                  <FieldLabel hint="Sent as this character's opening message when a brand-new chat is started. Leave blank to use the app's default greeting instead.">First Message</FieldLabel>
-                  <TextArea
-                    placeholder="First Message / Greeting (Optional)"
-                    value={firstMes}
-                    onChange={(e) => setFirstMes(e.target.value)}
-                    className="resize-none min-h-[100px]"
-                  />
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="panel"
-                      onClick={handleGenerateGreeting}
-                      disabled={generatingGreeting}
-                      className="h-auto px-3 py-1.5 text-xs font-medium border border-border hover:border-primary hover:text-primary"
-                      title="Have the AI draft a greeting from the personality and scenario above"
-                    >
-                      <FaMagic size={11} /> {generatingGreeting ? "Generating..." : "Generate Greeting from Scenario"}
-                    </Button>
-                  </div>
-                  {assistError && <p className="text-xs text-destructive">{assistError}</p>}
-                </Card>
-              </>
-            )}
-
-            {step === 3 && (
-              <Card className="p-6 flex flex-col gap-5">
-                <FieldLabel hint="Sample exchanges given to the AI purely as a style/format reference (e.g. use asterisks for actions) - never repeated verbatim in the chat.">Example Dialogues</FieldLabel>
-                <TextArea
-                  placeholder={`Example Dialogues (Optional)\nUser: Hey, how was your day?\n${name || "Character"}: *stretches* Long. Yours?`}
-                  value={mesExample}
-                  onChange={(e) => setMesExample(e.target.value)}
-                  className="resize-none min-h-[220px]"
+              {step === 2 && (
+                <ScenarioGreetingStep
+                  scenario={scenario}
+                  setScenario={setScenario}
+                  firstMes={firstMes}
+                  setFirstMes={setFirstMes}
+                  handleGenerateGreeting={handleGenerateGreeting}
+                  generatingGreeting={generatingGreeting}
+                  assistError={assistError}
                 />
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="panel"
-                    onClick={handleGenerateExampleDialogue}
-                    disabled={generatingExample}
-                    className="h-auto px-3 py-1.5 text-xs font-medium border border-border hover:border-primary hover:text-primary"
-                    title="Have the AI draft example exchanges from the personality and scenario - added after anything already here"
-                  >
-                    <FaMagic size={11} /> {generatingExample ? "Generating..." : "Generate Example with AI"}
-                  </Button>
-                </div>
-                {assistError && <p className="text-xs text-destructive">{assistError}</p>}
-              </Card>
-            )}
+              )}
 
-            {step === 4 && (
-              <Card className="p-6 flex flex-col gap-5">
-                <div className="flex items-baseline justify-between gap-4">
-                  <h3 className="font-semibold text-[15px] text-foreground flex items-center gap-2">
-                    <FaBook size={13} className="text-subtle" /> Lorebook / World Info
-                  </h3>
-                  <span className="text-xs text-subtle">Injected into the prompt only when a keyword is mentioned</span>
-                </div>
-                <p className="text-xs text-subtle -mt-2">
-                  Add lore entries for places, factions, items, or backstory that shouldn't live in the personality
-                  prompt full-time. Each entry is only added to the conversation when one of its keywords shows up in
-                  the last {LORE_SCAN_MESSAGE_COUNT} messages - keeping unrelated lore out of the context budget.
-                </p>
+              {step === 3 && (
+                <ExampleDialoguesStep
+                  name={name}
+                  mesExample={mesExample}
+                  setMesExample={setMesExample}
+                  handleGenerateExampleDialogue={handleGenerateExampleDialogue}
+                  generatingExample={generatingExample}
+                  assistError={assistError}
+                />
+              )}
 
-                {loreEntries.length === 0 && (
-                  <p className="text-xs text-subtle italic">No lore entries yet.</p>
-                )}
+              {step === 4 && (
+                <LorebookStep
+                  loreEntries={loreEntries}
+                  handleUpdateLoreEntry={handleUpdateLoreEntry}
+                  handleRemoveLoreEntry={handleRemoveLoreEntry}
+                  handleExpandLoreEntry={handleExpandLoreEntry}
+                  expandingLoreId={expandingLoreId}
+                  handleAddLoreEntry={handleAddLoreEntry}
+                  assistError={assistError}
+                  neumorphic={neumorphic}
+                />
+              )}
 
-                <div className="flex flex-col gap-3">
-                  {loreEntries.map((entry, idx) => {
-                    const entryTokens = estimateTokens(entry.content);
-                    return (
-                      <div key={entry.id} className="rounded-lg border border-border p-3.5 flex flex-col gap-2.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-semibold text-subtle">Entry {idx + 1}</span>
-                          <div className="flex items-center gap-3">
-                            <span className="text-[11px] text-subtle font-mono">~{entryTokens.toLocaleString()} tokens</span>
-                            <ToggleSwitch
-                              checked={entry.enabled !== false}
-                              onChange={(v) => handleUpdateLoreEntry(entry.id, { enabled: v })}
-                              label="Enabled"
-                              className="text-xs"
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleRemoveLoreEntry(entry.id)}
-                              className="h-7 w-7 text-subtle hover:bg-destructive/10 hover:text-destructive flex-shrink-0"
-                              title="Delete this lore entry"
-                              aria-label="Delete this lore entry"
-                            >
-                              <FaTrash size={11} />
-                            </Button>
-                          </div>
-                        </div>
-                        <div>
-                          <FieldLabel hint="Any of these words/phrases appearing in the recent conversation triggers this entry.">Keywords</FieldLabel>
-                          <TagInput
-                            value={entry.keywords}
-                            onChange={(kws) => handleUpdateLoreEntry(entry.id, { keywords: kws })}
-                            placeholder="Add a keyword..."
-                          />
-                        </div>
-                        <TextArea
-                          placeholder="Lore content injected into the system prompt when triggered (e.g. The Silver Court is a hidden fae kingdom ruled by...)"
-                          value={entry.content}
-                          onChange={(e) => handleUpdateLoreEntry(entry.id, { content: e.target.value })}
-                          className="resize-none min-h-[80px]"
-                        />
-                        <div>
-                          <button
-                            type="button"
-                            onClick={() => handleExpandLoreEntry(entry)}
-                            disabled={expandingLoreId === entry.id}
-                            className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
-                            title="Have the AI draft or expand this entry's content from its keywords"
-                          >
-                            <FaMagic size={10} /> {expandingLoreId === entry.id ? "Expanding..." : "Expand with AI"}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <Button
-                  type="button"
-                  variant="panel"
-                  onClick={handleAddLoreEntry}
-                  className={cn(
-                    "h-auto w-full px-3 py-2 text-xs font-medium hover:text-primary",
-                    neumorphic ? "surface-sunken" : "border border-dashed border-border hover:border-primary"
-                  )}
-                >
-                  <FaPlus size={11} /> Add Lore Entry
-                </Button>
-                {assistError && <p className="text-xs text-destructive">{assistError}</p>}
-              </Card>
-            )}
-
-            {step === 5 && (
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                {/* Left: Review summary + Memory */}
-                <div className="flex flex-col gap-6">
-                  <Card className="p-6 flex flex-col gap-5">
-                    <h3 data-slot="section-title" className="font-semibold text-[15px] text-foreground">Review</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-sm">
-                      <div>
-                        <div className="text-xs text-subtle mb-1">Name</div>
-                        <div className="text-foreground">{name || <span className="text-subtle">-</span>}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-subtle mb-1">Tagline</div>
-                        <div className="text-foreground">{relationship || <span className="text-subtle">-</span>}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-subtle mb-1">Tags</div>
-                        <div className="text-foreground">{tags.length > 0 ? tags.join(", ") : <span className="text-subtle">-</span>}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-subtle mb-1">First message</div>
-                        <div className="text-foreground truncate">{firstMes || <span className="text-subtle">Uses default greeting</span>}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-subtle mb-1">Lore entries</div>
-                        <div className="text-foreground">{loreEntries.length > 0 ? `${loreEntries.length} entr${loreEntries.length === 1 ? "y" : "ies"}` : <span className="text-subtle">-</span>}</div>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-subtle mb-1">Personality</div>
-                      <p className="text-sm text-foreground whitespace-pre-wrap line-clamp-4">{prompt || <span className="text-subtle">-</span>}</p>
-                    </div>
-                    {scenario && (
-                      <div>
-                        <div className="text-xs text-subtle mb-1">Scenario</div>
-                        <p className="text-sm text-foreground whitespace-pre-wrap line-clamp-3">{scenario}</p>
-                      </div>
-                    )}
-                    {mesExample && (
-                      <div>
-                        <div className="text-xs text-subtle mb-1">Example dialogue</div>
-                        <p className="text-sm text-foreground whitespace-pre-wrap line-clamp-3">{mesExample}</p>
-                      </div>
-                    )}
-                  </Card>
-
-                  {editCharacter && (
-                    <Card className="p-6 flex flex-col gap-5">
-                      <div className="flex items-baseline justify-between gap-4">
-                        <h3 data-slot="section-title" className="font-semibold text-[15px] text-foreground">
-                          Memory {editCharacter.memory && editCharacter.memory.length > 0 && (
-                            <span className="text-subtle font-normal text-xs">({editCharacter.memory.length} facts remembered)</span>
-                          )}
-                        </h3>
-                      </div>
-                      {editCharacter.memory && editCharacter.memory.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {editCharacter.memory.map((fact, idx) =>
-                            editingFactIndex === idx ? (
-                              <Input
-                                key={idx}
-                                autoFocus
-                                value={factDraft}
-                                onChange={(e) => setFactDraft(e.target.value)}
-                                onBlur={commitFactEdit}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    commitFactEdit();
-                                  } else if (e.key === "Escape") {
-                                    setEditingFactIndex(null);
-                                    setFactDraft("");
-                                  }
-                                }}
-                                className="h-7 w-48 text-xs px-2.5 py-0 rounded-full"
-                              />
-                            ) : (
-                              <span key={idx} className="inline-flex items-center gap-2 pl-3 pr-1 py-1 rounded-full bg-background border border-input text-xs">
-                                {fact}
-                                <Button
-                                  onClick={() => startEditFact(idx)}
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-5 w-5 rounded-full text-subtle hover:bg-primary/10 hover:text-primary flex-shrink-0"
-                                  title="Edit this fact"
-                                  aria-label="Edit this fact"
-                                >
-                                  <FaEdit size={9} />
-                                </Button>
-                                <Button
-                                  onClick={() => handleRemoveMemoryFact(idx)}
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-5 w-5 rounded-full text-subtle hover:bg-destructive/10 hover:text-destructive flex-shrink-0"
-                                  title="Forget this fact"
-                                  aria-label="Forget this fact"
-                                >
-                                  <FaTimes size={10} />
-                                </Button>
-                              </span>
-                            )
-                          )}
-                        </div>
-                      ) : (
-                        !addingFact && <p className="text-xs text-subtle">No facts remembered yet.</p>
-                      )}
-                      {addingFact ? (
-                        <Input
-                          autoFocus
-                          value={factDraft}
-                          onChange={(e) => setFactDraft(e.target.value)}
-                          onBlur={commitNewFact}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              commitNewFact();
-                            } else if (e.key === "Escape") {
-                              setFactDraft("");
-                              setAddingFact(false);
-                            }
-                          }}
-                          placeholder="A fact to remember…"
-                          className="h-7 w-48 text-xs px-2.5 py-0 rounded-full"
-                        />
-                      ) : (
-                        <Button
-                          onClick={() => setAddingFact(true)}
-                          variant="outline"
-                          size="sm"
-                          className="h-7 self-start text-xs rounded-full border-dashed"
-                        >
-                          <FaPlus size={9} className="mr-1.5" /> Add
-                        </Button>
-                      )}
-                      <p className="text-xs text-subtle">Automatically learned from your conversations, every {MEMORY_EXTRACTION_INTERVAL} messages or so.</p>
-                    </Card>
-                  )}
-                </div>
-
-                {/* Right: Test Chat */}
-                <TestChatPane
+              {step === 5 && (
+                <TestFinalizeStep
                   name={name}
                   description={description}
                   prompt={prompt}
@@ -1392,12 +944,23 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   appearance={appearance}
                   appearanceImages={appearanceImages}
                   accent={accent}
-                  memory={editCharacter?.memory}
+                  tags={tags}
                   loreEntries={loreEntries}
                   personalityTraits={personalityTraits}
+                  editCharacter={editCharacter}
+                  editingFactIndex={editingFactIndex}
+                  factDraft={factDraft}
+                  setFactDraft={setFactDraft}
+                  startEditFact={startEditFact}
+                  commitFactEdit={commitFactEdit}
+                  setEditingFactIndex={setEditingFactIndex}
+                  handleRemoveMemoryFact={handleRemoveMemoryFact}
+                  addingFact={addingFact}
+                  setAddingFact={setAddingFact}
+                  commitNewFact={commitNewFact}
                 />
-              </div>
-            )}
+              )}
+            </Suspense>
 
             <div className="sticky bottom-0 pt-6 pb-1 bg-gradient-to-t from-background via-background to-transparent flex gap-3 justify-end">
               {!editCharacter && step === 0 && (
@@ -1474,13 +1037,17 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
       </div>
 
       {/* Avatar crop dialog — rendered as a portal overlay */}
-      <AvatarCropDialog
-        open={cropDialogOpen}
-        onClose={() => setCropDialogOpen(false)}
-        imageSrc={cropImageSrc}
-        onCropped={handleCropComplete}
-        exportSize={portraitSaveSize}
-      />
+      {cropDialogEverOpenedRef.current && (
+        <Suspense fallback={null}>
+          <AvatarCropDialog
+            open={cropDialogOpen}
+            onClose={() => setCropDialogOpen(false)}
+            imageSrc={cropImageSrc}
+            onCropped={handleCropComplete}
+            exportSize={portraitSaveSize}
+          />
+        </Suspense>
+      )}
     </div>
   );
 };

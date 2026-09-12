@@ -1,13 +1,16 @@
-import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useRef, useEffect, useMemo, lazy, Suspense } from "react";
 import { FaPaperPlane, FaStop, FaCog, FaImage, FaTimes, FaMask, FaUserFriends } from "react-icons/fa";
 import { cn } from "../../utils/cn";
 import { Button } from "src/components/atoms/button";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { useColorTheme } from "../../hooks/useColorTheme";
-import ImageSettingsModal from "./ImageSettingsModal";
 import { TermLink } from "src/components/atoms/TermLink";
 import { estimateTokens } from "../../features/ai/utils/tokenEstimator";
 import { Character } from "../../types";
+
+// Deferred to its own chunk - only fetched once the user actually opens the
+// image settings modal, instead of loading with the rest of the chat page.
+const ImageSettingsModal = lazy(() => import("./ImageSettingsModal"));
 
 interface MessageInputProps {
   // `forcedSpeakerId` is set when the user picked a specific participant
@@ -78,6 +81,11 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const [isImageRequest, setIsImageRequest] = useState(false);
   const [isImpersonated, setIsImpersonated] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  // Once true, stays true - keeps the (lazy-loaded) modal mounted after its
+  // first open so its own open/close transition keeps working, while still
+  // not fetching its chunk before it's ever needed.
+  const settingsModalEverOpenedRef = useRef(false);
+  if (isSettingsModalOpen) settingsModalEverOpenedRef.current = true;
   const [pickerOpen, setPickerOpen] = useState(false);
   const [selectedSpeakerId, setSelectedSpeakerId] = useState<number | null>(null);
   // Set while the caret is sitting right after an in-progress "@word" with no
@@ -639,10 +647,14 @@ const MessageInput: React.FC<MessageInputProps> = ({
       </div>
       )}
 
-      <ImageSettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
-      />
+      {settingsModalEverOpenedRef.current && (
+        <Suspense fallback={null}>
+          <ImageSettingsModal
+            isOpen={isSettingsModalOpen}
+            onClose={() => setIsSettingsModalOpen(false)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 };

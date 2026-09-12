@@ -7,12 +7,11 @@ import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackgr
 import ChatWindow from "src/components/organisms/ChatWindow";
 import MessageInput from "src/components/organisms/MessageInput";
 import Header, { HeaderAction } from "src/components/organisms/Header";
-import Modal from "src/components/molecules/Modal";
-import ToggleSwitch from "src/components/atoms/ToggleSwitch";
-import { TextInput, FieldLabel } from "src/components/molecules/form-controls";
-import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaBookOpen, FaHistory, FaUserCircle, FaCheck, FaTimes, FaUsers } from "react-icons/fa";
+import PortraitPreviewModal from "src/components/organisms/PortraitPreviewModal";
+import AutoReplyModal from "src/components/organisms/AutoReplyModal";
+import PersonaModal from "src/components/organisms/PersonaModal";
+import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaBookOpen, FaHistory, FaUserCircle, FaTimes, FaUsers } from "react-icons/fa";
 import { Button } from "src/components/atoms/button";
-import { cn } from "../utils/cn";
 import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Message, Chat, Character } from "../types";
@@ -25,7 +24,6 @@ import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMess
 import { estimateTokens, estimateHistoryTokens } from "../features/ai/utils/tokenEstimator";
 import { truncateHistory } from "../features/ai/utils/chatHistoryUtils";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
-import { DisplayImage } from "src/components/molecules/DisplayImage";
 import { Alert, AlertDescription } from "src/components/atoms/alert";
 import { useModal } from "../contexts/ModalContext";
 import { useColorTheme } from "../hooks/useColorTheme";
@@ -1041,113 +1039,31 @@ const ChatPage = () => {
         actionGroups={[chatActions]}
       />
 
-      <Modal
+      <PortraitPreviewModal
         isOpen={portraitPreviewOpen}
         onClose={() => setPortraitPreviewOpen(false)}
-        title={characterData?.name || character || "Portrait"}
-        subtitle={latestEmotion ? `Current mood: ${latestEmotion}` : undefined}
-      >
-        <div className="w-full max-w-[280px] mx-auto aspect-[3/4] rounded-xl overflow-hidden bg-muted">
-          {headerEmotionImageSrc ? (
-            <DisplayImage
-              srcContext={headerEmotionImageSrc}
-              alt={`${characterData?.name || "Character"} portrait`}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <CharacterAvatar name={characterData?.name || character} accent={characterData?.accent} size={120} />
-            </div>
-          )}
-        </div>
-      </Modal>
+        characterName={characterData?.name || character}
+        accent={characterData?.accent}
+        emotion={latestEmotion}
+        imageSrc={headerEmotionImageSrc}
+      />
 
-      <Modal isOpen={isAutoReplyModalOpen} onClose={() => setIsAutoReplyModalOpen(false)} title="Auto Follow-up">
-        <ToggleSwitch
-          checked={autoReplySettings.enabled}
-          onChange={(val) => handleAutoReplyChange({ enabled: val })}
-          label="Let the character follow up on their own"
-        />
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <FieldLabel hint="Shortest wait after their last message before following up.">Min delay (seconds)</FieldLabel>
-            <TextInput
-              type="number"
-              min="5"
-              max={autoReplySettings.maxDelaySeconds}
-              value={autoReplySettings.minDelaySeconds}
-              onChange={(e) => {
-                const val = Math.max(5, Number(e.target.value));
-                handleAutoReplyChange({
-                  minDelaySeconds: val,
-                  maxDelaySeconds: Math.max(val, autoReplySettings.maxDelaySeconds),
-                });
-              }}
-            />
-          </div>
-          <div className="flex-1">
-            <FieldLabel hint="Longest wait - the actual delay is randomized between min and max each time.">Max delay (seconds)</FieldLabel>
-            <TextInput
-              type="number"
-              min={autoReplySettings.minDelaySeconds}
-              max="600"
-              value={autoReplySettings.maxDelaySeconds}
-              onChange={(e) => {
-                const val = Math.max(autoReplySettings.minDelaySeconds, Number(e.target.value));
-                handleAutoReplyChange({ maxDelaySeconds: val });
-              }}
-            />
-          </div>
-        </div>
-        <div>
-          <FieldLabel hint="Stops following up on its own after this many messages, until you reply again.">Max follow-ups</FieldLabel>
-          <TextInput
-            type="number"
-            min="1"
-            max="10"
-            value={autoReplySettings.maxFollowups}
-            onChange={(e) => handleAutoReplyChange({ maxFollowups: Math.max(1, Number(e.target.value)) })}
-          />
-        </div>
-        {autoReplySettings.enabled && (
-          <p className="text-xs text-ink-faint">
-            {autoReplySettings.followupCount}/{autoReplySettings.maxFollowups} follow-up(s) sent since you last replied. Only runs while this chat is open in your browser.
-          </p>
-        )}
-      </Modal>
+      <AutoReplyModal
+        isOpen={isAutoReplyModalOpen}
+        onClose={() => setIsAutoReplyModalOpen(false)}
+        settings={autoReplySettings}
+        onChange={handleAutoReplyChange}
+      />
 
-      <Modal isOpen={isPersonaModalOpen} onClose={() => setIsPersonaModalOpen(false)} title="Persona for this chat">
-        <p className="text-xs text-ink-faint -mt-1 mb-1">
-          Choose which of your personas {characterData?.name || "this character"} sees you as, just in this chat.
-        </p>
-        <div className="flex flex-col gap-1.5">
-          <button
-            type="button"
-            onClick={() => handleSelectPersona(undefined)}
-            className={cn(
-              "flex items-center justify-between px-3 py-2.5 rounded-lg border text-left text-sm transition",
-              !currentChat?.personaId ? "border-primary bg-primary/10 text-foreground" : "border-border hover:bg-hover text-foreground"
-            )}
-          >
-            <span>Use global default{globalActivePersona?.name ? ` (${globalActivePersona.name})` : ""}</span>
-            {!currentChat?.personaId && <FaCheck size={12} className="text-primary flex-shrink-0" />}
-          </button>
-          {personas.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => handleSelectPersona(p.id)}
-              className={cn(
-                "flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border text-left text-sm transition",
-                currentChat?.personaId === p.id ? "border-primary bg-primary/10 text-foreground" : "border-border hover:bg-hover text-foreground"
-              )}
-            >
-              <span className="truncate">{p.name || "(unnamed persona)"}</span>
-              {currentChat?.personaId === p.id && <FaCheck size={12} className="text-primary flex-shrink-0" />}
-            </button>
-          ))}
-        </div>
-      </Modal>
+      <PersonaModal
+        isOpen={isPersonaModalOpen}
+        onClose={() => setIsPersonaModalOpen(false)}
+        characterName={characterData?.name}
+        personas={personas}
+        selectedPersonaId={currentChat?.personaId}
+        globalDefaultPersonaName={globalActivePersona?.name}
+        onSelectPersona={handleSelectPersona}
+      />
 
       {/* Error Message */}
       {error && (
