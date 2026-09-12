@@ -10,7 +10,8 @@ import {
   setSdWebuiDenoising, setSdWebuiControlnetModel, setSdWebuiModels,
   setSdWebuiModel, setMaxOutputTokens, setReplyLengthLimit, setCompressThreshold, setMaxChatLength,
   setTemperature, setSafetySettings, setFontSize, setImageResolution, setGeminiImageSize, setPortraitSaveSize,
-  setChatProvider, setImageProvider, setOllamaBaseUrl
+  setChatProvider, setImageProvider, setOllamaBaseUrl,
+  setEmotionPanelEnabled, setEmotionPopupEnabled, setEmotionPopupDuration,
 } from "../features/settingsSlice";
 import { FaInfoCircle, FaUser, FaMicrochip, FaImage, FaComments, FaShieldAlt, FaDatabase, FaPalette } from "react-icons/fa";
 import Header from "src/components/organisms/Header";
@@ -45,6 +46,9 @@ import {
   LS_IMAGE_RESOLUTION,
   LS_GEMINI_IMAGE_SIZE,
   LS_PORTRAIT_SAVE_SIZE,
+  LS_EMOTION_PANEL_ENABLED,
+  LS_EMOTION_POPUP_ENABLED,
+  LS_EMOTION_POPUP_DURATION,
   // IMAGE_RESOLUTIONS,
   // DEFAULT_IMAGE_RESOLUTION,
   LS_IMAGE_MODEL,
@@ -188,7 +192,8 @@ const SettingsPage = () => {
     imageGenPrompt, sdWebuiApiUrl,
     sdWebuiBatchSize, sdWebuiRefMode, sdWebuiDenoising, sdWebuiControlnetModel, sdWebuiModels,
     sdWebuiModel, maxOutputTokens, replyLengthLimit, compressThreshold, maxChatLength, temperature,
-    safetySettings, fontSize, imageResolution, geminiImageSize, portraitSaveSize
+    safetySettings, fontSize, imageResolution, geminiImageSize, portraitSaveSize,
+    emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration,
   } = settings;
 
   const chatProviderCapabilities = CHAT_PROVIDERS[chatProvider]?.capabilities || CHAT_PROVIDERS.gemini.capabilities;
@@ -355,10 +360,13 @@ const SettingsPage = () => {
     [LS_IMAGE_RESOLUTION]: imageResolution,
     [LS_GEMINI_IMAGE_SIZE]: geminiImageSize,
     [LS_PORTRAIT_SAVE_SIZE]: portraitSaveSize,
+    [LS_EMOTION_PANEL_ENABLED]: emotionPanelEnabled,
+    [LS_EMOTION_POPUP_ENABLED]: emotionPopupEnabled,
+    [LS_EMOTION_POPUP_DURATION]: emotionPopupDuration,
     [LS_USER_PERSONAS]: personas,
     [LS_ACTIVE_PERSONA_ID]: activePersonaId,
     [LS_INITIAL_MESSAGES]: JSON.parse(localStorage.getItem(LS_INITIAL_MESSAGES) || "[]"),
-  }), [selectedModel, maxOutputTokens, replyLengthLimit, compressThreshold, temperature, safetySettings, maxChatLength, fontSize, imageResolution, geminiImageSize, portraitSaveSize, personas, activePersonaId]);
+  }), [selectedModel, maxOutputTokens, replyLengthLimit, compressThreshold, temperature, safetySettings, maxChatLength, fontSize, imageResolution, geminiImageSize, portraitSaveSize, emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, personas, activePersonaId]);
 
   const downloadJson = (data: unknown, filename: string) => {
     const jsonString = JSON.stringify(data, null, 2);
@@ -430,6 +438,9 @@ const SettingsPage = () => {
     if (settings[LS_PORTRAIT_SAVE_SIZE]) {
         dispatch(setPortraitSaveSize(settings[LS_PORTRAIT_SAVE_SIZE]));
     }
+    if (settings[LS_EMOTION_PANEL_ENABLED] !== undefined) dispatch(setEmotionPanelEnabled(Boolean(settings[LS_EMOTION_PANEL_ENABLED])));
+    if (settings[LS_EMOTION_POPUP_ENABLED] !== undefined) dispatch(setEmotionPopupEnabled(Boolean(settings[LS_EMOTION_POPUP_ENABLED])));
+    if (settings[LS_EMOTION_POPUP_DURATION]) dispatch(setEmotionPopupDuration(settings[LS_EMOTION_POPUP_DURATION]));
     if (settings[LS_USER_PERSONAS]) {
         dispatch(setPersonas(settings[LS_USER_PERSONAS]));
         if (settings[LS_ACTIVE_PERSONA_ID]) dispatch(setActivePersonaId(settings[LS_ACTIVE_PERSONA_ID]));
@@ -707,6 +718,12 @@ const SettingsPage = () => {
                     setFontSize={(val) => dispatch(setFontSize(val))}
                     initialMessagesKey={initialMessagesKey}
                     onInitialMessagesSave={handleInitialMessagesSave}
+                    emotionPanelEnabled={emotionPanelEnabled}
+                    setEmotionPanelEnabled={(val) => dispatch(setEmotionPanelEnabled(val))}
+                    emotionPopupEnabled={emotionPopupEnabled}
+                    setEmotionPopupEnabled={(val) => dispatch(setEmotionPopupEnabled(val))}
+                    emotionPopupDuration={emotionPopupDuration}
+                    setEmotionPopupDuration={(val) => dispatch(setEmotionPopupDuration(val))}
                   />
                 )}
 

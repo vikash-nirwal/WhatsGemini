@@ -11,6 +11,9 @@ import ChatMessage from "./ChatMessage";
 import ScenePanel from "./ScenePanel";
 import ParticipantsPanel from "src/components/molecules/ParticipantsPanel";
 import EmotionSpritePanel from "src/components/molecules/EmotionSpritePanel";
+import EmotionPopup, { EmotionPopupTrigger } from "src/components/molecules/EmotionPopup";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { setEmotionPanelEnabled } from "../../features/settingsSlice";
 import { Dialog, DialogContent, DialogTitle, DialogClose } from "src/components/molecules/dialog";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { Button } from "src/components/atoms/button";
@@ -306,7 +309,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
   // other ungenerated mood.
   const dockedSprites = useMemo(() => {
     const roster = characters && characters.length > 0 ? characters : character ? [character] : [];
-    const sprites: { imageSrc: string; characterName?: string; emotion?: string }[] = [];
+    const sprites: { imageSrc: string; characterName?: string; emotion?: string; characterId?: number }[] = [];
     for (const c of roster) {
       let emo: string | undefined;
       for (let i = filteredMessages.length - 1; i >= 0; i--) {
@@ -317,10 +320,36 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
         }
       }
       const imageSrc = c.emotionPortraits?.enabled && emo ? c.emotionPortraits.images[emo] : undefined;
-      if (imageSrc) sprites.push({ imageSrc, characterName: c.name, emotion: emo });
+      if (imageSrc) sprites.push({ imageSrc, characterName: c.name, emotion: emo, characterId: c.id });
     }
     return sprites;
   }, [characters, character, filteredMessages, resolveSpeaker]);
+
+  const dispatch = useAppDispatch();
+  const emotionPanelEnabled = useAppSelector((state) => state.settings.emotionPanelEnabled);
+  const emotionPopupEnabled = useAppSelector((state) => state.settings.emotionPopupEnabled);
+  const emotionPopupDuration = useAppSelector((state) => state.settings.emotionPopupDuration);
+
+  // Pops a character's portrait up center-screen for a moment whenever their
+  // mood actually changes mid-conversation - distinct from dockedSprites
+  // above (the at-rest "current mood" state). prevEmotionsRef's first pass
+  // over a freshly-opened chat only *records* each character's starting
+  // mood (the `prev !== undefined` check) so opening a chat doesn't fire a
+  // popup burst for moods that were already set before this render.
+  const prevEmotionsRef = useRef<Map<number, string>>(new Map());
+  const popupSeqRef = useRef(0);
+  const [popupTrigger, setPopupTrigger] = useState<EmotionPopupTrigger | null>(null);
+  useEffect(() => {
+    for (const sprite of dockedSprites) {
+      if (sprite.characterId == null || !sprite.emotion) continue;
+      const prevEmotion = prevEmotionsRef.current.get(sprite.characterId);
+      if (emotionPopupEnabled && prevEmotion !== undefined && prevEmotion !== sprite.emotion) {
+        popupSeqRef.current += 1;
+        setPopupTrigger({ ...sprite, key: popupSeqRef.current });
+      }
+      prevEmotionsRef.current.set(sprite.characterId, sprite.emotion);
+    }
+  }, [dockedSprites, emotionPopupEnabled]);
 
   return (
     <>
@@ -414,7 +443,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
         )}
       </div>
 
-      {dockedSprites.length > 0 && <EmotionSpritePanel sprites={dockedSprites} />}
+      {emotionPanelEnabled && dockedSprites.length > 0 && (
+        <EmotionSpritePanel sprites={dockedSprites} onClose={() => dispatch(setEmotionPanelEnabled(false))} />
+      )}
+      <EmotionPopup trigger={popupTrigger} durationMs={emotionPopupDuration} />
 
       {sceneOpen && chatId != null && (
         <ScenePanel

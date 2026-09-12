@@ -336,6 +336,16 @@ export const GEMINI_IMAGE_SIZE_SUPPORTED_MODELS = [
 // full-resolution files around. "WxH" string, same shape as IMAGE_RESOLUTIONS.
 export const LS_PORTRAIT_SAVE_SIZE = "portrait_save_size";
 export const DEFAULT_PORTRAIT_SAVE_SIZE = "256x342";
+
+// The docked EmotionSpritePanel (ChatWindow.tsx) - whether it shows at all,
+// and the separate "pop up center-screen when a mood changes" effect
+// (EmotionPopup.tsx). Kept as their own keys/defaults rather than folding
+// into an object so a stale/missing value degrades to "on" the same way
+// every other boolean setting here does.
+export const LS_EMOTION_PANEL_ENABLED = "emotion_panel_enabled";
+export const LS_EMOTION_POPUP_ENABLED = "emotion_popup_enabled";
+export const LS_EMOTION_POPUP_DURATION = "emotion_popup_duration_ms";
+export const DEFAULT_EMOTION_POPUP_DURATION = 1500;
 export const LS_USER_PROFILE = "whatsgemini_user_profile"; // legacy single-persona shape, read only for migration
 export const LS_USER_PERSONAS = "whatsgemini_user_personas";
 export const LS_ACTIVE_PERSONA_ID = "whatsgemini_active_persona_id";

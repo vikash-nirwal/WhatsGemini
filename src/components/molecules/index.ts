@@ -32,6 +32,7 @@ export * from "./settings-card";
 export { default as AvatarGenerateButton } from "./AvatarGenerateButton";
 export { default as BackupReminderBanner } from "./BackupReminderBanner";
 export { default as EmotionSpritePanel } from "./EmotionSpritePanel";
+export { default as EmotionPopup } from "./EmotionPopup";
 export { default as InitialMessages } from "./InitialMessages";
 export { default as KeyboardShortcutsModal } from "./KeyboardShortcutsModal";
 export { default as MarkdownRenderer } from "./MarkdownRenderer";

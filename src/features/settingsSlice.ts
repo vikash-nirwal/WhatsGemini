@@ -47,6 +47,10 @@ import {
   DEFAULT_IMAGE_PROVIDER,
   LS_OLLAMA_BASE_URL,
   DEFAULT_OLLAMA_BASE_URL,
+  LS_EMOTION_PANEL_ENABLED,
+  LS_EMOTION_POPUP_ENABLED,
+  LS_EMOTION_POPUP_DURATION,
+  DEFAULT_EMOTION_POPUP_DURATION,
   models,
 } from '../utils/constants';
 import { AISafetySettings, UserProfile } from '../types';
@@ -103,6 +107,9 @@ export interface SettingsState {
   imageResolution: string;
   geminiImageSize: string;
   portraitSaveSize: string;
+  emotionPanelEnabled: boolean;
+  emotionPopupEnabled: boolean;
+  emotionPopupDuration: number;
 }
 
 const initialPersonas = loadInitialPersonas();
@@ -138,6 +145,9 @@ const initialState: SettingsState = {
   imageResolution: localStorage.getItem(LS_IMAGE_RESOLUTION) || DEFAULT_IMAGE_RESOLUTION,
   geminiImageSize: localStorage.getItem(LS_GEMINI_IMAGE_SIZE) || DEFAULT_GEMINI_IMAGE_SIZE,
   portraitSaveSize: localStorage.getItem(LS_PORTRAIT_SAVE_SIZE) || DEFAULT_PORTRAIT_SAVE_SIZE,
+  emotionPanelEnabled: localStorage.getItem(LS_EMOTION_PANEL_ENABLED) !== 'false',
+  emotionPopupEnabled: localStorage.getItem(LS_EMOTION_POPUP_ENABLED) !== 'false',
+  emotionPopupDuration: getStoredValue(LS_EMOTION_POPUP_DURATION, DEFAULT_EMOTION_POPUP_DURATION),
 };
 
 const settingsSlice = createSlice({
@@ -247,6 +257,15 @@ const settingsSlice = createSlice({
     setPortraitSaveSize: (state, action: PayloadAction<string>) => {
       state.portraitSaveSize = action.payload;
     },
+    setEmotionPanelEnabled: (state, action: PayloadAction<boolean>) => {
+      state.emotionPanelEnabled = action.payload;
+    },
+    setEmotionPopupEnabled: (state, action: PayloadAction<boolean>) => {
+      state.emotionPopupEnabled = action.payload;
+    },
+    setEmotionPopupDuration: (state, action: PayloadAction<number>) => {
+      state.emotionPopupDuration = action.payload;
+    },
   },
 });
 
@@ -280,6 +299,9 @@ export const {
   setImageResolution,
   setGeminiImageSize,
   setPortraitSaveSize,
+  setEmotionPanelEnabled,
+  setEmotionPopupEnabled,
+  setEmotionPopupDuration,
 } = settingsSlice.actions;
 
 // The persona characters actually see: the active one, falling back to the

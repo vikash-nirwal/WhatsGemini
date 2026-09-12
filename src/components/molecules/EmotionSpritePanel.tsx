@@ -1,4 +1,5 @@
 import React from "react";
+import { FaTimes } from "react-icons/fa";
 import { DisplayImage } from "./DisplayImage";
 import { useColorTheme } from "src/hooks/useColorTheme";
 
@@ -6,11 +7,13 @@ export interface EmotionSprite {
   imageSrc: string;
   characterName?: string;
   emotion?: string;
+  characterId?: number;
 }
 
 interface EmotionSpritePanelProps {
   sprites: EmotionSprite[];
   showNames?: boolean; // label whose face is whose; defaults to on once there's more than one sprite to tell apart
+  onClose?: () => void; // renders a close control docked inside the panel itself when provided
 }
 
 // Docks the room's current mood portraits beside the chat, larger than the
@@ -39,15 +42,14 @@ interface EmotionSpritePanelProps {
 // composer. z-30 puts it above both the composer and the atmospheric
 // full-bleed background image ChatWindow renders behind the messages
 // (unpositioned, so effectively z-0) - the sprite is meant to read as the
-// frontmost thing in the room. Still pointer-events-none, so it never
-// blocks clicks/typing on whatever it visually overlaps.
+// frontmost thing in the room. The panel itself stays pointer-events-none
+// so it never blocks clicks/typing on whatever it visually overlaps - only
+// the close button opts back into pointer-events-auto.
 //
-// Group chats dock every participant with a current mood, not just the last
-// speaker - `flex-1 min-w-0`/`min-h-0` per sprite (rather than a fixed size)
-// is what keeps them all *contained* as the roster grows: each portrait
-// shrinks to share the fixed-width panel instead of overflowing it or
-// forcing a scrollbar.
-const EmotionSpritePanel: React.FC<EmotionSpritePanelProps> = ({ sprites, showNames }) => {
+// Stacked vertically (not a side-by-side row) so a group room's whole roster
+// stays readably sized as it grows - `overflow-y-auto` lets extra characters
+// scroll instead of every portrait shrinking to fit one screen's height.
+const EmotionSpritePanel: React.FC<EmotionSpritePanelProps> = ({ sprites, showNames, onClose }) => {
   const { is } = useColorTheme();
   if (sprites.length === 0) return null;
   const namesOn = showNames ?? sprites.length > 1;
@@ -57,16 +59,23 @@ const EmotionSpritePanel: React.FC<EmotionSpritePanelProps> = ({ sprites, showNa
     // badge instead of letting it float over the chat.
     return (
       <aside className="relative z-30 w-[210px] flex-none hidden lg:flex flex-col gap-3 px-5 py-5 border-l border-border bg-background overflow-y-auto pointer-events-none">
-        <span className="text-[10px] text-muted-foreground"># portrait{sprites.length > 1 ? "s" : ""}</span>
-        {sprites.map((sprite, i) => (
-          <div key={i} className="flex-1 min-h-0 border border-border-bright p-2 flex flex-col gap-2.5">
-            <div
-              className={
-                sprites.length > 1
-                  ? "flex-1 min-h-0 overflow-hidden flex items-end justify-center"
-                  : "aspect-[3/4] overflow-hidden flex items-end justify-center"
-              }
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-muted-foreground"># portrait{sprites.length > 1 ? "s" : ""}</span>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="pointer-events-auto text-[10px] text-muted-foreground hover:text-foreground border border-border-bright px-1.5 leading-tight"
+              aria-label="Hide mood portraits"
+              title="Hide mood portraits"
             >
+              [x]
+            </button>
+          )}
+        </div>
+        {sprites.map((sprite, i) => (
+          <div key={i} className="flex-none border border-border-bright p-2 flex flex-col gap-2.5">
+            <div className="aspect-[3/4] overflow-hidden flex items-end justify-center">
               <DisplayImage
                 srcContext={sprite.imageSrc}
                 alt={`${sprite.characterName || "Character"}'s current mood`}
@@ -88,9 +97,20 @@ const EmotionSpritePanel: React.FC<EmotionSpritePanelProps> = ({ sprites, showNa
     );
   }
   return (
-    <aside className="relative z-30 w-[200px] flex-none hidden lg:flex flex-row items-end justify-center gap-1 overflow-hidden pointer-events-none">
+    <aside className="relative z-30 w-[190px] flex-none hidden lg:flex flex-col items-center gap-4 overflow-y-auto pointer-events-none py-4">
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="pointer-events-auto self-end flex-none w-6 h-6 rounded-full flex items-center justify-center bg-background/70 text-muted-foreground hover:text-foreground hover:bg-background/90 border border-border/40 shadow-sm transition-colors"
+          aria-label="Hide mood portraits"
+          title="Hide mood portraits"
+        >
+          <FaTimes size={10} />
+        </button>
+      )}
       {sprites.map((sprite, i) => (
-        <div key={i} className="flex-1 min-w-0 h-full flex flex-col items-center justify-end overflow-hidden">
+        <div key={i} className="w-full flex-none flex flex-col items-center">
           {(namesOn || sprite.emotion) && (
             <div className="mb-2 flex flex-col items-center text-center">
               {namesOn && sprite.characterName && (
@@ -102,7 +122,7 @@ const EmotionSpritePanel: React.FC<EmotionSpritePanelProps> = ({ sprites, showNa
           <DisplayImage
             srcContext={sprite.imageSrc}
             alt={`${sprite.characterName || "Character"}'s current mood`}
-            className="max-w-full max-h-full object-contain object-bottom"
+            className="w-full max-h-[42vh] object-contain object-bottom"
           />
         </div>
       ))}
