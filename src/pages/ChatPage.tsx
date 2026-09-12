@@ -974,10 +974,11 @@ const ChatPage = () => {
       if (summary) {
         const retainedMsgs = messages.slice(cutoff);
 
-        // Create new memory initialization format messages
+        // Same shape as the auto-compression path (buildAutoCompressedMessages)
+        // so it renders as a "Compressed history" banner instead of a plain bubble.
         const newMessages: Message[] = [
-          { role: YOU, txt: "[SYSTEM DIRECTIVE]: I will provide you with a summary of our conversation so far. Treat this summary as the exact events that have already occurred between us. Please strictly maintain the language (e.g. Hinglish, informal English, etc.), tone, and emotional feeling indicated in the summary as we continue.\n\nSummary:\n" + summary },
-          { role: AI, txt: "Understood. I will remember our history and continue speaking in the exact same language, tone, and emotional state as before." },
+          { role: YOU, txt: `Earlier conversation summary (treat as established context, continue naturally):\n\n${summary}`, isCompressionSummary: true, timestamp: Date.now() },
+          { role: AI, txt: "Understood, continuing from that context.", isSystem: true, timestamp: Date.now() },
           ...retainedMsgs
         ];
 
