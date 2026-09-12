@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { FaTimes, FaPlus, FaPencilAlt } from "react-icons/fa";
 import { useAppDispatch } from "src/store/hooks";
-import { updateChatAuthorNote, updateChatWorldTags } from "src/features/chatSlice";
+import { updateChatAuthorNote, updateChatWorldTags, updateChatMemory, updateChatScenario } from "src/features/chatSlice";
 import { updateCharacter } from "src/features/characterSlice";
 import { Character } from "src/types";
 import { Textarea } from "src/components/atoms/textarea";
@@ -13,12 +13,20 @@ import { MAX_MEMORY_ENTRIES } from "src/utils/constants";
 interface ScenePanelProps {
   chatId: number;
   character?: Character;
+  // Whether this chat currently has 2+ characters. When true, Memory (below)
+  // reads/writes the room's own Chat.memory instead of the primary
+  // character's Character.memory, and a Scenario editor for the room's own
+  // Chat.scenario is shown - both scoped to just this room, so nothing here
+  // ever touches any participant's own character record.
+  isRoom?: boolean;
+  chatMemory?: string[];
+  chatScenario?: string;
   authorNote?: string;
   worldTags?: string[];
   onClose: () => void;
 }
 
-const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, authorNote, worldTags, onClose }) => {
+const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chatMemory, chatScenario, authorNote, worldTags, onClose }) => {
   const dispatch = useAppDispatch();
 
   // Author's note - local live value, resynced when the chat/prop changes, saved on blur.
@@ -33,12 +41,33 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, authorNote, 
     }
   };
 
-  // Memory - reuses Character.memory, the same data CharacterPage's editor manages.
-  const memory = character?.memory || [];
+  // Room scenario - only shown/editable for a room; a 1:1 chat's scenario
+  // lives on the character itself (Character Editor), not here.
+  const [scenarioValue, setScenarioValue] = useState(chatScenario || "");
+  useEffect(() => {
+    setScenarioValue(chatScenario || "");
+  }, [chatScenario, chatId]);
+
+  const handleScenarioBlur = () => {
+    if (scenarioValue !== (chatScenario || "")) {
+      dispatch(updateChatScenario({ chatId, scenario: scenarioValue || undefined }));
+    }
+  };
+
+  // Memory - a room reads/writes its own Chat.memory; a 1:1 chat reuses
+  // Character.memory, the same data the Character Editor manages.
+  const memory = isRoom ? (chatMemory || []) : (character?.memory || []);
+
+  const commitMemory = (newMemory: string[]) => {
+    if (isRoom) {
+      dispatch(updateChatMemory({ chatId, memory: newMemory }));
+    } else if (character) {
+      dispatch(updateCharacter({ ...character, memory: newMemory }));
+    }
+  };
+
   const handleRemoveMemoryFact = (index: number) => {
-    if (!character) return;
-    const newMemory = memory.filter((_, i) => i !== index);
-    dispatch(updateCharacter({ ...character, memory: newMemory }));
+    commitMemory(memory.filter((_, i) => i !== index));
   };
 
   const [editingFactIndex, setEditingFactIndex] = useState<number | null>(null);
@@ -51,22 +80,22 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, authorNote, 
   };
 
   const commitFactEdit = () => {
-    if (!character || editingFactIndex === null) return;
+    if (editingFactIndex === null) return;
     const trimmed = factDraft.trim();
     const newMemory = trimmed
       ? memory.map((fact, i) => (i === editingFactIndex ? trimmed : fact))
       : memory.filter((_, i) => i !== editingFactIndex);
-    dispatch(updateCharacter({ ...character, memory: newMemory }));
+    commitMemory(newMemory);
     setEditingFactIndex(null);
     setFactDraft("");
   };
 
   const commitNewFact = () => {
     const trimmed = factDraft.trim();
-    if (trimmed && character) {
+    if (trimmed) {
       const withNewFact = [...memory, trimmed];
       const capped = withNewFact.length > MAX_MEMORY_ENTRIES ? withNewFact.slice(withNewFact.length - MAX_MEMORY_ENTRIES) : withNewFact;
-      dispatch(updateCharacter({ ...character, memory: capped }));
+      commitMemory(capped);
     }
     setFactDraft("");
     setAddingFact(false);
@@ -121,15 +150,32 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, authorNote, 
           />
         </div>
 
+        {/* Scenario - room-only; a 1:1 chat's scenario lives on the character itself */}
+        {isRoom && (
+          <div>
+            <div className="flex items-baseline justify-between mb-2">
+              <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">Scenario</span>
+              <span className="text-[11px] text-subtle">shared by everyone here</span>
+            </div>
+            <Textarea
+              value={scenarioValue}
+              onChange={(e) => setScenarioValue(e.target.value)}
+              onBlur={handleScenarioBlur}
+              placeholder="The current setting/plot for this group…"
+              className="min-h-[72px] font-serif text-[13.5px] leading-[1.55] bg-background rounded-lg"
+            />
+          </div>
+        )}
+
         {/* Memory */}
         <div>
           <div className="flex items-baseline justify-between mb-2">
-            <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">Memory</span>
+            <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">{isRoom ? "Group Memory" : "Memory"}</span>
             <span className="text-[11px] text-primary">{memory.length} facts</span>
           </div>
           <div className="flex flex-col gap-1.5">
             {memory.length === 0 && !addingFact ? (
-              <p className="text-[12.5px] text-subtle">No facts remembered yet.</p>
+              <p className="text-[12.5px] text-subtle">{isRoom ? "No shared facts remembered yet." : "No facts remembered yet."}</p>
             ) : (
               memory.map((fact, idx) =>
                 editingFactIndex === idx ? (

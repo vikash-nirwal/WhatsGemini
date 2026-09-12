@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, updateChatAutoReply, incrementChatUsage, updateChatPersona, setPendingFollowupAt } from "../features/chatSlice";
+import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatMemory, setPendingFollowupAt } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
 import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage } from "../features/aiSlice";
 import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
@@ -136,6 +136,8 @@ const ChatPage = () => {
     return {
       speakerNames: Object.fromEntries(roomCharacters.map((c) => [c.id, c.name])),
       otherParticipants: roomCharacters.filter((c) => c.id !== speaker.id).map((c) => c.name),
+      groupScenario: currentChat?.scenario,
+      groupMemory: currentChat?.memory,
     };
   };
 
@@ -308,25 +310,33 @@ const ChatPage = () => {
     }
   }, [dispatch, messages, currentChat]);
 
-  // Every MEMORY_EXTRACTION_INTERVAL messages, distill new durable facts from the
-  // recent conversation into the character's long-term memory. Independent of the
-  // compression threshold (which defaults to off) so it works for every character.
-  // Best-effort/silent: a failure here shouldn't interrupt the conversation.
-  // `speaker` defaults to the chat's primary character (unchanged behavior
-  // for a 1:1 chat) but a room passes whichever bot actually just replied,
-  // so a group chat's memory doesn't all silently accrue onto characterIds[0].
+  // Every MEMORY_EXTRACTION_INTERVAL messages, distill new durable facts from
+  // the recent conversation into long-term memory. Independent of the
+  // compression threshold (which defaults to off) so it works for every
+  // character. Best-effort/silent: a failure here shouldn't interrupt the
+  // conversation. `speaker` defaults to the chat's primary character
+  // (unchanged behavior for a 1:1 chat) but a room passes whichever bot
+  // actually just replied - only to gate/label the extraction call, though:
+  // in a room the extracted facts merge into the room's own Chat.memory, not
+  // that (or any) participant's personal Character.memory, so a group
+  // conversation never writes back onto a character used outside this room.
   const maybeExtractMemory = async (allMessages: Message[], speaker = characterData) => {
     if (!speaker || allMessages.length === 0 || allMessages.length % MEMORY_EXTRACTION_INTERVAL !== 0) return;
 
     try {
       const recentMessages = allMessages.slice(-MEMORY_EXTRACTION_INTERVAL);
+      const existingMemory = isRoom ? (currentChat?.memory || []) : (speaker.memory || []);
       const newFacts = await dispatch(
-        extractCharacterMemory({ recentMessages, existingMemory: speaker.memory || [] })
+        extractCharacterMemory({ recentMessages, existingMemory })
       ).unwrap();
 
       if (newFacts && newFacts.length > 0) {
-        const merged = mergeMemory(speaker.memory, newFacts);
-        dispatch(updateCharacter({ ...speaker, memory: merged }));
+        const merged = mergeMemory(existingMemory, newFacts);
+        if (isRoom && chatIdNum) {
+          dispatch(updateChatMemory({ chatId: chatIdNum, memory: merged }));
+        } else {
+          dispatch(updateCharacter({ ...speaker, memory: merged }));
+        }
       }
     } catch (err) {
       console.warn("Memory extraction failed (non-fatal):", err);
@@ -1107,7 +1117,7 @@ const ChatPage = () => {
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden relative">
-        <ChatWindow characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} />
+        <ChatWindow characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} />
       </div>
 
       {/* Message Input - floats over the chat, except under terminal where it

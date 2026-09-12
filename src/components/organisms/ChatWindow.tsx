@@ -39,6 +39,9 @@ interface ChatWindowProps {
   onCloseScene?: () => void;
   authorNote?: string;
   worldTags?: string[];
+  isRoom?: boolean; // whether this chat currently has 2+ characters - see ScenePanel's group-scoped memory/scenario
+  chatMemory?: string[]; // Chat.memory - only meaningful/shown when isRoom
+  chatScenario?: string; // Chat.scenario - only meaningful/shown when isRoom
   participantsOpen?: boolean;
   onCloseParticipants?: () => void;
   mutedParticipantIds?: number[];
@@ -86,7 +89,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc }: { charInitials: s
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, participantsOpen, onCloseParticipants, mutedParticipantIds }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -417,6 +420,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
         <ScenePanel
           chatId={chatId}
           character={character}
+          isRoom={isRoom}
+          chatMemory={chatMemory}
+          chatScenario={chatScenario}
           authorNote={authorNote}
           worldTags={worldTags}
           onClose={onCloseScene || (() => {})}

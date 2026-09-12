@@ -227,12 +227,15 @@ export const updateChatMutedParticipants = createAsyncThunk(
   }
 );
 
-// Invites a character into an existing chat, turning a 1:1 into a room (or
-// adding another member to an already-multi-character one). Drops a visible
-// "{Name} joined the chat." notice, plus that character's own `first_mes`
-// greeting when they have one - mirrors how a brand-new chat already seeds
-// itself from `first_mes` in `addMessage` above, so joining mid-conversation
-// feels the same as starting fresh with them.
+// Invites a character into an already-multi-character room, adding another
+// member in place. NOT used for turning a 1:1 chat into its first room - see
+// branchChatWithParticipant below for that; this only ever runs when the
+// chat already has 2+ members, so there's no single-character identity here
+// to protect. Drops a visible "{Name} joined the chat." notice, plus that
+// character's own `first_mes` greeting when they have one - mirrors how a
+// brand-new chat already seeds itself from `first_mes` in `addMessage`
+// above, so joining mid-conversation feels the same as starting fresh with
+// them.
 export const addChatParticipant = createAsyncThunk(
   "chat/addChatParticipant",
   async ({ chatId, characterId }: { chatId: number; characterId: number }, { dispatch, rejectWithValue }) => {
@@ -271,6 +274,108 @@ export const addChatParticipant = createAsyncThunk(
       await dbService.updateChat(chat);
       dispatch(fetchChats());
       return { chatId, characterIds: chat.characterIds, content: chat.content, tree: chat.tree, activeLeafId: chat.activeLeafId };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
+// Invites a character into a 1:1 chat by branching into a brand-new group
+// chat, instead of mutating the original - the source chat is left byte-for-
+// byte untouched (own history, own primary character's own Character.memory/
+// scenario keep accruing exactly as if nothing happened) and keeps running
+// as its own independent 1:1 conversation. The new room gets a copy of the
+// conversation so far, starts its own empty group-scoped memory/scenario
+// (Chat.memory/Chat.scenario - never any participant's Character.memory/
+// scenario), and drops the same "{Name} joined"/first_mes greeting
+// addChatParticipant would, just onto the new chat instead of the old one.
+export const branchChatWithParticipant = createAsyncThunk(
+  "chat/branchChatWithParticipant",
+  async ({ chatId, characterId }: { chatId: number; characterId: number }, { dispatch, rejectWithValue }) => {
+    try {
+      const original = await dbService.getChatById(chatId);
+      if (original.characterIds?.includes(characterId)) {
+        return rejectWithValue("That character is already in this chat.");
+      }
+
+      const character = await dbService.getCharacterById(characterId).catch(() => undefined);
+
+      const branched: Omit<Chat, "id"> = {
+        title: character?.name ? `${original.title} + ${character.name}` : original.title,
+        timestamp: Date.now(),
+        content: [...original.content],
+        characterIds: [...(original.characterIds || []), characterId],
+        mutedParticipantIds: original.mutedParticipantIds ? [...original.mutedParticipantIds] : undefined,
+        tree: original.tree ? { nodes: { ...original.tree.nodes } } : undefined,
+        activeLeafId: original.activeLeafId ?? null,
+        authorNote: original.authorNote,
+        worldTags: original.worldTags ? [...original.worldTags] : undefined,
+        personaId: original.personaId,
+        memory: [],
+      };
+
+      const pushMessage = (message: Message) => {
+        if (branched.tree) {
+          const { tree, nodeId } = addChildNode(branched.tree, branched.activeLeafId || null, message);
+          branched.tree = tree;
+          branched.activeLeafId = nodeId;
+          branched.content = flattenPath(tree, nodeId);
+        } else {
+          branched.content.push(message);
+        }
+      };
+
+      pushMessage({
+        role: AI,
+        txt: `${character?.name || "Someone"} joined the chat.`,
+        isRoomEvent: true,
+        id: generateNodeId(),
+        timestamp: Date.now(),
+      });
+
+      if (character?.first_mes) {
+        pushMessage({ role: AI, txt: character.first_mes, speakerId: character.id, id: generateNodeId(), timestamp: Date.now() });
+      }
+
+      const id = await dbService.addChat(branched);
+      const newChat = { id, ...branched } as Chat;
+      dispatch(fetchChats());
+      return newChat;
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
+// Updates just a room's own group-scoped memory (Scene panel, and the
+// auto-extraction interval when the chat is a room) - see Chat.memory.
+// Meaningless for a 1:1 chat, which reads/writes the character's own
+// Character.memory instead and never touches this field.
+export const updateChatMemory = createAsyncThunk(
+  "chat/updateChatMemory",
+  async ({ chatId, memory }: { chatId: number; memory: Chat["memory"] }, { rejectWithValue }) => {
+    try {
+      const chat = await dbService.getChatById(chatId);
+      chat.memory = memory;
+      await dbService.updateChat(chat);
+      return { chatId, memory };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
+// Updates just a room's own group-scoped scenario (Scene panel) - see
+// Chat.scenario. Meaningless for a 1:1 chat, which uses the character's own
+// Character.scenario instead and never touches this field.
+export const updateChatScenario = createAsyncThunk(
+  "chat/updateChatScenario",
+  async ({ chatId, scenario }: { chatId: number; scenario: Chat["scenario"] }, { rejectWithValue }) => {
+    try {
+      const chat = await dbService.getChatById(chatId);
+      chat.scenario = scenario;
+      await dbService.updateChat(chat);
+      return { chatId, scenario };
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
@@ -506,6 +611,30 @@ const chatSlice = createSlice({
         }
       })
       .addCase(addChatParticipant.rejected, (state, action) => {
+        state.error = action.payload as string;
+      })
+      .addCase(branchChatWithParticipant.fulfilled, (state, action) => {
+        state.chats.push(action.payload as Chat);
+      })
+      .addCase(branchChatWithParticipant.rejected, (state, action) => {
+        state.error = action.payload as string;
+      })
+      .addCase(updateChatMemory.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c.id === action.payload.chatId);
+        if (chat) {
+          chat.memory = action.payload.memory;
+        }
+      })
+      .addCase(updateChatMemory.rejected, (state, action) => {
+        state.error = action.payload as string;
+      })
+      .addCase(updateChatScenario.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c.id === action.payload.chatId);
+        if (chat) {
+          chat.scenario = action.payload.scenario;
+        }
+      })
+      .addCase(updateChatScenario.rejected, (state, action) => {
         state.error = action.payload as string;
       })
       .addCase(removeChatParticipant.fulfilled, (state, action) => {

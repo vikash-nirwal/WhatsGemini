@@ -78,4 +78,31 @@ describe("buildSystemInstruction", () => {
     const { text } = buildSystemInstruction(makeCharacter({ personalityTraits: ["Kind", "Sarcastic", "Shy"] }));
     expect(text).toContain("Key personality traits: Kind, Sarcastic, Shy.");
   });
+
+  it("uses the character's own scenario/memory for a 1:1 chat, ignoring any group scenario/memory arguments", () => {
+    const character = makeCharacter({ scenario: "A quiet cafe.", memory: ["Likes tea."] });
+    const { text } = buildSystemInstruction(character, undefined, undefined, undefined, undefined, undefined, "A stormy ship.", ["Group fact."]);
+    expect(text).toContain("A quiet cafe.");
+    expect(text).not.toContain("A stormy ship.");
+    expect(text).toContain("Likes tea.");
+    expect(text).not.toContain("Group fact.");
+    expect(text).not.toMatch(/group conversation/i);
+  });
+
+  it("in a room, uses the shared group scenario instead of the character's own, and includes both personal and group memory", () => {
+    const character = makeCharacter({ scenario: "A quiet cafe.", memory: ["Likes tea."] });
+    const { text } = buildSystemInstruction(character, undefined, undefined, undefined, undefined, ["Beck"], "A stormy ship.", ["Everyone is soaked."]);
+    expect(text).toContain("A stormy ship.");
+    expect(text).not.toContain("A quiet cafe.");
+    expect(text).toContain("Likes tea.");
+    expect(text).toContain("Everyone is soaked.");
+  });
+
+  it("in a room with no group scenario/memory set, omits both sections rather than falling back to the character's own scenario", () => {
+    const character = makeCharacter({ scenario: "A quiet cafe.", memory: ["Likes tea."] });
+    const { text } = buildSystemInstruction(character, undefined, undefined, undefined, undefined, ["Beck"]);
+    expect(text).not.toContain("A quiet cafe.");
+    expect(text).not.toMatch(/current scenario/i);
+    expect(text).toContain("Likes tea.");
+  });
 });

@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { FaPlus, FaSearch, FaTimes } from "react-icons/fa";
 import { useAppDispatch } from "../../store/hooks";
-import { updateChatMutedParticipants, addChatParticipant, removeChatParticipant } from "../../features/chatSlice";
+import { updateChatMutedParticipants, addChatParticipant, branchChatWithParticipant, removeChatParticipant } from "../../features/chatSlice";
 import { Character } from "../../types";
 import { CharacterAvatar } from "./CharacterAvatar";
 import { ChatSidePanelShell } from "./ChatSidePanelShell";
@@ -24,9 +25,11 @@ interface ParticipantsPanelProps {
 // just the invite picker with nothing to mute yet.
 const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({ chatId, characters, allCharacters, mutedParticipantIds, onClose }) => {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const muted = mutedParticipantIds || [];
   const [inviting, setInviting] = useState(false);
   const [search, setSearch] = useState("");
+  const [branching, setBranching] = useState(false);
 
   const handleToggleMute = (id: number) => {
     const next = muted.includes(id) ? muted.filter((m) => m !== id) : [...muted, id];
@@ -37,8 +40,26 @@ const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({ chatId, character
     dispatch(removeChatParticipant({ chatId, characterId: id }));
   };
 
-  const handleInvite = (id: number) => {
-    dispatch(addChatParticipant({ chatId, characterId: id }));
+  // Inviting into a still-1:1 chat branches into a brand-new group chat
+  // (the original 1:1 keeps running untouched); inviting into a chat that's
+  // already a room just adds the new member in place - there's no single-
+  // character identity left to protect there.
+  const handleInvite = async (id: number) => {
+    if (characters.length > 1) {
+      dispatch(addChatParticipant({ chatId, characterId: id }));
+      setInviting(false);
+      setSearch("");
+      return;
+    }
+
+    setBranching(true);
+    const result = await dispatch(branchChatWithParticipant({ chatId, characterId: id }));
+    setBranching(false);
+    if (branchChatWithParticipant.fulfilled.match(result)) {
+      onClose();
+      navigate(`/chat/${result.payload.id}`);
+      return;
+    }
     setInviting(false);
     setSearch("");
   };
@@ -107,6 +128,11 @@ const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({ chatId, character
                   className="pl-8 text-[12.5px] h-9 rounded-lg"
                 />
               </div>
+              {characters.length === 1 && (
+                <p className="text-[11.5px] text-subtle -mt-0.5">
+                  This will branch into a new group chat with whoever you pick - your current chat keeps going untouched.
+                </p>
+              )}
               <div className="flex flex-col gap-1.5 max-h-[240px] overflow-y-auto">
                 {invitable.length === 0 ? (
                   <p className="text-[12.5px] text-subtle px-1 py-2">
@@ -117,8 +143,9 @@ const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({ chatId, character
                     <button
                       key={char.id}
                       type="button"
+                      disabled={branching}
                       onClick={() => handleInvite(char.id)}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg bg-background border border-border/30 hover:border-primary/50 text-left transition"
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg bg-background border border-border/30 hover:border-primary/50 text-left transition disabled:opacity-50 disabled:pointer-events-none"
                     >
                       <CharacterAvatar name={char.name} accent={char.accent} size={32} />
                       <div className="flex-1 min-w-0">

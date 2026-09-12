@@ -50,7 +50,15 @@ export const buildSystemInstruction = (
   replyLengthLimit?: number,
   activePersona?: UserProfile,
   recentMessages?: Message[],
-  otherParticipants?: string[]
+  otherParticipants?: string[],
+  // Only set for a multi-character room (Phase 12/13). `groupScenario` (the
+  // room's own Chat.scenario) takes over from the character's own
+  // `character.scenario` there - a room's shared plot context, not any one
+  // member's personal one. `groupMemory` (the room's own Chat.memory) is
+  // injected ALONGSIDE `character.memory` (that speaker's own personal
+  // facts), so both are present without either ever writing into the other.
+  groupScenario?: string,
+  groupMemory?: string[]
 ): SystemInstructionResult => {
   if (!character) return { text: undefined, images: undefined, characterName: undefined };
 
@@ -67,9 +75,10 @@ export const buildSystemInstruction = (
   // already prefixed with its speaker's name (buildChatHistory), so this just
   // orients the model to the fact that others exist and it must stay in its
   // own lane rather than narrating or speaking for them.
-  if (otherParticipants && otherParticipants.length > 0) {
+  const isRoomTurn = Boolean(otherParticipants && otherParticipants.length > 0);
+  if (isRoomTurn) {
     sections.push(
-      `You are in a group conversation, not a private one-on-one chat. Also present: ${otherParticipants.join(", ")}. ` +
+      `You are in a group conversation, not a private one-on-one chat. Also present: ${otherParticipants!.join(", ")}. ` +
       `Every line in the conversation history is prefixed with who said it, purely so you can tell speakers apart - that ` +
       `labeling is added by the app, not something characters actually say out loud. Reply only as yourself, ${character.name}: ` +
       `write your own dialogue/actions directly, with NO leading "${character.name}:" name label of your own, and ` +
@@ -77,8 +86,13 @@ export const buildSystemInstruction = (
     );
   }
 
-  if (character.scenario) {
-    sections.push(`Current scenario / setting: ${character.scenario}`);
+  // In a room, the shared group scenario (set on the chat itself) replaces
+  // this character's own personal scenario - several characters could have
+  // wildly different, even contradictory, built-in scenarios, and everyone
+  // present should be reacting to the same shared setting instead.
+  const effectiveScenario = isRoomTurn ? groupScenario : character.scenario;
+  if (effectiveScenario) {
+    sections.push(`Current scenario / setting: ${effectiveScenario}`);
   }
 
   if (character.loreEntries && character.loreEntries.length > 0 && recentMessages) {
@@ -107,6 +121,13 @@ export const buildSystemInstruction = (
   }
   if (character.memory && character.memory.length > 0) {
     sections.push(`Known facts about the user and your relationship, remembered from past conversations:\n- ${character.memory.join("\n- ")}`);
+  }
+  // Group-room-only: facts learned specifically during this room's own
+  // conversation (Chat.memory), on top of - never instead of - the speaker's
+  // own personal memory above. Never written back to any participant's own
+  // Character.memory, so it stays scoped to this one room.
+  if (isRoomTurn && groupMemory && groupMemory.length > 0) {
+    sections.push(`Facts learned during this group conversation, shared by everyone here:\n- ${groupMemory.join("\n- ")}`);
   }
   if (character.mes_example) {
     sections.push(
@@ -147,6 +168,8 @@ export interface TurnContext {
 export interface RoomContext {
   speakerNames: Record<number, string>; // characterId -> name, for prefixing history lines
   otherParticipants: string[]; // names of every OTHER character in the room, for the replying character's own system instruction
+  groupScenario?: string; // the room's own Chat.scenario - shared by every participant, replaces the speaker's personal one
+  groupMemory?: string[]; // the room's own Chat.memory - facts learned in this room, shared by every participant
 }
 
 // The single function replacing the copy-pasted "build history + build system
@@ -162,7 +185,8 @@ export const buildTurnContext = (
 ): TurnContext => {
   const history = buildChatHistory(messages, roomContext?.speakerNames);
   const { text, images, characterName } = buildSystemInstruction(
-    character, extraDirectives, replyLengthLimit, activePersona, messages, roomContext?.otherParticipants
+    character, extraDirectives, replyLengthLimit, activePersona, messages, roomContext?.otherParticipants,
+    roomContext?.groupScenario, roomContext?.groupMemory
   );
   return { history, systemInstruction: text, characterImages: images, characterName };
 };
