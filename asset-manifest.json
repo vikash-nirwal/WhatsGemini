@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/WhatsGemini/static/css/main.6a537692.css",
-    "main.js": "/WhatsGemini/static/js/main.ba7c9dc3.js",
+    "main.js": "/WhatsGemini/static/js/main.dc522e75.js",
     "static/js/2461.4c3aabb8.chunk.js": "/WhatsGemini/static/js/2461.4c3aabb8.chunk.js",
     "static/js/3220.aff52016.chunk.js": "/WhatsGemini/static/js/3220.aff52016.chunk.js",
     "static/js/9223.e18b4418.chunk.js": "/WhatsGemini/static/js/9223.e18b4418.chunk.js",
     "static/js/5576.c5c6ae6d.chunk.js": "/WhatsGemini/static/js/5576.c5c6ae6d.chunk.js",
     "static/js/9459.a9fcbdb8.chunk.js": "/WhatsGemini/static/js/9459.a9fcbdb8.chunk.js",
-    "static/js/5022.dc0d962a.chunk.js": "/WhatsGemini/static/js/5022.dc0d962a.chunk.js",
+    "static/js/5863.3b62f2e8.chunk.js": "/WhatsGemini/static/js/5863.3b62f2e8.chunk.js",
     "static/js/7150.9346d350.chunk.js": "/WhatsGemini/static/js/7150.9346d350.chunk.js",
     "static/js/5303.63a481cd.chunk.js": "/WhatsGemini/static/js/5303.63a481cd.chunk.js",
     "static/js/716.b6e51771.chunk.js": "/WhatsGemini/static/js/716.b6e51771.chunk.js",
@@ -18,6 +18,7 @@
     "static/js/8040.24948e52.chunk.js": "/WhatsGemini/static/js/8040.24948e52.chunk.js",
     "static/js/40.1cc66245.chunk.js": "/WhatsGemini/static/js/40.1cc66245.chunk.js",
     "static/js/8422.e7d36f33.chunk.js": "/WhatsGemini/static/js/8422.e7d36f33.chunk.js",
+    "static/js/9874.5b84d594.chunk.js": "/WhatsGemini/static/js/9874.5b84d594.chunk.js",
     "react-syntax-highlighter/refractor-core-import.js": "/WhatsGemini/static/js/react-syntax-highlighter/refractor-core-import.5fcd0551.chunk.js",
     "react-syntax-highlighter_languages_refractor_abap.js": "/WhatsGemini/static/js/react-syntax-highlighter_languages_refractor_abap.fbcc83b3.chunk.js",
     "react-syntax-highlighter_languages_refractor_abnf.js": "/WhatsGemini/static/js/react-syntax-highlighter_languages_refractor_abnf.4c9b2aea.chunk.js",
@@ -302,13 +303,13 @@
     "service-worker.js": "/WhatsGemini/service-worker.js",
     "index.html": "/WhatsGemini/index.html",
     "main.6a537692.css.map": "/WhatsGemini/static/css/main.6a537692.css.map",
-    "main.ba7c9dc3.js.map": "/WhatsGemini/static/js/main.ba7c9dc3.js.map",
+    "main.dc522e75.js.map": "/WhatsGemini/static/js/main.dc522e75.js.map",
     "2461.4c3aabb8.chunk.js.map": "/WhatsGemini/static/js/2461.4c3aabb8.chunk.js.map",
     "3220.aff52016.chunk.js.map": "/WhatsGemini/static/js/3220.aff52016.chunk.js.map",
     "9223.e18b4418.chunk.js.map": "/WhatsGemini/static/js/9223.e18b4418.chunk.js.map",
     "5576.c5c6ae6d.chunk.js.map": "/WhatsGemini/static/js/5576.c5c6ae6d.chunk.js.map",
     "9459.a9fcbdb8.chunk.js.map": "/WhatsGemini/static/js/9459.a9fcbdb8.chunk.js.map",
-    "5022.dc0d962a.chunk.js.map": "/WhatsGemini/static/js/5022.dc0d962a.chunk.js.map",
+    "5863.3b62f2e8.chunk.js.map": "/WhatsGemini/static/js/5863.3b62f2e8.chunk.js.map",
     "7150.9346d350.chunk.js.map": "/WhatsGemini/static/js/7150.9346d350.chunk.js.map",
     "5303.63a481cd.chunk.js.map": "/WhatsGemini/static/js/5303.63a481cd.chunk.js.map",
     "716.b6e51771.chunk.js.map": "/WhatsGemini/static/js/716.b6e51771.chunk.js.map",
@@ -319,6 +320,7 @@
     "8040.24948e52.chunk.js.map": "/WhatsGemini/static/js/8040.24948e52.chunk.js.map",
     "40.1cc66245.chunk.js.map": "/WhatsGemini/static/js/40.1cc66245.chunk.js.map",
     "8422.e7d36f33.chunk.js.map": "/WhatsGemini/static/js/8422.e7d36f33.chunk.js.map",
+    "9874.5b84d594.chunk.js.map": "/WhatsGemini/static/js/9874.5b84d594.chunk.js.map",
     "refractor-core-import.5fcd0551.chunk.js.map": "/WhatsGemini/static/js/react-syntax-highlighter/refractor-core-import.5fcd0551.chunk.js.map",
     "react-syntax-highlighter_languages_refractor_abap.fbcc83b3.chunk.js.map": "/WhatsGemini/static/js/react-syntax-highlighter_languages_refractor_abap.fbcc83b3.chunk.js.map",
     "react-syntax-highlighter_languages_refractor_abnf.4c9b2aea.chunk.js.map": "/WhatsGemini/static/js/react-syntax-highlighter_languages_refractor_abnf.4c9b2aea.chunk.js.map",
@@ -603,6 +605,6 @@
   },
   "entrypoints": [
     "static/css/main.6a537692.css",
-    "static/js/main.ba7c9dc3.js"
+    "static/js/main.dc522e75.js"
   ]
 }
