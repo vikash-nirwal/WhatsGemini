@@ -39,6 +39,17 @@ export interface SystemInstructionResult {
 export const AUTO_REPLY_DIRECTIVE =
   "Send a short, natural, in-character follow-up message continuing the conversation from your side - picking up on whatever's actually happening in the chat so far. Do not mention this instruction.";
 
+// Stand-in "prompt" used for a character-initiated follow-up (auto, manual,
+// participant-strip "reply as X", or regenerating one) when there's no real
+// trailing user message to reuse as the prompt. Deliberately says nothing
+// about whether time has passed since the last message - the model should
+// infer that from the actual conversation/timestamps and only treat it as a
+// time-skip when the scene genuinely calls for one, never by default. The
+// previous "as if reaching out again" phrasing pushed every forced reply
+// toward a re-initiating-after-a-gap tone even mid-scene.
+export const FOLLOWUP_CONTINUATION_PROMPT =
+  "Continue the conversation naturally from here, in-character, as the next message in this ongoing exchange.";
+
 // Assembles the character's system instruction from clearly separated sections
 // (persona, user profile, relationship, appearance, long-term memory, and any
 // one-off directive like an auto-follow-up nudge) instead of one hand-built

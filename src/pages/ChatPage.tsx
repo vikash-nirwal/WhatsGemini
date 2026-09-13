@@ -16,7 +16,7 @@ import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, get
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Message, Chat, Character } from "../types";
 import { stripLeakedBase64 } from "../features/ai/utils/apiUtils";
-import { buildChatHistory, buildSystemInstruction, buildTurnContext, AUTO_REPLY_DIRECTIVE, RoomContext } from "../features/ai/utils/promptComposition";
+import { buildChatHistory, buildSystemInstruction, buildTurnContext, AUTO_REPLY_DIRECTIVE, FOLLOWUP_CONTINUATION_PROMPT, RoomContext } from "../features/ai/utils/promptComposition";
 import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
 import { mergeMemory } from "../features/ai/utils/memoryExtraction";
 import { resolveNextSpeaker, parseMention, stripSpeakerPrefix } from "../features/ai/utils/roomRouting";
@@ -443,7 +443,7 @@ const ChatPage = () => {
     const lastMessage = freshMessages[freshMessages.length - 1];
     const followupPrompt = lastMessage?.role === YOU && lastMessage.txt?.trim()
       ? lastMessage.txt
-      : "Please continue the conversation naturally, as if reaching out again.";
+      : FOLLOWUP_CONTINUATION_PROMPT;
 
     const { messages: compressedFreshMessages, tokens: compressTokens, cost: compressCost } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: freshMessages })).unwrap();
     await trackUsage(compressTokens, compressCost);
@@ -757,7 +757,7 @@ const ChatPage = () => {
       const isFollowup = !precedingMessage || precedingMessage.role !== YOU;
 
       const prompt = isFollowup
-        ? "Please continue the conversation naturally, as if reaching out again."
+        ? FOLLOWUP_CONTINUATION_PROMPT
         : precedingMessage.txt || "";
       // For a followup, whether it had a picture is recorded on the followup
       // message itself (no preceding user turn to read it off of).
