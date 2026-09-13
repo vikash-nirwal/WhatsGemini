@@ -33,6 +33,7 @@ import {
   LS_EMOTION_PANEL_ENABLED,
   LS_EMOTION_POPUP_ENABLED,
   LS_EMOTION_POPUP_DURATION,
+  LS_ALWAYS_SHOW_INITIALS,
 } from "../utils/constants";
 
 // Configure Redux Store
@@ -82,6 +83,7 @@ store.subscribe(() => {
   localStorage.setItem(LS_EMOTION_PANEL_ENABLED, state.emotionPanelEnabled.toString());
   localStorage.setItem(LS_EMOTION_POPUP_ENABLED, state.emotionPopupEnabled.toString());
   localStorage.setItem(LS_EMOTION_POPUP_DURATION, JSON.stringify(state.emotionPopupDuration));
+  localStorage.setItem(LS_ALWAYS_SHOW_INITIALS, state.alwaysShowInitials.toString());
 });
 
 // Debug Logging (Only in Development)

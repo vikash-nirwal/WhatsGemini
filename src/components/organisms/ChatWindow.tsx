@@ -372,7 +372,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
             {filteredMessages.length === 0 ? (
               <div className="flex flex-col items-center h-full w-full px-4 pt-10">
                 <Card className="flex flex-col items-center text-center gap-3 w-full max-w-[440px] px-5 py-8">
-                  <CharacterAvatar name={charInitials} accent={character?.accent} size={64} className="text-2xl" />
+                  <CharacterAvatar name={charInitials} accent={character?.accent} imageSrc={character?.appearanceImages?.[0]} size={64} className="text-2xl" />
                   <div>
                     <div className="text-[19px] font-bold tracking-tight text-foreground">{characterName || "New Conversation"}</div>
                     {character?.relationship && (

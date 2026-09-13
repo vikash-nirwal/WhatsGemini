@@ -4,7 +4,7 @@ import { fetchChats, deleteChat, addChat, importChat, updateChatPinned } from ".
 import { selectActivePersona } from "../../features/settingsSlice";
 import { fetchCharacters } from "../../features/characterSlice";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { FaTrash, FaFileImport, FaPlus, FaSearch, FaThumbtack, FaUser, FaPencilAlt, FaChevronRight, FaCheck, FaUsers } from "react-icons/fa";
+import { FaTrash, FaFileImport, FaPlus, FaSearch, FaThumbtack, FaPencilAlt, FaChevronRight, FaCheck, FaUsers, FaAngleDoubleLeft, FaAngleDoubleRight } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { useModal } from "../../contexts/ModalContext";
 import { useSidebar } from "../../contexts/SidebarContext";
@@ -16,6 +16,7 @@ import { Button } from "src/components/atoms/button";
 import { Input } from "src/components/atoms/input";
 import { Textarea } from "src/components/atoms/textarea";
 import { SegmentedControl } from "src/components/molecules/SegmentedControl";
+import { Tooltip, TooltipTrigger, TooltipContent } from "src/components/atoms/tooltip";
 import Logo from "src/components/atoms/Logo";
 import { useColorTheme } from "../../hooks/useColorTheme";
 import { stripLeakedBase64 } from "../../features/ai/utils/apiUtils";
@@ -76,7 +77,7 @@ const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { showConfirm } = useModal();
-  const { isOpen, close } = useSidebar();
+  const { isOpen, close, collapsed, toggleCollapsed } = useSidebar();
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
   const terminal = is("terminal");
@@ -236,53 +237,80 @@ const Sidebar = () => {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed z-50 top-0 left-0 w-[300px] h-full flex flex-col transition-transform transform md:relative md:translate-x-0",
+          "fixed z-50 top-0 left-0 w-[300px] h-full flex flex-col transition-[transform,width] duration-200 transform md:relative md:translate-x-0",
           // Canvas spec: "custom aside ... no shadcn Sidebar - its border-and-
           // panel model fights the soft ground." Cozy keeps the bordered card
           // look; neumorphic sits flush with the page instead.
           neumorphic ? "bg-background" : "bg-card border-r border-border/40",
+          // Collapse is a desktop-only concept (an icon rail) - mobile always
+          // shows the full 300px drawer when opened regardless of this flag,
+          // so every `collapsed` class below is paired with `md:`.
+          collapsed && "md:w-[76px]",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
         aria-label="Sidebar"
       >
         {/* Logo header - h-[60px] to match Header.tsx so the border-b seam lines up */}
-        <div className="h-[60px] px-4 flex items-center gap-3 border-b border-border/40 flex-shrink-0">
+        <div className={cn("h-[60px] px-4 flex items-center gap-3 border-b border-border/40 flex-shrink-0", collapsed && "md:px-2.5")}>
           <Logo size={34} className="shadow-[0_6px_18px_rgb(var(--primary)/0.35)] rounded-full flex-shrink-0" />
           {terminal ? (
-            <div className="leading-tight flex-1 min-w-0">
+            <div className={cn("leading-tight flex-1 min-w-0", collapsed && "md:hidden")}>
               <div className="font-bold text-[12px] text-foreground truncate">whatsgemini@local</div>
               <div className="text-[10px] text-muted-foreground truncate lowercase"># session: {personaName || "guest"}</div>
             </div>
           ) : (
-            <div className="leading-tight flex-1 min-w-0">
+            <div className={cn("leading-tight flex-1 min-w-0", collapsed && "md:hidden")}>
               <div className="font-bold text-[16px] tracking-tight text-foreground">WhatsGemini</div>
               <div className="text-[11px] text-subtle font-medium">Your characters, your stories</div>
             </div>
           )}
+          {/* Desktop-only icon-rail collapse toggle - mobile relies on the
+              overlay/Header hamburger instead, so this never shows there. */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={toggleCollapsed}
+                variant="ghost"
+                size="icon"
+                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                className="hidden md:inline-flex h-auto w-auto p-1.5 rounded-lg text-subtle hover:text-foreground flex-shrink-0"
+              >
+                {collapsed ? <FaAngleDoubleRight size={13} /> : <FaAngleDoubleLeft size={13} />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">{collapsed ? "Expand sidebar" : "Collapse sidebar"}</TooltipContent>
+          </Tooltip>
         </div>
 
         {/* New chat / Import */}
-        <div className="px-4 pt-4 pb-2.5 flex gap-2 flex-shrink-0">
+        <div className={cn("px-4 pt-4 pb-2.5 flex gap-2 flex-shrink-0", collapsed && "md:px-2.5 md:justify-center")}>
           {terminal ? (
             <Button
               onClick={() => setIsNewChatModalOpen(true)}
               variant="outline"
-              className="flex-1 h-auto py-[9px] text-[12px] border-border-bright text-foreground normal-case"
+              title="New chat"
+              aria-label="New chat"
+              className={cn("flex-1 h-auto py-[9px] text-[12px] border-border-bright text-foreground normal-case", collapsed && "md:flex-none md:px-[9px]")}
             >
-              [+] new_chat.sh
+              {collapsed ? "[+]" : "[+] new_chat.sh"}
             </Button>
           ) : (
             <Button
               onClick={() => setIsNewChatModalOpen(true)}
               variant="default"
-              className="flex-1 h-auto py-[11px] text-[13.5px] font-semibold shadow-[0_8px_20px_rgb(var(--primary)/0.28)]"
+              title="New chat"
+              aria-label="New chat"
+              className={cn(
+                "flex-1 h-auto py-[11px] text-[13.5px] font-semibold shadow-[0_8px_20px_rgb(var(--primary)/0.28)]",
+                collapsed && "md:flex-none md:w-[42px] md:px-0 md:justify-center"
+              )}
             >
               <FaPlus size={12} />
-              <span>New chat</span>
+              <span className={cn(collapsed && "md:hidden")}>New chat</span>
             </Button>
           )}
           {terminal ? (
-            <Button onClick={handleImportClick} variant="outline" title="Import chat" aria-label="Import chat" className="h-auto py-[9px] px-3 text-[12px] flex-shrink-0">
+            <Button onClick={handleImportClick} variant="outline" title="Import chat" aria-label="Import chat" className={cn("h-auto py-[9px] px-3 text-[12px] flex-shrink-0", collapsed && "md:hidden")}>
               import
             </Button>
           ) : (
@@ -292,7 +320,7 @@ const Sidebar = () => {
             size="icon"
             title="Import chat"
             aria-label="Import chat"
-            className="h-auto w-[42px] py-[11px] text-muted-foreground hover:text-foreground flex-shrink-0"
+            className={cn("h-auto w-[42px] py-[11px] text-muted-foreground hover:text-foreground flex-shrink-0", collapsed && "md:hidden")}
           >
             <FaFileImport size={14} />
           </Button>
@@ -306,8 +334,8 @@ const Sidebar = () => {
           />
         </div>
 
-        {/* Search */}
-        <div className="px-4 pb-3.5 flex-shrink-0">
+        {/* Search - dropped from the collapsed rail; expand to search again */}
+        <div className={cn("px-4 pb-3.5 flex-shrink-0", collapsed && "md:hidden")}>
           {terminal ? (
             <div className="flex items-center gap-2 border border-border px-2.5 text-[12px] focus-within:border-ring">
               <span className="text-muted-foreground flex-none">grep&gt;</span>
@@ -334,27 +362,27 @@ const Sidebar = () => {
         </div>
 
         {/* Chat list */}
-        <div className="flex-1 overflow-y-auto px-2 pb-2.5">
+        <div className={cn("flex-1 overflow-y-auto px-2 pb-2.5", collapsed && "md:px-1.5")}>
           {search.trim() && filteredChats.length === 0 ? (
-            <p className="text-center text-subtle text-[12.5px] px-3 py-6">No chats or messages match "{search.trim()}".</p>
+            <p className={cn("text-center text-subtle text-[12.5px] px-3 py-6", collapsed && "md:hidden")}>No chats or messages match "{search.trim()}".</p>
           ) : (
             <>
               {pinnedItems.length > 0 && (
                 <>
-                  <div className="text-[10.5px] font-semibold tracking-[0.09em] uppercase text-subtle px-3 pt-2 pb-1.5">
+                  <div className={cn("text-[10.5px] font-semibold tracking-[0.09em] uppercase text-subtle px-3 pt-2 pb-1.5", collapsed && "md:hidden")}>
                     {terminal ? <span className="normal-case tracking-normal font-normal text-[10px] text-muted-foreground"># pinned</span> : "Pinned"}
                   </div>
-                  <ChatList items={pinnedItems} characters={characters} onDeleteChat={handleDeleteChat} onTogglePin={handleTogglePin} onNavigate={close} query={search.trim()} activeChatId={activeChatId} pendingFollowups={pendingFollowups} />
+                  <ChatList items={pinnedItems} characters={characters} onDeleteChat={handleDeleteChat} onTogglePin={handleTogglePin} onNavigate={close} query={search.trim()} activeChatId={activeChatId} pendingFollowups={pendingFollowups} collapsed={collapsed} />
                 </>
               )}
               {unpinnedItems.length > 0 && (
                 <>
-                  <div className="text-[10.5px] font-semibold tracking-[0.09em] uppercase text-subtle px-3 pt-2 pb-1.5">
+                  <div className={cn("text-[10.5px] font-semibold tracking-[0.09em] uppercase text-subtle px-3 pt-2 pb-1.5", collapsed && "md:hidden")}>
                     {terminal ? (
                       <span className="normal-case tracking-normal font-normal text-[10px] text-muted-foreground"># ls ~/chats -lt</span>
                     ) : pinnedItems.length > 0 ? "Other chats" : "Recent"}
                   </div>
-                  <ChatList items={unpinnedItems} characters={characters} onDeleteChat={handleDeleteChat} onTogglePin={handleTogglePin} onNavigate={close} query={search.trim()} activeChatId={activeChatId} pendingFollowups={pendingFollowups} />
+                  <ChatList items={unpinnedItems} characters={characters} onDeleteChat={handleDeleteChat} onTogglePin={handleTogglePin} onNavigate={close} query={search.trim()} activeChatId={activeChatId} pendingFollowups={pendingFollowups} collapsed={collapsed} />
                 </>
               )}
             </>
@@ -367,12 +395,19 @@ const Sidebar = () => {
             to="/settings"
             state={{ openSection: "profile" }}
             onClick={close}
-            className="flex-shrink-0 mx-4 mb-4 mt-2 flex items-center gap-2.5 p-2.5 border border-border hover:border-border-bright transition-colors"
+            title={collapsed ? `whoami: ${personaName || "guest"}` : undefined}
+            className={cn(
+              "flex-shrink-0 mx-4 mb-4 mt-2 flex items-center gap-2.5 p-2.5 border border-border hover:border-border-bright transition-colors",
+              collapsed && "md:mx-2.5 md:justify-center md:px-2.5"
+            )}
           >
-            <span className="w-6 h-6 flex-none border border-border-bright flex items-center justify-center text-[10px] font-extrabold text-foreground">
-              {getInitials(personaName)}
-            </span>
-            <div className="flex-1 min-w-0 leading-tight">
+            <CharacterAvatar
+              name={personaName}
+              imageSrc={activePersona?.avatar}
+              size={24}
+              className="rounded-none border border-border-bright text-[10px] font-extrabold"
+            />
+            <div className={cn("flex-1 min-w-0 leading-tight", collapsed && "md:hidden")}>
               <div className="text-[11px] font-bold text-foreground truncate lowercase">whoami: {personaName || "guest"}</div>
               <div className="text-[10px] text-muted-foreground truncate mt-0.5"># {activePersona?.bio?.trim() || "set up your name and bio"}</div>
             </div>
@@ -382,15 +417,15 @@ const Sidebar = () => {
           to="/settings"
           state={{ openSection: "profile" }}
           onClick={close}
+          title={collapsed ? activePersona?.name?.trim() || "Your persona" : undefined}
           className={cn(
             "flex-shrink-0 flex items-center gap-3 px-4 py-3 group hover:bg-hover transition",
-            !neumorphic && "border-t border-border/40"
+            !neumorphic && "border-t border-border/40",
+            collapsed && "md:justify-center md:px-2.5"
           )}
         >
-          <div className="w-[34px] h-[34px] rounded-full bg-muted flex items-center justify-center text-muted-foreground flex-shrink-0">
-            <FaUser size={14} />
-          </div>
-          <div className="flex-1 min-w-0 leading-tight">
+          <CharacterAvatar name={activePersona?.name} imageSrc={activePersona?.avatar} size={34} />
+          <div className={cn("flex-1 min-w-0 leading-tight", collapsed && "md:hidden")}>
             <div className="text-[13px] font-semibold text-foreground truncate">
               {activePersona?.name?.trim() || "Your persona"}
             </div>
@@ -398,7 +433,7 @@ const Sidebar = () => {
               {activePersona?.bio?.trim() || "Set up your name and bio"}
             </div>
           </div>
-          <FaPencilAlt size={12} className="text-subtle group-hover:text-foreground flex-shrink-0 transition" />
+          <FaPencilAlt size={12} className={cn("text-subtle group-hover:text-foreground flex-shrink-0 transition", collapsed && "md:hidden")} />
         </Link>
         )}
       </aside>
@@ -504,7 +539,7 @@ const Sidebar = () => {
                           {isSelected && <FaCheck size={10} className="text-primary-foreground" />}
                         </span>
                       )}
-                      <CharacterAvatar name={char.name} accent={char.accent} size={40} />
+                      <CharacterAvatar name={char.name} accent={char.accent} imageSrc={char.appearanceImages?.[0]} size={40} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold text-[14.5px] text-foreground truncate">{char.name}</h3>
@@ -580,7 +615,7 @@ const Sidebar = () => {
   );
 };
 
-const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, query, activeChatId, pendingFollowups }: { items: { chat: Chat; snippet?: string }[], characters: Character[], onDeleteChat: (id: number) => void, onTogglePin: (id: number, pinned: boolean) => void, onNavigate: () => void, query: string, activeChatId: number | null, pendingFollowups: Record<number, number> }) => {
+const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, query, activeChatId, pendingFollowups, collapsed }: { items: { chat: Chat; snippet?: string }[], characters: Character[], onDeleteChat: (id: number) => void, onTogglePin: (id: number, pinned: boolean) => void, onNavigate: () => void, query: string, activeChatId: number | null, pendingFollowups: Record<number, number>, collapsed: boolean }) => {
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
   const terminal = is("terminal");
@@ -606,24 +641,26 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, qu
             to={`/chat/${chat.id}`}
             key={chat.id}
             onClick={onNavigate}
+            title={collapsed ? chat.title : undefined}
             className={cn(
               "relative flex items-center gap-3 p-2.5 rounded-lg cursor-pointer group transition",
               terminal
                 ? cn("gap-2.5 p-2", isActive ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-primary/10")
                 : // Canvas spec: "Active row is the only one with surface-sunken;
                   // the rest are transparent."
-                  isActive ? (neumorphic ? "surface-sunken" : "bg-secondary") : "hover:bg-hover"
+                  isActive ? (neumorphic ? "surface-sunken" : "bg-secondary") : "hover:bg-hover",
+              collapsed && "md:justify-center md:px-0"
             )}
           >
             {isActive && !terminal && (
-              <span className="absolute left-[-8px] top-[14%] bottom-[14%] w-[3px] rounded-full bg-primary" />
+              <span className={cn("absolute left-[-8px] top-[14%] bottom-[14%] w-[3px] rounded-full bg-primary", collapsed && "md:hidden")} />
             )}
             {terminal ? (
               <span className="w-[26px] flex-none font-extrabold text-[11px]">{getInitials(character?.name || chat.title)}</span>
             ) : (
-              <CharacterAvatar name={character?.name || chat.title} accent={character?.accent} size={34} />
+              <CharacterAvatar name={character?.name || chat.title} accent={character?.accent} imageSrc={character?.appearanceImages?.[0]} size={34} />
             )}
-            <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+            <div className={cn("flex-1 flex flex-col overflow-hidden min-w-0", collapsed && "md:hidden")}>
               <div className="flex items-center gap-1.5">
                 <span className={cn("flex-1 min-w-0 font-semibold text-[13.5px] truncate", terminal ? "text-[12px] font-bold" : "text-foreground")}>
                   <HighlightedText text={chat.title} query={query} />
@@ -662,7 +699,8 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, qu
                 chat.pinned
                   ? "text-primary hover:bg-transparent"
                   : "text-ink-faint opacity-0 group-hover:opacity-100 hover:text-primary hover:bg-primary/10",
-                terminal && isActive && "text-primary-foreground/80 hover:text-primary-foreground"
+                terminal && isActive && "text-primary-foreground/80 hover:text-primary-foreground",
+                collapsed && "md:hidden"
               )}
               title={chat.pinned ? "Unpin chat" : "Pin chat"}
               aria-label={chat.pinned ? `Unpin chat with ${chat.title}` : `Pin chat with ${chat.title}`}
@@ -675,7 +713,8 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, qu
               size="icon"
               className={cn(
                 "h-auto w-auto p-1.5 rounded-lg text-ink-faint hover:text-red-500 hover:bg-red-500/10 flex-shrink-0",
-                terminal && isActive && "text-primary-foreground/80"
+                terminal && isActive && "text-primary-foreground/80",
+                collapsed && "md:hidden"
               )}
               title="Delete Chat"
               aria-label={`Delete chat with ${chat.title}`}

@@ -263,7 +263,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
               selectedSpeakerId === char.id && "ring-2 ring-primary"
             )}
           >
-            <CharacterAvatar name={char.name} accent={char.accent} size={32} />
+            <CharacterAvatar name={char.name} accent={char.accent} imageSrc={char.appearanceImages?.[0]} size={32} />
           </button>
         );
       })}
@@ -348,7 +348,13 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
 
   return (
-    <div className="flex flex-col gap-2">
+    // `relative` lives here (not on the picker's own small button wrapper
+    // below) so the "reply as..." popover's `absolute bottom-full` anchors
+    // above the WHOLE composer - context meter and token-cost line included -
+    // instead of just above the toggle button, which used to make it overlap
+    // and obscure those rows whenever they were tall enough to not fit the
+    // 8px gap between rows.
+    <div className="relative flex flex-col gap-2">
       {maxContextTokens > 0 && terminal && (
         <div className="flex flex-col gap-1.5">
           <div className="flex justify-between text-[10px] text-muted-foreground">
@@ -439,7 +445,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
       {selectedSpeaker && terminal && terminalBanner(`only ${selectedSpeaker.name} will reply to this message.`, () => setSelectedSpeakerId(null), "Clear selected replier")}
       {selectedSpeaker && !terminal && (
         <div className="flex items-center gap-2.5 px-3 py-2 bg-primary/10 border border-primary rounded-lg">
-          <CharacterAvatar name={selectedSpeaker.name} accent={selectedSpeaker.accent} size={18} className="flex-shrink-0" />
+          <CharacterAvatar name={selectedSpeaker.name} accent={selectedSpeaker.accent} imageSrc={selectedSpeaker.appearanceImages?.[0]} size={18} className="flex-shrink-0" />
           <span className="flex-1 text-[12.5px] text-foreground font-medium">
             Only {selectedSpeaker.name} will reply to this message.
           </span>
@@ -473,7 +479,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 i === mentionActiveIndex ? "bg-primary/[0.14] text-primary" : "text-foreground hover:bg-secondary"
               )}
             >
-              <CharacterAvatar name={char.name} accent={char.accent} size={22} />
+              <CharacterAvatar name={char.name} accent={char.accent} imageSrc={char.appearanceImages?.[0]} size={22} />
               <span className="font-medium">{char.name}</span>
             </button>
           ))}
@@ -483,7 +489,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
       {terminal ? (
         <div className="flex items-center gap-2.5 mt-1">
           {isRoom && roomCharacters && (
-            <div className="relative flex-shrink-0" ref={pickerRef}>
+            <div className="flex-shrink-0" ref={pickerRef}>
               <TermLink
                 label={selectedSpeaker ? selectedSpeaker.name : "cast"}
                 onClick={() => setPickerOpen((v) => !v)}
@@ -547,7 +553,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
         )}
       >
         {isRoom && roomCharacters && (
-          <div className="relative flex-shrink-0" ref={pickerRef}>
+          <div className="flex-shrink-0" ref={pickerRef}>
             <Button
               type="button"
               onClick={() => setPickerOpen((v) => !v)}
@@ -564,7 +570,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
               )}
             >
               {selectedSpeaker ? (
-                <CharacterAvatar name={selectedSpeaker.name} accent={selectedSpeaker.accent} size={22} />
+                <CharacterAvatar name={selectedSpeaker.name} accent={selectedSpeaker.accent} imageSrc={selectedSpeaker.appearanceImages?.[0]} size={22} />
               ) : (
                 <FaUserFriends size={16} />
               )}

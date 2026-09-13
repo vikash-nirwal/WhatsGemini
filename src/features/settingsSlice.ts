@@ -48,6 +48,7 @@ import {
   LS_OLLAMA_BASE_URL,
   DEFAULT_OLLAMA_BASE_URL,
   LS_EMOTION_PANEL_ENABLED,
+  LS_ALWAYS_SHOW_INITIALS,
   LS_EMOTION_POPUP_ENABLED,
   LS_EMOTION_POPUP_DURATION,
   DEFAULT_EMOTION_POPUP_DURATION,
@@ -110,6 +111,7 @@ export interface SettingsState {
   emotionPanelEnabled: boolean;
   emotionPopupEnabled: boolean;
   emotionPopupDuration: number;
+  alwaysShowInitials: boolean;
 }
 
 const initialPersonas = loadInitialPersonas();
@@ -148,6 +150,7 @@ const initialState: SettingsState = {
   emotionPanelEnabled: localStorage.getItem(LS_EMOTION_PANEL_ENABLED) !== 'false',
   emotionPopupEnabled: localStorage.getItem(LS_EMOTION_POPUP_ENABLED) !== 'false',
   emotionPopupDuration: getStoredValue(LS_EMOTION_POPUP_DURATION, DEFAULT_EMOTION_POPUP_DURATION),
+  alwaysShowInitials: localStorage.getItem(LS_ALWAYS_SHOW_INITIALS) === 'true',
 };
 
 const settingsSlice = createSlice({
@@ -266,6 +269,9 @@ const settingsSlice = createSlice({
     setEmotionPopupDuration: (state, action: PayloadAction<number>) => {
       state.emotionPopupDuration = action.payload;
     },
+    setAlwaysShowInitials: (state, action: PayloadAction<boolean>) => {
+      state.alwaysShowInitials = action.payload;
+    },
   },
 });
 
@@ -302,6 +308,7 @@ export const {
   setEmotionPanelEnabled,
   setEmotionPopupEnabled,
   setEmotionPopupDuration,
+  setAlwaysShowInitials,
 } = settingsSlice.actions;
 
 // The persona characters actually see: the active one, falling back to the

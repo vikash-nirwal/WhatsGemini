@@ -44,11 +44,16 @@ export const extractEmotionTag = (text: string, customEmotions?: string[]): { te
 // an emotion (neutral included) with no saved image of its own falls back to
 // the character's ordinary main portrait.
 export const resolveEmotionPortrait = (character: Character | undefined, emotion: string | undefined): string | undefined => {
-  if (!character?.emotionPortraits?.enabled) return undefined;
-  const vocabulary = getEmotionVocabulary(character.emotionPortraits.customEmotions).map((e) => e.toLowerCase());
-  const key = emotion && vocabulary.includes(emotion.toLowerCase()) ? emotion.toLowerCase() : "neutral";
-  if (character.emotionPortraits.images[key]) {
-    return character.emotionPortraits.images[key];
+  if (!character) return undefined;
+  // Mood-swapping only applies with the feature on, but the character's
+  // ordinary portrait (appearanceImages[0]) is shown regardless - it's just
+  // their display picture, not something gated behind Emotion Portraits.
+  if (character.emotionPortraits?.enabled) {
+    const vocabulary = getEmotionVocabulary(character.emotionPortraits.customEmotions).map((e) => e.toLowerCase());
+    const key = emotion && vocabulary.includes(emotion.toLowerCase()) ? emotion.toLowerCase() : "neutral";
+    if (character.emotionPortraits.images[key]) {
+      return character.emotionPortraits.images[key];
+    }
   }
   return character.appearanceImages?.[0];
 };

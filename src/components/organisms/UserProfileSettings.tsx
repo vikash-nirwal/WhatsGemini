@@ -1,9 +1,11 @@
-import React from 'react';
-import { FaUser, FaPlus, FaTrash, FaCheckCircle } from 'react-icons/fa';
+import React, { useRef, useState } from 'react';
+import { FaUser, FaPlus, FaTrash, FaCheckCircle, FaCamera } from 'react-icons/fa';
 import { UserProfile } from '../../types';
 import { TextInput, TextArea } from "src/components/molecules/form-controls";
 import { Button } from 'src/components/atoms/button';
 import { SettingsCard } from 'src/components/molecules/settings-card';
+import { CharacterAvatar } from 'src/components/molecules/CharacterAvatar';
+import AvatarCropDialog from './AvatarCropDialog';
 import { cn } from '../../utils/cn';
 import { useColorTheme } from '../../hooks/useColorTheme';
 
@@ -32,6 +34,34 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
 }) => {
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
+
+  // Single shared file input + crop dialog for every persona card, rather
+  // than one of each per card - `pendingPersonaId` tracks which persona a
+  // pick/crop in flight is actually for, same one-hidden-input pattern
+  // MessageInput's file import button already uses.
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingPersonaId, setPendingPersonaId] = useState<string | null>(null);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+
+  const handlePickPhoto = (personaId: string) => {
+    setPendingPersonaId(personaId);
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setCropImageSrc(URL.createObjectURL(file));
+  };
+
+  const handleCropped = (localRef: string) => {
+    const persona = personas.find((p) => p.id === pendingPersonaId);
+    if (persona) onUpdatePersona({ ...persona, avatar: localRef });
+    setCropImageSrc(null);
+    setPendingPersonaId(null);
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <SettingsCard className="p-5">
@@ -96,6 +126,32 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
                 </Button>
               </div>
 
+              <div className="flex items-center gap-3">
+                <CharacterAvatar name={persona.name || "?"} imageSrc={persona.avatar} size={56} />
+                <div className="flex flex-col gap-1.5 items-start">
+                  <Button
+                    type="button"
+                    variant="panel"
+                    size="sm"
+                    onClick={() => handlePickPhoto(persona.id)}
+                    className="h-auto py-1.5 px-2.5 text-xs font-medium"
+                  >
+                    <FaCamera size={11} /> {persona.avatar ? "Change photo" : "Add photo"}
+                  </Button>
+                  {persona.avatar && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onUpdatePersona({ ...persona, avatar: undefined })}
+                      className="h-auto py-1 px-2.5 text-xs text-subtle hover:text-destructive"
+                    >
+                      Remove photo
+                    </Button>
+                  )}
+                </div>
+              </div>
+
               <TextInput
                 type="text"
                 placeholder="Persona name (e.g. Myself, Elven Mage)"
@@ -133,6 +189,26 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
       >
         <FaPlus size={12} /> Add persona
       </Button>
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="image/*"
+        style={{ display: "none" }}
+      />
+      {cropImageSrc && (
+        <AvatarCropDialog
+          open={Boolean(cropImageSrc)}
+          onClose={() => {
+            setCropImageSrc(null);
+            setPendingPersonaId(null);
+          }}
+          imageSrc={cropImageSrc}
+          onCropped={handleCropped}
+          exportSize={{ width: 256, height: 256 }}
+        />
+      )}
     </div>
   );
 };

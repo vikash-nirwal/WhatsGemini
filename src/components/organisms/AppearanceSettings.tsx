@@ -1,6 +1,7 @@
 import React from 'react';
 import { cn } from '../../utils/cn';
 import { SettingsCard, SettingsCardHeader, SettingsRow } from 'src/components/molecules/settings-card';
+import ToggleSwitch from 'src/components/atoms/ToggleSwitch';
 import {
   COLOR_THEMES,
   COZY_PALETTES,
@@ -18,6 +19,8 @@ interface AppearanceSettingsProps {
   setColorTheme: (value: string) => void;
   accentPalette: string;
   setAccentPalette: (value: string) => void;
+  alwaysShowInitials: boolean;
+  setAlwaysShowInitials: (value: boolean) => void;
 }
 
 // Light-mode swatches for each theme, just enough to preview the palette at a
@@ -53,6 +56,8 @@ const AppearanceSettings: React.FC<AppearanceSettingsProps> = ({
   setColorTheme,
   accentPalette,
   setAccentPalette,
+  alwaysShowInitials,
+  setAlwaysShowInitials,
 }) => {
   const picker = PALETTE_PICKERS[colorTheme];
   return (
@@ -138,6 +143,15 @@ const AppearanceSettings: React.FC<AppearanceSettingsProps> = ({
             </div>
           </SettingsRow>
         )}
+      </SettingsCard>
+
+      <SettingsCard>
+        <SettingsRow
+          label="Always show initials"
+          hint="Show initials instead of pictures for every character and persona avatar, even when one has a picture set."
+        >
+          <ToggleSwitch checked={alwaysShowInitials} onChange={setAlwaysShowInitials} />
+        </SettingsRow>
       </SettingsCard>
     </div>
   );

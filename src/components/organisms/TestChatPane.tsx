@@ -176,7 +176,7 @@ const TestChatPane: React.FC<TestChatPaneProps> = (props) => {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
         <div className="flex items-center gap-2">
-          <CharacterAvatar name={props.name || "?"} accent={props.accent} size={28} />
+          <CharacterAvatar name={props.name || "?"} accent={props.accent} imageSrc={props.appearanceImages?.[0]} size={28} />
           <span className="text-sm font-semibold text-foreground truncate">
             Test Chat
           </span>
@@ -213,7 +213,7 @@ const TestChatPane: React.FC<TestChatPaneProps> = (props) => {
             )}
           >
             {msg.role === "assistant" && (
-              <CharacterAvatar name={charInitials} accent={props.accent} size={26} className="mt-0.5 flex-shrink-0" />
+              <CharacterAvatar name={charInitials} accent={props.accent} imageSrc={props.appearanceImages?.[0]} size={26} className="mt-0.5 flex-shrink-0" />
             )}
             <div
               className={cn(
@@ -232,7 +232,7 @@ const TestChatPane: React.FC<TestChatPaneProps> = (props) => {
 
         {isGenerating && (
           <div className="flex gap-2 max-w-[92%]">
-            <CharacterAvatar name={charInitials} accent={props.accent} size={26} className="mt-0.5 flex-shrink-0" />
+            <CharacterAvatar name={charInitials} accent={props.accent} imageSrc={props.appearanceImages?.[0]} size={26} className="mt-0.5 flex-shrink-0" />
             <div className="rounded-2xl rounded-bl-md bg-muted px-3.5 py-2.5">
               <div className="flex gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: "0ms" }} />

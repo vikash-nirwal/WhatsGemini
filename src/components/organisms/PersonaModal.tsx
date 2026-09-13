@@ -3,6 +3,7 @@ import { FaCheck } from "react-icons/fa";
 import Modal from "src/components/molecules/Modal";
 import { cn } from "../../utils/cn";
 import { UserProfile } from "../../types";
+import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 
 interface PersonaModalProps {
   isOpen: boolean;
@@ -47,11 +48,12 @@ const PersonaModal: React.FC<PersonaModalProps> = ({
           type="button"
           onClick={() => onSelectPersona(p.id)}
           className={cn(
-            "flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border text-left text-sm transition",
+            "flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left text-sm transition",
             selectedPersonaId === p.id ? "border-primary bg-primary/10 text-foreground" : "border-border hover:bg-hover text-foreground"
           )}
         >
-          <span className="truncate">{p.name || "(unnamed persona)"}</span>
+          <CharacterAvatar name={p.name} imageSrc={p.avatar} size={26} className="flex-shrink-0" />
+          <span className="flex-1 min-w-0 truncate">{p.name || "(unnamed persona)"}</span>
           {selectedPersonaId === p.id && <FaCheck size={12} className="text-primary flex-shrink-0" />}
         </button>
       ))}

@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import { dbService } from "./dbService";
-import { Chat, Character, Message, ConversationTree } from "../types";
+import { Chat, Character, Message, ConversationTree, UserProfile } from "../types";
+import { LS_USER_PERSONAS } from "../utils/constants";
 
 export const BACKUP_FILE_TYPE = "whatsgemini-backup";
 export const BACKUP_FILE_VERSION = 1;
@@ -99,9 +100,10 @@ export const restoreChatsAndCharacters = async (
 
 const LOCAL_IMAGE_PREFIX = "local:";
 
-// Walks message.images / character.avatar / character.appearanceImages / character.gallery
-// and collects the bare filenames behind every `local:<filename>` reference.
-const collectLocalImageFilenames = (chats: Chat[], characters: Character[]): string[] => {
+// Walks message.images / character.avatar / character.appearanceImages /
+// character.gallery / persona.avatar and collects the bare filenames behind
+// every `local:<filename>` reference.
+const collectLocalImageFilenames = (chats: Chat[], characters: Character[], personas: UserProfile[]): string[] => {
   const filenames = new Set<string>();
   const collect = (value: unknown) => {
     if (typeof value === "string") {
@@ -119,6 +121,9 @@ const collectLocalImageFilenames = (chats: Chat[], characters: Character[]): str
     collect(character.appearanceImages);
     collect(character.gallery);
   }
+  for (const persona of personas) {
+    collect(persona.avatar);
+  }
 
   return Array.from(filenames);
 };
@@ -132,7 +137,8 @@ export const getFullBackupZip = async (
   settings: unknown
 ): Promise<{ blob: Blob; chats: Chat[]; characters: Character[]; imagesIncluded: number; imagesSkipped: number }> => {
   const backupData = await getFullBackupData();
-  const filenames = collectLocalImageFilenames(backupData.chats, backupData.characters);
+  const personas = ((settings as Record<string, unknown>)?.[LS_USER_PERSONAS] as UserProfile[] | undefined) || [];
+  const filenames = collectLocalImageFilenames(backupData.chats, backupData.characters, personas);
 
   const zip = new JSZip();
   zip.file(BACKUP_ZIP_JSON_ENTRY, JSON.stringify({ ...backupData, settings }, null, 2));

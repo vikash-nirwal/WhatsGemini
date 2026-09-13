@@ -99,7 +99,7 @@ const CharacterGalleryPage = () => {
     <div className="w-full h-screen flex flex-col relative">
       <Header
         title={`${character.name}'s Gallery`}
-        avatar={<CharacterAvatar name={character.name} accent={character.accent} size={34} />}
+        avatar={<CharacterAvatar name={character.name} accent={character.accent} imageSrc={character.appearanceImages?.[0]} size={34} />}
         onBack={goBackInfo}
       />
       {/* Fullscreen Image Viewer */}

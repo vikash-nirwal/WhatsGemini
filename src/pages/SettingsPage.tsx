@@ -11,7 +11,7 @@ import {
   setSdWebuiModel, setMaxOutputTokens, setReplyLengthLimit, setCompressThreshold, setMaxChatLength,
   setTemperature, setSafetySettings, setFontSize, setImageResolution, setGeminiImageSize, setPortraitSaveSize,
   setChatProvider, setImageProvider, setOllamaBaseUrl,
-  setEmotionPanelEnabled, setEmotionPopupEnabled, setEmotionPopupDuration,
+  setEmotionPanelEnabled, setEmotionPopupEnabled, setEmotionPopupDuration, setAlwaysShowInitials,
 } from "../features/settingsSlice";
 import { FaInfoCircle, FaUser, FaMicrochip, FaImage, FaComments, FaShieldAlt, FaDatabase, FaPalette } from "react-icons/fa";
 import Header from "src/components/organisms/Header";
@@ -47,6 +47,7 @@ import {
   LS_GEMINI_IMAGE_SIZE,
   LS_PORTRAIT_SAVE_SIZE,
   LS_EMOTION_PANEL_ENABLED,
+  LS_ALWAYS_SHOW_INITIALS,
   LS_EMOTION_POPUP_ENABLED,
   LS_EMOTION_POPUP_DURATION,
   // IMAGE_RESOLUTIONS,
@@ -193,7 +194,7 @@ const SettingsPage = () => {
     sdWebuiBatchSize, sdWebuiRefMode, sdWebuiDenoising, sdWebuiControlnetModel, sdWebuiModels,
     sdWebuiModel, maxOutputTokens, replyLengthLimit, compressThreshold, maxChatLength, temperature,
     safetySettings, fontSize, imageResolution, geminiImageSize, portraitSaveSize,
-    emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration,
+    emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials,
   } = settings;
 
   const chatProviderCapabilities = CHAT_PROVIDERS[chatProvider]?.capabilities || CHAT_PROVIDERS.gemini.capabilities;
@@ -363,10 +364,11 @@ const SettingsPage = () => {
     [LS_EMOTION_PANEL_ENABLED]: emotionPanelEnabled,
     [LS_EMOTION_POPUP_ENABLED]: emotionPopupEnabled,
     [LS_EMOTION_POPUP_DURATION]: emotionPopupDuration,
+    [LS_ALWAYS_SHOW_INITIALS]: alwaysShowInitials,
     [LS_USER_PERSONAS]: personas,
     [LS_ACTIVE_PERSONA_ID]: activePersonaId,
     [LS_INITIAL_MESSAGES]: JSON.parse(localStorage.getItem(LS_INITIAL_MESSAGES) || "[]"),
-  }), [selectedModel, maxOutputTokens, replyLengthLimit, compressThreshold, temperature, safetySettings, maxChatLength, fontSize, imageResolution, geminiImageSize, portraitSaveSize, emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, personas, activePersonaId]);
+  }), [selectedModel, maxOutputTokens, replyLengthLimit, compressThreshold, temperature, safetySettings, maxChatLength, fontSize, imageResolution, geminiImageSize, portraitSaveSize, emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials, personas, activePersonaId]);
 
   const downloadJson = (data: unknown, filename: string) => {
     const jsonString = JSON.stringify(data, null, 2);
@@ -441,6 +443,7 @@ const SettingsPage = () => {
     if (settings[LS_EMOTION_PANEL_ENABLED] !== undefined) dispatch(setEmotionPanelEnabled(Boolean(settings[LS_EMOTION_PANEL_ENABLED])));
     if (settings[LS_EMOTION_POPUP_ENABLED] !== undefined) dispatch(setEmotionPopupEnabled(Boolean(settings[LS_EMOTION_POPUP_ENABLED])));
     if (settings[LS_EMOTION_POPUP_DURATION]) dispatch(setEmotionPopupDuration(settings[LS_EMOTION_POPUP_DURATION]));
+    if (settings[LS_ALWAYS_SHOW_INITIALS] !== undefined) dispatch(setAlwaysShowInitials(Boolean(settings[LS_ALWAYS_SHOW_INITIALS])));
     if (settings[LS_USER_PERSONAS]) {
         dispatch(setPersonas(settings[LS_USER_PERSONAS]));
         if (settings[LS_ACTIVE_PERSONA_ID]) dispatch(setActivePersonaId(settings[LS_ACTIVE_PERSONA_ID]));
@@ -727,6 +730,8 @@ const SettingsPage = () => {
                     setColorTheme={setColorTheme}
                     accentPalette={accentPalette}
                     setAccentPalette={setAccentPalette}
+                    alwaysShowInitials={alwaysShowInitials}
+                    setAlwaysShowInitials={(val) => dispatch(setAlwaysShowInitials(val))}
                   />
                 )}
 

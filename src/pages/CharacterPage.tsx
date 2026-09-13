@@ -34,6 +34,11 @@ const CharacterPage = () => {
   const neumorphic = is("neumorphic");
   const terminal = is("terminal");
   const portraitSaveSize = useAppSelector((state) => parseSize(state.settings.portraitSaveSize));
+  // Read once here (not via useAvatarImageSrc per card) since these cards
+  // hand-roll their own DisplayImage/CharacterAvatar branching instead of
+  // going through CharacterAvatar's imageSrc prop - calling a hook inside
+  // the character.map() below would break the Rules of Hooks.
+  const alwaysShowInitials = useAppSelector((state) => state.settings.alwaysShowInitials);
 
   const [gallerySearch, setGallerySearch] = useState("");
   const importCardInputRef = useRef<HTMLInputElement>(null);
@@ -318,12 +323,13 @@ const CharacterPage = () => {
           <div className="grid gap-5" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${terminal ? 170 : 230}px, 1fr))` }}>
             {filteredCharacters.map((char) => {
               const charAccent = char.accent ?? CHARACTER_SWATCHES[0];
+              const cardImageSrc = alwaysShowInitials ? undefined : char.appearanceImages?.[0];
               if (terminal) {
                 return (
                   <div key={char.id} className="border border-border hover:border-border-bright transition-colors flex flex-col min-w-0">
                     <div className="relative aspect-square m-2.5 border border-border-bright overflow-hidden flex items-center justify-center">
-                      {char.appearanceImages?.[0] ? (
-                        <DisplayImage srcContext={char.appearanceImages[0]} alt={char.name} className="w-full h-full object-cover" />
+                      {cardImageSrc ? (
+                        <DisplayImage srcContext={cardImageSrc} alt={char.name} className="w-full h-full object-cover" />
                       ) : (
                         <CharacterAvatar name={char.name} accent={char.accent} size={72} />
                       )}
@@ -363,8 +369,8 @@ const CharacterPage = () => {
                 style={{ aspectRatio: "3 / 3.9" }}
               >
                 <div className="absolute inset-0">
-                  {char.appearanceImages?.[0] ? (
-                    <DisplayImage srcContext={char.appearanceImages[0]} alt={char.name} className="w-full h-full object-cover" />
+                  {cardImageSrc ? (
+                    <DisplayImage srcContext={cardImageSrc} alt={char.name} className="w-full h-full object-cover" />
                   ) : (
                     <div
                       className="w-full h-full flex items-center justify-center"

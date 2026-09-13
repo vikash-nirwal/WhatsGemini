@@ -304,6 +304,9 @@ export const LS_COLOR_THEME = "color_theme";
 export const LS_ACCENT_PALETTE = "accent_palette";
 export const LS_INITIAL_MESSAGES = "initial_messages";
 export const LS_FONT_SIZE = "app_font_size";
+// Desktop-only sidebar collapse (icon rail) preference - mobile always shows
+// the sidebar expanded when opened, this only affects the md+ layout.
+export const LS_SIDEBAR_COLLAPSED = "sidebar_collapsed";
 export const API_KEY_STORAGE_KEY = "genAI_api_key";
 export const LS_IMAGE_RESOLUTION = "image_resolution";
 
@@ -346,6 +349,10 @@ export const LS_EMOTION_PANEL_ENABLED = "emotion_panel_enabled";
 export const LS_EMOTION_POPUP_ENABLED = "emotion_popup_enabled";
 export const LS_EMOTION_POPUP_DURATION = "emotion_popup_duration_ms";
 export const DEFAULT_EMOTION_POPUP_DURATION = 1500;
+// Global "prefer initials over avatar pictures" toggle - covers both
+// character portraits and persona photos everywhere CharacterAvatar renders
+// one. Defaults off (show the real picture when one is set).
+export const LS_ALWAYS_SHOW_INITIALS = "always_show_initials";
 export const LS_USER_PROFILE = "whatsgemini_user_profile"; // legacy single-persona shape, read only for migration
 export const LS_USER_PERSONAS = "whatsgemini_user_personas";
 export const LS_ACTIVE_PERSONA_ID = "whatsgemini_active_persona_id";

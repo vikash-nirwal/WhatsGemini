@@ -161,6 +161,7 @@ export interface UserProfile {
   bio: string;
   appearance?: string; // physical description, given to image-capable models
   backstory?: string; // background/history a character might reference
+  avatar?: string; // this persona's own display picture - a local:/data: ref, same shape as Character.appearanceImages entries
 }
 
 export interface AISafetySettings {
