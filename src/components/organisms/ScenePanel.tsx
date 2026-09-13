@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import { FaTimes, FaPlus, FaPencilAlt } from "react-icons/fa";
-import { useAppDispatch } from "src/store/hooks";
+import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { updateChatAuthorNote, updateChatWorldTags, updateChatMemory, updateChatScenario } from "src/features/chatSlice";
 import { updateCharacter } from "src/features/characterSlice";
+import { setEmotionPanelEnabled, setEmotionPopupEnabled, setEmotionPopupDuration } from "src/features/settingsSlice";
 import { Character } from "src/types";
 import { Textarea } from "src/components/atoms/textarea";
 import { Input } from "src/components/atoms/input";
 import { Button } from "src/components/atoms/button";
+import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { ChatSidePanelShell } from "src/components/molecules/ChatSidePanelShell";
 import { MAX_MEMORY_ENTRIES } from "src/utils/constants";
 
@@ -28,6 +30,14 @@ interface ScenePanelProps {
 
 const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chatMemory, chatScenario, authorNote, worldTags, onClose }) => {
   const dispatch = useAppDispatch();
+
+  // App-wide display preferences, not per-chat data like everything else in
+  // this panel - surfaced here anyway (rather than the global Settings page)
+  // since they're about how the chat you're actually looking at right now
+  // renders, and this is the panel already open while you're looking at it.
+  const emotionPanelEnabled = useAppSelector((state) => state.settings.emotionPanelEnabled);
+  const emotionPopupEnabled = useAppSelector((state) => state.settings.emotionPopupEnabled);
+  const emotionPopupDuration = useAppSelector((state) => state.settings.emotionPopupDuration);
 
   // Author's note - local live value, resynced when the chat/prop changes, saved on blur.
   const [noteValue, setNoteValue] = useState(authorNote || "");
@@ -303,6 +313,40 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
               >
                 <FaPlus size={9} /> Add
               </button>
+            )}
+          </div>
+        </div>
+
+        {/* Display - app-wide preferences for the docked mood panel/popup, see note above */}
+        <div>
+          <div data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold mb-2">Display</div>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-medium text-foreground">Mood panel</div>
+                <div className="text-[11px] text-subtle">Docks each character's current mood portrait beside the chat</div>
+              </div>
+              <ToggleSwitch checked={emotionPanelEnabled} onChange={(val) => dispatch(setEmotionPanelEnabled(val))} />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-medium text-foreground">Pop up on mood change</div>
+                <div className="text-[11px] text-subtle">Briefly shows a portrait centered on screen when a mood changes</div>
+              </div>
+              <ToggleSwitch checked={emotionPopupEnabled} onChange={(val) => dispatch(setEmotionPopupEnabled(val))} />
+            </div>
+            {emotionPopupEnabled && (
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-[12.5px] font-medium text-foreground">Popup duration (ms)</div>
+                <Input
+                  type="number"
+                  value={emotionPopupDuration}
+                  onChange={(e) => dispatch(setEmotionPopupDuration(Math.max(300, Number(e.target.value))))}
+                  min="300"
+                  step="100"
+                  className="h-8 w-24 text-[12.5px] px-2.5 rounded-lg"
+                />
+              </div>
             )}
           </div>
         </div>

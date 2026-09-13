@@ -10,7 +10,7 @@ import Header, { HeaderAction } from "src/components/organisms/Header";
 import PortraitPreviewModal from "src/components/organisms/PortraitPreviewModal";
 import AutoReplyModal from "src/components/organisms/AutoReplyModal";
 import PersonaModal from "src/components/organisms/PersonaModal";
-import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaBookOpen, FaHistory, FaUserCircle, FaTimes, FaUsers } from "react-icons/fa";
+import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers } from "react-icons/fa";
 import { Button } from "src/components/atoms/button";
 import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
@@ -133,9 +133,13 @@ const ChatPage = () => {
   // in history so a reply can tell who said what.
   const buildRoomContext = (speaker: Character): RoomContext | undefined => {
     if (!isRoom) return undefined;
+    const others = roomCharacters.filter((c) => c.id !== speaker.id);
     return {
       speakerNames: Object.fromEntries(roomCharacters.map((c) => [c.id, c.name])),
-      otherParticipants: roomCharacters.filter((c) => c.id !== speaker.id).map((c) => c.name),
+      otherParticipants: others.map((c) => c.name),
+      otherParticipantImages: others
+        .filter((c) => c.appearanceImages && c.appearanceImages.length > 0)
+        .map((c) => ({ name: c.name, images: c.appearanceImages! })),
       groupScenario: currentChat?.scenario,
       groupMemory: currentChat?.memory,
     };
@@ -444,7 +448,7 @@ const ChatPage = () => {
     const { messages: compressedFreshMessages, tokens: compressTokens, cost: compressCost } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: freshMessages })).unwrap();
     await trackUsage(compressTokens, compressCost);
 
-    const { history, systemInstruction, characterImages, characterName } = buildTurnContext(
+    const { history, systemInstruction, characterImages, characterName, otherParticipantImages } = buildTurnContext(
       compressedFreshMessages,
       speaker,
       withAuthorNote([AUTO_REPLY_DIRECTIVE]),
@@ -456,7 +460,7 @@ const ChatPage = () => {
       prompt: followupPrompt,
       history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle,
       isImageRequest: includeImage, isCharacterInitiated: true, isAutoSelfie: shouldAutoSelfie,
-      customEmotions: speaker.emotionPortraits?.customEmotions,
+      customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages,
     }));
 
     if (!aiResponse.payload) return false;
@@ -621,8 +625,8 @@ const ChatPage = () => {
       const shouldAutoSelfie = !isImageRequest && !!autoSelfieCfg?.enabled &&
         Math.random() * 100 < (autoSelfieCfg.frequency ?? DEFAULT_AUTO_SELFIE_FREQUENCY);
 
-      const { history, systemInstruction, characterImages, characterName } = buildTurnContext(contextMessages, speaker, withAuthorNote(), replyLengthLimit, activePersona, buildRoomContext(speaker));
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: text, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions }));
+      const { history, systemInstruction, characterImages, characterName, otherParticipantImages } = buildTurnContext(contextMessages, speaker, withAuthorNote(), replyLengthLimit, activePersona, buildRoomContext(speaker));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: text, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
 
@@ -686,8 +690,8 @@ const ChatPage = () => {
           || characterData;
         if (!speaker) return;
 
-        const { history, systemInstruction, characterImages, characterName } = buildTurnContext(contentUpToEdit, speaker, withAuthorNote(), replyLengthLimit, activePersona, buildRoomContext(speaker));
-        aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, customEmotions: speaker.emotionPortraits?.customEmotions }));
+        const { history, systemInstruction, characterImages, characterName, otherParticipantImages } = buildTurnContext(contentUpToEdit, speaker, withAuthorNote(), replyLengthLimit, activePersona, buildRoomContext(speaker));
+        aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages }));
         const aiResponse = await aiPromiseRef.current;
         aiPromiseRef.current = null;
 
@@ -770,8 +774,8 @@ const ChatPage = () => {
         || characterData;
       if (!speaker) return;
 
-      const { history, systemInstruction, characterImages, characterName } = buildTurnContext(historyUpToTarget, speaker, extraDirectives, replyLengthLimit, activePersona, buildRoomContext(speaker));
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions }));
+      const { history, systemInstruction, characterImages, characterName, otherParticipantImages } = buildTurnContext(historyUpToTarget, speaker, extraDirectives, replyLengthLimit, activePersona, buildRoomContext(speaker));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
 
@@ -1022,9 +1026,9 @@ const ChatPage = () => {
       ? [{ icon: FaBolt, label: isRoom ? "Make the next bot send a follow-up now" : `Make ${characterData?.name || "them"} send a follow-up now`, onClick: handleManualFollowup, disabled: aiLoading, primary: true, shortLabel: "follow-up" }]
       : []),
     { icon: FaClock, label: "Auto follow-up settings", onClick: () => setIsAutoReplyModalOpen(true), active: autoReplySettings.enabled },
-    { icon: FaBookOpen, label: "Scene panel", onClick: () => { setSceneOpen((v) => !v); setParticipantsOpen(false); }, active: sceneOpen, primary: true, shortLabel: "scene" },
+    { icon: FaSlidersH, label: "Scene & chat settings", onClick: () => { setSceneOpen((v) => !v); setParticipantsOpen(false); }, active: sceneOpen, primary: true, shortLabel: "scene" },
     ...(roomCharacters.length > 0
-      ? [{ icon: FaUsers, label: isRoom ? "Participants" : "Invite someone", onClick: () => { setParticipantsOpen((v) => !v); setSceneOpen(false); }, active: participantsOpen }]
+      ? [{ icon: FaUsers, label: isRoom ? "Participants" : "Invite someone", onClick: () => { setParticipantsOpen((v) => !v); setSceneOpen(false); }, active: participantsOpen, primary: true, shortLabel: "people" }]
       : []),
     ...(personas.length > 1
       ? [{ icon: FaUserCircle, label: `Persona: ${activePersona?.name || "None"}`, onClick: () => setIsPersonaModalOpen(true), active: Boolean(currentChat?.personaId) }]

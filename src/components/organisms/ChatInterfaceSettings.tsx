@@ -5,7 +5,6 @@ import { TextInput } from "src/components/molecules/form-controls";
 import InitialMessages from 'src/components/molecules/InitialMessages';
 import { SettingsCard, SettingsCardHeader, SettingsRow } from 'src/components/molecules/settings-card';
 import { SegmentedControl } from 'src/components/molecules/SegmentedControl';
-import ToggleSwitch from 'src/components/atoms/ToggleSwitch';
 
 interface ChatInterfaceSettingsProps {
   maxChatLength: number;
@@ -14,12 +13,6 @@ interface ChatInterfaceSettingsProps {
   setFontSize: (val: string) => void;
   initialMessagesKey: number;
   onInitialMessagesSave: () => void;
-  emotionPanelEnabled: boolean;
-  setEmotionPanelEnabled: (val: boolean) => void;
-  emotionPopupEnabled: boolean;
-  setEmotionPopupEnabled: (val: boolean) => void;
-  emotionPopupDuration: number;
-  setEmotionPopupDuration: (val: number) => void;
 }
 
 const FONT_SIZE_OPTIONS = [
@@ -31,8 +24,6 @@ const FONT_SIZE_OPTIONS = [
 
 const ChatInterfaceSettings: React.FC<ChatInterfaceSettingsProps> = ({
   maxChatLength, setMaxChatLength, fontSize, setFontSize, initialMessagesKey, onInitialMessagesSave,
-  emotionPanelEnabled, setEmotionPanelEnabled, emotionPopupEnabled, setEmotionPopupEnabled,
-  emotionPopupDuration, setEmotionPopupDuration,
 }) => {
   const { is } = useColorTheme();
   return (
@@ -80,32 +71,6 @@ const ChatInterfaceSettings: React.FC<ChatInterfaceSettingsProps> = ({
             onSave={onInitialMessagesSave}
           />
         </div>
-      </SettingsCard>
-
-      <SettingsCard>
-        <div className="p-5">
-          <SettingsCardHeader title="Mood portraits" hint="The docked emotion sprite panel beside the chat, and the change callout" />
-        </div>
-
-        <SettingsRow label="Show mood panel" hint="Docks each character's current mood portrait beside the chat. Can also be closed from inside the panel itself.">
-          <ToggleSwitch checked={emotionPanelEnabled} onChange={setEmotionPanelEnabled} />
-        </SettingsRow>
-
-        <SettingsRow label="Pop up on mood change" hint="Briefly shows a character's portrait centered on screen when their mood changes">
-          <ToggleSwitch checked={emotionPopupEnabled} onChange={setEmotionPopupEnabled} />
-        </SettingsRow>
-
-        <SettingsRow label="Popup duration" hint="How long the popup stays before fading away">
-          <TextInput
-            type="number"
-            value={emotionPopupDuration}
-            onChange={(e) => setEmotionPopupDuration(Math.max(300, Number(e.target.value)))}
-            min="300"
-            step="100"
-            disabled={!emotionPopupEnabled}
-            className="w-40"
-          />
-        </SettingsRow>
       </SettingsCard>
     </div>
   );

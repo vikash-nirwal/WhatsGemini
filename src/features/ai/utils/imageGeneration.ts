@@ -2,9 +2,19 @@ import { AISafetySettings, SDImageParams, ArtStyle } from "../../../types";
 import { appendCharacterImages } from "./imageProcessing";
 import { generateSDImage } from "./sdWebuiUtils";
 import { UsageInfo } from "../types";
-import { ChatProviderAdapter, ImageProviderAdapter, ProviderRuntimeConfig } from "../providers/types";
+import { ChatProviderAdapter, ImageProviderAdapter, NamedReferenceImages, ProviderRuntimeConfig } from "../providers/types";
 import { IMAGE_PROVIDERS } from "../providers/registry";
 import { ART_STYLE_CLAUSES, DEFAULT_ART_STYLE } from "../../../utils/constants";
+
+// A room's OTHER participants (never the speaking character, who is passed
+// separately as characterImages/characterName below) - name + raw appearance
+// image refs (local: paths or data: URLs, same shape as Character.appearanceImages)
+// for every other character present, so a "picture of us together" request in
+// a group chat can actually draw everyone instead of just whoever is replying.
+export interface RoomReferenceCharacter {
+  name: string;
+  images: string[];
+}
 
 // The derivation prompt below instructs the model to append a trailing
 // [Image Context: ...] tag to its reply so it can recall what it sent in later
@@ -160,7 +170,10 @@ export const generateImage = async (
   signal?: AbortSignal,
   // Gemini-only for now - ignored by SD WebUI/other providers.
   imageSize?: string,
-  aspectRatio?: string
+  aspectRatio?: string,
+  // Room-only (Gemini-only for now, see NamedReferenceImages) - every OTHER
+  // character present besides characterName/characterImages above.
+  otherRoomCharacters?: RoomReferenceCharacter[]
 ): Promise<ImageGenerationResult> => {
   try {
     if (useSdWebui) {
@@ -169,12 +182,29 @@ export const generateImage = async (
     }
 
     const adapter: ImageProviderAdapter = IMAGE_PROVIDERS[imageProvider] || IMAGE_PROVIDERS.gemini;
-    const referenceImages = characterImages && characterImages.length > 0
+    const hasOthers = otherRoomCharacters && otherRoomCharacters.length > 0;
+    const referenceImages = !hasOthers && characterImages && characterImages.length > 0
       ? await appendCharacterImages(characterImages)
       : undefined;
 
+    // Only built when other room participants actually have reference images
+    // to contribute - keeps a normal 1:1 chat's call byte-identical to before
+    // (flat `referenceImages`, no name labels) since there's only ever one
+    // face in play there anyway.
+    let referenceCharacters: NamedReferenceImages[] | undefined;
+    if (hasOthers) {
+      referenceCharacters = [];
+      if (characterImages && characterImages.length > 0) {
+        referenceCharacters.push({ name: characterName || "the character replying", images: await appendCharacterImages(characterImages) });
+      }
+      for (const other of otherRoomCharacters!) {
+        if (!other.images || other.images.length === 0) continue;
+        referenceCharacters.push({ name: other.name, images: await appendCharacterImages(other.images) });
+      }
+    }
+
     const result = await adapter.generateImage(
-      { model: imageModelName, prompt: derivedImagePrompt, referenceImages, signal, safetySettings, imageSize, aspectRatio },
+      { model: imageModelName, prompt: derivedImagePrompt, referenceImages, referenceCharacters, signal, safetySettings, imageSize, aspectRatio },
       imageConfig
     );
     return { images: result.images, usage: result.usage };

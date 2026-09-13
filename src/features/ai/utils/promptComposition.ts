@@ -160,6 +160,10 @@ export interface TurnContext {
   systemInstruction?: string;
   characterImages?: string[];
   characterName?: string;
+  // Every OTHER room participant's reference images, by name - lets an image
+  // request in a group chat ("a picture of us together") draw more than just
+  // the speaker. Undefined outside a room, same as the fields above.
+  otherParticipantImages?: { name: string; images: string[] }[];
 }
 
 // Only passed for a multi-character room (Phase 12); a normal 1:1 chat
@@ -168,6 +172,7 @@ export interface TurnContext {
 export interface RoomContext {
   speakerNames: Record<number, string>; // characterId -> name, for prefixing history lines
   otherParticipants: string[]; // names of every OTHER character in the room, for the replying character's own system instruction
+  otherParticipantImages?: { name: string; images: string[] }[]; // same roster as otherParticipants, paired with their appearance images (Phase: group image gen)
   groupScenario?: string; // the room's own Chat.scenario - shared by every participant, replaces the speaker's personal one
   groupMemory?: string[]; // the room's own Chat.memory - facts learned in this room, shared by every participant
 }
@@ -188,5 +193,5 @@ export const buildTurnContext = (
     character, extraDirectives, replyLengthLimit, activePersona, messages, roomContext?.otherParticipants,
     roomContext?.groupScenario, roomContext?.groupMemory
   );
-  return { history, systemInstruction: text, characterImages: images, characterName };
+  return { history, systemInstruction: text, characterImages: images, characterName, otherParticipantImages: roomContext?.otherParticipantImages };
 };

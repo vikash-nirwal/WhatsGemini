@@ -103,8 +103,32 @@ const generateImage = async (opts: ImageGenCallOptions, config: ProviderRuntimeC
   const ai = new GoogleGenAI({ apiKey: config.apiKey || "" });
 
   const promptParts: Part[] = [{ text: opts.prompt }];
-  for (const img of opts.referenceImages || []) {
-    promptParts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
+  if (opts.referenceCharacters && opts.referenceCharacters.length > 0) {
+    // Precedes each character's reference photo(s) with a text part naming
+    // them, so a multi-character (group room) request doesn't hand the model
+    // one undifferentiated pile of faces - it can tell which reference is
+    // whose and place them correctly when the prompt calls for several
+    // characters together.
+    const namedRefs = opts.referenceCharacters.filter((ref) => ref.images.length > 0);
+    for (const ref of namedRefs) {
+      promptParts.push({ text: `Reference photo${ref.images.length > 1 ? "s" : ""} of ${ref.name} - match ${ref.name}'s face and appearance to this:` });
+      for (const img of ref.images) {
+        promptParts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
+      }
+    }
+    // A room hands over every present character's reference photos regardless
+    // of who the scene actually calls for (so "us together" requests work) -
+    // this guardrail keeps that from leaking bystanders into a scene meant
+    // for only one or two of them.
+    if (namedRefs.length > 1) {
+      promptParts.push({
+        text: "Multiple reference characters were provided above only so you know what each named person looks like. Only actually depict the character(s) the description at the top calls for - leave out any reference character it doesn't mention.",
+      });
+    }
+  } else {
+    for (const img of opts.referenceImages || []) {
+      promptParts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
+    }
   }
 
   const imageConfig = (opts.imageSize || opts.aspectRatio)

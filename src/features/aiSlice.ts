@@ -3,7 +3,7 @@ import { performChatCompression, buildValidHistory, buildAutoCompressedMessages,
 import { AI, YOU, getModelPricing, ART_STYLE_CLAUSES, DEFAULT_ART_STYLE } from "../utils/constants";
 import { getProviderApiKey, getOllamaBaseUrl } from "./ai/utils/settings";
 import { extractAndSaveBase64ImagesLocally, stripLeakedBase64 } from "./ai/utils/apiUtils";
-import { deriveImagePrompt, generateImage } from "./ai/utils/imageGeneration";
+import { deriveImagePrompt, generateImage, RoomReferenceCharacter } from "./ai/utils/imageGeneration";
 import { extractEmotionTag } from "./ai/utils/emotionUtils";
 import { extractMemoryFacts } from "./ai/utils/memoryExtraction";
 import { CHAT_PROVIDERS, IMAGE_PROVIDERS } from "./ai/providers/registry";
@@ -34,7 +34,7 @@ const resolveProviderConfig = async (providerId: string, requiresBaseUrl: boolea
 
 export const generateAIResponse = createAsyncThunk(
   "ai/generateResponse",
-  async ({ prompt, history = [], systemInstruction, characterImages, characterName, artStyle, isImageRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[] }, { getState, rejectWithValue, signal }) => {
+  async ({ prompt, history = [], systemInstruction, characterImages, characterName, artStyle, isImageRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[] }, { getState, rejectWithValue, signal }) => {
     try {
       const state = getState() as RootState;
       const settings = state.settings;
@@ -103,7 +103,7 @@ export const generateAIResponse = createAsyncThunk(
 
         const imageResult = await generateImage(
           imageProviderId, imageConfig, useSdWebui, imageModelName, derivation.derivedImagePrompt, derivation.derivedParams,
-          characterImages, characterName, settings.safetySettings, signal, settings.geminiImageSize
+          characterImages, characterName, settings.safetySettings, signal, settings.geminiImageSize, undefined, otherRoomCharacters
         );
         trackUsage(imageResult.usage, imageProviderId, imageModelName);
         generatedImages = imageResult.images;

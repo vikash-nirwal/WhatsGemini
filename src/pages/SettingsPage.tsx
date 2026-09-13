@@ -718,12 +718,6 @@ const SettingsPage = () => {
                     setFontSize={(val) => dispatch(setFontSize(val))}
                     initialMessagesKey={initialMessagesKey}
                     onInitialMessagesSave={handleInitialMessagesSave}
-                    emotionPanelEnabled={emotionPanelEnabled}
-                    setEmotionPanelEnabled={(val) => dispatch(setEmotionPanelEnabled(val))}
-                    emotionPopupEnabled={emotionPopupEnabled}
-                    setEmotionPopupEnabled={(val) => dispatch(setEmotionPopupEnabled(val))}
-                    emotionPopupDuration={emotionPopupDuration}
-                    setEmotionPopupDuration={(val) => dispatch(setEmotionPopupDuration(val))}
                   />
                 )}
 
