@@ -586,7 +586,7 @@ const ChatPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoReplySettings.enabled, autoReplySettings.minDelaySeconds, autoReplySettings.maxDelaySeconds, autoReplySettings.maxFollowups, autoReplySettings.followupCount, chatIdNum, characterData, currentChat?.content, aiLoading, lastTypingActivityAt]);
 
-  const handleSend = async (text: string, isImageRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number) => {
+  const handleSend = async (text: string, isImageRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean) => {
     if (!text.trim() || !chatIdNum) return;
 
     setError(null);
@@ -604,6 +604,15 @@ const ChatPage = () => {
 
       const resultAction = await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, isImageRequest }));
       const updatedMessages = resultAction.payload as Message[] || [];
+
+      if (silentSend) {
+        // Add the user's own turn but stop there - no AI reply this time,
+        // so the next send (typically an impersonated one) can supply the
+        // character's side instead of the API.
+        dispatch(fetchChats());
+        return;
+      }
+
       const { messages: contextMessages, tokens: compressTokens, cost: compressCost } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: updatedMessages })).unwrap();
       await trackUsage(compressTokens, compressCost);
 

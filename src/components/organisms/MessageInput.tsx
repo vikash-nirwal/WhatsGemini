@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo, lazy, Suspense } from "react";
-import { FaPaperPlane, FaStop, FaCog, FaImage, FaTimes, FaMask, FaUserFriends } from "react-icons/fa";
+import { FaPaperPlane, FaStop, FaCog, FaImage, FaTimes, FaMask, FaUserFriends, FaCommentSlash } from "react-icons/fa";
 import { cn } from "../../utils/cn";
 import { Button } from "src/components/atoms/button";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
@@ -17,7 +17,7 @@ interface MessageInputProps {
   // (via the room picker below) while a draft was in the box - only that
   // character should reply to this particular message, bypassing the usual
   // @mention/round-robin pick.
-  onSend: (text: string, isImageRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number) => void;
+  onSend: (text: string, isImageRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean) => void;
   disabled?: boolean;
   onStop?: () => void;
   // Fires while the user is actively typing a non-empty draft - lets a
@@ -80,6 +80,10 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const [text, setText] = useState("");
   const [isImageRequest, setIsImageRequest] = useState(false);
   const [isImpersonated, setIsImpersonated] = useState(false);
+  // "Send without a reply" - adds the message as yourself but skips the
+  // usual auto AI-reply, so the very next send (e.g. an impersonated one)
+  // can supply the character's side of the exchange instead.
+  const [isSilentSend, setIsSilentSend] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   // Once true, stays true - keeps the (lazy-loaded) modal mounted after its
   // first open so its own open/close transition keeps working, while still
@@ -188,13 +192,14 @@ const MessageInput: React.FC<MessageInputProps> = ({
     const trimmedText = text.trim();
     if (!trimmedText) return;
 
-    onSend(trimmedText, isImageRequest, isImpersonated, selectedSpeakerId ?? undefined);
+    onSend(trimmedText, isImageRequest, isImpersonated, selectedSpeakerId ?? undefined, isSilentSend);
     setText("");
     setIsImageRequest(false); // Disable/uncheck it afterward
     setIsImpersonated(false);
+    setIsSilentSend(false);
     setSelectedSpeakerId(null);
     setMention(null);
-  }, [text, isImageRequest, isImpersonated, selectedSpeakerId, onSend, disabled]);
+  }, [text, isImageRequest, isImpersonated, isSilentSend, selectedSpeakerId, onSend, disabled]);
 
   // Picking a participant means something different depending on whether
   // there's already a draft: with text in the box, it targets THIS message
@@ -442,6 +447,25 @@ const MessageInput: React.FC<MessageInputProps> = ({
         </div>
       )}
 
+      {isSilentSend && terminal && terminalBanner("silent send on - this message won't trigger an AI reply.", () => setIsSilentSend(false), "Turn off silent send")}
+      {isSilentSend && !terminal && (
+        <div className="flex items-center gap-2.5 px-3 py-2 bg-amber-500/10 border border-amber-500/50 rounded-lg">
+          <span className="text-amber-500 flex-shrink-0 flex"><FaCommentSlash size={13} /></span>
+          <span className="flex-1 text-[12.5px] text-foreground font-medium">
+            Silent send on — this message won't trigger an AI reply.
+          </span>
+          <Button
+            onClick={() => setIsSilentSend(false)}
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground flex-shrink-0"
+            aria-label="Turn off silent send"
+          >
+            <FaTimes size={11} />
+          </Button>
+        </div>
+      )}
+
       {selectedSpeaker && terminal && terminalBanner(`only ${selectedSpeaker.name} will reply to this message.`, () => setSelectedSpeakerId(null), "Clear selected replier")}
       {selectedSpeaker && !terminal && (
         <div className="flex items-center gap-2.5 px-3 py-2 bg-primary/10 border border-primary rounded-lg">
@@ -513,12 +537,21 @@ const MessageInput: React.FC<MessageInputProps> = ({
           />
           <TermLink
             label="mask"
-            onClick={() => setIsImpersonated((v) => !v)}
+            onClick={() => setIsImpersonated((v) => { if (!v) setIsSilentSend(false); return !v; })}
             disabled={disabled}
             aria-pressed={isImpersonated}
             title={`Write as ${characterName || "the character"} instead of yourself`}
             aria-label="Toggle impersonation mode"
             className={cn(isImpersonated && "bg-primary text-primary-foreground no-underline")}
+          />
+          <TermLink
+            label="silent"
+            onClick={() => setIsSilentSend((v) => { if (!v) setIsImpersonated(false); return !v; })}
+            disabled={disabled}
+            aria-pressed={isSilentSend}
+            title="Send without triggering an AI reply"
+            aria-label="Toggle silent send"
+            className={cn(isSilentSend && "bg-primary text-primary-foreground no-underline")}
           />
           <TermLink label="cfg" onClick={() => setIsSettingsModalOpen(true)} title="Image Generation Settings" aria-label="Image Generation Settings" />
           <span className="hidden sm:inline flex-none font-bold text-[13px] text-ring">{promptName}:~$</span>
@@ -546,9 +579,11 @@ const MessageInput: React.FC<MessageInputProps> = ({
       <div
         className={cn(
           "flex items-center gap-1 h-14 px-2 rounded-full backdrop-blur-md transition-colors",
-          neumorphic && !isImpersonated ? "surface-sunken" : "shadow-soft",
+          neumorphic && !isImpersonated && !isSilentSend ? "surface-sunken" : "shadow-soft",
           isImpersonated
             ? "bg-violet-500/[0.06] border border-violet-500/40"
+            : isSilentSend
+            ? "bg-amber-500/[0.06] border border-amber-500/40"
             : "bg-card/[0.85] border border-border/10"
         )}
       >
@@ -598,7 +633,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
         </Button>
 
         <Button
-          onClick={() => setIsImpersonated((v) => !v)}
+          onClick={() => setIsImpersonated((v) => { if (!v) setIsSilentSend(false); return !v; })}
           disabled={disabled}
           variant="ghost"
           title={`Write as ${characterName || "the character"} instead of yourself`}
@@ -612,6 +647,23 @@ const MessageInput: React.FC<MessageInputProps> = ({
           )}
         >
           <FaMask size={16} />
+        </Button>
+
+        <Button
+          onClick={() => setIsSilentSend((v) => { if (!v) setIsImpersonated(false); return !v; })}
+          disabled={disabled}
+          variant="ghost"
+          title="Send without triggering an AI reply"
+          aria-label="Toggle silent send"
+          aria-pressed={isSilentSend}
+          className={cn(
+            "h-10 w-10 flex-shrink-0 rounded-lg",
+            isSilentSend
+              ? "bg-amber-500/[0.14] text-amber-500 hover:bg-amber-500/[0.2]"
+              : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+          )}
+        >
+          <FaCommentSlash size={16} />
         </Button>
 
         <Button

@@ -54,8 +54,11 @@ export const addMessage = createAsyncThunk(
       // own greeting (if it has one) instead of the generic global initial
       // messages. For a room with several characters, only the first one
       // (characterIds[0]) greets - Phase 12's room creation flow decides
-      // who that is.
-      if (chat.content.length === 0) {
+      // who that is. Skipped for an impersonated opener: the user is
+      // dictating the character's own opening line themselves, so an
+      // auto-inserted greeting ahead of it would just be a second,
+      // unwanted "first" message.
+      if (chat.content.length === 0 && !isImpersonated) {
         const primaryCharacterId = chat.characterIds?.[0];
         const character = primaryCharacterId ? await dbService.getCharacterById(primaryCharacterId).catch(() => undefined) : undefined;
         if (character?.first_mes) {
