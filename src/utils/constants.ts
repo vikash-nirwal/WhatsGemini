@@ -340,6 +340,14 @@ export const GEMINI_IMAGE_SIZE_SUPPORTED_MODELS = [
 export const LS_PORTRAIT_SAVE_SIZE = "portrait_save_size";
 export const DEFAULT_PORTRAIT_SAVE_SIZE = "256x342";
 
+// Whether the downscale above is actually applied. Off means every one of
+// those same auto-resize paths (PNG card import, batch "generate all
+// emotions", the in-chat quick missing-emotion generate) instead saves the
+// image at its native/generated resolution - the interactive Crop Portrait
+// dialog is unaffected either way, since forcing a fixed export size is
+// inherent to how that framing tool works.
+export const LS_PORTRAIT_RESIZE_ENABLED = "portrait_resize_enabled";
+
 // The docked EmotionSpritePanel (ChatWindow.tsx) - whether it shows at all,
 // and the separate "pop up center-screen when a mood changes" effect
 // (EmotionPopup.tsx). Kept as their own keys/defaults rather than folding

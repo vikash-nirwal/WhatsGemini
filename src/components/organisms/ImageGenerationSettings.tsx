@@ -6,6 +6,7 @@ import { TextInput, TextArea, Select, Slider } from "src/components/molecules/fo
 import { IMAGE_PROVIDER_META } from '../../features/ai/providers/registry';
 import { Button } from 'src/components/atoms/button';
 import { SettingsCard, SettingsCardHeader, SettingsRow } from 'src/components/molecules/settings-card';
+import ToggleSwitch from 'src/components/atoms/ToggleSwitch';
 import { ProviderPicker } from 'src/components/molecules/ProviderPicker';
 import { SegmentedControl } from 'src/components/molecules/SegmentedControl';
 import { NumberStepper } from 'src/components/molecules/NumberStepper';
@@ -41,6 +42,8 @@ interface ImageGenerationSettingsProps {
   setGeminiImageSize: (size: string) => void;
   portraitSaveSize: string;
   setPortraitSaveSize: (size: string) => void;
+  portraitResizeEnabled: boolean;
+  setPortraitResizeEnabled: (enabled: boolean) => void;
   imageSaveDirName: string;
   handleSelectDirectory: () => void;
   LS_SD_WEBUI_MODEL: string;
@@ -84,6 +87,8 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
   setGeminiImageSize,
   portraitSaveSize,
   setPortraitSaveSize,
+  portraitResizeEnabled,
+  setPortraitResizeEnabled,
   imageSaveDirName,
   handleSelectDirectory,
   LS_SD_WEBUI_MODEL,
@@ -249,17 +254,22 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
           </SettingsRow>
         )}
 
+        <SettingsRow label="Resize portraits on save" hint="When off, portraits saved without an interactive crop step (PNG card imports, batch 'generate all emotions', and the quick in-chat missing-emotion generate) keep their native resolution instead of being resized below.">
+          <ToggleSwitch checked={portraitResizeEnabled} onChange={setPortraitResizeEnabled} />
+        </SettingsRow>
+
         <SettingsRow label="Portrait save size" hint="Every character portrait - main avatar and emotion portraits alike, generated or uploaded - is resized to this before being saved, regardless of what resolution it came in at.">
           {(() => {
             const [w, h] = portraitSaveSize.split("x").map((n) => parseInt(n, 10) || 0);
             const clamp = (n: number) => Math.max(32, Math.min(2048, n));
             return (
-              <div className="flex items-center gap-2">
+              <div className={cn("flex items-center gap-2", !portraitResizeEnabled && "opacity-50")}>
                 <TextInput
                   type="number"
                   min="32"
                   max="2048"
                   value={w}
+                  disabled={!portraitResizeEnabled}
                   onChange={(e) => setPortraitSaveSize(`${clamp(Number(e.target.value))}x${h}`)}
                   className="w-24"
                 />
@@ -269,6 +279,7 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
                   min="32"
                   max="2048"
                   value={h}
+                  disabled={!portraitResizeEnabled}
                   onChange={(e) => setPortraitSaveSize(`${w}x${clamp(Number(e.target.value))}`)}
                   className="w-24"
                 />

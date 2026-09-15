@@ -87,6 +87,7 @@ const CharacterEditorPage = () => {
   const characters = useAppSelector((state) => state.character.characters);
   const loading = useAppSelector((state) => state.character.loading);
   const portraitSaveSize = useAppSelector((state) => parseSize(state.settings.portraitSaveSize));
+  const portraitResizeEnabled = useAppSelector((state) => state.settings.portraitResizeEnabled);
 
   const editCharacter = characterId
     ? characters.find((c) => c.id === Number(characterId)) || null
@@ -488,10 +489,13 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
           // ahead of the auto-crop instead of the interactive dialog.
           // eslint-disable-next-line no-await-in-loop
           const keyedBlob = await removeChromaKeyBackground(dataUrl);
-          // eslint-disable-next-line no-await-in-loop
-          const keyedDataUrl = await blobToDataUrl(keyedBlob);
-          // eslint-disable-next-line no-await-in-loop
-          const blob = await autoCoverCropToBlob(keyedDataUrl, portraitSaveSize.width, portraitSaveSize.height);
+          let blob: Blob = keyedBlob;
+          if (portraitResizeEnabled) {
+            // eslint-disable-next-line no-await-in-loop
+            const keyedDataUrl = await blobToDataUrl(keyedBlob);
+            // eslint-disable-next-line no-await-in-loop
+            blob = await autoCoverCropToBlob(keyedDataUrl, portraitSaveSize.width, portraitSaveSize.height);
+          }
           // eslint-disable-next-line no-await-in-loop
           const localRef = await savePortraitBlob(blob, `avatar_${emo}`);
           setEmotionPortraitImages((prev) => ({ ...prev, [emo]: localRef }));

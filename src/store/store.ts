@@ -16,6 +16,7 @@ import {
   LS_IMAGE_RESOLUTION,
   LS_GEMINI_IMAGE_SIZE,
   LS_PORTRAIT_SAVE_SIZE,
+  LS_PORTRAIT_RESIZE_ENABLED,
   LS_IMAGE_MODEL,
   LS_IMAGE_GEN_PROMPT,
   LS_USE_SD_WEBUI,
@@ -80,6 +81,7 @@ store.subscribe(() => {
   localStorage.setItem(LS_IMAGE_RESOLUTION, state.imageResolution);
   localStorage.setItem(LS_GEMINI_IMAGE_SIZE, state.geminiImageSize);
   localStorage.setItem(LS_PORTRAIT_SAVE_SIZE, state.portraitSaveSize);
+  localStorage.setItem(LS_PORTRAIT_RESIZE_ENABLED, state.portraitResizeEnabled.toString());
   localStorage.setItem(LS_EMOTION_PANEL_ENABLED, state.emotionPanelEnabled.toString());
   localStorage.setItem(LS_EMOTION_POPUP_ENABLED, state.emotionPopupEnabled.toString());
   localStorage.setItem(LS_EMOTION_POPUP_DURATION, JSON.stringify(state.emotionPopupDuration));

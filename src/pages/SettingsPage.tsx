@@ -9,7 +9,7 @@ import {
   setSdWebuiApiUrl, setSdWebuiBatchSize, setSdWebuiRefMode,
   setSdWebuiDenoising, setSdWebuiControlnetModel, setSdWebuiModels,
   setSdWebuiModel, setMaxOutputTokens, setReplyLengthLimit, setCompressThreshold, setMaxChatLength,
-  setTemperature, setSafetySettings, setFontSize, setImageResolution, setGeminiImageSize, setPortraitSaveSize,
+  setTemperature, setSafetySettings, setFontSize, setImageResolution, setGeminiImageSize, setPortraitSaveSize, setPortraitResizeEnabled,
   setChatProvider, setImageProvider, setOllamaBaseUrl,
   setEmotionPanelEnabled, setEmotionPopupEnabled, setEmotionPopupDuration, setAlwaysShowInitials,
 } from "../features/settingsSlice";
@@ -46,6 +46,7 @@ import {
   LS_IMAGE_RESOLUTION,
   LS_GEMINI_IMAGE_SIZE,
   LS_PORTRAIT_SAVE_SIZE,
+  LS_PORTRAIT_RESIZE_ENABLED,
   LS_EMOTION_PANEL_ENABLED,
   LS_ALWAYS_SHOW_INITIALS,
   LS_EMOTION_POPUP_ENABLED,
@@ -193,7 +194,7 @@ const SettingsPage = () => {
     imageGenPrompt, sdWebuiApiUrl,
     sdWebuiBatchSize, sdWebuiRefMode, sdWebuiDenoising, sdWebuiControlnetModel, sdWebuiModels,
     sdWebuiModel, maxOutputTokens, replyLengthLimit, compressThreshold, maxChatLength, temperature,
-    safetySettings, fontSize, imageResolution, geminiImageSize, portraitSaveSize,
+    safetySettings, fontSize, imageResolution, geminiImageSize, portraitSaveSize, portraitResizeEnabled,
     emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials,
   } = settings;
 
@@ -361,6 +362,7 @@ const SettingsPage = () => {
     [LS_IMAGE_RESOLUTION]: imageResolution,
     [LS_GEMINI_IMAGE_SIZE]: geminiImageSize,
     [LS_PORTRAIT_SAVE_SIZE]: portraitSaveSize,
+    [LS_PORTRAIT_RESIZE_ENABLED]: portraitResizeEnabled,
     [LS_EMOTION_PANEL_ENABLED]: emotionPanelEnabled,
     [LS_EMOTION_POPUP_ENABLED]: emotionPopupEnabled,
     [LS_EMOTION_POPUP_DURATION]: emotionPopupDuration,
@@ -368,7 +370,7 @@ const SettingsPage = () => {
     [LS_USER_PERSONAS]: personas,
     [LS_ACTIVE_PERSONA_ID]: activePersonaId,
     [LS_INITIAL_MESSAGES]: JSON.parse(localStorage.getItem(LS_INITIAL_MESSAGES) || "[]"),
-  }), [selectedModel, maxOutputTokens, replyLengthLimit, compressThreshold, temperature, safetySettings, maxChatLength, fontSize, imageResolution, geminiImageSize, portraitSaveSize, emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials, personas, activePersonaId]);
+  }), [selectedModel, maxOutputTokens, replyLengthLimit, compressThreshold, temperature, safetySettings, maxChatLength, fontSize, imageResolution, geminiImageSize, portraitSaveSize, portraitResizeEnabled, emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials, personas, activePersonaId]);
 
   const downloadJson = (data: unknown, filename: string) => {
     const jsonString = JSON.stringify(data, null, 2);
@@ -440,6 +442,7 @@ const SettingsPage = () => {
     if (settings[LS_PORTRAIT_SAVE_SIZE]) {
         dispatch(setPortraitSaveSize(settings[LS_PORTRAIT_SAVE_SIZE]));
     }
+    if (settings[LS_PORTRAIT_RESIZE_ENABLED] !== undefined) dispatch(setPortraitResizeEnabled(Boolean(settings[LS_PORTRAIT_RESIZE_ENABLED])));
     if (settings[LS_EMOTION_PANEL_ENABLED] !== undefined) dispatch(setEmotionPanelEnabled(Boolean(settings[LS_EMOTION_PANEL_ENABLED])));
     if (settings[LS_EMOTION_POPUP_ENABLED] !== undefined) dispatch(setEmotionPopupEnabled(Boolean(settings[LS_EMOTION_POPUP_ENABLED])));
     if (settings[LS_EMOTION_POPUP_DURATION]) dispatch(setEmotionPopupDuration(settings[LS_EMOTION_POPUP_DURATION]));
@@ -707,6 +710,8 @@ const SettingsPage = () => {
                     setGeminiImageSize={(val) => dispatch(setGeminiImageSize(val))}
                     portraitSaveSize={portraitSaveSize}
                     setPortraitSaveSize={(val) => dispatch(setPortraitSaveSize(val))}
+                    portraitResizeEnabled={portraitResizeEnabled}
+                    setPortraitResizeEnabled={(val) => dispatch(setPortraitResizeEnabled(val))}
                     imageSaveDirName={imageSaveDirName}
                     handleSelectDirectory={handleSelectDirectory}
                     LS_SD_WEBUI_MODEL={LS_SD_WEBUI_MODEL}

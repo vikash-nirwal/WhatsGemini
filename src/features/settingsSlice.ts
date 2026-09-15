@@ -20,6 +20,7 @@ import {
   LS_GEMINI_IMAGE_SIZE,
   DEFAULT_GEMINI_IMAGE_SIZE,
   LS_PORTRAIT_SAVE_SIZE,
+  LS_PORTRAIT_RESIZE_ENABLED,
   DEFAULT_PORTRAIT_SAVE_SIZE,
   LS_IMAGE_MODEL,
   DEFAULT_IMAGE_MODEL,
@@ -108,6 +109,7 @@ export interface SettingsState {
   imageResolution: string;
   geminiImageSize: string;
   portraitSaveSize: string;
+  portraitResizeEnabled: boolean;
   emotionPanelEnabled: boolean;
   emotionPopupEnabled: boolean;
   emotionPopupDuration: number;
@@ -147,6 +149,7 @@ const initialState: SettingsState = {
   imageResolution: localStorage.getItem(LS_IMAGE_RESOLUTION) || DEFAULT_IMAGE_RESOLUTION,
   geminiImageSize: localStorage.getItem(LS_GEMINI_IMAGE_SIZE) || DEFAULT_GEMINI_IMAGE_SIZE,
   portraitSaveSize: localStorage.getItem(LS_PORTRAIT_SAVE_SIZE) || DEFAULT_PORTRAIT_SAVE_SIZE,
+  portraitResizeEnabled: localStorage.getItem(LS_PORTRAIT_RESIZE_ENABLED) !== 'false',
   emotionPanelEnabled: localStorage.getItem(LS_EMOTION_PANEL_ENABLED) !== 'false',
   emotionPopupEnabled: localStorage.getItem(LS_EMOTION_POPUP_ENABLED) !== 'false',
   emotionPopupDuration: getStoredValue(LS_EMOTION_POPUP_DURATION, DEFAULT_EMOTION_POPUP_DURATION),
@@ -260,6 +263,9 @@ const settingsSlice = createSlice({
     setPortraitSaveSize: (state, action: PayloadAction<string>) => {
       state.portraitSaveSize = action.payload;
     },
+    setPortraitResizeEnabled: (state, action: PayloadAction<boolean>) => {
+      state.portraitResizeEnabled = action.payload;
+    },
     setEmotionPanelEnabled: (state, action: PayloadAction<boolean>) => {
       state.emotionPanelEnabled = action.payload;
     },
@@ -305,6 +311,7 @@ export const {
   setImageResolution,
   setGeminiImageSize,
   setPortraitSaveSize,
+  setPortraitResizeEnabled,
   setEmotionPanelEnabled,
   setEmotionPopupEnabled,
   setEmotionPopupDuration,

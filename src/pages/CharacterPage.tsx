@@ -34,6 +34,7 @@ const CharacterPage = () => {
   const neumorphic = is("neumorphic");
   const terminal = is("terminal");
   const portraitSaveSize = useAppSelector((state) => parseSize(state.settings.portraitSaveSize));
+  const portraitResizeEnabled = useAppSelector((state) => state.settings.portraitResizeEnabled);
   // Read once here (not via useAvatarImageSrc per card) since these cards
   // hand-roll their own DisplayImage/CharacterAvatar branching instead of
   // going through CharacterAvatar's imageSrc prop - calling a hook inside
@@ -155,7 +156,9 @@ const CharacterPage = () => {
         : parseCharacterCardJson(JSON.parse(await file.text()));
 
       if (isPng && (!parsedChar.appearanceImages || parsedChar.appearanceImages.length === 0)) {
-        const resized = await autoCoverCropToBlob(URL.createObjectURL(file), portraitSaveSize.width, portraitSaveSize.height);
+        const resized = portraitResizeEnabled
+          ? await autoCoverCropToBlob(URL.createObjectURL(file), portraitSaveSize.width, portraitSaveSize.height)
+          : file;
         parsedChar.appearanceImages = [await blobToDataUrl(resized)];
       }
 

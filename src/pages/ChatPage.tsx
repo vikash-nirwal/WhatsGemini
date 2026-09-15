@@ -79,6 +79,7 @@ const ChatPage = () => {
   const personas = useAppSelector((state) => state.settings.personas);
   const globalActivePersonaId = useAppSelector((state) => state.settings.activePersonaId);
   const portraitSaveSize = useAppSelector((state) => state.settings.portraitSaveSize);
+  const portraitResizeEnabled = useAppSelector((state) => state.settings.portraitResizeEnabled);
   const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -232,9 +233,12 @@ const ChatPage = () => {
       // was missed when that fix went in, and was saving an opaque
       // magenta-background PNG instead of a transparent one.
       const keyedBlob = await removeChromaKeyBackground(dataUrl);
-      const keyedDataUrl = await blobToDataUrl(keyedBlob);
-      const { width, height } = parseSize(portraitSaveSize);
-      const blob = await autoCoverCropToBlob(keyedDataUrl, width, height);
+      let blob: Blob = keyedBlob;
+      if (portraitResizeEnabled) {
+        const keyedDataUrl = await blobToDataUrl(keyedBlob);
+        const { width, height } = parseSize(portraitSaveSize);
+        blob = await autoCoverCropToBlob(keyedDataUrl, width, height);
+      }
       const localRef = await savePortraitBlob(blob, `avatar_${missingEmotionPortrait}`);
       dispatch(updateCharacter({
         ...characterData,
