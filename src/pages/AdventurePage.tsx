@@ -56,7 +56,7 @@ const AdventurePage = () => {
   const [imageRequested, setImageRequested] = useState(false);
 
   const illustrateMessage = useCallback(
-    async (msg: Message, regenerate = false, requestedFocus?: string) => {
+    async (msg: Message, { regenerate = false, requestedFocus, includeFullCast = false }: { regenerate?: boolean; requestedFocus?: string; includeFullCast?: boolean } = {}) => {
       if (!adventure || !msg.id || !msg.txt) return;
       const messageId = msg.id;
       const artStyle = adventure.rules?.artStyle || DEFAULT_ART_STYLE;
@@ -76,12 +76,14 @@ const AdventurePage = () => {
             artStyle,
             castEmotions: msg.castEmotions,
             requestedFocus,
-            // The saved prompt has its style written into it, so it's only
-            // reusable if the adventure's style hasn't changed since.
-            existingImagePrompt: regenerate && (msg.imageArtStyle || DEFAULT_ART_STYLE) === artStyle ? msg.imagePrompt : undefined,
+            includeFullCast,
+            // The saved prompt has its style and casting written into it, so
+            // it's only reusable if neither has changed since.
+            existingImagePrompt:
+              regenerate && (msg.imageArtStyle || DEFAULT_ART_STYLE) === artStyle && !!msg.imageFullCast === includeFullCast ? msg.imagePrompt : undefined,
           })
         ).unwrap();
-        await dispatch(updateAdventureMessage({ adventureId: adventure.id, messageId, patch: { images: result.images, imagePrompt: result.imagePrompt, imageArtStyle: artStyle } }));
+        await dispatch(updateAdventureMessage({ adventureId: adventure.id, messageId, patch: { images: result.images, imagePrompt: result.imagePrompt, imageArtStyle: artStyle, imageFullCast: includeFullCast } }));
         if (result.tokens || result.cost) {
           dispatch(incrementAdventureUsage({ adventureId: adventure.id, tokens: result.tokens, cost: result.cost }));
         }
@@ -109,10 +111,11 @@ const AdventurePage = () => {
       }
       // Fired without awaiting so the choices unlock right away; the picture
       // fills in above the narration when it's ready. A turn the player
-      // explicitly asked a picture for is illustrated even with auto off.
+      // explicitly asked a picture for is illustrated even with auto off, and
+      // shows the whole cast; auto-illustrations only draw who the narration names.
       if (adventure.rules?.autoIllustrate || imageRequestFocus) {
         const narratorMessage = content[content.length - 1];
-        if (narratorMessage) illustrateMessage(narratorMessage, false, imageRequestFocus);
+        if (narratorMessage) illustrateMessage(narratorMessage, { requestedFocus: imageRequestFocus, includeFullCast: !!imageRequestFocus });
       }
     },
     [adventure, world, cast, persona, dispatch, illustrateMessage]
@@ -346,7 +349,11 @@ const AdventurePage = () => {
                           onClick={() => {
                             // Keep the player's picture request in focus on redraws too.
                             const prev = adventure.content[i - 1];
-                            illustrateMessage(msg, !!msg.images?.length, prev?.role === YOU && prev.isImageRequest ? prev.txt : undefined);
+                            illustrateMessage(msg, {
+                              regenerate: !!msg.images?.length,
+                              requestedFocus: prev?.role === YOU && prev.isImageRequest ? prev.txt : undefined,
+                              includeFullCast: true,
+                            });
                           }}
                           className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
                         >
@@ -400,7 +407,7 @@ const AdventurePage = () => {
             <div className="mx-4 md:mx-8 mt-3 flex items-center gap-2.5 px-3 py-2 bg-primary/10 border border-primary rounded-lg">
               <span className="text-primary flex-shrink-0 flex"><FaImage size={13} /></span>
               <span className="flex-1 text-[12.5px] text-foreground font-medium">
-                Picture requested — your next action's scene will be illustrated, focused on what you ask to see.
+                Picture requested — your next action's scene will be illustrated with the whole cast, focused on what you ask to see.
               </span>
               <Button
                 onClick={() => setImageRequested(false)}

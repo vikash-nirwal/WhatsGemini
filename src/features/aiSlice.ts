@@ -329,7 +329,7 @@ export const generateAvatarImage = createAsyncThunk(
 export const generateAdventureSceneImage = createAsyncThunk(
   "ai/generateAdventureSceneImage",
   async (
-    { narration, world, cast, persona, artStyle, existingImagePrompt, castEmotions, requestedFocus }: { narration: string; world?: World; cast: Character[]; persona?: UserProfile; artStyle?: ArtStyle; existingImagePrompt?: string; castEmotions?: Record<number, string>; requestedFocus?: string },
+    { narration, world, cast, persona, artStyle, existingImagePrompt, castEmotions, requestedFocus, includeFullCast }: { narration: string; world?: World; cast: Character[]; persona?: UserProfile; artStyle?: ArtStyle; existingImagePrompt?: string; castEmotions?: Record<number, string>; requestedFocus?: string; includeFullCast?: boolean },
     { getState, rejectWithValue }
   ) => {
     try {
@@ -352,7 +352,8 @@ export const generateAdventureSceneImage = createAsyncThunk(
         cost += (usage.inputTokens / 1_000_000) * pricing.input + (usage.outputTokens / 1_000_000) * pricing.output;
       };
 
-      const presentCast = findCastInNarration(narration, cast);
+      // Normally only NPCs the narration names; an explicit request can ask for everyone.
+      const presentCast = includeFullCast ? cast : findCastInNarration(narration, cast);
       let imagePrompt = existingImagePrompt;
       if (!imagePrompt) {
         const chatAdapter = CHAT_PROVIDERS[settings.chatProvider] || CHAT_PROVIDERS.gemini;
@@ -362,7 +363,8 @@ export const generateAdventureSceneImage = createAsyncThunk(
         }
         const instruction = buildAdventureSceneImageInstruction(
           stripLeakedBase64(narration), world, presentCast, persona,
-          ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE], settings.imageGenPrompt, useSdWebui, castEmotions, requestedFocus
+          ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE], settings.imageGenPrompt, useSdWebui,
+          { castEmotions, requestedFocus, includeFullCast }
         );
         const derivation = await chatAdapter.generateOnce(instruction, settings.selectedModel, chatConfig);
         trackUsage(derivation.usage, settings.chatProvider, settings.selectedModel);

@@ -106,9 +106,13 @@ export const buildAdventureSceneImageInstruction = (
   styleClause: string,
   baseStylePrompt: string,
   useSdWebui: boolean,
-  castEmotions?: Record<number, string>,
-  requestedFocus?: string // the player's action text when they asked for a picture with it
+  options: {
+    castEmotions?: Record<number, string>;
+    requestedFocus?: string; // the player's action text when they asked for a picture with it
+    includeFullCast?: boolean; // `presentCast` is the whole cast and every NPC must be drawn
+  } = {}
 ): string => {
+  const { castEmotions, requestedFocus, includeFullCast } = options;
   const context: string[] = [];
   if (world) context.push(`Setting: ${world.name} - ${world.premise}${world.tone ? ` (tone: ${world.tone})` : ""}`);
   const people = presentCast.map((c) => {
@@ -118,7 +122,9 @@ export const buildAdventureSceneImageInstruction = (
   if (activePersona?.name || activePersona?.appearance) {
     people.push(`${activePersona.name || "The player"} (the player, referred to as "you"): ${activePersona.appearance || "no visual description"}`);
   }
-  if (people.length > 0) context.push(`Characters who may appear:\n${people.join("\n")}`);
+  if (people.length > 0) {
+    context.push(`${includeFullCast && presentCast.length > 0 ? "Characters" : "Characters who may appear"}:\n${people.join("\n")}`);
+  }
 
   const format = useSdWebui
     ? "a comma-separated, tag-based Stable Diffusion prompt (subject, setting, lighting, mood, composition, quality tags)"
@@ -130,6 +136,11 @@ export const buildAdventureSceneImageInstruction = (
     `Latest narration:\n"""\n${narration}\n"""`,
     requestedFocus
       ? `The player explicitly asked for a picture along with this action: "${requestedFocus}". Make whatever they wanted to see the clear subject of the image, as the narration describes it.`
+      : "",
+    // The image model is told to leave out any reference character the
+    // prompt doesn't name, so every NPC has to be named explicitly here.
+    includeFullCast && presentCast.length > 0
+      ? `The player wants the whole cast in this picture: ${presentCast.map((c) => c.name).join(", ")}. Name and depict every one of them together in the scene, each clearly recognizable, even those the narration doesn't mention - place them naturally in the setting.`
       : "",
     `Write ${format} for a wide, cinematic illustration of the single most visually striking moment in that narration. Depict the environment and any named characters who are present, matching their descriptions. The player is written in second person - show them from a third-person or over-the-shoulder view only if they're central to the moment. No text, captions, speech bubbles, or UI in the image.`,
     `Base style rule: ${baseStylePrompt}\nArt style: ${styleClause}.`,

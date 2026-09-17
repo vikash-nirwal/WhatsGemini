@@ -39,6 +39,7 @@ export interface Message {
   emotion?: string; // one of EMOTIONS, parsed from the AI's own reply when the character has emotionPortraits enabled
   castEmotions?: Record<number, string>; // adventure narrator turns: character id -> mood for each NPC in the scene
   imagePrompt?: string; // The derived SD prompt used to generate this image
+  imageFullCast?: boolean; // Whether imagePrompt was written to include the whole adventure cast (reused on redraw only while this still matches)
   imageArtStyle?: ArtStyle; // Style baked into imagePrompt (adventure scenes) - a redraw only reuses the prompt while this still matches
   imageParams?: SDImageParams; // The derived SD params
   sampler_name?: string; // The specific sampler name used

@@ -178,7 +178,24 @@ ${ADVENTURE_CHOICES_END}`;
 
 describe("buildAdventureSceneImageInstruction requested focus", () => {
   it("makes the player's requested subject the focus only when asked", () => {
-    expect(buildAdventureSceneImageInstruction("You unroll the map.", undefined, [], undefined, "s", "b", false, undefined, "I study the map")).toContain('"I study the map"');
+    expect(buildAdventureSceneImageInstruction("You unroll the map.", undefined, [], undefined, "s", "b", false, { requestedFocus: "I study the map" })).toContain('"I study the map"');
     expect(buildAdventureSceneImageInstruction("You unroll the map.", undefined, [], undefined, "s", "b", false)).not.toContain("explicitly asked");
+  });
+});
+
+describe("buildAdventureSceneImageInstruction full cast", () => {
+  const cast: Character[] = [
+    { id: 1, name: "Mira", description: "A thief", prompt: "" },
+    { id: 2, name: "Old Tom", description: "A ferryman", prompt: "" },
+  ];
+
+  it("requires every cast member to be depicted when asked", () => {
+    const text = buildAdventureSceneImageInstruction("Mira waits.", undefined, cast, undefined, "s", "b", false, { includeFullCast: true });
+    expect(text).toContain("whole cast in this picture: Mira, Old Tom");
+    expect(text).not.toContain("Characters who may appear");
+  });
+
+  it("leaves casting to the narration otherwise", () => {
+    expect(buildAdventureSceneImageInstruction("Mira waits.", undefined, cast, undefined, "s", "b", false)).not.toContain("whole cast");
   });
 });
