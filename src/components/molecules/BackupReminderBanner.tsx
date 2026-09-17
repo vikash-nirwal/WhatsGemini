@@ -42,7 +42,7 @@ const BackupReminderBanner = () => {
 
   const handleBackupNow = () => {
     setDismissed(true);
-    navigate("/settings", { state: { openSection: "data" } });
+    navigate("/settings/data");
   };
 
   return (

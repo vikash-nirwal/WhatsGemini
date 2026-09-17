@@ -98,7 +98,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, avatar, onBack, action
     { icon: FaQuestionCircle, label: "Keyboard shortcuts", shortLabel: "?", onClick: () => setShowShortcuts(true), primary: true },
     { icon: FaUserFriends, label: "Characters", onClick: () => navigate("/characters"), active: isCharacters, primary: true },
     { icon: FaHatWizard, label: "Adventures", onClick: () => navigate("/adventures"), active: isAdventures, primary: true },
-    { icon: FaCog, label: "Settings", onClick: () => navigate("/settings"), active: isSettings, primary: true },
+    { icon: FaCog, label: "Settings", onClick: () => navigate("/settings/profile"), active: isSettings, primary: true },
   ];
 
   const groups = [...actionGroups, appGroup].filter((g) => g.length > 0);

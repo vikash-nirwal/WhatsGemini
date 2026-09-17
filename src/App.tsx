@@ -209,7 +209,8 @@ const AppContent = () => {
                 <Route path="/adventures" element={<AdventureGalleryPage />} />
                 <Route path="/adventures/new" element={<AdventureWizardPage />} />
                 <Route path="/adventures/:adventureId" element={<AdventurePage />} />
-                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
+                <Route path="/settings/:section" element={<SettingsPage />} />
                 <Route path="/" element={<EmptyChatState />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

@@ -392,8 +392,7 @@ const Sidebar = () => {
         {/* Your persona - links into Settings' User Profile section */}
         {terminal ? (
           <Link
-            to="/settings"
-            state={{ openSection: "profile" }}
+            to="/settings/profile"
             onClick={close}
             title={collapsed ? `whoami: ${personaName || "guest"}` : undefined}
             className={cn(
@@ -414,8 +413,7 @@ const Sidebar = () => {
           </Link>
         ) : (
         <Link
-          to="/settings"
-          state={{ openSection: "profile" }}
+          to="/settings/profile"
           onClick={close}
           title={collapsed ? activePersona?.name?.trim() || "Your persona" : undefined}
           className={cn(

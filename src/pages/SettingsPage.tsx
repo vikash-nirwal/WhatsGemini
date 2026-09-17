@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, useContext } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { RootState } from "../store/store";
 import { useAppDispatch } from "../store/hooks";
@@ -87,9 +87,11 @@ import DataBackupSettings from "src/components/organisms/DataBackupSettings";
 import { formatRelativeTime } from "../utils/formatRelativeTime";
 import { cn } from "../utils/cn";
 
+const SECTION_IDS = ["profile", "text", "image", "chat", "appearance", "safety", "data"] as const;
+
 const SettingsPage = () => {
   const navigate = useNavigate();
-  const location = useLocation();
+  const { section } = useParams<{ section: string }>();
   const { showConfirm } = useModal();
   const { colorTheme, setColorTheme, accentPalette, setAccentPalette, is } = useColorTheme();
   const terminal = is("terminal");
@@ -257,8 +259,15 @@ const SettingsPage = () => {
   const currentImageModelList = imageProvider === "gemini" ? imageModelList : [];
   const openaiImageModelList = (PROVIDER_IMAGE_MODELS.openai || []).map((m) => ({ value: m, label: m }));
 
-  const [selectedSection, setSelectedSection] = useState<string>(() => (location.state as { openSection?: string } | null)?.openSection || "profile");
+  const selectedSection = SECTION_IDS.includes(section as any) ? (section as string) : "profile";
+  const setSelectedSection = (id: string) => navigate(`/settings/${id}`);
   const [lastBackupAt, setLastBackupAt] = useState<number>(() => Number(localStorage.getItem(LS_LAST_BACKUP_AT) || 0));
+
+  useEffect(() => {
+    if (section && !SECTION_IDS.includes(section as any)) {
+      navigate("/settings/profile", { replace: true });
+    }
+  }, [section, navigate]);
 
   const [imageSaveDirName, setImageSaveDirName] = useState<string>("Not Selected");
 
