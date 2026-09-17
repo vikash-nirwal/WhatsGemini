@@ -38,6 +38,7 @@ export interface Message {
   isImpersonated?: boolean; // role AI, but the user wrote it themselves (Impersonate mode) - not a real generation
   emotion?: string; // one of EMOTIONS, parsed from the AI's own reply when the character has emotionPortraits enabled
   imagePrompt?: string; // The derived SD prompt used to generate this image
+  imageArtStyle?: ArtStyle; // Style baked into imagePrompt (adventure scenes) - a redraw only reuses the prompt while this still matches
   imageParams?: SDImageParams; // The derived SD params
   sampler_name?: string; // The specific sampler name used
   // Adventure mode only: the tappable options parsed out of the model's
@@ -213,6 +214,10 @@ export interface AdventureRules {
   choiceCount?: number; // how many tappable options the narrator should offer each turn; a sensible default applies when unset
   replyLengthLimit?: number; // same budget concept as Character/Chat replies
   safetySettings?: AISafetySettings; // per-adventure override of the global safety settings
+  // Scene illustrations: when on, every narrator turn also gets a generated
+  // picture of the scene (players can still illustrate any turn by hand when off).
+  autoIllustrate?: boolean;
+  artStyle?: ArtStyle; // look for scene illustrations; DEFAULT_ART_STYLE applies when unset
 }
 
 // A roleplay adventure/story session - deliberately its own entity rather

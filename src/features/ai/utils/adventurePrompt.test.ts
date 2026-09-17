@@ -1,4 +1,4 @@
-import { parseAdventureChoices, buildAdventureSystemInstruction, ADVENTURE_CHOICES_START, ADVENTURE_CHOICES_END } from "./adventurePrompt";
+import { parseAdventureChoices, buildAdventureSystemInstruction, findCastInNarration, buildAdventureSceneImageInstruction, ADVENTURE_CHOICES_START, ADVENTURE_CHOICES_END } from "./adventurePrompt";
 import { Adventure, Character, World } from "../../../types";
 
 describe("parseAdventureChoices", () => {
@@ -101,5 +101,41 @@ describe("buildAdventureSystemInstruction", () => {
     const text = buildAdventureSystemInstruction(adv, undefined, [], undefined, []);
     expect(text).toContain("exactly 4 short suggested next actions");
     expect(text).toContain("300 characters or less");
+  });
+});
+
+describe("findCastInNarration", () => {
+  const cast: Character[] = [
+    { id: 1, name: "Mira", description: "A thief", prompt: "" },
+    { id: 2, name: "Old Tom", description: "A ferryman", prompt: "" },
+    { id: 3, name: "Al", description: "A guard", prompt: "" },
+  ];
+
+  it("matches names case-insensitively as whole words only", () => {
+    const found = findCastInNarration("MIRA grins while old tom rows. The alley is quiet.", cast);
+    expect(found.map((c) => c.name)).toEqual(["Mira", "Old Tom"]);
+  });
+
+  it("returns nothing when no one is named", () => {
+    expect(findCastInNarration("The wind howls.", cast)).toEqual([]);
+  });
+});
+
+describe("buildAdventureSceneImageInstruction", () => {
+  const world: World = { id: 1, name: "Ashfall", premise: "A city under a volcano", tone: "Grim" };
+  const cast: Character[] = [{ id: 1, name: "Mira", description: "A thief", prompt: "", appearance: "red cloak, silver hair" }];
+
+  it("includes the narration, setting, present cast and style", () => {
+    const text = buildAdventureSceneImageInstruction("Mira leaps the rooftop.", world, cast, { id: "p", name: "Kai", bio: "", appearance: "tall" }, "Anime style", "High quality.", false);
+    expect(text).toContain("Mira leaps the rooftop.");
+    expect(text).toContain("Ashfall");
+    expect(text).toContain("red cloak, silver hair");
+    expect(text).toContain("Kai (the player");
+    expect(text).toContain("Anime style");
+    expect(text).toContain("High quality.");
+  });
+
+  it("asks for tag-based prompts when using SD WebUI", () => {
+    expect(buildAdventureSceneImageInstruction("Scene.", undefined, [], undefined, "s", "b", true)).toContain("tag-based");
   });
 });

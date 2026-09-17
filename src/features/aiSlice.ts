@@ -10,7 +10,8 @@ import { CHAT_PROVIDERS, IMAGE_PROVIDERS } from "./ai/providers/registry";
 import { ProviderRuntimeConfig } from "./ai/providers/types";
 import { ChatMessage, UsageInfo } from "./ai/types";
 import { RootState } from "../store/store";
-import { SDImageParams, Message, ArtStyle } from "../types";
+import { SDImageParams, Message, ArtStyle, Character, UserProfile, World } from "../types";
+import { buildAdventureSceneImageInstruction, findCastInNarration } from "./ai/utils/adventurePrompt";
 import { updateMessages, fetchChats } from "./chatSlice";
 
 export interface GenerateAIResponseResult {
@@ -316,6 +317,86 @@ export const generateAvatarImage = createAsyncThunk(
     } catch (error: any) {
       console.error("Avatar generation error:", error);
       return rejectWithValue(error.message || "Failed to generate avatar.");
+    }
+  }
+);
+
+// Illustrates one adventure narrator turn: asks the text model for a scene
+// prompt (skipped when regenerating with an existing one), then renders a wide
+// image with reference photos of whichever cast members the narration names,
+// plus the player's persona photos. Saved to the Image Save Directory the
+// same way chat images are, so callers get back local: refs when possible.
+export const generateAdventureSceneImage = createAsyncThunk(
+  "ai/generateAdventureSceneImage",
+  async (
+    { narration, world, cast, persona, artStyle, existingImagePrompt }: { narration: string; world?: World; cast: Character[]; persona?: UserProfile; artStyle?: ArtStyle; existingImagePrompt?: string },
+    { getState, rejectWithValue }
+  ) => {
+    try {
+      const state = getState() as RootState;
+      const settings = state.settings;
+
+      const imageProviderId = settings.imageProvider;
+      const useSdWebui = imageProviderId === "sdwebui";
+      const imageConfig = useSdWebui
+        ? { apiKey: null }
+        : await resolveProviderConfig(imageProviderId, IMAGE_PROVIDERS[imageProviderId]?.capabilities.requiresBaseUrl || false);
+      const imageModelName = settings.imageModel;
+
+      let tokens = 0;
+      let cost = 0;
+      const trackUsage = (usage: UsageInfo | undefined, providerId: string, modelName: string) => {
+        if (!usage) return;
+        tokens += usage.totalTokens;
+        const pricing = getModelPricing(providerId, modelName);
+        cost += (usage.inputTokens / 1_000_000) * pricing.input + (usage.outputTokens / 1_000_000) * pricing.output;
+      };
+
+      const presentCast = findCastInNarration(narration, cast);
+      let imagePrompt = existingImagePrompt;
+      if (!imagePrompt) {
+        const chatAdapter = CHAT_PROVIDERS[settings.chatProvider] || CHAT_PROVIDERS.gemini;
+        const chatConfig = await resolveProviderConfig(settings.chatProvider, chatAdapter.capabilities.requiresBaseUrl);
+        if (!chatConfig.apiKey && chatAdapter.capabilities.requiresApiKey) {
+          throw new Error("API key is missing. Please log in.");
+        }
+        const instruction = buildAdventureSceneImageInstruction(
+          stripLeakedBase64(narration), world, presentCast, persona,
+          ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE], settings.imageGenPrompt, useSdWebui
+        );
+        const derivation = await chatAdapter.generateOnce(instruction, settings.selectedModel, chatConfig);
+        trackUsage(derivation.usage, settings.chatProvider, settings.selectedModel);
+        imagePrompt = derivation.text.trim() || narration;
+      }
+
+      const references: RoomReferenceCharacter[] = presentCast
+        .filter((c) => c.appearanceImages && c.appearanceImages.length > 0)
+        .map((c) => ({ name: c.name, images: c.appearanceImages! }));
+      const personaImages = [...(persona?.avatar ? [persona.avatar] : []), ...(persona?.appearanceImages || [])];
+      if (personaImages.length > 0) {
+        references.push({ name: `${persona?.name || "The player"} (the player)`, images: personaImages });
+      }
+
+      // Always the named-reference path (never a single "speaking character"),
+      // since a scene has no one subject the way a chat reply does.
+      const result = await generateImage(
+        imageProviderId, imageConfig, useSdWebui, imageModelName, imagePrompt,
+        useSdWebui ? { width: 768, height: 512 } : {},
+        undefined, undefined, settings.safetySettings, undefined, settings.geminiImageSize, "16:9",
+        references.length > 0 ? references : undefined
+      );
+      trackUsage(result.usage, imageProviderId, imageModelName);
+
+      if (!result.images || result.images.length === 0) {
+        throw new Error("No image was generated. Check your image provider in Settings.");
+      }
+
+      const images = [...result.images];
+      await extractAndSaveBase64ImagesLocally("", images);
+      return { images, imagePrompt, tokens, cost };
+    } catch (error: any) {
+      console.error("Adventure scene image error:", error);
+      return rejectWithValue(error.message || "Failed to illustrate the scene.");
     }
   }
 );

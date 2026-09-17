@@ -7,9 +7,11 @@ import { addAdventure } from "../features/adventureSlice";
 import { addCharacter } from "../features/characterSlice";
 import { generateAssistText } from "../features/aiSlice";
 import { selectActivePersona } from "../features/settingsSlice";
-import { Character } from "../types";
+import { ArtStyle, Character } from "../types";
 import { cn } from "../utils/cn";
-import { MIN_ADVENTURE_CHOICES, MAX_ADVENTURE_CHOICES, DEFAULT_ADVENTURE_CHOICE_COUNT } from "../utils/constants";
+import { MIN_ADVENTURE_CHOICES, MAX_ADVENTURE_CHOICES, DEFAULT_ADVENTURE_CHOICE_COUNT, ART_STYLES, DEFAULT_ART_STYLE } from "../utils/constants";
+import ToggleSwitch from "src/components/atoms/ToggleSwitch";
+import { SegmentedControl } from "src/components/molecules/SegmentedControl";
 import { Button } from "src/components/atoms/button";
 import { Card } from "src/components/atoms/card";
 import { Badge } from "src/components/atoms/badge";
@@ -38,6 +40,8 @@ const AdventureWizardPage = () => {
   const [personaId, setPersonaId] = useState<string>("");
   const [choiceCount, setChoiceCount] = useState(DEFAULT_ADVENTURE_CHOICE_COUNT);
   const [replyLengthLimit, setReplyLengthLimit] = useState(0);
+  const [autoIllustrate, setAutoIllustrate] = useState(true);
+  const [artStyle, setArtStyle] = useState<ArtStyle>(DEFAULT_ART_STYLE);
 
   useEffect(() => {
     if (!personaId && activePersona) setPersonaId(activePersona.id);
@@ -166,7 +170,7 @@ const AdventureWizardPage = () => {
         characterIds,
         personaId: personaId || undefined,
         premise: premise.trim() || undefined,
-        rules: { choiceCount, replyLengthLimit: replyLengthLimit || undefined },
+        rules: { choiceCount, replyLengthLimit: replyLengthLimit || undefined, autoIllustrate, artStyle },
       })
     ).unwrap();
     navigate(`/adventures/${result.id}`);
@@ -347,6 +351,14 @@ const AdventureWizardPage = () => {
                     className="max-w-[160px]"
                   />
                 </div>
+                <div>
+                  <FieldLabel hint="Generate a picture of the scene after every narrator turn, using your image provider from Settings. You can also illustrate any single turn by hand, and toggle this mid-story.">Scene illustrations</FieldLabel>
+                  <ToggleSwitch checked={autoIllustrate} onChange={setAutoIllustrate} label="Illustrate every scene automatically" />
+                </div>
+                <div>
+                  <FieldLabel hint="The look of scene illustrations.">Art style</FieldLabel>
+                  <SegmentedControl value={artStyle} onChange={(v) => setArtStyle(v as ArtStyle)} options={ART_STYLES} />
+                </div>
               </Card>
             )}
 
@@ -368,6 +380,12 @@ const AdventureWizardPage = () => {
                   </div>
                   {premise.trim() && <div><span className="text-subtle">Premise: </span><span className="text-foreground">{premise}</span></div>}
                   <div><span className="text-subtle">Choices per turn: </span><span className="text-foreground font-medium">{choiceCount}</span></div>
+                  <div>
+                    <span className="text-subtle">Scene illustrations: </span>
+                    <span className="text-foreground font-medium">
+                      {autoIllustrate ? `Every turn, ${ART_STYLES.find((s) => s.value === artStyle)?.label.toLowerCase()} style` : "On demand only"}
+                    </span>
+                  </div>
                 </div>
               </Card>
             )}

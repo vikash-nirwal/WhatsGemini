@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { dbService } from "../services/dbService";
 import { Adventure, AdventureRules, AdventureStatus, ConversationTree, Message } from "../types";
-import { addChildNode, flattenPath, generateNodeId } from "./chat/messageTree";
+import { addChildNode, flattenPath, generateNodeId, updateNodeMessage } from "./chat/messageTree";
 
 // Helper function for error handling
 const handleDbError = (error: unknown, rejectWithValue: any) => {
@@ -111,6 +111,27 @@ export const updateAdventureTree = createAsyncThunk(
       adventure.activeLeafId = activeLeafId;
       await dbService.updateAdventure(adventure);
       return { adventureId, content, tree, activeLeafId };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
+// Patches fields on one existing message (e.g. attaching a scene illustration)
+// in both the flattened content and, if present, its tree node - without
+// moving it or creating a branch.
+export const updateAdventureMessage = createAsyncThunk(
+  "adventure/updateMessage",
+  async ({ adventureId, messageId, patch }: { adventureId: number; messageId: string; patch: Partial<Message> }, { rejectWithValue }) => {
+    try {
+      const adventure = await dbService.getAdventureById(adventureId);
+      adventure.content = adventure.content.map((m) => (m.id === messageId ? { ...m, ...patch } : m));
+      const node = adventure.tree?.nodes[messageId];
+      if (adventure.tree && node) {
+        adventure.tree = updateNodeMessage(adventure.tree, messageId, { ...node.message, ...patch });
+      }
+      await dbService.updateAdventure(adventure);
+      return { adventureId, content: adventure.content, tree: adventure.tree };
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
@@ -258,6 +279,16 @@ const adventureSlice = createSlice({
         }
       })
       .addCase(updateAdventureTree.rejected, (state, action) => {
+        state.error = action.payload as string;
+      })
+      .addCase(updateAdventureMessage.fulfilled, (state, action) => {
+        const adventure = state.adventures.find((a) => a.id === action.payload.adventureId);
+        if (adventure) {
+          adventure.content = action.payload.content;
+          adventure.tree = action.payload.tree;
+        }
+      })
+      .addCase(updateAdventureMessage.rejected, (state, action) => {
         state.error = action.payload as string;
       })
       .addCase(updateAdventureCharacterIds.fulfilled, (state, action) => {

@@ -80,6 +80,54 @@ export const buildAdventureSystemInstruction = (
     .trim();
 };
 
+// Cast members the narration actually names - only their reference photos are
+// sent to the image model, so an NPC who isn't in the scene doesn't get drawn
+// into it just for being part of the adventure. Whole-word, case-insensitive.
+export const findCastInNarration = (narration: string, cast: Character[]): Character[] =>
+  cast.filter((c) => {
+    const name = c.name.trim();
+    if (!name) return false;
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}($|[^\\p{L}\\p{N}])`, "iu").test(narration);
+  });
+
+// One-shot instruction asking the text model to turn a narrator turn into a
+// standalone image prompt for a cinematic scene illustration. Unlike the chat
+// pipeline's deriveImagePrompt, there's no in-character reply to write - the
+// narration already exists - so this returns only the prompt text itself.
+export const buildAdventureSceneImageInstruction = (
+  narration: string,
+  world: World | undefined,
+  presentCast: Character[],
+  activePersona: UserProfile | undefined,
+  styleClause: string,
+  baseStylePrompt: string,
+  useSdWebui: boolean
+): string => {
+  const context: string[] = [];
+  if (world) context.push(`Setting: ${world.name} - ${world.premise}${world.tone ? ` (tone: ${world.tone})` : ""}`);
+  const people = presentCast.map((c) => `${c.name}: ${c.appearance || c.description || "no visual description"}`);
+  if (activePersona?.name || activePersona?.appearance) {
+    people.push(`${activePersona.name || "The player"} (the player, referred to as "you"): ${activePersona.appearance || "no visual description"}`);
+  }
+  if (people.length > 0) context.push(`Characters who may appear:\n${people.join("\n")}`);
+
+  const format = useSdWebui
+    ? "a comma-separated, tag-based Stable Diffusion prompt (subject, setting, lighting, mood, composition, quality tags)"
+    : "one richly descriptive paragraph (subject, setting, lighting, mood, composition)";
+
+  return [
+    "You are an expert prompt engineer illustrating a scene from an interactive text adventure.",
+    context.join("\n\n"),
+    `Latest narration:\n"""\n${narration}\n"""`,
+    `Write ${format} for a wide, cinematic illustration of the single most visually striking moment in that narration. Depict the environment and any named characters who are present, matching their descriptions. The player is written in second person - show them from a third-person or over-the-shoulder view only if they're central to the moment. No text, captions, speech bubbles, or UI in the image.`,
+    `Base style rule: ${baseStylePrompt}\nArt style: ${styleClause}.`,
+    "Output ONLY the prompt itself - no preamble, labels, quotes, or explanation.",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+};
+
 // Splits the narrator's raw reply into the display text (choices block
 // stripped) and the parsed choices themselves. Tolerates the model using
 // "1)", "1-", "-", "*", etc. instead of "1." for each line, and a missing

@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo } from "react-icons/fa";
+import { FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo, FaImage, FaSyncAlt, FaTimes, FaPalette } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { deleteAdventure, addAdventureMessage, updateAdventureStatus, incrementAdventureUsage } from "../features/adventureSlice";
-import { generateAIResponse } from "../features/aiSlice";
+import { deleteAdventure, addAdventureMessage, updateAdventureStatus, incrementAdventureUsage, updateAdventureMessage, updateAdventureRules } from "../features/adventureSlice";
+import { generateAIResponse, generateAdventureSceneImage } from "../features/aiSlice";
 import { buildChatHistory } from "../features/ai/utils/promptComposition";
 import { buildAdventureSystemInstruction, parseAdventureChoices, ADVENTURE_OPENING_PROMPT } from "../features/ai/utils/adventurePrompt";
 import { useModal } from "../contexts/ModalContext";
 import { Message } from "../types";
-import { YOU, AI } from "../utils/constants";
+import { YOU, AI, ART_STYLES, DEFAULT_ART_STYLE } from "../utils/constants";
 import { cn } from "../utils/cn";
 import { Button } from "src/components/atoms/button";
 import { Badge } from "src/components/atoms/badge";
@@ -16,6 +16,8 @@ import { Textarea } from "src/components/atoms/textarea";
 import Header, { HeaderAction } from "src/components/organisms/Header";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import MarkdownRenderer from "src/components/molecules/MarkdownRenderer";
+import { DisplayImage } from "src/components/molecules/DisplayImage";
+import { Dialog, DialogContent, DialogTitle, DialogClose } from "src/components/molecules/dialog";
 
 const AdventurePage = () => {
   const dispatch = useAppDispatch();
@@ -40,6 +42,48 @@ const AdventurePage = () => {
   const [error, setError] = useState<string | null>(null);
   const openingTriggeredRef = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
+  // Message ids currently being illustrated, and per-message failures - kept
+  // per message so illustrating one turn never blocks playing the next.
+  const [illustratingIds, setIllustratingIds] = useState<string[]>([]);
+  const [illustrationErrors, setIllustrationErrors] = useState<Record<string, string>>({});
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+
+  const illustrateMessage = useCallback(
+    async (msg: Message, regenerate = false) => {
+      if (!adventure || !msg.id || !msg.txt) return;
+      const messageId = msg.id;
+      const artStyle = adventure.rules?.artStyle || DEFAULT_ART_STYLE;
+      setIllustratingIds((ids) => [...ids, messageId]);
+      setIllustrationErrors((errs) => {
+        const next = { ...errs };
+        delete next[messageId];
+        return next;
+      });
+      try {
+        const result = await dispatch(
+          generateAdventureSceneImage({
+            narration: msg.txt!,
+            world,
+            cast,
+            persona,
+            artStyle,
+            // The saved prompt has its style written into it, so it's only
+            // reusable if the adventure's style hasn't changed since.
+            existingImagePrompt: regenerate && (msg.imageArtStyle || DEFAULT_ART_STYLE) === artStyle ? msg.imagePrompt : undefined,
+          })
+        ).unwrap();
+        await dispatch(updateAdventureMessage({ adventureId: adventure.id, messageId, patch: { images: result.images, imagePrompt: result.imagePrompt, imageArtStyle: artStyle } }));
+        if (result.tokens || result.cost) {
+          dispatch(incrementAdventureUsage({ adventureId: adventure.id, tokens: result.tokens, cost: result.cost }));
+        }
+      } catch (err: any) {
+        setIllustrationErrors((errs) => ({ ...errs, [messageId]: typeof err === "string" ? err : "Failed to illustrate the scene." }));
+      } finally {
+        setIllustratingIds((ids) => ids.filter((id) => id !== messageId));
+      }
+    },
+    [adventure, world, cast, persona, dispatch]
+  );
 
   const generateNarratorReply = useCallback(
     async (prompt: string, contextMessages: Message[]) => {
@@ -48,12 +92,18 @@ const AdventurePage = () => {
       const systemInstruction = buildAdventureSystemInstruction(adventure, world, cast, persona, contextMessages);
       const result = await dispatch(generateAIResponse({ prompt, history, systemInstruction })).unwrap();
       const { text, choices } = parseAdventureChoices(result.text);
-      await dispatch(addAdventureMessage({ adventureId: adventure.id, message: { role: AI, txt: text, choices } }));
+      const content = await dispatch(addAdventureMessage({ adventureId: adventure.id, message: { role: AI, txt: text, choices } })).unwrap();
       if (result.tokenCount || result.costEstimate) {
         dispatch(incrementAdventureUsage({ adventureId: adventure.id, tokens: result.tokenCount, cost: result.costEstimate }));
       }
+      // Fired without awaiting so the choices unlock right away; the picture
+      // fills in above the narration when it's ready.
+      if (adventure.rules?.autoIllustrate) {
+        const narratorMessage = content[content.length - 1];
+        if (narratorMessage) illustrateMessage(narratorMessage);
+      }
     },
-    [adventure, world, cast, persona, dispatch]
+    [adventure, world, cast, persona, dispatch, illustrateMessage]
   );
 
   const runOpeningTurn = useCallback(async () => {
@@ -124,7 +174,15 @@ const AdventurePage = () => {
   const lastMessage = adventure.content[adventure.content.length - 1];
   const activeChoices = !generating && !isCompleted && lastMessage?.role === AI ? lastMessage.choices : undefined;
 
+  const autoIllustrate = !!adventure.rules?.autoIllustrate;
   const headerActions: HeaderAction[] = [
+    {
+      icon: FaImage,
+      label: autoIllustrate ? "Auto-illustrate scenes: on" : "Auto-illustrate scenes: off",
+      active: autoIllustrate,
+      primary: true,
+      onClick: () => dispatch(updateAdventureRules({ adventureId: adventure.id, rules: { ...adventure.rules, autoIllustrate: !autoIllustrate } })),
+    },
     {
       icon: isCompleted ? FaUndo : FaCheckCircle,
       label: isCompleted ? "Reopen adventure" : "Mark completed",
@@ -132,10 +190,20 @@ const AdventurePage = () => {
     },
     { icon: FaTrash, label: "Delete adventure", onClick: handleDelete, danger: true },
   ];
+  // Changing the style mid-story only affects illustrations drawn from here
+  // on; existing pictures keep their look until redrawn.
+  const artStyle = adventure.rules?.artStyle || DEFAULT_ART_STYLE;
+  const artStyleActions: HeaderAction[] = ART_STYLES.map((style) => ({
+    icon: FaPalette,
+    label: `Art style: ${style.label}`,
+    shortLabel: style.label.toLowerCase(),
+    active: style.value === artStyle,
+    onClick: () => dispatch(updateAdventureRules({ adventureId: adventure.id, rules: { ...adventure.rules, artStyle: style.value } })),
+  }));
 
   return (
     <div className="w-full h-screen flex flex-col">
-      <Header title={adventure.title} subtitle={world ? world.name : "Freeform"} onBack={() => navigate("/adventures")} actionGroups={[headerActions]} />
+      <Header title={adventure.title} subtitle={world ? world.name : "Freeform"} onBack={() => navigate("/adventures")} actionGroups={[headerActions, artStyleActions]} />
 
       {(world || cast.length > 0) && (
         <div className="flex items-center gap-3 px-4 md:px-8 py-2.5 border-b border-border/40 flex-wrap flex-shrink-0">
@@ -174,8 +242,35 @@ const AdventurePage = () => {
                   <MarkdownRenderer msgText={msg.txt || ""} isUser={true} />
                 </div>
               ) : (
-                <div className="w-full">
+                <div className="w-full flex flex-col gap-3">
+                  {msg.id && illustratingIds.includes(msg.id) ? (
+                    <div className="w-full aspect-video rounded-xl bg-muted animate-pulse flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                      <FaImage size={12} /> Illustrating the scene...
+                    </div>
+                  ) : (
+                    msg.images?.map((imgSrc, idx) => (
+                      <DisplayImage
+                        key={idx}
+                        srcContext={imgSrc}
+                        alt="Scene illustration"
+                        onClick={() => setFullscreenImage(imgSrc)}
+                        className="w-full rounded-xl shadow-sm cursor-zoom-in hover:opacity-95 transition-opacity"
+                      />
+                    ))
+                  )}
                   <MarkdownRenderer msgText={msg.txt || ""} isUser={false} />
+                  {msg.id && !illustratingIds.includes(msg.id) && (
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => illustrateMessage(msg, !!msg.images?.length)}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        {msg.images?.length ? <><FaSyncAlt size={10} /> Redraw scene</> : <><FaImage size={11} /> Illustrate scene</>}
+                      </button>
+                      {illustrationErrors[msg.id] && <span className="text-xs text-destructive">{illustrationErrors[msg.id]}</span>}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -238,6 +333,27 @@ const AdventurePage = () => {
           </div>
         </div>
       )}
+
+      <Dialog open={fullscreenImage !== null} onOpenChange={(open) => !open && setFullscreenImage(null)}>
+        <DialogContent size="full">
+          <DialogTitle asChild>
+            <span className="sr-only">Scene illustration</span>
+          </DialogTitle>
+          <DialogClose asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-4 right-4 h-auto w-auto p-3 rounded-full text-white/70 hover:bg-black/80 hover:text-white bg-black/50 z-10"
+              title="Close"
+            >
+              <FaTimes size={20} />
+            </Button>
+          </DialogClose>
+          {fullscreenImage && (
+            <DisplayImage srcContext={fullscreenImage} alt="Scene illustration" className="max-w-[95vw] max-h-[90vh] object-contain rounded-lg shadow-2xl" />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
