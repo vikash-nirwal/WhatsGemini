@@ -6,7 +6,19 @@ import { FaCheck, FaChevronRight, FaCircle } from "react-icons/fa"
 
 import { cn } from "src/utils/cn"
 
-const DropdownMenu = DropdownMenuPrimitive.Root
+// Non-modal by default: most of this app's menu items open a Dialog/AlertDialog
+// (edit message, auto follow-up settings, persona picker, rewind/delete
+// confirms). A modal menu sets `pointer-events: none` on <body> and restores it
+// on unmount - when a dialog opens from its item, the two layers' save/restore
+// interleave and the dialog's close restores the menu's "none", leaving the
+// whole app unclickable until a reload. A non-modal menu never touches body
+// pointer-events, and still closes on outside click / Escape.
+const DropdownMenu = ({
+  modal = false,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Root>) => (
+  <DropdownMenuPrimitive.Root modal={modal} {...props} />
+)
 
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger
 
