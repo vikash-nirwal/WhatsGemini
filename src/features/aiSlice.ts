@@ -329,7 +329,7 @@ export const generateAvatarImage = createAsyncThunk(
 export const generateAdventureSceneImage = createAsyncThunk(
   "ai/generateAdventureSceneImage",
   async (
-    { narration, world, cast, persona, artStyle, existingImagePrompt }: { narration: string; world?: World; cast: Character[]; persona?: UserProfile; artStyle?: ArtStyle; existingImagePrompt?: string },
+    { narration, world, cast, persona, artStyle, existingImagePrompt, castEmotions, requestedFocus }: { narration: string; world?: World; cast: Character[]; persona?: UserProfile; artStyle?: ArtStyle; existingImagePrompt?: string; castEmotions?: Record<number, string>; requestedFocus?: string },
     { getState, rejectWithValue }
   ) => {
     try {
@@ -362,7 +362,7 @@ export const generateAdventureSceneImage = createAsyncThunk(
         }
         const instruction = buildAdventureSceneImageInstruction(
           stripLeakedBase64(narration), world, presentCast, persona,
-          ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE], settings.imageGenPrompt, useSdWebui
+          ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE], settings.imageGenPrompt, useSdWebui, castEmotions, requestedFocus
         );
         const derivation = await chatAdapter.generateOnce(instruction, settings.selectedModel, chatConfig);
         trackUsage(derivation.usage, settings.chatProvider, settings.selectedModel);

@@ -1,4 +1,4 @@
-import { parseAdventureChoices, buildAdventureSystemInstruction, findCastInNarration, buildAdventureSceneImageInstruction, ADVENTURE_CHOICES_START, ADVENTURE_CHOICES_END } from "./adventurePrompt";
+import { parseAdventureChoices, buildAdventureSystemInstruction, findCastInNarration, buildAdventureSceneImageInstruction, extractAdventureEmotions, buildAdventureEmotionDirective, ADVENTURE_CHOICES_START, ADVENTURE_CHOICES_END } from "./adventurePrompt";
 import { Adventure, Character, World } from "../../../types";
 
 describe("parseAdventureChoices", () => {
@@ -137,5 +137,48 @@ describe("buildAdventureSceneImageInstruction", () => {
 
   it("asks for tag-based prompts when using SD WebUI", () => {
     expect(buildAdventureSceneImageInstruction("Scene.", undefined, [], undefined, "s", "b", true)).toContain("tag-based");
+  });
+});
+
+describe("extractAdventureEmotions", () => {
+  const cast: Character[] = [
+    { id: 1, name: "Mira", description: "", prompt: "", emotionPortraits: { enabled: true, images: {}, customEmotions: ["smug"] } },
+    { id: 2, name: "Old Tom", description: "", prompt: "" },
+  ];
+
+  it("maps names to ids and strips the tag from the narration", () => {
+    const raw = `Mira smirks.
+
+[Emotions: mira=Smug; Old Tom=scared]
+${ADVENTURE_CHOICES_START}
+1. Run
+${ADVENTURE_CHOICES_END}`;
+    const { text, castEmotions } = extractAdventureEmotions(raw, cast);
+    expect(castEmotions).toEqual({ 1: "smug", 2: "scared" });
+    expect(text).not.toContain("Emotions");
+    expect(parseAdventureChoices(text)).toEqual({ text: "Mira smirks.", choices: [{ id: "c1", label: "Run" }] });
+  });
+
+  it("drops unknown names and off-list words but still strips the tag", () => {
+    const { text, castEmotions } = extractAdventureEmotions("The door creaks. [Emotions: Ghost=happy, Old Tom=smug]", cast);
+    expect(castEmotions).toBeUndefined();
+    expect(text).toBe("The door creaks.");
+  });
+
+  it("leaves text without a tag untouched", () => {
+    expect(extractAdventureEmotions("Quiet night.", cast)).toEqual({ text: "Quiet night." });
+  });
+
+  it("offers custom emotions only to their own character", () => {
+    const directive = buildAdventureEmotionDirective(cast);
+    expect(directive).toContain("Mira may also use: smug.");
+    expect(directive).not.toContain("Old Tom may also use");
+  });
+});
+
+describe("buildAdventureSceneImageInstruction requested focus", () => {
+  it("makes the player's requested subject the focus only when asked", () => {
+    expect(buildAdventureSceneImageInstruction("You unroll the map.", undefined, [], undefined, "s", "b", false, undefined, "I study the map")).toContain('"I study the map"');
+    expect(buildAdventureSceneImageInstruction("You unroll the map.", undefined, [], undefined, "s", "b", false)).not.toContain("explicitly asked");
   });
 });
