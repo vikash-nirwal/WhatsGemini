@@ -101,8 +101,8 @@ export const restoreChatsAndCharacters = async (
 const LOCAL_IMAGE_PREFIX = "local:";
 
 // Walks message.images / character.avatar / character.appearanceImages /
-// character.gallery / persona.avatar and collects the bare filenames behind
-// every `local:<filename>` reference.
+// character.gallery / persona.avatar / persona.appearanceImages and collects
+// the bare filenames behind every `local:<filename>` reference.
 const collectLocalImageFilenames = (chats: Chat[], characters: Character[], personas: UserProfile[]): string[] => {
   const filenames = new Set<string>();
   const collect = (value: unknown) => {
@@ -123,6 +123,7 @@ const collectLocalImageFilenames = (chats: Chat[], characters: Character[], pers
   }
   for (const persona of personas) {
     collect(persona.avatar);
+    collect(persona.appearanceImages);
   }
 
   return Array.from(filenames);

@@ -1,11 +1,13 @@
 import React, { useRef, useState } from 'react';
-import { FaUser, FaPlus, FaTrash, FaCheckCircle, FaCamera } from 'react-icons/fa';
+import { FaUser, FaPlus, FaTrash, FaCheckCircle, FaCamera, FaUpload, FaTimes } from 'react-icons/fa';
 import { UserProfile } from '../../types';
 import { TextInput, TextArea } from "src/components/molecules/form-controls";
 import { Button } from 'src/components/atoms/button';
 import { SettingsCard } from 'src/components/molecules/settings-card';
 import { CharacterAvatar } from 'src/components/molecules/CharacterAvatar';
+import { DisplayImage } from 'src/components/molecules/DisplayImage';
 import AvatarCropDialog from './AvatarCropDialog';
+import { dbService } from '../../services/dbService';
 import { cn } from '../../utils/cn';
 import { useColorTheme } from '../../hooks/useColorTheme';
 
@@ -60,6 +62,63 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
     if (persona) onUpdatePersona({ ...persona, avatar: localRef });
     setCropImageSrc(null);
     setPendingPersonaId(null);
+  };
+
+  // Extra reference photos per persona (UserProfile.appearanceImages) - same
+  // "save straight to the Image Save Directory, no cropping" flow the
+  // Character Editor's own Reference Images picker uses, since these are fed
+  // to image-capable models as-is rather than displayed as an avatar.
+  const refFileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingRefPersonaId, setPendingRefPersonaId] = useState<string | null>(null);
+
+  const handlePickReferenceImages = (personaId: string) => {
+    setPendingRefPersonaId(personaId);
+    refFileInputRef.current?.click();
+  };
+
+  const handleReferenceFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    const personaId = pendingRefPersonaId;
+    e.target.value = '';
+    setPendingRefPersonaId(null);
+    if (!files || files.length === 0 || !personaId) return;
+
+    const persona = personas.find((p) => p.id === personaId);
+    if (!persona) return;
+
+    try {
+      const dirHandle = await dbService.getSetting("image_save_directory");
+      if (!dirHandle) {
+        alert("Please select an Image Save Directory in Settings first to use file persistence.");
+        return;
+      }
+
+      const newImageRefs: string[] = [];
+      for (const file of Array.from(files)) {
+        const ext = file.name.split('.').pop() || 'png';
+        const filename = `persona_ref_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`;
+        const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(file);
+        await writable.close();
+        newImageRefs.push(`local:${filename}`);
+      }
+
+      onUpdatePersona({ ...persona, appearanceImages: [...(persona.appearanceImages || []), ...newImageRefs] });
+    } catch (err: any) {
+      console.error("Error saving persona reference images:", err);
+      if (err?.name === 'NotAllowedError') {
+        alert("Permission to write to directory was denied. Please re-select the directory in Settings.");
+      } else {
+        alert("Failed to save image files to the local directory.");
+      }
+    }
+  };
+
+  const removePersonaReferenceImage = (personaId: string, index: number) => {
+    const persona = personas.find((p) => p.id === personaId);
+    if (!persona) return;
+    onUpdatePersona({ ...persona, appearanceImages: (persona.appearanceImages || []).filter((_, i) => i !== index) });
   };
 
   return (
@@ -170,6 +229,42 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
                 onChange={(e) => onUpdatePersona({ ...persona, appearance: e.target.value })}
                 className="resize-none"
               />
+
+              <div>
+                <label className="block text-xs font-medium text-foreground mb-2">Reference photos</label>
+                <div className="flex flex-wrap gap-2">
+                  {(persona.appearanceImages || []).map((src, idx) => (
+                    <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-border bg-muted">
+                      <DisplayImage srcContext={src} alt="Reference" className="w-full h-full object-cover" />
+                      <Button
+                        type="button"
+                        onClick={() => removePersonaReferenceImage(persona.id, idx)}
+                        variant="destructive"
+                        className="absolute top-1 right-1 h-auto w-auto rounded-full p-1"
+                        aria-label="Remove reference photo"
+                      >
+                        <FaTimes size={10} />
+                      </Button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => handlePickReferenceImages(persona.id)}
+                    className={cn(
+                      "w-16 h-16 flex flex-col justify-center items-center rounded-lg text-muted-foreground hover:text-primary transition-colors",
+                      neumorphic ? "surface-sunken" : "border-2 border-dashed border-border hover:border-primary"
+                    )}
+                    title="Add reference photos"
+                  >
+                    <FaUpload size={14} />
+                    <span className="text-[9px] mt-1 font-medium">Add</span>
+                  </button>
+                </div>
+                <p className="text-xs text-subtle mt-1.5">
+                  Extra photos of you (any angle/outfit) given to image-capable models so a scene with you in it stays consistent.
+                </p>
+              </div>
+
               <TextArea
                 placeholder="Backstory - background a character might reference or ask about (Optional)"
                 value={persona.backstory || ''}
@@ -195,6 +290,14 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
         ref={fileInputRef}
         onChange={handleFileChange}
         accept="image/*"
+        style={{ display: "none" }}
+      />
+      <input
+        type="file"
+        ref={refFileInputRef}
+        onChange={handleReferenceFilesChange}
+        accept="image/*"
+        multiple
         style={{ display: "none" }}
       />
       {cropImageSrc && (

@@ -162,6 +162,10 @@ export interface UserProfile {
   appearance?: string; // physical description, given to image-capable models
   backstory?: string; // background/history a character might reference
   avatar?: string; // this persona's own display picture - a local:/data: ref, same shape as Character.appearanceImages entries
+  // Extra photos of this persona, same shape/purpose as Character.appearanceImages -
+  // given to image-capable models as named reference photos so a scene depicting
+  // the user (e.g. "a selfie of us together") keeps their face consistent too.
+  appearanceImages?: string[];
 }
 
 export interface AISafetySettings {

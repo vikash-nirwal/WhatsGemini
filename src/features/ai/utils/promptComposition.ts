@@ -204,5 +204,16 @@ export const buildTurnContext = (
     character, extraDirectives, replyLengthLimit, activePersona, messages, roomContext?.otherParticipants,
     roomContext?.groupScenario, roomContext?.groupMemory
   );
-  return { history, systemInstruction: text, characterImages: images, characterName, otherParticipantImages: roomContext?.otherParticipantImages };
+  // The active persona's own reference photos (UserProfile.appearanceImages),
+  // folded in as just another named reference alongside any other room
+  // participants - so "a picture of us together" keeps the user's face
+  // consistent too, in a 1:1 chat as much as a room. Unset when the persona
+  // has none, so behavior is unchanged for everyone who hasn't added any.
+  const personaReference = activePersona?.appearanceImages && activePersona.appearanceImages.length > 0
+    ? { name: activePersona.name, images: activePersona.appearanceImages }
+    : undefined;
+  const otherParticipantImages = personaReference
+    ? [...(roomContext?.otherParticipantImages || []), personaReference]
+    : roomContext?.otherParticipantImages;
+  return { history, systemInstruction: text, characterImages: images, characterName, otherParticipantImages };
 };
