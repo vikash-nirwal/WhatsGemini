@@ -6,6 +6,9 @@ export const MODEL = "model";
 export const USER = "user";
 export const DB_NAME = "ChatAppDB";
 export const CHARACTER = "character";
+export const WORLD = "world";
+export const ADVENTURE = "adventure";
+export const DEFAULT_ADVENTURE_CHOICE_COUNT = 3;
 export const DEFAULT_TEMPRATURE = 0.7;
 export const DEFAULT_OUTPUT_TOKENS = 1000;
 export const DEFAULT_CHAT_LENGTH = 0;
@@ -207,6 +210,16 @@ export const PERSONALITY_TRAIT_PRESETS = [
   "Mischievous", "Loyal", "Intelligent", "Naive", "Brave", "Cautious", "Funny",
   "Blunt", "Gentle", "Dominant", "Submissive", "Stoic", "Energetic", "Calm",
 ];
+// World creation's tone select (PresetSelectField) - same "pick a preset or
+// type your own" pattern as RELATIONSHIP_PRESETS above.
+export const WORLD_TONE_PRESETS = [
+  "Epic High Fantasy", "Grimdark Fantasy", "Cyberpunk Noir", "Space Opera",
+  "Post-Apocalyptic Survival", "Gothic Horror", "Cozy Slice of Life",
+  "Lighthearted Adventure", "Modern Mystery", "Romantic Drama", "Historical",
+  "Pirates & High Seas", "Superhero", "Steampunk",
+];
+export const MIN_ADVENTURE_CHOICES = 2;
+export const MAX_ADVENTURE_CHOICES = 5;
 
 export const ROLE = "role";
 export const MESSAGE = "message";

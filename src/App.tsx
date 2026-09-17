@@ -9,6 +9,8 @@ import store from "./store/store";
 import { useAppDispatch, useAppSelector } from "./store/hooks";
 import { fetchChats, addChat } from "./features/chatSlice";
 import { fetchCharacters, addCharacter } from "./features/characterSlice";
+import { fetchWorlds } from "./features/worldSlice";
+import { fetchAdventures } from "./features/adventureSlice";
 import { LS_FONT_SIZE, LS_FIRST_USED_AT, SAMPLE_CHARACTER } from "./utils/constants";
 
 import Sidebar from "src/components/organisms/Sidebar";
@@ -26,6 +28,11 @@ const CharacterPage = lazy(() => import("./pages/CharacterPage"));
 const CharacterEditorPage = lazy(() => import("./pages/CharacterEditorPage"));
 const CharacterGalleryPage = lazy(() => import("./pages/CharacterGalleryPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const WorldGalleryPage = lazy(() => import("./pages/WorldGalleryPage"));
+const WorldEditorPage = lazy(() => import("./pages/WorldEditorPage"));
+const AdventureGalleryPage = lazy(() => import("./pages/AdventureGalleryPage"));
+const AdventureWizardPage = lazy(() => import("./pages/AdventureWizardPage"));
+const AdventurePage = lazy(() => import("./pages/AdventurePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 
@@ -122,6 +129,8 @@ const AppContent = () => {
       try {
         await dispatch(fetchChats()).unwrap();
         await dispatch(fetchCharacters()).unwrap();
+        await dispatch(fetchWorlds()).unwrap();
+        await dispatch(fetchAdventures()).unwrap();
       } catch (err) {
         console.error("Error fetching data:", err);
         setError("Failed to load chats and characters. Please try again.");
@@ -194,6 +203,12 @@ const AppContent = () => {
                 <Route path="/characters/new" element={<CharacterEditorPage />} />
                 <Route path="/characters/:characterId/edit" element={<CharacterEditorPage />} />
                 <Route path="/characters/:characterId/gallery" element={<CharacterGalleryPage />} />
+                <Route path="/worlds" element={<WorldGalleryPage />} />
+                <Route path="/worlds/new" element={<WorldEditorPage />} />
+                <Route path="/worlds/:worldId/edit" element={<WorldEditorPage />} />
+                <Route path="/adventures" element={<AdventureGalleryPage />} />
+                <Route path="/adventures/new" element={<AdventureWizardPage />} />
+                <Route path="/adventures/:adventureId" element={<AdventurePage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/" element={<EmptyChatState />} />
                 <Route path="*" element={<NotFound />} />

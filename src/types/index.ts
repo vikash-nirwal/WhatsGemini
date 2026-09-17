@@ -40,6 +40,20 @@ export interface Message {
   imagePrompt?: string; // The derived SD prompt used to generate this image
   imageParams?: SDImageParams; // The derived SD params
   sampler_name?: string; // The specific sampler name used
+  // Adventure mode only: the tappable options parsed out of the model's
+  // trailing <<<CHOICES block on this message (and stripped from `txt`
+  // before display) - undefined for every ordinary chat message.
+  choices?: AdventureChoice[];
+  // Set on the user's own next message when it was sent by tapping one of
+  // the previous message's `choices` rather than typed free text - lets the
+  // UI show which option was picked without guessing from text alone.
+  chosenChoiceId?: string;
+}
+
+// One tappable option offered at the end of an adventure narrator turn.
+export interface AdventureChoice {
+  id: string;
+  label: string;
 }
 
 // A single node in a chat's conversation tree - one specific message plus its
@@ -173,4 +187,52 @@ export interface AISafetySettings {
   hate_speech: string;
   sexual: string;
   dangerous: string;
+}
+
+// A reusable setting/universe a story can be played out in - the Adventure
+// equivalent of a Character, but describing a place instead of a person.
+// Saved independently so several Adventures can be set in the same world
+// without copy-pasting its premise/lore into each one.
+export interface World {
+  id: number;
+  name: string;
+  premise: string; // short pitch/summary of the setting, always in scope
+  settingDetails?: string; // longer freeform description - history, rules, factions, etc.
+  tone?: string; // freeform, e.g. "Grimdark fantasy" - not an enum, matching Character.tags' freedom
+  loreEntries?: LoreEntry[]; // reuses the same keyword-triggered world info mechanism as Character.loreEntries
+  coverImage?: string; // local:/data: ref, same shape as Character.avatar
+  tags?: string[]; // discoverability tags, mirrors Character.tags
+}
+
+export type AdventureStatus = "active" | "completed";
+
+// Per-adventure knobs for how the narrator plays it out, separate from the
+// premise/cast so the creation wizard's "tone & rules" step has somewhere to
+// write without overloading `premise`.
+export interface AdventureRules {
+  choiceCount?: number; // how many tappable options the narrator should offer each turn; a sensible default applies when unset
+  replyLengthLimit?: number; // same budget concept as Character/Chat replies
+  safetySettings?: AISafetySettings; // per-adventure override of the global safety settings
+}
+
+// A roleplay adventure/story session - deliberately its own entity rather
+// than a Chat: an adventure has exactly one narrator voice (never a
+// multi-character room), always plays out in a World, and every turn carries
+// tappable choices alongside free text. It still reuses Message/
+// ConversationTree wholesale, so branching/regenerate work unchanged.
+export interface Adventure {
+  id: number;
+  title: string;
+  timestamp: number;
+  worldId?: number; // World this adventure is set in; unset = freeform/worldless adventure
+  characterIds: number[]; // existing Characters pulled in as NPCs, voiced by the single narrator - never independent speakers
+  personaId?: string; // which UserProfile the player is playing as; unset = use the global active persona
+  premise?: string; // the opening premise from the creation wizard, on top of the World's own premise
+  rules?: AdventureRules;
+  status: AdventureStatus;
+  content: Message[]; // flattened active path, same shape as Chat.content
+  tree?: ConversationTree;
+  activeLeafId?: string | null;
+  totalTokensUsed?: number;
+  totalCostEstimate?: number;
 }

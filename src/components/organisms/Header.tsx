@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { FaBars, FaArrowLeft, FaSun, FaMoon, FaUserFriends, FaCog, FaEllipsisV, FaQuestionCircle } from "react-icons/fa";
+import { FaBars, FaArrowLeft, FaSun, FaMoon, FaUserFriends, FaHatWizard, FaCog, FaEllipsisV, FaQuestionCircle } from "react-icons/fa";
 import { useSidebar } from "../../contexts/SidebarContext";
 import { ThemeContext } from "../../contexts/ThemeContext";
 import { useColorTheme } from "../../hooks/useColorTheme";
@@ -67,6 +67,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, avatar, onBack, action
   const { is } = useColorTheme();
   const isDark = theme === DARK;
   const isCharacters = location.pathname.startsWith("/characters");
+  const isAdventures = location.pathname.startsWith("/adventures") || location.pathname.startsWith("/worlds");
   const isSettings = location.pathname.startsWith("/settings");
   const [showShortcuts, setShowShortcuts] = useState(false);
 
@@ -86,16 +87,17 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, avatar, onBack, action
   }, []);
 
   // Built-in group, always appended after any page-specific ones: app-level
-  // navigation. Flagged `primary` so these stay as the canvas's four
-  // always-visible circular header icons on desktop (theme/shortcuts/
-  // library/settings) instead of collapsing into the "more" menu - only
-  // page-specific actions overflow there. Logging out lives in Settings
-  // (Text Generation Model - it clears that provider's own API key) rather
-  // than as a global header action.
+  // navigation. Flagged `primary` so these stay as always-visible circular
+  // header icons on desktop (theme/shortcuts/characters/adventures/settings)
+  // instead of collapsing into the "more" menu - only page-specific actions
+  // overflow there. Logging out lives in Settings (Text Generation Model -
+  // it clears that provider's own API key) rather than as a global header
+  // action.
   const appGroup: HeaderAction[] = [
     { icon: isDark ? FaSun : FaMoon, label: "Toggle theme", shortLabel: isDark ? "light" : "dark", onClick: toggleTheme, primary: true },
     { icon: FaQuestionCircle, label: "Keyboard shortcuts", shortLabel: "?", onClick: () => setShowShortcuts(true), primary: true },
     { icon: FaUserFriends, label: "Characters", onClick: () => navigate("/characters"), active: isCharacters, primary: true },
+    { icon: FaHatWizard, label: "Adventures", onClick: () => navigate("/adventures"), active: isAdventures, primary: true },
     { icon: FaCog, label: "Settings", onClick: () => navigate("/settings"), active: isSettings, primary: true },
   ];
 

@@ -1,6 +1,8 @@
 import { configureStore } from "@reduxjs/toolkit";
 import chatReducer from "../features/chatSlice";
 import characterReducer from "../features/characterSlice";
+import worldReducer from "../features/worldSlice";
+import adventureReducer from "../features/adventureSlice";
 import aiReducer from "../features/aiSlice";
 import settingsReducer from "../features/settingsSlice";
 import {
@@ -42,6 +44,8 @@ export const store = configureStore({
   reducer: {
     chat: chatReducer,
     character: characterReducer,
+    world: worldReducer,
+    adventure: adventureReducer,
     ai: aiReducer,
     settings: settingsReducer,
   },
@@ -99,6 +103,8 @@ if (process.env.NODE_ENV === "development") {
       ...state,
       chat: { ...state.chat, chats: `${state.chat.chats.length} chat(s)` },
       character: { ...state.character, characters: `${state.character.characters.length} character(s)` },
+      world: { ...state.world, worlds: `${state.world.worlds.length} world(s)` },
+      adventure: { ...state.adventure, adventures: `${state.adventure.adventures.length} adventure(s)` },
     });
   });
 }
