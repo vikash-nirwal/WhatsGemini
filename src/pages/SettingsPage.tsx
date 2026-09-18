@@ -173,18 +173,26 @@ const SettingsPage = () => {
   // fetched (and cached) across a session. Ollama is excluded: it already has
   // its own dedicated free-text + "Fetch installed models" UI below.
   const [providerModelLists, setProviderModelLists] = useState<Record<string, {value: string, label: string}[]>>({});
-  const fetchProviderModels = useCallback(async (providerId: string) => {
+  // Returns a result instead of just mutating state, so a manual "Fetch
+  // available models" click can toast success/failure - the auto-fetch on
+  // provider switch below calls this the same way but ignores the result,
+  // staying silent like Gemini's own background fetch.
+  const fetchProviderModels = useCallback(async (providerId: string): Promise<{ ok: boolean; count: number; message?: string }> => {
     const adapter = CHAT_PROVIDERS[providerId];
-    if (!adapter?.listModels || providerId === "ollama") return;
+    if (!adapter?.listModels || providerId === "ollama") return { ok: false, count: 0 };
     try {
       const apiKey = await getProviderApiKey(providerId);
-      if (CHAT_PROVIDERS[providerId].capabilities.requiresApiKey && !apiKey) return;
+      if (CHAT_PROVIDERS[providerId].capabilities.requiresApiKey && !apiKey) {
+        return { ok: false, count: 0, message: "Add an API key first." };
+      }
       const list = await adapter.listModels({ apiKey });
       if (list.length > 0) {
         setProviderModelLists((prev) => ({ ...prev, [providerId]: list }));
       }
-    } catch (error) {
+      return { ok: true, count: list.length };
+    } catch (error: any) {
       console.error(`Error fetching ${providerId} models:`, error);
+      return { ok: false, count: 0, message: error?.message || "Failed to fetch models." };
     }
   }, []);
 
@@ -243,6 +251,15 @@ const SettingsPage = () => {
 
   useEffect(() => {
     fetchProviderModels(chatProvider);
+  }, [chatProvider, fetchProviderModels]);
+
+  const handleFetchChatModelsClick = useCallback(async () => {
+    const result = await fetchProviderModels(chatProvider);
+    if (result.ok) {
+      toast.success(`Fetched ${result.count} model${result.count === 1 ? "" : "s"}.`);
+    } else {
+      toast.error(result.message || "Failed to fetch models.");
+    }
   }, [chatProvider, fetchProviderModels]);
 
   // OpenAI's key is only ever needed on the image side when imageProvider is
@@ -758,7 +775,7 @@ const SettingsPage = () => {
                     setSelectedModel={(val) => dispatch(setSelectedModel(val))}
                     modelList={currentChatModelList}
                     canFetchModels={canFetchChatModels}
-                    fetchModels={() => fetchProviderModels(chatProvider)}
+                    fetchModels={handleFetchChatModelsClick}
                     replyLengthLimit={replyLengthLimit}
                     setReplyLengthLimit={(val) => dispatch(setReplyLengthLimit(val))}
                     compressThreshold={compressThreshold}

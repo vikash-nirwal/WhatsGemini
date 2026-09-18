@@ -51,6 +51,10 @@ const generateImage = async (opts: ImageGenCallOptions, config: ProviderRuntimeC
   return { images };
 };
 
+// No listModels here (unlike the chat adapter) - GLM/Z.ai's /models catalog
+// only lists chat models, never glm-image/cogview-4, so a live fetch always
+// comes back empty. The static PROVIDER_IMAGE_MODELS.glm list is the only
+// source of truth for this provider's (small, stable) image model catalog.
 export const glmImageAdapter: ImageProviderAdapter = {
   id: "glm",
   capabilities: { requiresApiKey: true, requiresBaseUrl: false },
