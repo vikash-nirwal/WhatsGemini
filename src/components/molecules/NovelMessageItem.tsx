@@ -56,7 +56,7 @@ export const NovelMessageItem: React.FC<NovelMessageItemProps> = ({
             </span>
           )}
         </div>
-        <div className={cn("italic text-foreground/95 leading-relaxed", sizeClass, fontClass)}>
+        <div className={cn("text-foreground/95 leading-relaxed", sizeClass, fontClass)}>
           <MarkdownRenderer msgText={msg.txt || ""} isUser={true} />
         </div>
       </div>
