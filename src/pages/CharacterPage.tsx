@@ -18,7 +18,8 @@ import { Input } from "src/components/atoms/input";
 import { TermLink } from "src/components/atoms/TermLink";
 import Header from "src/components/organisms/Header";
 import { CHARACTER_SWATCHES, SAMPLE_CHARACTER } from "../utils/constants";
-import { characterToCardV2, parseCharacterCardText, buildCharacterCardPng, extractCharacterCardFromPng } from "../features/character/characterCard";
+import { characterToCardV2, parseCharacterCardText, buildCharacterCardPng, extractCharacterCardFromPng, ParsedCharacterCard } from "../features/character/characterCard";
+import ImportReviewDialog from "src/components/organisms/ImportReviewDialog";
 import { parseSize, resolveImageSrcToUrl, autoCoverCropToBlob, generatePlaceholderPortraitBlob, blobToDataUrl } from "../features/ai/utils/portraitUtils";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -44,6 +45,7 @@ const CharacterPage = () => {
   const [gallerySearch, setGallerySearch] = useState("");
   const importCardInputRef = useRef<HTMLInputElement>(null);
   const [importingCard, setImportingCard] = useState(false);
+  const [importReviewData, setImportReviewData] = useState<ParsedCharacterCard | null>(null);
 
   const handleTrySampleCharacter = async () => {
     const character = await dispatch(addCharacter(SAMPLE_CHARACTER)).unwrap();
@@ -162,14 +164,26 @@ const CharacterPage = () => {
         parsedChar.appearanceImages = [await blobToDataUrl(resized)];
       }
 
-      const character = await dispatch(addCharacter(parsedChar)).unwrap();
+      // Hand off to the review dialog instead of saving straight away - lets
+      // the user tweak the character (and any lorebook it brought in) by
+      // hand or via an AI-assisted rewrite before it's actually added.
+      setImportReviewData(parsedChar);
+    } catch (err: any) {
+      showAlert("Import failed", err?.message || "Failed to import character card.");
+    } finally {
+      setImportingCard(false);
+    }
+  };
+
+  const handleConfirmImportReview = async (reviewedChar: ParsedCharacterCard) => {
+    setImportReviewData(null);
+    try {
+      const character = await dispatch(addCharacter(reviewedChar)).unwrap();
       if (character) {
         showAlert("Imported", `Imported "${(character as Character).name}".`);
       }
     } catch (err: any) {
       showAlert("Import failed", err?.message || "Failed to import character card.");
-    } finally {
-      setImportingCard(false);
     }
   };
 
@@ -473,6 +487,12 @@ const CharacterPage = () => {
 
       </div>
       </div>
+      <ImportReviewDialog
+        isOpen={importReviewData !== null}
+        onClose={() => setImportReviewData(null)}
+        data={importReviewData}
+        onConfirm={handleConfirmImportReview}
+      />
     </div>
   );
 };

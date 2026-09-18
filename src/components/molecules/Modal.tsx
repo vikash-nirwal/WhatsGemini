@@ -11,13 +11,14 @@ interface ModalProps {
   title: string;
   subtitle?: string;
   children: ReactNode;
+  size?: "default" | "lg";
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, subtitle, children }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, subtitle, children, size = "default" }) => {
   const { is } = useColorTheme();
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="default">
+      <DialogContent size={size}>
         <DialogHeader className="flex-row items-start justify-between space-y-0">
           <div>
             <DialogTitle>{title}</DialogTitle>
