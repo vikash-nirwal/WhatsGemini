@@ -87,15 +87,17 @@ const withDefaults = (partial: Partial<ParsedCharacterCard> & { name: string; pr
 });
 
 // Accepts whichever shape a "character file" JSON turns out to be:
-// WhatsGemini's own native export (always has a `prompt` field), a V2 card
-// (`{ spec: "chara_card_v2", data: {...} }`), or a flat/legacy V1 card (same
-// fields as V2's `data`, no wrapper - what most older TavernAI cards use).
+// WhatsGemini's own native export (always has a `prompt` field), a V2 or V3
+// card (`{ spec: "chara_card_v2"|"chara_card_v3", data: {...} }` - V3 is a
+// superset of V2's fields, so the same extraction covers both), or a
+// flat/legacy V1 card (same fields as V2's `data`, no wrapper - what most
+// older TavernAI cards use).
 export const parseCharacterCardJson = (parsed: any): ParsedCharacterCard => {
   if (!parsed || typeof parsed !== "object") {
     throw new Error("Invalid character file: not a JSON object.");
   }
 
-  if (parsed.spec === "chara_card_v2" && parsed.data) {
+  if ((parsed.spec === "chara_card_v2" || parsed.spec === "chara_card_v3") && parsed.data) {
     const d = parsed.data;
     if (!d.name) throw new Error("Invalid character card: missing name.");
     const ext = d.extensions?.whatsgemini || {};
@@ -139,6 +141,12 @@ export const parseCharacterCardJson = (parsed: any): ParsedCharacterCard => {
 
   throw new Error("Unrecognized character file format.");
 };
+
+// A card exported/edited on Windows often carries a leading UTF-8 BOM, which
+// makes JSON.parse throw on otherwise-valid JSON - strip it first so a card
+// isn't rejected over an invisible character.
+export const parseCharacterCardText = (text: string): ParsedCharacterCard =>
+  parseCharacterCardJson(JSON.parse(text.replace(/^﻿/, "")));
 
 // btoa/atob only handle Latin1 code points - a description/greeting with
 // unicode (accents, emoji, non-Latin scripts) needs an actual UTF-8 pass

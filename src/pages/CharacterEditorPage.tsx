@@ -19,7 +19,7 @@ import { CHARACTER_SWATCHES, MAX_MEMORY_ENTRIES, DEFAULT_AUTO_SELFIE_FREQUENCY, 
 import { estimateTokens } from "../features/ai/utils/tokenEstimator";
 import AvatarGenerateButton from "src/components/molecules/AvatarGenerateButton";
 import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
-import { parseCharacterCardJson } from "../features/character/characterCard";
+import { parseCharacterCardText } from "../features/character/characterCard";
 import { useModal } from "../contexts/ModalContext";
 import { toast } from "sonner";
 
@@ -338,7 +338,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     if (!file) return;
 
     try {
-      const parsed = parseCharacterCardJson(JSON.parse(await file.text()));
+      const parsed = parseCharacterCardText(await file.text());
       dispatch(addCharacter(parsed));
       showAlert("Imported", "Character imported successfully!");
     } catch (err: any) {

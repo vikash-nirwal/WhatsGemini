@@ -18,7 +18,7 @@ import { Input } from "src/components/atoms/input";
 import { TermLink } from "src/components/atoms/TermLink";
 import Header from "src/components/organisms/Header";
 import { CHARACTER_SWATCHES, SAMPLE_CHARACTER } from "../utils/constants";
-import { characterToCardV2, parseCharacterCardJson, buildCharacterCardPng, extractCharacterCardFromPng } from "../features/character/characterCard";
+import { characterToCardV2, parseCharacterCardText, buildCharacterCardPng, extractCharacterCardFromPng } from "../features/character/characterCard";
 import { parseSize, resolveImageSrcToUrl, autoCoverCropToBlob, generatePlaceholderPortraitBlob, blobToDataUrl } from "../features/ai/utils/portraitUtils";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -153,7 +153,7 @@ const CharacterPage = () => {
       const isPng = file.type === "image/png" || file.name.toLowerCase().endsWith(".png");
       const parsedChar = isPng
         ? await extractCharacterCardFromPng(file)
-        : parseCharacterCardJson(JSON.parse(await file.text()));
+        : parseCharacterCardText(await file.text());
 
       if (isPng && (!parsedChar.appearanceImages || parsedChar.appearanceImages.length === 0)) {
         const resized = portraitResizeEnabled
