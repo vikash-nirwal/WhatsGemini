@@ -1,4 +1,4 @@
-import { Character } from "../../types";
+import { Character, LoreEntry } from "../../types";
 import { readPngTextChunk, writePngTextChunk } from "../../utils/pngTextChunk";
 
 // Community-standard "Character Card V2" (TavernAI/SillyTavern) shape -
@@ -38,6 +38,22 @@ export interface CharacterCardV2 {
       };
       [key: string]: unknown;
     };
+    // The spec's standard embedded lorebook - what SillyTavern/chub.ai
+    // actually populate and read, unlike the whatsgemini-only extension
+    // above. Exporting our loreEntries here too (in addition to the
+    // extension, which round-trips `enabled` etc. losslessly) is what makes
+    // WhatsGemini characters carry their lore into other apps.
+    character_book?: {
+      extensions: Record<string, unknown>;
+      entries: Array<{
+        id: number;
+        keys: string[];
+        content: string;
+        enabled: boolean;
+        insertion_order: number;
+        extensions: Record<string, unknown>;
+      }>;
+    };
   };
 }
 
@@ -69,8 +85,31 @@ export const characterToCardV2 = (char: Character): CharacterCardV2 => ({
         personalityTraits: char.personalityTraits,
       },
     },
+    character_book: char.loreEntries && char.loreEntries.length > 0 ? {
+      extensions: {},
+      entries: char.loreEntries.map((entry, i) => ({
+        id: i,
+        keys: entry.keywords,
+        content: entry.content,
+        enabled: entry.enabled !== false,
+        insertion_order: i,
+        extensions: {},
+      })),
+    } : undefined,
   },
 });
+
+// Converts a standard V2/V3 `character_book.entries` array (SillyTavern's
+// "keys", not our "keywords") into WhatsGemini's own LoreEntry shape. Each
+// entry gets a fresh id since the spec's own `id` is an optional number
+// scoped to that one card, not a stable cross-app identifier.
+const mapCharacterBookEntries = (entries: any[]): LoreEntry[] =>
+  entries.map((entry, i) => ({
+    id: `book_${Date.now().toString(36)}_${i}_${Math.random().toString(36).slice(2, 7)}`,
+    keywords: Array.isArray(entry.keys) ? entry.keys : Array.isArray(entry.keywords) ? entry.keywords : [],
+    content: entry.content || "",
+    enabled: entry.enabled !== false,
+  }));
 
 export type ParsedCharacterCard = Omit<Character, "id">;
 
@@ -101,6 +140,11 @@ export const parseCharacterCardJson = (parsed: any): ParsedCharacterCard => {
     const d = parsed.data;
     if (!d.name) throw new Error("Invalid character card: missing name.");
     const ext = d.extensions?.whatsgemini || {};
+    // Prefer our own extension's loreEntries (a lossless round-trip of a
+    // WhatsGemini-authored card) and only fall back to the standard
+    // character_book - what chub.ai/SillyTavern cards actually carry - when
+    // that extension isn't present.
+    const bookEntries = Array.isArray(d.character_book?.entries) ? d.character_book.entries : undefined;
     // Many chub.ai-style cards leave `personality`/`system_prompt` blank and
     // bake the whole persona into `description` instead - fall back to it so
     // those cards don't get rejected for a missing prompt.
@@ -117,7 +161,7 @@ export const parseCharacterCardJson = (parsed: any): ParsedCharacterCard => {
       accent: ext.accent,
       autoSelfie: ext.autoSelfie,
       artStyle: ext.artStyle,
-      loreEntries: ext.loreEntries,
+      loreEntries: ext.loreEntries || (bookEntries ? mapCharacterBookEntries(bookEntries) : undefined),
       personalityTraits: ext.personalityTraits,
     });
   }
