@@ -101,10 +101,13 @@ export const parseCharacterCardJson = (parsed: any): ParsedCharacterCard => {
     const d = parsed.data;
     if (!d.name) throw new Error("Invalid character card: missing name.");
     const ext = d.extensions?.whatsgemini || {};
+    // Many chub.ai-style cards leave `personality`/`system_prompt` blank and
+    // bake the whole persona into `description` instead - fall back to it so
+    // those cards don't get rejected for a missing prompt.
     return withDefaults({
       name: d.name,
       description: d.description || "",
-      prompt: d.personality || d.system_prompt || "",
+      prompt: d.personality || d.system_prompt || d.description || "",
       scenario: d.scenario || "",
       first_mes: d.first_mes || "",
       mes_example: d.mes_example || "",
@@ -131,7 +134,7 @@ export const parseCharacterCardJson = (parsed: any): ParsedCharacterCard => {
     return withDefaults({
       name: parsed.name,
       description: parsed.description || "",
-      prompt: parsed.personality || "",
+      prompt: parsed.personality || parsed.description || "",
       scenario: parsed.scenario || "",
       first_mes: parsed.first_mes || "",
       mes_example: parsed.mes_example || "",
