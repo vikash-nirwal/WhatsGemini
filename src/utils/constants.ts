@@ -410,6 +410,11 @@ export const LS_IMAGE_PROVIDER = "image_provider";
 export const DEFAULT_IMAGE_PROVIDER = "gemini";
 export const LS_OLLAMA_BASE_URL = "ollama_base_url";
 export const DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434/v1";
+// Wan (Wanxiang) has no fixed API host anymore - Alibaba Cloud Model Studio
+// requires each account's own workspace-scoped endpoint (from the console),
+// so unlike Ollama there's no sane default to fall back to.
+export const LS_WAN_BASE_URL = "wan_base_url";
+export const DEFAULT_WAN_BASE_URL = "";
 // Namespaced per provider id so each provider keeps its own encrypted-at-rest key,
 // independent of Gemini's existing LS_GOOGLE_API_KEY.
 export const LS_PROVIDER_API_KEY_PREFIX = "provider_api_key_";
@@ -427,11 +432,13 @@ export const PROVIDER_CHAT_MODELS: Record<string, string[]> = {
   kimi: ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
 };
 
-// Of the requested providers, only Gemini and OpenAI have real image-generation
-// APIs (plus the separately-handled local SD WebUI option) - see registry.ts.
+// Of the requested providers, only Gemini, OpenAI and Wan (Wanxiang, via
+// Alibaba Cloud Model Studio/DashScope) have real image-generation APIs
+// (plus the separately-handled local SD WebUI option) - see registry.ts.
 export const PROVIDER_IMAGE_MODELS: Record<string, string[]> = {
   gemini: imageModels,
   openai: ["gpt-image-1", "dall-e-3"],
+  wan: ["wan2.7-image", "wan2.7-image-pro", "wan2.6-t2i"],
 };
 
 // Auto-backup reminder: everything lives only in this browser's IndexedDB,

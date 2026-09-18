@@ -4,6 +4,8 @@ import {
   LS_PROVIDER_API_KEY_PREFIX,
   LS_OLLAMA_BASE_URL,
   DEFAULT_OLLAMA_BASE_URL,
+  LS_WAN_BASE_URL,
+  DEFAULT_WAN_BASE_URL,
 } from "../../../utils/constants";
 import { InitialMessage } from "../../../types";
 import { decryptApiKey, encryptApiKey } from "../../../utils/secureApiKeyStorage";
@@ -68,3 +70,9 @@ export const clearProviderApiKey = (providerId: string): void => {
 // on offer) - kept as a single flat key rather than per-provider-namespaced
 // since there's only ever one local backend in play at a time.
 export const getOllamaBaseUrl = (): string => getStoredValue(LS_OLLAMA_BASE_URL, DEFAULT_OLLAMA_BASE_URL);
+
+// Wan (Wanxiang/DashScope) also needs a base URL - Alibaba Cloud Model Studio
+// no longer exposes a fixed host, only per-workspace endpoints, so this has
+// no usable default and must be pasted in from the Model Studio console.
+export const getWanBaseUrl = (): string => getStoredValue(LS_WAN_BASE_URL, DEFAULT_WAN_BASE_URL);
+export const saveWanBaseUrl = (url: string): void => localStorage.setItem(LS_WAN_BASE_URL, url);

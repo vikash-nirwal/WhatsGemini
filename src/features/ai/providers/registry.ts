@@ -1,6 +1,7 @@
 import { geminiAdapter, geminiImageAdapter } from "./geminiAdapter";
 import { anthropicAdapter } from "./anthropicAdapter";
 import { openaiImageAdapter } from "./openaiImageAdapter";
+import { wanAdapter } from "./wanAdapter";
 import { createOpenAiCompatibleAdapter } from "./openaiCompatibleAdapter";
 import { ChatProviderAdapter, ImageProviderAdapter } from "./types";
 
@@ -53,12 +54,14 @@ export const CHAT_PROVIDERS: Record<string, ChatProviderAdapter> = {
   ollama: ollamaAdapter,
 };
 
-// Deliberately a short list: of the requested providers, only Gemini (native)
-// and OpenAI (DALL-E/gpt-image-1) have real image-generation APIs, alongside
-// the existing local SD WebUI integration (handled separately - see aiSlice.ts).
+// Deliberately a short list: of the requested providers, only Gemini (native),
+// OpenAI (DALL-E/gpt-image-1) and Wan (Wanxiang, via DashScope) have real
+// image-generation APIs, alongside the existing local SD WebUI integration
+// (handled separately - see aiSlice.ts).
 export const IMAGE_PROVIDERS: Record<string, ImageProviderAdapter> = {
   gemini: geminiImageAdapter,
   openai: openaiImageAdapter,
+  wan: wanAdapter,
 };
 
 export const CHAT_PROVIDER_META: ProviderMeta[] = [
@@ -74,5 +77,6 @@ export const CHAT_PROVIDER_META: ProviderMeta[] = [
 export const IMAGE_PROVIDER_META: ProviderMeta[] = [
   { id: "gemini", label: "Google Gemini (native)" },
   { id: "openai", label: "OpenAI (DALL·E / gpt-image-1)" },
+  { id: "wan", label: "Wan (Wanxiang, DashScope)" },
   { id: "sdwebui", label: "Local/Remote SD WebUI Forge" },
 ];

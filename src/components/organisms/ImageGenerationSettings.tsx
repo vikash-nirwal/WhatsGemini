@@ -16,6 +16,11 @@ interface ImageGenerationSettingsProps {
   setImageProvider: (provider: string) => void;
   openaiApiKey: string;
   setOpenaiApiKey: (key: string) => void;
+  wanApiKey: string;
+  setWanApiKey: (key: string) => void;
+  wanBaseUrl: string;
+  setWanBaseUrl: (url: string) => void;
+  wanImageModelList: { value: string; label: string }[];
   sdWebuiApiUrl: string;
   setSdWebuiApiUrl: (url: string) => void;
   sdWebuiBatchSize: number;
@@ -61,6 +66,11 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
   setImageProvider,
   openaiApiKey,
   setOpenaiApiKey,
+  wanApiKey,
+  setWanApiKey,
+  wanBaseUrl,
+  setWanBaseUrl,
+  wanImageModelList,
   sdWebuiApiUrl,
   setSdWebuiApiUrl,
   sdWebuiBatchSize,
@@ -201,6 +211,36 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
             <SettingsRow label="Model" hint={'Used when "send pic" or similar is queried.'}>
               <Select value={imageModel} onChange={(e) => setImageModel(e.target.value)}>
                 {openaiImageModelList.map((model) => (
+                  <option key={model.value} value={model.value}>
+                    {model.label}
+                  </option>
+                ))}
+              </Select>
+            </SettingsRow>
+          </>
+        ) : imageProvider === 'wan' ? (
+          <>
+            <SettingsRow label="API key" hint="Your DashScope (Alibaba Cloud Model Studio) key. Stored encrypted, only on this device.">
+              <TextInput
+                type="password"
+                value={wanApiKey}
+                onChange={(e) => setWanApiKey(e.target.value)}
+                placeholder="Paste your API key here..."
+              />
+            </SettingsRow>
+
+            <SettingsRow label="Workspace endpoint" hint="Your account's workspace-scoped endpoint from the Model Studio console, e.g. https://<workspace-id>.ap-southeast-1.maas.aliyuncs.com">
+              <TextInput
+                type="text"
+                value={wanBaseUrl}
+                onChange={(e) => setWanBaseUrl(e.target.value)}
+                placeholder="https://<workspace-id>.ap-southeast-1.maas.aliyuncs.com"
+              />
+            </SettingsRow>
+
+            <SettingsRow label="Model" hint={'Used when "send pic" or similar is queried. Generation is async and typically takes 1-2 minutes.'}>
+              <Select value={imageModel} onChange={(e) => setImageModel(e.target.value)}>
+                {wanImageModelList.map((model) => (
                   <option key={model.value} value={model.value}>
                     {model.label}
                   </option>

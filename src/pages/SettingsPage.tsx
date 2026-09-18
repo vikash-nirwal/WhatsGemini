@@ -22,7 +22,7 @@ import UserProfileSettings from "src/components/organisms/UserProfileSettings";
 import TextModelSettings from "src/components/organisms/TextModelSettings";
 import ImageGenerationSettings from "src/components/organisms/ImageGenerationSettings";
 import AppearanceSettings from "src/components/organisms/AppearanceSettings";
-import { getAPIKey, getProviderApiKey, saveProviderApiKey } from "../features/ai/utils/settings";
+import { getAPIKey, getProviderApiKey, saveProviderApiKey, getWanBaseUrl, saveWanBaseUrl } from "../features/ai/utils/settings";
 import { CHAT_PROVIDERS } from "../features/ai/providers/registry";
 import { useModal } from "../contexts/ModalContext";
 import { fetchChats } from "../features/chatSlice";
@@ -263,6 +263,33 @@ const SettingsPage = () => {
     saveProviderApiKey("openai", key);
   }, []);
 
+  // Wan's key/endpoint only matter when it's the active image provider - same
+  // lazy-load-on-select pattern as the OpenAI image key above.
+  const [wanApiKey, setWanApiKeyState] = useState("");
+  const [wanBaseUrl, setWanBaseUrlState] = useState("");
+  useEffect(() => {
+    if (imageProvider !== "wan") return;
+    let cancelled = false;
+    (async () => {
+      const key = await getProviderApiKey("wan");
+      if (!cancelled) {
+        setWanApiKeyState(key || "");
+        setWanBaseUrlState(getWanBaseUrl());
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [imageProvider]);
+
+  const handleSetWanApiKey = useCallback((key: string) => {
+    setWanApiKeyState(key);
+    saveProviderApiKey("wan", key);
+  }, []);
+
+  const handleSetWanBaseUrl = useCallback((url: string) => {
+    setWanBaseUrlState(url);
+    saveWanBaseUrl(url);
+  }, []);
+
   const [ollamaModelOptions, setOllamaModelOptions] = useState<string[]>([]);
   const fetchOllamaModels = useCallback(async () => {
     try {
@@ -287,6 +314,7 @@ const SettingsPage = () => {
 
   const currentImageModelList = imageProvider === "gemini" ? imageModelList : [];
   const openaiImageModelList = (PROVIDER_IMAGE_MODELS.openai || []).map((m) => ({ value: m, label: m }));
+  const wanImageModelList = (PROVIDER_IMAGE_MODELS.wan || []).map((m) => ({ value: m, label: m }));
 
   const selectedSection = SECTION_IDS.includes(section as any) ? (section as string) : "profile";
   const setSelectedSection = (id: string) => navigate(`/settings/${id}`);
@@ -724,6 +752,11 @@ const SettingsPage = () => {
                     setImageProvider={(val) => dispatch(setImageProvider(val))}
                     openaiApiKey={openaiImageApiKey}
                     setOpenaiApiKey={handleSetOpenaiImageApiKey}
+                    wanApiKey={wanApiKey}
+                    setWanApiKey={handleSetWanApiKey}
+                    wanBaseUrl={wanBaseUrl}
+                    setWanBaseUrl={handleSetWanBaseUrl}
+                    wanImageModelList={wanImageModelList}
                     sdWebuiApiUrl={sdWebuiApiUrl}
                     setSdWebuiApiUrl={(val) => dispatch(setSdWebuiApiUrl(val))}
                     sdWebuiBatchSize={sdWebuiBatchSize}

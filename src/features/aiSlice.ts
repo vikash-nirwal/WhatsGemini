@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { performChatCompression, buildValidHistory, buildAutoCompressedMessages, truncateHistory, trimTrailingUserMessages } from "./ai/utils/chatHistoryUtils";
 import { AI, YOU, getModelPricing, ART_STYLE_CLAUSES, DEFAULT_ART_STYLE } from "../utils/constants";
-import { getProviderApiKey, getOllamaBaseUrl } from "./ai/utils/settings";
+import { getProviderApiKey, getOllamaBaseUrl, getWanBaseUrl } from "./ai/utils/settings";
 import { extractAndSaveBase64ImagesLocally, stripLeakedBase64 } from "./ai/utils/apiUtils";
 import { deriveImagePrompt, generateImage, RoomReferenceCharacter } from "./ai/utils/imageGeneration";
 import { extractEmotionTag } from "./ai/utils/emotionUtils";
@@ -25,10 +25,11 @@ export interface GenerateAIResponseResult {
 }
 
 // Resolves the runtime config (API key / base URL) a chat or image provider
-// adapter needs to actually make a call.
+// adapter needs to actually make a call. Ollama and Wan are the only
+// providers with requiresBaseUrl set today, each with its own storage slot.
 const resolveProviderConfig = async (providerId: string, requiresBaseUrl: boolean): Promise<ProviderRuntimeConfig> => ({
   apiKey: await getProviderApiKey(providerId),
-  baseUrl: requiresBaseUrl ? getOllamaBaseUrl() : undefined,
+  baseUrl: !requiresBaseUrl ? undefined : providerId === "wan" ? getWanBaseUrl() : getOllamaBaseUrl(),
 });
 
 // Async Thunk for generating AI response
