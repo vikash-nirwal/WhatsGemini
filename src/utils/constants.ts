@@ -313,6 +313,15 @@ export const LS_AI_MODEL = "ai_model";
 export const LS_COMPRESS_THRESHOLD = "compress_threshold";
 export const LS_IMAGE_MODEL = "image_model";
 export const DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image";
+// Wan is the only video provider today, and its exact model naming shifts
+// between releases (t2v suffixes vary), so this is offered as a free-text
+// field with these as datalist suggestions rather than a strict dropdown -
+// see VideoModel in TextModelSettings-style Settings wiring.
+export const LS_VIDEO_MODEL = "video_model";
+export const DEFAULT_VIDEO_MODEL = "wan2.6-t2v";
+export const PROVIDER_VIDEO_MODELS: Record<string, string[]> = {
+  wan: ["wan2.6-t2v", "wan2.5-t2v", "wanx2.1-t2v-turbo", "wanx2.1-t2v-plus"],
+};
 export const LS_IMAGE_GEN_PROMPT = "image_gen_prompt";
 export const DEFAULT_IMAGE_GEN_PROMPT = "Create a high quality, detailed image.";
 export const LS_MAX_OUTPUT_TOKENS = "max_output_tokens";

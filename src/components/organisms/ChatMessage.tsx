@@ -9,6 +9,7 @@ import { stripImageContextTag } from "../../features/ai/utils/imageGeneration";
 import MarkdownRenderer from "src/components/molecules/MarkdownRenderer";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "src/components/molecules/dropdown-menu";
 import { DisplayImage } from "src/components/molecules/DisplayImage";
+import { DisplayVideo } from "src/components/molecules/DisplayVideo";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { Button } from "src/components/atoms/button";
 import { Card, CardContent } from "src/components/atoms/card";
@@ -152,6 +153,13 @@ const ChatMessage = React.memo(({
               className="mt-2 max-w-full md:max-w-[70%] border border-border-bright cursor-zoom-in hover:opacity-90 transition-opacity"
             />
           ))}
+          {msg.videos && msg.videos.map((vidSrc, idx) => (
+            <DisplayVideo
+              key={idx}
+              srcContext={vidSrc}
+              className="mt-2 max-w-full md:max-w-[70%] border border-border-bright"
+            />
+          ))}
         </div>
       </motion.div>
     );
@@ -285,6 +293,14 @@ const ChatMessage = React.memo(({
             alt="Generated"
             onClick={() => setFullscreenImage(imgSrc)}
             className="mt-2 max-w-full rounded-lg shadow-sm cursor-zoom-in hover:opacity-90 transition-opacity"
+          />
+        ))}
+
+        {msg.videos && msg.videos.map((vidSrc, idx) => (
+          <DisplayVideo
+            key={idx}
+            srcContext={vidSrc}
+            className="mt-2 max-w-full rounded-lg shadow-sm"
           />
         ))}
 

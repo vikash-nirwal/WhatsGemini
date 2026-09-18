@@ -52,6 +52,9 @@ interface ImageGenerationSettingsProps {
   imageSaveDirName: string;
   handleSelectDirectory: () => void;
   LS_SD_WEBUI_MODEL: string;
+  videoModel: string;
+  setVideoModel: (model: string) => void;
+  videoModelSuggestions: string[];
 }
 
 const REF_MODE_OPTIONS = [
@@ -102,6 +105,9 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
   imageSaveDirName,
   handleSelectDirectory,
   LS_SD_WEBUI_MODEL,
+  videoModel,
+  setVideoModel,
+  videoModelSuggestions,
 }) => {
   const { is } = useColorTheme();
   return (
@@ -259,6 +265,49 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
             </Select>
           </SettingsRow>
         )}
+      </SettingsCard>
+
+      <SettingsCard>
+        <div className="p-5 flex flex-col gap-3">
+          <SettingsCardHeader title="Video generation" hint="Wan (Wanxiang, via DashScope) is the only video provider today - independent of the image provider above, and used whenever a message requests a video." />
+        </div>
+
+        {imageProvider !== 'wan' && (
+          <>
+            <SettingsRow label="API key" hint="Your DashScope (Alibaba Cloud Model Studio) key. Stored encrypted, only on this device.">
+              <TextInput
+                type="password"
+                value={wanApiKey}
+                onChange={(e) => setWanApiKey(e.target.value)}
+                placeholder="Paste your API key here..."
+              />
+            </SettingsRow>
+
+            <SettingsRow label="Workspace endpoint" hint="Your account's workspace-scoped endpoint from the Model Studio console, e.g. https://<workspace-id>.ap-southeast-1.maas.aliyuncs.com">
+              <TextInput
+                type="text"
+                value={wanBaseUrl}
+                onChange={(e) => setWanBaseUrl(e.target.value)}
+                placeholder="https://<workspace-id>.ap-southeast-1.maas.aliyuncs.com"
+              />
+            </SettingsRow>
+          </>
+        )}
+
+        <SettingsRow label="Model" hint="Free text - Wan's exact model naming shifts between releases, so pick one of these suggestions or paste the exact id from the Model Studio console. Generation is async and typically takes 1-5+ minutes.">
+          <TextInput
+            type="text"
+            list="wan-video-model-options"
+            value={videoModel}
+            onChange={(e) => setVideoModel(e.target.value)}
+            placeholder="e.g. wan2.6-t2v"
+          />
+          <datalist id="wan-video-model-options">
+            {videoModelSuggestions.map((m) => (
+              <option key={m} value={m} />
+            ))}
+          </datalist>
+        </SettingsRow>
       </SettingsCard>
 
       <SettingsCard>

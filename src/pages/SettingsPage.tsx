@@ -5,7 +5,7 @@ import { RootState } from "../store/store";
 import { useAppDispatch } from "../store/hooks";
 import {
   addPersona, updatePersona, deletePersona, setActivePersonaId, setPersonas,
-  setSelectedModel, setImageModel, setImageGenPrompt,
+  setSelectedModel, setImageModel, setVideoModel, setImageGenPrompt,
   setSdWebuiApiUrl, setSdWebuiBatchSize, setSdWebuiRefMode,
   setSdWebuiDenoising, setSdWebuiControlnetModel, setSdWebuiModels,
   setSdWebuiModel, setMaxOutputTokens, setReplyLengthLimit, setCompressThreshold, setMaxChatLength,
@@ -78,6 +78,7 @@ import {
   LS_LAST_BACKUP_AT,
   PROVIDER_CHAT_MODELS,
   PROVIDER_IMAGE_MODELS,
+  PROVIDER_VIDEO_MODELS,
 } from "../utils/constants";
 import { AISafetySettings, UserProfile } from "../types";
 import { dbService } from "../services/dbService";
@@ -213,7 +214,7 @@ const SettingsPage = () => {
   const settings = useSelector((state: RootState) => state.settings);
 
   const {
-    personas, activePersonaId, chatProvider, imageProvider, ollamaBaseUrl, selectedModel, imageModel,
+    personas, activePersonaId, chatProvider, imageProvider, ollamaBaseUrl, selectedModel, imageModel, videoModel,
     imageGenPrompt, sdWebuiApiUrl,
     sdWebuiBatchSize, sdWebuiRefMode, sdWebuiDenoising, sdWebuiControlnetModel, sdWebuiModels,
     sdWebuiModel, maxOutputTokens, replyLengthLimit, compressThreshold, maxChatLength, temperature,
@@ -263,12 +264,13 @@ const SettingsPage = () => {
     saveProviderApiKey("openai", key);
   }, []);
 
-  // Wan's key/endpoint only matter when it's the active image provider - same
-  // lazy-load-on-select pattern as the OpenAI image key above.
+  // Wan's key/endpoint are shared by both its image and video adapters (same
+  // DashScope account) - video generation always uses "wan" regardless of
+  // which imageProvider is active, so unlike the OpenAI image key above this
+  // loads unconditionally on mount rather than only when Wan is selected.
   const [wanApiKey, setWanApiKeyState] = useState("");
   const [wanBaseUrl, setWanBaseUrlState] = useState("");
   useEffect(() => {
-    if (imageProvider !== "wan") return;
     let cancelled = false;
     (async () => {
       const key = await getProviderApiKey("wan");
@@ -278,7 +280,7 @@ const SettingsPage = () => {
       }
     })();
     return () => { cancelled = true; };
-  }, [imageProvider]);
+  }, []);
 
   const handleSetWanApiKey = useCallback((key: string) => {
     setWanApiKeyState(key);
@@ -788,6 +790,9 @@ const SettingsPage = () => {
                     imageSaveDirName={imageSaveDirName}
                     handleSelectDirectory={handleSelectDirectory}
                     LS_SD_WEBUI_MODEL={LS_SD_WEBUI_MODEL}
+                    videoModel={videoModel}
+                    setVideoModel={(val) => dispatch(setVideoModel(val))}
+                    videoModelSuggestions={PROVIDER_VIDEO_MODELS.wan || []}
                   />
                 )}
 

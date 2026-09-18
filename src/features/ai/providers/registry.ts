@@ -1,9 +1,9 @@
 import { geminiAdapter, geminiImageAdapter } from "./geminiAdapter";
 import { anthropicAdapter } from "./anthropicAdapter";
 import { openaiImageAdapter } from "./openaiImageAdapter";
-import { wanAdapter } from "./wanAdapter";
+import { wanAdapter, wanVideoAdapter } from "./wanAdapter";
 import { createOpenAiCompatibleAdapter } from "./openaiCompatibleAdapter";
-import { ChatProviderAdapter, ImageProviderAdapter } from "./types";
+import { ChatProviderAdapter, ImageProviderAdapter, VideoProviderAdapter } from "./types";
 
 export interface ProviderMeta {
   id: string;
@@ -80,3 +80,11 @@ export const IMAGE_PROVIDER_META: ProviderMeta[] = [
   { id: "wan", label: "Wan (Wanxiang, DashScope)" },
   { id: "sdwebui", label: "Local/Remote SD WebUI Forge" },
 ];
+
+// Wan is the only video-generation provider on offer - same DashScope
+// account/key/workspace endpoint as its image adapter above.
+export const VIDEO_PROVIDERS: Record<string, VideoProviderAdapter> = {
+  wan: wanVideoAdapter,
+};
+
+export const VIDEO_PROVIDER_META: ProviderMeta[] = [{ id: "wan", label: "Wan (Wanxiang, DashScope)" }];

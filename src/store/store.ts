@@ -20,6 +20,7 @@ import {
   LS_PORTRAIT_SAVE_SIZE,
   LS_PORTRAIT_RESIZE_ENABLED,
   LS_IMAGE_MODEL,
+  LS_VIDEO_MODEL,
   LS_IMAGE_GEN_PROMPT,
   LS_USE_SD_WEBUI,
   LS_SD_WEBUI_API_URL,
@@ -66,6 +67,7 @@ store.subscribe(() => {
   localStorage.setItem(LS_OLLAMA_BASE_URL, state.ollamaBaseUrl);
   localStorage.setItem(LS_AI_MODEL, state.selectedModel);
   localStorage.setItem(LS_IMAGE_MODEL, state.imageModel);
+  localStorage.setItem(LS_VIDEO_MODEL, state.videoModel);
   localStorage.setItem(LS_IMAGE_GEN_PROMPT, state.imageGenPrompt);
   localStorage.setItem(LS_USE_SD_WEBUI, state.useSdWebui.toString());
   localStorage.setItem(LS_SD_WEBUI_API_URL, state.sdWebuiApiUrl);

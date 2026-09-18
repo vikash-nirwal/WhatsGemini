@@ -94,3 +94,20 @@ export interface ImageProviderAdapter {
   capabilities: Pick<ProviderCapabilities, "requiresApiKey" | "requiresBaseUrl">;
   generateImage(opts: ImageGenCallOptions, config: ProviderRuntimeConfig): Promise<ImageGenCallResult>;
 }
+
+export interface VideoGenCallOptions {
+  model: string;
+  prompt: string;
+  signal?: AbortSignal;
+}
+
+export interface VideoGenCallResult {
+  videos: string[]; // data: URLs when convertible, otherwise the provider's (possibly temporary) URL
+  usage?: UsageInfo;
+}
+
+export interface VideoProviderAdapter {
+  id: string;
+  capabilities: Pick<ProviderCapabilities, "requiresApiKey" | "requiresBaseUrl">;
+  generateVideo(opts: VideoGenCallOptions, config: ProviderRuntimeConfig): Promise<VideoGenCallResult>;
+}

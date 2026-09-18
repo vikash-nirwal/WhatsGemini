@@ -24,6 +24,8 @@ import {
   DEFAULT_PORTRAIT_SAVE_SIZE,
   LS_IMAGE_MODEL,
   DEFAULT_IMAGE_MODEL,
+  LS_VIDEO_MODEL,
+  DEFAULT_VIDEO_MODEL,
   LS_IMAGE_GEN_PROMPT,
   DEFAULT_IMAGE_GEN_PROMPT,
   LS_USE_SD_WEBUI,
@@ -90,6 +92,7 @@ export interface SettingsState {
   ollamaBaseUrl: string;
   selectedModel: string;
   imageModel: string;
+  videoModel: string;
   imageGenPrompt: string;
   useSdWebui: boolean;
   sdWebuiApiUrl: string;
@@ -130,6 +133,7 @@ const initialState: SettingsState = {
   ollamaBaseUrl: localStorage.getItem(LS_OLLAMA_BASE_URL) || DEFAULT_OLLAMA_BASE_URL,
   selectedModel: localStorage.getItem(LS_AI_MODEL) || models[0],
   imageModel: localStorage.getItem(LS_IMAGE_MODEL) || DEFAULT_IMAGE_MODEL,
+  videoModel: localStorage.getItem(LS_VIDEO_MODEL) || DEFAULT_VIDEO_MODEL,
   imageGenPrompt: localStorage.getItem(LS_IMAGE_GEN_PROMPT) || DEFAULT_IMAGE_GEN_PROMPT,
   useSdWebui: localStorage.getItem(LS_USE_SD_WEBUI) === 'true',
   sdWebuiApiUrl: localStorage.getItem(LS_SD_WEBUI_API_URL) || DEFAULT_SD_WEBUI_API_URL,
@@ -205,6 +209,9 @@ const settingsSlice = createSlice({
     },
     setImageModel: (state, action: PayloadAction<string>) => {
       state.imageModel = action.payload;
+    },
+    setVideoModel: (state, action: PayloadAction<string>) => {
+      state.videoModel = action.payload;
     },
     setImageGenPrompt: (state, action: PayloadAction<string>) => {
       state.imageGenPrompt = action.payload;
@@ -292,6 +299,7 @@ export const {
   setOllamaBaseUrl,
   setSelectedModel,
   setImageModel,
+  setVideoModel,
   setImageGenPrompt,
   setUseSdWebui,
   setSdWebuiApiUrl,

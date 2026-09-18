@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo, lazy, Suspense } from "react";
-import { FaPaperPlane, FaStop, FaCog, FaImage, FaTimes, FaMask, FaUserFriends, FaCommentSlash } from "react-icons/fa";
+import { FaPaperPlane, FaStop, FaCog, FaImage, FaVideo, FaTimes, FaMask, FaUserFriends, FaCommentSlash } from "react-icons/fa";
 import { cn } from "../../utils/cn";
 import { Button } from "src/components/atoms/button";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
@@ -17,7 +17,7 @@ interface MessageInputProps {
   // (via the room picker below) while a draft was in the box - only that
   // character should reply to this particular message, bypassing the usual
   // @mention/round-robin pick.
-  onSend: (text: string, isImageRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean) => void;
+  onSend: (text: string, isImageRequest?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean) => void;
   disabled?: boolean;
   onStop?: () => void;
   // Fires while the user is actively typing a non-empty draft - lets a
@@ -79,6 +79,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const terminal = is("terminal");
   const [text, setText] = useState("");
   const [isImageRequest, setIsImageRequest] = useState(false);
+  const [isVideoRequest, setIsVideoRequest] = useState(false);
   const [isImpersonated, setIsImpersonated] = useState(false);
   // "Send without a reply" - adds the message as yourself but skips the
   // usual auto AI-reply, so the very next send (e.g. an impersonated one)
@@ -192,14 +193,32 @@ const MessageInput: React.FC<MessageInputProps> = ({
     const trimmedText = text.trim();
     if (!trimmedText) return;
 
-    onSend(trimmedText, isImageRequest, isImpersonated, selectedSpeakerId ?? undefined, isSilentSend);
+    onSend(trimmedText, isImageRequest, isVideoRequest, isImpersonated, selectedSpeakerId ?? undefined, isSilentSend);
     setText("");
     setIsImageRequest(false); // Disable/uncheck it afterward
+    setIsVideoRequest(false);
     setIsImpersonated(false);
     setIsSilentSend(false);
     setSelectedSpeakerId(null);
     setMention(null);
-  }, [text, isImageRequest, isImpersonated, isSilentSend, selectedSpeakerId, onSend, disabled]);
+  }, [text, isImageRequest, isVideoRequest, isImpersonated, isSilentSend, selectedSpeakerId, onSend, disabled]);
+
+  // Mutually exclusive - toggling one clears the other, since a single reply
+  // only ever generates one kind of media.
+  const toggleImageRequest = useCallback(() => {
+    setIsImageRequest((v) => {
+      const next = !v;
+      if (next) setIsVideoRequest(false);
+      return next;
+    });
+  }, []);
+  const toggleVideoRequest = useCallback(() => {
+    setIsVideoRequest((v) => {
+      const next = !v;
+      if (next) setIsImageRequest(false);
+      return next;
+    });
+  }, []);
 
   // Picking a participant means something different depending on whether
   // there's already a draft: with text in the box, it targets THIS message
@@ -428,6 +447,25 @@ const MessageInput: React.FC<MessageInputProps> = ({
         </div>
       )}
 
+      {isVideoRequest && terminal && terminalBanner("video generation on - a video will be created alongside the reply (this takes 1-5+ minutes).", () => setIsVideoRequest(false), "Turn off video generation")}
+      {isVideoRequest && !terminal && (
+        <div className="flex items-center gap-2.5 px-3 py-2 bg-primary/10 border border-primary rounded-lg">
+          <span className="text-primary flex-shrink-0 flex"><FaVideo size={13} /></span>
+          <span className="flex-1 text-[12.5px] text-foreground font-medium">
+            Video generation on — a video will be created alongside the reply (this takes 1-5+ minutes).
+          </span>
+          <Button
+            onClick={() => setIsVideoRequest(false)}
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground flex-shrink-0"
+            aria-label="Turn off video generation"
+          >
+            <FaTimes size={11} />
+          </Button>
+        </div>
+      )}
+
       {isImpersonated && terminal && terminalBanner(`impersonation on - this message is sent as ${characterName || "the character"}, not you.`, () => setIsImpersonated(false), "Turn off impersonation")}
       {isImpersonated && !terminal && (
         <div className="flex items-center gap-2.5 px-3 py-2 bg-violet-500/10 border border-violet-500/50 rounded-lg">
@@ -528,12 +566,21 @@ const MessageInput: React.FC<MessageInputProps> = ({
           )}
           <TermLink
             label="img"
-            onClick={() => setIsImageRequest((v) => !v)}
+            onClick={toggleImageRequest}
             disabled={disabled}
             aria-pressed={isImageRequest}
             title="Request an image with this message"
             aria-label="Request an image with this message"
             className={cn(isImageRequest && "bg-primary text-primary-foreground no-underline")}
+          />
+          <TermLink
+            label="vid"
+            onClick={toggleVideoRequest}
+            disabled={disabled}
+            aria-pressed={isVideoRequest}
+            title="Request a video with this message"
+            aria-label="Request a video with this message"
+            className={cn(isVideoRequest && "bg-primary text-primary-foreground no-underline")}
           />
           <TermLink
             label="mask"
@@ -616,7 +663,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
         )}
 
         <Button
-          onClick={() => setIsImageRequest((v) => !v)}
+          onClick={toggleImageRequest}
           disabled={disabled}
           variant="ghost"
           title="Request an image with this message"
@@ -630,6 +677,23 @@ const MessageInput: React.FC<MessageInputProps> = ({
           )}
         >
           <FaImage size={16} />
+        </Button>
+
+        <Button
+          onClick={toggleVideoRequest}
+          disabled={disabled}
+          variant="ghost"
+          title="Request a video with this message"
+          aria-label="Request a video with this message"
+          aria-pressed={isVideoRequest}
+          className={cn(
+            "h-10 w-10 flex-shrink-0 rounded-lg",
+            isVideoRequest
+              ? "bg-primary/[0.14] text-primary hover:bg-primary/[0.2]"
+              : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+          )}
+        >
+          <FaVideo size={16} />
         </Button>
 
         <Button

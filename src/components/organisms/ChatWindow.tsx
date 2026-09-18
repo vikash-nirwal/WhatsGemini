@@ -28,8 +28,8 @@ interface ChatWindowProps {
   onDeleteBranch?: (nodeId: string) => void;
   onRegenerate?: (index: number) => void;
   onContinue?: (index: number) => void;
-  onEdit?: (index: number, text: string, isImageRequest?: boolean) => void;
-  onSend?: (text: string, isImageRequest?: boolean) => void;
+  onEdit?: (index: number, text: string, isImageRequest?: boolean, isVideoRequest?: boolean) => void;
+  onSend?: (text: string, isImageRequest?: boolean, isVideoRequest?: boolean) => void;
   aiLoading?: boolean;
   isFollowupPending?: boolean;
   characterName?: string;
@@ -99,6 +99,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
   const [editIsImageRequest, setEditIsImageRequest] = useState(false);
+  const [editIsVideoRequest, setEditIsVideoRequest] = useState(false);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
@@ -234,6 +235,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
       setEditingIndex(originalIndex);
       setEditText(msg.txt || "");
       setEditIsImageRequest(msg.isImageRequest || false);
+      setEditIsVideoRequest(msg.isVideoRequest || false);
     }
   }, [messages]);
 
@@ -241,16 +243,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
     setEditingIndex(null);
     setEditText("");
     setEditIsImageRequest(false);
+    setEditIsVideoRequest(false);
   }, []);
 
   const saveEdit = useCallback(() => {
     if (editText.trim() && onEdit && editingIndex !== null) {
-      onEdit(editingIndex, editText.trim(), editIsImageRequest);
+      onEdit(editingIndex, editText.trim(), editIsImageRequest, editIsVideoRequest);
       setEditingIndex(null);
       setEditText("");
       setEditIsImageRequest(false);
+      setEditIsVideoRequest(false);
     }
-  }, [editText, editIsImageRequest, editingIndex, onEdit]);
+  }, [editText, editIsImageRequest, editIsVideoRequest, editingIndex, onEdit]);
 
   const handleCopyMessage = useCallback((text: string) => {
     navigator.clipboard.writeText(text);
@@ -507,12 +511,20 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
           </div>
 
           <div className="p-4 border-t border-border flex flex-col sm:flex-row justify-between gap-3 bg-background items-stretch sm:items-center flex-shrink-0">
-            <ToggleSwitch
-              checked={editIsImageRequest}
-              onChange={setEditIsImageRequest}
-              title="Request image generation"
-              label="Generate Image"
-            />
+            <div className="flex gap-4">
+              <ToggleSwitch
+                checked={editIsImageRequest}
+                onChange={(v) => { setEditIsImageRequest(v); if (v) setEditIsVideoRequest(false); }}
+                title="Request image generation"
+                label="Generate Image"
+              />
+              <ToggleSwitch
+                checked={editIsVideoRequest}
+                onChange={(v) => { setEditIsVideoRequest(v); if (v) setEditIsImageRequest(false); }}
+                title="Request video generation"
+                label="Generate Video"
+              />
+            </div>
 
             <div className="flex gap-3">
               <Button

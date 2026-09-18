@@ -427,11 +427,13 @@ const ChatPage = () => {
     const lastUserIndex = freshMessages.map((m) => m.role).lastIndexOf(YOU);
     const aiMessagesSinceLastUser = lastUserIndex >= 0 ? freshMessages.slice(lastUserIndex + 1).filter((m) => m.role === AI).length : 0;
     const echoesUserImage = lastUserIndex >= 0 && Boolean(freshMessages[lastUserIndex].isImageRequest) && aiMessagesSinceLastUser === 1;
+    const echoesUserVideo = lastUserIndex >= 0 && Boolean(freshMessages[lastUserIndex].isVideoRequest) && aiMessagesSinceLastUser === 1;
 
     const autoSelfieCfg = speaker.autoSelfie;
-    const shouldAutoSelfie = !echoesUserImage && !!autoSelfieCfg?.enabled &&
+    const shouldAutoSelfie = !echoesUserImage && !echoesUserVideo && !!autoSelfieCfg?.enabled &&
       Math.random() * 100 < (autoSelfieCfg.frequency ?? DEFAULT_AUTO_SELFIE_FREQUENCY);
     const includeImage = echoesUserImage || shouldAutoSelfie;
+    const includeVideo = echoesUserVideo;
 
     // generateAIResponse's history prep (trimTrailingUserMessages) always pops
     // a trailing user turn off `history` before the call, since the API needs
@@ -463,7 +465,7 @@ const ChatPage = () => {
     const aiResponse = await dispatch(generateAIResponse({
       prompt: followupPrompt,
       history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle,
-      isImageRequest: includeImage, isCharacterInitiated: true, isAutoSelfie: shouldAutoSelfie,
+      isImageRequest: includeImage, isVideoRequest: includeVideo, isCharacterInitiated: true, isAutoSelfie: shouldAutoSelfie,
       customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages,
     }));
 
@@ -472,12 +474,16 @@ const ChatPage = () => {
     const payloadObj = aiResponse.payload as any;
     await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
     const generatedImages = payloadObj?.images || undefined;
+    const generatedVideos = payloadObj?.videos || undefined;
     const aiAddResult = await dispatch(addMessage({
       chatId: chatIdNum,
       role: AI,
       text: finalizeSpeakerText(typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string), speaker),
       images: generatedImages,
       isImageRequest: Boolean(generatedImages && generatedImages.length > 0),
+      videos: generatedVideos,
+      isVideoRequest: Boolean(generatedVideos && generatedVideos.length > 0),
+      videoPrompt: payloadObj?.videoPrompt,
       emotion: payloadObj?.emotion,
       imagePrompt: payloadObj?.imagePrompt,
       imageParams: payloadObj?.imageParams,
@@ -590,7 +596,7 @@ const ChatPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoReplySettings.enabled, autoReplySettings.minDelaySeconds, autoReplySettings.maxDelaySeconds, autoReplySettings.maxFollowups, autoReplySettings.followupCount, chatIdNum, characterData, currentChat?.content, aiLoading, lastTypingActivityAt]);
 
-  const handleSend = async (text: string, isImageRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean) => {
+  const handleSend = async (text: string, isImageRequest?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean) => {
     if (!text.trim() || !chatIdNum) return;
 
     setError(null);
@@ -606,7 +612,7 @@ const ChatPage = () => {
         return;
       }
 
-      const resultAction = await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, isImageRequest }));
+      const resultAction = await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, isImageRequest, isVideoRequest }));
       const updatedMessages = resultAction.payload as Message[] || [];
 
       if (silentSend) {
@@ -635,11 +641,11 @@ const ChatPage = () => {
       if (!speaker) return;
 
       const autoSelfieCfg = speaker.autoSelfie;
-      const shouldAutoSelfie = !isImageRequest && !!autoSelfieCfg?.enabled &&
+      const shouldAutoSelfie = !isImageRequest && !isVideoRequest && !!autoSelfieCfg?.enabled &&
         Math.random() * 100 < (autoSelfieCfg.frequency ?? DEFAULT_AUTO_SELFIE_FREQUENCY);
 
       const { history, systemInstruction, characterImages, characterName, otherParticipantImages } = buildTurnContext(contextMessages, speaker, withAuthorNote(), replyLengthLimit, activePersona, buildRoomContext(speaker));
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: text, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: text, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isVideoRequest, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
 
@@ -647,11 +653,14 @@ const ChatPage = () => {
         const payloadObj = aiResponse.payload as any;
         await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
         const generatedImages = payloadObj?.images || undefined;
+        const generatedVideos = payloadObj?.videos || undefined;
         const aiAddResult = await dispatch(addMessage({
           chatId: chatIdNum,
           role: AI,
           text: finalizeSpeakerText(typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string), speaker),
           images: generatedImages,
+          videos: generatedVideos,
+          videoPrompt: payloadObj?.videoPrompt,
           emotion: payloadObj?.emotion,
           imagePrompt: payloadObj?.imagePrompt,
           imageParams: payloadObj?.imageParams,
@@ -672,7 +681,7 @@ const ChatPage = () => {
     }
   };
 
-  const handleEditMessage = async (index: number, newText: string, isImageRequest?: boolean) => {
+  const handleEditMessage = async (index: number, newText: string, isImageRequest?: boolean, isVideoRequest?: boolean) => {
     if (!newText.trim() || !chatIdNum || !currentChat) return;
 
     setError(null);
@@ -691,7 +700,7 @@ const ChatPage = () => {
         // Branch: the edited text becomes a new sibling of the original message
         // (both children of the same parent), then generate a reply as its child.
         const parentId = tree.nodes[targetNodeId].parentId;
-        const editedUserMsg: Message = { role: YOU, txt: newText, isImageRequest, timestamp: Date.now() };
+        const editedUserMsg: Message = { role: YOU, txt: newText, isImageRequest, isVideoRequest, timestamp: Date.now() };
         const { tree: treeWithEdit, nodeId: editedNodeId } = addChildNode(tree, parentId, editedUserMsg);
         const contentUpToEdit = flattenPath(treeWithEdit, editedNodeId);
 
@@ -704,7 +713,7 @@ const ChatPage = () => {
         if (!speaker) return;
 
         const { history, systemInstruction, characterImages, characterName, otherParticipantImages } = buildTurnContext(contentUpToEdit, speaker, withAuthorNote(), replyLengthLimit, activePersona, buildRoomContext(speaker));
-        aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages }));
+        aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages }));
         const aiResponse = await aiPromiseRef.current;
         aiPromiseRef.current = null;
 
@@ -712,10 +721,13 @@ const ChatPage = () => {
           const payloadObj = aiResponse.payload as any;
           await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
           const generatedImages = payloadObj?.images || undefined;
+          const generatedVideos = payloadObj?.videos || undefined;
           const newAiMsg: Message = {
             role: AI,
             txt: finalizeSpeakerText(typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string), speaker),
             images: generatedImages,
+            videos: generatedVideos,
+            videoPrompt: payloadObj?.videoPrompt,
             emotion: payloadObj?.emotion,
             speakerId: speaker.id,
             timestamp: Date.now(),
@@ -775,6 +787,7 @@ const ChatPage = () => {
       // For a followup, whether it had a picture is recorded on the followup
       // message itself (no preceding user turn to read it off of).
       const isImageRequest = isFollowup ? (targetMessage?.isImageRequest || false) : (precedingMessage.isImageRequest || false);
+      const isVideoRequest = isFollowup ? (targetMessage?.isVideoRequest || false) : (precedingMessage.isVideoRequest || false);
       const extraDirectives = withAuthorNote(isFollowup ? [AUTO_REPLY_DIRECTIVE] : undefined);
 
       // Regenerating replies as whoever originally said it - not a fresh
@@ -788,7 +801,7 @@ const ChatPage = () => {
       if (!speaker) return;
 
       const { history, systemInstruction, characterImages, characterName, otherParticipantImages } = buildTurnContext(historyUpToTarget, speaker, extraDirectives, replyLengthLimit, activePersona, buildRoomContext(speaker));
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
 
@@ -796,11 +809,15 @@ const ChatPage = () => {
         const payloadObj = aiResponse.payload as any;
         await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
         const generatedImages = payloadObj?.images || undefined;
+        const generatedVideos = payloadObj?.videos || undefined;
         const newMessage: Message = {
           role: AI,
           txt: finalizeSpeakerText(typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string), speaker),
           images: generatedImages,
           isImageRequest: isFollowup ? Boolean(generatedImages && generatedImages.length > 0) : undefined,
+          videos: generatedVideos,
+          isVideoRequest: isFollowup ? Boolean(generatedVideos && generatedVideos.length > 0) : undefined,
+          videoPrompt: payloadObj?.videoPrompt,
           emotion: payloadObj?.emotion,
           imagePrompt: payloadObj?.imagePrompt,
           imageParams: payloadObj?.imageParams,

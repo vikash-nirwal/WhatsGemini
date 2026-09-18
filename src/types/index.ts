@@ -21,6 +21,7 @@ export interface Message {
   role: "user" | "model" | string;
   txt?: string; // The markdown text
   images?: string[]; // Array of local paths or object URLs
+  videos?: string[]; // Array of data: URLs (or provider URLs when not convertible) from video generation
   // Which character (see Chat.characterIds) generated this AI-role message -
   // lets a multi-character room (Phase 12) know who actually said what.
   // Unset on user messages and on messages predating this field, where the
@@ -35,10 +36,12 @@ export interface Message {
   // seam for the user, not just to prime the model quietly.
   isRoomEvent?: boolean;
   isImageRequest?: boolean; // True if it triggered image generation
+  isVideoRequest?: boolean; // True if it triggered video generation (mutually exclusive with isImageRequest)
   isImpersonated?: boolean; // role AI, but the user wrote it themselves (Impersonate mode) - not a real generation
   emotion?: string; // one of EMOTIONS, parsed from the AI's own reply when the character has emotionPortraits enabled
   castEmotions?: Record<number, string>; // adventure narrator turns: character id -> mood for each NPC in the scene
   imagePrompt?: string; // The derived SD prompt used to generate this image
+  videoPrompt?: string; // The derived prompt used to generate this video
   imageFullCast?: boolean; // Whether imagePrompt was written to include the whole adventure cast (reused on redraw only while this still matches)
   imageArtStyle?: ArtStyle; // Style baked into imagePrompt (adventure scenes) - a redraw only reuses the prompt while this still matches
   imageParams?: SDImageParams; // The derived SD params

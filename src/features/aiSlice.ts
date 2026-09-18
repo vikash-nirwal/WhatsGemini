@@ -4,9 +4,10 @@ import { AI, YOU, getModelPricing, ART_STYLE_CLAUSES, DEFAULT_ART_STYLE } from "
 import { getProviderApiKey, getOllamaBaseUrl, getWanBaseUrl } from "./ai/utils/settings";
 import { extractAndSaveBase64ImagesLocally, stripLeakedBase64 } from "./ai/utils/apiUtils";
 import { deriveImagePrompt, generateImage, RoomReferenceCharacter } from "./ai/utils/imageGeneration";
+import { generateVideo } from "./ai/utils/videoGeneration";
 import { extractEmotionTag } from "./ai/utils/emotionUtils";
 import { extractMemoryFacts } from "./ai/utils/memoryExtraction";
-import { CHAT_PROVIDERS, IMAGE_PROVIDERS } from "./ai/providers/registry";
+import { CHAT_PROVIDERS, IMAGE_PROVIDERS, VIDEO_PROVIDERS } from "./ai/providers/registry";
 import { ProviderRuntimeConfig } from "./ai/providers/types";
 import { ChatMessage, UsageInfo } from "./ai/types";
 import { RootState } from "../store/store";
@@ -21,6 +22,8 @@ export interface GenerateAIResponseResult {
   imagePrompt: string;
   imageParams: SDImageParams;
   images?: string[];
+  videoPrompt?: string;
+  videos?: string[];
   emotion?: string;
 }
 
@@ -36,7 +39,7 @@ const resolveProviderConfig = async (providerId: string, requiresBaseUrl: boolea
 
 export const generateAIResponse = createAsyncThunk(
   "ai/generateResponse",
-  async ({ prompt, history = [], systemInstruction, characterImages, characterName, artStyle, isImageRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[] }, { getState, rejectWithValue, signal }) => {
+  async ({ prompt, history = [], systemInstruction, characterImages, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[] }, { getState, rejectWithValue, signal }) => {
     try {
       const state = getState() as RootState;
       const settings = state.settings;
@@ -54,6 +57,16 @@ export const generateAIResponse = createAsyncThunk(
       const imageConfig = useSdWebui
         ? { apiKey: null }
         : await resolveProviderConfig(imageProviderId, imageAdapter.capabilities.requiresBaseUrl);
+
+      // Wan is the only video provider on offer today (see registry.ts) - no
+      // settings.videoProvider to resolve, just its model choice. Only
+      // actually looked up when a turn is a video request, unlike imageConfig
+      // above (image generation predates this and always resolves eagerly).
+      const videoProviderId = "wan";
+      const videoConfig = isVideoRequest
+        ? await resolveProviderConfig(videoProviderId, VIDEO_PROVIDERS[videoProviderId].capabilities.requiresBaseUrl)
+        : { apiKey: null };
+      const videoModelName = settings.videoModel;
 
       const selectedModel = settings.selectedModel;
       const imageModelName = settings.imageModel;
@@ -90,26 +103,39 @@ export const generateAIResponse = createAsyncThunk(
       let generatedImages: string[] = [];
       let finalDerivedImagePrompt = "";
       let finalDerivedImageParams: SDImageParams = {};
+      let generatedVideos: string[] = [];
+      let finalDerivedVideoPrompt = "";
 
-      if (isImageRequest) {
+      if (isImageRequest || isVideoRequest) {
+        // Same derivation step for both - it just describes the scene; video
+        // gets no extra camera-motion-specific instruction yet.
         const derivation = await deriveImagePrompt(
           chatAdapter, chatConfig, selectedModel, turnConfig, historyForSdk, prompt,
           settings.imageGenPrompt, settings.sdWebuiModel, useSdWebui,
           existingImagePrompt, existingImageParams, signal, isCharacterInitiated, isAutoSelfie, artStyle
         );
         trackUsage(derivation.usage, chatProviderId, selectedModel);
-
-        finalDerivedImagePrompt = derivation.derivedImagePrompt;
-        finalDerivedImageParams = derivation.derivedParams;
         response = derivation.derivedSummary;
 
-        const imageResult = await generateImage(
-          imageProviderId, imageConfig, useSdWebui, imageModelName, derivation.derivedImagePrompt, derivation.derivedParams,
-          characterImages, characterName, settings.safetySettings, signal, settings.geminiImageSize, undefined, otherRoomCharacters
-        );
-        trackUsage(imageResult.usage, imageProviderId, imageModelName);
-        generatedImages = imageResult.images;
-        if (imageResult.warning) response += imageResult.warning;
+        if (isVideoRequest) {
+          finalDerivedVideoPrompt = derivation.derivedImagePrompt;
+
+          const videoResult = await generateVideo(videoProviderId, videoConfig, videoModelName, derivation.derivedImagePrompt, signal);
+          trackUsage(videoResult.usage, videoProviderId, videoModelName);
+          generatedVideos = videoResult.videos;
+          if (videoResult.warning) response += videoResult.warning;
+        } else {
+          finalDerivedImagePrompt = derivation.derivedImagePrompt;
+          finalDerivedImageParams = derivation.derivedParams;
+
+          const imageResult = await generateImage(
+            imageProviderId, imageConfig, useSdWebui, imageModelName, derivation.derivedImagePrompt, derivation.derivedParams,
+            characterImages, characterName, settings.safetySettings, signal, settings.geminiImageSize, undefined, otherRoomCharacters
+          );
+          trackUsage(imageResult.usage, imageProviderId, imageModelName);
+          generatedImages = imageResult.images;
+          if (imageResult.warning) response += imageResult.warning;
+        }
       } else {
         const streamed = await chatAdapter.generateChat(
           {
@@ -147,6 +173,10 @@ export const generateAIResponse = createAsyncThunk(
 
       if (generatedImages.length > 0) {
         returnPayload.images = generatedImages;
+      }
+      if (generatedVideos.length > 0) {
+        returnPayload.videos = generatedVideos;
+        returnPayload.videoPrompt = finalDerivedVideoPrompt;
       }
 
       return returnPayload;
