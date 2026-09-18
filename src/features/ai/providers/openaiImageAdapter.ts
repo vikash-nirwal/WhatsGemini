@@ -1,5 +1,5 @@
 import { UsageInfo } from "../types";
-import { ImageGenCallOptions, ImageGenCallResult, ImageProviderAdapter, ProviderRuntimeConfig } from "./types";
+import { ImageGenCallOptions, ImageGenCallResult, ImageProviderAdapter, ModelOption, ProviderRuntimeConfig } from "./types";
 
 const OPENAI_BASE_URL = "https://api.openai.com/v1";
 
@@ -60,8 +60,31 @@ const generateImage = async (opts: ImageGenCallOptions, config: ProviderRuntimeC
   return { images, usage: normalizeUsage(data?.usage) };
 };
 
+// Unlike GLM's /models (chat-only - see glmImageAdapter.ts), OpenAI's
+// account-wide model listing does include dall-e-2/dall-e-3/gpt-image-1
+// alongside every chat model, so this is filtered down by id prefix rather
+// than trusting the whole list is image-capable.
+const listModels = async (config: ProviderRuntimeConfig): Promise<ModelOption[]> => {
+  if (!config.apiKey) throw new Error("An OpenAI API key is required.");
+
+  const response = await fetch(`${OPENAI_BASE_URL}/models`, {
+    headers: { Authorization: `Bearer ${config.apiKey}` },
+  });
+  if (!response.ok) {
+    throw new Error(`OpenAI error: ${await extractErrorMessage(response)}`);
+  }
+
+  const data = await response.json();
+  const list: any[] = data?.data || [];
+  return list
+    .filter((m) => /^(dall-e|gpt-image)/i.test(m.id))
+    .map((m) => ({ value: m.id as string, label: m.id as string }))
+    .sort((a, b) => a.value.localeCompare(b.value));
+};
+
 export const openaiImageAdapter: ImageProviderAdapter = {
   id: "openai",
   capabilities: { requiresApiKey: true, requiresBaseUrl: false },
   generateImage,
+  listModels,
 };

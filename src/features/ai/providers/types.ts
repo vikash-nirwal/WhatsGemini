@@ -93,6 +93,10 @@ export interface ImageProviderAdapter {
   id: string;
   capabilities: Pick<ProviderCapabilities, "requiresApiKey" | "requiresBaseUrl">;
   generateImage(opts: ImageGenCallOptions, config: ProviderRuntimeConfig): Promise<ImageGenCallResult>;
+  // Optional - same idea as ChatProviderAdapter.listModels, for providers
+  // whose image-capable models can be discovered via an API call instead of
+  // only the PROVIDER_IMAGE_MODELS hardcoded fallback list.
+  listModels?(config: ProviderRuntimeConfig): Promise<ModelOption[]>;
 }
 
 export interface VideoGenCallOptions {

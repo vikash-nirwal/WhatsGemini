@@ -42,6 +42,8 @@ interface ImageGenerationSettingsProps {
   setImageModel: (model: string) => void;
   imageModelList: { value: string; label: string }[];
   openaiImageModelList: { value: string; label: string }[];
+  canFetchImageModels: boolean;
+  fetchImageModels: () => void;
   imageGenPrompt: string;
   setImageGenPrompt: (prompt: string) => void;
   imageResolution: string;
@@ -98,6 +100,8 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
   setImageModel,
   imageModelList,
   openaiImageModelList,
+  canFetchImageModels,
+  fetchImageModels,
   imageGenPrompt,
   setImageGenPrompt,
   imageResolution,
@@ -220,7 +224,23 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
               />
             </SettingsRow>
 
-            <SettingsRow label="Model" hint={'Used when "send pic" or similar is queried.'}>
+            <SettingsRow
+              label="Model"
+              hint={
+                canFetchImageModels ? (
+                  <Button
+                    type="button"
+                    variant="link"
+                    onClick={fetchImageModels}
+                    className="h-auto p-0 text-xs text-primary hover:text-primary-hover no-underline hover:no-underline"
+                  >
+                    Fetch available models
+                  </Button>
+                ) : (
+                  'Used when "send pic" or similar is queried.'
+                )
+              }
+            >
               <Select value={imageModel} onChange={(e) => setImageModel(e.target.value)}>
                 {openaiImageModelList.map((model) => (
                   <option key={model.value} value={model.value}>

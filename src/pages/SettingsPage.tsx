@@ -23,7 +23,7 @@ import TextModelSettings from "src/components/organisms/TextModelSettings";
 import ImageGenerationSettings from "src/components/organisms/ImageGenerationSettings";
 import AppearanceSettings from "src/components/organisms/AppearanceSettings";
 import { getAPIKey, getProviderApiKey, saveProviderApiKey, getWanBaseUrl, saveWanBaseUrl } from "../features/ai/utils/settings";
-import { CHAT_PROVIDERS } from "../features/ai/providers/registry";
+import { CHAT_PROVIDERS, IMAGE_PROVIDERS } from "../features/ai/providers/registry";
 import { useModal } from "../contexts/ModalContext";
 import { fetchChats } from "../features/chatSlice";
 import { fetchCharacters } from "../features/characterSlice";
@@ -196,6 +196,31 @@ const SettingsPage = () => {
     }
   }, []);
 
+  // Same idea as providerModelLists/fetchProviderModels above, but for image
+  // providers whose adapters implement listModels() (currently OpenAI - GLM's
+  // /models catalog turns out to be chat-only, and Wan has no discovery
+  // endpoint at all; Gemini's image list is already live-fetched separately,
+  // see fetchModels() below).
+  const [imageProviderModelLists, setImageProviderModelLists] = useState<Record<string, {value: string, label: string}[]>>({});
+  const fetchImageProviderModels = useCallback(async (providerId: string): Promise<{ ok: boolean; count: number; message?: string }> => {
+    const adapter = IMAGE_PROVIDERS[providerId];
+    if (!adapter?.listModels) return { ok: false, count: 0 };
+    try {
+      const apiKey = await getProviderApiKey(providerId);
+      if (adapter.capabilities.requiresApiKey && !apiKey) {
+        return { ok: false, count: 0, message: "Add an API key first." };
+      }
+      const list = await adapter.listModels({ apiKey });
+      if (list.length > 0) {
+        setImageProviderModelLists((prev) => ({ ...prev, [providerId]: list }));
+      }
+      return { ok: true, count: list.length };
+    } catch (error: any) {
+      console.error(`Error fetching ${providerId} image models:`, error);
+      return { ok: false, count: 0, message: error?.message || "Failed to fetch models." };
+    }
+  }, []);
+
   const fetchSdModels = async () => {
     try {
       const response = await fetch(`${sdWebuiApiUrl.replace(/\/$/, '')}/sdapi/v1/sd-models`);
@@ -261,6 +286,19 @@ const SettingsPage = () => {
       toast.error(result.message || "Failed to fetch models.");
     }
   }, [chatProvider, fetchProviderModels]);
+
+  useEffect(() => {
+    fetchImageProviderModels(imageProvider);
+  }, [imageProvider, fetchImageProviderModels]);
+
+  const handleFetchImageModelsClick = useCallback(async () => {
+    const result = await fetchImageProviderModels(imageProvider);
+    if (result.ok) {
+      toast.success(`Fetched ${result.count} model${result.count === 1 ? "" : "s"}.`);
+    } else {
+      toast.error(result.message || "Failed to fetch models.");
+    }
+  }, [imageProvider, fetchImageProviderModels]);
 
   // OpenAI's key is only ever needed on the image side when imageProvider is
   // "openai" - it shares the same per-provider storage slot the chat side
@@ -350,7 +388,10 @@ const SettingsPage = () => {
   const canFetchChatModels = !!CHAT_PROVIDERS[chatProvider]?.listModels && chatProvider !== "ollama";
 
   const currentImageModelList = imageProvider === "gemini" ? imageModelList : [];
-  const openaiImageModelList = (PROVIDER_IMAGE_MODELS.openai || []).map((m) => ({ value: m, label: m }));
+  const openaiImageModelList = imageProviderModelLists.openai?.length
+    ? imageProviderModelLists.openai
+    : (PROVIDER_IMAGE_MODELS.openai || []).map((m) => ({ value: m, label: m }));
+  const canFetchImageModels = !!IMAGE_PROVIDERS[imageProvider]?.listModels;
   const wanImageModelList = (PROVIDER_IMAGE_MODELS.wan || []).map((m) => ({ value: m, label: m }));
   const glmImageModelList = (PROVIDER_IMAGE_MODELS.glm || []).map((m) => ({ value: m, label: m }));
 
@@ -816,6 +857,8 @@ const SettingsPage = () => {
                     setImageModel={(val) => dispatch(setImageModel(val))}
                     imageModelList={currentImageModelList}
                     openaiImageModelList={openaiImageModelList}
+                    canFetchImageModels={canFetchImageModels}
+                    fetchImageModels={handleFetchImageModelsClick}
                     imageGenPrompt={imageGenPrompt}
                     setImageGenPrompt={(val) => dispatch(setImageGenPrompt(val))}
                     imageResolution={imageResolution}
