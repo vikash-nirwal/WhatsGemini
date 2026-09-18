@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo, FaImage, FaSyncAlt, FaTimes, FaPalette } from "react-icons/fa";
+import { FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo, FaImage, FaSyncAlt, FaTimes, FaPalette, FaBookOpen, FaComments, FaFont } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { deleteAdventure, addAdventureMessage, updateAdventureStatus, incrementAdventureUsage, updateAdventureMessage, updateAdventureRules } from "../features/adventureSlice";
 import { generateAIResponse, generateAdventureSceneImage } from "../features/aiSlice";
@@ -22,6 +22,8 @@ import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import MarkdownRenderer from "src/components/molecules/MarkdownRenderer";
 import { DisplayImage } from "src/components/molecules/DisplayImage";
 import { Dialog, DialogContent, DialogTitle, DialogClose } from "src/components/molecules/dialog";
+import { NovelMessageItem } from "src/components/molecules/NovelMessageItem";
+import { NovelChoicesView } from "src/components/molecules/NovelChoicesView";
 
 const AdventurePage = () => {
   const dispatch = useAppDispatch();
@@ -40,6 +42,70 @@ const AdventurePage = () => {
   // Which persona this adventure actually speaks as: its own override if set,
   // otherwise whichever persona is globally active - same rule ChatPage uses.
   const persona = personas.find((p) => p.id === (adventure?.personaId || globalActivePersonaId)) || personas[0];
+
+  // View mode: novel (storybook) vs chat (bubbles)
+  const [viewMode, setViewMode] = useState<"chat" | "novel">(() => {
+    try {
+      return (localStorage.getItem("whatsgemini_adventure_view_mode") as "chat" | "novel") || "novel";
+    } catch {
+      return "novel";
+    }
+  });
+
+  // Reader typography preferences
+  const [fontFamily, setFontFamily] = useState<"serif" | "sans">(() => {
+    try {
+      return (localStorage.getItem("whatsgemini_adventure_font_family") as "serif" | "sans") || "serif";
+    } catch {
+      return "serif";
+    }
+  });
+
+  const [fontSize, setFontSize] = useState<"sm" | "base" | "lg" | "xl">(() => {
+    try {
+      return (localStorage.getItem("whatsgemini_adventure_font_size") as "sm" | "base" | "lg" | "xl") || "base";
+    } catch {
+      return "base";
+    }
+  });
+
+  const handleToggleViewMode = useCallback(() => {
+    setViewMode((prev) => {
+      const next = prev === "novel" ? "chat" : "novel";
+      try {
+        localStorage.setItem("whatsgemini_adventure_view_mode", next);
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleToggleFontFamily = useCallback(() => {
+    setFontFamily((prev) => {
+      const next = prev === "serif" ? "sans" : "serif";
+      try {
+        localStorage.setItem("whatsgemini_adventure_font_family", next);
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleCycleFontSize = useCallback(() => {
+    setFontSize((prev) => {
+      const sizes: ("sm" | "base" | "lg" | "xl")[] = ["sm", "base", "lg", "xl"];
+      const nextIndex = (sizes.indexOf(prev) + 1) % sizes.length;
+      const next = sizes[nextIndex];
+      try {
+        localStorage.setItem("whatsgemini_adventure_font_size", next);
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+  }, []);
 
   const [inputText, setInputText] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -234,6 +300,16 @@ const AdventurePage = () => {
   const activeChoices = !generating && !isCompleted && lastMessage?.role === AI ? lastMessage.choices : undefined;
 
   const autoIllustrate = !!adventure.rules?.autoIllustrate;
+
+  const viewModeAction: HeaderAction = {
+    icon: viewMode === "novel" ? FaComments : FaBookOpen,
+    label: viewMode === "novel" ? "Switch to Chat View" : "Switch to Novel View",
+    shortLabel: viewMode === "novel" ? "chat view" : "novel view",
+    active: viewMode === "novel",
+    primary: true,
+    onClick: handleToggleViewMode,
+  };
+
   const headerActions: HeaderAction[] = [
     {
       icon: FaImage,
@@ -260,9 +336,33 @@ const AdventurePage = () => {
     onClick: () => dispatch(updateAdventureRules({ adventureId: adventure.id, rules: { ...adventure.rules, artStyle: style.value } })),
   }));
 
+  const readerActions: HeaderAction[] = viewMode === "novel" ? [
+    {
+      icon: FaFont,
+      label: `Font: ${fontFamily === "serif" ? "Serif (Classic)" : "Sans (Modern)"}`,
+      shortLabel: fontFamily,
+      onClick: handleToggleFontFamily,
+    },
+    {
+      icon: FaFont,
+      label: `Text size: ${fontSize.toUpperCase()}`,
+      shortLabel: fontSize,
+      onClick: handleCycleFontSize,
+    },
+  ] : [];
+
   return (
     <div className="w-full h-screen flex flex-col">
-      <Header title={adventure.title} subtitle={world ? world.name : "Freeform"} onBack={() => navigate("/adventures")} actionGroups={[headerActions, artStyleActions]} />
+      <Header
+        title={adventure.title}
+        subtitle={world ? world.name : "Freeform"}
+        onBack={() => navigate("/adventures")}
+        actionGroups={[
+          [viewModeAction, ...headerActions],
+          artStyleActions,
+          ...(readerActions.length > 0 ? [readerActions] : []),
+        ]}
+      />
 
       {(world || cast.length > 0) && (
         <div className="flex items-center gap-3 px-4 md:px-8 py-2.5 border-b border-border/40 flex-wrap flex-shrink-0">
@@ -305,67 +405,95 @@ const AdventurePage = () => {
                 <Button onClick={runOpeningTurn} variant="default">Begin adventure</Button>
               </div>
             )}
-            {adventure.content.map((msg, i) => (
-              <div key={msg.id || i} className={cn("flex", msg.role === YOU ? "justify-end" : "justify-start")}>
-                {msg.role === YOU ? (
-                  <div className="max-w-[80%] rounded-2xl bg-primary text-primary-foreground px-4 py-2.5">
-                    <MarkdownRenderer msgText={msg.txt || ""} isUser={true} />
-                  </div>
-                ) : (
-                  <div className="w-full flex flex-col gap-3">
-                    {msg.id && illustratingIds.includes(msg.id) ? (
-                      <div className="w-full aspect-video rounded-xl bg-muted animate-pulse flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                        <FaImage size={12} /> Illustrating the scene...
-                      </div>
-                    ) : (
-                      msg.images?.map((imgSrc, idx) => (
-                        <DisplayImage
-                          key={idx}
-                          srcContext={imgSrc}
-                          alt="Scene illustration"
-                          onClick={() => setFullscreenImage(imgSrc)}
-                          className="w-full rounded-xl shadow-sm cursor-zoom-in hover:opacity-95 transition-opacity"
-                        />
-                      ))
-                    )}
-                    <MarkdownRenderer msgText={msg.txt || ""} isUser={false} />
-                    {msg.castEmotions && (
-                      <div className="flex flex-wrap items-center gap-2">
-                        {cast
-                          .filter((c) => msg.castEmotions![c.id])
-                          .map((c) => (
-                            <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-muted/40 pl-0.5 pr-2.5 py-0.5 text-[11px]">
-                              <CharacterAvatar name={c.name} accent={c.accent} imageSrc={resolveEmotionPortrait(c, msg.castEmotions![c.id])} size={20} />
-                              <span className="font-medium text-foreground">{c.name}</span>
-                              <span className="text-subtle capitalize">{msg.castEmotions![c.id]}</span>
-                            </span>
-                          ))}
-                      </div>
-                    )}
-                    {msg.id && !illustratingIds.includes(msg.id) && (
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            // Keep the player's picture request in focus on redraws too.
-                            const prev = adventure.content[i - 1];
-                            illustrateMessage(msg, {
-                              regenerate: !!msg.images?.length,
-                              requestedFocus: prev?.role === YOU && prev.isImageRequest ? prev.txt : undefined,
-                              includeFullCast: true,
-                            });
-                          }}
-                          className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          {msg.images?.length ? <><FaSyncAlt size={10} /> Redraw scene</> : <><FaImage size={11} /> Illustrate scene</>}
-                        </button>
-                        {illustrationErrors[msg.id] && <span className="text-xs text-destructive">{illustrationErrors[msg.id]}</span>}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+            {adventure.content.map((msg, i) => {
+              if (viewMode === "novel") {
+                const isFirstAi = msg.role === AI && adventure.content.findIndex((m) => m.role === AI) === i;
+                return (
+                  <NovelMessageItem
+                    key={msg.id || i}
+                    msg={msg}
+                    index={i}
+                    cast={cast}
+                    illustrating={!!msg.id && illustratingIds.includes(msg.id)}
+                    onIllustrate={() => {
+                      const prev = adventure.content[i - 1];
+                      illustrateMessage(msg, {
+                        regenerate: !!msg.images?.length,
+                        requestedFocus: prev?.role === YOU && prev.isImageRequest ? prev.txt : undefined,
+                        includeFullCast: true,
+                      });
+                    }}
+                    onImageClick={(imgSrc) => setFullscreenImage(imgSrc)}
+                    illustrationError={msg.id ? illustrationErrors[msg.id] : undefined}
+                    isFirstNarratorTurn={isFirstAi}
+                    fontFamily={fontFamily}
+                    fontSize={fontSize}
+                  />
+                );
+              }
+
+              return (
+                <div key={msg.id || i} className={cn("flex", msg.role === YOU ? "justify-end" : "justify-start")}>
+                  {msg.role === YOU ? (
+                    <div className="max-w-[80%] rounded-2xl bg-primary text-primary-foreground px-4 py-2.5">
+                      <MarkdownRenderer msgText={msg.txt || ""} isUser={true} />
+                    </div>
+                  ) : (
+                    <div className="w-full flex flex-col gap-3">
+                      {msg.id && illustratingIds.includes(msg.id) ? (
+                        <div className="w-full aspect-video rounded-xl bg-muted animate-pulse flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                          <FaImage size={12} /> Illustrating the scene...
+                        </div>
+                      ) : (
+                        msg.images?.map((imgSrc, idx) => (
+                          <DisplayImage
+                            key={idx}
+                            srcContext={imgSrc}
+                            alt="Scene illustration"
+                            onClick={() => setFullscreenImage(imgSrc)}
+                            className="w-full rounded-xl shadow-sm cursor-zoom-in hover:opacity-95 transition-opacity"
+                          />
+                        ))
+                      )}
+                      <MarkdownRenderer msgText={msg.txt || ""} isUser={false} />
+                      {msg.castEmotions && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          {cast
+                            .filter((c) => msg.castEmotions![c.id])
+                            .map((c) => (
+                              <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-muted/40 pl-0.5 pr-2.5 py-0.5 text-[11px]">
+                                <CharacterAvatar name={c.name} accent={c.accent} imageSrc={resolveEmotionPortrait(c, msg.castEmotions![c.id])} size={20} />
+                                <span className="font-medium text-foreground">{c.name}</span>
+                                <span className="text-subtle capitalize">{msg.castEmotions![c.id]}</span>
+                              </span>
+                            ))}
+                        </div>
+                      )}
+                      {msg.id && !illustratingIds.includes(msg.id) && (
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              // Keep the player's picture request in focus on redraws too.
+                              const prev = adventure.content[i - 1];
+                              illustrateMessage(msg, {
+                                regenerate: !!msg.images?.length,
+                                requestedFocus: prev?.role === YOU && prev.isImageRequest ? prev.txt : undefined,
+                                includeFullCast: true,
+                              });
+                            }}
+                            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
+                          >
+                            {msg.images?.length ? <><FaSyncAlt size={10} /> Redraw scene</> : <><FaImage size={11} /> Illustrate scene</>}
+                          </button>
+                          {illustrationErrors[msg.id] && <span className="text-xs text-destructive">{illustrationErrors[msg.id]}</span>}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             {generating && (
               <div className="flex items-center gap-1.5 text-muted-foreground text-sm">
                 <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.3s]" />
@@ -392,6 +520,19 @@ const AdventurePage = () => {
             <FaRedo size={10} /> Resume
           </Button>
         </div>
+      ) : viewMode === "novel" ? (
+        <NovelChoicesView
+          choices={activeChoices}
+          onSelectChoice={(label, choiceId) => handleSend(label, choiceId)}
+          inputText={inputText}
+          setInputText={setInputText}
+          onSend={(text) => handleSend(text)}
+          generating={generating}
+          imageRequested={imageRequested}
+          setImageRequested={setImageRequested}
+          disabled={adventure.content.length === 0}
+          fontFamily={fontFamily}
+        />
       ) : (
         <div className="flex-shrink-0 border-t border-border/40">
           {activeChoices && activeChoices.length > 0 && (

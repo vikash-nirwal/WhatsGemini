@@ -9,9 +9,11 @@ import {
   DEFAULT_COZY_PALETTE,
   DEFAULT_NEUMORPHIC_PALETTE,
   DEFAULT_TERMINAL_PALETTE,
+  DEFAULT_PARCHMENT_PALETTE,
   NEUMORPHIC_PALETTES,
   AURORA_PALETTES,
   TERMINAL_PALETTES,
+  PARCHMENT_PALETTES,
 } from '../../utils/constants';
 
 interface AppearanceSettingsProps {
@@ -31,6 +33,7 @@ const THEME_SWATCHES: Record<string, [string, string, string]> = {
   neumorphic: ['#E8EAEC', '#268B68', '#22262B'],
   aurora: ['#F4F0FB', '#8B5CF6', '#1A1330'],
   terminal: ['#F2F1E9', '#0A6B78', '#08210F'],
+  parchment: ['#F7F3EA', '#A32B38', '#2C2218'],
 };
 
 // Every color theme's own accent-palette sub-choice - see tokens.css's
@@ -46,6 +49,7 @@ const PALETTE_PICKERS: Record<string, { label: string; hint: string; palettes: {
   neumorphic: { label: "Accent palette", hint: "Neumorphic's own choice of accent color - has no effect under other color themes.", palettes: NEUMORPHIC_PALETTES, defaultValue: DEFAULT_NEUMORPHIC_PALETTE },
   aurora: { label: "Accent palette", hint: "Aurora's own choice of gradient - has no effect under other color themes.", palettes: AURORA_PALETTES, defaultValue: DEFAULT_ACCENT_PALETTE },
   terminal: { label: "Phosphor color", hint: "Terminal's own choice of CRT color - has no effect under other color themes.", palettes: TERMINAL_PALETTES, defaultValue: DEFAULT_TERMINAL_PALETTE },
+  parchment: { label: "Accent ink", hint: "Parchment's own choice of accent color - wax seal crimson, antique gold, emerald, or iron gall ink.", palettes: PARCHMENT_PALETTES, defaultValue: DEFAULT_PARCHMENT_PALETTE },
 };
 
 // Palette picker, independent of the existing light/dark toggle (header icon) -

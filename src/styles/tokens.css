@@ -1379,3 +1379,185 @@ html[data-theme="terminal"] :focus-visible {
 [data-theme="terminal"] [data-slot="field-label"]::after {
   content: "=";
 }
+
+/* ================================================================
+   Parchment theme
+   ================================================================
+   A storybook and grimoire aesthetic tailored for interactive fiction
+   and roleplay adventures. Light mode evokes aged cream manuscript
+   paper with walnut/sepia ink and wax-seal accents; dark mode evokes
+   a candlelit, leather-bound grimoire with antique gold and gilded foil.
+   Supports 4 accent ink palettes: crimson (default), gold, emerald, ink. */
+[data-theme="parchment"] {
+  --background: 247 243 234; /* #F7F3EA - warm aged parchment */
+  --foreground: 44 34 24; /* #2C2218 - rich walnut ink */
+  --card: 254 251 246; /* #FEFBF6 - manuscript page */
+  --card-foreground: 44 34 24;
+  --popover: 254 251 246;
+  --popover-foreground: 44 34 24;
+  --primary: 163 43 56; /* #A32B38 - wax seal crimson */
+  --primary-foreground: 255 255 255;
+  --primary-hover: 186 52 67; /* #BA3443 */
+  --secondary: 238 232 220; /* #EEE8DC - muted parchment */
+  --secondary-foreground: 44 34 24;
+  --muted: 238 232 220;
+  --muted-foreground: 120 106 90; /* #786A5A - faded sepia */
+  --accent: 238 232 220;
+  --accent-foreground: 44 34 24;
+  --destructive: 185 28 28;
+  --destructive-foreground: 255 255 255;
+  --success: 45 114 79;
+  --success-foreground: 255 255 255;
+  --overlay: 44 34 24;
+  --subtle: 145 130 112;
+  --border: 222 214 198; /* #DED6C6 - deckled paper edge */
+  --input: 222 214 198;
+  --ring: 163 43 56;
+  --radius: 12px;
+  --shadow-soft: rgba(44, 34, 24, 0.06);
+  --shadow-mid: rgba(44, 34, 24, 0.12);
+  --shadow-strong: rgba(44, 34, 24, 0.18);
+
+  --color-app-bg: 247 243 234;
+  --color-panel-bg: 254 251 246;
+  --color-panel2-bg: 238 232 220;
+  --color-panel3-bg: 238 232 220;
+  --color-hover-bg: 238 232 220;
+  --color-chat-bg: 247 243 234;
+  --color-text-main: 44 34 24;
+  --color-text-muted: 120 106 90;
+  --color-text-faint: 155 142 126;
+  --color-primary: 163 43 56;
+  --color-primary-hover: 186 52 67;
+  --color-accent: 163 43 56;
+  --color-accent-2: 186 52 67;
+  --color-on-accent: 255 255 255;
+  --color-secondary: 238 232 220;
+  --color-secondary-hover: 230 223 210;
+  --color-on-secondary: 44 34 24;
+  --color-border-main: 222 214 198;
+}
+
+[data-theme="parchment"].dark {
+  --background: 22 18 16; /* #161210 - deep bound leather */
+  --foreground: 236 228 214; /* #ECE4D6 - candlelit parchment */
+  --card: 32 26 23; /* #201A17 - leather tome cover */
+  --card-foreground: 236 228 214;
+  --popover: 32 26 23;
+  --popover-foreground: 236 228 214;
+  --primary: 212 165 62; /* #D4A53E - antique gold leaf */
+  --primary-foreground: 22 18 16;
+  --primary-hover: 230 184 82; /* #E6B852 */
+  --secondary: 42 34 30; /* #2A221E */
+  --secondary-foreground: 236 228 214;
+  --muted: 42 34 30;
+  --muted-foreground: 165 152 136; /* #A59888 - aged manuscript text */
+  --accent: 42 34 30;
+  --accent-foreground: 236 228 214;
+  --destructive: 239 68 68;
+  --destructive-foreground: 255 255 255;
+  --success: 52 168 83;
+  --success-foreground: 255 255 255;
+  --overlay: 14 11 10;
+  --subtle: 135 122 108;
+  --border: 56 46 40; /* #382E28 */
+  --input: 56 46 40;
+  --ring: 212 165 62;
+  --radius: 12px;
+  --shadow-soft: rgba(0, 0, 0, 0.35);
+  --shadow-mid: rgba(0, 0, 0, 0.5);
+  --shadow-strong: rgba(0, 0, 0, 0.7);
+
+  --color-app-bg: 22 18 16;
+  --color-panel-bg: 32 26 23;
+  --color-panel2-bg: 42 34 30;
+  --color-panel3-bg: 42 34 30;
+  --color-hover-bg: 42 34 30;
+  --color-chat-bg: 22 18 16;
+  --color-text-main: 236 228 214;
+  --color-text-muted: 165 152 136;
+  --color-text-faint: 125 114 100;
+  --color-primary: 212 165 62;
+  --color-primary-hover: 230 184 82;
+  --color-accent: 212 165 62;
+  --color-accent-2: 230 184 82;
+  --color-on-accent: 22 18 16;
+  --color-secondary: 42 34 30;
+  --color-secondary-hover: 50 42 37;
+  --color-on-secondary: 236 228 214;
+  --color-border-main: 56 46 40;
+}
+
+/* Parchment accent palettes */
+[data-theme="parchment"][data-palette="gold"] {
+  --primary: 194 136 34; /* #C28822 */
+  --primary-hover: 212 153 45;
+  --ring: 194 136 34;
+  --color-primary: 194 136 34;
+  --color-primary-hover: 212 153 45;
+  --color-accent: 194 136 34;
+  --color-accent-2: 212 153 45;
+}
+[data-theme="parchment"][data-palette="gold"].dark {
+  --primary: 212 165 62;
+  --primary-hover: 230 184 82;
+  --ring: 212 165 62;
+  --color-primary: 212 165 62;
+  --color-primary-hover: 230 184 82;
+  --color-accent: 212 165 62;
+  --color-accent-2: 230 184 82;
+}
+
+[data-theme="parchment"][data-palette="emerald"] {
+  --primary: 45 114 79; /* #2D724F */
+  --primary-hover: 58 145 101;
+  --ring: 45 114 79;
+  --color-primary: 45 114 79;
+  --color-primary-hover: 58 145 101;
+  --color-accent: 45 114 79;
+  --color-accent-2: 58 145 101;
+}
+[data-theme="parchment"][data-palette="emerald"].dark {
+  --primary: 58 160 110;
+  --primary-hover: 72 185 128;
+  --ring: 58 160 110;
+  --color-primary: 58 160 110;
+  --color-primary-hover: 72 185 128;
+  --color-accent: 58 160 110;
+  --color-accent-2: 72 185 128;
+}
+
+[data-theme="parchment"][data-palette="ink"] {
+  --primary: 42 56 74; /* #2A384A */
+  --primary-hover: 62 82 107;
+  --ring: 42 56 74;
+  --color-primary: 42 56 74;
+  --color-primary-hover: 62 82 107;
+  --color-accent: 42 56 74;
+  --color-accent-2: 62 82 107;
+}
+[data-theme="parchment"][data-palette="ink"].dark {
+  --primary: 110 142 180;
+  --primary-hover: 130 162 200;
+  --ring: 110 142 180;
+  --color-primary: 110 142 180;
+  --color-primary-hover: 130 162 200;
+  --color-accent: 110 142 180;
+  --color-accent-2: 130 162 200;
+}
+
+/* Surface utilities for parchment */
+[data-theme="parchment"] .surface-raised {
+  box-shadow: 0 4px 12px rgba(44, 34, 24, 0.08);
+}
+[data-theme="parchment"].dark .surface-raised {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+[data-theme="parchment"] .surface-sunken {
+  background-color: rgb(var(--muted));
+  border-color: rgb(var(--border));
+}
+[data-theme="parchment"] .cta-surface {
+  background-image: linear-gradient(135deg, rgb(var(--primary)), rgb(var(--primary-hover)));
+  color: rgb(var(--primary-foreground));
+}

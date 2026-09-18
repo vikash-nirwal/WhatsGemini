@@ -237,6 +237,7 @@ export const COLOR_THEMES = [
   { value: "neumorphic", label: "Neumorphic", description: "Soft raised surfaces with a choice of 4 accent palettes" },
   { value: "aurora", label: "Aurora", description: "Vibrant gradient look with a choice of 4 accent palettes" },
   { value: "terminal", label: "Terminal", description: "CRT hacker aesthetic with a choice of 4 phosphor colors" },
+  { value: "parchment", label: "Parchment", description: "Aged paper, warm ink, and leather-bound grimoire aesthetics" },
 ] as const;
 export const DEFAULT_COLOR_THEME = "cozy";
 
@@ -297,6 +298,15 @@ export const TERMINAL_PALETTES: { value: string; label: string; colors: [string,
   { value: "blackice", label: "Black Ice", colors: ["#7fd4ff", "#e8eef2", "#ffffff"] },
 ];
 export const DEFAULT_TERMINAL_PALETTE = "green";
+
+// Parchment's own accent palette sub-choice - crimson, gold, emerald, ink
+export const PARCHMENT_PALETTES: { value: string; label: string; colors: [string, string, string] }[] = [
+  { value: "crimson", label: "Crimson", colors: ["#a32b38", "#c43847", "#5e1821"] },
+  { value: "gold", label: "Antique Gold", colors: ["#c28822", "#d4a53e", "#664710"] },
+  { value: "emerald", label: "Emerald", colors: ["#2d724f", "#3a9165", "#163827"] },
+  { value: "ink", label: "Iron Gall", colors: ["#2a384a", "#3e526b", "#161e28"] },
+];
+export const DEFAULT_PARCHMENT_PALETTE = "crimson";
 
 // Local storage variables
 export const LS_AI_MODEL = "ai_model";
