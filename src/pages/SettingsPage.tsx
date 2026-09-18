@@ -166,6 +166,27 @@ const SettingsPage = () => {
     fetchModels();
   }, []);
 
+  // Live model lists for the OpenAI-wire-format providers (DeepSeek, OpenAI,
+  // Qwen, Kimi) whose adapters implement listModels() - same idea as Gemini's
+  // fetch above, just keyed by provider since more than one of these can be
+  // fetched (and cached) across a session. Ollama is excluded: it already has
+  // its own dedicated free-text + "Fetch installed models" UI below.
+  const [providerModelLists, setProviderModelLists] = useState<Record<string, {value: string, label: string}[]>>({});
+  const fetchProviderModels = useCallback(async (providerId: string) => {
+    const adapter = CHAT_PROVIDERS[providerId];
+    if (!adapter?.listModels || providerId === "ollama") return;
+    try {
+      const apiKey = await getProviderApiKey(providerId);
+      if (CHAT_PROVIDERS[providerId].capabilities.requiresApiKey && !apiKey) return;
+      const list = await adapter.listModels({ apiKey });
+      if (list.length > 0) {
+        setProviderModelLists((prev) => ({ ...prev, [providerId]: list }));
+      }
+    } catch (error) {
+      console.error(`Error fetching ${providerId} models:`, error);
+    }
+  }, []);
+
   const fetchSdModels = async () => {
     try {
       const response = await fetch(`${sdWebuiApiUrl.replace(/\/$/, '')}/sdapi/v1/sd-models`);
@@ -219,6 +240,10 @@ const SettingsPage = () => {
     saveProviderApiKey(chatProvider, key);
   }, [chatProvider]);
 
+  useEffect(() => {
+    fetchProviderModels(chatProvider);
+  }, [chatProvider, fetchProviderModels]);
+
   // OpenAI's key is only ever needed on the image side when imageProvider is
   // "openai" - it shares the same per-provider storage slot the chat side
   // uses, so picking OpenAI for both doesn't require entering the key twice.
@@ -254,7 +279,11 @@ const SettingsPage = () => {
 
   const currentChatModelList = chatProvider === "gemini"
     ? modelList
-    : (PROVIDER_CHAT_MODELS[chatProvider] || []).map((m) => ({ value: m, label: m }));
+    : providerModelLists[chatProvider]?.length
+      ? providerModelLists[chatProvider]
+      : (PROVIDER_CHAT_MODELS[chatProvider] || []).map((m) => ({ value: m, label: m }));
+
+  const canFetchChatModels = !!CHAT_PROVIDERS[chatProvider]?.listModels && chatProvider !== "ollama";
 
   const currentImageModelList = imageProvider === "gemini" ? imageModelList : [];
   const openaiImageModelList = (PROVIDER_IMAGE_MODELS.openai || []).map((m) => ({ value: m, label: m }));
@@ -679,6 +708,8 @@ const SettingsPage = () => {
                     selectedModel={selectedModel}
                     setSelectedModel={(val) => dispatch(setSelectedModel(val))}
                     modelList={currentChatModelList}
+                    canFetchModels={canFetchChatModels}
+                    fetchModels={() => fetchProviderModels(chatProvider)}
                     replyLengthLimit={replyLengthLimit}
                     setReplyLengthLimit={(val) => dispatch(setReplyLengthLimit(val))}
                     compressThreshold={compressThreshold}

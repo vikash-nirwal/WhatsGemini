@@ -1,5 +1,5 @@
 import { ChatMessage, UsageInfo } from "../types";
-import { ChatCallOptions, ChatCallResult, ChatProviderAdapter, ProviderRuntimeConfig } from "./types";
+import { ChatCallOptions, ChatCallResult, ChatProviderAdapter, ModelOption, ProviderRuntimeConfig } from "./types";
 
 // Covers every provider that speaks OpenAI's Chat Completions wire format:
 // OpenAI itself, DeepSeek, Qwen (via DashScope's compatible-mode endpoint),
@@ -92,6 +92,30 @@ const chatCompletions = async (
   return { text: text.trim(), usage: normalizeUsage(data?.usage) };
 };
 
+// GET .../models is the one part of the OpenAI wire format DeepSeek, Qwen and
+// Kimi all implement identically (`{ data: [{ id: "..." }, ...] }`), so this
+// generic call gives every provider built from this factory a live model
+// list for free - same idea as Gemini's models.list fetch in SettingsPage,
+// just against the OpenAI-shaped endpoint instead of Google's.
+const listModels = async (def: OpenAiCompatibleProviderDef, config: ProviderRuntimeConfig): Promise<ModelOption[]> => {
+  if (def.requiresApiKey && !config.apiKey) {
+    throw new Error(`An API key is required for ${def.label}.`);
+  }
+
+  const baseUrl = (config.baseUrl || def.defaultBaseUrl).replace(/\/$/, "");
+  const response = await fetch(`${baseUrl}/models`, { headers: buildHeaders(def, config.apiKey) });
+  if (!response.ok) {
+    throw new Error(`${def.label} error: ${await extractErrorMessage(response)}`);
+  }
+
+  const data = await response.json();
+  const list: any[] = data?.data || [];
+  return list
+    .map((m) => ({ value: m.id as string, label: m.id as string }))
+    .filter((m) => !!m.value)
+    .sort((a, b) => a.value.localeCompare(b.value));
+};
+
 export const createOpenAiCompatibleAdapter = (def: OpenAiCompatibleProviderDef): ChatProviderAdapter => ({
   id: def.id,
   capabilities: { supportsImageGen: false, requiresApiKey: def.requiresApiKey, requiresBaseUrl: def.id === "ollama" },
@@ -107,4 +131,5 @@ export const createOpenAiCompatibleAdapter = (def: OpenAiCompatibleProviderDef):
     messages.push({ role: "user", content: prompt });
     return chatCompletions(def, messages, model, config, {});
   },
+  listModels: (config) => listModels(def, config),
 });

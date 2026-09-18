@@ -30,6 +30,11 @@ export interface ChatCallResult {
   usage?: UsageInfo;
 }
 
+export interface ModelOption {
+  value: string;
+  label: string;
+}
+
 // One character's reference photo(s), labeled by name - lets an adapter that
 // supports it (currently only Gemini) tell the model which face/appearance
 // each reference image belongs to, so a group-room "picture of us together"
@@ -78,6 +83,10 @@ export interface ChatProviderAdapter {
     config: ProviderRuntimeConfig,
     systemInstruction?: string
   ): Promise<ChatCallResult>;
+  // Optional - providers that expose a "list models" API implement this so
+  // Settings can offer a live-fetched dropdown instead of (or on top of)
+  // PROVIDER_CHAT_MODELS' hardcoded fallback list.
+  listModels?(config: ProviderRuntimeConfig): Promise<ModelOption[]>;
 }
 
 export interface ImageProviderAdapter {

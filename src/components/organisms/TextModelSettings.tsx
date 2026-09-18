@@ -21,6 +21,8 @@ interface TextModelSettingsProps {
   selectedModel: string;
   setSelectedModel: (model: string) => void;
   modelList: { value: string; label: string }[];
+  canFetchModels: boolean;
+  fetchModels: () => void;
   replyLengthLimit: number;
   setReplyLengthLimit: (chars: number) => void;
   compressThreshold: number;
@@ -43,6 +45,8 @@ const TextModelSettings: React.FC<TextModelSettingsProps> = ({
   selectedModel,
   setSelectedModel,
   modelList,
+  canFetchModels,
+  fetchModels,
   replyLengthLimit,
   setReplyLengthLimit,
   compressThreshold,
@@ -122,7 +126,21 @@ const TextModelSettings: React.FC<TextModelSettingsProps> = ({
             </datalist>
           </SettingsRow>
         ) : (
-          <SettingsRow label="Model">
+          <SettingsRow
+            label="Model"
+            hint={
+              canFetchModels ? (
+                <Button
+                  type="button"
+                  variant="link"
+                  onClick={fetchModels}
+                  className="h-auto p-0 text-xs text-primary hover:text-primary-hover no-underline hover:no-underline"
+                >
+                  Fetch available models
+                </Button>
+              ) : undefined
+            }
+          >
             <Select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}>
               {modelList.map((model) => (
                 <option key={model.value} value={model.value}>
