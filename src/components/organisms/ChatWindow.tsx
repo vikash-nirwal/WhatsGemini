@@ -14,6 +14,8 @@ import EmotionSpritePanel from "src/components/molecules/EmotionSpritePanel";
 import EmotionPopup, { EmotionPopupTrigger } from "src/components/molecules/EmotionPopup";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { setEmotionPanelEnabled } from "../../features/settingsSlice";
+import { VIDEO_PROVIDERS } from "../../features/ai/providers/registry";
+import { getProviderApiKey, getWanBaseUrl } from "../../features/ai/utils/settings";
 import { Dialog, DialogContent, DialogTitle, DialogClose } from "src/components/molecules/dialog";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { Button } from "src/components/atoms/button";
@@ -100,6 +102,22 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
   const [editText, setEditText] = useState("");
   const [editIsImageRequest, setEditIsImageRequest] = useState(false);
   const [editIsVideoRequest, setEditIsVideoRequest] = useState(false);
+  // Same "is Wan actually configured" check MessageInput does for its own
+  // video toggle - keeps the edit modal from offering an option that would
+  // just fail.
+  const [isVideoGenAvailable, setIsVideoGenAvailable] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const providerId = "wan";
+      const caps = VIDEO_PROVIDERS[providerId]?.capabilities;
+      if (!caps) return;
+      const apiKey = caps.requiresApiKey ? await getProviderApiKey(providerId) : "ok";
+      const baseUrl = caps.requiresBaseUrl ? getWanBaseUrl() : "ok";
+      if (!cancelled) setIsVideoGenAvailable(Boolean(apiKey && baseUrl));
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
@@ -518,12 +536,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
                 title="Request image generation"
                 label="Generate Image"
               />
-              <ToggleSwitch
-                checked={editIsVideoRequest}
-                onChange={(v) => { setEditIsVideoRequest(v); if (v) setEditIsImageRequest(false); }}
-                title="Request video generation"
-                label="Generate Video"
-              />
+              {isVideoGenAvailable && (
+                <ToggleSwitch
+                  checked={editIsVideoRequest}
+                  onChange={(v) => { setEditIsVideoRequest(v); if (v) setEditIsImageRequest(false); }}
+                  title="Request video generation"
+                  label="Generate Video"
+                />
+              )}
             </div>
 
             <div className="flex gap-3">

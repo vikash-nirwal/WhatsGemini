@@ -6,6 +6,8 @@ import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { useColorTheme } from "../../hooks/useColorTheme";
 import { TermLink } from "src/components/atoms/TermLink";
 import { estimateTokens } from "../../features/ai/utils/tokenEstimator";
+import { VIDEO_PROVIDERS } from "../../features/ai/providers/registry";
+import { getProviderApiKey, getWanBaseUrl } from "../../features/ai/utils/settings";
 import { Character } from "../../types";
 
 // Deferred to its own chunk - only fetched once the user actually opens the
@@ -80,6 +82,23 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const [text, setText] = useState("");
   const [isImageRequest, setIsImageRequest] = useState(false);
   const [isVideoRequest, setIsVideoRequest] = useState(false);
+  // Wan is the only video provider today (hardcoded in aiSlice.ts) and needs
+  // its own API key + workspace endpoint beyond whatever's already set up for
+  // chat/images - hide the toggle entirely rather than let someone turn it on
+  // and only find out it's unconfigured once the request fails.
+  const [isVideoGenAvailable, setIsVideoGenAvailable] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const providerId = "wan";
+      const caps = VIDEO_PROVIDERS[providerId]?.capabilities;
+      if (!caps) return;
+      const apiKey = caps.requiresApiKey ? await getProviderApiKey(providerId) : "ok";
+      const baseUrl = caps.requiresBaseUrl ? getWanBaseUrl() : "ok";
+      if (!cancelled) setIsVideoGenAvailable(Boolean(apiKey && baseUrl));
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const [isImpersonated, setIsImpersonated] = useState(false);
   // "Send without a reply" - adds the message as yourself but skips the
   // usual auto AI-reply, so the very next send (e.g. an impersonated one)
@@ -573,15 +592,17 @@ const MessageInput: React.FC<MessageInputProps> = ({
             aria-label="Request an image with this message"
             className={cn(isImageRequest && "bg-primary text-primary-foreground no-underline")}
           />
-          <TermLink
-            label="vid"
-            onClick={toggleVideoRequest}
-            disabled={disabled}
-            aria-pressed={isVideoRequest}
-            title="Request a video with this message"
-            aria-label="Request a video with this message"
-            className={cn(isVideoRequest && "bg-primary text-primary-foreground no-underline")}
-          />
+          {isVideoGenAvailable && (
+            <TermLink
+              label="vid"
+              onClick={toggleVideoRequest}
+              disabled={disabled}
+              aria-pressed={isVideoRequest}
+              title="Request a video with this message"
+              aria-label="Request a video with this message"
+              className={cn(isVideoRequest && "bg-primary text-primary-foreground no-underline")}
+            />
+          )}
           <TermLink
             label="mask"
             onClick={() => setIsImpersonated((v) => { if (!v) setIsSilentSend(false); return !v; })}
@@ -679,22 +700,24 @@ const MessageInput: React.FC<MessageInputProps> = ({
           <FaImage size={16} />
         </Button>
 
-        <Button
-          onClick={toggleVideoRequest}
-          disabled={disabled}
-          variant="ghost"
-          title="Request a video with this message"
-          aria-label="Request a video with this message"
-          aria-pressed={isVideoRequest}
-          className={cn(
-            "h-10 w-10 flex-shrink-0 rounded-lg",
-            isVideoRequest
-              ? "bg-primary/[0.14] text-primary hover:bg-primary/[0.2]"
-              : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-          )}
-        >
-          <FaVideo size={16} />
-        </Button>
+        {isVideoGenAvailable && (
+          <Button
+            onClick={toggleVideoRequest}
+            disabled={disabled}
+            variant="ghost"
+            title="Request a video with this message"
+            aria-label="Request a video with this message"
+            aria-pressed={isVideoRequest}
+            className={cn(
+              "h-10 w-10 flex-shrink-0 rounded-lg",
+              isVideoRequest
+                ? "bg-primary/[0.14] text-primary hover:bg-primary/[0.2]"
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+            )}
+          >
+            <FaVideo size={16} />
+          </Button>
+        )}
 
         <Button
           onClick={() => setIsImpersonated((v) => { if (!v) setIsSilentSend(false); return !v; })}
