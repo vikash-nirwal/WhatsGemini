@@ -439,15 +439,18 @@ export const PROVIDER_CHAT_MODELS: Record<string, string[]> = {
   deepseek: ["deepseek-chat", "deepseek-reasoner"],
   qwen: ["qwen-plus", "qwen-turbo", "qwen-max"],
   kimi: ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
+  glm: ["glm-4.6", "glm-4.5", "glm-4.5-air", "glm-4.5-flash"],
 };
 
-// Of the requested providers, only Gemini, OpenAI and Wan (Wanxiang, via
-// Alibaba Cloud Model Studio/DashScope) have real image-generation APIs
-// (plus the separately-handled local SD WebUI option) - see registry.ts.
+// Of the requested providers, Gemini, OpenAI, Wan (Wanxiang, via Alibaba
+// Cloud Model Studio/DashScope) and GLM (CogView/GLM-Image, via Zhipu AI's
+// Z.ai) have real image-generation APIs (plus the separately-handled local
+// SD WebUI option) - see registry.ts.
 export const PROVIDER_IMAGE_MODELS: Record<string, string[]> = {
   gemini: imageModels,
   openai: ["gpt-image-1", "dall-e-3"],
   wan: ["wan2.7-image", "wan2.7-image-pro", "wan2.6-t2i"],
+  glm: ["glm-image", "cogview-4-250304"],
 };
 
 // Auto-backup reminder: everything lives only in this browser's IndexedDB,

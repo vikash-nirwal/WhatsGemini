@@ -292,6 +292,24 @@ const SettingsPage = () => {
     saveWanBaseUrl(url);
   }, []);
 
+  // GLM's key is shared between its chat and image adapters (same provider id
+  // "glm"), same pattern as OpenAI's image key above.
+  const [glmImageApiKey, setGlmImageApiKeyState] = useState("");
+  useEffect(() => {
+    if (imageProvider !== "glm") return;
+    let cancelled = false;
+    (async () => {
+      const key = await getProviderApiKey("glm");
+      if (!cancelled) setGlmImageApiKeyState(key || "");
+    })();
+    return () => { cancelled = true; };
+  }, [imageProvider]);
+
+  const handleSetGlmImageApiKey = useCallback((key: string) => {
+    setGlmImageApiKeyState(key);
+    saveProviderApiKey("glm", key);
+  }, []);
+
   const [ollamaModelOptions, setOllamaModelOptions] = useState<string[]>([]);
   const fetchOllamaModels = useCallback(async () => {
     try {
@@ -317,6 +335,7 @@ const SettingsPage = () => {
   const currentImageModelList = imageProvider === "gemini" ? imageModelList : [];
   const openaiImageModelList = (PROVIDER_IMAGE_MODELS.openai || []).map((m) => ({ value: m, label: m }));
   const wanImageModelList = (PROVIDER_IMAGE_MODELS.wan || []).map((m) => ({ value: m, label: m }));
+  const glmImageModelList = (PROVIDER_IMAGE_MODELS.glm || []).map((m) => ({ value: m, label: m }));
 
   const selectedSection = SECTION_IDS.includes(section as any) ? (section as string) : "profile";
   const setSelectedSection = (id: string) => navigate(`/settings/${id}`);
@@ -759,6 +778,9 @@ const SettingsPage = () => {
                     wanBaseUrl={wanBaseUrl}
                     setWanBaseUrl={handleSetWanBaseUrl}
                     wanImageModelList={wanImageModelList}
+                    glmApiKey={glmImageApiKey}
+                    setGlmApiKey={handleSetGlmImageApiKey}
+                    glmImageModelList={glmImageModelList}
                     sdWebuiApiUrl={sdWebuiApiUrl}
                     setSdWebuiApiUrl={(val) => dispatch(setSdWebuiApiUrl(val))}
                     sdWebuiBatchSize={sdWebuiBatchSize}

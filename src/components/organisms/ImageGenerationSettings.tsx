@@ -21,6 +21,9 @@ interface ImageGenerationSettingsProps {
   wanBaseUrl: string;
   setWanBaseUrl: (url: string) => void;
   wanImageModelList: { value: string; label: string }[];
+  glmApiKey: string;
+  setGlmApiKey: (key: string) => void;
+  glmImageModelList: { value: string; label: string }[];
   sdWebuiApiUrl: string;
   setSdWebuiApiUrl: (url: string) => void;
   sdWebuiBatchSize: number;
@@ -74,6 +77,9 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
   wanBaseUrl,
   setWanBaseUrl,
   wanImageModelList,
+  glmApiKey,
+  setGlmApiKey,
+  glmImageModelList,
   sdWebuiApiUrl,
   setSdWebuiApiUrl,
   sdWebuiBatchSize,
@@ -247,6 +253,27 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
             <SettingsRow label="Model" hint={'Used when "send pic" or similar is queried. Generation is async and typically takes 1-2 minutes.'}>
               <Select value={imageModel} onChange={(e) => setImageModel(e.target.value)}>
                 {wanImageModelList.map((model) => (
+                  <option key={model.value} value={model.value}>
+                    {model.label}
+                  </option>
+                ))}
+              </Select>
+            </SettingsRow>
+          </>
+        ) : imageProvider === 'glm' ? (
+          <>
+            <SettingsRow label="API key" hint="Your Z.ai (Zhipu AI) key. Stored encrypted, only on this device.">
+              <TextInput
+                type="password"
+                value={glmApiKey}
+                onChange={(e) => setGlmApiKey(e.target.value)}
+                placeholder="Paste your API key here..."
+              />
+            </SettingsRow>
+
+            <SettingsRow label="Model" hint={'Used when "send pic" or similar is queried.'}>
+              <Select value={imageModel} onChange={(e) => setImageModel(e.target.value)}>
+                {glmImageModelList.map((model) => (
                   <option key={model.value} value={model.value}>
                     {model.label}
                   </option>
