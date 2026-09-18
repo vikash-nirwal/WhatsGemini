@@ -61,21 +61,69 @@ const freshLoreEntryId = (i: number) =>
 
 const asStringArray = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x) => typeof x === "string") : []);
 
+// The model is told to reply with strict JSON, but for multi-line fields
+// like "prompt" or "mes_example" it very often pastes a literal newline
+// inside the string instead of escaping it as \n - valid as *text*, but
+// JSON.parse rejects raw control characters inside a string literal. This
+// walks the text tracking whether it's inside a "..." string (respecting
+// backslash escapes) and escapes any bare newline/tab/carriage-return it
+// finds there, leaving whitespace outside strings untouched.
+const escapeBareControlCharsInStrings = (text: string): string => {
+  let result = "";
+  let inString = false;
+  let escapedNext = false;
+  for (const ch of text) {
+    if (inString) {
+      if (escapedNext) {
+        result += ch;
+        escapedNext = false;
+      } else if (ch === "\\") {
+        result += ch;
+        escapedNext = true;
+      } else if (ch === '"') {
+        inString = false;
+        result += ch;
+      } else if (ch === "\n") {
+        result += "\\n";
+      } else if (ch === "\r") {
+        result += "\\r";
+      } else if (ch === "\t") {
+        result += "\\t";
+      } else {
+        result += ch;
+      }
+    } else {
+      if (ch === '"') inString = true;
+      result += ch;
+    }
+  }
+  return result;
+};
+
+// A trailing comma before a closing `}`/`]` is invalid JSON but a common
+// model slip (especially when it's editing an array/object it was shown as
+// an example) - strip it rather than reject the whole response over it.
+const stripTrailingCommas = (text: string): string => text.replace(/,(\s*[}\]])/g, "$1");
+
 // Defensive parse - the model is asked for strict JSON but still sometimes
-// wraps it in a ```json fence or adds a stray sentence, so this tries to
-// salvage that before giving up, then rebuilds every field with the same
+// wraps it in a ```json fence, adds a stray sentence, leaves a trailing
+// comma, or pastes literal newlines inside a string - this tries to salvage
+// all of that before giving up, then rebuilds every field with the same
 // fallback-to-empty-string behavior parseCharacterCardJson uses.
 export const parseImportCustomizeResponse = (text: string): ImportCustomizeFields => {
   const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");
   if (start === -1 || end === -1 || end < start) {
+    console.error("Import customize: no JSON object found in AI response:", text);
     throw new Error("The AI's response wasn't valid JSON. Try rephrasing your request.");
   }
+  const candidate = stripTrailingCommas(escapeBareControlCharsInStrings(cleaned.slice(start, end + 1)));
   let parsed: any;
   try {
-    parsed = JSON.parse(cleaned.slice(start, end + 1));
-  } catch {
+    parsed = JSON.parse(candidate);
+  } catch (err) {
+    console.error("Import customize: failed to parse AI response as JSON:", err, text);
     throw new Error("The AI's response wasn't valid JSON. Try rephrasing your request.");
   }
   if (!parsed || typeof parsed !== "object") {

@@ -34,6 +34,45 @@ describe("parseImportCustomizeResponse", () => {
     expect(() => parseImportCustomizeResponse("Sure, here's what I changed: nothing.")).toThrow(/wasn't valid JSON/);
   });
 
+  // The most common real-world failure: the model pastes a literal newline
+  // inside a multi-line field (prompt/mes_example) instead of escaping it as
+  // \n, which strict JSON.parse rejects as a bad control character.
+  it("repairs a literal newline inside a string field", () => {
+    const text = `{
+  "name": "Mira",
+  "description": "A rogue.",
+  "prompt": "Sarcastic and quick.\nAlways ready with a quip.",
+  "scenario": "",
+  "first_mes": "",
+  "mes_example": "User: hi\nMira: hey",
+  "tags": [],
+  "relationship": "",
+  "appearance": "",
+  "loreEntries": []
+}`;
+    const fields = parseImportCustomizeResponse(text);
+    expect(fields.prompt).toBe("Sarcastic and quick.\nAlways ready with a quip.");
+    expect(fields.mes_example).toBe("User: hi\nMira: hey");
+  });
+
+  it("repairs a trailing comma before a closing brace/bracket", () => {
+    const text = `{
+  "name": "Mira",
+  "description": "",
+  "prompt": "",
+  "scenario": "",
+  "first_mes": "",
+  "mes_example": "",
+  "tags": ["Fantasy",],
+  "relationship": "",
+  "appearance": "",
+  "loreEntries": [],
+}`;
+    const fields = parseImportCustomizeResponse(text);
+    expect(fields.name).toBe("Mira");
+    expect(fields.tags).toEqual(["Fantasy"]);
+  });
+
   it("defaults missing/malformed fields instead of throwing", () => {
     const fields = parseImportCustomizeResponse(JSON.stringify({ name: "Mira" }));
     expect(fields.description).toBe("");
