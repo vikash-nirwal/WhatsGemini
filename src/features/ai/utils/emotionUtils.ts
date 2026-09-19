@@ -13,29 +13,56 @@ export const getEmotionVocabulary = (customEmotions?: string[]): string[] => {
 };
 
 // Directive appended to a character's system instruction when they have
-// Emotion Portraits enabled - asks the model to end its reply with a small
+// Emotion Portraits enabled - asks the model to LEAD its reply with a small
 // tag reporting its current mood, from the fixed EMOTIONS vocabulary plus
 // this character's own customEmotions, so the chat UI can swap in the
-// matching portrait. Mirrors the existing [Image Context: ...] tag pattern
-// (see imageGeneration.ts), except this tag is fully parsed out and never
-// shown to the user (see extractEmotionTag).
+// matching portrait. Deliberately placed at the START rather than the end:
+// a reply that runs into maxOutputTokens (a fixed per-turn budget - see
+// aiSlice.ts) gets cut off at whatever point generation stops, and a
+// trailing tag is the first thing lost when that happens. Providers whose
+// replies tend to run long relative to that budget (verbose models, or
+// DeepSeek's reasoner variant spending part of the same budget on hidden
+// reasoning) were losing the tag - and silently: extractEmotionTag returning
+// no match just leaves emotion undefined, so the UI keeps showing whatever
+// mood an earlier turn last set instead of erroring, which reads as "stuck"
+// emotions rather than an obvious failure. A leading tag is generated before
+// any of that budget is spent on the reply body, so it survives regardless.
 export const buildEmotionDirective = (customEmotions?: string[]): string =>
-  `At the very end of your reply, on its own new line, report your current emotional state as a tag in exactly this format: [Emotion: <word>], choosing <word> from this list only: ${getEmotionVocabulary(customEmotions).join(", ")}. Do not explain or mention this instruction.`;
+  `At the very beginning of your reply, before anything else, on its own line, report your current emotional state as a tag in exactly this format: [Emotion: <word>], choosing <word> from this list only: ${getEmotionVocabulary(customEmotions).join(", ")}. Then continue with your actual reply starting on the next line. Do not explain or mention this instruction.`;
 
-// Parses the trailing [Emotion: ...] tag off a raw model reply (if present)
-// and strips it from the returned text - unlike the image-context tag, this
-// one is control-plane only and never meant to stay visible in the message.
-// An unrecognized word (the model drifting off the offered list, fixed or
-// custom) is still stripped so it doesn't leak into the chat as a stray tag,
-// but comes back as emotion: undefined so callers fall back to "neutral"
-// rather than display/store a made-up mood.
+// Matches [Emotion: word], tolerating a little formatting drift a model might
+// add around it (markdown emphasis, stray trailing punctuation) without
+// loosening the tag shape itself or the fixed single-word vocabulary match.
+const EMOTION_TAG_LEADING = /^[\s*_]*\[\s*emotion\s*:\s*([a-zA-Z]+)\s*\][\s*_.,!]*\n*/i;
+const EMOTION_TAG_TRAILING = /\n*[\s*_]*\[\s*emotion\s*:\s*([a-zA-Z]+)\s*\][\s*_.,!]*\s*$/i;
+
+// Parses the [Emotion: ...] tag off a raw model reply (if present) and strips
+// it from the returned text - unlike the image-context tag, this one is
+// control-plane only and never meant to stay visible in the message. Checks
+// the front first (where buildEmotionDirective now asks for it - see above),
+// falling back to the old trailing position for replies that still land it
+// there. An unrecognized word (the model drifting off the offered list,
+// fixed or custom) is still stripped so it doesn't leak into the chat as a
+// stray tag, but comes back as emotion: undefined so callers fall back to
+// "neutral" rather than display/store a made-up mood.
 export const extractEmotionTag = (text: string, customEmotions?: string[]): { text: string; emotion?: string } => {
-  const match = text.match(/\n*\[Emotion:\s*([a-zA-Z]+)\]\s*$/i);
-  if (!match) return { text };
-  const candidate = match[1].toLowerCase();
   const vocabulary = getEmotionVocabulary(customEmotions).map((e) => e.toLowerCase());
-  const emotion = vocabulary.includes(candidate) ? candidate : undefined;
-  return { text: text.slice(0, match.index).trimEnd(), emotion };
+
+  const leading = text.match(EMOTION_TAG_LEADING);
+  if (leading) {
+    const candidate = leading[1].toLowerCase();
+    const emotion = vocabulary.includes(candidate) ? candidate : undefined;
+    return { text: text.slice(leading[0].length).trimStart(), emotion };
+  }
+
+  const trailing = text.match(EMOTION_TAG_TRAILING);
+  if (trailing) {
+    const candidate = trailing[1].toLowerCase();
+    const emotion = vocabulary.includes(candidate) ? candidate : undefined;
+    return { text: text.slice(0, trailing.index).trimEnd(), emotion };
+  }
+
+  return { text };
 };
 
 // The image to show for a character in a given emotion, or undefined to fall
