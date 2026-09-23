@@ -38,6 +38,11 @@ export interface Message {
   isImageRequest?: boolean; // True if it triggered image generation
   isVideoRequest?: boolean; // True if it triggered video generation (mutually exclusive with isImageRequest)
   isImpersonated?: boolean; // role AI, but the user wrote it themselves (Impersonate mode) - not a real generation
+  // Heuristically detected out-of-character refusal ("I can't continue this
+  // roleplay..."). Kept visible, but left out of the context sent to the
+  // model, memory and summaries - otherwise one refusal teaches every later
+  // reply to refuse too. The user can clear the flag if it's a false positive.
+  isRefusal?: boolean;
   emotion?: string; // one of EMOTIONS, parsed from the AI's own reply when the character has emotionPortraits enabled
   castEmotions?: Record<number, string>; // adventure narrator turns: character id -> mood for each NPC in the scene
   imagePrompt?: string; // The derived SD prompt used to generate this image

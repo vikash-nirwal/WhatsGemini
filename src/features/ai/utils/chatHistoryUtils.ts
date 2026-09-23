@@ -1,8 +1,7 @@
-import { getStoredValue, getInitialMessages, getProviderApiKey, getOllamaBaseUrl } from "./settings";
-import { LS_CHAT_PROVIDER, DEFAULT_CHAT_PROVIDER, LS_AI_MODEL, DEFAULT_AI_MODEL, YOU, AI, getModelPricing } from "../../../utils/constants";
+import { getInitialMessages } from "./settings";
+import { YOU, AI, getModelPricing } from "../../../utils/constants";
 import { ChatMessage, UsageInfo } from "../types";
 import { ChatProviderAdapter, ProviderRuntimeConfig } from "../providers/types";
-import { CHAT_PROVIDERS } from "../providers/registry";
 import { Message } from "../../../types";
 import { formatTranscript, TranscriptNames } from "./transcript";
 import { estimateMessageTokens } from "./tokenEstimator";
@@ -75,7 +74,7 @@ export const buildAutoCompressedMessages = async (
   messages: Message[],
   compressThresholdMessages: number,
   names?: TranscriptNames
-): Promise<{ messages: Message[]; compressed: boolean; usage?: UsageInfo }> => {
+): Promise<{ messages: Message[]; compressed: boolean; usage?: UsageInfo; error?: string }> => {
   if (compressThresholdMessages <= 0) return { messages, compressed: false };
 
   const initialMessages = getInitialMessages();
@@ -116,7 +115,7 @@ export const buildAutoCompressedMessages = async (
     };
   } catch (e) {
     console.warn("Auto-compression failed, continuing with full history.", e);
-    return { messages, compressed: false };
+    return { messages, compressed: false, error: e instanceof Error ? e.message : String(e) };
   }
 };
 
@@ -157,20 +156,14 @@ export const truncateHistory = (validHistory: ChatMessage[], maxHistoryTokens: n
 // the same provider/model that served it) so the manual "Compress" button's
 // spend can be folded into the chat's running total instead of being dropped.
 export const performChatCompression = async (
+  adapter: ChatProviderAdapter,
+  config: ProviderRuntimeConfig,
+  providerId: string,
+  selectedModel: string,
   transcript: string,
   systemInstruction?: string
 ): Promise<{ summary: string; tokens: number; cost: number }> => {
-  const providerId = getStoredValue(LS_CHAT_PROVIDER, DEFAULT_CHAT_PROVIDER);
-  const adapter = CHAT_PROVIDERS[providerId] || CHAT_PROVIDERS[DEFAULT_CHAT_PROVIDER];
-
-  const apiKey = await getProviderApiKey(providerId);
-  if (!apiKey && adapter.capabilities.requiresApiKey) {
-    throw new Error("API key is missing. Please log in.");
-  }
-  const baseUrl = adapter.capabilities.requiresBaseUrl ? getOllamaBaseUrl() : undefined;
-  const selectedModel = getStoredValue(LS_AI_MODEL, DEFAULT_AI_MODEL);
-
-  const { summary, usage } = await summarizeConversation(adapter, { apiKey, baseUrl }, selectedModel, transcript, systemInstruction);
+  const { summary, usage } = await summarizeConversation(adapter, config, selectedModel, transcript, systemInstruction);
   const pricing = getModelPricing(providerId, selectedModel);
   const tokens = usage?.totalTokens || 0;
   const cost = usage ? (usage.inputTokens / 1_000_000) * pricing.input + (usage.outputTokens / 1_000_000) * pricing.output : 0;

@@ -44,6 +44,14 @@ const ollamaAdapter = createOpenAiCompatibleAdapter({
   defaultBaseUrl: "http://localhost:11434/v1",
   requiresApiKey: false,
 });
+// Router across many hosted models, including ones whose terms allow
+// mature fiction - the usual choice for NSFW roleplay without a local GPU.
+const openrouterAdapter = createOpenAiCompatibleAdapter({
+  id: "openrouter",
+  label: "OpenRouter",
+  defaultBaseUrl: "https://openrouter.ai/api/v1",
+  requiresApiKey: true,
+});
 const glmAdapter = createOpenAiCompatibleAdapter({
   id: "glm",
   label: "GLM (Zhipu AI / Z.ai)",
@@ -59,6 +67,7 @@ export const CHAT_PROVIDERS: Record<string, ChatProviderAdapter> = {
   qwen: qwenAdapter,
   kimi: kimiAdapter,
   glm: glmAdapter,
+  openrouter: openrouterAdapter,
   ollama: ollamaAdapter,
 };
 
@@ -81,6 +90,7 @@ export const CHAT_PROVIDER_META: ProviderMeta[] = [
   { id: "qwen", label: "Qwen (DashScope)", defaultBaseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
   { id: "kimi", label: "Kimi (Moonshot AI)", defaultBaseUrl: "https://api.moonshot.cn/v1" },
   { id: "glm", label: "GLM (Zhipu AI / Z.ai)", defaultBaseUrl: "https://api.z.ai/api/paas/v4" },
+  { id: "openrouter", label: "OpenRouter", defaultBaseUrl: "https://openrouter.ai/api/v1" },
   { id: "ollama", label: "Ollama (local)", defaultBaseUrl: "http://localhost:11434/v1" },
 ];
 

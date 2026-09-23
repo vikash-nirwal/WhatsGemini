@@ -55,6 +55,8 @@ import {
   LS_SAMPLERS,
   LS_ROLEPLAY_STYLE,
   DEFAULT_ROLEPLAY_STYLE,
+  LS_HELPER_PROVIDER,
+  LS_HELPER_MODEL,
   LS_EMOTION_POPUP_ENABLED,
   LS_EMOTION_POPUP_DURATION,
   DEFAULT_EMOTION_POPUP_DURATION,
@@ -112,6 +114,10 @@ export interface SettingsState {
   temperature: number;
   samplers: SamplerSettings;
   roleplayStyle: RoleplayStyle;
+  // Optional separate provider/model for background calls (memory
+  // extraction, history compression). "" = use the main chat model.
+  helperProvider: string;
+  helperModel: string;
   safetySettings: AISafetySettings;
   fontSize: string;
   imageResolution: string;
@@ -155,6 +161,8 @@ const initialState: SettingsState = {
   temperature: getStoredValue(LS_TEMPRATURE, DEFAULT_TEMPRATURE),
   samplers: getStoredValue<SamplerSettings>(LS_SAMPLERS, {}) || {},
   roleplayStyle: { ...DEFAULT_ROLEPLAY_STYLE, ...getStoredValue<Partial<RoleplayStyle>>(LS_ROLEPLAY_STYLE, {}) },
+  helperProvider: localStorage.getItem(LS_HELPER_PROVIDER) || "",
+  helperModel: localStorage.getItem(LS_HELPER_MODEL) || "",
   safetySettings: getStoredValue(LS_SAFETY_SETTINGS, DEFAULT_SAFETY_SETTINGS as unknown as AISafetySettings),
   fontSize: localStorage.getItem(LS_FONT_SIZE) || '16px',
   imageResolution: localStorage.getItem(LS_IMAGE_RESOLUTION) || DEFAULT_IMAGE_RESOLUTION,
@@ -268,6 +276,10 @@ const settingsSlice = createSlice({
     setRoleplayStyle: (state, action: PayloadAction<RoleplayStyle>) => {
       state.roleplayStyle = action.payload;
     },
+    setHelperModel: (state, action: PayloadAction<{ provider: string; model: string }>) => {
+      state.helperProvider = action.payload.provider;
+      state.helperModel = action.payload.model;
+    },
     setSafetySettings: (state, action: PayloadAction<AISafetySettings>) => {
       state.safetySettings = action.payload;
     },
@@ -329,6 +341,7 @@ export const {
   setTemperature,
   setSamplers,
   setRoleplayStyle,
+  setHelperModel,
   setSafetySettings,
   setFontSize,
   setImageResolution,

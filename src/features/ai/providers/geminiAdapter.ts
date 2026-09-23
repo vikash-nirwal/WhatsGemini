@@ -18,7 +18,21 @@ import {
   ImageGenCallResult,
   ImageProviderAdapter,
   ProviderRuntimeConfig,
+  ContentBlockedError,
 } from "./types";
+
+// Finish reasons meaning Gemini withheld output on content grounds, not a
+// normal stop or length cutoff. RECITATION (copyright) is included since it
+// equally leaves the reply empty.
+const BLOCKING_FINISH_REASONS = new Set(["SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "SPII", "RECITATION", "IMAGE_SAFETY"]);
+
+// Returns why a response chunk was blocked, if it was.
+const blockReasonOf = (response: { promptFeedback?: { blockReason?: string }; candidates?: { finishReason?: string }[] }): string | undefined => {
+  const promptBlock = response.promptFeedback?.blockReason;
+  if (promptBlock) return promptBlock;
+  const finish = response.candidates?.[0]?.finishReason;
+  return finish && BLOCKING_FINISH_REASONS.has(finish) ? finish : undefined;
+};
 
 const toGeminiRole = (role: ChatMessage["role"]): "user" | "model" => (role === "assistant" ? "model" : "user");
 
@@ -67,6 +81,7 @@ const generateChat = async (opts: ChatCallOptions, config: ProviderRuntimeConfig
 
   let text = "";
   let usage: GenerateContentResponseUsageMetadata | undefined;
+  let blockReason: string | undefined;
   for await (const chunk of stream) {
     if (opts.signal?.aborted) {
       console.log("AI response generation aborted by user.");
@@ -78,11 +93,16 @@ const generateChat = async (opts: ChatCallOptions, config: ProviderRuntimeConfig
         opts.onToken?.(text);
       }
       if (chunk.usageMetadata) usage = chunk.usageMetadata;
+      blockReason = blockReasonOf(chunk as any) || blockReason;
     } catch (e) {
       console.warn("Could not parse Gemini stream chunk:", e);
     }
   }
 
+  // A block mid-reply leaves a partial text, which is kept (the user can
+  // continue or regenerate); a block before any text is an error, not an
+  // empty character message.
+  if (blockReason && !text.trim()) throw new ContentBlockedError("Gemini", blockReason);
   return { text, usage: normalizeUsage(usage) };
 };
 
@@ -97,7 +117,10 @@ const generateOnce = async (
   if (systemInstruction) modelConfig.systemInstruction = systemInstruction;
 
   const result = await ai.models.generateContent({ model, contents: prompt, config: modelConfig });
-  return { text: result.text?.trim() || "", usage: normalizeUsage(result.usageMetadata) };
+  const blockReason = blockReasonOf(result as any);
+  const text = result.text?.trim() || "";
+  if (blockReason && !text) throw new ContentBlockedError("Gemini", blockReason);
+  return { text, usage: normalizeUsage(result.usageMetadata) };
 };
 
 export const geminiAdapter: ChatProviderAdapter = {

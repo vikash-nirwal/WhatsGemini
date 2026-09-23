@@ -1,5 +1,5 @@
 import { ChatMessage, UsageInfo } from "../types";
-import { ChatCallOptions, ChatCallResult, ChatProviderAdapter, ProviderRuntimeConfig } from "./types";
+import { ChatCallOptions, ChatCallResult, ChatProviderAdapter, ContentBlockedError, ProviderRuntimeConfig } from "./types";
 import { readSseStream } from "./sse";
 
 // Anthropic's Messages API is the only requested provider that isn't OpenAI-Chat-
@@ -81,6 +81,7 @@ const messagesCall = async (
 
   if (stream) {
     let text = "";
+    let stopReason: string | undefined;
     const usage: AnthropicUsage = {};
     await readSseStream(response, (data) => {
       try {
@@ -91,8 +92,9 @@ const messagesCall = async (
         } else if (event.type === "message_start" && event.message?.usage) {
           usage.input_tokens = event.message.usage.input_tokens;
           usage.output_tokens = event.message.usage.output_tokens;
-        } else if (event.type === "message_delta" && event.usage) {
-          usage.output_tokens = event.usage.output_tokens;
+        } else if (event.type === "message_delta") {
+          if (event.usage) usage.output_tokens = event.usage.output_tokens;
+          if (event.delta?.stop_reason) stopReason = event.delta.stop_reason;
         } else if (event.type === "error") {
           throw new Error(`Anthropic error: ${event.error?.message || "stream error"}`);
         }
@@ -101,6 +103,8 @@ const messagesCall = async (
         console.warn("Could not parse Anthropic stream event:", e);
       }
     }, extra.signal);
+    // "refusal" is the stop reason Claude's own safety classifiers report.
+    if (stopReason === "refusal" && !text.trim()) throw new ContentBlockedError("Anthropic", "refusal");
     return { text: text.trim(), usage: normalizeUsage(usage) };
   }
 
@@ -110,6 +114,7 @@ const messagesCall = async (
     .map((block: { text: string }) => block.text)
     .join("");
 
+  if (data?.stop_reason === "refusal" && !text.trim()) throw new ContentBlockedError("Anthropic", "refusal");
   return { text: text.trim(), usage: normalizeUsage(data?.usage) };
 };
 

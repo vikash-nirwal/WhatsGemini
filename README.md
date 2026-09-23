@@ -5,7 +5,9 @@ WhatsGemini is a client-side AI roleplay and chat app built with **React, Redux 
 ## 🚀 Features
 
 **Providers**
-- Chat: Google Gemini, OpenAI, Anthropic (Claude), DeepSeek, Qwen, Kimi, GLM, and local Ollama. Replies stream in as they're written.
+- Chat: Google Gemini, OpenAI, Anthropic (Claude), DeepSeek, Qwen, Kimi, GLM, OpenRouter, and local Ollama. Replies stream in as they're written.
+- Blocked replies show a clear error instead of an empty message; out-of-character refusals are flagged and kept out of the AI's context.
+- Optional separate background model for memory and compression.
 - Images: Gemini, OpenAI, Wan, GLM, or a local/remote Stable Diffusion WebUI. Video: Wan.
 - Temperature plus optional Top P, Top K, frequency and presence penalties (each provider gets the ones its API supports).
 

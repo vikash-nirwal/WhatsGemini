@@ -345,6 +345,8 @@ export const LS_MAX_CHAT_LENGTH = "max_chat_length";
 export const LS_TEMPRATURE = "temperature";
 export const LS_SAMPLERS = "samplers";
 export const LS_ROLEPLAY_STYLE = "roleplay_style";
+export const LS_HELPER_PROVIDER = "helper_provider";
+export const LS_HELPER_MODEL = "helper_model";
 export const LS_SAFETY_SETTINGS = "safety_settings";
 export const LS_INITIAL_CHAT_MESSAGE = "initial_chat_message";
 export const LS_GOOGLE_API_KEY = "google_api_key";
@@ -457,6 +459,8 @@ export const PROVIDER_CHAT_MODELS: Record<string, string[]> = {
   qwen: ["qwen-plus", "qwen-turbo", "qwen-max"],
   kimi: ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
   glm: ["glm-4.6", "glm-4.5", "glm-4.5-air", "glm-4.5-flash"],
+  // A starting point only - "Fetch models" pulls OpenRouter's live catalog.
+  openrouter: ["deepseek/deepseek-chat", "meta-llama/llama-3.3-70b-instruct", "mistralai/mistral-nemo", "nousresearch/hermes-3-llama-3.1-405b"],
 };
 
 // Of the requested providers, Gemini, OpenAI, Wan (Wanxiang, via Alibaba

@@ -120,3 +120,14 @@ export interface VideoProviderAdapter {
   capabilities: Pick<ProviderCapabilities, "requiresApiKey" | "requiresBaseUrl">;
   generateVideo(opts: VideoGenCallOptions, config: ProviderRuntimeConfig): Promise<VideoGenCallResult>;
 }
+
+// Thrown by an adapter when the provider itself withheld the reply (a safety
+// filter, a policy block, a model-level refusal stop) rather than failing
+// technically - lets the UI say "blocked, try again or switch model" instead
+// of a generic error, and keeps nothing from being saved as a reply.
+export class ContentBlockedError extends Error {
+  constructor(providerLabel: string, reason: string) {
+    super(`${providerLabel} blocked this reply (${reason}). Try regenerating, rephrasing, or switching to a model that allows this content.`);
+    this.name = "ContentBlockedError";
+  }
+}

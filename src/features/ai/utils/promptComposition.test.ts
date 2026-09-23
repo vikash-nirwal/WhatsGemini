@@ -204,3 +204,10 @@ describe("buildTimeSection", () => {
     expect(buildTimeSection(messages, now)).not.toMatch(/passed/);
   });
 });
+
+describe("refusals", () => {
+  it("leaves flagged refusals out of the history sent to the model", () => {
+    const messages: Message[] = [msg(YOU, "hi"), { role: AI, txt: "I'm sorry, but I can't continue this roleplay.", isRefusal: true }, msg(YOU, "please")];
+    expect(buildChatHistory(messages)).toEqual([{ role: "user", text: "hi" }, { role: "user", text: "please" }]);
+  });
+});

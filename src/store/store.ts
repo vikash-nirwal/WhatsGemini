@@ -40,6 +40,8 @@ import {
   LS_ALWAYS_SHOW_INITIALS,
   LS_SAMPLERS,
   LS_ROLEPLAY_STYLE,
+  LS_HELPER_PROVIDER,
+  LS_HELPER_MODEL,
 } from "../utils/constants";
 
 // Configure Redux Store
@@ -86,6 +88,8 @@ store.subscribe(() => {
   localStorage.setItem(LS_TEMPRATURE, JSON.stringify(state.temperature));
   localStorage.setItem(LS_SAMPLERS, JSON.stringify(state.samplers));
   localStorage.setItem(LS_ROLEPLAY_STYLE, JSON.stringify(state.roleplayStyle));
+  localStorage.setItem(LS_HELPER_PROVIDER, state.helperProvider);
+  localStorage.setItem(LS_HELPER_MODEL, state.helperModel);
   localStorage.setItem(LS_SAFETY_SETTINGS, JSON.stringify(state.safetySettings));
   localStorage.setItem(LS_FONT_SIZE, state.fontSize);
   localStorage.setItem(LS_IMAGE_RESOLUTION, state.imageResolution);

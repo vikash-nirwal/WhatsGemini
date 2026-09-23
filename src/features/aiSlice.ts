@@ -7,6 +7,7 @@ import { deriveImagePrompt, generateImage, RoomReferenceCharacter } from "./ai/u
 import { generateVideo } from "./ai/utils/videoGeneration";
 import { extractEmotionTag } from "./ai/utils/emotionUtils";
 import { extractMemoryFacts } from "./ai/utils/memoryExtraction";
+import { looksLikeRefusal } from "./ai/utils/refusal";
 import { CHAT_PROVIDERS, IMAGE_PROVIDERS, VIDEO_PROVIDERS } from "./ai/providers/registry";
 import { ProviderRuntimeConfig } from "./ai/providers/types";
 import { ChatMessage, UsageInfo } from "./ai/types";
@@ -25,6 +26,7 @@ export interface GenerateAIResponseResult {
   videoPrompt?: string;
   videos?: string[];
   emotion?: string;
+  isRefusal?: boolean;
 }
 
 // Resolves the runtime config (API key / base URL) a chat or image provider
@@ -34,6 +36,22 @@ const resolveProviderConfig = async (providerId: string, requiresBaseUrl: boolea
   apiKey: await getProviderApiKey(providerId),
   baseUrl: !requiresBaseUrl ? undefined : providerId === "wan" ? getWanBaseUrl() : getOllamaBaseUrl(),
 });
+
+// The adapter/config/model for background work (memory extraction, history
+// compression): the separately configured helper model when one is set,
+// otherwise the main chat model. Lets a user whose main provider filters
+// mature content route these calls to one that doesn't, instead of having
+// them fail silently.
+const resolveHelperCall = async (settings: RootState["settings"]) => {
+  const useHelper = Boolean(settings.helperProvider && settings.helperModel && CHAT_PROVIDERS[settings.helperProvider]);
+  const providerId = useHelper ? settings.helperProvider : settings.chatProvider;
+  const adapter = CHAT_PROVIDERS[providerId] || CHAT_PROVIDERS.gemini;
+  const config = await resolveProviderConfig(providerId, adapter.capabilities.requiresBaseUrl);
+  if (!config.apiKey && adapter.capabilities.requiresApiKey) {
+    throw new Error(`No API key saved for ${providerId}. Add one in Settings.`);
+  }
+  return { providerId, adapter, config, model: useHelper ? settings.helperModel : settings.selectedModel };
+};
 
 // Async Thunk for generating AI response
 
@@ -198,6 +216,9 @@ export const generateAIResponse = createAsyncThunk(
         imagePrompt: finalDerivedImagePrompt,
         imageParams: finalDerivedImageParams,
         emotion,
+        // Only a plain text reply can be an out-of-character refusal; image/
+        // video turns carry a derived scene summary instead.
+        isRefusal: !isImageRequest && !isVideoRequest && looksLikeRefusal(finalResponseText) ? true : undefined,
       };
 
       if (generatedImages.length > 0) {
@@ -259,25 +280,27 @@ export const autoCompressChat = createAsyncThunk(
     try {
       const state = getState() as RootState;
       const settings = state.settings;
-      const chatAdapter = CHAT_PROVIDERS[settings.chatProvider] || CHAT_PROVIDERS.gemini;
-      const chatConfig = await resolveProviderConfig(settings.chatProvider, chatAdapter.capabilities.requiresBaseUrl);
-      if (!chatConfig.apiKey && chatAdapter.capabilities.requiresApiKey) return { messages, tokens: 0, cost: 0 };
+      if (settings.compressThreshold <= 0) return { messages, tokens: 0, cost: 0 };
+      const helper = await resolveHelperCall(settings);
 
-      const result = await buildAutoCompressedMessages(chatAdapter, chatConfig, settings.selectedModel, messages, settings.compressThreshold, names);
-      if (!result.compressed) return { messages, tokens: 0, cost: 0 };
+      const result = await buildAutoCompressedMessages(helper.adapter, helper.config, helper.model, messages, settings.compressThreshold, names);
+      // `error` lets the caller tell the user compression is failing (e.g. a
+      // content filter rejecting the transcript) instead of it silently
+      // never happening while the history keeps growing.
+      if (!result.compressed) return { messages, tokens: 0, cost: 0, error: result.error };
 
       await dispatch(updateMessages({ chatId, newMessages: result.messages }));
       dispatch(fetchChats());
 
-      const pricing = getModelPricing(settings.chatProvider, settings.selectedModel);
+      const pricing = getModelPricing(helper.providerId, helper.model);
       const tokens = result.usage?.totalTokens || 0;
       const cost = result.usage
         ? (result.usage.inputTokens / 1_000_000) * pricing.input + (result.usage.outputTokens / 1_000_000) * pricing.output
         : 0;
       return { messages: result.messages, tokens, cost };
-    } catch (error) {
+    } catch (error: any) {
       console.warn("Auto-compression failed, continuing with full history.", error);
-      return { messages, tokens: 0, cost: 0 };
+      return { messages, tokens: 0, cost: 0, error: error?.message || String(error) };
     }
   }
 );
@@ -285,9 +308,10 @@ export const autoCompressChat = createAsyncThunk(
 // Async Thunk for compressing chat history (manual "Compress" button)
 export const compressChatHistory = createAsyncThunk(
   "ai/compressHistory",
-  async ({ messages, names, systemInstruction }: { messages: Message[]; names?: TranscriptNames; systemInstruction?: string }, { rejectWithValue }) => {
+  async ({ messages, names, systemInstruction }: { messages: Message[]; names?: TranscriptNames; systemInstruction?: string }, { getState, rejectWithValue }) => {
     try {
-      return await performChatCompression(formatTranscript(messages, names), systemInstruction);
+      const helper = await resolveHelperCall((getState() as RootState).settings);
+      return await performChatCompression(helper.adapter, helper.config, helper.providerId, helper.model, formatTranscript(messages, names), systemInstruction);
     } catch (error: any) {
       console.error("AI Compress Error:", error);
       return rejectWithValue(error.message || "Failed to compress history.");
@@ -478,20 +502,10 @@ export const extractCharacterMemory = createAsyncThunk(
     { getState, rejectWithValue }
   ) => {
     try {
-      const state = getState() as RootState;
-      const settings = state.settings;
-      const chatProviderId = settings.chatProvider;
-      const chatAdapter = CHAT_PROVIDERS[chatProviderId] || CHAT_PROVIDERS.gemini;
-      const chatConfig = await resolveProviderConfig(chatProviderId, chatAdapter.capabilities.requiresBaseUrl);
-      if (!chatConfig.apiKey && chatAdapter.capabilities.requiresApiKey) {
-        throw new Error("API key is missing. Please log in.");
-      }
-
-      const selectedModel = settings.selectedModel;
-
+      const helper = await resolveHelperCall((getState() as RootState).settings);
       const conversationText = formatTranscript(recentMessages, names);
 
-      const { facts } = await extractMemoryFacts(chatAdapter, chatConfig, selectedModel, conversationText, existingMemory, names);
+      const { facts } = await extractMemoryFacts(helper.adapter, helper.config, helper.model, conversationText, existingMemory, names);
       return facts;
     } catch (error: any) {
       console.error("Memory extraction error:", error);

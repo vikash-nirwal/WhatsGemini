@@ -34,3 +34,9 @@ describe("formatTranscript", () => {
     expect(text).toBe("Arin: hi\n\nBeck: hello\n\nMira: hey");
   });
 });
+
+describe("formatTranscript refusals", () => {
+  it("skips flagged refusals", () => {
+    expect(formatTranscript([{ role: AI, txt: "I can't help with that.", isRefusal: true }, { role: YOU, txt: "ok" }])).toBe("User: ok");
+  });
+});

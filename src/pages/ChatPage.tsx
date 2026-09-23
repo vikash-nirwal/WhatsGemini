@@ -26,6 +26,7 @@ import { truncateHistory, TranscriptNames } from "../features/ai/utils/chatHisto
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { Alert, AlertDescription } from "src/components/atoms/alert";
 import { useModal } from "../contexts/ModalContext";
+import { toast } from "sonner";
 import { useColorTheme } from "../hooks/useColorTheme";
 
 const DEFAULT_AUTO_REPLY = { enabled: false, minDelaySeconds: 30, maxDelaySeconds: 120, maxFollowups: 2, followupCount: 0 };
@@ -379,6 +380,7 @@ const ChatPage = () => {
       }
     } catch (err) {
       console.warn("Memory extraction failed (non-fatal):", err);
+      warnBackgroundFailure("memory", typeof err === "string" ? err : (err as Error)?.message);
     }
   };
 
@@ -394,6 +396,32 @@ const ChatPage = () => {
   const trackUsage = async (tokens?: number, cost?: number) => {
     if (!chatIdNum || (!tokens && !cost)) return;
     await dispatch(incrementChatUsage({ chatId: chatIdNum, tokens: tokens || 0, cost: cost || 0 }));
+  };
+
+  // Memory extraction and auto-compression run in the background and used to
+  // fail silently (e.g. a content filter rejecting the transcript), leaving
+  // memory frozen or the history uncompressed with no sign why. One toast per
+  // kind per chat, replaced rather than stacked when it keeps failing.
+  const warnBackgroundFailure = (kind: "memory" | "compress", message?: string) => {
+    if (!message || !chatIdNum) return;
+    const what = kind === "memory" ? "Couldn't update long-term memory" : "Couldn't compress older messages";
+    toast.warning(`${what}: ${message}`, {
+      id: `${kind}-${chatIdNum}`,
+      description: "Setting a separate background model (Settings, Text Generation Model) can help if your chat model's filter is blocking it.",
+    });
+  };
+
+  // A failed or blocked generation used to come back as a truthy `payload`
+  // (the rejection's error string) and get saved as the character's reply -
+  // then resent as history on every later turn. Callers now check for
+  // success explicitly; this surfaces the failure instead, and stays quiet
+  // for a user-initiated stop.
+  const isGenerationSuccess = (action: any): boolean => generateAIResponse.fulfilled.match(action);
+  const reportGenerationFailure = (action: any) => {
+    if (!action || isGenerationSuccess(action) || action.meta?.aborted) return;
+    const message = typeof action.payload === "string" ? action.payload : action.error?.message;
+    if (message && /abort/i.test(message)) return;
+    setError(message || "The AI didn't return a reply. Please try again.");
   };
 
   // --- Auto follow-up: the character can message first after the user goes quiet.
@@ -482,7 +510,8 @@ const ChatPage = () => {
       ? lastMessage.txt
       : FOLLOWUP_CONTINUATION_PROMPT;
 
-    const { messages: compressedFreshMessages, tokens: compressTokens, cost: compressCost } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: freshMessages, names: transcriptNames() })).unwrap();
+    const { messages: compressedFreshMessages, tokens: compressTokens, cost: compressCost, error: compressError } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: freshMessages, names: transcriptNames() })).unwrap();
+    warnBackgroundFailure("compress", compressError);
     await trackUsage(compressTokens, compressCost);
 
     const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages } = buildTurnContext(
@@ -501,7 +530,10 @@ const ChatPage = () => {
       customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages,
     }));
 
-    if (!aiResponse.payload) return false;
+    if (!isGenerationSuccess(aiResponse)) {
+      reportGenerationFailure(aiResponse);
+      return false;
+    }
 
     const payloadObj = aiResponse.payload as any;
     await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
@@ -517,6 +549,7 @@ const ChatPage = () => {
       isVideoRequest: Boolean(generatedVideos && generatedVideos.length > 0),
       videoPrompt: payloadObj?.videoPrompt,
       emotion: payloadObj?.emotion,
+          isRefusal: payloadObj?.isRefusal || undefined,
       imagePrompt: payloadObj?.imagePrompt,
       imageParams: payloadObj?.imageParams,
       speakerId: speaker.id,
@@ -655,7 +688,8 @@ const ChatPage = () => {
         return;
       }
 
-      const { messages: contextMessages, tokens: compressTokens, cost: compressCost } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: updatedMessages, names: transcriptNames() })).unwrap();
+      const { messages: contextMessages, tokens: compressTokens, cost: compressCost, error: compressError } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: updatedMessages, names: transcriptNames() })).unwrap();
+      warnBackgroundFailure("compress", compressError);
       await trackUsage(compressTokens, compressCost);
 
       // Who replies: a speaker explicitly picked from the composer's room
@@ -680,8 +714,9 @@ const ChatPage = () => {
       aiPromiseRef.current = dispatch(generateAIResponse({ prompt: text, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isVideoRequest, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
+      reportGenerationFailure(aiResponse);
 
-      if (aiResponse.payload) {
+      if (isGenerationSuccess(aiResponse)) {
         const payloadObj = aiResponse.payload as any;
         await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
         const generatedImages = payloadObj?.images || undefined;
@@ -694,6 +729,7 @@ const ChatPage = () => {
           videos: generatedVideos,
           videoPrompt: payloadObj?.videoPrompt,
           emotion: payloadObj?.emotion,
+          isRefusal: payloadObj?.isRefusal || undefined,
           imagePrompt: payloadObj?.imagePrompt,
           imageParams: payloadObj?.imageParams,
           speakerId: speaker.id,
@@ -748,8 +784,9 @@ const ChatPage = () => {
         aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages }));
         const aiResponse = await aiPromiseRef.current;
         aiPromiseRef.current = null;
+        reportGenerationFailure(aiResponse);
 
-        if (aiResponse.payload) {
+        if (isGenerationSuccess(aiResponse)) {
           const payloadObj = aiResponse.payload as any;
           await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
           const generatedImages = payloadObj?.images || undefined;
@@ -761,6 +798,7 @@ const ChatPage = () => {
             videos: generatedVideos,
             videoPrompt: payloadObj?.videoPrompt,
             emotion: payloadObj?.emotion,
+          isRefusal: payloadObj?.isRefusal || undefined,
             speakerId: speaker.id,
             timestamp: Date.now(),
           };
@@ -836,8 +874,9 @@ const ChatPage = () => {
       aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
+      reportGenerationFailure(aiResponse);
 
-      if (aiResponse.payload) {
+      if (isGenerationSuccess(aiResponse)) {
         const payloadObj = aiResponse.payload as any;
         await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
         const generatedImages = payloadObj?.images || undefined;
@@ -851,6 +890,7 @@ const ChatPage = () => {
           isVideoRequest: isFollowup ? Boolean(generatedVideos && generatedVideos.length > 0) : undefined,
           videoPrompt: payloadObj?.videoPrompt,
           emotion: payloadObj?.emotion,
+          isRefusal: payloadObj?.isRefusal || undefined,
           imagePrompt: payloadObj?.imagePrompt,
           imageParams: payloadObj?.imageParams,
           speakerId: speaker.id,
@@ -987,8 +1027,9 @@ const ChatPage = () => {
       aiPromiseRef.current = dispatch(generateAIResponse({ prompt: "Continue.", history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker.artStyle, customEmotions: speaker.emotionPortraits?.customEmotions }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
+      reportGenerationFailure(aiResponse);
 
-      if (aiResponse.payload) {
+      if (isGenerationSuccess(aiResponse)) {
         const payloadObj = aiResponse.payload as any;
         await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
         const continuationText = finalizeSpeakerText(typeof payloadObj?.text === "string" ? payloadObj.text : (payloadObj as string), speaker);
@@ -1015,6 +1056,17 @@ const ChatPage = () => {
       console.error("Error continuing response:", err);
       setError("Failed to continue response. Please try again.");
     }
+  };
+
+  // "Not a refusal" on a falsely flagged reply: clears the flag so the
+  // message goes back into the context sent to the model.
+  const handleClearRefusal = async (index: number) => {
+    if (!chatIdNum || !currentChat) return;
+    const { tree, activeLeafId: currentActiveLeafId, content: treeContent } = getOrBuildTree(currentChat);
+    const nodeId = treeContent[index]?.id;
+    if (!nodeId || !tree.nodes[nodeId]) return;
+    const updatedTree = updateNodeMessage(tree, nodeId, { ...tree.nodes[nodeId].message, isRefusal: undefined });
+    await dispatch(updateChatTree({ chatId: chatIdNum, content: flattenPath(updatedTree, currentActiveLeafId), tree: updatedTree, activeLeafId: currentActiveLeafId }));
   };
 
   const handleStopGenerating = () => {
@@ -1145,8 +1197,11 @@ const ChatPage = () => {
       {/* Error Message */}
       {error && (
         <div className="absolute top-16 w-full z-20 px-4 flex justify-center">
-          <Alert variant="destructive" className="max-w-md">
-            <AlertDescription>{error}</AlertDescription>
+          <Alert variant="destructive" className="max-w-md flex items-start gap-2">
+            <AlertDescription className="flex-1">{error}</AlertDescription>
+            <button type="button" onClick={() => setError(null)} aria-label="Dismiss error" className="opacity-70 hover:opacity-100 mt-0.5">
+              <FaTimes size={12} />
+            </button>
           </Alert>
         </div>
       )}
@@ -1184,7 +1239,7 @@ const ChatPage = () => {
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden relative">
-        <ChatWindow characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} />
+        <ChatWindow characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} />
       </div>
 
       {/* Message Input - floats over the chat, except under terminal where it

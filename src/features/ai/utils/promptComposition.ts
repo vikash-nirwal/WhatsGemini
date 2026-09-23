@@ -34,7 +34,9 @@ export const buildChatHistory = (
   speakerNames?: Record<number, string>,
   perspective?: HistoryPerspective
 ): ChatMessage[] => {
-  const mapped = messages.map((msg): ChatMessage => {
+  // Flagged refusals stay on screen but never reach the model: resending one
+  // primes every later reply to refuse too.
+  const mapped = messages.filter((msg) => !msg.isRefusal).map((msg): ChatMessage => {
     const text = stripLeakedBase64(msg.txt || "");
     const trimmed = text.trim() || " ";
 

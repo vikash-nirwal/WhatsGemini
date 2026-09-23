@@ -18,7 +18,7 @@ export interface TranscriptNames {
 // passed through as a labeled block so it can be folded into the new one.
 export const formatTranscript = (messages: Message[], names: TranscriptNames = {}): string =>
   messages
-    .filter((m) => !m.isSystem)
+    .filter((m) => !m.isSystem && !m.isRefusal)
     .map((m) => {
       const text = stripLeakedBase64(m.txt || "").trim();
       if (m.isCompressionSummary) return `[Summary of earlier events]\n${text}`;

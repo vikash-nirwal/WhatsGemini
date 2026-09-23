@@ -1,6 +1,7 @@
 import React from 'react';
 import { TextInput, Select, Slider } from "src/components/molecules/form-controls";
 import { CHAT_PROVIDER_META } from '../../features/ai/providers/registry';
+import { PROVIDER_CHAT_MODELS } from '../../utils/constants';
 import { ProviderCapabilities } from '../../features/ai/providers/types';
 import { Button } from 'src/components/atoms/button';
 import { SettingsCard, SettingsCardHeader, SettingsRow } from 'src/components/molecules/settings-card';
@@ -52,6 +53,9 @@ interface TextModelSettingsProps {
   setSamplers: (samplers: SamplerSettings) => void;
   roleplayStyle: RoleplayStyle;
   setRoleplayStyle: (style: RoleplayStyle) => void;
+  helperProvider: string;
+  helperModel: string;
+  setHelperModel: (provider: string, model: string) => void;
   onLogout: () => void;
 }
 
@@ -80,6 +84,9 @@ const TextModelSettings: React.FC<TextModelSettingsProps> = ({
   setSamplers,
   roleplayStyle,
   setRoleplayStyle,
+  helperProvider,
+  helperModel,
+  setHelperModel,
   onLogout,
 }) => {
   const isOllama = chatProviderCapabilities.requiresBaseUrl;
@@ -264,6 +271,36 @@ const TextModelSettings: React.FC<TextModelSettingsProps> = ({
         <SettingsRow label="Presence penalty" hint="Nudges the model toward new topics instead of circling back." align="start">
           {samplerInput("presencePenalty", "0.1", "0", "-2", "2")}
         </SettingsRow>
+      </SettingsCard>
+
+      <SettingsCard>
+        <div className="p-5">
+          <SettingsCardHeader
+            title="Background model"
+            hint="Used for long-term memory and history compression instead of the chat model. Useful when your chat model's content filter blocks those calls. Its provider needs its own saved API key."
+          />
+        </div>
+        <SettingsRow label="Provider" align="start">
+          <Select
+            value={helperProvider}
+            onChange={(e) => setHelperModel(e.target.value, e.target.value ? PROVIDER_CHAT_MODELS[e.target.value]?.[0] || "" : "")}
+          >
+            <option value="">Same as chat model</option>
+            {CHAT_PROVIDER_META.map((p) => (
+              <option key={p.id} value={p.id}>{p.label}</option>
+            ))}
+          </Select>
+        </SettingsRow>
+        {helperProvider && (
+          <SettingsRow label="Model" hint="Exact model id, e.g. from that provider's model list." align="start">
+            <TextInput
+              value={helperModel}
+              onChange={(e) => setHelperModel(helperProvider, e.target.value.trim())}
+              placeholder={PROVIDER_CHAT_MODELS[helperProvider]?.[0] || "model id"}
+              className="w-72"
+            />
+          </SettingsRow>
+        )}
       </SettingsCard>
 
       <SettingsCard>

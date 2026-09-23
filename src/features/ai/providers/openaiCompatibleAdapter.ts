@@ -1,11 +1,11 @@
 import { SamplerSettings } from "../../../types";
 import { ChatMessage, UsageInfo } from "../types";
-import { ChatCallOptions, ChatCallResult, ChatProviderAdapter, ModelOption, ProviderRuntimeConfig } from "./types";
+import { ChatCallOptions, ChatCallResult, ChatProviderAdapter, ContentBlockedError, ModelOption, ProviderRuntimeConfig } from "./types";
 import { readSseStream } from "./sse";
 
 // `top_k` isn't part of OpenAI's own API (it rejects unknown params), but
 // these OpenAI-compatible backends accept it.
-const ACCEPTS_TOP_K = new Set(["ollama", "qwen"]);
+const ACCEPTS_TOP_K = new Set(["ollama", "qwen", "openrouter"]);
 // Providers documented to honor `stream_options.include_usage` - the only way
 // a streamed Chat Completions response reports token usage. Others may still
 // send usage on their final chunk unprompted, which is picked up either way.
@@ -113,24 +113,33 @@ const chatCompletions = async (
   if (stream) {
     let text = "";
     let usage: OpenAiUsage | undefined;
+    let finishReason: string | undefined;
     await readSseStream(response, (data) => {
+      let chunk: any;
       try {
-        const chunk = JSON.parse(data);
-        const delta = chunk?.choices?.[0]?.delta?.content;
-        if (typeof delta === "string" && delta) {
-          text += delta;
-          extra.onToken?.(text);
-        }
-        if (chunk?.usage) usage = chunk.usage;
+        chunk = JSON.parse(data);
       } catch (e) {
         console.warn(`Could not parse ${def.label} stream chunk:`, e);
+        return;
       }
+      // Some routers (OpenRouter) report upstream/moderation failures as an
+      // error object mid-stream, after the 200 response has already started.
+      if (chunk?.error) throw new Error(`${def.label} error: ${chunk.error.message || "stream error"}`);
+      finishReason = chunk?.choices?.[0]?.finish_reason || finishReason;
+      const delta = chunk?.choices?.[0]?.delta?.content;
+      if (typeof delta === "string" && delta) {
+        text += delta;
+        extra.onToken?.(text);
+      }
+      if (chunk?.usage) usage = chunk.usage;
     }, extra.signal);
+    if (finishReason === "content_filter" && !text.trim()) throw new ContentBlockedError(def.label, "content_filter");
     return { text: text.trim(), usage: normalizeUsage(usage) };
   }
 
   const data = await response.json();
   const text = data?.choices?.[0]?.message?.content || "";
+  if (data?.choices?.[0]?.finish_reason === "content_filter" && !text.trim()) throw new ContentBlockedError(def.label, "content_filter");
   return { text: text.trim(), usage: normalizeUsage(data?.usage) };
 };
 

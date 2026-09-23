@@ -40,7 +40,18 @@ interface ChatMessageProps {
   siblingInfo?: SiblingInfo;
   onSwitchBranch?: (nodeId: string) => void;
   onDeleteBranch?: (nodeId: string) => void;
+  onClearRefusal?: (msg: Message) => void;
 }
+
+// Shown under a reply flagged as an out-of-character refusal (see
+// looksLikeRefusal) - it's kept on screen but left out of the AI's context.
+const RefusalNotice = ({ onRegenerate, onClear, disabled }: { onRegenerate: () => void; onClear?: () => void; disabled: boolean }) => (
+  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs text-foreground">
+    <span className="flex-1 min-w-[180px]">Looks like the model refused. This reply is hidden from the AI's context so it doesn't keep refusing.</span>
+    <button type="button" onClick={onRegenerate} disabled={disabled} className="font-medium text-primary hover:underline disabled:opacity-50">Regenerate</button>
+    {onClear && <button type="button" onClick={onClear} className="font-medium text-subtle hover:underline">Not a refusal</button>}
+  </div>
+);
 
 const ChatMessage = React.memo(({
   msg,
@@ -59,6 +70,7 @@ const ChatMessage = React.memo(({
   siblingInfo,
   onSwitchBranch,
   onDeleteBranch,
+  onClearRefusal,
 }: ChatMessageProps) => {
   const isUser = msg.role === YOU;
   const { is } = useColorTheme();
@@ -68,6 +80,10 @@ const ChatMessage = React.memo(({
   const handleCopy = useCallback(() => onCopy(stripImageContextTag(msg.txt || "")), [onCopy, msg.txt]);
   const handleRegenerate = useCallback(() => onRegenerate(msg), [onRegenerate, msg]);
   const handleContinue = useCallback(() => onContinue?.(msg), [onContinue, msg]);
+  const handleClearRefusal = useCallback(() => onClearRefusal?.(msg), [onClearRefusal, msg]);
+  const refusalNotice = !isUser && msg.isRefusal ? (
+    <RefusalNotice onRegenerate={handleRegenerate} onClear={onClearRefusal ? handleClearRefusal : undefined} disabled={aiLoading} />
+  ) : null;
   const handleEdit = useCallback(() => onStartEdit(msg), [onStartEdit, msg]);
   const handleDeleteBranch = useCallback(() => msg.id && onDeleteBranch?.(msg.id), [onDeleteBranch, msg.id]);
 
@@ -144,6 +160,7 @@ const ChatMessage = React.memo(({
           style={{ fontSize: "var(--chat-font-size, 16px)" }}
         >
           <MarkdownRenderer msgText={stripImageContextTag(msg.txt || "")} isUser={isUser} />
+          {refusalNotice}
           {msg.images && msg.images.map((imgSrc, idx) => (
             <DisplayImage
               key={idx}
@@ -284,6 +301,7 @@ const ChatMessage = React.memo(({
 
         <div className="font-serif">
           <MarkdownRenderer msgText={stripImageContextTag(msg.txt || "")} isUser={isUser} />
+          {refusalNotice}
         </div>
 
         {msg.images && msg.images.map((imgSrc, idx) => (

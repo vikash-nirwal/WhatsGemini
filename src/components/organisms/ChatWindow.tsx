@@ -32,6 +32,7 @@ interface ChatWindowProps {
   onDeleteBranch?: (nodeId: string) => void;
   onRegenerate?: (index: number) => void;
   onContinue?: (index: number) => void;
+  onClearRefusal?: (index: number) => void;
   onEdit?: (index: number, text: string, isImageRequest?: boolean, isVideoRequest?: boolean) => void;
   onSend?: (text: string, isImageRequest?: boolean, isVideoRequest?: boolean) => void;
   aiLoading?: boolean;
@@ -110,7 +111,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc }: { charInitials: s
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -259,6 +260,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
       }
     },
     [onRegenerate, messages]
+  );
+
+  const handleClearRefusal = useCallback(
+    (msg: Message) => {
+      const originalIndex = messages.indexOf(msg);
+      if (onClearRefusal && originalIndex !== -1) onClearRefusal(originalIndex);
+    },
+    [onClearRefusal, messages]
   );
 
   const handleContinue = useCallback(
@@ -495,6 +504,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
                     siblingInfo={siblingInfo && siblingInfo.total > 1 ? siblingInfo : undefined}
                     onSwitchBranch={onSwitchBranch}
                     onDeleteBranch={onDeleteBranch}
+                    onClearRefusal={onClearRefusal ? handleClearRefusal : undefined}
                   />
                 );
               })

@@ -9,7 +9,7 @@ import {
   setSdWebuiApiUrl, setSdWebuiBatchSize, setSdWebuiRefMode,
   setSdWebuiDenoising, setSdWebuiControlnetModel, setSdWebuiModels,
   setSdWebuiModel, setMaxOutputTokens, setReplyLengthLimit, setCompressThreshold, setMaxChatLength,
-  setTemperature, setSamplers, setRoleplayStyle, setSafetySettings, setFontSize, setImageResolution, setGeminiImageSize, setPortraitSaveSize, setPortraitResizeEnabled,
+  setTemperature, setSamplers, setRoleplayStyle, setHelperModel, setSafetySettings, setFontSize, setImageResolution, setGeminiImageSize, setPortraitSaveSize, setPortraitResizeEnabled,
   setChatProvider, setImageProvider, setOllamaBaseUrl,
   setEmotionPanelEnabled, setEmotionPopupEnabled, setEmotionPopupDuration, setAlwaysShowInitials,
 } from "../features/settingsSlice";
@@ -253,7 +253,7 @@ const SettingsPage = () => {
     personas, activePersonaId, chatProvider, imageProvider, ollamaBaseUrl, selectedModel, imageModel, videoModel,
     imageGenPrompt, sdWebuiApiUrl,
     sdWebuiBatchSize, sdWebuiRefMode, sdWebuiDenoising, sdWebuiControlnetModel, sdWebuiModels,
-    sdWebuiModel, maxOutputTokens, replyLengthLimit, compressThreshold, maxChatLength, temperature, samplers, roleplayStyle,
+    sdWebuiModel, maxOutputTokens, replyLengthLimit, compressThreshold, maxChatLength, temperature, samplers, roleplayStyle, helperProvider, helperModel,
     safetySettings, fontSize, imageResolution, geminiImageSize, portraitSaveSize, portraitResizeEnabled,
     emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials,
   } = settings;
@@ -832,6 +832,9 @@ const SettingsPage = () => {
                     setSamplers={(val) => dispatch(setSamplers(val))}
                     roleplayStyle={roleplayStyle}
                     setRoleplayStyle={(val) => dispatch(setRoleplayStyle(val))}
+                    helperProvider={helperProvider}
+                    helperModel={helperModel}
+                    setHelperModel={(provider, model) => dispatch(setHelperModel({ provider, model }))}
                     onLogout={logout}
                   />
                 )}
