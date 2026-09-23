@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatMemory, setPendingFollowupAt } from "../features/chatSlice";
+import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatMemory, updateChatGreeting, setPendingFollowupAt } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
 import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage } from "../features/aiSlice";
 import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
@@ -16,13 +16,13 @@ import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, get
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Message, Chat, Character } from "../types";
 import { stripLeakedBase64 } from "../features/ai/utils/apiUtils";
-import { buildChatHistory, buildSystemInstruction, buildTurnContext, AUTO_REPLY_DIRECTIVE, FOLLOWUP_CONTINUATION_PROMPT, RoomContext } from "../features/ai/utils/promptComposition";
+import { buildChatHistory, buildSystemInstruction, buildTurnContext, AUTO_REPLY_DIRECTIVE, FOLLOWUP_CONTINUATION_PROMPT, RoomContext, SceneContext } from "../features/ai/utils/promptComposition";
 import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
 import { mergeMemory } from "../features/ai/utils/memoryExtraction";
 import { resolveNextSpeaker, parseMention, stripSpeakerPrefix } from "../features/ai/utils/roomRouting";
 import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo } from "../features/chat/messageTree";
 import { estimateTokens, estimateHistoryTokens } from "../features/ai/utils/tokenEstimator";
-import { truncateHistory } from "../features/ai/utils/chatHistoryUtils";
+import { truncateHistory, TranscriptNames } from "../features/ai/utils/chatHistoryUtils";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { Alert, AlertDescription } from "src/components/atoms/alert";
 import { useModal } from "../contexts/ModalContext";
@@ -76,6 +76,7 @@ const ChatPage = () => {
   const chatProvider = useAppSelector((state) => state.settings.chatProvider);
   const selectedModel = useAppSelector((state) => state.settings.selectedModel);
   const maxChatLength = useAppSelector((state) => state.settings.maxChatLength);
+  const roleplayStyle = useAppSelector((state) => state.settings.roleplayStyle);
   const personas = useAppSelector((state) => state.settings.personas);
   const globalActivePersonaId = useAppSelector((state) => state.settings.activePersonaId);
   const portraitSaveSize = useAppSelector((state) => state.settings.portraitSaveSize);
@@ -90,6 +91,9 @@ const ChatPage = () => {
 
   // Memoize chatIdNum to avoid redundant conversions
   const chatIdNum = useMemo(() => (chatId ? Number(chatId) : null), [chatId]);
+  // Tags this chat's streamed reply in the ai slice, so ChatWindow only shows
+  // text streaming into the chat it belongs to.
+  const streamKey = chatIdNum != null ? String(chatIdNum) : undefined;
 
   useEffect(() => {
     if (!chatIdNum) return;
@@ -141,10 +145,19 @@ const ChatPage = () => {
       otherParticipantImages: others
         .filter((c) => c.appearanceImages && c.appearanceImages.length > 0)
         .map((c) => ({ name: c.name, images: c.appearanceImages! })),
+      otherLoreEntries: others.flatMap((c) => c.loreEntries || []),
       groupScenario: currentChat?.scenario,
       groupMemory: currentChat?.memory,
+      groupPinnedMemory: currentChat?.pinnedMemory,
     };
   };
+
+  // Real names for summarization/memory-extraction transcripts.
+  const transcriptNames = (): TranscriptNames => ({
+    userName: activePersona?.name?.trim() || undefined,
+    charName: characterData?.name,
+    speakerNames: isRoom ? Object.fromEntries(roomCharacters.map((c) => [c.id, c.name])) : undefined,
+  });
 
   // Defensive cleanup for a room reply: some models imitate the "Name: "
   // format used to label history lines even after being told not to (see
@@ -153,20 +166,15 @@ const ChatPage = () => {
   const finalizeSpeakerText = (rawText: string, speaker: Character): string =>
     isRoom ? stripSpeakerPrefix(rawText, speaker.name) : rawText;
 
-  // The Scene panel's author's note was stored/editable but never actually
-  // reached the model - buildTurnContext had no parameter for it. Folded in
-  // here as an extraDirective (the mechanism that already exists for
-  // one-off directives like AUTO_REPLY_DIRECTIVE) rather than adding a new
-  // buildSystemInstruction param, so every call site picks it up by routing
-  // through this instead of passing `extraDirectives` directly. For a room
-  // (Phase 12), this doubles as the shared scene-setting every participant
-  // sees, since it's the same field the Room Creator's "Scenario" field
-  // writes into.
-  const withAuthorNote = (extra?: string[]): string[] | undefined => {
-    const note = currentChat?.authorNote?.trim();
-    if (!note) return extra;
-    const directive = `Scene direction / author's note for the current scene (from the user, not spoken dialogue - weave it into the scene naturally): ${note}`;
-    return extra && extra.length > 0 ? [directive, ...extra] : [directive];
+  // Per-chat scene settings (author's note, world tags) plus the app-wide
+  // roleplay style, passed to every buildTurnContext call. The author's note
+  // is sent after the history (see buildPostHistoryNote), not in the system
+  // prompt, so the model actually weighs it; for a room it doubles as the
+  // shared scene-setting every participant sees.
+  const scene: SceneContext = {
+    authorNote: currentChat?.authorNote,
+    worldTags: currentChat?.worldTags,
+    roleplayStyle,
   };
 
   // Which persona this chat actually speaks as: its own override if set,
@@ -262,11 +270,11 @@ const ChatPage = () => {
   // so this reflects what will really be sent - not the full stored
   // conversation - once maxChatLength is set to something other than 0.
   const contextTokenEstimate = useMemo(() => {
-    const { text: systemInstructionText } = buildSystemInstruction(characterData, withAuthorNote(), replyLengthLimit, activePersona, messages);
+    const { systemInstruction: systemInstructionText, postHistoryNote } = buildTurnContext(messages, characterData, undefined, replyLengthLimit, activePersona, undefined, scene);
     const effectiveHistory = truncateHistory(buildChatHistory(messages), maxChatLength);
-    return estimateTokens(systemInstructionText) + estimateHistoryTokens(effectiveHistory.map((m) => m.text));
+    return estimateTokens(systemInstructionText) + estimateTokens(postHistoryNote) + estimateHistoryTokens(effectiveHistory.map((m) => m.text));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [characterData, replyLengthLimit, messages, maxChatLength, activePersona, currentChat?.authorNote]);
+  }, [characterData, replyLengthLimit, messages, maxChatLength, activePersona, currentChat?.authorNote, currentChat?.worldTags, roleplayStyle]);
   const maxContextTokens = useMemo(
     () => getModelContextWindow(chatProvider, selectedModel),
     [chatProvider, selectedModel]
@@ -328,14 +336,37 @@ const ChatPage = () => {
   // in a room the extracted facts merge into the room's own Chat.memory, not
   // that (or any) participant's personal Character.memory, so a group
   // conversation never writes back onto a character used outside this room.
+  //
+  // Counted from the message count at the last extraction (per chat, this
+  // session) rather than `length % interval === 0`: impersonated/silent sends,
+  // follow-ups and compression all shift the count, and the modulo check
+  // could step over its multiple and go quiet for dozens of messages (or
+  // re-fire on every regenerate that landed on one).
+  const memoryBaselineRef = useRef<Record<number, number>>({});
   const maybeExtractMemory = async (allMessages: Message[], speaker = characterData) => {
-    if (!speaker || allMessages.length === 0 || allMessages.length % MEMORY_EXTRACTION_INTERVAL !== 0) return;
+    if (!speaker || !chatIdNum || allMessages.length === 0) return;
+    const count = allMessages.length;
+    let baseline = memoryBaselineRef.current[chatIdNum];
+    // First call this session: assume the last multiple of the interval
+    // strictly below `count` was already handled, so a chat reaching exactly
+    // 12, 24, ... messages still extracts right away, as it used to.
+    if (baseline == null) baseline = Math.floor((count - 1) / MEMORY_EXTRACTION_INTERVAL) * MEMORY_EXTRACTION_INTERVAL;
+    if (count < baseline) baseline = count; // compressed, rewound or switched to a shorter branch
+    memoryBaselineRef.current[chatIdNum] = baseline;
+    if (count - baseline < MEMORY_EXTRACTION_INTERVAL) return;
+    memoryBaselineRef.current[chatIdNum] = count;
 
     try {
-      const recentMessages = allMessages.slice(-MEMORY_EXTRACTION_INTERVAL);
+      const recentMessages = allMessages.slice(-Math.min(count - baseline, MEMORY_EXTRACTION_INTERVAL * 2));
       const existingMemory = isRoom ? (currentChat?.memory || []) : (speaker.memory || []);
+      const pinned = isRoom ? (currentChat?.pinnedMemory || []) : (speaker.pinnedMemory || []);
+      const names = transcriptNames();
       const newFacts = await dispatch(
-        extractCharacterMemory({ recentMessages, existingMemory })
+        extractCharacterMemory({
+          recentMessages,
+          existingMemory: [...pinned, ...existingMemory],
+          names: { ...names, charName: isRoom ? undefined : speaker.name },
+        })
       ).unwrap();
 
       if (newFacts && newFacts.length > 0) {
@@ -451,20 +482,21 @@ const ChatPage = () => {
       ? lastMessage.txt
       : FOLLOWUP_CONTINUATION_PROMPT;
 
-    const { messages: compressedFreshMessages, tokens: compressTokens, cost: compressCost } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: freshMessages })).unwrap();
+    const { messages: compressedFreshMessages, tokens: compressTokens, cost: compressCost } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: freshMessages, names: transcriptNames() })).unwrap();
     await trackUsage(compressTokens, compressCost);
 
-    const { history, systemInstruction, characterImages, characterName, otherParticipantImages } = buildTurnContext(
+    const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages } = buildTurnContext(
       compressedFreshMessages,
       speaker,
-      withAuthorNote([AUTO_REPLY_DIRECTIVE]),
+      [AUTO_REPLY_DIRECTIVE],
       undefined,
       activePersona,
-      buildRoomContext(speaker)
+      buildRoomContext(speaker),
+      scene
     );
     const aiResponse = await dispatch(generateAIResponse({
       prompt: followupPrompt,
-      history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle,
+      history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle,
       isImageRequest: includeImage, isVideoRequest: includeVideo, isCharacterInitiated: true, isAutoSelfie: shouldAutoSelfie,
       customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages,
     }));
@@ -623,7 +655,7 @@ const ChatPage = () => {
         return;
       }
 
-      const { messages: contextMessages, tokens: compressTokens, cost: compressCost } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: updatedMessages })).unwrap();
+      const { messages: contextMessages, tokens: compressTokens, cost: compressCost } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: updatedMessages, names: transcriptNames() })).unwrap();
       await trackUsage(compressTokens, compressCost);
 
       // Who replies: a speaker explicitly picked from the composer's room
@@ -644,8 +676,8 @@ const ChatPage = () => {
       const shouldAutoSelfie = !isImageRequest && !isVideoRequest && !!autoSelfieCfg?.enabled &&
         Math.random() * 100 < (autoSelfieCfg.frequency ?? DEFAULT_AUTO_SELFIE_FREQUENCY);
 
-      const { history, systemInstruction, characterImages, characterName, otherParticipantImages } = buildTurnContext(contextMessages, speaker, withAuthorNote(), replyLengthLimit, activePersona, buildRoomContext(speaker));
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: text, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isVideoRequest, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages }));
+      const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages } = buildTurnContext(contextMessages, speaker, undefined, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: text, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isVideoRequest, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
 
@@ -712,8 +744,8 @@ const ChatPage = () => {
           || characterData;
         if (!speaker) return;
 
-        const { history, systemInstruction, characterImages, characterName, otherParticipantImages } = buildTurnContext(contentUpToEdit, speaker, withAuthorNote(), replyLengthLimit, activePersona, buildRoomContext(speaker));
-        aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages }));
+        const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages } = buildTurnContext(contentUpToEdit, speaker, undefined, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
+        aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages }));
         const aiResponse = await aiPromiseRef.current;
         aiPromiseRef.current = null;
 
@@ -788,7 +820,7 @@ const ChatPage = () => {
       // message itself (no preceding user turn to read it off of).
       const isImageRequest = isFollowup ? (targetMessage?.isImageRequest || false) : (precedingMessage.isImageRequest || false);
       const isVideoRequest = isFollowup ? (targetMessage?.isVideoRequest || false) : (precedingMessage.isVideoRequest || false);
-      const extraDirectives = withAuthorNote(isFollowup ? [AUTO_REPLY_DIRECTIVE] : undefined);
+      const extraDirectives = isFollowup ? [AUTO_REPLY_DIRECTIVE] : undefined;
 
       // Regenerating replies as whoever originally said it - not a fresh
       // round-robin pick - so "regenerate" reliably means "a different
@@ -800,8 +832,8 @@ const ChatPage = () => {
         || characterData;
       if (!speaker) return;
 
-      const { history, systemInstruction, characterImages, characterName, otherParticipantImages } = buildTurnContext(historyUpToTarget, speaker, extraDirectives, replyLengthLimit, activePersona, buildRoomContext(speaker));
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages }));
+      const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages } = buildTurnContext(historyUpToTarget, speaker, extraDirectives, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
 
@@ -942,16 +974,17 @@ const ChatPage = () => {
       if (!speaker) return;
       const continueDirective =
         "The previous assistant message got cut off before finishing. Continue writing directly from exactly where it left off - do not repeat any earlier text, do not restart the sentence, and add no preamble or acknowledgement. Keep going in the same voice, tone, and format.";
-      const { history, systemInstruction, characterImages, characterName } = buildTurnContext(
+      const { history, systemInstruction, postHistoryNote, characterImages, characterName } = buildTurnContext(
         [...historyUpToTarget, targetMessage],
         speaker,
-        withAuthorNote([continueDirective]),
+        [continueDirective],
         replyLengthLimit,
         activePersona,
-        buildRoomContext(speaker)
+        buildRoomContext(speaker),
+        scene
       );
 
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: "Continue.", history, systemInstruction, characterImages, characterName, artStyle: speaker.artStyle, customEmotions: speaker.emotionPortraits?.customEmotions }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: "Continue.", history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker.artStyle, customEmotions: speaker.emotionPortraits?.customEmotions }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
 
@@ -999,10 +1032,9 @@ const ChatPage = () => {
       // Keep only the last 2 messages uncompressed if possible, but summarize everything before
       const cutoff = Math.max(messages.length - 2, 2);
       const msgsToCompress = messages.slice(0, cutoff);
-      const historyToCompress = buildChatHistory(msgsToCompress);
       const { text: systemInstructionText } = buildSystemInstruction(characterData, undefined, undefined, activePersona);
 
-      const { summary, tokens: compressTokens, cost: compressCost } = await dispatch(compressChatHistory({ history: historyToCompress, systemInstruction: systemInstructionText })).unwrap();
+      const { summary, tokens: compressTokens, cost: compressCost } = await dispatch(compressChatHistory({ messages: msgsToCompress, names: transcriptNames(), systemInstruction: systemInstructionText })).unwrap();
       await trackUsage(compressTokens, compressCost);
 
       if (summary) {
@@ -1152,7 +1184,7 @@ const ChatPage = () => {
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden relative">
-        <ChatWindow characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} />
+        <ChatWindow characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} />
       </div>
 
       {/* Message Input - floats over the chat, except under terminal where it

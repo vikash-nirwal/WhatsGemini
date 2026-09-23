@@ -14,6 +14,7 @@ interface TestFinalizeStepProps {
   scenario: string;
   firstMes: string;
   mesExample: string;
+  postHistoryInstructions?: string;
   relationship: string;
   appearance: string;
   appearanceImages: string[];
@@ -45,6 +46,7 @@ const TestFinalizeStep: React.FC<TestFinalizeStepProps> = ({
   scenario,
   firstMes,
   mesExample,
+  postHistoryInstructions,
   relationship,
   appearance,
   appearanceImages,
@@ -210,6 +212,7 @@ const TestFinalizeStep: React.FC<TestFinalizeStepProps> = ({
       scenario={scenario}
       firstMes={firstMes}
       mesExample={mesExample}
+      postHistoryInstructions={postHistoryInstructions}
       relationship={relationship}
       appearance={appearance}
       appearanceImages={appearanceImages}

@@ -1,6 +1,6 @@
-import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { performChatCompression, buildValidHistory, buildAutoCompressedMessages, truncateHistory, trimTrailingUserMessages } from "./ai/utils/chatHistoryUtils";
-import { AI, YOU, getModelPricing, ART_STYLE_CLAUSES, DEFAULT_ART_STYLE } from "../utils/constants";
+import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import { performChatCompression, buildValidHistory, buildAutoCompressedMessages, truncateHistory, splitTrailingUserMessages, formatTranscript, TranscriptNames } from "./ai/utils/chatHistoryUtils";
+import { AI, getModelPricing, ART_STYLE_CLAUSES, DEFAULT_ART_STYLE } from "../utils/constants";
 import { getProviderApiKey, getOllamaBaseUrl, getWanBaseUrl } from "./ai/utils/settings";
 import { extractAndSaveBase64ImagesLocally, stripLeakedBase64 } from "./ai/utils/apiUtils";
 import { deriveImagePrompt, generateImage, RoomReferenceCharacter } from "./ai/utils/imageGeneration";
@@ -39,7 +39,7 @@ const resolveProviderConfig = async (providerId: string, requiresBaseUrl: boolea
 
 export const generateAIResponse = createAsyncThunk(
   "ai/generateResponse",
-  async ({ prompt, history = [], systemInstruction, characterImages, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[] }, { getState, rejectWithValue, signal }) => {
+  async ({ prompt, history = [], systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, postHistoryNote?: string, streamKey?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[] }, { getState, dispatch, rejectWithValue, signal }) => {
     try {
       const state = getState() as RootState;
       const settings = state.settings;
@@ -95,7 +95,17 @@ export const generateAIResponse = createAsyncThunk(
       // needed, before this thunk was dispatched - see autoCompressChat.)
       let validHistory = buildValidHistory(history, prompt);
       validHistory = truncateHistory(validHistory, settings.maxChatLength);
-      validHistory = trimTrailingUserMessages(validHistory);
+      // Unanswered user turns at the end (a double-send, a silent send, or -
+      // in a room - other characters' lines since this speaker last talked)
+      // are folded into the outgoing prompt rather than dropped, so the
+      // history still ends on an assistant turn without losing them.
+      const { history: trimmedHistory, trailingText } = splitTrailingUserMessages(validHistory);
+      validHistory = trimmedHistory;
+      // The trailing turns usually already end with the prompt itself (room
+      // history labels it "Name: text", which buildValidHistory's exact-match
+      // dedupe misses) - don't send it twice.
+      const promptAlreadyTrailing = trailingText === prompt || trailingText.endsWith(`\n\n${prompt}`) || trailingText.endsWith(`: ${prompt}`);
+      const fullPrompt = !trailingText ? prompt : promptAlreadyTrailing ? trailingText : `${trailingText}\n\n${prompt}`;
 
       const historyForSdk = [...validHistory];
 
@@ -110,7 +120,7 @@ export const generateAIResponse = createAsyncThunk(
         // Same derivation step for both - it just describes the scene; video
         // gets no extra camera-motion-specific instruction yet.
         const derivation = await deriveImagePrompt(
-          chatAdapter, chatConfig, selectedModel, turnConfig, historyForSdk, prompt,
+          chatAdapter, chatConfig, selectedModel, turnConfig, historyForSdk, fullPrompt,
           settings.imageGenPrompt, settings.sdWebuiModel, useSdWebui,
           existingImagePrompt, existingImageParams, signal, isCharacterInitiated, isAutoSelfie, artStyle
         );
@@ -137,19 +147,38 @@ export const generateAIResponse = createAsyncThunk(
           if (imageResult.warning) response += imageResult.warning;
         }
       } else {
-        const streamed = await chatAdapter.generateChat(
-          {
-            model: selectedModel,
-            systemInstruction: turnConfig.systemInstruction,
-            temperature: turnConfig.temperature,
-            maxOutputTokens: turnConfig.maxOutputTokens,
-            safetySettings: turnConfig.safetySettings,
-            history: historyForSdk,
-            prompt,
-            signal,
-          },
-          chatConfig
-        );
+        // Throttled so a fast stream doesn't dispatch (and re-render, and
+        // re-sync settings to localStorage) on every token.
+        let lastEmit = 0;
+        const onToken = streamKey
+          ? (textSoFar: string) => {
+              const now = Date.now();
+              if (now - lastEmit < STREAM_UPDATE_INTERVAL_MS) return;
+              lastEmit = now;
+              dispatch(setStreamingReply({ key: streamKey, text: textSoFar }));
+            }
+          : undefined;
+        if (streamKey) dispatch(setStreamingReply({ key: streamKey, text: "" }));
+        let streamed;
+        try {
+          streamed = await chatAdapter.generateChat(
+            {
+              model: selectedModel,
+              systemInstruction: turnConfig.systemInstruction,
+              temperature: turnConfig.temperature,
+              maxOutputTokens: turnConfig.maxOutputTokens,
+              safetySettings: turnConfig.safetySettings,
+              samplers: settings.samplers,
+              history: historyForSdk,
+              prompt: postHistoryNote ? `${fullPrompt}\n\n${postHistoryNote}` : fullPrompt,
+              signal,
+              onToken,
+            },
+            chatConfig
+          );
+        } finally {
+          if (streamKey) dispatch(clearStreamingReply());
+        }
         trackUsage(streamed.usage, chatProviderId, selectedModel);
         response = streamed.text;
       }
@@ -187,7 +216,13 @@ export const generateAIResponse = createAsyncThunk(
   }
 );
 
+// Minimum gap between streamed-text UI updates.
+const STREAM_UPDATE_INTERVAL_MS = 60;
+
 interface AIState {
+  // The reply currently being streamed, keyed by whatever the caller passed as
+  // streamKey (ChatPage uses the chat id) so a view only shows its own.
+  streamingReply: { key: string; text: string } | null;
   response: string;
   loading: boolean;
   compressing: boolean;
@@ -197,6 +232,7 @@ interface AIState {
 }
 
 const initialState: AIState = {
+  streamingReply: null,
   response: "",
   loading: false,
   compressing: false,
@@ -219,7 +255,7 @@ const initialState: AIState = {
 // being silently dropped.
 export const autoCompressChat = createAsyncThunk(
   "ai/autoCompressChat",
-  async ({ chatId, messages }: { chatId: number; messages: Message[] }, { getState, dispatch }) => {
+  async ({ chatId, messages, names }: { chatId: number; messages: Message[]; names?: TranscriptNames }, { getState, dispatch }) => {
     try {
       const state = getState() as RootState;
       const settings = state.settings;
@@ -227,7 +263,7 @@ export const autoCompressChat = createAsyncThunk(
       const chatConfig = await resolveProviderConfig(settings.chatProvider, chatAdapter.capabilities.requiresBaseUrl);
       if (!chatConfig.apiKey && chatAdapter.capabilities.requiresApiKey) return { messages, tokens: 0, cost: 0 };
 
-      const result = await buildAutoCompressedMessages(chatAdapter, chatConfig, settings.selectedModel, messages, settings.compressThreshold);
+      const result = await buildAutoCompressedMessages(chatAdapter, chatConfig, settings.selectedModel, messages, settings.compressThreshold, names);
       if (!result.compressed) return { messages, tokens: 0, cost: 0 };
 
       await dispatch(updateMessages({ chatId, newMessages: result.messages }));
@@ -249,9 +285,9 @@ export const autoCompressChat = createAsyncThunk(
 // Async Thunk for compressing chat history (manual "Compress" button)
 export const compressChatHistory = createAsyncThunk(
   "ai/compressHistory",
-  async ({ history = [], systemInstruction }: { history: ChatMessage[], systemInstruction?: string }, { rejectWithValue }) => {
+  async ({ messages, names, systemInstruction }: { messages: Message[]; names?: TranscriptNames; systemInstruction?: string }, { rejectWithValue }) => {
     try {
-      return await performChatCompression(history, systemInstruction);
+      return await performChatCompression(formatTranscript(messages, names), systemInstruction);
     } catch (error: any) {
       console.error("AI Compress Error:", error);
       return rejectWithValue(error.message || "Failed to compress history.");
@@ -438,7 +474,7 @@ export const generateAdventureSceneImage = createAsyncThunk(
 export const extractCharacterMemory = createAsyncThunk(
   "ai/extractCharacterMemory",
   async (
-    { recentMessages, existingMemory }: { recentMessages: Message[]; existingMemory: string[] },
+    { recentMessages, existingMemory, names }: { recentMessages: Message[]; existingMemory: string[]; names?: TranscriptNames },
     { getState, rejectWithValue }
   ) => {
     try {
@@ -453,11 +489,9 @@ export const extractCharacterMemory = createAsyncThunk(
 
       const selectedModel = settings.selectedModel;
 
-      const conversationText = recentMessages
-        .map((m) => `${m.role === YOU ? "User" : "AI"}: ${stripLeakedBase64(m.txt || "")}`)
-        .join("\n\n");
+      const conversationText = formatTranscript(recentMessages, names);
 
-      const { facts } = await extractMemoryFacts(chatAdapter, chatConfig, selectedModel, conversationText, existingMemory);
+      const { facts } = await extractMemoryFacts(chatAdapter, chatConfig, selectedModel, conversationText, existingMemory, names);
       return facts;
     } catch (error: any) {
       console.error("Memory extraction error:", error);
@@ -474,6 +508,12 @@ const aiSlice = createSlice({
     clearResponse: (state) => {
       state.response = "";
       state.error = null;
+    },
+    setStreamingReply: (state, action: PayloadAction<{ key: string; text: string }>) => {
+      state.streamingReply = action.payload;
+    },
+    clearStreamingReply: (state) => {
+      state.streamingReply = null;
     },
   },
   extraReducers: (builder) => {
@@ -506,5 +546,5 @@ const aiSlice = createSlice({
   },
 });
 
-export const { clearResponse } = aiSlice.actions;
+export const { clearResponse, setStreamingReply, clearStreamingReply } = aiSlice.actions;
 export default aiSlice.reducer;

@@ -1,5 +1,5 @@
 import React from "react";
-import { FaMagic } from "react-icons/fa";
+import { FaMagic, FaPlus, FaTimes } from "react-icons/fa";
 import { TextArea, FieldLabel } from "src/components/molecules/form-controls";
 import { Button } from "src/components/atoms/button";
 import { Card } from "src/components/atoms/card";
@@ -9,6 +9,10 @@ interface ScenarioGreetingStepProps {
   setScenario: (v: string) => void;
   firstMes: string;
   setFirstMes: (v: string) => void;
+  alternateGreetings: string[];
+  setAlternateGreetings: (v: string[]) => void;
+  postHistoryInstructions: string;
+  setPostHistoryInstructions: (v: string) => void;
   handleGenerateGreeting: () => void;
   generatingGreeting: boolean;
   assistError: string | null;
@@ -21,6 +25,10 @@ const ScenarioGreetingStep: React.FC<ScenarioGreetingStepProps> = ({
   setScenario,
   firstMes,
   setFirstMes,
+  alternateGreetings,
+  setAlternateGreetings,
+  postHistoryInstructions,
+  setPostHistoryInstructions,
   handleGenerateGreeting,
   generatingGreeting,
   assistError,
@@ -57,6 +65,50 @@ const ScenarioGreetingStep: React.FC<ScenarioGreetingStepProps> = ({
         </Button>
       </div>
       {assistError && <p className="text-xs text-destructive">{assistError}</p>}
+    </Card>
+
+    <Card className="p-6 flex flex-col gap-4">
+      <FieldLabel hint="Other opening scenes. A new chat shows a picker so you can choose which one it starts from.">Alternate Greetings</FieldLabel>
+      {alternateGreetings.map((greeting, i) => (
+        <div key={i} className="flex items-start gap-2">
+          <TextArea
+            placeholder={`Alternate greeting ${i + 1}`}
+            value={greeting}
+            onChange={(e) => setAlternateGreetings(alternateGreetings.map((g, j) => (j === i ? e.target.value : g)))}
+            className="resize-none min-h-[80px] flex-1"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => setAlternateGreetings(alternateGreetings.filter((_, j) => j !== i))}
+            title="Remove this greeting"
+            aria-label={`Remove alternate greeting ${i + 1}`}
+          >
+            <FaTimes size={12} />
+          </Button>
+        </div>
+      ))}
+      <div>
+        <Button
+          type="button"
+          variant="panel"
+          onClick={() => setAlternateGreetings([...alternateGreetings, ""])}
+          className="h-auto px-3 py-1.5 text-xs font-medium border border-border hover:border-primary hover:text-primary"
+        >
+          <FaPlus size={10} /> Add alternate greeting
+        </Button>
+      </div>
+    </Card>
+
+    <Card className="p-6 flex flex-col gap-5">
+      <FieldLabel hint="Sent after the conversation history, right before each reply is written. Models follow instructions here more closely than ones at the top of the prompt. {{char}} and {{user}} are replaced with the real names.">Post-History Instructions</FieldLabel>
+      <TextArea
+        placeholder="e.g. Stay in character. Write 2-3 paragraphs. Never speak or act for {{user}}. (Optional)"
+        value={postHistoryInstructions}
+        onChange={(e) => setPostHistoryInstructions(e.target.value)}
+        className="resize-none min-h-[80px]"
+      />
     </Card>
   </>
 );

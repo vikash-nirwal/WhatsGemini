@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { FaTimes, FaPlus, FaPencilAlt } from "react-icons/fa";
+import { FaTimes, FaPlus, FaPencilAlt, FaThumbtack } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { updateChatAuthorNote, updateChatWorldTags, updateChatMemory, updateChatScenario } from "src/features/chatSlice";
 import { updateCharacter } from "src/features/characterSlice";
@@ -22,13 +22,14 @@ interface ScenePanelProps {
   // ever touches any participant's own character record.
   isRoom?: boolean;
   chatMemory?: string[];
+  chatPinnedMemory?: string[];
   chatScenario?: string;
   authorNote?: string;
   worldTags?: string[];
   onClose: () => void;
 }
 
-const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chatMemory, chatScenario, authorNote, worldTags, onClose }) => {
+const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chatMemory, chatPinnedMemory, chatScenario, authorNote, worldTags, onClose }) => {
   const dispatch = useAppDispatch();
 
   // App-wide display preferences, not per-chat data like everything else in
@@ -66,14 +67,31 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
 
   // Memory - a room reads/writes its own Chat.memory; a 1:1 chat reuses
   // Character.memory, the same data the Character Editor manages.
+  // Pinned facts are a separate list: always injected, never evicted by the
+  // MAX_MEMORY_ENTRIES cap that trims the oldest auto-extracted ones.
   const memory = isRoom ? (chatMemory || []) : (character?.memory || []);
+  const pinned = isRoom ? (chatPinnedMemory || []) : (character?.pinnedMemory || []);
 
-  const commitMemory = (newMemory: string[]) => {
+  const commitMemory = (newMemory: string[], newPinned: string[] = pinned) => {
     if (isRoom) {
-      dispatch(updateChatMemory({ chatId, memory: newMemory }));
+      dispatch(updateChatMemory({ chatId, memory: newMemory, pinnedMemory: newPinned }));
     } else if (character) {
-      dispatch(updateCharacter({ ...character, memory: newMemory }));
+      dispatch(updateCharacter({ ...character, memory: newMemory, pinnedMemory: newPinned }));
     }
+  };
+
+  const handlePinFact = (index: number) => {
+    commitMemory(memory.filter((_, i) => i !== index), [...pinned, memory[index]]);
+  };
+
+  const handleUnpinFact = (index: number) => {
+    const withFact = [...memory, pinned[index]];
+    const capped = withFact.length > MAX_MEMORY_ENTRIES ? withFact.slice(withFact.length - MAX_MEMORY_ENTRIES) : withFact;
+    commitMemory(capped, pinned.filter((_, i) => i !== index));
+  };
+
+  const handleForgetPinnedFact = (index: number) => {
+    commitMemory(memory, pinned.filter((_, i) => i !== index));
   };
 
   const handleRemoveMemoryFact = (index: number) => {
@@ -181,10 +199,38 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
         <div>
           <div className="flex items-baseline justify-between mb-2">
             <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">{isRoom ? "Group Memory" : "Memory"}</span>
-            <span className="text-[11px] text-primary">{memory.length} facts</span>
+            <span className="text-[11px] text-primary">{memory.length + pinned.length} facts</span>
           </div>
           <div className="flex flex-col gap-1.5">
-            {memory.length === 0 && !addingFact ? (
+            {pinned.map((fact, idx) => (
+              <div
+                key={`pinned-${idx}`}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/30 text-[12.5px] text-foreground"
+              >
+                <span className="flex-1">{fact}</span>
+                <Button
+                  onClick={() => handleUnpinFact(idx)}
+                  variant="ghost"
+                  size="icon"
+                  className="h-auto w-auto p-0.5 text-primary hover:text-subtle hover:bg-transparent flex-shrink-0"
+                  title="Unpin"
+                  aria-label="Unpin this fact"
+                >
+                  <FaThumbtack size={10} />
+                </Button>
+                <Button
+                  onClick={() => handleForgetPinnedFact(idx)}
+                  variant="ghost"
+                  size="icon"
+                  className="h-auto w-auto p-0.5 text-subtle hover:text-destructive hover:bg-transparent flex-shrink-0"
+                  title="Forget"
+                  aria-label="Forget this pinned fact"
+                >
+                  <FaTimes size={11} />
+                </Button>
+              </div>
+            ))}
+            {memory.length === 0 && pinned.length === 0 && !addingFact ? (
               <p className="text-[12.5px] text-subtle">{isRoom ? "No shared facts remembered yet." : "No facts remembered yet."}</p>
             ) : (
               memory.map((fact, idx) =>
@@ -212,6 +258,16 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
                     className="flex items-center gap-2 px-3 py-2 rounded-lg bg-background border border-border/30 text-[12.5px] text-foreground"
                   >
                     <span className="flex-1">{fact}</span>
+                    <Button
+                      onClick={() => handlePinFact(idx)}
+                      variant="ghost"
+                      size="icon"
+                      className="h-auto w-auto p-0.5 text-subtle hover:text-primary hover:bg-transparent flex-shrink-0"
+                      title="Pin (always remembered, never dropped)"
+                      aria-label="Pin this fact"
+                    >
+                      <FaThumbtack size={10} />
+                    </Button>
                     <Button
                       onClick={() => startEditFact(idx)}
                       variant="ghost"

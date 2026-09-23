@@ -94,7 +94,53 @@ describe("parseCharacterCardJson", () => {
   });
 });
 
+describe("parseCharacterCardJson card fields", () => {
+  it("imports alternate greetings, post-history instructions and creator notes", () => {
+    const card = {
+      spec: "chara_card_v2",
+      spec_version: "2.0",
+      data: {
+        name: "Mira",
+        personality: "Sly.",
+        first_mes: "Hello.",
+        alternate_greetings: ["Hey there.", "  ", "Well, well."],
+        post_history_instructions: "Stay in character.",
+        creator_notes: "Works best with Gemini.",
+      },
+    };
+    const parsed = parseCharacterCardJson(card);
+    expect(parsed.alternateGreetings).toEqual(["Hey there.", "Well, well."]);
+    expect(parsed.postHistoryInstructions).toBe("Stay in character.");
+    expect(parsed.creatorNotes).toBe("Works best with Gemini.");
+  });
+
+  it("keeps system_prompt alongside personality instead of dropping it, minus {{original}}", () => {
+    const card = {
+      spec: "chara_card_v2",
+      spec_version: "2.0",
+      data: { name: "Mira", personality: "Sly and quick.", system_prompt: "{{original}} Write in third person." },
+    };
+    expect(parseCharacterCardJson(card).prompt).toBe("Write in third person.\n\nSly and quick.");
+  });
+
+  it("imports a character_book entry's constant flag", () => {
+    const card = {
+      spec: "chara_card_v2",
+      spec_version: "2.0",
+      data: { name: "Mira", personality: "Sly.", character_book: { entries: [{ keys: [], content: "Always true.", enabled: true, constant: true }] } },
+    };
+    expect(parseCharacterCardJson(card).loreEntries?.[0].constant).toBe(true);
+  });
+});
+
 describe("characterToCardV2", () => {
+  it("exports alternate greetings and post-history instructions", () => {
+    const char = { id: 1, name: "Mira", description: "", prompt: "Sly.", alternateGreetings: ["Hey."], postHistoryInstructions: "Be brief." } as Character;
+    const card = characterToCardV2(char);
+    expect(card.data.alternate_greetings).toEqual(["Hey."]);
+    expect(card.data.post_history_instructions).toBe("Be brief.");
+  });
+
   it("exports loreEntries as a standard character_book so other apps can read them", () => {
     const char: Character = {
       id: 1,
@@ -105,7 +151,7 @@ describe("characterToCardV2", () => {
     } as Character;
     const card = characterToCardV2(char);
     expect(card.data.character_book?.entries).toEqual([
-      { id: 0, keys: ["hell"], content: "Escaped Avernus.", enabled: true, insertion_order: 0, extensions: {} },
+      { id: 0, keys: ["hell"], content: "Escaped Avernus.", enabled: true, constant: false, insertion_order: 0, extensions: {} },
     ]);
   });
 

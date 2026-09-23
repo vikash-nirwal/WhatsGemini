@@ -9,7 +9,7 @@ import {
   setSdWebuiApiUrl, setSdWebuiBatchSize, setSdWebuiRefMode,
   setSdWebuiDenoising, setSdWebuiControlnetModel, setSdWebuiModels,
   setSdWebuiModel, setMaxOutputTokens, setReplyLengthLimit, setCompressThreshold, setMaxChatLength,
-  setTemperature, setSafetySettings, setFontSize, setImageResolution, setGeminiImageSize, setPortraitSaveSize, setPortraitResizeEnabled,
+  setTemperature, setSamplers, setRoleplayStyle, setSafetySettings, setFontSize, setImageResolution, setGeminiImageSize, setPortraitSaveSize, setPortraitResizeEnabled,
   setChatProvider, setImageProvider, setOllamaBaseUrl,
   setEmotionPanelEnabled, setEmotionPopupEnabled, setEmotionPopupDuration, setAlwaysShowInitials,
 } from "../features/settingsSlice";
@@ -39,6 +39,9 @@ import {
   LS_REPLY_LENGTH_LIMIT,
   LS_SAFETY_SETTINGS,
   LS_TEMPRATURE,
+  LS_SAMPLERS,
+  LS_ROLEPLAY_STYLE,
+  DEFAULT_ROLEPLAY_STYLE,
   LS_FONT_SIZE,
   LS_USER_PROFILE,
   LS_USER_PERSONAS,
@@ -250,7 +253,7 @@ const SettingsPage = () => {
     personas, activePersonaId, chatProvider, imageProvider, ollamaBaseUrl, selectedModel, imageModel, videoModel,
     imageGenPrompt, sdWebuiApiUrl,
     sdWebuiBatchSize, sdWebuiRefMode, sdWebuiDenoising, sdWebuiControlnetModel, sdWebuiModels,
-    sdWebuiModel, maxOutputTokens, replyLengthLimit, compressThreshold, maxChatLength, temperature,
+    sdWebuiModel, maxOutputTokens, replyLengthLimit, compressThreshold, maxChatLength, temperature, samplers, roleplayStyle,
     safetySettings, fontSize, imageResolution, geminiImageSize, portraitSaveSize, portraitResizeEnabled,
     emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials,
   } = settings;
@@ -501,6 +504,8 @@ const SettingsPage = () => {
     [LS_REPLY_LENGTH_LIMIT]: replyLengthLimit,
     [LS_COMPRESS_THRESHOLD]: compressThreshold,
     [LS_TEMPRATURE]: temperature,
+    [LS_SAMPLERS]: samplers,
+    [LS_ROLEPLAY_STYLE]: roleplayStyle,
     [LS_SAFETY_SETTINGS]: safetySettings,
     [LS_MAX_CHAT_LENGTH]: maxChatLength,
     [LS_FONT_SIZE]: fontSize,
@@ -515,7 +520,7 @@ const SettingsPage = () => {
     [LS_USER_PERSONAS]: personas,
     [LS_ACTIVE_PERSONA_ID]: activePersonaId,
     [LS_INITIAL_MESSAGES]: JSON.parse(localStorage.getItem(LS_INITIAL_MESSAGES) || "[]"),
-  }), [selectedModel, maxOutputTokens, replyLengthLimit, compressThreshold, temperature, safetySettings, maxChatLength, fontSize, imageResolution, geminiImageSize, portraitSaveSize, portraitResizeEnabled, emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials, personas, activePersonaId]);
+  }), [selectedModel, maxOutputTokens, replyLengthLimit, compressThreshold, temperature, samplers, roleplayStyle, safetySettings, maxChatLength, fontSize, imageResolution, geminiImageSize, portraitSaveSize, portraitResizeEnabled, emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials, personas, activePersonaId]);
 
   const downloadJson = (data: unknown, filename: string) => {
     const jsonString = JSON.stringify(data, null, 2);
@@ -572,6 +577,8 @@ const SettingsPage = () => {
     if (settings[LS_REPLY_LENGTH_LIMIT] !== undefined) dispatch(setReplyLengthLimit(settings[LS_REPLY_LENGTH_LIMIT]));
     if (settings[LS_COMPRESS_THRESHOLD]) dispatch(setCompressThreshold(settings[LS_COMPRESS_THRESHOLD]));
     if (settings[LS_TEMPRATURE]) dispatch(setTemperature(settings[LS_TEMPRATURE]));
+    if (settings[LS_SAMPLERS] && typeof settings[LS_SAMPLERS] === "object") dispatch(setSamplers(settings[LS_SAMPLERS]));
+    if (settings[LS_ROLEPLAY_STYLE] && typeof settings[LS_ROLEPLAY_STYLE] === "object") dispatch(setRoleplayStyle({ ...DEFAULT_ROLEPLAY_STYLE, ...settings[LS_ROLEPLAY_STYLE] }));
     if (settings[LS_SAFETY_SETTINGS]) dispatch(setSafetySettings(settings[LS_SAFETY_SETTINGS]));
     if (settings[LS_MAX_CHAT_LENGTH]) dispatch(setMaxChatLength(settings[LS_MAX_CHAT_LENGTH]));
     if (settings[LS_FONT_SIZE]) {
@@ -821,6 +828,10 @@ const SettingsPage = () => {
                     setReplyLengthLimit={(val) => dispatch(setReplyLengthLimit(val))}
                     compressThreshold={compressThreshold}
                     setCompressThreshold={(val) => dispatch(setCompressThreshold(val))}
+                    samplers={samplers}
+                    setSamplers={(val) => dispatch(setSamplers(val))}
+                    roleplayStyle={roleplayStyle}
+                    setRoleplayStyle={(val) => dispatch(setRoleplayStyle(val))}
                     onLogout={logout}
                   />
                 )}

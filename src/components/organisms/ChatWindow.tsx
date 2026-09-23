@@ -4,7 +4,9 @@ import { motion } from "framer-motion";
 import { YOU, LS_INITIAL_MESSAGES } from "../../utils/constants";
 import { Message, Character, ConversationTree } from "../../types";
 import { getSiblingInfo } from "../../features/chat/messageTree";
-import { resolveEmotionPortrait } from "../../features/ai/utils/emotionUtils";
+import { resolveEmotionPortrait, stripStreamingEmotionTag } from "../../features/ai/utils/emotionUtils";
+import { applyMacros, getGreetings } from "../../features/ai/utils/macros";
+import MarkdownRenderer from "src/components/molecules/MarkdownRenderer";
 import { DisplayImage } from "src/components/molecules/DisplayImage";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import ChatMessage from "./ChatMessage";
@@ -46,6 +48,9 @@ interface ChatWindowProps {
   worldTags?: string[];
   isRoom?: boolean; // whether this chat currently has 2+ characters - see ScenePanel's group-scoped memory/scenario
   chatMemory?: string[]; // Chat.memory - only meaningful/shown when isRoom
+  chatPinnedMemory?: string[]; // Chat.pinnedMemory - only meaningful/shown when isRoom
+  greetingIndex?: number; // Chat.greetingIndex - which opening greeting an empty chat will start from
+  onSelectGreeting?: (index: number) => void;
   chatScenario?: string; // Chat.scenario - only meaningful/shown when isRoom
   participantsOpen?: boolean;
   onCloseParticipants?: () => void;
@@ -75,6 +80,17 @@ const TypingIndicator = ({ charInitials, accent, imageSrc }: { charInitials: str
   </div>
 );
 
+// The reply as it streams in, in place of the typing dots once the first
+// visible text arrives.
+const StreamingBubble = ({ text, charInitials, accent, imageSrc }: { text: string; charInitials: string; accent?: [string, string]; imageSrc?: string }) => (
+  <div className="flex items-start gap-3 mb-6">
+    <CharacterAvatar name={charInitials} accent={accent} imageSrc={imageSrc} size={32} className="mt-1" />
+    <div className="max-w-[85%] px-4 py-3 bg-card/[0.88] border border-border/40 shadow-soft rounded-2xl rounded-tl-[5px] text-foreground">
+      <MarkdownRenderer msgText={text} isUser={false} />
+    </div>
+  </div>
+);
+
 // Shown while an autonomous follow-up's random delay is still counting down
 // - distinct from TypingIndicator (which means a reply is actually
 // generating) so the two are never shown at once.
@@ -94,10 +110,20 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc }: { charInitials: s
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
+  // Only this chat's own stream - the ai slice holds at most one, keyed by chat id.
+  const streamingReply = useAppSelector((state) => state.ai.streamingReply);
+  const streamingText = chatId != null && streamingReply?.key === String(chatId)
+    ? stripStreamingEmotionTag(streamingReply.text)
+    : "";
+  const greetings = useMemo(
+    () => getGreetings(character).map((g) => applyMacros(g, { char: character?.name, user: userName?.trim() || "User" })),
+    [character, userName]
+  );
+  const selectedGreeting = Math.min(greetingIndex || 0, Math.max(greetings.length - 1, 0));
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
   const [editIsImageRequest, setEditIsImageRequest] = useState(false);
@@ -221,7 +247,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
       chatEndRef.current?.scrollIntoView({ behavior: isInstant ? "auto" : "smooth" });
     }
     prevMessagesLengthRef.current = messages.length;
-  }, [messages, aiLoading, isScrolledUp]);
+  }, [messages, aiLoading, isScrolledUp, streamingText]);
 
   const handleRegenerate = useCallback(
     (msg: Message) => {
@@ -407,6 +433,44 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
                     {character?.description || "Send a message to get started."}
                   </p>
                 </Card>
+                {greetings.length > 0 && (
+                  <Card className="w-full max-w-[560px] mt-4 px-5 py-4 flex flex-col gap-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">Opening scene</span>
+                      {greetings.length > 1 && onSelectGreeting && (
+                        <div className="flex items-center gap-2 text-xs text-subtle">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => onSelectGreeting((selectedGreeting - 1 + greetings.length) % greetings.length)}
+                            aria-label="Previous greeting"
+                          >
+                            ‹
+                          </Button>
+                          <span className="tabular-nums">{selectedGreeting + 1}/{greetings.length}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => onSelectGreeting((selectedGreeting + 1) % greetings.length)}
+                            aria-label="Next greeting"
+                          >
+                            ›
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-[13.5px] text-foreground max-h-[320px] overflow-auto">
+                      <MarkdownRenderer msgText={greetings[selectedGreeting]} isUser={false} />
+                    </div>
+                    <p className="text-[11.5px] text-subtle">
+                      {greetings.length > 1 ? "Pick an opening, then send your first message to start from it." : "The chat starts from this greeting when you send your first message."}
+                    </p>
+                  </Card>
+                )}
               </div>
             ) : (
               filteredMessages.map((msg, i) => {
@@ -441,6 +505,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
               ) : isFollowupPending ? (
                 <TerminalCursorLine name={characterName} note="thinking of reaching out..." />
               ) : null
+            ) : aiLoading && streamingText ? (
+              <StreamingBubble text={streamingText} charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} />
             ) : aiLoading ? (
               <TypingIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} />
             ) : isFollowupPending ? (
@@ -476,6 +542,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
           character={character}
           isRoom={isRoom}
           chatMemory={chatMemory}
+          chatPinnedMemory={chatPinnedMemory}
           chatScenario={chatScenario}
           authorNote={authorNote}
           worldTags={worldTags}

@@ -65,6 +65,17 @@ export const extractEmotionTag = (text: string, customEmotions?: string[]): { te
   return { text };
 };
 
+// Display-only cleanup for a reply that's still streaming in: hides the
+// leading [Emotion: ...] tag once complete, and hides a tag that's only
+// partly arrived (e.g. "[Emot") instead of flashing it on screen.
+export const stripStreamingEmotionTag = (text: string): string => {
+  const leading = text.match(EMOTION_TAG_LEADING);
+  if (leading) return text.slice(leading[0].length).trimStart();
+  const start = text.trimStart().replace(/^[*_]+/, "");
+  if (start.startsWith("[") && !start.includes("]") && start.length < 40) return "";
+  return text;
+};
+
 // The image to show for a character in a given emotion, or undefined to fall
 // back to the usual initials avatar (feature disabled, or no portrait set at
 // all yet). "neutral" can have its own generated slot like any other mood;

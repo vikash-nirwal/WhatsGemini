@@ -1,4 +1,4 @@
-import { AISafetySettings } from "../../../types";
+import { AISafetySettings, SamplerSettings } from "../../../types";
 import { ChatMessage, NormalizedImage, UsageInfo } from "../types";
 
 // Capability flags let Settings UI hide/disable controls a given provider can't
@@ -23,6 +23,11 @@ export interface ChatCallOptions {
   prompt: string;
   signal?: AbortSignal;
   safetySettings?: AISafetySettings; // only honored by adapters that support it (Gemini)
+  samplers?: SamplerSettings; // each adapter forwards only the knobs its API accepts
+  // When set, the adapter streams and calls this with the full text so far
+  // after each chunk, so the UI can show the reply as it's written. The
+  // returned ChatCallResult is still the complete text.
+  onToken?: (textSoFar: string) => void;
 }
 
 export interface ChatCallResult {

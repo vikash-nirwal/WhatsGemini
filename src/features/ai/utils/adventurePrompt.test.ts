@@ -142,25 +142,25 @@ describe("buildAdventureSceneImageInstruction", () => {
 
 describe("extractAdventureEmotions", () => {
   const cast: Character[] = [
-    { id: 1, name: "Mira", description: "", prompt: "", emotionPortraits: { enabled: true, images: {}, customEmotions: ["smug"] } },
+    { id: 1, name: "Mira", description: "", prompt: "", emotionPortraits: { enabled: true, images: {}, customEmotions: ["wistful"] } },
     { id: 2, name: "Old Tom", description: "", prompt: "" },
   ];
 
   it("maps names to ids and strips the tag from the narration", () => {
     const raw = `Mira smirks.
 
-[Emotions: mira=Smug; Old Tom=scared]
+[Emotions: mira=Wistful; Old Tom=scared]
 ${ADVENTURE_CHOICES_START}
 1. Run
 ${ADVENTURE_CHOICES_END}`;
     const { text, castEmotions } = extractAdventureEmotions(raw, cast);
-    expect(castEmotions).toEqual({ 1: "smug", 2: "scared" });
+    expect(castEmotions).toEqual({ 1: "wistful", 2: "scared" });
     expect(text).not.toContain("Emotions");
     expect(parseAdventureChoices(text)).toEqual({ text: "Mira smirks.", choices: [{ id: "c1", label: "Run" }] });
   });
 
   it("drops unknown names and off-list words but still strips the tag", () => {
-    const { text, castEmotions } = extractAdventureEmotions("The door creaks. [Emotions: Ghost=happy, Old Tom=smug]", cast);
+    const { text, castEmotions } = extractAdventureEmotions("The door creaks. [Emotions: Ghost=happy, Old Tom=wistful]", cast);
     expect(castEmotions).toBeUndefined();
     expect(text).toBe("The door creaks.");
   });
@@ -171,7 +171,7 @@ ${ADVENTURE_CHOICES_END}`;
 
   it("offers custom emotions only to their own character", () => {
     const directive = buildAdventureEmotionDirective(cast);
-    expect(directive).toContain("Mira may also use: smug.");
+    expect(directive).toContain("Mira may also use: wistful.");
     expect(directive).not.toContain("Old Tom may also use");
   });
 });

@@ -38,6 +38,8 @@ import {
   LS_EMOTION_POPUP_ENABLED,
   LS_EMOTION_POPUP_DURATION,
   LS_ALWAYS_SHOW_INITIALS,
+  LS_SAMPLERS,
+  LS_ROLEPLAY_STYLE,
 } from "../utils/constants";
 
 // Configure Redux Store
@@ -82,6 +84,8 @@ store.subscribe(() => {
   localStorage.setItem(LS_COMPRESS_THRESHOLD, JSON.stringify(state.compressThreshold));
   localStorage.setItem(LS_MAX_CHAT_LENGTH, JSON.stringify(state.maxChatLength));
   localStorage.setItem(LS_TEMPRATURE, JSON.stringify(state.temperature));
+  localStorage.setItem(LS_SAMPLERS, JSON.stringify(state.samplers));
+  localStorage.setItem(LS_ROLEPLAY_STYLE, JSON.stringify(state.roleplayStyle));
   localStorage.setItem(LS_SAFETY_SETTINGS, JSON.stringify(state.safetySettings));
   localStorage.setItem(LS_FONT_SIZE, state.fontSize);
   localStorage.setItem(LS_IMAGE_RESOLUTION, state.imageResolution);

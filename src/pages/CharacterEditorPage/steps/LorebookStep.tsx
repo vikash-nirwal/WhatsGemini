@@ -37,12 +37,13 @@ const LorebookStep: React.FC<LorebookStepProps> = ({
       <h3 className="font-semibold text-[15px] text-foreground flex items-center gap-2">
         <FaBook size={13} className="text-subtle" /> Lorebook / World Info
       </h3>
-      <span className="text-xs text-subtle">Injected into the prompt only when a keyword is mentioned</span>
+      <span className="text-xs text-subtle">Injected when a keyword is mentioned, or always if set to Always on</span>
     </div>
     <p className="text-xs text-subtle -mt-2">
       Add lore entries for places, factions, items, or backstory that shouldn't live in the personality
-      prompt full-time. Each entry is only added to the conversation when one of its keywords shows up in
-      the last {LORE_SCAN_MESSAGE_COUNT} messages - keeping unrelated lore out of the context budget.
+      prompt full-time. Each entry is only added to the conversation when one of its keywords shows up (as a
+      whole word) in the last {LORE_SCAN_MESSAGE_COUNT} messages, or in another entry that was triggered.
+      Turn on Always on for core facts that should be present every reply.
     </p>
 
     {loreEntries.length === 0 && (
@@ -58,6 +59,12 @@ const LorebookStep: React.FC<LorebookStepProps> = ({
               <span className="text-xs font-semibold text-subtle">Entry {idx + 1}</span>
               <div className="flex items-center gap-3">
                 <span className="text-[11px] text-subtle font-mono">~{entryTokens.toLocaleString()} tokens</span>
+                <ToggleSwitch
+                  checked={entry.constant === true}
+                  onChange={(v) => handleUpdateLoreEntry(entry.id, { constant: v || undefined })}
+                  label="Always on"
+                  className="text-xs"
+                />
                 <ToggleSwitch
                   checked={entry.enabled !== false}
                   onChange={(v) => handleUpdateLoreEntry(entry.id, { enabled: v })}
@@ -78,7 +85,7 @@ const LorebookStep: React.FC<LorebookStepProps> = ({
               </div>
             </div>
             <div>
-              <FieldLabel hint="Any of these words/phrases appearing in the recent conversation triggers this entry.">Keywords</FieldLabel>
+              <FieldLabel hint={entry.constant ? "Not needed while Always on is set." : "Any of these words/phrases appearing in the recent conversation triggers this entry."}>Keywords</FieldLabel>
               <TagInput
                 value={entry.keywords}
                 onChange={(kws) => handleUpdateLoreEntry(entry.id, { keywords: kws })}

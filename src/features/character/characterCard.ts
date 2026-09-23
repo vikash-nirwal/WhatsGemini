@@ -50,6 +50,7 @@ export interface CharacterCardV2 {
         keys: string[];
         content: string;
         enabled: boolean;
+        constant?: boolean;
         insertion_order: number;
         extensions: Record<string, unknown>;
       }>;
@@ -67,10 +68,10 @@ export const characterToCardV2 = (char: Character): CharacterCardV2 => ({
     scenario: char.scenario || "",
     first_mes: char.first_mes || "",
     mes_example: char.mes_example || "",
-    creator_notes: "",
+    creator_notes: char.creatorNotes || "",
     system_prompt: "",
-    post_history_instructions: "",
-    alternate_greetings: [],
+    post_history_instructions: char.postHistoryInstructions || "",
+    alternate_greetings: char.alternateGreetings || [],
     tags: char.tags || [],
     creator: "",
     character_version: "",
@@ -92,6 +93,7 @@ export const characterToCardV2 = (char: Character): CharacterCardV2 => ({
         keys: entry.keywords,
         content: entry.content,
         enabled: entry.enabled !== false,
+        constant: entry.constant === true,
         insertion_order: i,
         extensions: {},
       })),
@@ -109,6 +111,7 @@ const mapCharacterBookEntries = (entries: any[]): LoreEntry[] =>
     keywords: Array.isArray(entry.keys) ? entry.keys : Array.isArray(entry.keywords) ? entry.keywords : [],
     content: entry.content || "",
     enabled: entry.enabled !== false,
+    constant: entry.constant === true || undefined,
   }));
 
 export type ParsedCharacterCard = Omit<Character, "id">;
@@ -145,15 +148,26 @@ export const parseCharacterCardJson = (parsed: any): ParsedCharacterCard => {
     // character_book - what chub.ai/SillyTavern cards actually carry - when
     // that extension isn't present.
     const bookEntries = Array.isArray(d.character_book?.entries) ? d.character_book.entries : undefined;
+    // A card's `system_prompt` is its author's own instructions, meant to
+    // stand in for the app's global prompt; `{{original}}` is the spec's
+    // "insert the app's default here" macro, which has no equivalent here
+    // since the rest of the system instruction is always kept anyway.
+    const systemPrompt = typeof d.system_prompt === "string" ? d.system_prompt.replace(/\{\{original\}\}/gi, "").trim() : "";
+    const personality = typeof d.personality === "string" ? d.personality.trim() : "";
     // Many chub.ai-style cards leave `personality`/`system_prompt` blank and
     // bake the whole persona into `description` instead - fall back to it so
     // those cards don't get rejected for a missing prompt.
     return withDefaults({
       name: d.name,
       description: d.description || "",
-      prompt: d.personality || d.system_prompt || d.description || "",
+      prompt: [systemPrompt, personality].filter(Boolean).join("\n\n") || d.description || "",
       scenario: d.scenario || "",
       first_mes: d.first_mes || "",
+      alternateGreetings: Array.isArray(d.alternate_greetings)
+        ? d.alternate_greetings.filter((g: unknown): g is string => typeof g === "string" && g.trim() !== "")
+        : undefined,
+      postHistoryInstructions: typeof d.post_history_instructions === "string" ? d.post_history_instructions : undefined,
+      creatorNotes: typeof d.creator_notes === "string" ? d.creator_notes : undefined,
       mes_example: d.mes_example || "",
       tags: d.tags || [],
       relationship: ext.relationship || "",

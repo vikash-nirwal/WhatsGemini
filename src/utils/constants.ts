@@ -1,4 +1,4 @@
-import { ArtStyle } from "../types";
+import { ArtStyle, RoleplayStyle } from "../types";
 
 export const YOU = "you";
 export const AI = "ai";
@@ -10,6 +10,13 @@ export const WORLD = "world";
 export const ADVENTURE = "adventure";
 export const DEFAULT_ADVENTURE_CHOICE_COUNT = 3;
 export const DEFAULT_TEMPRATURE = 0.7;
+export const DEFAULT_ROLEPLAY_STYLE: RoleplayStyle = {
+  pov: "auto",
+  actionsInAsterisks: false,
+  neverSpeakForUser: true,
+  timeAwareness: true,
+  customInstructions: "",
+};
 export const DEFAULT_OUTPUT_TOKENS = 1000;
 export const DEFAULT_CHAT_LENGTH = 0;
 export const DEFAULT_AI_MODEL = "gemini-2.5-flash";
@@ -56,7 +63,7 @@ export const imageModels = [
 // still chroma-keyed for transparency); until one's generated it simply falls
 // back to the character's ordinary main portrait, same as any other
 // ungenerated mood (see resolveEmotionPortrait, emotionUtils.ts).
-export const EMOTIONS = ["neutral", "happy", "sad", "angry", "surprised", "excited", "shy", "scared", "thinking"];
+export const EMOTIONS = ["neutral", "happy", "sad", "angry", "surprised", "excited", "shy", "scared", "thinking", "flirty", "embarrassed", "smug", "annoyed"];
 
 export const ART_STYLES: { value: ArtStyle; label: string }[] = [
   { value: "anime", label: "Anime" },
@@ -183,6 +190,14 @@ export const MAX_MEMORY_ENTRIES = 40;
 // keyword matches before each reply - recent-only keeps matching cheap and
 // keeps lore relevant to what's actually being talked about right now.
 export const LORE_SCAN_MESSAGE_COUNT = 10;
+// Character budget for all injected lore per reply (~1,500 tokens) - once
+// reached, lower-priority matches are dropped instead of bloating the prompt.
+// Constant entries go first, then keyword matches in lorebook order.
+export const LORE_MAX_CHARS = 6000;
+// How many extra passes scan already-triggered entries' own text for further
+// keywords (an entry about "the Silver Court" naming "Queen Maeve" pulls in
+// her entry too). Bounded so two entries naming each other can't loop.
+export const LORE_RECURSION_DEPTH = 2;
 
 // Preset 2-color avatar gradients offered when creating/editing a character.
 export const CHARACTER_SWATCHES: [string, string][] = [
@@ -328,6 +343,8 @@ export const LS_MAX_OUTPUT_TOKENS = "max_output_tokens";
 export const LS_REPLY_LENGTH_LIMIT = "reply_length_limit";
 export const LS_MAX_CHAT_LENGTH = "max_chat_length";
 export const LS_TEMPRATURE = "temperature";
+export const LS_SAMPLERS = "samplers";
+export const LS_ROLEPLAY_STYLE = "roleplay_style";
 export const LS_SAFETY_SETTINGS = "safety_settings";
 export const LS_INITIAL_CHAT_MESSAGE = "initial_chat_message";
 export const LS_GOOGLE_API_KEY = "google_api_key";

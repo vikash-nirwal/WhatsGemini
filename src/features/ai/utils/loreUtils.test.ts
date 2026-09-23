@@ -54,6 +54,41 @@ describe("matchLoreEntries", () => {
   });
 });
 
+describe("matchLoreEntries matching rules", () => {
+  it("matches whole words only, so a keyword inside another word doesn't fire", () => {
+    const e = entry({ id: "1", keywords: ["cat"], content: "lore" });
+    expect(matchLoreEntries([e], [msg("What category is this?")])).toEqual([]);
+    expect(matchLoreEntries([e], [msg("The cat, again.")])).toEqual([e]);
+  });
+
+  it("handles keywords with punctuation and non-ASCII letters", () => {
+    const a = entry({ id: "1", keywords: ["Mr. Vance"], content: "a" });
+    const b = entry({ id: "2", keywords: ["Zoë"], content: "b" });
+    expect(matchLoreEntries([a, b], [msg("I met Mr. Vance and Zoë.")])).toEqual([a, b]);
+    expect(matchLoreEntries([b], [msg("Zoëlle waved.")])).toEqual([]);
+  });
+
+  it("always includes constant entries, first, even with no keyword match", () => {
+    const keyed = entry({ id: "1", keywords: ["dragon"], content: "Dragons." });
+    const constant = entry({ id: "2", keywords: [], content: "The world is flat.", constant: true });
+    expect(matchLoreEntries([keyed, constant], [msg("hello")])).toEqual([constant]);
+    expect(matchLoreEntries([keyed, constant], [msg("a dragon")])).toEqual([constant, keyed]);
+  });
+
+  it("pulls in entries named by other triggered entries", () => {
+    const court = entry({ id: "1", keywords: ["Silver Court"], content: "The Silver Court is ruled by Queen Maeve." });
+    const maeve = entry({ id: "2", keywords: ["Maeve"], content: "Maeve is ancient." });
+    expect(matchLoreEntries([court, maeve], [msg("Tell me of the Silver Court")])).toEqual([court, maeve]);
+  });
+
+  it("stops adding matches once the character budget is used up, but always keeps the first", () => {
+    const big = entry({ id: "1", keywords: ["a"], content: "x".repeat(5000) });
+    const second = entry({ id: "2", keywords: ["b"], content: "y".repeat(2000) });
+    const small = entry({ id: "3", keywords: ["c"], content: "z" });
+    expect(matchLoreEntries([big, second, small], [msg("a b c")])).toEqual([big, small]);
+  });
+});
+
 describe("buildWorldInfoSection", () => {
   it("joins matched entries under a [World Info] header", () => {
     const entries = [

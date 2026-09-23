@@ -52,12 +52,15 @@ import {
   DEFAULT_OLLAMA_BASE_URL,
   LS_EMOTION_PANEL_ENABLED,
   LS_ALWAYS_SHOW_INITIALS,
+  LS_SAMPLERS,
+  LS_ROLEPLAY_STYLE,
+  DEFAULT_ROLEPLAY_STYLE,
   LS_EMOTION_POPUP_ENABLED,
   LS_EMOTION_POPUP_DURATION,
   DEFAULT_EMOTION_POPUP_DURATION,
   models,
 } from '../utils/constants';
-import { AISafetySettings, UserProfile } from '../types';
+import { AISafetySettings, RoleplayStyle, SamplerSettings, UserProfile } from '../types';
 import { RootState } from '../store/store';
 
 const getStoredValue = <T>(key: string, defaultValue: T): T => {
@@ -107,6 +110,8 @@ export interface SettingsState {
   compressThreshold: number;
   maxChatLength: number;
   temperature: number;
+  samplers: SamplerSettings;
+  roleplayStyle: RoleplayStyle;
   safetySettings: AISafetySettings;
   fontSize: string;
   imageResolution: string;
@@ -148,6 +153,8 @@ const initialState: SettingsState = {
   compressThreshold: getStoredValue(LS_COMPRESS_THRESHOLD, DEFAULT_COMPRESS_THRESHOLD),
   maxChatLength: getStoredValue(LS_MAX_CHAT_LENGTH, DEFAULT_CHAT_LENGTH),
   temperature: getStoredValue(LS_TEMPRATURE, DEFAULT_TEMPRATURE),
+  samplers: getStoredValue<SamplerSettings>(LS_SAMPLERS, {}) || {},
+  roleplayStyle: { ...DEFAULT_ROLEPLAY_STYLE, ...getStoredValue<Partial<RoleplayStyle>>(LS_ROLEPLAY_STYLE, {}) },
   safetySettings: getStoredValue(LS_SAFETY_SETTINGS, DEFAULT_SAFETY_SETTINGS as unknown as AISafetySettings),
   fontSize: localStorage.getItem(LS_FONT_SIZE) || '16px',
   imageResolution: localStorage.getItem(LS_IMAGE_RESOLUTION) || DEFAULT_IMAGE_RESOLUTION,
@@ -255,6 +262,12 @@ const settingsSlice = createSlice({
     setTemperature: (state, action: PayloadAction<number>) => {
       state.temperature = action.payload;
     },
+    setSamplers: (state, action: PayloadAction<SamplerSettings>) => {
+      state.samplers = action.payload;
+    },
+    setRoleplayStyle: (state, action: PayloadAction<RoleplayStyle>) => {
+      state.roleplayStyle = action.payload;
+    },
     setSafetySettings: (state, action: PayloadAction<AISafetySettings>) => {
       state.safetySettings = action.payload;
     },
@@ -314,6 +327,8 @@ export const {
   setCompressThreshold,
   setMaxChatLength,
   setTemperature,
+  setSamplers,
+  setRoleplayStyle,
   setSafetySettings,
   setFontSize,
   setImageResolution,

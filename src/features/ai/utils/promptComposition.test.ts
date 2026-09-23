@@ -1,6 +1,7 @@
-import { buildChatHistory, buildSystemInstruction } from "./promptComposition";
+import { buildChatHistory, buildSystemInstruction, buildTurnContext, buildPostHistoryNote, buildTimeSection } from "./promptComposition";
+import { DEFAULT_ROLEPLAY_STYLE } from "../../../utils/constants";
 import { YOU, AI } from "../../../utils/constants";
-import { Character, Message } from "../../../types";
+import { Character, Message, UserProfile } from "../../../types";
 
 const msg = (role: string, txt: string, speakerId?: number): Message => ({ role, txt, speakerId });
 
@@ -104,5 +105,102 @@ describe("buildSystemInstruction", () => {
     expect(text).not.toContain("A quiet cafe.");
     expect(text).not.toMatch(/current scenario/i);
     expect(text).toContain("Likes tea.");
+  });
+});
+
+describe("buildChatHistory from a room speaker's perspective", () => {
+  it("sends only the speaker's own lines as assistant; others and the user arrive as labeled user turns, merged", () => {
+    const messages = [msg(YOU, "hi all"), msg(AI, "hey!", 1), msg(AI, "yo", 2), msg(YOU, "what now?")];
+    const history = buildChatHistory(messages, { 1: "Aria", 2: "Beck" }, { selfId: 2, userName: "Arin" });
+    expect(history).toEqual([
+      { role: "user", text: "Arin: hi all\n\nAria: hey!" },
+      { role: "assistant", text: "yo" },
+      { role: "user", text: "Arin: what now?" },
+    ]);
+  });
+});
+
+describe("buildSystemInstruction additions", () => {
+  const persona: UserProfile = { id: "p", name: "Arin", bio: "" };
+
+  it("resolves {{char}}/{{user}} in character fields", () => {
+    const { text } = buildSystemInstruction(makeCharacter({ prompt: "{{char}} adores {{user}}." }), undefined, undefined, persona);
+    expect(text).toContain("Aria adores Arin.");
+  });
+
+  it("does not double the period after a description that already ends with one", () => {
+    const { text } = buildSystemInstruction(makeCharacter({ description: "A bard." }));
+    expect(text).toContain("Character description: A bard.\n");
+  });
+
+  it("includes world tags and pinned memory", () => {
+    const { text } = buildSystemInstruction(
+      makeCharacter({ pinnedMemory: ["Arin's name is Arin."], memory: ["Likes tea."] }),
+      undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+      { worldTags: ["Noir", "1920s"] }
+    );
+    expect(text).toContain("Noir, 1920s");
+    expect(text).toContain("- Arin's name is Arin.\n- Likes tea.");
+  });
+
+  it("adds roleplay style rules only when set", () => {
+    const style = { ...DEFAULT_ROLEPLAY_STYLE, pov: "third" as const, actionsInAsterisks: true, timeAwareness: false };
+    const { text } = buildSystemInstruction(makeCharacter(), undefined, undefined, persona, [], undefined, undefined, undefined, { roleplayStyle: style });
+    expect(text).toMatch(/third person/);
+    expect(text).toMatch(/\*asterisks\*/);
+    expect(text).toContain("Never write dialogue, actions, thoughts or decisions for Arin");
+    expect(buildSystemInstruction(makeCharacter()).text).not.toMatch(/Roleplay rules/);
+  });
+
+  it("matches other room members' lore in a room turn", () => {
+    const { text } = buildSystemInstruction(
+      makeCharacter(), undefined, undefined, undefined, [msg(YOU, "tell me about the Vault")], ["Beck"], undefined, undefined,
+      { roomLoreEntries: [{ id: "l", keywords: ["Vault"], content: "Beck's vault is empty." }] }
+    );
+    expect(text).toContain("Beck's vault is empty.");
+  });
+});
+
+describe("buildPostHistoryNote / buildTurnContext", () => {
+  it("returns nothing when there's no author's note or post-history instructions", () => {
+    expect(buildPostHistoryNote(makeCharacter(), undefined)).toBeUndefined();
+  });
+
+  it("combines the author's note and the card's post-history instructions, with macros resolved", () => {
+    const note = buildPostHistoryNote(makeCharacter({ postHistoryInstructions: "Never speak for {{user}}." }), "It starts raining.", { id: "p", name: "Arin", bio: "" });
+    expect(note).toContain("It starts raining.");
+    expect(note).toContain("Never speak for Arin.");
+  });
+
+  it("keeps the author's note out of the system prompt", () => {
+    const ctx = buildTurnContext([msg(YOU, "hi")], makeCharacter(), undefined, undefined, undefined, undefined, { authorNote: "It starts raining." });
+    expect(ctx.systemInstruction).not.toContain("It starts raining.");
+    expect(ctx.postHistoryNote).toContain("It starts raining.");
+  });
+});
+
+describe("buildTimeSection", () => {
+  const HOUR = 3600 * 1000;
+  const now = Date.UTC(2026, 0, 10, 12);
+
+  it("reports the gap before a just-sent user message", () => {
+    const messages: Message[] = [
+      { role: AI, txt: "bye", timestamp: now - 3 * 24 * HOUR },
+      { role: YOU, txt: "I'm back", timestamp: now - 1000 },
+    ];
+    expect(buildTimeSection(messages, now)).toContain("About 3 days passed");
+  });
+
+  it("reports time since the last message for a character-initiated turn", () => {
+    const messages: Message[] = [{ role: AI, txt: "hello?", timestamp: now - 5 * HOUR }];
+    expect(buildTimeSection(messages, now)).toContain("About 5 hours passed");
+  });
+
+  it("does not mention a short gap", () => {
+    const messages: Message[] = [
+      { role: AI, txt: "a", timestamp: now - 60 * 1000 },
+      { role: YOU, txt: "b", timestamp: now - 1000 },
+    ];
+    expect(buildTimeSection(messages, now)).not.toMatch(/passed/);
   });
 });

@@ -3,6 +3,17 @@ import { dbService } from "../services/dbService";
 import { LS_INITIAL_MESSAGES, YOU, AI } from "../utils/constants";
 import { Chat, Message, ConversationTree } from "../types";
 import { addChildNode, flattenPath, generateNodeId } from "./chat/messageTree";
+import { applyMacros, getGreetings } from "./ai/utils/macros";
+
+// The persona name a chat speaks as (its own override, else the global active
+// one) - read straight from settings state for {{user}} in seeded greetings.
+// Callers fall back to "User" (SillyTavern's default) when no persona is named.
+const resolvePersonaName = (getState: () => unknown, chat: Chat): string | undefined => {
+  const settings = (getState() as { settings?: { personas?: { id: string; name: string }[]; activePersonaId?: string } }).settings;
+  const personas = settings?.personas || [];
+  const persona = personas.find((p) => p.id === (chat.personaId || settings?.activePersonaId)) || personas[0];
+  return persona?.name?.trim() || undefined;
+};
 
 // Helper function for error handling
 const handleDbError = (error: unknown, rejectWithValue: any) => {
@@ -46,7 +57,7 @@ export const addChat = createAsyncThunk(
 
 export const addMessage = createAsyncThunk(
   "chat/addMessage",
-  async ({ chatId, role, text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId }: { chatId: number; role: string; text: string; images?: string[], isImageRequest?: boolean, videos?: string[], isVideoRequest?: boolean, videoPrompt?: string, isImpersonated?: boolean, emotion?: string, imagePrompt?: string, imageParams?: any, speakerId?: number }, { dispatch, rejectWithValue }) => {
+  async ({ chatId, role, text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId }: { chatId: number; role: string; text: string; images?: string[], isImageRequest?: boolean, videos?: string[], isVideoRequest?: boolean, videoPrompt?: string, isImpersonated?: boolean, emotion?: string, imagePrompt?: string, imageParams?: any, speakerId?: number }, { dispatch, getState, rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
 
@@ -61,10 +72,15 @@ export const addMessage = createAsyncThunk(
       if (chat.content.length === 0 && !isImpersonated) {
         const primaryCharacterId = chat.characterIds?.[0];
         const character = primaryCharacterId ? await dbService.getCharacterById(primaryCharacterId).catch(() => undefined) : undefined;
-        if (character?.first_mes) {
+        const greetings = getGreetings(character);
+        if (character && greetings.length > 0) {
           // Unlike the generic seed messages below, this is a real visible greeting
           // (not a hidden priming message), so it's left unflagged as `isSystem`.
-          chat.content.push({ role: AI, txt: character.first_mes, speakerId: character.id, id: generateNodeId(), timestamp: Date.now() });
+          // Whichever greeting was picked in the empty-state preview wins;
+          // {{char}}/{{user}} are resolved now since the text is stored as-is.
+          const greeting = greetings[Math.min(chat.greetingIndex || 0, greetings.length - 1)];
+          const txt = applyMacros(greeting, { char: character.name, user: resolvePersonaName(getState, chat) || "User" });
+          chat.content.push({ role: AI, txt, speakerId: character.id, id: generateNodeId(), timestamp: Date.now() });
         } else {
           const savedMessages = JSON.parse(localStorage.getItem(LS_INITIAL_MESSAGES) || "[]") as any[];
           savedMessages.forEach((msg) => {
@@ -241,7 +257,7 @@ export const updateChatMutedParticipants = createAsyncThunk(
 // them.
 export const addChatParticipant = createAsyncThunk(
   "chat/addChatParticipant",
-  async ({ chatId, characterId }: { chatId: number; characterId: number }, { dispatch, rejectWithValue }) => {
+  async ({ chatId, characterId }: { chatId: number; characterId: number }, { dispatch, getState, rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
       if (chat.characterIds?.includes(characterId)) {
@@ -271,7 +287,8 @@ export const addChatParticipant = createAsyncThunk(
       });
 
       if (character?.first_mes) {
-        pushMessage({ role: AI, txt: character.first_mes, speakerId: character.id, id: generateNodeId(), timestamp: Date.now() });
+        const txt = applyMacros(character.first_mes, { char: character.name, user: resolvePersonaName(getState, chat) || "User" });
+        pushMessage({ role: AI, txt, speakerId: character.id, id: generateNodeId(), timestamp: Date.now() });
       }
 
       await dbService.updateChat(chat);
@@ -294,7 +311,7 @@ export const addChatParticipant = createAsyncThunk(
 // addChatParticipant would, just onto the new chat instead of the old one.
 export const branchChatWithParticipant = createAsyncThunk(
   "chat/branchChatWithParticipant",
-  async ({ chatId, characterId }: { chatId: number; characterId: number }, { dispatch, rejectWithValue }) => {
+  async ({ chatId, characterId }: { chatId: number; characterId: number }, { dispatch, getState, rejectWithValue }) => {
     try {
       const original = await dbService.getChatById(chatId);
       if (original.characterIds?.includes(characterId)) {
@@ -337,7 +354,8 @@ export const branchChatWithParticipant = createAsyncThunk(
       });
 
       if (character?.first_mes) {
-        pushMessage({ role: AI, txt: character.first_mes, speakerId: character.id, id: generateNodeId(), timestamp: Date.now() });
+        const txt = applyMacros(character.first_mes, { char: character.name, user: resolvePersonaName(getState, original) || "User" });
+        pushMessage({ role: AI, txt, speakerId: character.id, id: generateNodeId(), timestamp: Date.now() });
       }
 
       const id = await dbService.addChat(branched);
@@ -350,18 +368,35 @@ export const branchChatWithParticipant = createAsyncThunk(
   }
 );
 
+// Picks which of the primary character's greetings (see getGreetings) a
+// still-empty chat will open with; read by addMessage when it seeds the chat.
+export const updateChatGreeting = createAsyncThunk(
+  "chat/updateChatGreeting",
+  async ({ chatId, greetingIndex }: { chatId: number; greetingIndex: number }, { rejectWithValue }) => {
+    try {
+      const chat = await dbService.getChatById(chatId);
+      chat.greetingIndex = greetingIndex;
+      await dbService.updateChat(chat);
+      return { chatId, greetingIndex };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
 // Updates just a room's own group-scoped memory (Scene panel, and the
 // auto-extraction interval when the chat is a room) - see Chat.memory.
 // Meaningless for a 1:1 chat, which reads/writes the character's own
 // Character.memory instead and never touches this field.
 export const updateChatMemory = createAsyncThunk(
   "chat/updateChatMemory",
-  async ({ chatId, memory }: { chatId: number; memory: Chat["memory"] }, { rejectWithValue }) => {
+  async ({ chatId, memory, pinnedMemory }: { chatId: number; memory: Chat["memory"]; pinnedMemory?: Chat["pinnedMemory"] }, { rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
       chat.memory = memory;
+      if (pinnedMemory !== undefined) chat.pinnedMemory = pinnedMemory;
       await dbService.updateChat(chat);
-      return { chatId, memory };
+      return { chatId, memory, pinnedMemory: chat.pinnedMemory };
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
@@ -626,7 +661,12 @@ const chatSlice = createSlice({
         const chat = state.chats.find((c) => c.id === action.payload.chatId);
         if (chat) {
           chat.memory = action.payload.memory;
+          chat.pinnedMemory = action.payload.pinnedMemory;
         }
+      })
+      .addCase(updateChatGreeting.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c.id === action.payload.chatId);
+        if (chat) chat.greetingIndex = action.payload.greetingIndex;
       })
       .addCase(updateChatMemory.rejected, (state, action) => {
         state.error = action.payload as string;

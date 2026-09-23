@@ -3,6 +3,7 @@ import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { generateAIResponse } from "../../features/aiSlice";
 import { selectActivePersona } from "../../features/settingsSlice";
 import { buildTurnContext } from "../../features/ai/utils/promptComposition";
+import { applyMacros } from "../../features/ai/utils/macros";
 import { Character, LoreEntry, Message } from "../../types";
 import { YOU, AI } from "../../utils/constants";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
@@ -26,6 +27,7 @@ export interface TestChatPaneProps {
   scenario: string;
   firstMes: string;
   mesExample: string;
+  postHistoryInstructions?: string;
   relationship: string;
   appearance: string;
   appearanceImages: string[];
@@ -46,6 +48,7 @@ const buildDraftCharacter = (props: TestChatPaneProps): Character => ({
   scenario: props.scenario || undefined,
   first_mes: props.firstMes || undefined,
   mes_example: props.mesExample || undefined,
+  postHistoryInstructions: props.postHistoryInstructions || undefined,
   relationship: props.relationship || undefined,
   appearance: props.appearance || undefined,
   appearanceImages: props.appearanceImages,
@@ -58,6 +61,7 @@ const buildDraftCharacter = (props: TestChatPaneProps): Character => ({
 const TestChatPane: React.FC<TestChatPaneProps> = (props) => {
   const dispatch = useAppDispatch();
   const activePersona = useAppSelector(selectActivePersona);
+  const roleplayStyle = useAppSelector((state) => state.settings.roleplayStyle);
 
   const [messages, setMessages] = useState<TestMessage[]>([]);
   const [inputText, setInputText] = useState("");
@@ -77,7 +81,7 @@ const TestChatPane: React.FC<TestChatPaneProps> = (props) => {
         {
           id: "greeting-" + Date.now(),
           role: "assistant",
-          text: props.firstMes,
+          text: applyMacros(props.firstMes, { char: props.name, user: activePersona?.name?.trim() || "User" }),
           timestamp: Date.now(),
         },
       ]);
@@ -132,14 +136,15 @@ const TestChatPane: React.FC<TestChatPaneProps> = (props) => {
         txt: m.text,
       }));
 
-      const { history, systemInstruction, characterImages, characterName } =
-        buildTurnContext(contextMessages, draftChar, undefined, undefined, activePersona);
+      const { history, systemInstruction, postHistoryNote, characterImages, characterName } =
+        buildTurnContext(contextMessages, draftChar, undefined, undefined, activePersona, undefined, { roleplayStyle });
 
       const result = await dispatch(
         generateAIResponse({
           prompt: text,
           history,
           systemInstruction,
+          postHistoryNote,
           characterImages,
           characterName,
         })
@@ -158,7 +163,7 @@ const TestChatPane: React.FC<TestChatPaneProps> = (props) => {
     } finally {
       setIsGenerating(false);
     }
-  }, [inputText, isGenerating, messages, props, dispatch, activePersona]);
+  }, [inputText, isGenerating, messages, props, dispatch, activePersona, roleplayStyle]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {

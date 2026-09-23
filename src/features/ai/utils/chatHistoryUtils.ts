@@ -4,9 +4,14 @@ import { ChatMessage, UsageInfo } from "../types";
 import { ChatProviderAdapter, ProviderRuntimeConfig } from "../providers/types";
 import { CHAT_PROVIDERS } from "../providers/registry";
 import { Message } from "../../../types";
-import { buildChatHistory } from "./promptComposition";
+import { formatTranscript, TranscriptNames } from "./transcript";
 import { estimateMessageTokens } from "./tokenEstimator";
 import { splitForCompression } from "./compressionSplit";
+
+// Pure helpers live in transcript.ts (testable without the provider registry's
+// ESM imports) and are re-exported here for existing callers.
+export { formatTranscript, splitTrailingUserMessages } from "./transcript";
+export type { TranscriptNames } from "./transcript";
 
 // Clones the raw history into fresh objects and drops the trailing user
 // message if it's a duplicate of the prompt about to be sent (the caller's chat
@@ -25,27 +30,30 @@ export const buildValidHistory = (history: ChatMessage[], prompt: string): ChatM
 };
 
 // Shared summarization prompt used by both the automatic (threshold-triggered)
-// and manual (Compress button) compression paths - previously these had two
-// separate, divergent prompts doing the same job. Standardized on the more
-// thorough of the two: explicitly retains language/tone/emotional state so
-// the AI can resume seamlessly, not just facts.
+// and manual (Compress button) compression paths. Written for roleplay
+// continuity: besides the language/tone/mood it always kept, it asks for the
+// concrete story state (where everyone is, what's happening, open threads,
+// promises, items, injuries) that a free-form "summary" tended to lose.
 export const summarizeConversation = async (
   adapter: ChatProviderAdapter,
   config: ProviderRuntimeConfig,
   selectedModel: string,
-  messages: ChatMessage[],
+  transcript: string,
   systemInstruction?: string
 ): Promise<{ summary: string; usage?: UsageInfo }> => {
-  const conversationText = messages
-    .map((m) => `${m.role === "user" ? "User" : "AI"}: ${m.text || ""}`)
-    .join("\n\n");
+  const prompt = `Summarize the following roleplay conversation so it can replace the older messages as the AI's memory. Write it as a compact reference, not a story, using these headings (skip any that don't apply):
 
-  const prompt = `Please provide a concise but comprehensive summary of the following conversation history.
-Retain all key facts, user preferences, important context, the language used (e.g., Hinglish, English), the tone, and the current emotional state of both the User and the AI. This summary will act as the AI's memory replacing the older messages.
-Do not act as a conversational partner, just provide the summary directly. Ensure you explicitly note the language format, tone, and emotional context so the AI can seamlessly resume in the exact same style and mood.
+Story so far: the key events in order, briefly.
+Current scene: where the characters are, the time of day, and what is happening right now.
+Characters & relationships: who has appeared, what they're like, and how each feels about the others right now.
+Open threads: unresolved goals, promises, secrets, plans, and questions left hanging.
+Important details: names, items held, injuries, facts established about the user and the world, and the user's stated preferences.
+Style: the language used (e.g. English, Hinglish), tone, narration style (e.g. first/third person, *actions* in asterisks), and the current emotional state of each character.
+
+If the text contains an earlier summary, merge it in rather than repeating it. Use the characters' real names. Do not continue the story or address anyone; output only the summary.
 
 Conversation:
-${conversationText}`;
+${transcript}`;
 
   const result = await adapter.generateOnce(prompt, selectedModel, config, systemInstruction);
   return { summary: result.text.trim(), usage: result.usage };
@@ -65,7 +73,8 @@ export const buildAutoCompressedMessages = async (
   config: ProviderRuntimeConfig,
   selectedModel: string,
   messages: Message[],
-  compressThresholdMessages: number
+  compressThresholdMessages: number,
+  names?: TranscriptNames
 ): Promise<{ messages: Message[]; compressed: boolean; usage?: UsageInfo }> => {
   if (compressThresholdMessages <= 0) return { messages, compressed: false };
 
@@ -84,7 +93,7 @@ export const buildAutoCompressedMessages = async (
     const summarizable = oldChunk.filter((m) => !m.isSystem);
     if (summarizable.length === 0) return { messages, compressed: false };
 
-    const { summary, usage } = await summarizeConversation(adapter, config, selectedModel, buildChatHistory(summarizable));
+    const { summary, usage } = await summarizeConversation(adapter, config, selectedModel, formatTranscript(summarizable, names));
     if (!summary) return { messages, compressed: false };
 
     const summaryMsg: Message = {
@@ -144,20 +153,11 @@ export const truncateHistory = (validHistory: ChatMessage[], maxHistoryTokens: n
   return validHistory;
 };
 
-// Most providers require (or strongly prefer) history to end on an assistant
-// turn - drop any trailing unanswered user messages before sending it as context.
-export const trimTrailingUserMessages = (validHistory: ChatMessage[]): ChatMessage[] => {
-  while (validHistory.length > 0 && validHistory[validHistory.length - 1].role === "user") {
-    validHistory.pop();
-  }
-  return validHistory;
-};
-
 // Returns the summary text plus this call's own real usage/cost (priced off
 // the same provider/model that served it) so the manual "Compress" button's
 // spend can be folded into the chat's running total instead of being dropped.
 export const performChatCompression = async (
-  history: ChatMessage[],
+  transcript: string,
   systemInstruction?: string
 ): Promise<{ summary: string; tokens: number; cost: number }> => {
   const providerId = getStoredValue(LS_CHAT_PROVIDER, DEFAULT_CHAT_PROVIDER);
@@ -170,7 +170,7 @@ export const performChatCompression = async (
   const baseUrl = adapter.capabilities.requiresBaseUrl ? getOllamaBaseUrl() : undefined;
   const selectedModel = getStoredValue(LS_AI_MODEL, DEFAULT_AI_MODEL);
 
-  const { summary, usage } = await summarizeConversation(adapter, { apiKey, baseUrl }, selectedModel, history, systemInstruction);
+  const { summary, usage } = await summarizeConversation(adapter, { apiKey, baseUrl }, selectedModel, transcript, systemInstruction);
   const pricing = getModelPricing(providerId, selectedModel);
   const tokens = usage?.totalTokens || 0;
   const cost = usage ? (usage.inputTokens / 1_000_000) * pricing.input + (usage.outputTokens / 1_000_000) * pricing.output : 0;

@@ -103,6 +103,8 @@ const CharacterEditorPage = () => {
   const [prompt, setPrompt] = useState("");
   const [scenario, setScenario] = useState("");
   const [firstMes, setFirstMes] = useState("");
+  const [alternateGreetings, setAlternateGreetings] = useState<string[]>([]);
+  const [postHistoryInstructions, setPostHistoryInstructions] = useState("");
   const [mesExample, setMesExample] = useState("");
   const [relationship, setRelationship] = useState("");
   const [appearance, setAppearance] = useState("");
@@ -135,6 +137,8 @@ const CharacterEditorPage = () => {
       setPrompt(source.prompt);
       setScenario(source.scenario || "");
       setFirstMes(source.first_mes || "");
+      setAlternateGreetings(source.alternateGreetings || []);
+      setPostHistoryInstructions(source.postHistoryInstructions || "");
       setMesExample(source.mes_example || "");
       setRelationship(source.relationship || "");
       setAppearance(source.appearance || "");
@@ -155,6 +159,8 @@ const CharacterEditorPage = () => {
       setPrompt("");
       setScenario("");
       setFirstMes("");
+      setAlternateGreetings([]);
+      setPostHistoryInstructions("");
       setMesExample("");
       setRelationship("");
       setAppearance("");
@@ -298,12 +304,17 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     }
   };
 
+  const cleanGreetings = (greetings: string[]): string[] | undefined => {
+    const kept = greetings.filter((g) => g.trim());
+    return kept.length > 0 ? kept : undefined;
+  };
+
   const handleCreateCharacter = () => {
     if (!name || !prompt) {
       alert("Character name and prompt are required.");
       return;
     }
-    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits }));
+    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits }));
     navigate("/characters");
   };
 
@@ -317,7 +328,10 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
       alert("Character name and prompt are required.");
       return;
     }
-    dispatch(updateCharacter({ id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits }));
+    // Spread the stored record first: db.put replaces the whole row, so any
+    // field this form doesn't own (memory, pinnedMemory, avatar, creatorNotes)
+    // was being wiped on every save.
+    dispatch(updateCharacter({ ...editCharacter, id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits }));
     if (options?.stay) {
       toast.success("Character saved");
     } else {
@@ -906,6 +920,10 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   setScenario={setScenario}
                   firstMes={firstMes}
                   setFirstMes={setFirstMes}
+                  alternateGreetings={alternateGreetings}
+                  setAlternateGreetings={setAlternateGreetings}
+                  postHistoryInstructions={postHistoryInstructions}
+                  setPostHistoryInstructions={setPostHistoryInstructions}
                   handleGenerateGreeting={handleGenerateGreeting}
                   generatingGreeting={generatingGreeting}
                   assistError={assistError}
@@ -944,6 +962,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   scenario={scenario}
                   firstMes={firstMes}
                   mesExample={mesExample}
+                  postHistoryInstructions={postHistoryInstructions}
                   relationship={relationship}
                   appearance={appearance}
                   appearanceImages={appearanceImages}

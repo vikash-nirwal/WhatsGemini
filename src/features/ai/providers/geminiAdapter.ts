@@ -52,6 +52,11 @@ const generateChat = async (opts: ChatCallOptions, config: ProviderRuntimeConfig
     safetySettings: formatSafetySettings(opts.safetySettings),
   };
   if (opts.systemInstruction) modelConfig.systemInstruction = opts.systemInstruction;
+  const samplers = opts.samplers;
+  if (samplers?.topP != null) modelConfig.topP = samplers.topP;
+  if (samplers?.topK != null) modelConfig.topK = samplers.topK;
+  if (samplers?.frequencyPenalty) modelConfig.frequencyPenalty = samplers.frequencyPenalty;
+  if (samplers?.presencePenalty) modelConfig.presencePenalty = samplers.presencePenalty;
 
   const chat = ai.chats.create({ model: opts.model, config: modelConfig, history: toGeminiHistory(opts.history) });
   const promptParts: Part[] = [{ text: opts.prompt }];
@@ -68,7 +73,10 @@ const generateChat = async (opts: ChatCallOptions, config: ProviderRuntimeConfig
       break;
     }
     try {
-      if (chunk.text) text += chunk.text;
+      if (chunk.text) {
+        text += chunk.text;
+        opts.onToken?.(text);
+      }
       if (chunk.usageMetadata) usage = chunk.usageMetadata;
     } catch (e) {
       console.warn("Could not parse Gemini stream chunk:", e);

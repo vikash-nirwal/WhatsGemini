@@ -112,7 +112,12 @@ export interface Chat {
   // the primary character's own scenario/memory apply instead.
   scenario?: string;
   memory?: string[];
+  pinnedMemory?: string[]; // room equivalent of Character.pinnedMemory
   personaId?: string; // overrides the global active persona for just this chat; unset = use the global one
+  // Which opening greeting seeds this chat, as an index into getGreetings()
+  // (first_mes, then alternateGreetings). Only read while the chat is still
+  // empty - picked from the empty-state preview.
+  greetingIndex?: number;
   // Running totals of real provider-reported usage across this chat's whole
   // lifetime (every generateAIResponse call, plus compression/summarization
   // calls) - monotonically increasing, never recomputed from current content,
@@ -134,6 +139,11 @@ export interface Character {
   prompt: string;
   scenario?: string; // current setting/plot context injected into the system prompt
   first_mes?: string; // greeting used to seed a brand-new chat, instead of the generic global initial messages
+  alternateGreetings?: string[]; // extra opening scenes (card spec `alternate_greetings`), pickable instead of first_mes
+  // Card spec `post_history_instructions`: sent after the conversation history,
+  // right before the model writes, where instructions carry the most weight.
+  postHistoryInstructions?: string;
+  creatorNotes?: string; // card spec `creator_notes`: notes for the human, never sent to the model
   mes_example?: string; // freeform example exchanges, given to the model purely as a style/format reference
   relationship?: string;
   appearance?: string;
@@ -144,6 +154,7 @@ export interface Character {
   accent?: [string, string]; // two-color avatar gradient, e.g. ["#10B981", "#0EA5A0"]
   tags?: string[]; // discoverability tags, e.g. ["Fantasy", "Sci-Fi", "NSFW"]
   memory?: string[]; // durable facts about the user/relationship, extracted over time
+  pinnedMemory?: string[]; // facts the user pinned: always injected, never evicted by the MAX_MEMORY_ENTRIES cap
   autoSelfie?: {
     enabled: boolean;
     frequency: number; // 1-100, % chance each of the character's own replies spontaneously includes a selfie
@@ -170,6 +181,7 @@ export interface LoreEntry {
   keywords: string[];
   content: string;
   enabled?: boolean; // defaults to true when unset
+  constant?: boolean; // always injected, keywords or not (card spec `constant`)
 }
 
 // One user persona - "Myself", "Elven Mage", etc. The active one (see
@@ -186,6 +198,31 @@ export interface UserProfile {
   // given to image-capable models as named reference photos so a scene depicting
   // the user (e.g. "a selfie of us together") keeps their face consistent too.
   appearanceImages?: string[];
+}
+
+// Optional sampling knobs beyond temperature. Unset means "don't send it" -
+// the provider's own default applies. Not every provider/model accepts every
+// knob (Anthropic has no penalties; some Gemini models reject them), so each
+// adapter only forwards what its API supports.
+export interface SamplerSettings {
+  topP?: number;
+  topK?: number;
+  frequencyPenalty?: number;
+  presencePenalty?: number;
+}
+
+export type RoleplayPov = "auto" | "first" | "second" | "third";
+
+// App-wide roleplay rules folded into every chat character's system prompt,
+// so users don't have to repeat them in each character's own prompt.
+export interface RoleplayStyle {
+  pov: RoleplayPov;
+  actionsInAsterisks: boolean;
+  neverSpeakForUser: boolean;
+  // Tells the model the real current date/time and how long since the last
+  // message, so it can react to the user having been away.
+  timeAwareness: boolean;
+  customInstructions: string;
 }
 
 export interface AISafetySettings {

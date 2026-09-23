@@ -1,5 +1,25 @@
+import { SamplerSettings } from "../../../types";
 import { ChatMessage, UsageInfo } from "../types";
 import { ChatCallOptions, ChatCallResult, ChatProviderAdapter, ModelOption, ProviderRuntimeConfig } from "./types";
+import { readSseStream } from "./sse";
+
+// `top_k` isn't part of OpenAI's own API (it rejects unknown params), but
+// these OpenAI-compatible backends accept it.
+const ACCEPTS_TOP_K = new Set(["ollama", "qwen"]);
+// Providers documented to honor `stream_options.include_usage` - the only way
+// a streamed Chat Completions response reports token usage. Others may still
+// send usage on their final chunk unprompted, which is picked up either way.
+const ACCEPTS_STREAM_USAGE = new Set(["openai", "deepseek", "qwen"]);
+
+const samplerParams = (def: OpenAiCompatibleProviderDef, samplers?: SamplerSettings): Record<string, number> => {
+  const params: Record<string, number> = {};
+  if (!samplers) return params;
+  if (samplers.topP != null) params.top_p = samplers.topP;
+  if (samplers.topK != null && ACCEPTS_TOP_K.has(def.id)) params.top_k = samplers.topK;
+  if (samplers.frequencyPenalty) params.frequency_penalty = samplers.frequencyPenalty;
+  if (samplers.presencePenalty) params.presence_penalty = samplers.presencePenalty;
+  return params;
+};
 
 // Covers every provider that speaks OpenAI's Chat Completions wire format:
 // OpenAI itself, DeepSeek, Qwen (via DashScope's compatible-mode endpoint),
@@ -63,12 +83,13 @@ const chatCompletions = async (
   messages: OpenAiChatMessage[],
   model: string,
   config: ProviderRuntimeConfig,
-  extra: { temperature?: number; maxOutputTokens?: number; signal?: AbortSignal }
+  extra: { temperature?: number; maxOutputTokens?: number; signal?: AbortSignal; samplers?: SamplerSettings; onToken?: (textSoFar: string) => void }
 ): Promise<ChatCallResult> => {
   if (def.requiresApiKey && !config.apiKey) {
     throw new Error(`An API key is required for ${def.label}.`);
   }
 
+  const stream = Boolean(extra.onToken);
   const baseUrl = (config.baseUrl || def.defaultBaseUrl).replace(/\/$/, "");
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
@@ -78,13 +99,34 @@ const chatCompletions = async (
       messages,
       temperature: extra.temperature,
       max_tokens: extra.maxOutputTokens,
-      stream: false,
+      ...samplerParams(def, extra.samplers),
+      stream,
+      ...(stream && ACCEPTS_STREAM_USAGE.has(def.id) ? { stream_options: { include_usage: true } } : {}),
     }),
     signal: extra.signal,
   });
 
   if (!response.ok) {
     throw new Error(`${def.label} error: ${await extractErrorMessage(response)}`);
+  }
+
+  if (stream) {
+    let text = "";
+    let usage: OpenAiUsage | undefined;
+    await readSseStream(response, (data) => {
+      try {
+        const chunk = JSON.parse(data);
+        const delta = chunk?.choices?.[0]?.delta?.content;
+        if (typeof delta === "string" && delta) {
+          text += delta;
+          extra.onToken?.(text);
+        }
+        if (chunk?.usage) usage = chunk.usage;
+      } catch (e) {
+        console.warn(`Could not parse ${def.label} stream chunk:`, e);
+      }
+    }, extra.signal);
+    return { text: text.trim(), usage: normalizeUsage(usage) };
   }
 
   const data = await response.json();
@@ -124,6 +166,8 @@ export const createOpenAiCompatibleAdapter = (def: OpenAiCompatibleProviderDef):
       temperature: opts.temperature,
       maxOutputTokens: opts.maxOutputTokens,
       signal: opts.signal,
+      samplers: opts.samplers,
+      onToken: opts.onToken,
     }),
   generateOnce: (prompt, model, config, systemInstruction) => {
     const messages: OpenAiChatMessage[] = [];
