@@ -9,11 +9,11 @@ import {
   setSdWebuiApiUrl, setSdWebuiBatchSize, setSdWebuiRefMode,
   setSdWebuiDenoising, setSdWebuiControlnetModel, setSdWebuiModels,
   setSdWebuiModel, setMaxOutputTokens, setReplyLengthLimit, setCompressThreshold, setMaxChatLength,
-  setTemperature, setSamplers, setRoleplayStyle, setHelperModel, setSafetySettings, setFontSize, setImageResolution, setGeminiImageSize, setPortraitSaveSize, setPortraitResizeEnabled,
+  setTemperature, setSamplers, setRoleplayStyle, setHelperModel, setPrivacy, setSafetySettings, setFontSize, setImageResolution, setGeminiImageSize, setPortraitSaveSize, setPortraitResizeEnabled,
   setChatProvider, setImageProvider, setOllamaBaseUrl,
   setEmotionPanelEnabled, setEmotionPopupEnabled, setEmotionPopupDuration, setAlwaysShowInitials,
 } from "../features/settingsSlice";
-import { FaInfoCircle, FaUser, FaMicrochip, FaImage, FaComments, FaShieldAlt, FaDatabase, FaPalette } from "react-icons/fa";
+import { FaInfoCircle, FaUser, FaMicrochip, FaImage, FaComments, FaShieldAlt, FaDatabase, FaPalette, FaLock } from "react-icons/fa";
 import Header from "src/components/organisms/Header";
 import { toast } from "sonner";
 import { useColorTheme } from "../hooks/useColorTheme";
@@ -88,10 +88,11 @@ import { dbService } from "../services/dbService";
 import ChatInterfaceSettings from "src/components/organisms/ChatInterfaceSettings";
 import SafetySettings from "src/components/organisms/SafetySettings";
 import DataBackupSettings from "src/components/organisms/DataBackupSettings";
+import PrivacySettings from "src/components/organisms/PrivacySettings";
 import { formatRelativeTime } from "../utils/formatRelativeTime";
 import { cn } from "../utils/cn";
 
-const SECTION_IDS = ["profile", "text", "image", "chat", "appearance", "safety", "data"] as const;
+const SECTION_IDS = ["profile", "text", "image", "chat", "appearance", "privacy", "safety", "data"] as const;
 
 const SettingsPage = () => {
   const navigate = useNavigate();
@@ -253,7 +254,7 @@ const SettingsPage = () => {
     personas, activePersonaId, chatProvider, imageProvider, ollamaBaseUrl, selectedModel, imageModel, videoModel,
     imageGenPrompt, sdWebuiApiUrl,
     sdWebuiBatchSize, sdWebuiRefMode, sdWebuiDenoising, sdWebuiControlnetModel, sdWebuiModels,
-    sdWebuiModel, maxOutputTokens, replyLengthLimit, compressThreshold, maxChatLength, temperature, samplers, roleplayStyle, helperProvider, helperModel,
+    sdWebuiModel, maxOutputTokens, replyLengthLimit, compressThreshold, maxChatLength, temperature, samplers, roleplayStyle, helperProvider, helperModel, privacy,
     safetySettings, fontSize, imageResolution, geminiImageSize, portraitSaveSize, portraitResizeEnabled,
     emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials,
   } = settings;
@@ -714,6 +715,7 @@ const SettingsPage = () => {
     { id: "image", icon: <FaImage size={13} />, title: "Image Generation Settings", subtitle: "Provider, model, ratio, count", conf: "image_model" },
     { id: "chat", icon: <FaComments size={13} />, title: "Chat Interface Settings", subtitle: "System prompt, bubbles, sending", conf: "chat_ui" },
     { id: "appearance", icon: <FaPalette size={13} />, title: "Appearance", subtitle: "Color theme", conf: "appearance" },
+    { id: "privacy", icon: <FaLock size={13} />, title: "Privacy", subtitle: "Blur, discreet list, app lock", conf: "privacy" },
     { id: "safety", icon: <FaShieldAlt size={13} />, title: "Safety Settings", subtitle: chatProvider === "gemini" ? "Content filtering thresholds" : "Gemini only - not used by other providers", conf: "safety" },
     { id: "data", icon: <FaDatabase size={13} />, title: "Data & Import/Export", subtitle: "Import / export conversations", conf: "data_io" },
   ];
@@ -921,6 +923,10 @@ const SettingsPage = () => {
                     safetyCategories={safetyCategories}
                     onSafetyChange={handleSafetyChange}
                   />
+                )}
+
+                {selectedSection === "privacy" && (
+                  <PrivacySettings privacy={privacy} setPrivacy={(val) => dispatch(setPrivacy(val))} />
                 )}
 
                 {selectedSection === "data" && (

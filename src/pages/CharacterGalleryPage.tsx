@@ -5,6 +5,8 @@ import { fetchCharacterById } from "../features/characterSlice";
 import { fetchChats } from "../features/chatSlice";
 import { FaTimes, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { DisplayImage } from "src/components/molecules/DisplayImage";
+import { NsfwBlur } from "src/components/molecules/NsfwBlur";
+import { isNsfwCharacter } from "../features/character/contentRating";
 import { Dialog, DialogContent, DialogTitle, DialogClose } from "src/components/molecules/dialog";
 import Header from "src/components/organisms/Header";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
@@ -20,6 +22,7 @@ const CharacterGalleryPage = () => {
   const characters = useAppSelector((state) => state.character.characters);
   const character = characters.find(c => c.id === characterIdNum);
   const loading = useAppSelector((state) => state.character.loading);
+  const blurNsfwMedia = useAppSelector((state) => state.settings.privacy.blurNsfwMedia);
   const chats = useAppSelector((state) => state.chat.chats);
 
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -175,7 +178,9 @@ const CharacterGalleryPage = () => {
                 className="relative aspect-square w-full rounded-lg overflow-hidden bg-muted border border-border shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
                 onClick={() => setSelectedImage(src)}
               >
-                <DisplayImage srcContext={src} alt={`${character.name} generated image ${idx + 1}`} className="w-full h-full object-cover" />
+                <NsfwBlur active={blurNsfwMedia && isNsfwCharacter(character)} className="w-full h-full">
+                  <DisplayImage srcContext={src} alt={`${character.name} generated image ${idx + 1}`} className="w-full h-full object-cover" />
+                </NsfwBlur>
               </div>
             ))}
           </div>

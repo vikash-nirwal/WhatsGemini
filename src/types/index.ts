@@ -119,6 +119,9 @@ export interface Chat {
   memory?: string[];
   pinnedMemory?: string[]; // room equivalent of Character.pinnedMemory
   personaId?: string; // overrides the global active persona for just this chat; unset = use the global one
+  // Per-chat boundaries, sent right before each reply (see buildPostHistoryNote).
+  hardLimits?: string[]; // things the story must never include, whatever the rating
+  intensity?: Intensity; // how explicit an NSFW chat gets; ignored unless the chat is effectively NSFW
   // Which opening greeting seeds this chat, as an index into getGreetings()
   // (first_mes, then alternateGreetings). Only read while the chat is still
   // empty - picked from the empty-state preview.
@@ -138,6 +141,18 @@ export interface Chat {
 export type ArtStyle = "anime" | "realistic" | "3d";
 
 export type ContentRating = "sfw" | "nsfw";
+
+export type Intensity = "fade" | "suggestive" | "explicit";
+
+// Device-level privacy options. The PIN lock is a privacy screen, not
+// encryption: chats stay readable in the browser's storage.
+export interface PrivacySettings {
+  blurNsfwMedia: boolean; // blur NSFW characters' images until tapped
+  discreetMode: boolean; // hide NSFW chats' previews in the chat list
+  pinHash?: string; // PBKDF2 hash of the lock PIN; unset = no lock
+  pinSalt?: string;
+  lockAfterMinutes: number; // re-lock after the app has been in the background this long
+}
 
 export interface Character {
   id: number;

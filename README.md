@@ -32,6 +32,12 @@ WhatsGemini is a client-side AI roleplay and chat app built with **React, Redux 
 **Adventures**
 - Reusable worlds with their own lore, and narrator-driven adventures with tappable choices and scene illustrations.
 
+**Boundaries and privacy**
+- Per-chat hard limits and an intensity setting for intimate scenes, sent right before each reply.
+- `(OOC: ...)` or `((...))` messages are treated as directions to the AI, not dialogue.
+- Blur NSFW images until tapped, a discreet chat list, and an optional PIN lock (a privacy screen, not encryption).
+- One-time 18+ confirmation on first launch.
+
 **App**
 - Themes, full backup and restore, installable as a PWA.
 

@@ -15,6 +15,7 @@ import { Button } from "src/components/atoms/button";
 import { Card, CardContent } from "src/components/atoms/card";
 import { Tooltip, TooltipTrigger, TooltipContent } from "src/components/atoms/tooltip";
 import { TermLink } from "src/components/atoms/TermLink";
+import { NsfwBlur } from "src/components/molecules/NsfwBlur";
 
 interface SiblingInfo {
   index: number;
@@ -41,10 +42,15 @@ interface ChatMessageProps {
   onSwitchBranch?: (nodeId: string) => void;
   onDeleteBranch?: (nodeId: string) => void;
   onClearRefusal?: (msg: Message) => void;
+  blurMedia?: boolean; // Privacy > Blur NSFW images, for a chat with an NSFW character
 }
 
 // Shown under a reply flagged as an out-of-character refusal (see
 // looksLikeRefusal) - it's kept on screen but left out of the AI's context.
+// A user line written as an out-of-character direction - (OOC: ...) or
+// ((...)) - which the model is told to follow rather than treat as speech.
+const OOC_PATTERN = /^\s*(?:\(\(|\(\s*ooc\b|\[\s*ooc\b)/i;
+
 const RefusalNotice = ({ onRegenerate, onClear, disabled }: { onRegenerate: () => void; onClear?: () => void; disabled: boolean }) => (
   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs text-foreground">
     <span className="flex-1 min-w-[180px]">Looks like the model refused. This reply is hidden from the AI's context so it doesn't keep refusing.</span>
@@ -71,6 +77,7 @@ const ChatMessage = React.memo(({
   onSwitchBranch,
   onDeleteBranch,
   onClearRefusal,
+  blurMedia = false,
 }: ChatMessageProps) => {
   const isUser = msg.role === YOU;
   const { is } = useColorTheme();
@@ -81,6 +88,11 @@ const ChatMessage = React.memo(({
   const handleRegenerate = useCallback(() => onRegenerate(msg), [onRegenerate, msg]);
   const handleContinue = useCallback(() => onContinue?.(msg), [onContinue, msg]);
   const handleClearRefusal = useCallback(() => onClearRefusal?.(msg), [onClearRefusal, msg]);
+  const oocLabel = isUser && OOC_PATTERN.test(msg.txt || "") ? (
+    <span className="inline-block mb-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-muted text-muted-foreground" title="Out-of-character direction: the AI follows it instead of treating it as dialogue">
+      OOC
+    </span>
+  ) : null;
   const refusalNotice = !isUser && msg.isRefusal ? (
     <RefusalNotice onRegenerate={handleRegenerate} onClear={onClearRefusal ? handleClearRefusal : undefined} disabled={aiLoading} />
   ) : null;
@@ -159,23 +171,26 @@ const ChatMessage = React.memo(({
           className={cn("mt-1 pl-2 border-l-2 leading-relaxed", isUser ? "border-ring/55 text-foreground" : "border-border text-primary")}
           style={{ fontSize: "var(--chat-font-size, 16px)" }}
         >
+          {oocLabel}
           <MarkdownRenderer msgText={stripImageContextTag(msg.txt || "")} isUser={isUser} />
           {refusalNotice}
           {msg.images && msg.images.map((imgSrc, idx) => (
-            <DisplayImage
-              key={idx}
-              srcContext={imgSrc}
-              alt="Generated"
-              onClick={() => setFullscreenImage(imgSrc)}
-              className="mt-2 max-w-full md:max-w-[70%] border border-border-bright cursor-zoom-in hover:opacity-90 transition-opacity"
-            />
+            <NsfwBlur key={idx} active={blurMedia} className="w-fit max-w-full">
+              <DisplayImage
+                srcContext={imgSrc}
+                alt="Generated"
+                onClick={() => setFullscreenImage(imgSrc)}
+                className="mt-2 max-w-full md:max-w-[70%] border border-border-bright cursor-zoom-in hover:opacity-90 transition-opacity"
+              />
+            </NsfwBlur>
           ))}
           {msg.videos && msg.videos.map((vidSrc, idx) => (
-            <DisplayVideo
-              key={idx}
-              srcContext={vidSrc}
-              className="mt-2 max-w-full md:max-w-[70%] border border-border-bright"
-            />
+            <NsfwBlur key={idx} active={blurMedia} className="w-fit max-w-full">
+              <DisplayVideo
+                srcContext={vidSrc}
+                className="mt-2 max-w-full md:max-w-[70%] border border-border-bright"
+              />
+            </NsfwBlur>
           ))}
         </div>
       </motion.div>
@@ -300,26 +315,29 @@ const ChatMessage = React.memo(({
         )}
 
         <div className="font-serif">
+          {oocLabel}
           <MarkdownRenderer msgText={stripImageContextTag(msg.txt || "")} isUser={isUser} />
           {refusalNotice}
         </div>
 
         {msg.images && msg.images.map((imgSrc, idx) => (
-          <DisplayImage
-            key={idx}
-            srcContext={imgSrc}
-            alt="Generated"
-            onClick={() => setFullscreenImage(imgSrc)}
-            className="mt-2 max-w-full rounded-lg shadow-sm cursor-zoom-in hover:opacity-90 transition-opacity"
-          />
+          <NsfwBlur key={idx} active={blurMedia} className="w-fit max-w-full">
+            <DisplayImage
+              srcContext={imgSrc}
+              alt="Generated"
+              onClick={() => setFullscreenImage(imgSrc)}
+              className="mt-2 max-w-full rounded-lg shadow-sm cursor-zoom-in hover:opacity-90 transition-opacity"
+            />
+          </NsfwBlur>
         ))}
 
         {msg.videos && msg.videos.map((vidSrc, idx) => (
-          <DisplayVideo
-            key={idx}
-            srcContext={vidSrc}
-            className="mt-2 max-w-full rounded-lg shadow-sm"
-          />
+          <NsfwBlur key={idx} active={blurMedia} className="w-fit max-w-full">
+            <DisplayVideo
+              srcContext={vidSrc}
+              className="mt-2 max-w-full rounded-lg shadow-sm"
+            />
+          </NsfwBlur>
         ))}
 
         {/* User messages: dropdown is the only action surface (always visible so it's reachable on touch devices) */}

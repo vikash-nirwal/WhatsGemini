@@ -622,6 +622,7 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, qu
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
   const terminal = is("terminal");
+  const privacy = useAppSelector((state) => state.settings.privacy);
   return (
     <div className="flex-1 flex flex-col gap-0.5">
       {items.map(({ chat, snippet }) => {
@@ -630,6 +631,12 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, qu
         // of the cast actually shows up.
         const character = characters.find((c) => c.id === chat.characterIds?.[0]);
         const isActive = chat.id === activeChatId;
+        const members = (chat.characterIds || []).map((id) => characters.find((c) => c.id === id)).filter((c): c is Character => Boolean(c));
+        const isNsfwChat = members.some(isNsfwCharacter);
+        // Discreet mode drops the NSFW chat's preview line; blur mode drops
+        // its portrait back to initials (too small to usefully tap-reveal).
+        const hidePreview = privacy.discreetMode && isNsfwChat && !snippet;
+        const avatarSrc = privacy.blurNsfwMedia && isNsfwChat ? undefined : character?.appearanceImages?.[0];
         // "Typing..." only ever applies to the chat currently open in this tab
         // (autonomous follow-ups aren't scheduled for closed chats), while
         // "Waiting for you" is derived straight from the persisted follow-up
@@ -661,7 +668,7 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, qu
             {terminal ? (
               <span className="w-[26px] flex-none font-extrabold text-[11px]">{getInitials(character?.name || chat.title)}</span>
             ) : (
-              <CharacterAvatar name={character?.name || chat.title} accent={character?.accent} imageSrc={character?.appearanceImages?.[0]} size={34} />
+              <CharacterAvatar name={character?.name || chat.title} accent={character?.accent} imageSrc={avatarSrc} size={34} />
             )}
             <div className={cn("flex-1 flex flex-col overflow-hidden min-w-0", collapsed && "md:hidden")}>
               <div className="flex items-center gap-1.5">
@@ -686,7 +693,7 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, qu
                   {terminal && "# "}
                   <HighlightedText text={snippet} query={query} />
                 </span>
-              ) : character?.description ? (
+              ) : character?.description && !hidePreview ? (
                 <span className={cn("text-xs truncate", terminal ? "text-[11px] opacity-75" : "text-muted-foreground")}>
                   {terminal && "# "}
                   {character.description}

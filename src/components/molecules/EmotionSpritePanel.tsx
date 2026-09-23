@@ -14,6 +14,7 @@ interface EmotionSpritePanelProps {
   sprites: EmotionSprite[];
   showNames?: boolean; // label whose face is whose; defaults to on once there's more than one sprite to tell apart
   onClose?: () => void; // renders a close control docked inside the panel itself when provided
+  blurred?: boolean; // Privacy > Blur NSFW images
 }
 
 // Docks the room's current mood portraits beside the chat, larger than the
@@ -49,7 +50,7 @@ interface EmotionSpritePanelProps {
 // Stacked vertically (not a side-by-side row) so a group room's whole roster
 // stays readably sized as it grows - `overflow-y-auto` lets extra characters
 // scroll instead of every portrait shrinking to fit one screen's height.
-const EmotionSpritePanel: React.FC<EmotionSpritePanelProps> = ({ sprites, showNames, onClose }) => {
+const EmotionSpritePanel: React.FC<EmotionSpritePanelProps> = ({ sprites, showNames, onClose, blurred }) => {
   const { is } = useColorTheme();
   if (sprites.length === 0) return null;
   const namesOn = showNames ?? sprites.length > 1;
@@ -79,7 +80,7 @@ const EmotionSpritePanel: React.FC<EmotionSpritePanelProps> = ({ sprites, showNa
               <DisplayImage
                 srcContext={sprite.imageSrc}
                 alt={`${sprite.characterName || "Character"}'s current mood`}
-                className="max-w-full max-h-full object-contain object-bottom"
+                className={`max-w-full max-h-full object-contain object-bottom${blurred ? " blur-xl" : ""}`}
               />
             </div>
             <div className="flex items-center justify-between gap-2 min-w-0">
@@ -122,7 +123,7 @@ const EmotionSpritePanel: React.FC<EmotionSpritePanelProps> = ({ sprites, showNa
           <DisplayImage
             srcContext={sprite.imageSrc}
             alt={`${sprite.characterName || "Character"}'s current mood`}
-            className="w-full max-h-[42vh] object-contain object-bottom"
+            className={`w-full max-h-[42vh] object-contain object-bottom${blurred ? " blur-xl" : ""}`}
           />
         </div>
       ))}

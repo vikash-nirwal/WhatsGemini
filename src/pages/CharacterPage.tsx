@@ -8,6 +8,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { setShowNsfwCharacters } from "../features/settingsSlice";
 import { isNsfwCharacter } from "../features/character/contentRating";
+import { NsfwBlur } from "src/components/molecules/NsfwBlur";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { Character, Chat } from "../types";
 import { cn } from "../utils/cn";
@@ -32,6 +33,7 @@ const CharacterPage = () => {
   const navigate = useNavigate();
   const allCharacters = useAppSelector((state) => state.character.characters);
   const showNsfwCharacters = useAppSelector((state) => state.settings.showNsfwCharacters);
+  const blurNsfwMedia = useAppSelector((state) => state.settings.privacy.blurNsfwMedia);
   const hasNsfwCharacters = useMemo(() => allCharacters.some(isNsfwCharacter), [allCharacters]);
   const characters = useMemo(
     () => (showNsfwCharacters ? allCharacters : allCharacters.filter((c) => !isNsfwCharacter(c))),
@@ -363,7 +365,7 @@ const CharacterPage = () => {
                   <div key={char.id} className="border border-border hover:border-border-bright transition-colors flex flex-col min-w-0">
                     <div className="relative aspect-square m-2.5 border border-border-bright overflow-hidden flex items-center justify-center">
                       {cardImageSrc ? (
-                        <DisplayImage srcContext={cardImageSrc} alt={char.name} className="w-full h-full object-cover" />
+                        <NsfwBlur active={blurNsfwMedia && isNsfwCharacter(char)} className="w-full h-full"><DisplayImage srcContext={cardImageSrc} alt={char.name} className="w-full h-full object-cover" /></NsfwBlur>
                       ) : (
                         <CharacterAvatar name={char.name} accent={char.accent} size={72} />
                       )}
@@ -404,7 +406,7 @@ const CharacterPage = () => {
               >
                 <div className="absolute inset-0">
                   {cardImageSrc ? (
-                    <DisplayImage srcContext={cardImageSrc} alt={char.name} className="w-full h-full object-cover" />
+                    <NsfwBlur active={blurNsfwMedia && isNsfwCharacter(char)} className="w-full h-full"><DisplayImage srcContext={cardImageSrc} alt={char.name} className="w-full h-full object-cover" /></NsfwBlur>
                   ) : (
                     <div
                       className="w-full h-full flex items-center justify-center"

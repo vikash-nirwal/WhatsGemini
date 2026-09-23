@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import { FaTimes, FaPlus, FaPencilAlt, FaThumbtack } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
-import { updateChatAuthorNote, updateChatWorldTags, updateChatMemory, updateChatScenario } from "src/features/chatSlice";
+import { updateChatAuthorNote, updateChatWorldTags, updateChatMemory, updateChatScenario, updateChatBoundaries } from "src/features/chatSlice";
+import { TagInput } from "src/components/molecules/form-controls";
+import { SegmentedControl } from "src/components/molecules/SegmentedControl";
 import { updateCharacter } from "src/features/characterSlice";
 import { setEmotionPanelEnabled, setEmotionPopupEnabled, setEmotionPopupDuration } from "src/features/settingsSlice";
-import { Character } from "src/types";
+import { Character, Intensity } from "src/types";
 import { Textarea } from "src/components/atoms/textarea";
 import { Input } from "src/components/atoms/input";
 import { Button } from "src/components/atoms/button";
@@ -26,10 +28,13 @@ interface ScenePanelProps {
   chatScenario?: string;
   authorNote?: string;
   worldTags?: string[];
+  hardLimits?: string[];
+  intensity?: Intensity;
+  isNsfwChat?: boolean; // intensity only matters (and is only shown) when the chat is effectively NSFW
   onClose: () => void;
 }
 
-const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chatMemory, chatPinnedMemory, chatScenario, authorNote, worldTags, onClose }) => {
+const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chatMemory, chatPinnedMemory, chatScenario, authorNote, worldTags, hardLimits, intensity, isNsfwChat, onClose }) => {
   const dispatch = useAppDispatch();
 
   // App-wide display preferences, not per-chat data like everything else in
@@ -320,6 +325,32 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
               </button>
             )}
           </div>
+        </div>
+
+        {/* Boundaries */}
+        <div>
+          <div data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold mb-2">Boundaries</div>
+          <p className="text-[11.5px] text-subtle mb-2">Hard limits are sent right before every reply, so the story never goes there.</p>
+          <TagInput
+            value={hardLimits || []}
+            onChange={(limits) => dispatch(updateChatBoundaries({ chatId, hardLimits: limits, intensity }))}
+            placeholder="Add a hard limit…"
+          />
+          {isNsfwChat && (
+            <div className="mt-3 flex flex-col gap-1.5">
+              <span className="text-[11.5px] text-subtle">Intensity of intimate scenes</span>
+              <SegmentedControl
+                value={intensity || ""}
+                onChange={(v) => dispatch(updateChatBoundaries({ chatId, hardLimits, intensity: (v || undefined) as Intensity | undefined }))}
+                options={[
+                  { value: "", label: "Default" },
+                  { value: "fade", label: "Fade out" },
+                  { value: "suggestive", label: "Suggestive" },
+                  { value: "explicit", label: "Explicit" },
+                ]}
+              />
+            </div>
+          )}
         </div>
 
         {/* World tags */}

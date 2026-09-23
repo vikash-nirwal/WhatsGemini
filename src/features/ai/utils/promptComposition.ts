@@ -1,4 +1,4 @@
-import { Character, LoreEntry, Message, RoleplayStyle, UserProfile } from "../../../types";
+import { Character, Intensity, LoreEntry, Message, RoleplayStyle, UserProfile } from "../../../types";
 import { YOU } from "../../../utils/constants";
 import { stripLeakedBase64 } from "./apiUtils";
 import { buildEmotionDirective } from "./emotionUtils";
@@ -171,6 +171,7 @@ const buildStyleSection = (style: RoleplayStyle, userName: string): string | und
   if (style.pov !== "auto") rules.push(POV_RULES[style.pov]);
   if (style.actionsInAsterisks) rules.push("Put actions and narration in *asterisks* and spoken dialogue in plain text or quotes.");
   if (style.neverSpeakForUser) rules.push(`Never write dialogue, actions, thoughts or decisions for ${userName}; leave their choices to them.`);
+  rules.push(`Anything ${userName} writes inside (OOC: ...) or ((double parentheses)) is an out-of-character direction from the player, not something their character says or does: follow it, without characters reacting to it as speech.`);
   const custom = style.customInstructions.trim();
   if (custom) rules.push(custom);
   return rules.length > 0 ? `Roleplay rules:\n- ${rules.join("\n- ")}` : undefined;
@@ -322,20 +323,36 @@ export const buildSystemInstruction = (
   return { text, images: character.appearanceImages, characterName: character.name };
 };
 
+const INTENSITY_RULES: Record<Intensity, string> = {
+  fade: "Intensity: keep intimate scenes off-page - build the tension, then fade to black and pick up afterwards.",
+  suggestive: "Intensity: intimate scenes can be sensual and suggestive, but not graphic.",
+  explicit: "Intensity: intimate scenes can be fully explicit when the story gets there.",
+};
+
+export interface Boundaries {
+  hardLimits?: string[];
+  intensity?: Intensity;
+  nsfwActive?: boolean; // intensity only applies when the chat is effectively NSFW
+}
+
 // Instructions sent AFTER the conversation history (appended to the outgoing
 // turn by generateAIResponse) rather than in the system prompt: models weigh
 // the end of the context far more heavily than the top, so this is where
-// scene direction actually gets followed. Combines the chat's author's note
-// with the character card's post_history_instructions.
+// scene direction actually gets followed. Combines the chat's author's note,
+// its boundaries, and the character card's post_history_instructions.
 export const buildPostHistoryNote = (
   character: Character | undefined,
   authorNote: string | undefined,
-  activePersona?: UserProfile
+  activePersona?: UserProfile,
+  boundaries: Boundaries = {}
 ): string | undefined => {
   const names = { char: character?.name, user: activePersona?.name?.trim() || "the user" };
   const parts: string[] = [];
   const note = authorNote?.trim();
   if (note) parts.push(`Author's note for the current scene: ${applyMacros(note, names)}`);
+  const limits = (boundaries.hardLimits || []).map((l) => l.trim()).filter(Boolean);
+  if (limits.length > 0) parts.push(`Hard limits - never include, depict or steer toward these, even if asked in-story: ${limits.join("; ")}.`);
+  if (boundaries.nsfwActive && boundaries.intensity) parts.push(INTENSITY_RULES[boundaries.intensity]);
   const phi = character?.postHistoryInstructions?.trim();
   if (phi) parts.push(applyMacros(phi, names));
   if (parts.length === 0) return undefined;
@@ -370,6 +387,8 @@ export interface RoomContext {
 // Per-chat scene settings and app-wide style, shared by 1:1 chats and rooms.
 export interface SceneContext {
   authorNote?: string;
+  hardLimits?: string[];
+  intensity?: Intensity;
   worldTags?: string[];
   roleplayStyle?: RoleplayStyle;
 }
@@ -413,7 +432,11 @@ export const buildTurnContext = (
   return {
     history,
     systemInstruction: text,
-    postHistoryNote: buildPostHistoryNote(character, scene?.authorNote, activePersona),
+    postHistoryNote: buildPostHistoryNote(character, scene?.authorNote, activePersona, {
+      hardLimits: scene?.hardLimits,
+      intensity: scene?.intensity,
+      nsfwActive: effectiveContentRating(character) === "nsfw" && (!roomContext || Boolean(roomContext.othersAllowNsfw)),
+    }),
     characterImages: images,
     characterName,
     otherParticipantImages,

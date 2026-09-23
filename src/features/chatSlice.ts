@@ -368,6 +368,22 @@ export const branchChatWithParticipant = createAsyncThunk(
   }
 );
 
+// Saves a chat's boundaries (see Chat.hardLimits / Chat.intensity).
+export const updateChatBoundaries = createAsyncThunk(
+  "chat/updateChatBoundaries",
+  async ({ chatId, hardLimits, intensity }: { chatId: number; hardLimits?: Chat["hardLimits"]; intensity?: Chat["intensity"] }, { rejectWithValue }) => {
+    try {
+      const chat = await dbService.getChatById(chatId);
+      chat.hardLimits = hardLimits && hardLimits.length > 0 ? hardLimits : undefined;
+      chat.intensity = intensity;
+      await dbService.updateChat(chat);
+      return { chatId, hardLimits: chat.hardLimits, intensity: chat.intensity };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
 // Picks which of the primary character's greetings (see getGreetings) a
 // still-empty chat will open with; read by addMessage when it seeds the chat.
 export const updateChatGreeting = createAsyncThunk(
@@ -662,6 +678,13 @@ const chatSlice = createSlice({
         if (chat) {
           chat.memory = action.payload.memory;
           chat.pinnedMemory = action.payload.pinnedMemory;
+        }
+      })
+      .addCase(updateChatBoundaries.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c.id === action.payload.chatId);
+        if (chat) {
+          chat.hardLimits = action.payload.hardLimits;
+          chat.intensity = action.payload.intensity;
         }
       })
       .addCase(updateChatGreeting.fulfilled, (state, action) => {

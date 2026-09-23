@@ -233,3 +233,25 @@ describe("content rating rule", () => {
     expect(inNsfwRoom).toContain(NSFW_CONTENT_RULE);
   });
 });
+
+describe("boundaries and OOC", () => {
+  const nsfw = () => makeCharacter({ contentRating: "nsfw", adultsConfirmed: true });
+
+  it("sends hard limits after the history, whatever the rating", () => {
+    const ctx = buildTurnContext([msg(YOU, "hi")], makeCharacter(), undefined, undefined, undefined, undefined, { hardLimits: ["gore"] });
+    expect(ctx.postHistoryNote).toContain("never include, depict or steer toward these");
+    expect(ctx.postHistoryNote).toContain("gore");
+    expect(ctx.systemInstruction).not.toContain("gore");
+  });
+
+  it("applies intensity only to an effectively NSFW chat", () => {
+    const scene = { intensity: "fade" as const };
+    expect(buildTurnContext([], nsfw(), undefined, undefined, undefined, undefined, scene).postHistoryNote).toMatch(/fade to black/);
+    expect(buildTurnContext([], makeCharacter(), undefined, undefined, undefined, undefined, scene).postHistoryNote).toBeUndefined();
+  });
+
+  it("tells the model how to treat OOC directions when a roleplay style is set", () => {
+    const { text } = buildSystemInstruction(makeCharacter(), undefined, undefined, undefined, [], undefined, undefined, undefined, { roleplayStyle: { ...DEFAULT_ROLEPLAY_STYLE, timeAwareness: false } });
+    expect(text).toContain("(OOC: ...)");
+  });
+});

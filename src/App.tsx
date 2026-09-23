@@ -21,6 +21,8 @@ import Logo from "src/components/atoms/Logo";
 import { TooltipProvider } from "src/components/atoms/tooltip";
 import { Toaster } from "src/components/atoms/sonner";
 import { Button } from "src/components/atoms/button";
+import AgeGate from "src/components/organisms/AgeGate";
+import AppLock from "src/components/organisms/AppLock";
 
 const ChatPage = lazy(() => import("./pages/ChatPage"));
 const Login = lazy(() => import("./pages/Login"));
@@ -230,14 +232,18 @@ const App = () => (
         <TooltipProvider delayDuration={300}>
           <ModalProvider>
             <SidebarProvider>
-              <HashRouter>
-                <Suspense fallback={<PageLoader />}>
-                  <Routes>
-                    <Route path="/login" element={<Login />} />
-                    <Route path="*" element={<AppContent />} />
-                  </Routes>
-                </Suspense>
-              </HashRouter>
+              <AgeGate>
+                <AppLock>
+                  <HashRouter>
+                    <Suspense fallback={<PageLoader />}>
+                      <Routes>
+                        <Route path="/login" element={<Login />} />
+                        <Route path="*" element={<AppContent />} />
+                      </Routes>
+                    </Suspense>
+                  </HashRouter>
+                </AppLock>
+              </AgeGate>
             </SidebarProvider>
           </ModalProvider>
         </TooltipProvider>

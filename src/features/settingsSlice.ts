@@ -58,12 +58,14 @@ import {
   LS_HELPER_PROVIDER,
   LS_HELPER_MODEL,
   LS_SHOW_NSFW_CHARACTERS,
+  LS_PRIVACY,
+  DEFAULT_PRIVACY,
   LS_EMOTION_POPUP_ENABLED,
   LS_EMOTION_POPUP_DURATION,
   DEFAULT_EMOTION_POPUP_DURATION,
   models,
 } from '../utils/constants';
-import { AISafetySettings, RoleplayStyle, SamplerSettings, UserProfile } from '../types';
+import { AISafetySettings, PrivacySettings, RoleplayStyle, SamplerSettings, UserProfile } from '../types';
 import { RootState } from '../store/store';
 
 const getStoredValue = <T>(key: string, defaultValue: T): T => {
@@ -120,6 +122,7 @@ export interface SettingsState {
   helperProvider: string;
   helperModel: string;
   showNsfwCharacters: boolean; // list NSFW characters in the gallery and new-chat picker
+  privacy: PrivacySettings;
   safetySettings: AISafetySettings;
   fontSize: string;
   imageResolution: string;
@@ -166,6 +169,7 @@ const initialState: SettingsState = {
   helperProvider: localStorage.getItem(LS_HELPER_PROVIDER) || "",
   helperModel: localStorage.getItem(LS_HELPER_MODEL) || "",
   showNsfwCharacters: localStorage.getItem(LS_SHOW_NSFW_CHARACTERS) !== "false",
+  privacy: { ...DEFAULT_PRIVACY, ...getStoredValue<Partial<PrivacySettings>>(LS_PRIVACY, {}) },
   safetySettings: getStoredValue(LS_SAFETY_SETTINGS, DEFAULT_SAFETY_SETTINGS as unknown as AISafetySettings),
   fontSize: localStorage.getItem(LS_FONT_SIZE) || '16px',
   imageResolution: localStorage.getItem(LS_IMAGE_RESOLUTION) || DEFAULT_IMAGE_RESOLUTION,
@@ -279,6 +283,9 @@ const settingsSlice = createSlice({
     setRoleplayStyle: (state, action: PayloadAction<RoleplayStyle>) => {
       state.roleplayStyle = action.payload;
     },
+    setPrivacy: (state, action: PayloadAction<PrivacySettings>) => {
+      state.privacy = action.payload;
+    },
     setShowNsfwCharacters: (state, action: PayloadAction<boolean>) => {
       state.showNsfwCharacters = action.payload;
     },
@@ -349,6 +356,7 @@ export const {
   setRoleplayStyle,
   setHelperModel,
   setShowNsfwCharacters,
+  setPrivacy,
   setSafetySettings,
   setFontSize,
   setImageResolution,

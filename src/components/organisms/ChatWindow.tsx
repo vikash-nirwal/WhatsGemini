@@ -2,10 +2,11 @@ import React, { useRef, useEffect, useCallback, useMemo, useState } from "react"
 import { FaCheck, FaTimes, FaArrowDown, FaClock } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { YOU, LS_INITIAL_MESSAGES } from "../../utils/constants";
-import { Message, Character, ConversationTree } from "../../types";
+import { Message, Character, ConversationTree, Intensity } from "../../types";
 import { getSiblingInfo } from "../../features/chat/messageTree";
 import { resolveEmotionPortrait, stripStreamingEmotionTag } from "../../features/ai/utils/emotionUtils";
 import { applyMacros, getGreetings } from "../../features/ai/utils/macros";
+import { isNsfwCharacter } from "../../features/character/contentRating";
 import MarkdownRenderer from "src/components/molecules/MarkdownRenderer";
 import { DisplayImage } from "src/components/molecules/DisplayImage";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
@@ -50,6 +51,9 @@ interface ChatWindowProps {
   isRoom?: boolean; // whether this chat currently has 2+ characters - see ScenePanel's group-scoped memory/scenario
   chatMemory?: string[]; // Chat.memory - only meaningful/shown when isRoom
   chatPinnedMemory?: string[]; // Chat.pinnedMemory - only meaningful/shown when isRoom
+  hardLimits?: string[];
+  intensity?: Intensity;
+  isNsfwChat?: boolean;
   greetingIndex?: number; // Chat.greetingIndex - which opening greeting an empty chat will start from
   onSelectGreeting?: (index: number) => void;
   chatScenario?: string; // Chat.scenario - only meaningful/shown when isRoom
@@ -111,12 +115,16 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc }: { charInitials: s
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
   // Only this chat's own stream - the ai slice holds at most one, keyed by chat id.
   const streamingReply = useAppSelector((state) => state.ai.streamingReply);
+  const blurNsfwMedia = useAppSelector((state) => state.settings.privacy.blurNsfwMedia);
+  // Blur every image in the chat when any member is NSFW - an image request
+  // can depict any of them, whoever technically sent it.
+  const blurMedia = blurNsfwMedia && [character, ...(characters || [])].some((c) => c && isNsfwCharacter(c));
   const streamingText = chatId != null && streamingReply?.key === String(chatId)
     ? stripStreamingEmotionTag(streamingReply.text)
     : "";
@@ -505,6 +513,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
                     onSwitchBranch={onSwitchBranch}
                     onDeleteBranch={onDeleteBranch}
                     onClearRefusal={onClearRefusal ? handleClearRefusal : undefined}
+                    blurMedia={blurMedia}
                   />
                 );
               })
@@ -542,9 +551,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
       </div>
 
       {emotionPanelEnabled && dockedSprites.length > 0 && (
-        <EmotionSpritePanel sprites={dockedSprites} onClose={() => dispatch(setEmotionPanelEnabled(false))} />
+        <EmotionSpritePanel sprites={dockedSprites} blurred={blurMedia} onClose={() => dispatch(setEmotionPanelEnabled(false))} />
       )}
-      <EmotionPopup trigger={popupTrigger} durationMs={emotionPopupDuration} />
+      {/* A full-screen mood flash is exactly what a blurred-media user doesn't want. */}
+      {!blurMedia && <EmotionPopup trigger={popupTrigger} durationMs={emotionPopupDuration} />}
 
       {sceneOpen && chatId != null && (
         <ScenePanel
@@ -553,6 +563,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
           isRoom={isRoom}
           chatMemory={chatMemory}
           chatPinnedMemory={chatPinnedMemory}
+          hardLimits={hardLimits}
+          intensity={intensity}
+          isNsfwChat={isNsfwChat}
           chatScenario={chatScenario}
           authorNote={authorNote}
           worldTags={worldTags}
