@@ -1,6 +1,6 @@
 import React from "react";
 import { FaTimes, FaEdit, FaPlus } from "react-icons/fa";
-import { Character, LoreEntry } from "../../../types";
+import { Character, LoreEntry, ContentRating } from "../../../types";
 import { Button } from "src/components/atoms/button";
 import { Card } from "src/components/atoms/card";
 import { Input } from "src/components/atoms/input";
@@ -15,6 +15,8 @@ interface TestFinalizeStepProps {
   firstMes: string;
   mesExample: string;
   postHistoryInstructions?: string;
+  contentRating?: ContentRating;
+  adultsConfirmed?: boolean;
   relationship: string;
   appearance: string;
   appearanceImages: string[];
@@ -47,6 +49,8 @@ const TestFinalizeStep: React.FC<TestFinalizeStepProps> = ({
   firstMes,
   mesExample,
   postHistoryInstructions,
+  contentRating,
+  adultsConfirmed,
   relationship,
   appearance,
   appearanceImages,
@@ -213,6 +217,8 @@ const TestFinalizeStep: React.FC<TestFinalizeStepProps> = ({
       firstMes={firstMes}
       mesExample={mesExample}
       postHistoryInstructions={postHistoryInstructions}
+      contentRating={contentRating}
+      adultsConfirmed={adultsConfirmed}
       relationship={relationship}
       appearance={appearance}
       appearanceImages={appearanceImages}

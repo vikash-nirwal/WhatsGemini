@@ -20,6 +20,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "src/components/atoms/to
 import Logo from "src/components/atoms/Logo";
 import { useColorTheme } from "../../hooks/useColorTheme";
 import { stripLeakedBase64 } from "../../features/ai/utils/apiUtils";
+import { isNsfwCharacter } from "../../features/character/contentRating";
 
 const formatChatTime = (timestamp?: number) => {
   if (!timestamp) return "";
@@ -90,6 +91,7 @@ const Sidebar = () => {
   const chats = useAppSelector((state) => state.chat.chats);
   const pendingFollowups = useAppSelector((state) => state.chat.pendingFollowups);
   const characters = useAppSelector((state) => state.character.characters);
+  const showNsfwCharacters = useAppSelector((state) => state.settings.showNsfwCharacters);
   const activePersona = useAppSelector(selectActivePersona);
   const personaName = activePersona?.name?.trim();
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
@@ -224,13 +226,16 @@ const Sidebar = () => {
   const pinnedItems = useMemo(() => filteredChats.filter((i) => i.chat.pinned), [filteredChats]);
   const unpinnedItems = useMemo(() => filteredChats.filter((i) => !i.chat.pinned), [filteredChats]);
 
+  // The new-chat picker honors the gallery's "Show NSFW" switch; the chat
+  // list above still resolves every chat's character regardless.
   const filteredCharacters = useMemo(() => {
+    const visible = showNsfwCharacters ? characters : characters.filter((c: Character) => !isNsfwCharacter(c));
     const q = characterSearch.trim().toLowerCase();
-    if (!q) return characters;
-    return characters.filter((c: Character) =>
+    if (!q) return visible;
+    return visible.filter((c: Character) =>
       c.name.toLowerCase().includes(q) || (c.description || "").toLowerCase().includes(q)
     );
-  }, [characters, characterSearch]);
+  }, [characters, characterSearch, showNsfwCharacters]);
 
   return (
     <>

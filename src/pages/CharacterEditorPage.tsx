@@ -4,7 +4,7 @@ import { addCharacter, updateCharacter } from "../features/characterSlice";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { FaUpload, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaCrop } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { Character, LoreEntry, ArtStyle } from "../types";
+import { Character, LoreEntry, ArtStyle, ContentRating } from "../types";
 import { dbService } from "../services/dbService";
 import { generateAssistText, generateAvatarImage } from "../features/aiSlice";
 import { DisplayImage } from "src/components/molecules/DisplayImage";
@@ -20,6 +20,7 @@ import { estimateTokens } from "../features/ai/utils/tokenEstimator";
 import AvatarGenerateButton from "src/components/molecules/AvatarGenerateButton";
 import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
 import { parseCharacterCardText } from "../features/character/characterCard";
+import { detectMinorIndicators, characterTextFields } from "../features/character/contentRating";
 import { useModal } from "../contexts/ModalContext";
 import { toast } from "sonner";
 
@@ -105,6 +106,8 @@ const CharacterEditorPage = () => {
   const [firstMes, setFirstMes] = useState("");
   const [alternateGreetings, setAlternateGreetings] = useState<string[]>([]);
   const [postHistoryInstructions, setPostHistoryInstructions] = useState("");
+  const [contentRating, setContentRating] = useState<ContentRating | undefined>(undefined);
+  const [adultsConfirmed, setAdultsConfirmed] = useState(false);
   const [mesExample, setMesExample] = useState("");
   const [relationship, setRelationship] = useState("");
   const [appearance, setAppearance] = useState("");
@@ -139,6 +142,9 @@ const CharacterEditorPage = () => {
       setFirstMes(source.first_mes || "");
       setAlternateGreetings(source.alternateGreetings || []);
       setPostHistoryInstructions(source.postHistoryInstructions || "");
+      setContentRating(source.contentRating);
+      // A duplicate starts unconfirmed: the copy may be edited into something else.
+      setAdultsConfirmed(editCharacter ? Boolean(source.adultsConfirmed) : false);
       setMesExample(source.mes_example || "");
       setRelationship(source.relationship || "");
       setAppearance(source.appearance || "");
@@ -161,6 +167,8 @@ const CharacterEditorPage = () => {
       setFirstMes("");
       setAlternateGreetings([]);
       setPostHistoryInstructions("");
+      setContentRating(undefined);
+      setAdultsConfirmed(false);
       setMesExample("");
       setRelationship("");
       setAppearance("");
@@ -304,6 +312,26 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     }
   };
 
+  const minorIndicators = useMemo(
+    () => detectMinorIndicators(characterTextFields({ name, description, prompt, scenario, first_mes: firstMes, alternateGreetings, mes_example: mesExample, appearance, relationship, loreEntries })),
+    [name, description, prompt, scenario, firstMes, alternateGreetings, mesExample, appearance, relationship, loreEntries]
+  );
+
+  // NSFW must be confirmed 18+ and pass the minor-indicator scan before it
+  // can be saved; returns false (after telling the user why) when it can't.
+  const checkContentRating = (): boolean => {
+    if (contentRating !== "nsfw") return true;
+    if (minorIndicators.length > 0) {
+      showAlert("Can't save as NSFW", `This character's text suggests someone under 18 (${minorIndicators.map((p) => `"${p}"`).join(", ")}). Change that wording, or set the rating to SFW.`);
+      return false;
+    }
+    if (!adultsConfirmed) {
+      showAlert("Confirm 18+", "Confirm that every character in this card is an adult, or set the rating to SFW.");
+      return false;
+    }
+    return true;
+  };
+
   const cleanGreetings = (greetings: string[]): string[] | undefined => {
     const kept = greetings.filter((g) => g.trim());
     return kept.length > 0 ? kept : undefined;
@@ -314,7 +342,8 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
       alert("Character name and prompt are required.");
       return;
     }
-    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits }));
+    if (!checkContentRating()) return;
+    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits }));
     navigate("/characters");
   };
 
@@ -328,10 +357,11 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
       alert("Character name and prompt are required.");
       return;
     }
+    if (!checkContentRating()) return;
     // Spread the stored record first: db.put replaces the whole row, so any
     // field this form doesn't own (memory, pinnedMemory, avatar, creatorNotes)
     // was being wiped on every save.
-    dispatch(updateCharacter({ ...editCharacter, id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits }));
+    dispatch(updateCharacter({ ...editCharacter, id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits }));
     if (options?.stay) {
       toast.success("Character saved");
     } else {
@@ -871,6 +901,10 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   setDescription={setDescription}
                   tags={tags}
                   setTags={setTags}
+                  contentRating={contentRating}
+                  adultsConfirmed={adultsConfirmed}
+                  minorIndicators={minorIndicators}
+                  onContentRatingChange={(rating, confirmed) => { setContentRating(rating); setAdultsConfirmed(confirmed); }}
                   appearance={appearance}
                   setAppearance={setAppearance}
                   artStyle={artStyle}
@@ -963,6 +997,8 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   firstMes={firstMes}
                   mesExample={mesExample}
                   postHistoryInstructions={postHistoryInstructions}
+                  contentRating={contentRating}
+                  adultsConfirmed={adultsConfirmed}
                   relationship={relationship}
                   appearance={appearance}
                   appearanceImages={appearanceImages}

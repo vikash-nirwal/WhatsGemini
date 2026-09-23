@@ -133,6 +133,20 @@ describe("parseCharacterCardJson card fields", () => {
   });
 });
 
+describe("content rating on import", () => {
+  it("marks an NSFW-tagged card NSFW but never imports the 18+ confirmation", () => {
+    const card = { spec: "chara_card_v2", spec_version: "2.0", data: { name: "Mira", personality: "Sly.", tags: ["nsfw"] } };
+    const parsed = parseCharacterCardJson(card);
+    expect(parsed.contentRating).toBe("nsfw");
+    expect(parsed.adultsConfirmed).toBeUndefined();
+  });
+
+  it("drops a confirmation carried in a native export file", () => {
+    const parsed = parseCharacterCardJson({ name: "Mira", prompt: "Sly.", contentRating: "nsfw", adultsConfirmed: true });
+    expect(parsed.adultsConfirmed).toBeUndefined();
+  });
+});
+
 describe("characterToCardV2", () => {
   it("exports alternate greetings and post-history instructions", () => {
     const char = { id: 1, name: "Mira", description: "", prompt: "Sly.", alternateGreetings: ["Hey."], postHistoryInstructions: "Be brief." } as Character;

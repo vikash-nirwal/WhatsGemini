@@ -19,6 +19,7 @@ import { stripLeakedBase64 } from "../features/ai/utils/apiUtils";
 import { buildChatHistory, buildSystemInstruction, buildTurnContext, AUTO_REPLY_DIRECTIVE, FOLLOWUP_CONTINUATION_PROMPT, RoomContext, SceneContext } from "../features/ai/utils/promptComposition";
 import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
 import { mergeMemory } from "../features/ai/utils/memoryExtraction";
+import { effectiveContentRating } from "../features/character/contentRating";
 import { resolveNextSpeaker, parseMention, stripSpeakerPrefix } from "../features/ai/utils/roomRouting";
 import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo } from "../features/chat/messageTree";
 import { estimateTokens, estimateHistoryTokens } from "../features/ai/utils/tokenEstimator";
@@ -147,6 +148,7 @@ const ChatPage = () => {
         .filter((c) => c.appearanceImages && c.appearanceImages.length > 0)
         .map((c) => ({ name: c.name, images: c.appearanceImages! })),
       otherLoreEntries: others.flatMap((c) => c.loreEntries || []),
+      othersAllowNsfw: others.every((c) => effectiveContentRating(c) === "nsfw"),
       groupScenario: currentChat?.scenario,
       groupMemory: currentChat?.memory,
       groupPinnedMemory: currentChat?.pinnedMemory,

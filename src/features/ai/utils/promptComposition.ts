@@ -4,6 +4,7 @@ import { stripLeakedBase64 } from "./apiUtils";
 import { buildEmotionDirective } from "./emotionUtils";
 import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
 import { applyMacros } from "./macros";
+import { effectiveContentRating } from "../../character/contentRating";
 import { ChatMessage } from "../types";
 
 // Whose turn it is in a multi-character room, for buildChatHistory's
@@ -104,6 +105,9 @@ export interface PromptOptions {
   worldTags?: string[]; // Chat.worldTags - short setting/genre tags for this chat
   roomLoreEntries?: LoreEntry[]; // every OTHER room member's lorebook, matched alongside the speaker's own
   groupPinnedMemory?: string[]; // Chat.pinnedMemory, room only
+  // Room only: whether every OTHER member is also effectively NSFW. A room is
+  // only as permissive as its most restrictive member.
+  roomAllowsNsfw?: boolean;
   now?: number; // injectable clock for the time-awareness section (tests)
 }
 
@@ -150,6 +154,11 @@ export const buildTimeSection = (messages: Message[], now: number): string => {
   lines.push("Use this only for pacing and realism (time of day, how long the user was away). If the story has its own in-world calendar or setting, keep to that instead.");
   return lines.join(" ");
 };
+
+export const NSFW_CONTENT_RULE =
+  "Content: this is private fiction between consenting adults, and every character in it is an adult (18 or older). Mature themes, including explicit sexual content, are allowed when the story and the user lead there. Never depict, imply or sexualize anyone under 18, whatever the scenario says.";
+export const SFW_CONTENT_RULE =
+  "Content: keep this story non-explicit. No sexual content; if a scene heads that way, fade to black or steer it elsewhere.";
 
 const POV_RULES: Record<Exclude<RoleplayStyle["pov"], "auto">, string> = {
   first: "Write your own narration in first person (\"I\").",
@@ -220,6 +229,11 @@ export const buildSystemInstruction = (
       `never write dialogue, actions, or narration for the user or for any other character present.`
     );
   }
+
+  const ownRating = effectiveContentRating(character);
+  const rating = isRoomTurn && ownRating === "nsfw" && !options.roomAllowsNsfw ? "sfw" : ownRating;
+  if (rating === "nsfw") sections.push(NSFW_CONTENT_RULE);
+  else if (rating === "sfw") sections.push(SFW_CONTENT_RULE);
 
   if (options.roleplayStyle) {
     const style = buildStyleSection(options.roleplayStyle, activePersona?.name?.trim() || "the user");
@@ -347,6 +361,7 @@ export interface RoomContext {
   otherParticipants: string[]; // names of every OTHER character in the room, for the replying character's own system instruction
   otherParticipantImages?: { name: string; images: string[] }[]; // same roster as otherParticipants, paired with their appearance images (Phase: group image gen)
   otherLoreEntries?: LoreEntry[]; // every OTHER member's lorebook entries, matched alongside the speaker's own
+  othersAllowNsfw?: boolean; // every OTHER member is effectively NSFW (see effectiveContentRating)
   groupScenario?: string; // the room's own Chat.scenario - shared by every participant, replaces the speaker's personal one
   groupMemory?: string[]; // the room's own Chat.memory - facts learned in this room, shared by every participant
   groupPinnedMemory?: string[]; // the room's own Chat.pinnedMemory
@@ -381,6 +396,7 @@ export const buildTurnContext = (
       worldTags: scene?.worldTags,
       roomLoreEntries: roomContext?.otherLoreEntries,
       groupPinnedMemory: roomContext?.groupPinnedMemory,
+      roomAllowsNsfw: roomContext?.othersAllowNsfw,
     }
   );
   // The active persona's own reference photos (UserProfile.appearanceImages),

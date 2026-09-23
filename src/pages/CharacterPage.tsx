@@ -6,6 +6,9 @@ import { useNavigate } from "react-router-dom";
 import { FaTrash, FaEdit, FaDownload, FaImages, FaPlus, FaComment, FaEllipsisV, FaSearch, FaCopy, FaFileImage, FaUpload } from "react-icons/fa";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "src/components/molecules/dropdown-menu";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
+import { setShowNsfwCharacters } from "../features/settingsSlice";
+import { isNsfwCharacter } from "../features/character/contentRating";
+import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { Character, Chat } from "../types";
 import { cn } from "../utils/cn";
 import { useModal } from "../contexts/ModalContext";
@@ -27,7 +30,13 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const CharacterPage = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const characters = useAppSelector((state) => state.character.characters);
+  const allCharacters = useAppSelector((state) => state.character.characters);
+  const showNsfwCharacters = useAppSelector((state) => state.settings.showNsfwCharacters);
+  const hasNsfwCharacters = useMemo(() => allCharacters.some(isNsfwCharacter), [allCharacters]);
+  const characters = useMemo(
+    () => (showNsfwCharacters ? allCharacters : allCharacters.filter((c) => !isNsfwCharacter(c))),
+    [allCharacters, showNsfwCharacters]
+  );
   const chats = useAppSelector((state) => state.chat.chats);
   const loading = useAppSelector((state) => state.character.loading);
   const { showConfirm, showAlert } = useModal();
@@ -294,6 +303,14 @@ const CharacterPage = () => {
                 />
               </div>
             )}
+            {hasNsfwCharacters && (
+              <ToggleSwitch
+                checked={showNsfwCharacters}
+                onChange={(v) => dispatch(setShowNsfwCharacters(v))}
+                label="Show NSFW"
+                className="text-xs"
+              />
+            )}
             <Button
               onClick={() => importCardInputRef.current?.click()}
               variant="outline"
@@ -323,7 +340,7 @@ const CharacterPage = () => {
 
         {!loading && characters.length === 0 ? (
           <Card className={cn("p-6 text-center flex flex-col items-center gap-3", neumorphic && "surface-sunken")}>
-            <p className="text-muted-foreground">No characters created yet.</p>
+            <p className="text-muted-foreground">{allCharacters.length > 0 ? "Your characters are all NSFW and hidden. Turn on Show NSFW to see them." : "No characters created yet."}</p>
             <p className="text-sm text-muted-foreground">Create your own, or jump straight into a chat with a ready-made one.</p>
             <div className="flex gap-2.5">
               <Button onClick={() => navigate("/characters/new")} variant="outline" className="h-auto px-4 py-2.5 font-semibold text-sm">

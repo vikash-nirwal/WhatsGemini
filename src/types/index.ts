@@ -137,6 +137,8 @@ export interface Chat {
 // of leaving style to the model's whim per call.
 export type ArtStyle = "anime" | "realistic" | "3d";
 
+export type ContentRating = "sfw" | "nsfw";
+
 export interface Character {
   id: number;
   name: string;
@@ -158,6 +160,11 @@ export interface Character {
   gallery?: string[];
   accent?: [string, string]; // two-color avatar gradient, e.g. ["#10B981", "#0EA5A0"]
   tags?: string[]; // discoverability tags, e.g. ["Fantasy", "Sci-Fi", "NSFW"]
+  // Whether explicit content is allowed with this character. "nsfw" only takes
+  // effect once adultsConfirmed is set and no minor indicators are found in
+  // the card text (see effectiveContentRating); unset = no content rule sent.
+  contentRating?: ContentRating;
+  adultsConfirmed?: boolean; // author confirmed every character in the card is 18+
   memory?: string[]; // durable facts about the user/relationship, extracted over time
   pinnedMemory?: string[]; // facts the user pinned: always injected, never evicted by the MAX_MEMORY_ENTRIES cap
   autoSelfie?: {

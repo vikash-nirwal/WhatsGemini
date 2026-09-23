@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { FaMagic, FaPlus, FaTrash, FaBook } from "react-icons/fa";
 import Modal from "src/components/molecules/Modal";
 import { Button } from "src/components/atoms/button";
@@ -8,7 +8,9 @@ import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { TextArea, FieldLabel, TagInput } from "src/components/molecules/form-controls";
 import { useAppDispatch } from "src/store/hooks";
 import { generateAssistText } from "src/features/aiSlice";
-import { LoreEntry } from "src/types";
+import { ContentRating, LoreEntry } from "src/types";
+import { ContentRatingField } from "src/components/molecules/ContentRatingField";
+import { detectMinorIndicators, characterTextFields } from "src/features/character/contentRating";
 import { ParsedCharacterCard } from "src/features/character/characterCard";
 import {
   ImportCustomizeFields,
@@ -44,6 +46,8 @@ const ImportReviewDialog: React.FC<ImportReviewDialogProps> = ({ isOpen, onClose
   const [instruction, setInstruction] = useState("");
   const [applying, setApplying] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [contentRating, setContentRating] = useState<ContentRating | undefined>(undefined);
+  const [adultsConfirmed, setAdultsConfirmed] = useState(false);
 
   // Re-seed the form from whatever was just parsed each time a new import
   // opens the dialog - `data` is a fresh object per import, so identity is a
@@ -53,8 +57,18 @@ const ImportReviewDialog: React.FC<ImportReviewDialogProps> = ({ isOpen, onClose
       setFields(pickCustomizeFields(data));
       setInstruction("");
       setAiError(null);
+      // Imported NSFW cards arrive unconfirmed: the user has to confirm 18+
+      // themselves, never inherit it from the file.
+      setContentRating(data.contentRating);
+      setAdultsConfirmed(false);
     }
   }, [isOpen, data]);
+
+  const minorIndicators = useMemo(
+    () => (fields ? detectMinorIndicators(characterTextFields({ ...fields, alternateGreetings: data?.alternateGreetings })) : []),
+    [fields, data]
+  );
+  const ratingBlocked = contentRating === "nsfw" && (minorIndicators.length > 0 || !adultsConfirmed);
 
   if (!fields) return null;
 
@@ -86,7 +100,12 @@ const ImportReviewDialog: React.FC<ImportReviewDialogProps> = ({ isOpen, onClose
 
   const handleConfirm = () => {
     if (!data || !fields) return;
-    onConfirm(applyCustomizeFields(data, fields));
+    if (ratingBlocked) return;
+    onConfirm({
+      ...applyCustomizeFields(data, fields),
+      contentRating,
+      adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined,
+    });
   };
 
   return (
@@ -119,6 +138,13 @@ const ImportReviewDialog: React.FC<ImportReviewDialogProps> = ({ isOpen, onClose
             <FieldLabel>Tags</FieldLabel>
             <TagInput value={fields.tags} onChange={(tags) => update({ tags })} placeholder="Add a tag..." />
           </div>
+          <ContentRatingField
+            rating={contentRating}
+            adultsConfirmed={adultsConfirmed}
+            minorIndicators={minorIndicators}
+            nsfwTagged={fields.tags.some((t) => t.trim().toLowerCase() === "nsfw")}
+            onChange={(rating, confirmed) => { setContentRating(rating); setAdultsConfirmed(confirmed); }}
+          />
           <div>
             <FieldLabel>Relationship</FieldLabel>
             <Input value={fields.relationship} onChange={(e) => update({ relationship: e.target.value })} placeholder="e.g. Childhood friend" />
@@ -188,7 +214,12 @@ const ImportReviewDialog: React.FC<ImportReviewDialogProps> = ({ isOpen, onClose
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="button" variant="default" onClick={handleConfirm} disabled={!fields.name.trim()}>
+          {ratingBlocked && (
+            <span className="text-xs text-subtle self-center mr-auto">
+              {minorIndicators.length > 0 ? "Change the flagged wording or pick SFW to import." : "Confirm 18+ or pick SFW to import."}
+            </span>
+          )}
+          <Button type="button" variant="default" onClick={handleConfirm} disabled={!fields.name.trim() || ratingBlocked}>
             Import
           </Button>
         </div>

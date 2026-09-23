@@ -1,4 +1,4 @@
-import { buildChatHistory, buildSystemInstruction, buildTurnContext, buildPostHistoryNote, buildTimeSection } from "./promptComposition";
+import { buildChatHistory, buildSystemInstruction, buildTurnContext, buildPostHistoryNote, buildTimeSection, NSFW_CONTENT_RULE, SFW_CONTENT_RULE } from "./promptComposition";
 import { DEFAULT_ROLEPLAY_STYLE } from "../../../utils/constants";
 import { YOU, AI } from "../../../utils/constants";
 import { Character, Message, UserProfile } from "../../../types";
@@ -209,5 +209,27 @@ describe("refusals", () => {
   it("leaves flagged refusals out of the history sent to the model", () => {
     const messages: Message[] = [msg(YOU, "hi"), { role: AI, txt: "I'm sorry, but I can't continue this roleplay.", isRefusal: true }, msg(YOU, "please")];
     expect(buildChatHistory(messages)).toEqual([{ role: "user", text: "hi" }, { role: "user", text: "please" }]);
+  });
+});
+
+describe("content rating rule", () => {
+  it("sends no content rule for an unrated character", () => {
+    const { text } = buildSystemInstruction(makeCharacter());
+    expect(text).not.toContain(NSFW_CONTENT_RULE);
+    expect(text).not.toContain(SFW_CONTENT_RULE);
+  });
+
+  it("allows explicit content only for a confirmed-adult NSFW character", () => {
+    expect(buildSystemInstruction(makeCharacter({ contentRating: "nsfw", adultsConfirmed: true })).text).toContain(NSFW_CONTENT_RULE);
+    expect(buildSystemInstruction(makeCharacter({ contentRating: "nsfw" })).text).toContain(SFW_CONTENT_RULE);
+    expect(buildSystemInstruction(makeCharacter({ tags: ["NSFW"] })).text).toContain(SFW_CONTENT_RULE);
+  });
+
+  it("holds a room to SFW unless every member is NSFW", () => {
+    const nsfw = makeCharacter({ contentRating: "nsfw", adultsConfirmed: true });
+    const inMixedRoom = buildSystemInstruction(nsfw, undefined, undefined, undefined, [], ["Beck"], undefined, undefined, { roomAllowsNsfw: false }).text;
+    const inNsfwRoom = buildSystemInstruction(nsfw, undefined, undefined, undefined, [], ["Beck"], undefined, undefined, { roomAllowsNsfw: true }).text;
+    expect(inMixedRoom).toContain(SFW_CONTENT_RULE);
+    expect(inNsfwRoom).toContain(NSFW_CONTENT_RULE);
   });
 });

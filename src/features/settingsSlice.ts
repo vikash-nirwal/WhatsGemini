@@ -57,6 +57,7 @@ import {
   DEFAULT_ROLEPLAY_STYLE,
   LS_HELPER_PROVIDER,
   LS_HELPER_MODEL,
+  LS_SHOW_NSFW_CHARACTERS,
   LS_EMOTION_POPUP_ENABLED,
   LS_EMOTION_POPUP_DURATION,
   DEFAULT_EMOTION_POPUP_DURATION,
@@ -118,6 +119,7 @@ export interface SettingsState {
   // extraction, history compression). "" = use the main chat model.
   helperProvider: string;
   helperModel: string;
+  showNsfwCharacters: boolean; // list NSFW characters in the gallery and new-chat picker
   safetySettings: AISafetySettings;
   fontSize: string;
   imageResolution: string;
@@ -163,6 +165,7 @@ const initialState: SettingsState = {
   roleplayStyle: { ...DEFAULT_ROLEPLAY_STYLE, ...getStoredValue<Partial<RoleplayStyle>>(LS_ROLEPLAY_STYLE, {}) },
   helperProvider: localStorage.getItem(LS_HELPER_PROVIDER) || "",
   helperModel: localStorage.getItem(LS_HELPER_MODEL) || "",
+  showNsfwCharacters: localStorage.getItem(LS_SHOW_NSFW_CHARACTERS) !== "false",
   safetySettings: getStoredValue(LS_SAFETY_SETTINGS, DEFAULT_SAFETY_SETTINGS as unknown as AISafetySettings),
   fontSize: localStorage.getItem(LS_FONT_SIZE) || '16px',
   imageResolution: localStorage.getItem(LS_IMAGE_RESOLUTION) || DEFAULT_IMAGE_RESOLUTION,
@@ -276,6 +279,9 @@ const settingsSlice = createSlice({
     setRoleplayStyle: (state, action: PayloadAction<RoleplayStyle>) => {
       state.roleplayStyle = action.payload;
     },
+    setShowNsfwCharacters: (state, action: PayloadAction<boolean>) => {
+      state.showNsfwCharacters = action.payload;
+    },
     setHelperModel: (state, action: PayloadAction<{ provider: string; model: string }>) => {
       state.helperProvider = action.payload.provider;
       state.helperModel = action.payload.model;
@@ -342,6 +348,7 @@ export const {
   setSamplers,
   setRoleplayStyle,
   setHelperModel,
+  setShowNsfwCharacters,
   setSafetySettings,
   setFontSize,
   setImageResolution,

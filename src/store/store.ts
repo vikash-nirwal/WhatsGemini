@@ -42,6 +42,7 @@ import {
   LS_ROLEPLAY_STYLE,
   LS_HELPER_PROVIDER,
   LS_HELPER_MODEL,
+  LS_SHOW_NSFW_CHARACTERS,
 } from "../utils/constants";
 
 // Configure Redux Store
@@ -90,6 +91,7 @@ store.subscribe(() => {
   localStorage.setItem(LS_ROLEPLAY_STYLE, JSON.stringify(state.roleplayStyle));
   localStorage.setItem(LS_HELPER_PROVIDER, state.helperProvider);
   localStorage.setItem(LS_HELPER_MODEL, state.helperModel);
+  localStorage.setItem(LS_SHOW_NSFW_CHARACTERS, String(state.showNsfwCharacters));
   localStorage.setItem(LS_SAFETY_SETTINGS, JSON.stringify(state.safetySettings));
   localStorage.setItem(LS_FONT_SIZE, state.fontSize);
   localStorage.setItem(LS_IMAGE_RESOLUTION, state.imageResolution);

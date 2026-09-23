@@ -347,6 +347,7 @@ export const LS_SAMPLERS = "samplers";
 export const LS_ROLEPLAY_STYLE = "roleplay_style";
 export const LS_HELPER_PROVIDER = "helper_provider";
 export const LS_HELPER_MODEL = "helper_model";
+export const LS_SHOW_NSFW_CHARACTERS = "show_nsfw_characters";
 export const LS_SAFETY_SETTINGS = "safety_settings";
 export const LS_INITIAL_CHAT_MESSAGE = "initial_chat_message";
 export const LS_GOOGLE_API_KEY = "google_api_key";

@@ -1,6 +1,7 @@
 import React from "react";
 import { FaTimes, FaUpload, FaPlus, FaMagic, FaDice } from "react-icons/fa";
-import { Character, ArtStyle } from "../../../types";
+import { Character, ArtStyle, ContentRating } from "../../../types";
+import { ContentRatingField } from "src/components/molecules/ContentRatingField";
 import { DisplayImage } from "src/components/molecules/DisplayImage";
 import { TextInput, TextArea, FieldLabel, InfoTooltip, PresetSelectField, ChipSelectField } from "src/components/molecules/form-controls";
 import { Button } from "src/components/atoms/button";
@@ -25,6 +26,10 @@ interface IdentityStepProps {
   setDescription: (v: string) => void;
   tags: string[];
   setTags: (v: string[]) => void;
+  contentRating?: ContentRating;
+  adultsConfirmed: boolean;
+  minorIndicators: string[];
+  onContentRatingChange: (rating: ContentRating | undefined, adultsConfirmed: boolean) => void;
   appearance: string;
   setAppearance: (v: string) => void;
   artStyle: ArtStyle;
@@ -73,6 +78,10 @@ const IdentityStep: React.FC<IdentityStepProps> = ({
   setDescription,
   tags,
   setTags,
+  contentRating,
+  adultsConfirmed,
+  minorIndicators,
+  onContentRatingChange,
   appearance,
   setAppearance,
   artStyle,
@@ -160,6 +169,13 @@ const IdentityStep: React.FC<IdentityStepProps> = ({
         onChange={setTags}
         presets={TAG_PRESETS}
         placeholder="Add a tag..."
+      />
+      <ContentRatingField
+        rating={contentRating}
+        adultsConfirmed={adultsConfirmed}
+        minorIndicators={minorIndicators}
+        nsfwTagged={tags.some((t) => t.trim().toLowerCase() === "nsfw")}
+        onChange={onContentRatingChange}
       />
 
       {/* Appearance fields live in this same card, not a separate

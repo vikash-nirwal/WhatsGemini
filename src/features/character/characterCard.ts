@@ -35,6 +35,7 @@ export interface CharacterCardV2 {
         artStyle?: Character["artStyle"];
         loreEntries?: Character["loreEntries"];
         personalityTraits?: Character["personalityTraits"];
+        contentRating?: Character["contentRating"];
       };
       [key: string]: unknown;
     };
@@ -84,6 +85,7 @@ export const characterToCardV2 = (char: Character): CharacterCardV2 => ({
         artStyle: char.artStyle,
         loreEntries: char.loreEntries,
         personalityTraits: char.personalityTraits,
+        contentRating: char.contentRating,
       },
     },
     character_book: char.loreEntries && char.loreEntries.length > 0 ? {
@@ -177,6 +179,10 @@ export const parseCharacterCardJson = (parsed: any): ParsedCharacterCard => {
       artStyle: ext.artStyle,
       loreEntries: ext.loreEntries || (bookEntries ? mapCharacterBookEntries(bookEntries) : undefined),
       personalityTraits: ext.personalityTraits,
+      // A card tagged NSFW arrives marked NSFW but unconfirmed: it's held to
+      // SFW until someone confirms every character is 18+ (see contentRating.ts).
+      // The 18+ confirmation itself is never imported - it's a per-user check.
+      contentRating: ext.contentRating || (Array.isArray(d.tags) && d.tags.some((t: unknown) => typeof t === "string" && t.trim().toLowerCase() === "nsfw") ? "nsfw" : undefined),
     });
   }
 
@@ -185,7 +191,8 @@ export const parseCharacterCardJson = (parsed: any): ParsedCharacterCard => {
   // to tell the two apart.
   if (typeof parsed.prompt === "string") {
     if (!parsed.name || !parsed.prompt) throw new Error("Invalid character file: missing name or prompt.");
-    return withDefaults({ ...parsed, name: parsed.name, prompt: parsed.prompt });
+    // The 18+ confirmation is a per-user check, never carried in by a file.
+    return withDefaults({ ...parsed, name: parsed.name, prompt: parsed.prompt, adultsConfirmed: undefined });
   }
 
   if (parsed.name && (typeof parsed.personality === "string" || typeof parsed.first_mes === "string" || typeof parsed.description === "string")) {

@@ -17,6 +17,7 @@ WhatsGemini is a client-side AI roleplay and chat app built with **React, Redux 
 - `{{char}}` / `{{user}}` placeholders are filled in with the character's and your persona's names.
 - Lorebook (world info): entries injected when a keyword is mentioned (whole-word match), or always ("Always on"). Entries that mention other entries pull them in too, within a size budget.
 - Emotion portraits: the character reports its mood each reply and the avatar changes to match.
+- Content rating (SFW / NSFW). NSFW needs an explicit "all characters are 18+" confirmation and is refused if the card's text suggests a minor. Group chats are only as permissive as their strictest member. NSFW characters can be hidden from the gallery.
 
 **Chats**
 - Personas: several user profiles, switchable per chat.

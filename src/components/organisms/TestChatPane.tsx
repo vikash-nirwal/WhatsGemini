@@ -4,7 +4,7 @@ import { generateAIResponse } from "../../features/aiSlice";
 import { selectActivePersona } from "../../features/settingsSlice";
 import { buildTurnContext } from "../../features/ai/utils/promptComposition";
 import { applyMacros } from "../../features/ai/utils/macros";
-import { Character, LoreEntry, Message } from "../../types";
+import { Character, ContentRating, LoreEntry, Message } from "../../types";
 import { YOU, AI } from "../../utils/constants";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { Button } from "src/components/atoms/button";
@@ -28,6 +28,8 @@ export interface TestChatPaneProps {
   firstMes: string;
   mesExample: string;
   postHistoryInstructions?: string;
+  contentRating?: ContentRating;
+  adultsConfirmed?: boolean;
   relationship: string;
   appearance: string;
   appearanceImages: string[];
@@ -49,6 +51,8 @@ const buildDraftCharacter = (props: TestChatPaneProps): Character => ({
   first_mes: props.firstMes || undefined,
   mes_example: props.mesExample || undefined,
   postHistoryInstructions: props.postHistoryInstructions || undefined,
+  contentRating: props.contentRating,
+  adultsConfirmed: props.adultsConfirmed,
   relationship: props.relationship || undefined,
   appearance: props.appearance || undefined,
   appearanceImages: props.appearanceImages,
