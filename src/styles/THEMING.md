@@ -5,7 +5,7 @@ WhatsGemini has two independent visual axes:
 1. **Light/dark mode** — `theme`/`toggleTheme` in `src/contexts/ThemeContext.tsx`,
    toggles the `.dark` class on `<html>`. Not what this doc is about.
 2. **Color theme** — `colorTheme`/`setColorTheme`, today `"cozy"` (default),
-   `"neumorphic"`, `"aurora"`. Sets `data-theme="name"` on `<html>`. **This is
+   `"neumorphic"`, `"aurora"`, `"terminal"`, `"parchment"`, `"material"`. Sets `data-theme="name"` on `<html>`. **This is
    what adding a new theme means.**
 
 A theme can optionally add a **third, independent sub-axis** — a choice within
@@ -284,6 +284,18 @@ own branch in those two files specifically - this is a deliberate, narrow
 exception to the "no JS conditionals" rule above, not a precedent for adding
 branches elsewhere. If you don't touch these two files, lumen just gets the
 existing cozy/default shape for them, which is a fine result.
+
+### Material: extra data-slot hooks
+
+`material` (Material Design 3) restyles a few elements that had no hook,
+so it added two more inert attributes other themes can reuse:
+`data-slot="message-bubble"` with `data-sender="user|ai"` on chat bubbles
+(`ChatMessage`), and `data-slot="composer"` on the idle message composer
+(`MessageInput`; left off in impersonate/silent mode so their tints show).
+Its `--m3-*` tokens (primary container, surface-container ladder, outline)
+are theme-exclusive, like aurora's `--sunken`/`--raise`. `SegmentedControl`
+and `ProviderPicker` carry a `material` branch (M3 segmented buttons and
+filter chips, each with a check mark on the selected item).
 
 ### Terminal: a theme that reshapes components, not just colors
 

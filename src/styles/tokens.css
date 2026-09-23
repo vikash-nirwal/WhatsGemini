@@ -1561,3 +1561,544 @@ html[data-theme="terminal"] :focus-visible {
   background-image: linear-gradient(135deg, rgb(var(--primary)), rgb(var(--primary-hover)));
   color: rgb(var(--primary-foreground));
 }
+
+/* ================================================================
+   Material theme
+   ================================================================
+   Inspired by Google's Material Design 3 ("Material You"): tonal surface
+   containers instead of borders and shadows, pill-shaped buttons, filled
+   text fields, 12px cards, 28px dialogs, a secondary-container "active"
+   pill in the navigation drawer, and Roboto. Colors are M3 tonal palettes
+   from the Material Theme Builder: "baseline" (the M3 reference purple,
+   baked into the base blocks) plus blue/green/red seeds as data-palette
+   overrides. Each palette re-tints the neutral surfaces too, as dynamic
+   color does, not only the accent.
+
+   --m3-* tokens are Material-only roles with no shadcn slot (primary
+   container, the surface container ladder, outline) - read only by the
+   structural rules further down. */
+[data-theme="material"] {
+  --background: 254 247 255;
+  --foreground: 29 27 32;
+  --card: 247 242 250;
+  --card-foreground: 29 27 32;
+  --popover: 243 237 247;
+  --popover-foreground: 29 27 32;
+  --primary: 103 80 164;
+  --primary-foreground: 255 255 255;
+  --primary-hover: 115 94 171;
+  --secondary: 232 222 248;
+  --secondary-foreground: 29 25 43;
+  --muted: 230 224 233;
+  --muted-foreground: 73 69 79;
+  --accent: 236 230 240;
+  --accent-foreground: 29 27 32;
+  --subtle: 121 116 126;
+  --border: 202 196 208;
+  --input: 121 116 126;
+  --ring: 103 80 164;
+  --m3-primary-container: 234 221 255;
+  --m3-on-primary-container: 33 0 93;
+  --m3-surface-container: 243 237 247;
+  --m3-surface-high: 236 230 240;
+  --m3-surface-highest: 230 224 233;
+  --m3-on-surface-variant: 73 69 79;
+  --m3-outline: 121 116 126;
+  --color-app-bg: 254 247 255;
+  --color-panel-bg: 247 242 250;
+  --color-panel2-bg: 243 237 247;
+  --color-panel3-bg: 236 230 240;
+  --color-hover-bg: 236 230 240;
+  --color-chat-bg: 254 247 255;
+  --color-text-main: 29 27 32;
+  --color-text-muted: 73 69 79;
+  --color-text-faint: 121 116 126;
+  --color-primary: 103 80 164;
+  --color-primary-hover: 115 94 171;
+  --color-accent: 103 80 164;
+  --color-accent-2: 115 94 171;
+  --color-on-accent: 255 255 255;
+  --color-secondary: 232 222 248;
+  --color-secondary-hover: 230 224 233;
+  --color-on-secondary: 29 25 43;
+  --color-border-main: 202 196 208;
+  --destructive: 179 38 30; /* #B3261E */
+  --destructive-foreground: 255 255 255;
+  --success: 56 106 32; /* #386A20 */
+  --success-foreground: 255 255 255;
+  --overlay: 0 0 0; /* M3 scrim */
+  --radius: 12px;
+  /* M3 elevation levels 1-3 (light) */
+  --shadow-soft: rgba(0, 0, 0, 0.12);
+  --shadow-mid: rgba(0, 0, 0, 0.16);
+  --shadow-strong: rgba(0, 0, 0, 0.22);
+  --m3-elevation-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px 1px rgba(0, 0, 0, 0.15);
+  --m3-elevation-2: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 6px 2px rgba(0, 0, 0, 0.15);
+  --m3-elevation-3: 0 4px 8px 3px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="material"].dark {
+  --background: 20 18 24;
+  --foreground: 230 224 233;
+  --card: 29 27 32;
+  --card-foreground: 230 224 233;
+  --popover: 33 31 38;
+  --popover-foreground: 230 224 233;
+  --primary: 208 188 255;
+  --primary-foreground: 56 30 114;
+  --primary-hover: 196 176 244;
+  --secondary: 74 68 88;
+  --secondary-foreground: 232 222 248;
+  --muted: 54 52 59;
+  --muted-foreground: 202 196 208;
+  --accent: 43 41 48;
+  --accent-foreground: 230 224 233;
+  --subtle: 147 143 153;
+  --border: 73 69 79;
+  --input: 147 143 153;
+  --ring: 208 188 255;
+  --m3-primary-container: 79 55 139;
+  --m3-on-primary-container: 234 221 255;
+  --m3-surface-container: 33 31 38;
+  --m3-surface-high: 43 41 48;
+  --m3-surface-highest: 54 52 59;
+  --m3-on-surface-variant: 202 196 208;
+  --m3-outline: 147 143 153;
+  --color-app-bg: 20 18 24;
+  --color-panel-bg: 29 27 32;
+  --color-panel2-bg: 33 31 38;
+  --color-panel3-bg: 43 41 48;
+  --color-hover-bg: 43 41 48;
+  --color-chat-bg: 20 18 24;
+  --color-text-main: 230 224 233;
+  --color-text-muted: 202 196 208;
+  --color-text-faint: 147 143 153;
+  --color-primary: 208 188 255;
+  --color-primary-hover: 196 176 244;
+  --color-accent: 208 188 255;
+  --color-accent-2: 196 176 244;
+  --color-on-accent: 56 30 114;
+  --color-secondary: 74 68 88;
+  --color-secondary-hover: 54 52 59;
+  --color-on-secondary: 232 222 248;
+  --color-border-main: 73 69 79;
+  --destructive: 242 184 181; /* #F2B8B5 */
+  --destructive-foreground: 96 20 16;
+  --success: 156 214 125; /* #9CD67D */
+  --success-foreground: 11 57 0;
+  --overlay: 0 0 0;
+  --shadow-soft: rgba(0, 0, 0, 0.35);
+  --shadow-mid: rgba(0, 0, 0, 0.5);
+  --shadow-strong: rgba(0, 0, 0, 0.65);
+}
+
+[data-theme="material"][data-palette="blue"] {
+  --background: 249 249 255;
+  --foreground: 25 28 32;
+  --card: 243 243 250;
+  --card-foreground: 25 28 32;
+  --popover: 237 237 244;
+  --popover-foreground: 25 28 32;
+  --primary: 65 95 145;
+  --primary-foreground: 255 255 255;
+  --primary-hover: 80 108 154;
+  --secondary: 218 226 249;
+  --secondary-foreground: 19 28 43;
+  --muted: 226 226 233;
+  --muted-foreground: 68 71 78;
+  --accent: 231 232 238;
+  --accent-foreground: 25 28 32;
+  --subtle: 116 119 127;
+  --border: 196 198 208;
+  --input: 116 119 127;
+  --ring: 65 95 145;
+  --m3-primary-container: 214 227 255;
+  --m3-on-primary-container: 0 27 62;
+  --m3-surface-container: 237 237 244;
+  --m3-surface-high: 231 232 238;
+  --m3-surface-highest: 226 226 233;
+  --m3-on-surface-variant: 68 71 78;
+  --m3-outline: 116 119 127;
+  --color-app-bg: 249 249 255;
+  --color-panel-bg: 243 243 250;
+  --color-panel2-bg: 237 237 244;
+  --color-panel3-bg: 231 232 238;
+  --color-hover-bg: 231 232 238;
+  --color-chat-bg: 249 249 255;
+  --color-text-main: 25 28 32;
+  --color-text-muted: 68 71 78;
+  --color-text-faint: 116 119 127;
+  --color-primary: 65 95 145;
+  --color-primary-hover: 80 108 154;
+  --color-accent: 65 95 145;
+  --color-accent-2: 80 108 154;
+  --color-on-accent: 255 255 255;
+  --color-secondary: 218 226 249;
+  --color-secondary-hover: 226 226 233;
+  --color-on-secondary: 19 28 43;
+  --color-border-main: 196 198 208;
+}
+[data-theme="material"][data-palette="blue"].dark {
+  --background: 17 19 24;
+  --foreground: 226 226 233;
+  --card: 25 28 32;
+  --card-foreground: 226 226 233;
+  --popover: 29 32 36;
+  --popover-foreground: 226 226 233;
+  --primary: 170 199 255;
+  --primary-foreground: 10 48 95;
+  --primary-hover: 157 187 242;
+  --secondary: 62 71 89;
+  --secondary-foreground: 218 226 249;
+  --muted: 51 53 58;
+  --muted-foreground: 196 198 208;
+  --accent: 40 42 47;
+  --accent-foreground: 226 226 233;
+  --subtle: 142 144 153;
+  --border: 68 71 78;
+  --input: 142 144 153;
+  --ring: 170 199 255;
+  --m3-primary-container: 40 71 119;
+  --m3-on-primary-container: 214 227 255;
+  --m3-surface-container: 29 32 36;
+  --m3-surface-high: 40 42 47;
+  --m3-surface-highest: 51 53 58;
+  --m3-on-surface-variant: 196 198 208;
+  --m3-outline: 142 144 153;
+  --color-app-bg: 17 19 24;
+  --color-panel-bg: 25 28 32;
+  --color-panel2-bg: 29 32 36;
+  --color-panel3-bg: 40 42 47;
+  --color-hover-bg: 40 42 47;
+  --color-chat-bg: 17 19 24;
+  --color-text-main: 226 226 233;
+  --color-text-muted: 196 198 208;
+  --color-text-faint: 142 144 153;
+  --color-primary: 170 199 255;
+  --color-primary-hover: 157 187 242;
+  --color-accent: 170 199 255;
+  --color-accent-2: 157 187 242;
+  --color-on-accent: 10 48 95;
+  --color-secondary: 62 71 89;
+  --color-secondary-hover: 51 53 58;
+  --color-on-secondary: 218 226 249;
+  --color-border-main: 68 71 78;
+}
+
+[data-theme="material"][data-palette="green"] {
+  --background: 249 250 239;
+  --foreground: 26 28 22;
+  --card: 243 244 233;
+  --card-foreground: 26 28 22;
+  --popover: 238 239 227;
+  --popover-foreground: 26 28 22;
+  --primary: 76 102 43;
+  --primary-foreground: 255 255 255;
+  --primary-hover: 90 115 60;
+  --secondary: 220 231 200;
+  --secondary-foreground: 21 30 11;
+  --muted: 226 227 216;
+  --muted-foreground: 68 72 61;
+  --accent: 232 233 222;
+  --accent-foreground: 26 28 22;
+  --subtle: 117 121 108;
+  --border: 197 200 186;
+  --input: 117 121 108;
+  --ring: 76 102 43;
+  --m3-primary-container: 205 237 163;
+  --m3-on-primary-container: 16 32 0;
+  --m3-surface-container: 238 239 227;
+  --m3-surface-high: 232 233 222;
+  --m3-surface-highest: 226 227 216;
+  --m3-on-surface-variant: 68 72 61;
+  --m3-outline: 117 121 108;
+  --color-app-bg: 249 250 239;
+  --color-panel-bg: 243 244 233;
+  --color-panel2-bg: 238 239 227;
+  --color-panel3-bg: 232 233 222;
+  --color-hover-bg: 232 233 222;
+  --color-chat-bg: 249 250 239;
+  --color-text-main: 26 28 22;
+  --color-text-muted: 68 72 61;
+  --color-text-faint: 117 121 108;
+  --color-primary: 76 102 43;
+  --color-primary-hover: 90 115 60;
+  --color-accent: 76 102 43;
+  --color-accent-2: 90 115 60;
+  --color-on-accent: 255 255 255;
+  --color-secondary: 220 231 200;
+  --color-secondary-hover: 226 227 216;
+  --color-on-secondary: 21 30 11;
+  --color-border-main: 197 200 186;
+}
+[data-theme="material"][data-palette="green"].dark {
+  --background: 18 20 14;
+  --foreground: 226 227 216;
+  --card: 26 28 22;
+  --card-foreground: 226 227 216;
+  --popover: 30 32 26;
+  --popover-foreground: 226 227 216;
+  --primary: 177 209 138;
+  --primary-foreground: 31 55 1;
+  --primary-hover: 165 197 127;
+  --secondary: 64 74 51;
+  --secondary-foreground: 220 231 200;
+  --muted: 51 54 46;
+  --muted-foreground: 197 200 186;
+  --accent: 40 43 36;
+  --accent-foreground: 226 227 216;
+  --subtle: 143 146 133;
+  --border: 68 72 61;
+  --input: 143 146 133;
+  --ring: 177 209 138;
+  --m3-primary-container: 53 78 22;
+  --m3-on-primary-container: 205 237 163;
+  --m3-surface-container: 30 32 26;
+  --m3-surface-high: 40 43 36;
+  --m3-surface-highest: 51 54 46;
+  --m3-on-surface-variant: 197 200 186;
+  --m3-outline: 143 146 133;
+  --color-app-bg: 18 20 14;
+  --color-panel-bg: 26 28 22;
+  --color-panel2-bg: 30 32 26;
+  --color-panel3-bg: 40 43 36;
+  --color-hover-bg: 40 43 36;
+  --color-chat-bg: 18 20 14;
+  --color-text-main: 226 227 216;
+  --color-text-muted: 197 200 186;
+  --color-text-faint: 143 146 133;
+  --color-primary: 177 209 138;
+  --color-primary-hover: 165 197 127;
+  --color-accent: 177 209 138;
+  --color-accent-2: 165 197 127;
+  --color-on-accent: 31 55 1;
+  --color-secondary: 64 74 51;
+  --color-secondary-hover: 51 54 46;
+  --color-on-secondary: 220 231 200;
+  --color-border-main: 68 72 61;
+}
+
+[data-theme="material"][data-palette="red"] {
+  --background: 255 248 246;
+  --foreground: 35 25 23;
+  --card: 255 241 237;
+  --card-foreground: 35 25 23;
+  --popover: 252 234 229;
+  --popover-foreground: 35 25 23;
+  --primary: 143 76 56;
+  --primary-foreground: 255 255 255;
+  --primary-hover: 152 90 72;
+  --secondary: 255 219 209;
+  --secondary-foreground: 44 21 15;
+  --muted: 241 223 218;
+  --muted-foreground: 83 67 63;
+  --accent: 247 228 224;
+  --accent-foreground: 35 25 23;
+  --subtle: 133 115 110;
+  --border: 216 194 188;
+  --input: 133 115 110;
+  --ring: 143 76 56;
+  --m3-primary-container: 255 219 209;
+  --m3-on-primary-container: 58 11 1;
+  --m3-surface-container: 252 234 229;
+  --m3-surface-high: 247 228 224;
+  --m3-surface-highest: 241 223 218;
+  --m3-on-surface-variant: 83 67 63;
+  --m3-outline: 133 115 110;
+  --color-app-bg: 255 248 246;
+  --color-panel-bg: 255 241 237;
+  --color-panel2-bg: 252 234 229;
+  --color-panel3-bg: 247 228 224;
+  --color-hover-bg: 247 228 224;
+  --color-chat-bg: 255 248 246;
+  --color-text-main: 35 25 23;
+  --color-text-muted: 83 67 63;
+  --color-text-faint: 133 115 110;
+  --color-primary: 143 76 56;
+  --color-primary-hover: 152 90 72;
+  --color-accent: 143 76 56;
+  --color-accent-2: 152 90 72;
+  --color-on-accent: 255 255 255;
+  --color-secondary: 255 219 209;
+  --color-secondary-hover: 241 223 218;
+  --color-on-secondary: 44 21 15;
+  --color-border-main: 216 194 188;
+}
+[data-theme="material"][data-palette="red"].dark {
+  --background: 26 17 15;
+  --foreground: 241 223 218;
+  --card: 35 25 23;
+  --card-foreground: 241 223 218;
+  --popover: 39 29 27;
+  --popover-foreground: 241 223 218;
+  --primary: 255 181 160;
+  --primary-foreground: 86 31 15;
+  --primary-hover: 242 170 150;
+  --secondary: 93 63 54;
+  --secondary-foreground: 255 219 209;
+  --muted: 61 50 47;
+  --muted-foreground: 216 194 188;
+  --accent: 50 40 37;
+  --accent-foreground: 241 223 218;
+  --subtle: 160 140 135;
+  --border: 83 67 63;
+  --input: 160 140 135;
+  --ring: 255 181 160;
+  --m3-primary-container: 114 53 35;
+  --m3-on-primary-container: 255 219 209;
+  --m3-surface-container: 39 29 27;
+  --m3-surface-high: 50 40 37;
+  --m3-surface-highest: 61 50 47;
+  --m3-on-surface-variant: 216 194 188;
+  --m3-outline: 160 140 135;
+  --color-app-bg: 26 17 15;
+  --color-panel-bg: 35 25 23;
+  --color-panel2-bg: 39 29 27;
+  --color-panel3-bg: 50 40 37;
+  --color-hover-bg: 50 40 37;
+  --color-chat-bg: 26 17 15;
+  --color-text-main: 241 223 218;
+  --color-text-muted: 216 194 188;
+  --color-text-faint: 160 140 135;
+  --color-primary: 255 181 160;
+  --color-primary-hover: 242 170 150;
+  --color-accent: 255 181 160;
+  --color-accent-2: 242 170 150;
+  --color-on-accent: 86 31 15;
+  --color-secondary: 93 63 54;
+  --color-secondary-hover: 61 50 47;
+  --color-on-secondary: 255 219 209;
+  --color-border-main: 83 67 63;
+}
+
+/* ----------------------------------------------------------------
+   Material structural look
+   ----------------------------------------------------------------
+   Keyed off the same generic hooks as the other themes: surface-* classes
+   and data-slot attributes (button/card/badge from the atoms, plus
+   message-bubble and composer, see ChatMessage.tsx / MessageInput.tsx).
+   Scoped as [data-theme] + a class/attribute so each rule out-specifies
+   the Tailwind utility it replaces - see THEMING.md's specificity note. */
+[data-theme="material"] body,
+[data-theme="material"] .font-sans,
+[data-theme="material"] .font-serif {
+  font-family: "Roboto", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* Buttons: full pills, medium weight, no resting shadow. Filled = primary,
+   secondary/panel = tonal (secondary container), outline = outlined. */
+[data-theme="material"] [data-slot="button"] {
+  border-radius: 9999px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  box-shadow: none;
+}
+[data-theme="material"] [data-slot="button"][data-variant="default"]:hover:not(:disabled) {
+  background-color: rgb(var(--primary-hover));
+  box-shadow: var(--m3-elevation-1);
+}
+[data-theme="material"] [data-slot="button"]:is([data-variant="secondary"], [data-variant="panel"]) {
+  background-color: rgb(var(--secondary));
+  color: rgb(var(--secondary-foreground));
+}
+[data-theme="material"] [data-slot="button"]:is([data-variant="secondary"], [data-variant="panel"]):hover:not(:disabled) {
+  box-shadow: var(--m3-elevation-1);
+}
+/* Inverse "ink" buttons (bg-foreground, e.g. the character card's Chat)
+   read as filled primary buttons in M3. */
+[data-theme="material"] [data-slot="button"].bg-foreground {
+  background-color: rgb(var(--primary));
+  color: rgb(var(--primary-foreground));
+}
+[data-theme="material"] [data-slot="button"][data-variant="outline"] {
+  background-color: transparent;
+  border-color: rgb(var(--m3-outline));
+  color: rgb(var(--primary));
+}
+[data-theme="material"] [data-slot="button"][data-variant="outline"]:hover:not(:disabled) {
+  background-color: rgb(var(--primary) / 0.08);
+}
+
+/* Cards: filled surface container, no border, 12px corners. */
+[data-theme="material"] [data-slot="card"] {
+  border-color: transparent;
+  box-shadow: none;
+  border-radius: 12px;
+}
+
+/* Dialogs: extra-large 28px corners on the high surface container. */
+[data-theme="material"] :is([role="dialog"], [role="alertdialog"]).surface-panel {
+  background-color: rgb(var(--m3-surface-high));
+  border-color: transparent;
+  border-radius: 28px;
+  box-shadow: var(--m3-elevation-3);
+}
+
+/* Menus, select lists and tooltips. */
+[data-theme="material"] :is([role="menu"], [role="listbox"]) {
+  background-color: rgb(var(--m3-surface-container));
+  border-color: transparent;
+  border-radius: 4px;
+  box-shadow: var(--m3-elevation-2);
+}
+
+/* Text fields: M3 "filled" style - tinted fill, square bottom with an
+   indicator line that thickens to the primary color on focus. */
+[data-theme="material"] .surface-sunken {
+  background-color: rgb(var(--m3-surface-highest));
+  border-width: 0 0 1px 0;
+  border-color: rgb(var(--m3-on-surface-variant));
+  border-radius: 4px 4px 0 0;
+  box-shadow: none;
+}
+[data-theme="material"] .surface-sunken:is(:focus-visible, :focus-within) {
+  border-bottom-width: 2px;
+  border-color: rgb(var(--primary));
+  box-shadow: none;
+  outline: none;
+}
+
+/* Chips and badges: 8px corners. */
+[data-theme="material"] [data-slot="badge"] {
+  border-radius: 8px;
+}
+
+/* Navigation drawer: low surface container, no divider, pill-shaped rows
+   with the secondary container as the active indicator (Sidebar.tsx's
+   active row already fills with bg-secondary; its accent bar is hidden). */
+[data-theme="material"] aside[aria-label="Sidebar"] {
+  background-color: rgb(var(--card));
+  border-right-color: transparent;
+}
+[data-theme="material"] aside[aria-label="Sidebar"] a.rounded-lg {
+  border-radius: 9999px;
+}
+[data-theme="material"] aside[aria-label="Sidebar"] a > span.absolute.bg-primary {
+  display: none;
+}
+[data-theme="material"] header {
+  border-bottom-color: transparent;
+}
+
+/* Chat bubbles: user in the primary container, character on the high
+   surface container - no shadow, 20px corners with a 4px "tail" corner. */
+[data-theme="material"] [data-slot="message-bubble"] {
+  box-shadow: none;
+  border-radius: 20px;
+}
+[data-theme="material"] [data-slot="message-bubble"][data-sender="user"] {
+  background-color: rgb(var(--m3-primary-container));
+  color: rgb(var(--m3-on-primary-container));
+  border-bottom-right-radius: 4px;
+}
+[data-theme="material"] [data-slot="message-bubble"][data-sender="ai"] {
+  background-color: rgb(var(--m3-surface-high));
+  border-top-left-radius: 4px;
+}
+
+/* Composer: a search-bar-style pill on the high surface container. */
+[data-theme="material"] [data-slot="composer"] {
+  background-color: rgb(var(--m3-surface-high));
+  box-shadow: none;
+  backdrop-filter: none;
+}

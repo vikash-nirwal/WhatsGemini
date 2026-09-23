@@ -14,6 +14,8 @@ import {
   AURORA_PALETTES,
   TERMINAL_PALETTES,
   PARCHMENT_PALETTES,
+  MATERIAL_PALETTES,
+  DEFAULT_MATERIAL_PALETTE,
 } from '../../utils/constants';
 
 interface AppearanceSettingsProps {
@@ -34,6 +36,7 @@ const THEME_SWATCHES: Record<string, [string, string, string]> = {
   aurora: ['#F4F0FB', '#8B5CF6', '#1A1330'],
   terminal: ['#F2F1E9', '#0A6B78', '#08210F'],
   parchment: ['#F7F3EA', '#A32B38', '#2C2218'],
+  material: ['#FEF7FF', '#6750A4', '#EADDFF'],
 };
 
 // Every color theme's own accent-palette sub-choice - see tokens.css's
@@ -49,6 +52,7 @@ const PALETTE_PICKERS: Record<string, { label: string; hint: string; palettes: {
   neumorphic: { label: "Accent palette", hint: "Neumorphic's own choice of accent color - has no effect under other color themes.", palettes: NEUMORPHIC_PALETTES, defaultValue: DEFAULT_NEUMORPHIC_PALETTE },
   aurora: { label: "Accent palette", hint: "Aurora's own choice of gradient - has no effect under other color themes.", palettes: AURORA_PALETTES, defaultValue: DEFAULT_ACCENT_PALETTE },
   terminal: { label: "Phosphor color", hint: "Terminal's own choice of CRT color - has no effect under other color themes.", palettes: TERMINAL_PALETTES, defaultValue: DEFAULT_TERMINAL_PALETTE },
+  material: { label: "Color scheme", hint: "Material's own choice of tonal palette - has no effect under other color themes.", palettes: MATERIAL_PALETTES, defaultValue: DEFAULT_MATERIAL_PALETTE },
   parchment: { label: "Accent ink", hint: "Parchment's own choice of accent color - wax seal crimson, antique gold, emerald, or iron gall ink.", palettes: PARCHMENT_PALETTES, defaultValue: DEFAULT_PARCHMENT_PALETTE },
 };
 

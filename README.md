@@ -39,7 +39,7 @@ WhatsGemini is a client-side AI roleplay and chat app built with **React, Redux 
 - One-time 18+ confirmation on first launch.
 
 **App**
-- Themes, full backup and restore, installable as a PWA.
+- Themes (Cozy, Neumorphic, Aurora, Terminal, Parchment, Material), full backup and restore, installable as a PWA.
 
 ---
 

@@ -645,6 +645,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
         </div>
       ) : (
       <div
+        // Theme hook (Material restyles the idle composer); left off in the
+        // impersonate/silent modes so their warning tints still show.
+        data-slot={isImpersonated || isSilentSend ? undefined : "composer"}
         className={cn(
           "flex items-center gap-1 h-14 px-2 rounded-full backdrop-blur-md transition-colors",
           neumorphic && !isImpersonated && !isSilentSend ? "surface-sunken" : "shadow-soft",

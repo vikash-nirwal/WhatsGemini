@@ -266,6 +266,8 @@ const ChatMessage = React.memo(({
       )}
 
       <div
+        data-slot="message-bubble"
+        data-sender={isUser ? "user" : "ai"}
         className={cn(
           "relative p-4 rounded-2xl max-w-[85%] md:max-w-[70%] min-w-0 group",
           // Canvas spec: "plain div. Incoming: bg-elevated surface-raised.

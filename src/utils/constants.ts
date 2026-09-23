@@ -258,6 +258,7 @@ export const COLOR_THEMES = [
   { value: "aurora", label: "Aurora", description: "Vibrant gradient look with a choice of 4 accent palettes" },
   { value: "terminal", label: "Terminal", description: "CRT hacker aesthetic with a choice of 4 phosphor colors" },
   { value: "parchment", label: "Parchment", description: "Aged paper, warm ink, and leather-bound grimoire aesthetics" },
+  { value: "material", label: "Material", description: "Google's Material Design 3: tonal surfaces, pill buttons, with a choice of 4 color schemes" },
 ] as const;
 export const DEFAULT_COLOR_THEME = "cozy";
 
@@ -327,6 +328,18 @@ export const PARCHMENT_PALETTES: { value: string; label: string; colors: [string
   { value: "ink", label: "Iron Gall", colors: ["#2a384a", "#3e526b", "#161e28"] },
 ];
 export const DEFAULT_PARCHMENT_PALETTE = "crimson";
+
+// Material's color scheme - see tokens.css's [data-theme="material"]
+// [data-palette="x"] blocks. "Baseline" is the M3 reference purple, baked
+// into the base block. Each scheme re-tints the neutral surfaces too, the
+// way Material You's dynamic color does.
+export const MATERIAL_PALETTES: { value: string; label: string; colors: [string, string, string] }[] = [
+  { value: "baseline", label: "Baseline", colors: ["#6750a4", "#eaddff", "#fef7ff"] },
+  { value: "blue", label: "Blue", colors: ["#415f91", "#d6e3ff", "#f9f9ff"] },
+  { value: "green", label: "Green", colors: ["#4c662b", "#cdeda3", "#f9faef"] },
+  { value: "red", label: "Red", colors: ["#8f4c38", "#ffdbd1", "#fff8f6"] },
+];
+export const DEFAULT_MATERIAL_PALETTE = "baseline";
 
 // Local storage variables
 export const LS_AI_MODEL = "ai_model";

@@ -34,6 +34,9 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({ value, onCha
   const neumorphic = is("neumorphic");
   const aurora = is("aurora");
   const terminal = is("terminal");
+  // M3 segmented buttons: one outlined pill, segments split by the outline
+  // color, the selected one filled with the secondary container.
+  const material = is("material");
   return (
     <div
       className={cn(
@@ -41,6 +44,7 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({ value, onCha
         neumorphic && "bg-transparent border-0 gap-2 p-0",
         aurora && "gap-0 p-0 rounded-sm border-input bg-transparent overflow-hidden",
         terminal && "gap-1.5 p-0 border-0 bg-transparent",
+        material && "gap-0 p-0 rounded-full border-input bg-transparent overflow-hidden",
         disabled && "opacity-50 pointer-events-none",
         className
       )}
@@ -56,7 +60,7 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({ value, onCha
               "h-8 px-3.5 rounded-md text-[13px] font-medium whitespace-nowrap transition-colors",
               neumorphic &&
                 cn("rounded-[14px]", active ? "bg-primary text-primary-foreground cta-surface" : "surface-raised text-muted-foreground hover:text-foreground"),
-              !neumorphic && !aurora && !terminal &&
+              !neumorphic && !aurora && !terminal && !material &&
                 (active ? "bg-secondary text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"),
               terminal &&
                 cn(
@@ -64,6 +68,12 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({ value, onCha
                   active
                     ? "bg-primary text-primary-foreground border-border-bright"
                     : "border-border text-muted-foreground hover:text-foreground hover:border-border-bright"
+                ),
+              material &&
+                cn(
+                  "rounded-none h-9 px-4",
+                  i > 0 && "border-l border-input",
+                  active ? "bg-secondary text-secondary-foreground" : "text-foreground hover:bg-foreground/[0.08]"
                 ),
               aurora &&
                 cn(
@@ -73,6 +83,7 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({ value, onCha
                 )
             )}
           >
+            {material && active && <span aria-hidden className="mr-1.5">✓</span>}
             {opt.label}
           </button>
         );

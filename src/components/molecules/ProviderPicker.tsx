@@ -19,6 +19,8 @@ export const ProviderPicker: React.FC<ProviderPickerProps> = ({ providers, value
   const { is } = useColorTheme();
   const aurora = is("aurora");
   const terminal = is("terminal");
+  // M3 filter chips: 8px corners, outlined, selected = secondary container + check.
+  const material = is("material");
   return (
     <div className="flex flex-wrap gap-1.5">
       {providers.map((p) => {
@@ -30,7 +32,7 @@ export const ProviderPicker: React.FC<ProviderPickerProps> = ({ providers, value
             onClick={() => onChange(p.id)}
             className={cn(
               "h-[34px] px-3.5 text-[13px] font-medium whitespace-nowrap border transition-colors",
-              aurora ? "rounded-sm" : "rounded-full",
+              aurora ? "rounded-sm" : material ? "rounded-lg" : "rounded-full",
               terminal
                 ? cn(
                     "text-[11px] font-bold",
@@ -38,6 +40,10 @@ export const ProviderPicker: React.FC<ProviderPickerProps> = ({ providers, value
                       ? "bg-primary text-primary-foreground border-border-bright"
                       : "bg-transparent text-foreground border-border hover:border-border-bright"
                   )
+                : material
+                ? active
+                  ? "bg-secondary text-secondary-foreground border-transparent"
+                  : "bg-transparent text-muted-foreground border-input hover:bg-foreground/[0.08]"
                 : aurora
                 ? active
                   ? "cta-surface text-primary-foreground"
@@ -47,6 +53,7 @@ export const ProviderPicker: React.FC<ProviderPickerProps> = ({ providers, value
                   : "bg-background text-muted-foreground border-input hover:text-foreground"
             )}
           >
+            {material && active && <span aria-hidden className="mr-1.5">✓</span>}
             {p.label}
           </button>
         );
