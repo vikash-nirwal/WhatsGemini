@@ -58,52 +58,84 @@ export const formatSafetySettings = (settings?: AISafetySettings): SafetySetting
   ];
 };
 
+// Models that rejected frequency/presence penalties this session (Gemini 2.5
+// Pro and others answer 400 "Penalty is not enabled for models/..."). Once a
+// model is in here the penalties are simply left off for it, instead of
+// every reply failing until the user clears the setting.
+const modelsWithoutPenalties = new Set<string>();
+
+const isPenaltyUnsupportedError = (e: unknown): boolean => {
+  const message = e instanceof Error ? e.message : String(e);
+  return /penalty/i.test(message) && /not (?:enabled|supported)|unsupported/i.test(message);
+};
+
 const generateChat = async (opts: ChatCallOptions, config: ProviderRuntimeConfig): Promise<ChatCallResult> => {
   const ai = new GoogleGenAI({ apiKey: config.apiKey || "" });
-  const modelConfig: GenerateContentConfig = {
+  const baseConfig: GenerateContentConfig = {
     maxOutputTokens: opts.maxOutputTokens,
     temperature: opts.temperature,
     safetySettings: formatSafetySettings(opts.safetySettings),
   };
-  if (opts.systemInstruction) modelConfig.systemInstruction = opts.systemInstruction;
+  if (opts.systemInstruction) baseConfig.systemInstruction = opts.systemInstruction;
   const samplers = opts.samplers;
-  if (samplers?.topP != null) modelConfig.topP = samplers.topP;
-  if (samplers?.topK != null) modelConfig.topK = samplers.topK;
-  if (samplers?.frequencyPenalty) modelConfig.frequencyPenalty = samplers.frequencyPenalty;
-  if (samplers?.presencePenalty) modelConfig.presencePenalty = samplers.presencePenalty;
+  if (samplers?.topP != null) baseConfig.topP = samplers.topP;
+  if (samplers?.topK != null) baseConfig.topK = samplers.topK;
+  const wantsPenalties = Boolean(samplers?.frequencyPenalty || samplers?.presencePenalty);
 
-  const chat = ai.chats.create({ model: opts.model, config: modelConfig, history: toGeminiHistory(opts.history) });
-  const promptParts: Part[] = [{ text: opts.prompt }];
-
-  // sendMessage's per-call config replaces (rather than merges with) the chat's
-  // config, so modelConfig has to be spread back in alongside the signal.
-  const stream = await chat.sendMessageStream({ message: promptParts, config: { ...modelConfig, abortSignal: opts.signal } });
-
-  let text = "";
-  let usage: GenerateContentResponseUsageMetadata | undefined;
-  let blockReason: string | undefined;
-  for await (const chunk of stream) {
-    if (opts.signal?.aborted) {
-      console.log("AI response generation aborted by user.");
-      break;
+  const attempt = async (withPenalties: boolean): Promise<ChatCallResult> => {
+    const modelConfig: GenerateContentConfig = { ...baseConfig };
+    if (withPenalties) {
+      if (samplers?.frequencyPenalty) modelConfig.frequencyPenalty = samplers.frequencyPenalty;
+      if (samplers?.presencePenalty) modelConfig.presencePenalty = samplers.presencePenalty;
     }
-    try {
-      if (chunk.text) {
-        text += chunk.text;
-        opts.onToken?.(text);
+
+    const chat = ai.chats.create({ model: opts.model, config: modelConfig, history: toGeminiHistory(opts.history) });
+    const promptParts: Part[] = [{ text: opts.prompt }];
+
+    // sendMessage's per-call config replaces (rather than merges with) the chat's
+    // config, so modelConfig has to be spread back in alongside the signal.
+    const stream = await chat.sendMessageStream({ message: promptParts, config: { ...modelConfig, abortSignal: opts.signal } });
+
+    let text = "";
+    let usage: GenerateContentResponseUsageMetadata | undefined;
+    let blockReason: string | undefined;
+    for await (const chunk of stream) {
+      if (opts.signal?.aborted) {
+        console.log("AI response generation aborted by user.");
+        break;
       }
-      if (chunk.usageMetadata) usage = chunk.usageMetadata;
-      blockReason = blockReasonOf(chunk as any) || blockReason;
-    } catch (e) {
-      console.warn("Could not parse Gemini stream chunk:", e);
+      try {
+        if (chunk.text) {
+          text += chunk.text;
+          opts.onToken?.(text);
+        }
+        if (chunk.usageMetadata) usage = chunk.usageMetadata;
+        blockReason = blockReasonOf(chunk as any) || blockReason;
+      } catch (e) {
+        console.warn("Could not parse Gemini stream chunk:", e);
+      }
     }
-  }
 
-  // A block mid-reply leaves a partial text, which is kept (the user can
-  // continue or regenerate); a block before any text is an error, not an
-  // empty character message.
-  if (blockReason && !text.trim()) throw new ContentBlockedError("Gemini", blockReason);
-  return { text, usage: normalizeUsage(usage) };
+    // A block mid-reply leaves a partial text, which is kept (the user can
+    // continue or regenerate); a block before any text is an error, not an
+    // empty character message.
+    if (blockReason && !text.trim()) throw new ContentBlockedError("Gemini", blockReason);
+    return { text, usage: normalizeUsage(usage) };
+  };
+
+  const sendPenalties = wantsPenalties && !modelsWithoutPenalties.has(opts.model);
+  try {
+    return await attempt(sendPenalties);
+  } catch (e) {
+    // The model refuses the request outright before generating anything, so
+    // retrying once without the penalties is safe (nothing was streamed).
+    if (sendPenalties && isPenaltyUnsupportedError(e)) {
+      console.warn(`${opts.model} doesn't support frequency/presence penalties; sending without them.`);
+      modelsWithoutPenalties.add(opts.model);
+      return attempt(false);
+    }
+    throw e;
+  }
 };
 
 const generateOnce = async (

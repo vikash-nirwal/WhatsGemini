@@ -14,7 +14,7 @@ import { RoleplayPov, RoleplayStyle, SamplerSettings } from '../../types';
 // Which sampler knobs each chat provider's adapter actually forwards (see
 // the adapters) - shown so an ignored setting isn't a silent no-op.
 const SAMPLER_SUPPORT: Record<string, string> = {
-  gemini: "Gemini: all four (some models reject the penalties).",
+  gemini: "Gemini: all four. Models that don't support the penalties (e.g. 2.5 Pro) get the other settings without them.",
   anthropic: "Anthropic: Top K only.",
   ollama: "Ollama: all four.",
   qwen: "Qwen: all four.",
