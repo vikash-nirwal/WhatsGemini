@@ -7,6 +7,7 @@ import { deriveImagePrompt, generateImage, RoomReferenceCharacter } from "./ai/u
 import { generateVideo } from "./ai/utils/videoGeneration";
 import { extractEmotionTag } from "./ai/utils/emotionUtils";
 import { extractReactionTag, extractThoughts } from "./ai/utils/messageTags";
+import { buildRecapPrompt, cleanRecap, latestStorySummary, recentForRecap } from "./chat/recap";
 import { extractMemoryChanges } from "./ai/utils/memoryExtraction";
 import { looksLikeRefusal } from "./ai/utils/refusal";
 import { CHAT_PROVIDERS, IMAGE_PROVIDERS, VIDEO_PROVIDERS } from "./ai/providers/registry";
@@ -412,6 +413,24 @@ export const writeDiaryEntry = createAsyncThunk(
     } catch (error: any) {
       console.error("Diary entry error:", error);
       return rejectWithValue(error.message || "Failed to write a diary entry.");
+    }
+  }
+);
+
+// "Previously on..." (#46): a short recap for a user coming back after a
+// few days, on the cheaper background model when one is set.
+export const writeRecap = createAsyncThunk(
+  "ai/writeRecap",
+  async ({ messages, names }: { messages: Message[]; names: TranscriptNames }, { getState, rejectWithValue }) => {
+    try {
+      const helper = await resolveHelperCall((getState() as RootState).settings);
+      const prompt = buildRecapPrompt(formatTranscript(recentForRecap(messages), names), latestStorySummary(messages), names.charName || "the character", names.userName || "the user");
+      const result = await helper.adapter.generateOnce(prompt, helper.model, helper.config);
+      const text = cleanRecap(result.text);
+      if (!text) throw new Error("The recap came back empty.");
+      return text;
+    } catch (error: any) {
+      return rejectWithValue(error.message || "Failed to write the recap.");
     }
   }
 );

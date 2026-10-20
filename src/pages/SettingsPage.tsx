@@ -11,7 +11,7 @@ import {
   setSdWebuiModel, setMaxOutputTokens, setReplyLengthLimit, setCompressThreshold, setMaxChatLength,
   setTemperature, setSamplers, setRoleplayStyle, setHelperModel, setPrivacy, setSafetySettings, setFontSize, setImageResolution, setGeminiImageSize, setPortraitSaveSize, setPortraitResizeEnabled,
   setChatProvider, setImageProvider, setOllamaBaseUrl,
-  setEmotionPanelEnabled, setEmotionPopupEnabled, setEmotionPopupDuration, setAlwaysShowInitials, setTextingMode,
+  setEmotionPanelEnabled, setEmotionPopupEnabled, setEmotionPopupDuration, setAlwaysShowInitials, setTextingMode, setRecapAfterDays,
 } from "../features/settingsSlice";
 import { FaInfoCircle, FaUser, FaMicrochip, FaImage, FaComments, FaShieldAlt, FaDatabase, FaPalette, FaLock, FaWallet } from "react-icons/fa";
 import Header from "src/components/organisms/Header";
@@ -53,6 +53,7 @@ import {
   LS_EMOTION_PANEL_ENABLED,
   LS_ALWAYS_SHOW_INITIALS,
   LS_TEXTING_MODE,
+  LS_RECAP_AFTER_DAYS,
   LS_EMOTION_POPUP_ENABLED,
   LS_EMOTION_POPUP_DURATION,
   // IMAGE_RESOLUTIONS,
@@ -265,7 +266,7 @@ const SettingsPage = () => {
     sdWebuiBatchSize, sdWebuiRefMode, sdWebuiDenoising, sdWebuiControlnetModel, sdWebuiModels,
     sdWebuiModel, maxOutputTokens, replyLengthLimit, compressThreshold, maxChatLength, temperature, samplers, roleplayStyle, helperProvider, helperModel, privacy,
     safetySettings, fontSize, imageResolution, geminiImageSize, portraitSaveSize, portraitResizeEnabled,
-    emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials, textingMode,
+    emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials, textingMode, recapAfterDays,
   } = settings;
 
   const chatProviderCapabilities = CHAT_PROVIDERS[chatProvider]?.capabilities || CHAT_PROVIDERS.gemini.capabilities;
@@ -568,13 +569,14 @@ const SettingsPage = () => {
     [LS_EMOTION_POPUP_DURATION]: emotionPopupDuration,
     [LS_ALWAYS_SHOW_INITIALS]: alwaysShowInitials,
     [LS_TEXTING_MODE]: textingMode,
+    [LS_RECAP_AFTER_DAYS]: recapAfterDays,
     [LS_USER_PERSONAS]: personas,
     [LS_ACTIVE_PERSONA_ID]: activePersonaId,
     [LS_INITIAL_MESSAGES]: JSON.parse(localStorage.getItem(LS_INITIAL_MESSAGES) || "[]"),
     // Read at export time from the spending store (#42), which lives outside Redux.
     [LS_SPENDING_LEDGER]: getSpendingSnapshot().ledger,
     [LS_SPENDING_BUDGET]: getSpendingSnapshot().budget,
-  }), [selectedModel, maxOutputTokens, replyLengthLimit, compressThreshold, temperature, samplers, roleplayStyle, safetySettings, maxChatLength, fontSize, imageResolution, geminiImageSize, portraitSaveSize, portraitResizeEnabled, emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials, textingMode, personas, activePersonaId]);
+  }), [selectedModel, maxOutputTokens, replyLengthLimit, compressThreshold, temperature, samplers, roleplayStyle, safetySettings, maxChatLength, fontSize, imageResolution, geminiImageSize, portraitSaveSize, portraitResizeEnabled, emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials, textingMode, recapAfterDays, personas, activePersonaId]);
 
   const downloadJson = (data: unknown, filename: string) => {
     const jsonString = JSON.stringify(data, null, 2);
@@ -654,6 +656,7 @@ const SettingsPage = () => {
     if (settings[LS_EMOTION_POPUP_DURATION]) dispatch(setEmotionPopupDuration(settings[LS_EMOTION_POPUP_DURATION]));
     if (settings[LS_ALWAYS_SHOW_INITIALS] !== undefined) dispatch(setAlwaysShowInitials(Boolean(settings[LS_ALWAYS_SHOW_INITIALS])));
     if (settings[LS_TEXTING_MODE] !== undefined) dispatch(setTextingMode(Boolean(settings[LS_TEXTING_MODE])));
+    if (typeof settings[LS_RECAP_AFTER_DAYS] === "number") dispatch(setRecapAfterDays(settings[LS_RECAP_AFTER_DAYS]));
     if (settings[LS_USER_PERSONAS]) {
         dispatch(setPersonas(settings[LS_USER_PERSONAS]));
         if (settings[LS_ACTIVE_PERSONA_ID]) dispatch(setActivePersonaId(settings[LS_ACTIVE_PERSONA_ID]));
@@ -969,6 +972,8 @@ const SettingsPage = () => {
                     onInitialMessagesSave={handleInitialMessagesSave}
                     textingMode={textingMode}
                     setTextingMode={(val) => dispatch(setTextingMode(val))}
+                    recapAfterDays={recapAfterDays}
+                    setRecapAfterDays={(val) => dispatch(setRecapAfterDays(val))}
                   />
                 )}
 

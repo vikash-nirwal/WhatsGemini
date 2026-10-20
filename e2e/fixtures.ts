@@ -146,6 +146,9 @@ export const BASE_LOCAL_STORAGE: Record<string, string> = {
   // shifts the layout under a test.
   last_backup_at: String(Date.now()),
   first_used_at: String(Date.now()),
+  // Seeded chats are dated January 2026, so "Previously on..." (#46) would
+  // otherwise show (and call the AI) in every test. Its own spec turns it on.
+  recap_after_days: "0",
 };
 
 // Writes straight into the app's Dexie database with the raw IndexedDB API.

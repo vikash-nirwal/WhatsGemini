@@ -17,7 +17,16 @@ interface ChatInterfaceSettingsProps {
   onInitialMessagesSave: () => void;
   textingMode: boolean;
   setTextingMode: (val: boolean) => void;
+  recapAfterDays: number;
+  setRecapAfterDays: (val: number) => void;
 }
+
+const RECAP_OPTIONS = [
+  { value: "0", label: "Off" },
+  { value: "1", label: "1 day" },
+  { value: "3", label: "3 days" },
+  { value: "7", label: "A week" },
+];
 
 const FONT_SIZE_OPTIONS = [
   { value: "14px", label: "Small" },
@@ -27,7 +36,7 @@ const FONT_SIZE_OPTIONS = [
 ];
 
 const ChatInterfaceSettings: React.FC<ChatInterfaceSettingsProps> = ({
-  maxChatLength, setMaxChatLength, fontSize, setFontSize, initialMessagesKey, onInitialMessagesSave, textingMode, setTextingMode,
+  maxChatLength, setMaxChatLength, fontSize, setFontSize, initialMessagesKey, onInitialMessagesSave, textingMode, setTextingMode, recapAfterDays, setRecapAfterDays,
 }) => {
   const { is } = useColorTheme();
   return (
@@ -55,6 +64,10 @@ const ChatInterfaceSettings: React.FC<ChatInterfaceSettingsProps> = ({
 
         <SettingsRow label="Texting mode" hint="Replies arrive as separate texts, one at a time with typing pauses, and your messages show read ticks. Only the display changes." align="start">
           <ToggleSwitch checked={textingMode} onChange={setTextingMode} label={<span className="sr-only">Texting mode</span>} />
+        </SettingsRow>
+
+        <SettingsRow label={'"Previously on…" recap'} hint="Coming back to a chat after this long shows a short recap of where the story stands. Written once and kept; never sent to the AI." align="start">
+          <SegmentedControl value={String(recapAfterDays)} onChange={(v) => setRecapAfterDays(Number(v))} options={RECAP_OPTIONS} />
         </SettingsRow>
 
         <SettingsRow label="Max chat length" hint="Tokens (est.) of history kept in a conversation. 0 = unlimited.">

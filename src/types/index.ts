@@ -97,6 +97,15 @@ export interface ConversationTree {
   nodes: Record<string, MessageNode>;
 }
 
+// A "Previously on..." recap (#46), written for the chat's last message at
+// the time and reused until the story moves on.
+export interface ChatRecap {
+  text: string;
+  forMessageId: string;
+  createdAt: number;
+  dismissed?: boolean;
+}
+
 export interface Chat {
   id: number;
   title: string;
@@ -140,6 +149,7 @@ export interface Chat {
   // keep their own.
   memoryScope?: "character" | "chat";
   replySuggestions?: boolean; // show 3 tappable reply ideas after each reply (#16)
+  recap?: ChatRecap; // the cached "Previously on..." card (#46), never sent to the model
   personaId?: string; // overrides the global active persona for just this chat; unset = use the global one
   // Per-chat boundaries, sent right before each reply (see buildPostHistoryNote).
   hardLimits?: string[]; // things the story must never include, whatever the rating

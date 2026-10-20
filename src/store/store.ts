@@ -39,6 +39,7 @@ import {
   LS_EMOTION_POPUP_DURATION,
   LS_ALWAYS_SHOW_INITIALS,
   LS_TEXTING_MODE,
+  LS_RECAP_AFTER_DAYS,
   LS_SAMPLERS,
   LS_ROLEPLAY_STYLE,
   LS_HELPER_PROVIDER,
@@ -106,6 +107,7 @@ store.subscribe(() => {
   localStorage.setItem(LS_EMOTION_POPUP_DURATION, JSON.stringify(state.emotionPopupDuration));
   localStorage.setItem(LS_ALWAYS_SHOW_INITIALS, state.alwaysShowInitials.toString());
   localStorage.setItem(LS_TEXTING_MODE, state.textingMode.toString());
+  localStorage.setItem(LS_RECAP_AFTER_DAYS, String(state.recapAfterDays));
 });
 
 // Debug Logging (Only in Development)

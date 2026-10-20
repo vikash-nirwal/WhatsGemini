@@ -8,6 +8,8 @@ import { resolveEmotionPortrait } from "../../features/ai/utils/emotionUtils";
 import { stripStreamingTags } from "../../features/ai/utils/messageTags";
 import { receiptFor, revealDelayMs, splitIntoTexts } from "../../features/ai/utils/textingMode";
 import { stripImageContextTag } from "../../features/ai/utils/imageGeneration";
+import type { RecapView } from "../../features/chat/useChatRecap";
+import { RecapCard } from "src/components/molecules/RecapCard";
 import { applyMacros, getGreetings } from "../../features/ai/utils/macros";
 import { isNsfwCharacter } from "../../features/character/contentRating";
 import { stopSpeaking } from "../../features/voice/speech";
@@ -34,6 +36,7 @@ import { useColorTheme } from "../../hooks/useColorTheme";
 interface ChatWindowProps {
   onToggleBookmark?: (msg: Message) => void; // star / unstar a message (#21)
   onReact?: (msg: Message, emoji: string) => void; // your emoji reaction to a reply (#11)
+  recap?: RecapView; // "Previously on..." after a few days away (#46)
   // Reply ideas for the newest message (#16) and what tapping one does.
   replySuggestions?: { forMessageId: string; items: string[] } | null;
   onPickSuggestion?: (text: string) => void;
@@ -136,7 +139,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc }: { charInitials: s
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ onToggleBookmark, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ recap, onToggleBookmark, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -669,6 +672,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onToggleBookmark, onReact, repl
                 ) : message;
               })
             )}
+            {recap && !aiLoading && <RecapCard recap={recap} terminal={terminal} />}
             {terminal ? (
               aiLoading ? (
                 <TerminalCursorLine name={characterName} note={recordingVoiceNote ? "recording audio..." : undefined} />
