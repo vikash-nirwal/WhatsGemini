@@ -1,4 +1,5 @@
-import { parseImportCustomizeResponse, pickCustomizeFields, applyCustomizeFields } from "./importCustomize";
+import { parseImportCustomizeResponse, pickCustomizeFields, applyCustomizeFields, buildImportCustomizePrompt } from "./importCustomize";
+import { LoreEntry } from "../../types";
 import { ParsedCharacterCard } from "./characterCard";
 
 describe("parseImportCustomizeResponse", () => {
@@ -102,5 +103,54 @@ describe("pickCustomizeFields / applyCustomizeFields", () => {
     expect(result.name).toBe("Mira the Bold");
     expect(result.appearanceImages).toEqual(["data:image/png;base64,abc"]);
     expect(result.accent).toEqual(["#111111", "#222222"]);
+  });
+});
+
+describe("lore trigger settings through a customize pass", () => {
+  const advanced: LoreEntry = {
+    id: "a", keywords: ["sword"], content: "Old.", enabled: true, constant: true,
+    priority: 5, selective: true, secondaryKeywords: ["fire"], sticky: 2, scanDepth: 4, probability: 30,
+  };
+  const plain: LoreEntry = { id: "b", keywords: ["k"], content: "Plain.", enabled: true };
+  const previous = { ...pickCustomizeFields({ name: "Mira", prompt: "Sly." } as ParsedCharacterCard), loreEntries: [advanced, plain] };
+  const reply = (loreEntries: unknown[]) => JSON.stringify({ name: "Mira", loreEntries });
+
+  it("leaves the trigger settings out of the prompt", () => {
+    const prompt = buildImportCustomizePrompt(previous, "make it darker");
+    expect(prompt).toContain('"id": "a"');
+    expect(prompt).not.toContain("secondaryKeywords");
+    expect(prompt).not.toContain("probability");
+  });
+
+  it("keeps an entry's settings when the model echoes its id", () => {
+    const fields = parseImportCustomizeResponse(reply([
+      { id: "b", keywords: ["k"], content: "New plain.", enabled: true },
+      { id: "a", keywords: ["blade"], content: "New.", enabled: true },
+    ]), previous);
+    expect(fields.loreEntries).toEqual([
+      { ...plain, content: "New plain." },
+      { ...advanced, keywords: ["blade"], content: "New." },
+    ]);
+  });
+
+  it("falls back to position when the ids are dropped but the count matches", () => {
+    const fields = parseImportCustomizeResponse(reply([
+      { keywords: ["sword"], content: "New.", enabled: true },
+      { keywords: ["k"], content: "Plain.", enabled: false },
+    ]), previous);
+    expect(fields.loreEntries[0]).toEqual({ ...advanced, content: "New." });
+    expect(fields.loreEntries[1]).toEqual({ ...plain, enabled: false });
+  });
+
+  it("gives new entries a fresh id and no settings, and never reuses an id twice", () => {
+    const fields = parseImportCustomizeResponse(reply([
+      { id: "a", keywords: ["sword"], content: "One.", enabled: true },
+      { id: "a", keywords: ["sword"], content: "Two.", enabled: true },
+      { id: "", keywords: ["new"], content: "Three.", enabled: true },
+    ]), previous);
+    expect(fields.loreEntries[0]).toMatchObject({ id: "a", priority: 5 });
+    expect(fields.loreEntries[1].id).not.toBe("a");
+    expect(fields.loreEntries[1].priority).toBeUndefined();
+    expect(fields.loreEntries[2]).toEqual({ id: fields.loreEntries[2].id, keywords: ["new"], content: "Three.", enabled: true });
   });
 });

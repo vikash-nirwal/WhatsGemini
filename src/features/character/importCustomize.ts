@@ -50,11 +50,18 @@ const CUSTOMIZE_RESPONSE_SHAPE = `{
   "tags": string[],
   "relationship": string,
   "appearance": string,
-  "loreEntries": [{ "keywords": string[], "content": string, "enabled": boolean }]
+  "loreEntries": [{ "id": string, "keywords": string[], "content": string, "enabled": boolean }]
 }`;
 
+// The model only sees and rewrites each lore entry's text. Its trigger
+// settings (Always on, priority, secondary keywords, sticky, ...) aren't
+// meaningful edit targets for a freeform instruction and would just be
+// dropped or garbled, so they stay out of the prompt and are carried back
+// over by id in parseImportCustomizeResponse.
+const loreEntryForPrompt = ({ id, keywords, content, enabled }: LoreEntry) => ({ id, keywords, content, enabled: enabled !== false });
+
 export const buildImportCustomizePrompt = (fields: ImportCustomizeFields, instruction: string): string =>
-  `You are helping a user customize a character (and its lorebook) they just imported, before they save it. Here is the current data as JSON:\n\n${JSON.stringify(fields, null, 2)}\n\n"loreEntries" is the character's lorebook - each entry's "content" is only added to the AI's context when one of its "keywords" is mentioned in the conversation.\n\nApply this requested change, leaving every other field exactly as-is unless the change implies otherwise:\n${instruction}\n\nRespond with ONLY a single valid JSON object matching this exact shape, no markdown code fences, no commentary, no extra keys:\n${CUSTOMIZE_RESPONSE_SHAPE}`;
+  `You are helping a user customize a character (and its lorebook) they just imported, before they save it. Here is the current data as JSON:\n\n${JSON.stringify({ ...fields, loreEntries: fields.loreEntries.map(loreEntryForPrompt) }, null, 2)}\n\n"loreEntries" is the character's lorebook - each entry's "content" is only added to the AI's context when one of its "keywords" is mentioned in the conversation. Keep each existing entry's "id" unchanged; give a new entry an empty "id".\n\nApply this requested change, leaving every other field exactly as-is unless the change implies otherwise:\n${instruction}\n\nRespond with ONLY a single valid JSON object matching this exact shape, no markdown code fences, no commentary, no extra keys:\n${CUSTOMIZE_RESPONSE_SHAPE}`;
 
 const freshLoreEntryId = (i: number) =>
   `book_${Date.now().toString(36)}_${i}_${Math.random().toString(36).slice(2, 7)}`;
@@ -110,7 +117,9 @@ const stripTrailingCommas = (text: string): string => text.replace(/,(\s*[}\]])/
 // comma, or pastes literal newlines inside a string - this tries to salvage
 // all of that before giving up, then rebuilds every field with the same
 // fallback-to-empty-string behavior parseCharacterCardJson uses.
-export const parseImportCustomizeResponse = (text: string): ImportCustomizeFields => {
+// `previous` is the data the prompt was built from, so lore entries can keep
+// the settings the model never saw (see loreEntryForPrompt).
+export const parseImportCustomizeResponse = (text: string, previous?: ImportCustomizeFields): ImportCustomizeFields => {
   const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");
@@ -130,14 +139,27 @@ export const parseImportCustomizeResponse = (text: string): ImportCustomizeField
     throw new Error("The AI's response wasn't valid JSON. Try rephrasing your request.");
   }
 
-  const loreEntries: LoreEntry[] = Array.isArray(parsed.loreEntries)
-    ? parsed.loreEntries.map((entry: any, i: number) => ({
-        id: freshLoreEntryId(i),
-        keywords: asStringArray(entry?.keywords),
-        content: typeof entry?.content === "string" ? entry.content : "",
-        enabled: entry?.enabled !== false,
-      }))
-    : [];
+  // Each returned entry keeps the trigger settings of the entry it came
+  // from: matched by the id the model was asked to echo back, or - when it
+  // dropped the ids but returned the same number of entries - by position.
+  const returned: any[] = Array.isArray(parsed.loreEntries) ? parsed.loreEntries : [];
+  const previousEntries = previous?.loreEntries || [];
+  const previousById = new Map(previousEntries.map((e) => [e.id, e]));
+  const samePositions = returned.length === previousEntries.length;
+  const used = new Set<string>();
+  const loreEntries: LoreEntry[] = returned.map((entry: any, i: number) => {
+    const candidate = (typeof entry?.id === "string" && previousById.get(entry.id)) || (samePositions ? previousEntries[i] : undefined);
+    // A model that copies one id onto two entries mustn't produce duplicate ids.
+    const source = candidate && !used.has(candidate.id) ? candidate : undefined;
+    if (source) used.add(source.id);
+    return {
+      ...source,
+      id: source?.id || freshLoreEntryId(i),
+      keywords: asStringArray(entry?.keywords),
+      content: typeof entry?.content === "string" ? entry.content : "",
+      enabled: entry?.enabled !== false,
+    };
+  });
 
   return {
     name: typeof parsed.name === "string" ? parsed.name : "",

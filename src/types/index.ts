@@ -237,6 +237,16 @@ export interface LoreEntry {
   content: string;
   enabled?: boolean; // defaults to true when unset
   constant?: boolean; // always injected, keywords or not (card spec `constant`)
+  // Advanced trigger settings (#29). Every one is optional and unset means
+  // the plain behavior above, so older lorebooks match exactly as before.
+  // See matchLoreEntries in loreUtils.ts for how they combine.
+  priority?: number; // higher is kept first when the lore budget forces a cut; 0 when unset
+  selective?: boolean; // also require `secondaryKeywords` (card spec `selective`)
+  secondaryKeywords?: string[]; // checked only when `selective` is on (card spec `secondary_keys`)
+  secondaryLogic?: "andAny" | "andAll" | "notAny" | "notAll"; // how secondary keywords combine; "andAny" when unset (SillyTavern `selectiveLogic`)
+  sticky?: number; // stays active for this many messages after it triggers
+  scanDepth?: number; // how many recent messages to scan; LORE_SCAN_MESSAGE_COUNT when unset
+  probability?: number; // 0-100 chance of firing once triggered; 100 when unset
 }
 
 // One user persona - "Myself", "Elven Mage", etc. The active one (see

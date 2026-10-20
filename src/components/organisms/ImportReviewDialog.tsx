@@ -10,6 +10,7 @@ import { useAppDispatch } from "src/store/hooks";
 import { generateAssistText } from "src/features/aiSlice";
 import { ContentRating, LoreEntry } from "src/types";
 import { ContentRatingField } from "src/components/molecules/ContentRatingField";
+import LoreEntryAdvancedSettings from "src/components/molecules/LoreEntryAdvancedSettings";
 import { detectMinorIndicators, characterTextFields } from "src/features/character/contentRating";
 import { ParsedCharacterCard } from "src/features/character/characterCard";
 import {
@@ -89,7 +90,7 @@ const ImportReviewDialog: React.FC<ImportReviewDialogProps> = ({ isOpen, onClose
     try {
       const prompt = buildImportCustomizePrompt(fields, instruction.trim());
       const text = await dispatch(generateAssistText({ instruction: prompt })).unwrap();
-      setFields(parseImportCustomizeResponse(text));
+      setFields(parseImportCustomizeResponse(text, fields));
       setInstruction("");
     } catch (err: any) {
       setAiError(typeof err === "string" ? err : err?.message || "Failed to apply that change. Check your API key in Settings.");
@@ -186,6 +187,7 @@ const ImportReviewDialog: React.FC<ImportReviewDialogProps> = ({ isOpen, onClose
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-semibold text-subtle">Entry {idx + 1}</span>
                   <div className="flex items-center gap-3">
+                    <ToggleSwitch checked={entry.constant === true} onChange={(v) => updateLoreEntry(entry.id, { constant: v || undefined })} label="Always on" className="text-xs" />
                     <ToggleSwitch checked={entry.enabled !== false} onChange={(v) => updateLoreEntry(entry.id, { enabled: v })} label="Enabled" className="text-xs" />
                     <Button
                       type="button"
@@ -202,6 +204,7 @@ const ImportReviewDialog: React.FC<ImportReviewDialogProps> = ({ isOpen, onClose
                 </div>
                 <TagInput value={entry.keywords} onChange={(kws) => updateLoreEntry(entry.id, { keywords: kws })} placeholder="Add a keyword..." />
                 <TextArea value={entry.content} onChange={(e) => updateLoreEntry(entry.id, { content: e.target.value })} className="resize-none min-h-[60px]" />
+                <LoreEntryAdvancedSettings entry={entry} onChange={(patch) => updateLoreEntry(entry.id, patch)} />
               </div>
             ))}
           </div>
