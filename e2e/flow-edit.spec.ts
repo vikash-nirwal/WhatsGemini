@@ -1,4 +1,4 @@
-import { test, expect, openChat, sendMessage, waitForReplyDone, PHONE_REDESIGN_SKIP } from "./fixtures";
+import { test, expect, openChat, sendMessage, messageBubble, waitForReplyDone, PHONE_REDESIGN_SKIP } from "./fixtures";
 
 test.skip(({ isMobile }) => isMobile, PHONE_REDESIGN_SKIP);
 test.use({ seed: { messages: 3 } });
@@ -11,8 +11,17 @@ test("edit your last message and get a new reply to it", async ({ page, mockAI }
   await expect(page.getByText("Coffee is the answer.")).toBeVisible();
   await waitForReplyDone(page);
 
-  await page.getByRole("button", { name: "Message options" }).last().click();
-  await page.getByRole("menuitem", { name: "Edit" }).click();
+  const bubble = messageBubble(page, "Coffee or tea?");
+  await bubble.hover();
+  const edit = bubble.getByRole("button", { name: "Edit", exact: true });
+  if (await edit.count()) {
+    await edit.click();
+  } else {
+    // Before U7 a user message kept Edit in a "Message options" menu
+    // instead of the footer. Drop this branch once U7 is merged.
+    await bubble.getByRole("button", { name: "Message options" }).click();
+    await page.getByRole("menuitem", { name: "Edit" }).click();
+  }
   const dialog = page.getByRole("dialog", { name: "Edit Message" });
   await expect(dialog).toBeVisible();
   const box = dialog.getByRole("textbox");
@@ -29,5 +38,5 @@ test("edit your last message and get a new reply to it", async ({ page, mockAI }
   expect(mockAI.requests).toHaveLength(2);
   expect(mockAI.requests[1].prompt).toContain("Tea or coffee? Pick tea.");
   // The original is kept as an earlier variant of the message.
-  await expect(page.getByText("2/2")).toBeVisible();
+  await expect(messageBubble(page, "Tea or coffee? Pick tea.").getByText("2/2")).toBeVisible();
 });

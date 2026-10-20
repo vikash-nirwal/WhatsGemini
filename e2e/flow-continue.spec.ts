@@ -1,4 +1,4 @@
-import { test, expect, openChat, sendMessage, waitForReplyDone, PHONE_REDESIGN_SKIP } from "./fixtures";
+import { test, expect, openChat, sendMessage, messageBubble, waitForReplyDone, PHONE_REDESIGN_SKIP } from "./fixtures";
 
 test.skip(({ isMobile }) => isMobile, PHONE_REDESIGN_SKIP);
 test.use({ seed: { messages: 3 } });
@@ -11,7 +11,9 @@ test("Continue extends the last reply in place", async ({ page, mockAI }) => {
   await expect(page.getByText("It was a dark and stormy")).toBeVisible();
   await waitForReplyDone(page);
 
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  const reply = messageBubble(page, "It was a dark and stormy");
+  await reply.hover();
+  await reply.getByRole("button", { name: "Continue", exact: true }).click();
   // One message holding both parts, not a second reply.
   await expect(page.getByText("It was a dark and stormy night, and the wind howled.")).toBeVisible();
   await waitForReplyDone(page);

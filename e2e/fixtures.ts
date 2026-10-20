@@ -329,6 +329,12 @@ export const waitForReplyDone = async (page: Page) => {
   await expect(page.getByRole("button", { name: "Send Message" })).toBeVisible();
 };
 
+// The chat bubble holding `text`, so a message action ("Edit", "Regenerate",
+// "Previous variant"...) is clicked on that message and not another one. The
+// footer actions only fade in on hover, so hover the bubble before clicking.
+export const messageBubble = (page: Page, text: string) =>
+  page.locator('[data-slot="message-bubble"]').filter({ hasText: text });
+
 // Flows that use the composer's tool buttons or per-message action buttons
 // skip phones for now: both are being redesigned there (a "+" tool menu and
 // a long-press message menu), so selectors written today would only break.
