@@ -95,6 +95,28 @@ export const insertAfterNode = (
   return { tree: { nodes }, insertedIds };
 };
 
+// Places a compression summary pair into a chat's or adventure's
+// conversation right after the last message it covers, migrating a flat
+// (never-branched) conversation into a tree first. `afterMessageId` is the
+// preferred anchor; `afterIndex` (into the active path) covers older
+// conversations whose messages only get ids during that migration. Returns
+// null when neither points at a real message.
+export const spliceSummaryIntoConversation = (
+  conversation: { content: Message[]; tree?: ConversationTree; activeLeafId?: string | null },
+  afterMessageId: string | undefined,
+  afterIndex: number,
+  summaryMessages: Message[]
+): { tree: ConversationTree; activeLeafId: string | null; content: Message[] } | null => {
+  const base = conversation.tree
+    ? { tree: conversation.tree, activeLeafId: conversation.activeLeafId ?? null, content: conversation.content }
+    : migrateToTree(conversation.content);
+  const anchorId = afterMessageId && base.tree.nodes[afterMessageId] ? afterMessageId : base.content[afterIndex]?.id;
+  if (!anchorId || !base.tree.nodes[anchorId]) return null;
+
+  const { tree } = insertAfterNode(base.tree, anchorId, summaryMessages);
+  return { tree, activeLeafId: base.activeLeafId, content: flattenPath(tree, base.activeLeafId) };
+};
+
 // Replaces a node's message content in place (used for non-branching text
 // edits of an earlier message) without touching its position in the tree.
 export const updateNodeMessage = (tree: ConversationTree, nodeId: string, message: Message): ConversationTree => {

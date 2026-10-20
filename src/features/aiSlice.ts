@@ -15,6 +15,7 @@ import { RootState } from "../store/store";
 import { SDImageParams, Message, ArtStyle, Character, UserProfile, World } from "../types";
 import { buildAdventureSceneImageInstruction, findCastInNarration } from "./ai/utils/adventurePrompt";
 import { insertCompressionSummary, fetchChats } from "./chatSlice";
+import { insertAdventureCompressionSummary } from "./adventureSlice";
 
 export interface GenerateAIResponseResult {
   text: string;
@@ -276,43 +277,64 @@ const initialState: AIState = {
 // call actually happened) alongside the resulting message list, so the caller
 // can fold a compression's spend into the chat's running total instead of it
 // being silently dropped.
+// Shared by the chat and adventure versions below: works out whether a
+// compression is due and, if so, splices the summary in via `insert` and
+// returns the conversation's new active path.
+const runAutoCompression = async (
+  settings: RootState["settings"],
+  messages: Message[],
+  names: TranscriptNames | undefined,
+  insert: (args: { afterMessageId?: string; afterIndex: number; summaryMessages: Message[] }) => Promise<Message[]>
+): Promise<{ messages: Message[]; tokens: number; cost: number; error?: string }> => {
+  try {
+    if (settings.compressThreshold <= 0) return { messages, tokens: 0, cost: 0 };
+    const helper = await resolveHelperCall(settings);
+
+    const result = await buildAutoCompressedMessages(helper.adapter, helper.config, helper.model, messages, settings.compressThreshold, names);
+    // `error` lets the caller tell the user compression is failing (e.g. a
+    // content filter rejecting the transcript) instead of it silently
+    // never happening while the history keeps growing.
+    if (!result.compressed || !result.summaryMessages || result.afterIndex == null) return { messages, tokens: 0, cost: 0, error: result.error };
+
+    // Spliced into the tree after the last summarized message - nothing is
+    // deleted, and the returned path includes everything plus the summary
+    // (prompt building trims to the newest summary).
+    const content = await insert({
+      afterMessageId: messages[result.afterIndex]?.id,
+      afterIndex: result.afterIndex,
+      summaryMessages: result.summaryMessages,
+    });
+
+    const pricing = getModelPricing(helper.providerId, helper.model);
+    const tokens = result.usage?.totalTokens || 0;
+    const cost = result.usage
+      ? (result.usage.inputTokens / 1_000_000) * pricing.input + (result.usage.outputTokens / 1_000_000) * pricing.output
+      : 0;
+    return { messages: content, tokens, cost };
+  } catch (error: any) {
+    console.warn("Auto-compression failed, continuing with full history.", error);
+    return { messages, tokens: 0, cost: 0, error: error?.message || String(error) };
+  }
+};
+
 export const autoCompressChat = createAsyncThunk(
   "ai/autoCompressChat",
-  async ({ chatId, messages, names }: { chatId: number; messages: Message[]; names?: TranscriptNames }, { getState, dispatch }) => {
-    try {
-      const state = getState() as RootState;
-      const settings = state.settings;
-      if (settings.compressThreshold <= 0) return { messages, tokens: 0, cost: 0 };
-      const helper = await resolveHelperCall(settings);
-
-      const result = await buildAutoCompressedMessages(helper.adapter, helper.config, helper.model, messages, settings.compressThreshold, names);
-      // `error` lets the caller tell the user compression is failing (e.g. a
-      // content filter rejecting the transcript) instead of it silently
-      // never happening while the history keeps growing.
-      if (!result.compressed || !result.summaryMessages || result.afterIndex == null) return { messages, tokens: 0, cost: 0, error: result.error };
-
-      // Spliced into the tree after the last summarized message - nothing is
-      // deleted, and the returned path includes everything plus the summary
-      // (callers' buildTurnContext trims to the newest summary).
-      const inserted = await dispatch(insertCompressionSummary({
-        chatId,
-        afterMessageId: messages[result.afterIndex]?.id,
-        afterIndex: result.afterIndex,
-        summaryMessages: result.summaryMessages,
-      })).unwrap();
+  async ({ chatId, messages, names }: { chatId: number; messages: Message[]; names?: TranscriptNames }, { getState, dispatch }) =>
+    runAutoCompression((getState() as RootState).settings, messages, names, async (args) => {
+      const inserted = await dispatch(insertCompressionSummary({ chatId, ...args })).unwrap();
       dispatch(fetchChats());
+      return inserted.content;
+    })
+);
 
-      const pricing = getModelPricing(helper.providerId, helper.model);
-      const tokens = result.usage?.totalTokens || 0;
-      const cost = result.usage
-        ? (result.usage.inputTokens / 1_000_000) * pricing.input + (result.usage.outputTokens / 1_000_000) * pricing.output
-        : 0;
-      return { messages: inserted.content, tokens, cost };
-    } catch (error: any) {
-      console.warn("Auto-compression failed, continuing with full history.", error);
-      return { messages, tokens: 0, cost: 0, error: error?.message || String(error) };
-    }
-  }
+// Same as autoCompressChat, for an adventure's narrator/player turns.
+export const autoCompressAdventure = createAsyncThunk(
+  "ai/autoCompressAdventure",
+  async ({ adventureId, messages, names }: { adventureId: number; messages: Message[]; names?: TranscriptNames }, { getState, dispatch }) =>
+    runAutoCompression((getState() as RootState).settings, messages, names, async (args) => {
+      const inserted = await dispatch(insertAdventureCompressionSummary({ adventureId, ...args })).unwrap();
+      return inserted.content;
+    })
 );
 
 // Async Thunk for compressing chat history (manual "Compress" button)

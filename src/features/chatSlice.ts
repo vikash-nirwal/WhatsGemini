@@ -2,7 +2,7 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { dbService } from "../services/dbService";
 import { LS_INITIAL_MESSAGES, YOU, AI } from "../utils/constants";
 import { Chat, Message, ConversationTree } from "../types";
-import { addChildNode, flattenPath, generateNodeId, insertAfterNode, migrateToTree } from "./chat/messageTree";
+import { addChildNode, flattenPath, generateNodeId, spliceSummaryIntoConversation } from "./chat/messageTree";
 import { applyMacros, getGreetings } from "./ai/utils/macros";
 
 // The persona name a chat speaks as (its own override, else the global active
@@ -171,9 +171,7 @@ export const updateChatTree = createAsyncThunk(
 // Splices a compression summary pair into the chat right after the last
 // message it covers, without deleting anything: the summarized messages and
 // every branch stay in the tree, and the prompt starts from the newest
-// summary (trimToLatestSummary). `afterMessageId` is the preferred anchor;
-// `afterIndex` (into the active path) covers older chats whose messages have
-// no ids until they're migrated to a tree here.
+// summary (trimToLatestSummary). See spliceSummaryIntoConversation.
 export const insertCompressionSummary = createAsyncThunk(
   "chat/insertCompressionSummary",
   async (
@@ -182,19 +180,13 @@ export const insertCompressionSummary = createAsyncThunk(
   ) => {
     try {
       const chat = await dbService.getChatById(chatId);
-      const base = chat.tree
-        ? { tree: chat.tree, activeLeafId: chat.activeLeafId ?? null, content: chat.content }
-        : migrateToTree(chat.content);
-      const anchorId = afterMessageId && base.tree.nodes[afterMessageId] ? afterMessageId : base.content[afterIndex]?.id;
-      if (!anchorId || !base.tree.nodes[anchorId]) throw new Error("Couldn't find where to place the summary.");
-
-      const { tree } = insertAfterNode(base.tree, anchorId, summaryMessages.map((m) => ({ ...m, id: m.id || generateNodeId() })));
-      const content = flattenPath(tree, base.activeLeafId);
-      chat.tree = tree;
-      chat.activeLeafId = base.activeLeafId;
-      chat.content = content;
+      const spliced = spliceSummaryIntoConversation(chat, afterMessageId, afterIndex, summaryMessages);
+      if (!spliced) throw new Error("Couldn't find where to place the summary.");
+      chat.tree = spliced.tree;
+      chat.activeLeafId = spliced.activeLeafId;
+      chat.content = spliced.content;
       await dbService.updateChat(chat);
-      return { chatId, content, tree, activeLeafId: base.activeLeafId };
+      return { chatId, ...spliced };
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }

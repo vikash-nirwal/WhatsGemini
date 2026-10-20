@@ -9,6 +9,7 @@ import {
   findDefaultLeafFrom,
   deleteBranch,
   insertAfterNode,
+  spliceSummaryIntoConversation,
 } from "./messageTree";
 import { Message, ConversationTree } from "../../types";
 
@@ -286,5 +287,25 @@ describe("insertAfterNode", () => {
     const before = JSON.stringify(tree);
     insertAfterNode(tree, content[0].id!, [msg("x")]);
     expect(JSON.stringify(tree)).toBe(before);
+  });
+});
+
+describe("spliceSummaryIntoConversation", () => {
+  const msg = (txt: string): Message => ({ role: "you", txt });
+
+  it("migrates a flat conversation and places the summary by index", () => {
+    const result = spliceSummaryIntoConversation({ content: [msg("a"), msg("b"), msg("c")] }, undefined, 1, [msg("summary")]);
+    expect(result!.content.map((m) => m.txt)).toEqual(["a", "b", "summary", "c"]);
+    expect(Object.keys(result!.tree.nodes)).toHaveLength(4);
+  });
+
+  it("prefers the message id when the conversation is already a tree", () => {
+    const { tree, activeLeafId, content } = migrateToTree([msg("a"), msg("b"), msg("c")]);
+    const result = spliceSummaryIntoConversation({ content, tree, activeLeafId }, content[0].id, 99, [msg("s")]);
+    expect(result!.content.map((m) => m.txt)).toEqual(["a", "s", "b", "c"]);
+  });
+
+  it("returns null when the anchor doesn't exist", () => {
+    expect(spliceSummaryIntoConversation({ content: [msg("a")] }, "nope", 5, [msg("s")])).toBeNull();
   });
 });

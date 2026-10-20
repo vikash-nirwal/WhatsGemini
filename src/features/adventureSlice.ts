@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { dbService } from "../services/dbService";
 import { Adventure, AdventureRules, AdventureStatus, ConversationTree, Message } from "../types";
-import { addChildNode, flattenPath, generateNodeId, updateNodeMessage } from "./chat/messageTree";
+import { addChildNode, flattenPath, generateNodeId, updateNodeMessage, spliceSummaryIntoConversation } from "./chat/messageTree";
 
 // Helper function for error handling
 const handleDbError = (error: unknown, rejectWithValue: any) => {
@@ -111,6 +111,30 @@ export const updateAdventureTree = createAsyncThunk(
       adventure.activeLeafId = activeLeafId;
       await dbService.updateAdventure(adventure);
       return { adventureId, content, tree, activeLeafId };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
+// The adventure counterpart of chatSlice's insertCompressionSummary: puts a
+// compression summary right after the last narrator/player turn it covers,
+// deleting nothing.
+export const insertAdventureCompressionSummary = createAsyncThunk(
+  "adventure/insertCompressionSummary",
+  async (
+    { adventureId, afterMessageId, afterIndex, summaryMessages }: { adventureId: number; afterMessageId?: string; afterIndex: number; summaryMessages: Message[] },
+    { rejectWithValue }
+  ) => {
+    try {
+      const adventure = await dbService.getAdventureById(adventureId);
+      const spliced = spliceSummaryIntoConversation(adventure, afterMessageId, afterIndex, summaryMessages);
+      if (!spliced) throw new Error("Couldn't find where to place the summary.");
+      adventure.tree = spliced.tree;
+      adventure.activeLeafId = spliced.activeLeafId;
+      adventure.content = spliced.content;
+      await dbService.updateAdventure(adventure);
+      return { adventureId, ...spliced };
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
@@ -271,6 +295,14 @@ const adventureSlice = createSlice({
         state.error = action.payload as string;
       })
       .addCase(updateAdventureTree.fulfilled, (state, action) => {
+        const adventure = state.adventures.find((a) => a.id === action.payload.adventureId);
+        if (adventure) {
+          adventure.content = action.payload.content;
+          adventure.tree = action.payload.tree;
+          adventure.activeLeafId = action.payload.activeLeafId;
+        }
+      })
+      .addCase(insertAdventureCompressionSummary.fulfilled, (state, action) => {
         const adventure = state.adventures.find((a) => a.id === action.payload.adventureId);
         if (adventure) {
           adventure.content = action.payload.content;

@@ -282,7 +282,9 @@ export type AdventureStatus = "active" | "completed";
 export interface AdventureRules {
   choiceCount?: number; // how many tappable options the narrator should offer each turn; a sensible default applies when unset
   replyLengthLimit?: number; // same budget concept as Character/Chat replies
-  safetySettings?: AISafetySettings; // per-adventure override of the global safety settings
+  // Things this story must never include, whatever the cast's rating - the
+  // adventure equivalent of Chat.hardLimits, sent right before each reply.
+  hardLimits?: string[];
   // Scene illustrations: when on, every narrator turn also gets a generated
   // picture of the scene (players can still illustrate any turn by hand when off).
   autoIllustrate?: boolean;

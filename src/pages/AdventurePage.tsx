@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo, FaImage, FaSyncAlt, FaTimes, FaPalette, FaBookOpen, FaComments, FaFont } from "react-icons/fa";
+import { FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo, FaImage, FaSyncAlt, FaTimes, FaPalette, FaBookOpen, FaComments, FaFont, FaShieldAlt, FaCompressArrowsAlt } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { deleteAdventure, addAdventureMessage, updateAdventureStatus, incrementAdventureUsage, updateAdventureMessage, updateAdventureRules } from "../features/adventureSlice";
-import { generateAIResponse, generateAdventureSceneImage } from "../features/aiSlice";
-import { buildChatHistory } from "../features/ai/utils/promptComposition";
-import { buildAdventureSystemInstruction, parseAdventureChoices, extractAdventureEmotions, ADVENTURE_OPENING_PROMPT } from "../features/ai/utils/adventurePrompt";
+import { generateAIResponse, generateAdventureSceneImage, autoCompressAdventure } from "../features/aiSlice";
+import { buildChatHistory, buildPostHistoryNote } from "../features/ai/utils/promptComposition";
+import { trimToLatestSummary, countProtectedPrefix, latestSummaryIndex } from "../features/ai/utils/transcript";
+import { TagInput } from "src/components/molecules/form-controls/TagInput";
+import { buildAdventureSystemInstruction, parseAdventureChoices, extractAdventureEmotions, streamingNarrationForDisplay, ADVENTURE_OPENING_PROMPT } from "../features/ai/utils/adventurePrompt";
 import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
 import { setEmotionPanelEnabled } from "../features/settingsSlice";
 import EmotionSpritePanel from "src/components/molecules/EmotionSpritePanel";
@@ -120,6 +122,12 @@ const AdventurePage = () => {
   // Composer toggle: illustrate the narrator's reply to the next action,
   // focused on what the player asked to see.
   const [imageRequested, setImageRequested] = useState(false);
+  const [boundariesOpen, setBoundariesOpen] = useState(false);
+  const roleplayStyle = useAppSelector((state) => state.settings.roleplayStyle);
+  // Streams the narrator's reply in, tagged so only this adventure shows it.
+  const streamKey = adventure ? `adventure-${adventure.id}` : undefined;
+  const streamingReply = useAppSelector((state) => state.ai.streamingReply);
+  const streamingText = streamingReply && streamingReply.key === streamKey ? streamingNarrationForDisplay(streamingReply.text) : "";
 
   const illustrateMessage = useCallback(
     async (msg: Message, { regenerate = false, requestedFocus, includeFullCast = false }: { regenerate?: boolean; requestedFocus?: string; includeFullCast?: boolean } = {}) => {
@@ -165,9 +173,15 @@ const AdventurePage = () => {
   const generateNarratorReply = useCallback(
     async (prompt: string, contextMessages: Message[], imageRequestFocus?: string) => {
       if (!adventure) return;
-      const history = buildChatHistory(contextMessages);
-      const systemInstruction = buildAdventureSystemInstruction(adventure, world, cast, persona, contextMessages);
-      const result = await dispatch(generateAIResponse({ prompt, history, systemInstruction })).unwrap();
+      // Turns an earlier compression already summarized stay in the story but
+      // aren't sent: the narrator sees the newest summary onward.
+      const sentMessages = trimToLatestSummary(contextMessages);
+      const history = buildChatHistory(sentMessages);
+      const systemInstruction = buildAdventureSystemInstruction(adventure, world, cast, persona, sentMessages, { roleplayStyle });
+      // Hard limits go after the history, where models weigh them most -
+      // same as a chat's boundaries.
+      const postHistoryNote = buildPostHistoryNote(undefined, undefined, persona, { hardLimits: adventure.rules?.hardLimits });
+      const result = await dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, protectedCount: countProtectedPrefix(sentMessages) })).unwrap();
       // Emotions first: the tag can land on either side of the choices block.
       const { text: withoutEmotions, castEmotions } = extractAdventureEmotions(result.text, cast);
       const { text, choices } = parseAdventureChoices(withoutEmotions);
@@ -184,7 +198,7 @@ const AdventurePage = () => {
         if (narratorMessage) illustrateMessage(narratorMessage, { requestedFocus: imageRequestFocus, includeFullCast: !!imageRequestFocus });
       }
     },
-    [adventure, world, cast, persona, dispatch, illustrateMessage]
+    [adventure, world, cast, persona, dispatch, illustrateMessage, roleplayStyle, streamKey]
   );
 
   const runOpeningTurn = useCallback(async () => {
@@ -210,15 +224,26 @@ const AdventurePage = () => {
       setGenerating(true);
       setInputText("");
       try {
-        const contextMessages = await dispatch(addAdventureMessage({ adventureId: adventure.id, message: { role: YOU, txt: text, chosenChoiceId, isImageRequest: isImageRequest || undefined } })).unwrap();
-        await generateNarratorReply(text, contextMessages, isImageRequest ? text : undefined);
+        const added = await dispatch(addAdventureMessage({ adventureId: adventure.id, message: { role: YOU, txt: text, chosenChoiceId, isImageRequest: isImageRequest || undefined } })).unwrap();
+        // Same automatic compression chats get, so a long adventure keeps its
+        // plot instead of the history cap silently trimming the start.
+        const compressed = await dispatch(autoCompressAdventure({
+          adventureId: adventure.id,
+          messages: added,
+          names: { userName: persona?.name?.trim() || undefined, charName: "Narrator" },
+        })).unwrap();
+        if (compressed.error) setError(`Couldn't summarize older turns: ${compressed.error}`);
+        if (compressed.tokens || compressed.cost) {
+          dispatch(incrementAdventureUsage({ adventureId: adventure.id, tokens: compressed.tokens, cost: compressed.cost }));
+        }
+        await generateNarratorReply(text, compressed.messages, isImageRequest ? text : undefined);
       } catch (err: any) {
         setError(typeof err === "string" ? err : "Failed to continue the adventure. Check your API key in Settings.");
       } finally {
         setGenerating(false);
       }
     },
-    [adventure, generating, imageRequested, dispatch, generateNarratorReply]
+    [adventure, generating, imageRequested, dispatch, generateNarratorReply, persona]
   );
 
   // A brand-new adventure has no opening scene yet - trigger it once,
@@ -300,6 +325,8 @@ const AdventurePage = () => {
   const activeChoices = !generating && !isCompleted && lastMessage?.role === AI ? lastMessage.choices : undefined;
 
   const autoIllustrate = !!adventure.rules?.autoIllustrate;
+  const latestSummaryAt = latestSummaryIndex(adventure.content);
+  const hardLimits = adventure.rules?.hardLimits || [];
 
   const viewModeAction: HeaderAction = {
     icon: viewMode === "novel" ? FaComments : FaBookOpen,
@@ -322,6 +349,12 @@ const AdventurePage = () => {
       icon: isCompleted ? FaUndo : FaCheckCircle,
       label: isCompleted ? "Reopen adventure" : "Mark completed",
       onClick: () => dispatch(updateAdventureStatus({ adventureId: adventure.id, status: isCompleted ? "active" : "completed" })),
+    },
+    {
+      icon: FaShieldAlt,
+      label: hardLimits.length > 0 ? `Boundaries: ${hardLimits.length} hard limit${hardLimits.length === 1 ? "" : "s"}` : "Boundaries",
+      active: hardLimits.length > 0,
+      onClick: () => setBoundariesOpen(true),
     },
     { icon: FaTrash, label: "Delete adventure", onClick: handleDelete, danger: true },
   ];
@@ -406,11 +439,26 @@ const AdventurePage = () => {
               </div>
             )}
             {adventure.content.map((msg, i) => {
+              // The hidden acknowledgement half of a summary pair.
+              if (msg.isSystem) return null;
+              if (msg.isCompressionSummary) {
+                return (
+                  <details key={msg.id || i} className="rounded-xl border border-border/50 bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
+                    <summary className="cursor-pointer select-none font-semibold flex items-center gap-2">
+                      <FaCompressArrowsAlt size={11} /> Story so far (summarized - earlier turns above are no longer sent to the narrator)
+                    </summary>
+                    <div className="mt-2 text-left">
+                      <MarkdownRenderer msgText={msg.txt || ""} isUser={false} />
+                    </div>
+                  </details>
+                );
+              }
+              const summarized = i < latestSummaryAt;
               if (viewMode === "novel") {
                 const isFirstAi = msg.role === AI && adventure.content.findIndex((m) => m.role === AI) === i;
                 return (
+                  <div key={msg.id || i} className={cn(summarized && "opacity-60")}>
                   <NovelMessageItem
-                    key={msg.id || i}
                     msg={msg}
                     index={i}
                     cast={cast}
@@ -429,11 +477,12 @@ const AdventurePage = () => {
                     fontFamily={fontFamily}
                     fontSize={fontSize}
                   />
+                  </div>
                 );
               }
 
               return (
-                <div key={msg.id || i} className={cn("flex", msg.role === YOU ? "justify-end" : "justify-start")}>
+                <div key={msg.id || i} className={cn("flex", msg.role === YOU ? "justify-end" : "justify-start", summarized && "opacity-60")}>
                   {msg.role === YOU ? (
                     <div className="max-w-[80%] rounded-2xl bg-primary text-primary-foreground px-4 py-2.5">
                       <MarkdownRenderer msgText={msg.txt || ""} isUser={true} />
@@ -494,7 +543,12 @@ const AdventurePage = () => {
                 </div>
               );
             })}
-            {generating && (
+            {generating && streamingText && (
+              <div className="w-full">
+                <MarkdownRenderer msgText={streamingText} isUser={false} />
+              </div>
+            )}
+            {generating && !streamingText && (
               <div className="flex items-center gap-1.5 text-muted-foreground text-sm">
                 <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.3s]" />
                 <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.15s]" />
@@ -512,6 +566,24 @@ const AdventurePage = () => {
         )}
       </div>
       <EmotionPopup trigger={popupTrigger} durationMs={emotionPopupDuration} />
+      <Dialog open={boundariesOpen} onOpenChange={setBoundariesOpen}>
+        <DialogContent className="max-w-md">
+          <DialogTitle>Boundaries</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Hard limits: things this story must never include, whatever the cast's content rating. They're sent to the narrator right before every reply.
+          </p>
+          <TagInput
+            value={hardLimits}
+            onChange={(next) => dispatch(updateAdventureRules({ adventureId: adventure.id, rules: { ...adventure.rules, hardLimits: next.length > 0 ? next : undefined } }))}
+            placeholder="Add a limit and press Enter"
+          />
+          <div className="flex justify-end">
+            <DialogClose asChild>
+              <Button variant="outline" size="sm">Done</Button>
+            </DialogClose>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {isCompleted ? (
         <div className="flex-shrink-0 px-4 md:px-8 py-4 border-t border-border/40 flex items-center justify-center gap-3 text-sm text-muted-foreground">

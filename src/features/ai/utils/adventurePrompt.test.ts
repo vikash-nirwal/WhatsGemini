@@ -1,4 +1,4 @@
-import { parseAdventureChoices, buildAdventureSystemInstruction, findCastInNarration, buildAdventureSceneImageInstruction, extractAdventureEmotions, buildAdventureEmotionDirective, ADVENTURE_CHOICES_START, ADVENTURE_CHOICES_END } from "./adventurePrompt";
+import { parseAdventureChoices, buildAdventureSystemInstruction, adventureContentRating, streamingNarrationForDisplay, findCastInNarration, buildAdventureSceneImageInstruction, extractAdventureEmotions, buildAdventureEmotionDirective, ADVENTURE_CHOICES_START, ADVENTURE_CHOICES_END } from "./adventurePrompt";
 import { Adventure, Character, World } from "../../../types";
 
 describe("parseAdventureChoices", () => {
@@ -197,5 +197,48 @@ describe("buildAdventureSceneImageInstruction full cast", () => {
 
   it("leaves casting to the narration otherwise", () => {
     expect(buildAdventureSceneImageInstruction("Mira waits.", undefined, cast, undefined, "s", "b", false)).not.toContain("whole cast");
+  });
+});
+
+describe("adventure content rules", () => {
+  const adventure: Adventure = { id: 1, title: "T", timestamp: 0, characterIds: [], status: "active", content: [] };
+  const npc = (id: number, extra: Partial<Character> = {}): Character => ({ id, name: `NPC${id}`, description: "An adult ranger.", prompt: "", ...extra });
+  const adult = (id: number) => npc(id, { contentRating: "nsfw", adultsConfirmed: true });
+
+  it("is explicit only when every cast member is effectively NSFW", () => {
+    expect(adventureContentRating([adult(1), adult(2)])).toBe("nsfw");
+    expect(adventureContentRating([adult(1), npc(2, { contentRating: "sfw" })])).toBe("sfw");
+    expect(adventureContentRating([adult(1), npc(2)])).toBe("sfw");
+  });
+
+  it("sends no content rule for an unrated or empty cast", () => {
+    expect(adventureContentRating([npc(1)])).toBeUndefined();
+    expect(adventureContentRating([])).toBeUndefined();
+  });
+
+  it("puts the content rule and roleplay style into the narrator prompt", () => {
+    const text = buildAdventureSystemInstruction(adventure, undefined, [npc(1, { contentRating: "sfw" })], { id: "p", name: "Arin", bio: "" }, [], {
+      roleplayStyle: { pov: "first", actionsInAsterisks: true, neverSpeakForUser: true, timeAwareness: false, customInstructions: "Keep it witty." },
+    });
+    expect(text).toContain("keep this story non-explicit");
+    expect(text).toContain("*asterisks*");
+    expect(text).toContain("(OOC: ...)");
+    expect(text).toContain("Keep it witty.");
+    expect(text).not.toContain("first person");
+  });
+});
+
+describe("streamingNarrationForDisplay", () => {
+  it("hides the emotions tag and choices block", () => {
+    expect(streamingNarrationForDisplay(`You enter.\n[Emotions: Mira=happy]\n${ADVENTURE_CHOICES_START}\n1. Go`)).toBe("You enter.");
+  });
+
+  it("hides a tag or block that has only partly arrived", () => {
+    expect(streamingNarrationForDisplay("You enter.\n[Emo")).toBe("You enter.");
+    expect(streamingNarrationForDisplay("You enter.\n<<")).toBe("You enter.");
+  });
+
+  it("leaves ordinary narration alone", () => {
+    expect(streamingNarrationForDisplay("The door creaks open.")).toBe("The door creaks open.");
   });
 });

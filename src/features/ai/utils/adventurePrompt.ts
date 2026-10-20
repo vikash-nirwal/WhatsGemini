@@ -1,7 +1,9 @@
-import { Adventure, AdventureChoice, Character, Message, UserProfile, World } from "../../../types";
+import { Adventure, AdventureChoice, Character, ContentRating, Message, RoleplayStyle, UserProfile, World } from "../../../types";
 import { DEFAULT_ADVENTURE_CHOICE_COUNT, EMOTIONS } from "../../../utils/constants";
 import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
 import { getEmotionVocabulary } from "./emotionUtils";
+import { effectiveContentRating } from "../../character/contentRating";
+import { NSFW_CONTENT_RULE, SFW_CONTENT_RULE } from "./promptComposition";
 
 // Delimiters the narrator is instructed to wrap its suggested next actions
 // in, at the end of every reply - parsed back out by parseAdventureChoices
@@ -20,12 +22,36 @@ export const ADVENTURE_OPENING_PROMPT =
 // (role, world/lore, premise, cast, player persona, output contract) - same
 // shape as promptComposition.ts's buildSystemInstruction, just for a single
 // narrator voice controlling a whole scene instead of one character.
+// An adventure is only as permissive as its strictest cast member, the same
+// rule group chats use: explicit content needs every NPC to be effectively
+// NSFW; any rated cast short of that keeps the story non-explicit; a cast
+// with no ratings at all (or no cast) sends no content rule, like an
+// unrated character.
+export const adventureContentRating = (cast: Character[]): ContentRating | undefined => {
+  const ratings = cast.map(effectiveContentRating);
+  if (ratings.length > 0 && ratings.every((r) => r === "nsfw")) return "nsfw";
+  return ratings.some(Boolean) ? "sfw" : undefined;
+};
+
+// The parts of the app-wide roleplay style that make sense for a narrator.
+// Point of view and "never speak for the player" are already fixed by the
+// narrator role itself (second person, the player controls only themselves).
+const buildAdventureStyleSection = (style: RoleplayStyle | undefined, playerName: string): string => {
+  const rules: string[] = [];
+  if (style?.actionsInAsterisks) rules.push("Put actions and narration in *asterisks* and spoken dialogue in plain text or quotes.");
+  rules.push(`Anything ${playerName} writes inside (OOC: ...) or ((double parentheses)) is an out-of-character direction from the player, not an in-story action: follow it, without characters reacting to it.`);
+  const custom = style?.customInstructions?.trim();
+  if (custom) rules.push(custom);
+  return `Roleplay rules:\n- ${rules.join("\n- ")}`;
+};
+
 export const buildAdventureSystemInstruction = (
   adventure: Adventure,
   world: World | undefined,
   cast: Character[],
   activePersona: UserProfile | undefined,
-  recentMessages: Message[]
+  recentMessages: Message[],
+  options: { roleplayStyle?: RoleplayStyle } = {}
 ): string => {
   const sections: string[] = [
     "You are the narrator and game master for an interactive text adventure. Narrate the world and voice every NPC yourself - the player only ever controls their own character, never anyone else. Write in second person (\"you\") addressing the player directly, describing what happens as a result of their last action.",
@@ -62,6 +88,12 @@ export const buildAdventureSystemInstruction = (
     if (activePersona.backstory) parts.push(`Backstory: ${activePersona.backstory}.`);
     if (parts.length > 0) sections.push(`About the player you are addressing as "you":\n${parts.join(" ")}`);
   }
+
+  const rating = adventureContentRating(cast);
+  if (rating === "nsfw") sections.push(NSFW_CONTENT_RULE);
+  else if (rating === "sfw") sections.push(SFW_CONTENT_RULE);
+
+  sections.push(buildAdventureStyleSection(options.roleplayStyle, activePersona?.name?.trim() || "the player"));
 
   if (cast.length > 0) sections.push(buildAdventureEmotionDirective(cast));
 
@@ -167,6 +199,18 @@ export const buildAdventureEmotionDirective = (cast: Character[]): string => {
     ...extras,
     "Leave out NPCs who aren't in the scene; omit the line entirely if none are. Never mention this line in your narration.",
   ].join(" ");
+};
+
+// Display-only cleanup for narration that's still streaming in: hides the
+// trailing emotions tag and choices block (shown properly once the reply is
+// parsed), including either one that has only partly arrived ("[Emo", "<<").
+export const streamingNarrationForDisplay = (text: string): string => {
+  let shown = text;
+  const choices = shown.indexOf(ADVENTURE_CHOICES_START);
+  if (choices >= 0) shown = shown.slice(0, choices);
+  const tag = shown.search(/\[\s*emotions?\s*:/i);
+  if (tag >= 0) shown = shown.slice(0, tag);
+  return shown.replace(/(\[[^\]\n]{0,12}|<{1,2})$/, "").trimEnd();
 };
 
 // Pulls the narrator's [Emotions: Name=word; ...] tag out of a raw reply
