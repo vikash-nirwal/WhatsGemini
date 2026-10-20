@@ -165,4 +165,41 @@ describe("comfyuiAdapter", () => {
 
     expect(String((global.fetch as jest.Mock).mock.calls[0][0])).toBe("http://127.0.0.1:8188/prompt");
   });
+
+  describe("a character's own local settings (#40)", () => {
+    it("pin the seed, load the character's LoRA and add its trigger word", async () => {
+      saveComfySettings({ ...DEFAULT_COMFYUI_SETTINGS, seed: "42" });
+      const fake = createFakeComfy();
+      install(fake);
+
+      await adapter.generateImage(
+        { model: "", prompt: "Aria at the beach", referenceImages: [REF], localImageSettings: { seed: 1234, loraName: "aria_v1", loraWeight: 0.65, loraTrigger: "aria_char" } },
+        {}
+      );
+
+      const workflow = fake.queuedWorkflow();
+      expect(workflow["6"].inputs.seed).toBe(1234);
+      expect(workflow["2"].inputs).toMatchObject({ lora_name: "aria_v1.safetensors", strength_model: 0.65 });
+      expect(workflow["3"].inputs.text).toBe("aria_char, Aria at the beach");
+    });
+
+    it("pick the template from the reference mode", async () => {
+      const fake = createFakeComfy();
+      install(fake);
+
+      await adapter.generateImage({ model: "", prompt: "Aria", referenceImages: [REF], localImageSettings: { referenceMode: "reactor" } }, {});
+
+      expect(Object.values(fake.queuedWorkflow()).some((n: any) => /ReActor/i.test(n.class_type))).toBe(true);
+    });
+
+    it("leave the photos out when the mode is none", async () => {
+      const fake = createFakeComfy();
+      install(fake);
+
+      await adapter.generateImage({ model: "", prompt: "Aria", referenceImages: [REF], localImageSettings: { referenceMode: "none" } }, {});
+
+      expect(fake.paths()).not.toContain("POST /upload/image");
+      expect(Object.values(fake.queuedWorkflow()).some((n: any) => n.class_type === "LoadImage")).toBe(false);
+    });
+  });
 });

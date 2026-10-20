@@ -1,8 +1,10 @@
 import { Page, Request } from "@playwright/test";
-import { test, expect, openChat, sendMessage, waitForReplyDone, ARIA } from "./fixtures";
+import { test, expect, openChat, openRoute, sendMessage, waitForReplyDone, ARIA } from "./fixtures";
+import { mockComfyUI } from "./comfyui";
 
-// #36-#38: a character's appearance photo reaches each image provider as a
-// reference. The provider's HTTP endpoints are mocked with page.route, so
+// #36-#41: a character's appearance photo reaches each image provider as a
+// reference, along with the locked look and, for local providers, the
+// character's own seed and LoRA. The provider's HTTP endpoints are mocked with page.route, so
 // what's checked is the request the browser actually sends.
 
 // A 1x1 PNG. Small enough that the app sends it as is (it only downscales
@@ -17,12 +19,12 @@ const RESULT_DATA_URL = `data:image/png;base64,${RESULT_PNG}`;
 // summary becomes Aria's reply.
 const DERIVATION_REPLY = "PROMPT:\nAria waving at the camera, selfie\n\nSUMMARY:\nHere's me right now! [Image Context: Aria waving]";
 
-// Gives Aria an appearance photo. Runs on the app's origin, after the
-// fixture has created and seeded the database.
-const addAppearanceImage = async (page: Page) => {
+// Gives Aria an appearance photo, plus any other fields. Runs on the app's
+// origin, after the fixture has created and seeded the database.
+const addAppearanceImage = async (page: Page, extra: Record<string, unknown> = {}) => {
   await page.goto("./");
   await page.evaluate(
-    async ({ id, image }) => {
+    async ({ id, image, extra }) => {
       const db: IDBDatabase = await new Promise((resolve, reject) => {
         const req = indexedDB.open("ChatAppDB");
         req.onsuccess = () => resolve(req.result);
@@ -32,18 +34,18 @@ const addAppearanceImage = async (page: Page) => {
         const tx = db.transaction("characters", "readwrite");
         const store = tx.objectStore("characters");
         const get = store.get(id);
-        get.onsuccess = () => store.put({ ...get.result, appearanceImages: [image] });
+        get.onsuccess = () => store.put({ ...get.result, appearanceImages: [image], ...extra });
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
       });
       db.close();
     },
-    { id: ARIA.id, image: `data:image/png;base64,${REFERENCE_PNG}` }
+    { id: ARIA.id, image: `data:image/png;base64,${REFERENCE_PNG}`, extra }
   );
 };
 
-const requestPictureFromAria = async (page: Page) => {
-  await addAppearanceImage(page);
+const requestPictureFromAria = async (page: Page, extra: Record<string, unknown> = {}) => {
+  await addAppearanceImage(page, extra);
   await openChat(page);
   await sendMessage(page, "/image a selfie please");
   // Wan polls every 5 seconds, so its picture takes a little longer.
@@ -170,6 +172,69 @@ test.describe("Wan", () => {
     expect(content[0].text).toContain("Aria waving at the camera");
     // The app labels the reference image/jpeg; the adapter corrects it from the bytes.
     expect(content.slice(1)).toEqual([{ image: `data:image/png;base64,${REFERENCE_PNG}` }]);
+  });
+});
+
+test.describe("ComfyUI", () => {
+  test.use({ seed: { messages: 2 }, localStorageOverrides: { image_provider: "comfyui" } });
+
+  test("gets the photo, the locked look, and the character's seed and LoRA", async ({ page }) => {
+    const comfy = await mockComfyUI(page);
+
+    await requestPictureFromAria(page, {
+      visualTags: "silver hair, violet eyes",
+      localImageSettings: { seed: 1234, loraName: "aria_v1", loraWeight: 0.7, loraTrigger: "aria_char" },
+    });
+
+    expect(comfy.sequence()[0]).toBe("POST /upload/image");
+    const nodes = Object.values(comfy.queuedWorkflow() as Record<string, { class_type: string; inputs: Record<string, any> }>);
+    const texts = nodes.filter((n) => typeof n.inputs.text === "string").map((n) => n.inputs.text as string);
+    expect(texts.some((t) => t.startsWith("aria_char, ") && t.includes("Aria: silver hair, violet eyes.") && t.includes("Aria waving at the camera"))).toBe(true);
+    expect(nodes.find((n) => "seed" in n.inputs)?.inputs.seed).toBe(1234);
+    expect(nodes.find((n) => "lora_name" in n.inputs)?.inputs).toMatchObject({ lora_name: "aria_v1.safetensors", strength_model: 0.7 });
+    expect(nodes.find((n) => n.class_type === "LoadImage")?.inputs.image).toBe(comfy.requests[0].uploadName);
+  });
+});
+
+test.describe("Reference sheet", () => {
+  test.use({
+    seed: { messages: 2 },
+    localStorageOverrides: { image_provider: "openai", image_model: "gpt-image-1-mini", provider_api_key_openai: "sk-test" },
+  });
+
+  test("draws three views from the locked look and adds them as references", async ({ page }) => {
+    const prompts: string[] = [];
+    await page.route("https://api.openai.com/v1/images/**", (route) => {
+      prompts.push(route.request().postDataJSON().prompt);
+      return route.fulfill({ json: { data: [{ b64_json: RESULT_PNG }] } });
+    });
+    // Open the editor first: opening a route seeds the database again.
+    await openRoute(page, `/characters/${ARIA.id}/edit`);
+    await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
+    await page.evaluate(async (id) => {
+      const db: IDBDatabase = await new Promise((resolve, reject) => {
+        const req = indexedDB.open("ChatAppDB");
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      await new Promise<void>((resolve) => {
+        const tx = db.transaction("characters", "readwrite");
+        const store = tx.objectStore("characters");
+        const get = store.get(id);
+        get.onsuccess = () => store.put({ ...get.result, visualTags: "silver hair, violet eyes" });
+        tx.oncomplete = () => resolve();
+      });
+      db.close();
+    }, ARIA.id);
+    await page.reload();
+    await expect(page.getByLabel("Locked look for pictures")).toHaveValue("silver hair, violet eyes", { timeout: 30_000 });
+    await page.getByRole("button", { name: /Generate reference sheet/ }).click();
+    await expect(page.getByRole("button", { name: /Generate reference sheet/ })).toBeEnabled({ timeout: 20_000 });
+
+    expect(prompts).toHaveLength(3);
+    for (const prompt of prompts) expect(prompt).toContain("Character portrait of Aria. silver hair, violet eyes.");
+    expect(prompts.map((p) => /front|three-quarter|side/i.exec(p)?.[0].toLowerCase())).toEqual(["front", "three-quarter", "side"]);
+    await expect(page.getByRole("button", { name: /Make reference \d the main reference/ })).toHaveCount(2);
   });
 });
 

@@ -19,6 +19,25 @@ import {
   DEFAULT_IMAGE_RESOLUTION,
 } from "../../../utils/constants";
 
+// ControlNet presets for keeping a face (#40): IP-Adapter copies the overall
+// look, FaceID copies the face itself. The Plus v2 FaceID models work best
+// with their companion LoRA (ip-adapter-faceid-plusv2_*_lora) in the prompt.
+export const CONTROLNET_FACE_PRESETS: { label: string; model: string }[] = [
+  { label: "IP-Adapter (SD 1.5)", model: "ip-adapter_sd15" },
+  { label: "FaceID Plus v2 (SD 1.5)", model: "ip-adapter-faceid-plusv2_sd15" },
+  { label: "FaceID Plus v2 (SDXL)", model: "ip-adapter-faceid-plusv2_sdxl" },
+];
+
+// Each IP-Adapter model only works with its own preprocessor; without one,
+// ControlNet feeds the photo in raw and the face isn't carried over.
+export const controlnetModuleFor = (model: string): string | undefined => {
+  const m = model.toLowerCase();
+  if (m.includes("faceid")) return m.includes("plus") ? "ip-adapter_face_id_plus" : "ip-adapter_face_id";
+  if (m.includes("ip-adapter") && m.includes("sd15")) return "ip-adapter_clip_sd15";
+  if (m.includes("ip-adapter") && m.includes("sdxl")) return m.includes("vit-h") ? "ip-adapter_clip_sd15" : "ip-adapter_clip_sdxl";
+  return undefined;
+};
+
 export const generateSDImage = async (
   derivedImagePrompt: string,
   derivedParams: SDImageParams,
@@ -87,6 +106,7 @@ export const generateSDImage = async (
             {
               input_image: refImageBase64,
               model: controlnetModel,
+              ...(controlnetModuleFor(controlnetModel) ? { module: controlnetModuleFor(controlnetModel) } : {}),
               enabled: true
             }
           ]

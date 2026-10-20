@@ -1,4 +1,4 @@
-import { AISafetySettings, SamplerSettings } from "../../../types";
+import { AISafetySettings, LocalImageSettings, SamplerSettings } from "../../../types";
 import { ChatMessage, NormalizedImage, UsageInfo } from "../types";
 
 // Capability flags let Settings UI hide/disable controls a given provider can't
@@ -66,6 +66,9 @@ export interface ImageGenCallOptions {
   // if omitted). aspectRatio: e.g. "1:1", "3:4", "16:9".
   imageSize?: string;
   aspectRatio?: string;
+  // The replying character's seed, LoRA and reference mode (#40). Only the
+  // local providers (ComfyUI here; SD WebUI has its own path) use it.
+  localImageSettings?: LocalImageSettings;
 }
 
 export interface ImageGenCallResult {

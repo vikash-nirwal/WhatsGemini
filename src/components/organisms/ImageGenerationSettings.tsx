@@ -11,6 +11,7 @@ import { ProviderPicker } from 'src/components/molecules/ProviderPicker';
 import { SegmentedControl } from 'src/components/molecules/SegmentedControl';
 import { NumberStepper } from 'src/components/molecules/NumberStepper';
 import ComfyUISettings from './ComfyUISettings';
+import { CONTROLNET_FACE_PRESETS } from '../../features/ai/utils/sdWebuiUtils';
 
 interface ImageGenerationSettingsProps {
   imageProvider: string;
@@ -220,9 +221,24 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
                     value={sdWebuiControlnetModel}
                     onChange={(e) => setSdWebuiControlnetModel(e.target.value)}
                     placeholder="e.g. ip-adapter_sd15"
+                    aria-label="ControlNet model"
                   />
+                  <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="ControlNet presets">
+                    {CONTROLNET_FACE_PRESETS.map((preset) => (
+                      <Button
+                        key={preset.model}
+                        type="button"
+                        size="sm"
+                        variant={sdWebuiControlnetModel === preset.model ? 'default' : 'outline'}
+                        aria-pressed={sdWebuiControlnetModel === preset.model}
+                        onClick={() => setSdWebuiControlnetModel(preset.model)}
+                      >
+                        {preset.label}
+                      </Button>
+                    ))}
+                  </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Make sure this model is installed in your Forge/WebUI.
+                    FaceID keeps the face itself; plain IP-Adapter copies the overall look. The matching preprocessor is picked for you. Make sure the model is installed in your Forge/WebUI.
                   </p>
                 </div>
               )}

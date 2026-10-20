@@ -1,4 +1,4 @@
-import { generateSDImage } from "./sdWebuiUtils";
+import { controlnetModuleFor, generateSDImage } from "./sdWebuiUtils";
 
 jest.mock("./imageProcessing", () => ({
   appendCharacterImages: async (images: string[]) => images.map((data) => ({ data, mimeType: "image/png" })),
@@ -31,6 +31,12 @@ describe("generateSDImage with per-character settings", () => {
     expect(bodies[0].alwayson_scripts.reactor.args[23]).toBe("mira_face.safetensors");
   });
 
+  it("sends the FaceID preprocessor with a FaceID ControlNet model", async () => {
+    localStorage.setItem("sd_webui_controlnet_model", "ip-adapter-faceid-plusv2_sdxl");
+    await generateSDImage("1girl", {}, ["REF"], "Mira", undefined, { referenceMode: "controlnet" });
+    expect(bodies[0].alwayson_scripts.controlnet.args[0]).toMatchObject({ input_image: "REF", model: "ip-adapter-faceid-plusv2_sdxl", module: "ip-adapter_face_id_plus" });
+  });
+
   it("the character's reference mode overrides the app's", async () => {
     localStorage.setItem("sd_webui_ref_mode", "controlnet");
     await generateSDImage("1girl", {}, ["REF"], "Mira", undefined, { referenceMode: "img2img" });
@@ -44,5 +50,15 @@ describe("generateSDImage with per-character settings", () => {
     expect(bodies[0].prompt).toBe("1girl");
     expect(bodies[0].seed).toBe(7);
     expect(bodies[0].alwayson_scripts.reactor.args[23]).toBe("mira.safetensors");
+  });
+});
+
+describe("controlnetModuleFor", () => {
+  it("picks the preprocessor that matches the IP-Adapter model", () => {
+    expect(controlnetModuleFor("ip-adapter-faceid-plusv2_sd15")).toBe("ip-adapter_face_id_plus");
+    expect(controlnetModuleFor("ip-adapter-faceid_sdxl")).toBe("ip-adapter_face_id");
+    expect(controlnetModuleFor("ip-adapter_sd15")).toBe("ip-adapter_clip_sd15");
+    expect(controlnetModuleFor("ip-adapter_sdxl")).toBe("ip-adapter_clip_sdxl");
+    expect(controlnetModuleFor("control_v11p_sd15_openpose")).toBeUndefined();
   });
 });

@@ -12,17 +12,18 @@ interface LocalImageSettingsSectionProps {
 
 const REFERENCE_MODES: { value: NonNullable<LocalImageSettings["referenceMode"]> | ""; label: string }[] = [
   { value: "", label: "Same as app" },
-  { value: "controlnet", label: "ControlNet (IP-Adapter / FaceID)" },
+  { value: "controlnet", label: "Face ID (IP-Adapter / FaceID)" },
   { value: "reactor", label: "ReActor face swap" },
-  { value: "img2img", label: "img2img from the main reference" },
+  { value: "img2img", label: "Edit the main reference (img2img / FLUX Kontext)" },
   { value: "none", label: "Don't use reference photos" },
 ];
 
 const randomSeed = () => Math.floor(Math.random() * 2 ** 31);
 
 // "Local image settings" (#40): a seed, LoRA, reference mode and ReActor
-// face model for this character when pictures are made with a local Stable
-// Diffusion WebUI. Collapsed by default; cloud providers ignore it.
+// face model for this character when pictures are made locally, with the
+// Stable Diffusion WebUI or ComfyUI. Collapsed by default; cloud providers
+// ignore it.
 const LocalImageSettingsSection: React.FC<LocalImageSettingsSectionProps> = ({ value, onChange }) => {
   const settings = value || {};
   const update = (patch: Partial<LocalImageSettings>) => onChange({ ...settings, ...patch });
@@ -45,7 +46,7 @@ const LocalImageSettingsSection: React.FC<LocalImageSettingsSectionProps> = ({ v
 
       <div className="mt-4 flex flex-col gap-4">
         <p className="text-xs text-muted-foreground">
-          For pictures made with a local Stable Diffusion WebUI. A fixed seed and a LoRA trained on this character keep the face the same from picture to picture.
+          For pictures made locally with the Stable Diffusion WebUI or ComfyUI. A fixed seed and a LoRA trained on this character keep the face the same from picture to picture. In ComfyUI the reference mode picks the matching bundled workflow.
         </p>
 
         <div className="flex flex-col gap-1.5 max-w-sm">
@@ -105,7 +106,7 @@ const LocalImageSettingsSection: React.FC<LocalImageSettingsSectionProps> = ({ v
         </label>
 
         <label className="flex flex-col gap-1.5 max-w-sm">
-          <span className="text-[11.5px] text-muted-foreground">ReActor face model (blank = the first name)</span>
+          <span className="text-[11.5px] text-muted-foreground">ReActor face model, SD WebUI only (blank = the first name)</span>
           <TextInput type="text" value={settings.reactorFaceModel || ""} onChange={(e) => update({ reactorFaceModel: e.target.value })} placeholder="e.g. mira" />
         </label>
 
@@ -113,8 +114,8 @@ const LocalImageSettingsSection: React.FC<LocalImageSettingsSectionProps> = ({ v
           <summary className="cursor-pointer">How to train a LoRA for this character</summary>
           <ol className="mt-2 list-decimal space-y-1 pl-5">
             <li>Collect 15–30 pictures of the character: the reference sheet (Identity step) plus a few portraits in different poses and lighting.</li>
-            <li>Train with Kohya_ss or OneTrainer on the same base model you use in the WebUI. Under an hour on a mid-range GPU.</li>
-            <li>Put the .safetensors file in the WebUI's models/Lora folder and enter its name and trigger word here.</li>
+            <li>Train with Kohya_ss or OneTrainer on the same base model you generate with. Under an hour on a mid-range GPU.</li>
+            <li>Put the .safetensors file in the WebUI's models/Lora folder (ComfyUI: models/loras) and enter its name and trigger word here.</li>
           </ol>
         </details>
 

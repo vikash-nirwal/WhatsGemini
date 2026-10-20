@@ -182,7 +182,8 @@ export const generateImage = async (
   // Room-only (Gemini-only for now, see NamedReferenceImages) - every OTHER
   // character present besides characterName/characterImages above.
   otherRoomCharacters?: RoomReferenceCharacter[],
-  // SD WebUI only for now (#40): the character's seed, LoRA and reference mode.
+  // Local generation only (#40): the character's seed, LoRA and reference
+  // mode, for the SD WebUI and ComfyUI.
   localImageSettings?: LocalImageSettings
 ): Promise<ImageGenerationResult> => {
   try {
@@ -214,12 +215,15 @@ export const generateImage = async (
     }
 
     const result = await adapter.generateImage(
-      { model: imageModelName, prompt: derivedImagePrompt, referenceImages, referenceCharacters, signal, safetySettings, imageSize, aspectRatio },
+      { model: imageModelName, prompt: derivedImagePrompt, referenceImages, referenceCharacters, signal, safetySettings, imageSize, aspectRatio, localImageSettings },
       imageConfig
     );
     return { images: result.images, usage: result.usage };
   } catch (err) {
     console.error("Image generation failed:", err);
-    return { images: [], warning: "\n\n[Warning: Image generation failed due to API error.]" };
+    // The provider's own message says what to fix (a ComfyUI started
+    // without CORS, a missing node, a rejected key), so pass it on.
+    const reason = err instanceof Error && err.message ? `: ${err.message.slice(0, 300)}` : " due to API error";
+    return { images: [], warning: `\n\n[Warning: Image generation failed${reason}.]` };
   }
 };
