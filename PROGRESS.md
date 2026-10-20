@@ -1,115 +1,68 @@
 # Progress
 
-Where the [ROADMAP.md](ROADMAP.md) work stands. ROADMAP.md says *what* and *why* for each item; this file says *what's done*. Update it at the end of every session that changes anything (see CLAUDE.md).
+Where the [ROADMAP.md](ROADMAP.md) work stands. ROADMAP.md says *what* and *why* for each remaining item; this file says what's done, how the work runs, and what a new session needs to know. Update it at the end of every session that changes anything (see CLAUDE.md). Commit-level detail lives in the git history.
 
 Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocked` (with what it's waiting on).
 
 ## Where we stand
 
-- **Current phase:** Waves 1–4 are done, merged into `main` (fast-forward from `phase-0-bug-fixes`) and pushed to GitHub. CI passes on GitHub (run 39409503757, a1071a7).
-- **Next up:** the remaining roadmap (17 items): immersion (#6–#13), anti-repetition (#19), group chats (#22–#24), adventures (#25–#28), relationship that evolves (#30). Work now continues on `main` or a new branch per wave.
-- **Open questions for the user:** none. (They chose to start Wave 3 before pushing; nothing is pushed yet.)
+- **State:** everything planned so far is built, merged into `main` and pushed. CI on GitHub is green (type-check, 358 unit tests, 256 UI tests on Linux).
+- **Next up:** the 17 remaining roadmap items below, in waves of parallel lanes.
+- **Open questions for the user:** none.
 
-## Execution plan
+## Remaining items
 
-Items run one after another within a lane, without stopping between items; a lane only pauses for a decision, a failing test it can't fix, or a merge. Lanes run in parallel only when they touch **different files**. These shared files have one writer at a time: `src/types/index.ts`, `ChatPage.tsx`, `ChatWindow.tsx`, `ChatMessage.tsx`, `MessageInput.tsx`, `promptComposition.ts`, `aiSlice.ts`, `chatSlice.ts`, `package.json`.
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 6 | Texting mode | todo | |
+| 7 | Character schedule and presence | todo | |
+| 8 | Status updates | todo | Builds on #7. |
+| 9 | Scene state HUD | todo | |
+| 10 | Inner thoughts | todo | |
+| 11 | Reactions | todo | |
+| 12 | Voice | todo | |
+| 13 | Chat backdrops | todo | |
+| 19 | Anti-repetition guard | todo | |
+| 22 | More than one reply per message | todo | |
+| 23 | Built-in narrator member | todo | |
+| 24 | Character-to-character relationships | todo | |
+| 25 | Stats, inventory and quest log | todo | |
+| 26 | Skill checks | todo | After #25. |
+| 27 | Persona character sheet | todo | With #26. |
+| 28 | Attach a World to normal chats | todo | |
+| 30 | Relationship that evolves | todo | |
 
-Parallel lanes work in their own worktree and branch and **don't edit PROGRESS.md**. They report in their commit messages and final summary, and the coordinating session (the one on `phase-0-bug-fixes`) records them here when merging. Branches are merged only with the user's OK.
+Smaller follow-ups are listed at the end of ROADMAP.md.
 
-**Wave 1 (now)**
-- **Lane A** (coordinating session, branch `phase-0-bug-fixes`): B5, then B6. Files: chat/compression code, `ChatPage`, `ChatWindow`, `ChatMessage`, `chatSlice`, `aiSlice`, `transcript`/`chatHistoryUtils`, `AdventurePage`, `adventurePrompt`, `adventureSlice`, `types`. Stays out of `AdventureWizardPage`.
-- **Lane B** (parallel session, own worktree): T1, T2, T7, then U5, U9, and the sidebar/header half of U4, each with its T3 check. Files: Playwright config, `e2e/`, `package.json`, `.github/`, `Sidebar.tsx`, `Header.tsx`, `CharacterEditorPage.tsx`, `AdventureWizardPage.tsx`.
+## How the work runs
 
-**Wave 2** (after Wave 1 is merged)
-- **Lane A:** U1, U2, U3, U6, U7, U8 and the message-bubble half of U4. They all touch the composer and chat layout, so they go in one lane, each with its T3 check.
-- **Lane B:** T4 (flows) and T6 (accessibility); test files only.
-- Then T5 (screenshots), once the layout fixes have landed.
+- Work goes in **waves**. Within a lane, items run one after another without stopping, except for a decision, a failing test that can't be fixed, or a merge.
+- Lanes run in parallel only when they touch **different files**. Agree each lane's files at the start of the wave. These shared files have one writer per wave: `ChatPage.tsx`, `ChatWindow.tsx`, `ChatMessage.tsx`, `MessageInput.tsx`, `promptComposition.ts`, `aiSlice.ts`, `chatSlice.ts`, `package.json`. `src/types/index.ts` may be shared if each lane only adds optional fields to its own interfaces.
+- Parallel lanes work in their own worktree and branch, run UI tests on their own port (`E2E_PORT=3100`, `3200`, …) and **don't edit PROGRESS.md**. The coordinating session records them and wires in anything that needs its files.
+- Before merging, check all lanes combined in a throwaway worktree (unit, UI and visual tests). Merge and push only with the user's OK. Each wave ends with a PROGRESS.md update and a disk report.
 
-**Wave 3 (done)**
-- **Lane A** (coordinating session, branch `phase-0-bug-fixes`): memory, #2, #3, #1, #4, #5 in that order. Owns: `memoryExtraction.ts`, `promptComposition.ts`, `transcript.ts`, `chatHistoryUtils.ts`, `aiSlice.ts`, `chatSlice.ts`, `characterSlice.ts`, `ChatPage.tsx`, `ChatWindow.tsx`, `ChatMessage.tsx`, `ScenePanel.tsx`, `CharacterPage.tsx`, `constants.ts`.
-- **Lane B** (parallel session): #29 lorebook triggers. Owns: `loreUtils.ts`, `LorebookStep.tsx`, `characterCard.ts`, `importCustomize.ts`, `ImportReviewDialog.tsx`, `WorldEditorPage.tsx`, `worldSlice.ts` and their tests.
-- **Lane C** (parallel session): U10 and A1. Owns: `MessageInput.tsx`, `src/styles/` and `src/index.css`, `CharacterEditorPage.tsx` and its step files except `LorebookStep.tsx`, `e2e/a11y-baseline.json` and the visual baselines.
-- **Shared-file exception:** `src/types/index.ts` may be edited by several lanes, each only adding optional fields to the interfaces its items need (Lane B: `LoreEntry`; Lane A: `Chat`, `Character`, `Message`). Conflicts there get resolved at merge.
-- Parallel lanes run UI tests on their own ports: Lane B `E2E_PORT=3100`, Lane C `E2E_PORT=3200`.
+## What's built
 
-**Wave 4 (done)**
-- **Lane A** (coordinating session, branch `phase-0-bug-fixes`): #15, #18, #17, #16, #14, #20, #21, #33. Owns: `ChatPage.tsx`, `aiSlice.ts`, `MessageInput.tsx`, `ChatWindow.tsx`, `ChatMessage.tsx`, `ScenePanel.tsx`, `promptComposition.ts`, `transcript.ts`, `chatHistoryUtils.ts`, `chatSlice.ts`, `constants.ts`, and new files under `src/features/ai/utils/` and `src/features/chat/`.
-- **Lane B** (parallel session): #31 prompt inspector and #32 per-character model. Owns: `src/features/ai/providers/*` (adapters, registry, sse, types), new `src/features/ai/requestLog.ts`, new `src/features/ai/modelResolution.ts`, a new inspector dialog component, `CharacterEditorPage.tsx` and its step files, `settingsSlice.ts`, `TextModelSettings.tsx`. It doesn't touch Lane A's files: wiring into `aiSlice.ts` / `ChatPage.tsx` (passing the character's model to `generateAIResponse`, the "Show what was sent" entry point) is done by Lane A at merge time, from the integration notes Lane B's report gives.
-- **Lane C** (parallel session): A2 and A3. Owns: `src/components/molecules/form-controls/ModeToggleButton.tsx`, `ChipSelectField.tsx`, `e2e/a11y.spec.ts`, `e2e/a11y-baseline.json`.
-- `src/types/index.ts`: Lane A may add `Message`/`Chat` fields, Lane B only `Character.modelOverride` (or similar). Ports: Lane B `E2E_PORT=3100`, Lane C `E2E_PORT=3200`.
+One line per area. Pointers for when you need to work on it again.
 
-**Later:** immersion (#6–#13), group chats (#22–#24), adventures (#25–#28), #30.
-
-Each wave ends with: merge (user's OK), full unit + UI test run, PROGRESS.md update, disk report.
-
-## Phase 0: Logic bugs
-
-| # | Item | Status | Commit | Notes |
-|---|------|--------|--------|-------|
-| B1 | Mood portrait wipes custom emotions | done | 5e1176c | Not checked in the app (needs an image provider); the fix is a one-line spread. |
-| B2 | Group-chat impersonate posts as first character | done | 5e1176c | Checked in the app: picked Kai, impersonated, stored `speakerId` was Kai. The composer banner names the picked speaker. |
-| B3 | Compression/truncation use the global seed count | done | 5e1176c | `countSeedMessages` / `countProtectedPrefix` in `transcript.ts`; `truncateHistory` moved there and now also protects the compression summary. Tests in `transcript.test.ts`. Legacy chats whose seed messages were never flagged `isSystem` aren't detected (only the display filter in ChatWindow handles those). |
-| B4 | Memory can't update or forget facts | done | 9ddde30 | Extractor replies with `- fact`, `UPDATE n: …`, `FORGET n`, `STILL TRUE: n, m` against a numbered list; pinned facts are shown separately and can't be touched. The list is kept in recency order, so the 40 cap evicts facts not mentioned for longest. Also fixed: the memory write re-reads the character first, so it no longer undoes a same-turn gallery write. Tests in `memoryExtraction.test.ts`; checked end to end in the app with a faked Ollama endpoint. |
-| B5 | Compression destroys branches and history | done | b6dda41 | The summary pair is spliced into the tree after the last covered message (`insertAfterNode`, `spliceSummaryIntoConversation`); prompts use `trimToLatestSummary` inside `buildTurnContext`. Summarized messages show dimmed. Manual compress no longer eats the seed. Rewind skips summaries. Edit-and-resend now auto-compresses (B7 leftover). Checked in the app: 38 → 42 nodes, a 2-variant branch kept, 13 of 41 messages sent. Not done: an "undo compression" button (easy now; nothing is deleted). |
-| B6 | Adventures skip the chat pipeline | done | 4edcbbd | Streaming, auto-compression, cast content rule, OOC/asterisks/custom style rules, hard limits (Boundaries dialog on the adventure page). `AdventureRules.safetySettings` removed (nothing set or read it). Not done: adventure long-term memory (the summary carries continuity for now; fits Phase 1); hard limits aren't in the creation wizard yet (`AdventureWizardPage` belongs to Lane B in Wave 1). Checked in the app with a faked AI. |
-| B7 | Edit-and-resend drops image prompt, skips compression | done (partly) | 5e1176c | Image prompt/params kept. Auto-compression on this path moved to B5, because today's compression would delete the branch the edit just made. |
-
-## Phase 0.5: UI tests and layout fixes
-
-| # | Item | Status | Commit | Notes |
-|---|------|--------|--------|-------|
-| T1 | Playwright setup, 4 viewport projects | done | b93caf6 | `npm run test:e2e`. Projects: desktop 1280×800, tablet 768×1024, iPhone 14 (WebKit), Pixel 7. Served under `/WhatsGemini/` (the `homepage` path). `E2E_PORT` runs it from a second checkout without reusing another checkout's dev server. |
-| T2 | Seed fixtures and mocked AI replies | done | 0d40c5d | `e2e/fixtures.ts` seeds IndexedDB/localStorage and mocks `**/chat/completions`; `e2e/layout.ts` has geometry helpers. |
-| T3 | Layout geometry checks | done | 008aea9, 5d11cc1 | Wave 1 specs plus `e2e/composer.spec.ts` and `e2e/message-actions.spec.ts`. |
-| T4 | Flow tests | done | 2cb1ce6, 5c0d2fe | 8 flows: create character, chat, regenerate + swipe, edit, continue, invite into group, adventure choice, card import. Message-action flows skip phone projects (the long-press path is covered by `message-actions.spec.ts`). |
-| T5 | Screenshot tests | done | 6e79cc2 | 16 baselines (chat × 6 themes × desktop/Pixel, gallery × 4 sizes). Tagged `@visual`: `npm run test:visual` locally; `test:e2e` and CI leave them out (macOS-only baselines). |
-| T6 | Accessibility scan | done | 8af8422 | `e2e/a11y.spec.ts` + `e2e/a11y-baseline.json`; only violations missing from the baseline fail. Baseline: color-contrast 49 (8 pages), button-name 4 (character editor), target-size 2 (character editor). It caught a regression from U7 (message list not focusable on touch), fixed in 91bbe8f. |
-| T7 | GitHub Actions CI | done | 2ddc302 | `.github/workflows/ci.yml`. Not run on GitHub yet (nothing pushed). |
-| U1 | Multi-line input overflows composer | done | 008aea9 | `min-h-14`, `items-end`, `rounded-[28px]`. |
-| U2 | Composer covers latest messages | done | 008aea9, 5d11cc1 | ChatPage measures the composer (ResizeObserver) and passes `bottomInset` to ChatWindow. The list also sticks to the bottom when its content grows (fonts/images loading late on WebKit). |
-| U3 | Phone composer too narrow | done | 008aea9 | Below 640px the tools sit behind "Composer options" (`menuitemcheckbox` items, same aria-labels); Send/Stop are icon-only. |
-| U4 | Sidebar crowds chat at tablet width | done | 7e7bd7f, 5d11cc1 | Sidebar docks from `lg` (1024px). User bubbles lost the ⋮ menu that sat on the text and use a footer row like AI replies. |
-| U5 | Mobile drawer stays open after navigating | done | 3a9c02b | Closes on every route change. `e2e/drawer.spec.ts`. |
-| U6 | `100vh` wrong on phones | done | 008aea9 | `h-dvh`/`min-h-dvh` in all 16 files, and a safe-area gap under the composer. Not checked on a real iPhone. |
-| U7 | Bubbles waste space on touch | done | 5d11cc1 | Touch screens: hover rows hidden; long-press or contextmenu opens a bottom sheet (`role=menu` "Message actions"). |
-| U8 | Scroll button and toasts collide with composer | done | 008aea9, 7e40c7d | Scroll button anchored above `bottomInset`; toasts at the top on every size (top-center on phones) - they also covered Send on desktop. |
-| U9 | Wizard step bars scroll sideways on phones | done | d6ae19e | New `WizardSteps` component: compact "Step n of m" when the row doesn't fit. `e2e/wizard.spec.ts`. |
-| U10 | Terminal theme composer cramped on phones | done | b246776 | `[+]` menu below 640px from the shared `composerTools`. `e2e/terminal-composer.spec.ts`. |
-| A1 | Fix the a11y baseline issues | done | 457a137, 3ba2842 | Contrast fixed in `tokens.css` for all 6 themes × 4 palettes × light/dark (579 failures → 0 across themes); rule documented in THEMING.md. Visual baselines refreshed. Baseline 55 → 2. Most visible change: Aurora dark buttons use near-black text. |
-| A2 | Small touch targets in shared form controls | done | 070c5f2 | The Custom/Hide suggestions toggle is 24px (`min-h-6`, `-my-1` keeps the row height). The chips were already 26px: what axe flagged on Pixel is the character editor's sticky footer covering them, now U12. |
-| U12 | Character editor's sticky footer covers content on phones | done | a1071a7 | Step buttons docked in their own row under the scroll area. It also failed the first CI run (Linux fonts let it cover one more chip). The a11y baseline is now empty. |
-| A3 | Run the a11y scan in every theme | done | 12b6b11 | All 8 pages in cozy dark on 4 viewports, plus chat and character editor in the other 11 theme/mode pairs on desktop and Pixel. No contrast violations anywhere. Baseline keys carry the theme. The a11y spec takes about 2 minutes. |
-
-## Phases 1–7: Features
-
-All `todo`. Item numbers 1–33 match ROADMAP.md. Rows are added here when an item is started, so this file stays short.
-
-| # | Item | Status | Commit | Notes |
-|---|------|--------|--------|-------|
-| 1 | Memory scope per chat | done | fc94df1 | `Chat.memoryScope` ("chat" = own memory, seeded as a copy of the character's). Scene panel switch; `PromptOptions.memoryOverride`. |
-| 2 | Relevant memory, bigger cap | done | f6b5839 | Cap 40 → 200; each prompt gets pinned facts + the 30 most relevant (`memoryRelevance.ts`). |
-| 3 | Fact categories | done | eeb0c04 | `memoryCategories` map (fact text → user/relationship/story), no migration. Grouped in the Scene panel. Not shown in the character editor's memory card yet (that file was Lane C's this wave). |
-| 4 | Chapters | done | b2367eb | "End chapter" (chat menu) → titled summary + recap at the end of the conversation; Chapters list in the Scene panel with rename. Not in adventures yet. |
-| 5 | Character diary | done | 04e8423 | Per-character switch (Scene panel); entry every 30 messages from memory-sharing 1:1 chats; latest entry in the prompt; "Read diary" on the Characters page. Rooms don't write entries yet. |
-| 14 | Slash commands | done | 859aeba | `/roll` (real dice, result sent as an OOC fact), `/timeskip`, `/scene`, `/ooc`, `/image`, `/narrate` (`Message.isNarration`, no reply), `/summarize`, `/help`; hints while typing "/"; a mistyped command stays in the box. `src/features/chat/slashCommands.ts`. |
-| 15 | Write my reply | done | ee271fa | Composer tool (phone "+" menu too); main chat model drafts your next message into the box. |
-| 16 | Reply suggestions | done | d11e8c1 | Per-chat switch (`Chat.replySuggestions`); 3 chips under the newest reply from the background model; tap fills the box. Not persisted. |
-| 17 | Author's note presets | done | 2dee64a | Six chips under the author's note; each toggles its own line. |
-| 18 | Surprise me | done | ee271fa | Chat action; a one-turn twist directive on a normal follow-up. |
-| 20 | Readable story export | done | 4abbc4e | "Export as story (Markdown)": speakers, narration, chapter headings + recaps; web images as links, local ones as "(picture)". |
-| 21 | Bookmarks | done | 4abbc4e | Star button / long-press item; Scene panel list with jump-to. |
-| 31 | Prompt inspector | done | 945e3f4, e59b817, 1ae1c82 | `requestLog.ts` records the last 20 provider calls (wrapped in `registry.ts`, in memory only). `PromptInspectorDialog`: model/samplers, system prompt by section with token estimates, history, final prompt, post-history note, reply, Copy. Opened from "Show what was sent" on an AI reply, or "Show last request" in Settings > Text. |
-| 32 | Model per character | done | 3e40338, feb8e28, fdeb8c1, 1ae1c82 | `Character.modelOverride` (provider, model, temperature, samplers), edited on the character editor's last step; `resolveTurnModel` used by `generateAIResponse` for every chat call; the context meter follows it. A different provider needs its own saved key (the editor warns). |
-| 33 | Context meter matches reality | done | d2b2ee5 | Estimate built like the next send, room context included. |
-| 29 | Better lorebook triggers | done | e45e81b, 53fb864, eb0b4ba | New optional `LoreEntry` fields: priority, selective + secondaryKeywords (+ secondaryLogic any/all/none/not-all), sticky, scanDepth, probability (deterministic by entry id + message count). SillyTavern mapping: priority/insertion_order, selective, secondary_keys, extensions.selectiveLogic/sticky/scan_depth/probability (not `depth`, which is insertion position there). Advanced section in `LoreEntryAdvancedSettings.tsx`. Also fixed: the import AI-customize step dropped entry settings. Not mapped: cooldown, delay, regex keys, case-sensitivity, insertion position, groups. Sticky only applies to direct keyword hits. Scan depth > 10 and sticky rely on `buildTurnContext` passing the full history since the last summary - keep it that way. |
-| U11 | Side panels squeeze the chat / cover the composer | done | 55ce89a | Found while checking #3: full-screen sheet on phones, overlay below 1280px, column from 1280px. `e2e/side-panel.spec.ts`. |
+- **Compression** never deletes: the summary pair is spliced into the conversation tree after the last covered message (`spliceSummaryIntoConversation`), and prompts send the seed plus the newest summary onward (`trimToLatestSummary` in `buildTurnContext`). The seed and summary are protected from truncation (`countProtectedPrefix`).
+- **Memory:** extraction can add, update (`UPDATE n:`), forget and reconfirm facts. The list is kept in recency order with a cap of 200, and each prompt gets pinned facts plus the 30 most relevant (`memoryRelevance.ts`). Facts are categorized (`memoryCategories`, keyed by fact text). A chat can keep its own memory (`Chat.memoryScope`).
+- **Chapters** ("End chapter") are titled summaries with a recap (`Message.chapterTitle`/`chapterRecap`). **Diary:** per-character switch, an entry every 30 messages from memory-sharing 1:1 chats only, latest entry in the prompt.
+- **Narrative tools:** Write my reply, Surprise me, author's note presets, reply suggestions (`narrativeTools.ts`); slash commands including real dice and narration lines (`slashCommands.ts`, `Message.isNarration`); story export to Markdown (`storyExport.ts`); bookmarks (`Message.bookmarked`).
+- **Lorebook:** priority, secondary keywords with any/all/none/not-all logic, sticky, scan depth and a deterministic trigger chance, mapped to SillyTavern card fields. Scan depth above 10 and sticky need `buildTurnContext` to pass the full history since the last summary, so don't cut it to the last 10 messages.
+- **Models:** each character can pin its provider, model, temperature and samplers (`Character.modelOverride`, `resolveTurnModel`). The prompt inspector shows exactly what was sent for any reply (`requestLog.ts`, in memory only, last 20).
+- **Adventures** stream, compress, follow the cast's content rating and the roleplay style, and have per-adventure hard limits.
+- **Layout and mobile:** the composer grows with the text and collapses its tools behind "+" on phones; touch screens get a long-press action sheet; side panels are a sheet, an overlay or a column depending on width; `h-dvh` everywhere; toasts at the top.
+- **Accessibility:** every theme meets WCAG AA contrast. The axe baseline is empty, so any violation fails the scan.
+- **Known gaps:** chats whose seed messages were never flagged `isSystem` (very old ones) aren't detected as seeded; mood-portrait generation from inside a chat wasn't checked with a real image provider; `h-dvh` wasn't checked on a real iPhone.
 
 ## Decisions
 
-Choices made along the way that a later session shouldn't revisit. Add the date.
+Choices a later session shouldn't revisit. Add the date.
 
-- 2026-10-20: Work happens on a branch per phase (`phase-0-bug-fixes` first), not directly on `main`.
-- 2026-10-20: Layout is tested with Playwright in real browsers. Jest/jsdom stays for logic and component behavior only, since jsdom can't measure layout.
+- 2026-10-20: Layout is tested with Playwright in real browsers; Jest/jsdom is for logic and component behavior only, since jsdom can't measure layout.
+- 2026-10-20: Compression is non-destructive (summaries are inserted, never replace messages).
+- 2026-10-20: Screenshot tests are macOS-local (`@visual`); CI leaves them out because Linux fonts differ.
 
 ## Working notes
 
@@ -117,29 +70,17 @@ Facts that save the next session time.
 
 - **Run the app:** `.claude/launch.json` has a `web` config (`npm start`, port 3000) for the browser pane.
 - **Get past the login and 18+ gate without a key:** set localStorage `age_confirmed_18 = "true"` and `chat_provider = "ollama"` (a keyless provider), then reload.
-- **Fake the AI in the browser pane:** with `chat_provider = "ollama"`, override `window.fetch` in the page for URLs containing `/chat/completions`: return SSE (`data: {"choices":[{"delta":{"content":"…"}}]}` then `data: [DONE]`) when the body has `stream: true`, else JSON `{choices:[{message:{content}}]}`. The override is lost on reload.
-- **Seed test data:** IndexedDB database `ChatAppDB`, tables `chats`, `characters`, `worlds`, `adventures`, `settings`. Message roles are `"you"` and `"ai"` (not `user`/`model`). "Try a sample character" on the home screen creates character + chat 1.
-- **Proposed session cards** don't keep `source_branch`, so a lane brief has to tell the lane to `git merge --ff-only refs/heads/phase-0-bug-fixes` (or reset to it) first.
-- **Browser pane caveat:** a parallel session can share the pane's localhost:3000 storage (`chat_provider` kept flipping to `anthropic`). For checking layout, prefer Playwright, which runs in its own isolated browser; a throwaway spec that calls `page.screenshot` works well.
-- **CI on GitHub:** `.github/workflows/ci.yml` runs on every push. Step logs need a signed-in account, but Playwright's `github` reporter puts each failure in the run's annotations, readable without signing in: `GET /repos/vikash-nirwal/WhatsGemini/check-runs/<job id>/annotations`. Unauthenticated API calls are limited to 60 an hour, so poll sparsely. The actions still target Node 20 (deprecation warning): bump to newer major versions when convenient.
-- **Visual tests:** `npm run test:visual` (refresh: `test:visual:update`). Baselines are macOS renders in `e2e/visual.spec.ts-snapshots/`; review the PNG diffs before updating them.
-- **UI tests:** `npm run test:e2e` (reuses a dev server already on port 3000 - make sure it's this checkout's). From another worktree: `E2E_PORT=3100 npx playwright test`. Write new e2e tests with role/aria-label selectors and geometry helpers from `e2e/layout.ts`.
-- **Lockfiles:** both `package-lock.json` and `yarn.lock` exist. Use npm (the scripts and README do).
+- **Fake the AI in the browser pane:** with `chat_provider = "ollama"`, override `window.fetch` in the page for URLs containing `/chat/completions`: return SSE (`data: {"choices":[{"delta":{"content":"…"}}]}` then `data: [DONE]`) when the body has `stream: true`, otherwise JSON `{choices:[{message:{content}}]}`. The override is lost on reload. Prefer the Playwright fixtures for anything repeatable.
+- **Browser pane caveat:** parallel sessions can share the pane's localhost:3000 storage. For layout checks, prefer Playwright, which uses its own isolated browser; a throwaway spec calling `page.screenshot` works well.
+- **Seed test data:** IndexedDB database `ChatAppDB`, tables `chats`, `characters`, `worlds`, `adventures`, `settings`. Message roles are `"you"` and `"ai"`.
+- **UI tests:** `npm run test:e2e` (it reuses a dev server already on port 3000, so make sure that's this checkout's). From another worktree: `E2E_PORT=3100 npx playwright test`. Use role/aria-label selectors and the geometry helpers in `e2e/layout.ts`; `e2e/fixtures.ts` seeds data and mocks the AI.
+- **Visual tests:** `npm run test:visual` (refresh with `test:visual:update`). Baselines are macOS renders in `e2e/visual.spec.ts-snapshots/`; review the PNG diffs before updating them.
+- **CI on GitHub:** `.github/workflows/ci.yml` runs on every push. Step logs need a signed-in account, but Playwright's `github` reporter puts each failure in the run's annotations, readable without signing in: `GET /repos/vikash-nirwal/WhatsGemini/check-runs/<job id>/annotations`. Unauthenticated API calls are limited to 60 an hour, so poll sparsely.
+- **Parallel lanes from proposed session cards** don't keep the source branch, so a lane's brief should tell it to bring in the current branch first (`git merge --ff-only refs/heads/<branch>`, or reset to it while the lane branch is still empty).
+- **Lockfiles:** both `package-lock.json` and `yarn.lock` exist. Use npm.
 
 ## Session log
 
-Newest first. One or two lines per session: what changed, and anything left half-done.
+Newest first. One or two lines per session.
 
-- 2026-10-20: With the user's OK, fast-forwarded `main` to `phase-0-bug-fixes` and pushed (8032eec → 96c0aaf); no secrets in the diff. CI's first run failed on 6 Pixel a11y checks (the editor's sticky footer, U12). Added the `github` reporter so failures show as public annotations (1f47922), fixed U12 (a1071a7); CI is green: 256 UI tests on Linux.
-- 2026-10-20: Merged Wave 4 Lanes B (adff90a) and C (2845775) with the user's OK, after a combined check in a throwaway worktree; removed both worktrees. Wired the per-character model and "Show what was sent" into the chat (1ae1c82). On the merged branch: 358 unit, 256 UI (80 skipped by viewport) and 16 visual tests pass. New leftover: U12.
-- 2026-10-20: Wave 4 Lane A: #15 + #18 (ee271fa), #17 (2dee64a), #16 (d11e8c1), #14 (859aeba), #20 + #21 (4abbc4e), #33 (d2b2ee5), and toasts moved to the top (7e40c7d). 331 unit, 192 UI and 16 visual tests pass. Lanes B (#31, #32) and C (A2, A3) running in parallel sessions.
-- 2026-10-20: Merged Wave 3 Lanes B (e30b673) and C (70ee9c8) with the user's OK, after checking all three lanes together in a throwaway worktree. On the merged branch: 310 unit, 152 UI (36 skipped by viewport) and 16 visual tests pass, both typechecks clean. Removed both worktrees. New leftovers: A2, A3.
-- 2026-10-20: Wave 3 Lane A: memory #2 (f6b5839), #3 (eeb0c04), #1 (fc94df1), #4 (b2367eb), #5 (04e8423), plus U11 side-panel layout (55ce89a). 261 unit, 140 UI and 16 visual tests pass. Lanes B and C were proposed as cards (the app wouldn't start them directly) and the user started them.
-- 2026-10-20: Merged Wave 2 Lane B (70ac633) with the user's OK and removed its worktree. Fixed the a11y regression it found (91bbe8f). Added T5 screenshot tests. On the merged branch: 238 unit tests, 116 UI tests (24 skipped by viewport) and 16 visual tests pass. New leftovers: U10, A1.
-- 2026-10-20: Wave 2 Lane A: U1-U3, U6, U8 (008aea9) and U7 + U4 bubble half (5d11cc1). 238 unit and 62 UI tests pass (18 skipped by viewport). Started Wave 2 Lane B (T4, T6) in a parallel session. Told it about the new selectors (inline Copy/Edit/Delete on user bubbles, "Composer options" menu, long-press sheet).
-- 2026-10-20: Merged Wave 1 Lane B (6612ae1) with the user's OK. On the merged branch: 238 unit tests, 32 UI tests pass (8 skipped by viewport), typecheck clean. Removed its worktree. Started Wave 2.
-- 2026-10-20: Fixed B5 (non-destructive compression) and B6 (adventure pipeline). Started Lane B (UI tests) as a parallel session. 238 unit tests pass.
-- 2026-10-20: Fixed B4 (memory updates, forgetting, recency-based eviction). 222 unit tests pass.
-- 2026-10-20: Fixed B1, B2, B3 and B7 (image prompt part) in one commit on `phase-0-bug-fixes`. 211 unit tests pass, typecheck clean.
-- 2026-10-20: With the user's OK, cleared about 760 MB: removed the merged `image-backup-2` worktree, `build/` and `node_modules/.cache/gh-pages`. The local branch `worktree-image-backup-2` still exists (merged in PR #1). The dev-server caches were kept.
-- 2026-10-20: Reviewed the app; wrote ROADMAP.md (logic bugs, UI tests and layout bugs, 33 feature ideas). Added `.claude/launch.json`, this file, CLAUDE.md and `scripts/disk-usage.sh`. No app code changed.
+- 2026-10-20: Reviewed the app and wrote the roadmap; then, in four waves of parallel lanes, fixed the 7 logic bugs and 12 layout/mobile bugs, added Playwright UI, flow, accessibility and screenshot tests plus CI, and built 16 features (memory #1–#5, narrative tools #14–#18, #20, #21, lorebook #29, inspector #31, per-character model #32, context meter #33). Merged into `main`, pushed, CI green. Cleaned up the docs.
