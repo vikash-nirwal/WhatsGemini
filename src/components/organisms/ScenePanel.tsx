@@ -502,6 +502,23 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
           </div>
         )}
 
+        {/* Inner thoughts (#10) - also per character */}
+        {!isRoom && character && (
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[12.5px] font-medium text-foreground">Show {character.name}'s inner thoughts</div>
+              <div className="text-[11px] text-subtle">
+                Each reply also carries a private thought, hidden until you tap it. {character.name} never hears it back.
+              </div>
+            </div>
+            <ToggleSwitch
+              checked={Boolean(character.innerThoughts)}
+              onChange={(val) => dispatch(updateCharacter({ ...character, innerThoughts: val || undefined }))}
+              label={<span className="sr-only">Show {character.name}'s inner thoughts</span>}
+            />
+          </div>
+        )}
+
         {/* Bookmarks (#21) - starred messages on the current branch */}
         <div>
           <div className="flex items-baseline justify-between mb-2">

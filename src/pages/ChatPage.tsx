@@ -679,6 +679,7 @@ const ChatPage = () => {
       isVideoRequest: Boolean(generatedVideos && generatedVideos.length > 0),
       videoPrompt: payloadObj?.videoPrompt,
       emotion: payloadObj?.emotion,
+      thoughts: payloadObj?.thoughts,
           isRefusal: payloadObj?.isRefusal || undefined,
       imagePrompt: payloadObj?.imagePrompt,
       imageParams: payloadObj?.imageParams,
@@ -695,6 +696,7 @@ const ChatPage = () => {
       dispatch(updateCharacter({ ...speaker, gallery: [...(speaker.gallery || []), ...generatedImages] }));
     }
 
+    await saveCharacterReaction(payloadObj?.reaction, compressedFreshMessages, speaker.id);
     runBackgroundUpdates((aiAddResult.payload as Message[]) || [], speaker);
     return true;
   };
@@ -919,6 +921,7 @@ const ChatPage = () => {
           videos: generatedVideos,
           videoPrompt: payloadObj?.videoPrompt,
           emotion: payloadObj?.emotion,
+          thoughts: payloadObj?.thoughts,
           isRefusal: payloadObj?.isRefusal || undefined,
           imagePrompt: payloadObj?.imagePrompt,
           imageParams: payloadObj?.imageParams,
@@ -929,6 +932,7 @@ const ChatPage = () => {
           dispatch(updateCharacter({ ...speaker, gallery: [...(speaker.gallery || []), ...generatedImages] }));
         }
 
+        await saveCharacterReaction(payloadObj?.reaction, contextMessages, speaker.id);
         runBackgroundUpdates((aiAddResult.payload as Message[]) || [], speaker);
       }
 
@@ -998,6 +1002,7 @@ const ChatPage = () => {
             videos: generatedVideos,
             videoPrompt: payloadObj?.videoPrompt,
             emotion: payloadObj?.emotion,
+            thoughts: payloadObj?.thoughts,
             isRefusal: payloadObj?.isRefusal || undefined,
             // Kept like handleSend/handleRegenerate do, so "redraw" on this
             // reply reuses its scene prompt instead of deriving a new one.
@@ -1006,7 +1011,11 @@ const ChatPage = () => {
             speakerId: speaker.id,
             timestamp: Date.now(),
           };
-          const { tree: finalTree, nodeId: aiNodeId } = addChildNode(treeForReply, editedNodeId, newAiMsg);
+          // The character's reaction (#11) goes on the edited message itself.
+          const treeWithReaction = payloadObj?.reaction && treeForReply.nodes[editedNodeId]
+            ? updateNodeMessage(treeForReply, editedNodeId, { ...treeForReply.nodes[editedNodeId].message, characterReaction: { emoji: payloadObj.reaction, speakerId: speaker.id } })
+            : treeForReply;
+          const { tree: finalTree, nodeId: aiNodeId } = addChildNode(treeWithReaction, editedNodeId, newAiMsg);
           const finalContent = flattenPath(finalTree, aiNodeId);
           await dispatch(updateChatTree({ chatId: chatIdNum, content: finalContent, tree: finalTree, activeLeafId: aiNodeId }));
 
@@ -1094,13 +1103,18 @@ const ChatPage = () => {
           isVideoRequest: isFollowup ? Boolean(generatedVideos && generatedVideos.length > 0) : undefined,
           videoPrompt: payloadObj?.videoPrompt,
           emotion: payloadObj?.emotion,
+          thoughts: payloadObj?.thoughts,
           isRefusal: payloadObj?.isRefusal || undefined,
           imagePrompt: payloadObj?.imagePrompt,
           imageParams: payloadObj?.imageParams,
           speakerId: speaker.id,
           timestamp: Date.now(),
         };
-        const { tree: newTree, nodeId: newNodeId } = addChildNode(tree, parentId, newMessage);
+        // A new answer brings its own reaction (#11), or none.
+        const treeWithReaction = !isFollowup && parentId && tree.nodes[parentId]
+          ? updateNodeMessage(tree, parentId, { ...tree.nodes[parentId].message, characterReaction: payloadObj?.reaction ? { emoji: payloadObj.reaction, speakerId: speaker.id } : undefined })
+          : tree;
+        const { tree: newTree, nodeId: newNodeId } = addChildNode(treeWithReaction, parentId, newMessage);
         const newContent = flattenPath(newTree, newNodeId);
         await dispatch(updateChatTree({ chatId: chatIdNum, content: newContent, tree: newTree, activeLeafId: newNodeId }));
 
@@ -1248,7 +1262,8 @@ const ChatPage = () => {
         const tag = imageContextMatch?.[0] || "";
         const base = tag ? existingText.slice(0, existingText.length - tag.length) : existingText;
         const separator = base && !/\s$/.test(base) ? " " : "";
-        const mergedMessage: Message = { ...targetMessage, txt: base + separator + continuationText + tag };
+        const thoughts = [targetMessage.thoughts, payloadObj?.thoughts].filter(Boolean).join(" ") || undefined;
+        const mergedMessage: Message = { ...targetMessage, txt: base + separator + continuationText + tag, thoughts };
 
         const updatedTree = updateNodeMessage(tree, targetNodeId, mergedMessage);
         const updatedContent = flattenPath(updatedTree, currentActiveLeafId);
@@ -1370,6 +1385,22 @@ const ChatPage = () => {
     a.download = storyFileName(currentChat.title || characterData?.name || "story");
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  // A character's emoji reaction (#11) goes on the user message its reply
+  // answered: the latest real user line in the context it was given.
+  const saveCharacterReaction = async (reaction: string | undefined, answered: Message[], speakerId?: number) => {
+    if (!reaction || !chatIdNum) return;
+    const target = [...answered].reverse().find((m) => m.role === YOU && !m.isNarration && !m.isSystem && !m.isCompressionSummary);
+    if (!target?.id) return;
+    await dispatch(updateChatMessage({ chatId: chatIdNum, messageId: target.id, patch: { characterReaction: { emoji: reaction, speakerId } } }));
+  };
+
+  // Your own reaction to a message (#11); picking the same emoji again
+  // removes it.
+  const handleReact = (msg: Message, emoji: string) => {
+    if (!chatIdNum || !msg.id) return;
+    dispatch(updateChatMessage({ chatId: chatIdNum, messageId: msg.id, patch: { reaction: msg.reaction === emoji ? undefined : emoji } }));
   };
 
   // Bookmarks (#21): a star on any message, listed in the Scene panel.
@@ -1514,7 +1545,7 @@ const ChatPage = () => {
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden relative">
-        <ChatWindow onToggleBookmark={handleToggleBookmark} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} />
+        <ChatWindow onToggleBookmark={handleToggleBookmark} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} />
       </div>
 
       {/* Message Input - floats over the chat, except under terminal where it

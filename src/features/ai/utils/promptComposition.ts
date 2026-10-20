@@ -2,6 +2,7 @@ import { Character, Intensity, LoreEntry, Message, RoleplayStyle, UserProfile } 
 import { YOU } from "../../../utils/constants";
 import { stripLeakedBase64 } from "./apiUtils";
 import { buildEmotionDirective } from "./emotionUtils";
+import { buildReactionDirective, buildThoughtsDirective, formatReactionNote } from "./messageTags";
 import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
 import { applyMacros } from "./macros";
 import { countProtectedPrefix, trimToLatestSummary } from "./transcript";
@@ -39,9 +40,7 @@ export const buildChatHistory = (
   speakerNames?: Record<number, string>,
   perspective?: HistoryPerspective
 ): ChatMessage[] => {
-  // Flagged refusals stay on screen but never reach the model: resending one
-  // primes every later reply to refuse too.
-  const mapped = messages.filter((msg) => !msg.isRefusal).map((msg): ChatMessage => {
+  const toTurn = (msg: Message): ChatMessage => {
     const text = stripLeakedBase64(msg.txt || "");
     const trimmed = text.trim() || " ";
 
@@ -67,7 +66,29 @@ export const buildChatHistory = (
       role: msg.role === YOU ? "user" : "assistant",
       text: speakerName ? `${speakerName}: ${trimmed}` : trimmed,
     };
-  });
+  };
+
+  // Flagged refusals stay on screen but never reach the model: resending one
+  // primes every later reply to refuse too.
+  // The user's emoji reactions (#11) are told to the model as a short note
+  // before their next message, or on their own at the end when nothing was
+  // said after them, so the character can respond to them.
+  const who = perspective?.userName || "The user";
+  const mapped: ChatMessage[] = [];
+  let reactionNotes: string[] = [];
+  for (const msg of messages.filter((m) => !m.isRefusal)) {
+    const turn = toTurn(msg);
+    if (msg.role === YOU && !msg.isNarration && reactionNotes.length > 0) {
+      mapped.push({ ...turn, text: `${reactionNotes.join("\n")}\n\n${turn.text}` });
+      reactionNotes = [];
+    } else {
+      mapped.push(turn);
+    }
+    if (msg.role !== YOU && msg.reaction) {
+      reactionNotes.push(formatReactionNote(msg.reaction, (msg.txt || "").replace(/\n*\[Image Context:[\s\S]*?\]\s*$/i, ""), who));
+    }
+  }
+  if (reactionNotes.length > 0) mapped.push({ role: "user", text: reactionNotes.join("\n") });
 
   if (!perspective) return mapped;
 
@@ -324,6 +345,8 @@ export const buildSystemInstruction = (
   if (character.emotionPortraits?.enabled) {
     sections.push(buildEmotionDirective(character.emotionPortraits.customEmotions));
   }
+  if (options.roleplayStyle?.characterReactions) sections.push(buildReactionDirective());
+  if (character.innerThoughts) sections.push(buildThoughtsDirective());
   if (extraDirectives && extraDirectives.length > 0) {
     sections.push(...extraDirectives);
   }

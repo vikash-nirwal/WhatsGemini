@@ -283,3 +283,36 @@ describe("memory in the prompt", () => {
     expect(systemInstruction).not.toContain("Mira likes boats.");
   });
 });
+
+describe("reactions and inner thoughts (#10, #11)", () => {
+  it("tells the model about a reaction before the user's next message", () => {
+    const history = buildChatHistory([msg(YOU, "guess what"), { ...msg(AI, "What?! Tell me!", 1), reaction: "😂" }, msg(YOU, "I got the job")]);
+    expect(history[2]).toEqual({ role: "user", text: '[The user reacted 😂 to: "What?! Tell me!"]\n\nI got the job' });
+  });
+
+  it("adds a reaction on the last reply as its own turn", () => {
+    const history = buildChatHistory([msg(YOU, "hi"), { ...msg(AI, "Hello there", 1), reaction: "❤️" }]);
+    expect(history[history.length - 1]).toEqual({ role: "user", text: '[The user reacted ❤️ to: "Hello there"]' });
+  });
+
+  it("names the user in a room", () => {
+    const history = buildChatHistory([{ ...msg(AI, "Hi all", 1), reaction: "👍" }, msg(YOU, "hey")], { 1: "Aria" }, { selfId: 1, userName: "Vik" });
+    expect(history[1].text).toBe('[Vik reacted 👍 to: "Hi all"]\n\nVik: hey');
+  });
+
+  it("never sends a reply's thoughts", () => {
+    const history = buildChatHistory([msg(YOU, "hi"), { ...msg(AI, "Hello", 1), thoughts: "He looks tired." }]);
+    expect(JSON.stringify(history)).not.toContain("tired");
+  });
+
+  it("asks for thoughts and reactions only when switched on", () => {
+    const plain = buildSystemInstruction(makeCharacter()).text || "";
+    expect(plain).not.toContain("<thoughts>");
+    expect(plain).not.toContain("[React:");
+    const both = buildSystemInstruction(makeCharacter({ innerThoughts: true }), undefined, undefined, undefined, undefined, undefined, undefined, undefined, {
+      roleplayStyle: { ...DEFAULT_ROLEPLAY_STYLE, characterReactions: true },
+    }).text || "";
+    expect(both).toContain("<thoughts>...</thoughts>");
+    expect(both).toContain("[React: <emoji>]");
+  });
+});

@@ -4,7 +4,8 @@ import { motion } from "framer-motion";
 import { YOU, LS_INITIAL_MESSAGES } from "../../utils/constants";
 import { Message, Character, ConversationTree, Intensity } from "../../types";
 import { getSiblingInfo } from "../../features/chat/messageTree";
-import { resolveEmotionPortrait, stripStreamingEmotionTag } from "../../features/ai/utils/emotionUtils";
+import { resolveEmotionPortrait } from "../../features/ai/utils/emotionUtils";
+import { stripStreamingTags } from "../../features/ai/utils/messageTags";
 import { applyMacros, getGreetings } from "../../features/ai/utils/macros";
 import { isNsfwCharacter } from "../../features/character/contentRating";
 import MarkdownRenderer from "src/components/molecules/MarkdownRenderer";
@@ -29,6 +30,7 @@ import { useColorTheme } from "../../hooks/useColorTheme";
 
 interface ChatWindowProps {
   onToggleBookmark?: (msg: Message) => void; // star / unstar a message (#21)
+  onReact?: (msg: Message, emoji: string) => void; // your emoji reaction to a reply (#11)
   // Reply ideas for the newest message (#16) and what tapping one does.
   replySuggestions?: { forMessageId: string; items: string[] } | null;
   onPickSuggestion?: (text: string) => void;
@@ -123,7 +125,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc }: { charInitials: s
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ onToggleBookmark, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ onToggleBookmark, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -134,7 +136,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onToggleBookmark, replySuggesti
   // can depict any of them, whoever technically sent it.
   const blurMedia = blurNsfwMedia && [character, ...(characters || [])].some((c) => c && isNsfwCharacter(c));
   const streamingText = chatId != null && streamingReply?.key === String(chatId)
-    ? stripStreamingEmotionTag(streamingReply.text)
+    ? stripStreamingTags(streamingReply.text)
     : "";
   const greetings = useMemo(
     () => getGreetings(character).map((g) => applyMacros(g, { char: character?.name, user: userName?.trim() || "User" })),
@@ -380,6 +382,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onToggleBookmark, replySuggesti
     [characters, character]
   );
 
+  // Who left a character reaction (#11) on one of your messages.
+  const resolveReactor = (speakerId?: number) =>
+    (speakerId != null && characters?.find((c) => c.id === speakerId)?.name) || character?.name || characterName;
+
   const getInitials = (name?: string) => {
     if (!name || name === "New Chat" || name.trim() === "Chat") return "G";
     const parts = name.split(" ").filter(Boolean);
@@ -579,6 +585,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onToggleBookmark, replySuggesti
                     chapterNumber={msg.chapterTitle ? chapterNumbers.get(msg.id || "") : undefined}
                     onToggleBookmark={onToggleBookmark}
                     onInspect={handleInspect}
+                    onReact={onReact}
+                    reactorName={msg.characterReaction ? resolveReactor(msg.characterReaction.speakerId) : undefined}
                   />
                 );
                 const suggestions = !aiLoading && i === filteredMessages.length - 1 && replySuggestions && replySuggestions.forMessageId === msg.id ? replySuggestions.items : undefined;

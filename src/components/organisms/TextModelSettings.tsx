@@ -321,6 +321,9 @@ const TextModelSettings: React.FC<TextModelSettingsProps> = ({
         <SettingsRow label="Time awareness" hint="Tell characters the current date/time and how long you were away, so they can react to it." align="start">
           <ToggleSwitch checked={roleplayStyle.timeAwareness} onChange={(v) => updateStyle({ timeAwareness: v })} />
         </SettingsRow>
+        <SettingsRow label="Character reactions" hint="Characters can now and then react to your messages with an emoji." align="start">
+          <ToggleSwitch checked={Boolean(roleplayStyle.characterReactions)} onChange={(v) => updateStyle({ characterReactions: v })} />
+        </SettingsRow>
         <SettingsRow label="Extra rules" hint="Anything else every character should follow." align="start">
           <TextArea
             value={roleplayStyle.customInstructions}

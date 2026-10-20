@@ -20,6 +20,7 @@ export const DEFAULT_ROLEPLAY_STYLE: RoleplayStyle = {
   actionsInAsterisks: false,
   neverSpeakForUser: true,
   timeAwareness: true,
+  characterReactions: true,
   customInstructions: "",
 };
 export const DEFAULT_OUTPUT_TOKENS = 1000;

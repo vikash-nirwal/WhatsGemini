@@ -50,6 +50,11 @@ export interface Message {
   // reply to refuse too. The user can clear the flag if it's a false positive.
   isRefusal?: boolean;
   emotion?: string; // one of EMOTIONS, parsed from the AI's own reply when the character has emotionPortraits enabled
+  thoughts?: string; // the character's hidden inner thoughts for this reply (#10), never sent back to the model
+  reaction?: string; // the user's emoji reaction to this message (#11)
+  // The character's emoji reaction to this (user) message (#11), and who
+  // reacted in a room.
+  characterReaction?: { emoji: string; speakerId?: number };
   castEmotions?: Record<number, string>; // adventure narrator turns: character id -> mood for each NPC in the scene
   imagePrompt?: string; // The derived SD prompt used to generate this image
   videoPrompt?: string; // The derived prompt used to generate this video
@@ -207,6 +212,7 @@ export interface Character {
   // traits that goes into every image prompt word for word.
   visualTags?: string;
   localImageSettings?: LocalImageSettings; // #40, local generation only
+  innerThoughts?: boolean; // #10: also write hidden thoughts with each reply
   appearanceImages?: string[];
   artStyle?: ArtStyle;
   avatar?: string;
@@ -314,6 +320,8 @@ export interface RoleplayStyle {
   // Tells the model the real current date/time and how long since the last
   // message, so it can react to the user having been away.
   timeAwareness: boolean;
+  // Characters may react to the user's messages with an emoji (#11).
+  characterReactions?: boolean;
   customInstructions: string;
 }
 

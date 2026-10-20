@@ -16,6 +16,7 @@ import { Card, CardContent } from "src/components/atoms/card";
 import { Tooltip, TooltipTrigger, TooltipContent } from "src/components/atoms/tooltip";
 import { TermLink } from "src/components/atoms/TermLink";
 import { NsfwBlur } from "src/components/molecules/NsfwBlur";
+import { InnerThoughts, ReactionBadge, ReactionPicker, ReactionRow } from "src/components/molecules/MessageExtras";
 
 interface SiblingInfo {
   index: number;
@@ -46,6 +47,8 @@ interface ChatMessageProps {
   chapterNumber?: number; // for a summary made by "End chapter": its position among the chapters
   onToggleBookmark?: (msg: Message) => void; // star / unstar (#21)
   onInspect?: (msg: Message) => void; // "Show what was sent" for an AI reply (#31)
+  onReact?: (msg: Message, emoji: string) => void; // your emoji reaction to a reply (#11)
+  reactorName?: string; // who left msg.characterReaction, for its label
 }
 
 // Shown under a reply flagged as an out-of-character refusal (see
@@ -93,6 +96,8 @@ const ChatMessage = React.memo(({
   chapterNumber,
   onToggleBookmark,
   onInspect,
+  onReact,
+  reactorName,
 }: ChatMessageProps) => {
   const isUser = msg.role === YOU;
   const { is } = useColorTheme();
@@ -118,6 +123,9 @@ const ChatMessage = React.memo(({
   // Only a real generation has a request behind it.
   const canInspect = Boolean(onInspect && !isUser && !msg.isImpersonated);
   const bookmarkLabel = msg.bookmarked ? "Remove bookmark" : "Bookmark";
+  const handleReact = useCallback((emoji: string) => onReact?.(msg, emoji), [onReact, msg]);
+  const canReact = Boolean(onReact && !isUser && msg.id);
+  const thoughtsBlock = !isUser && msg.thoughts ? <InnerThoughts thoughts={msg.thoughts} terminal={is("terminal")} /> : null;
 
   // Long-press (touch) or the browser's own long-press/context-menu gesture
   // opens the action sheet. Moving the finger cancels it, so scrolling past a
@@ -171,6 +179,7 @@ const ChatMessage = React.memo(({
         className="top-auto bottom-0 translate-y-0 data-[state=open]:slide-in-from-top-[100%] rounded-t-2xl rounded-b-none p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] gap-0"
       >
         <DialogTitle className="sr-only">Message actions</DialogTitle>
+        {canReact && <ReactionRow current={msg.reaction} onPick={(emoji) => { setActionsOpen(false); handleReact(emoji); }} />}
         <div role="menu" aria-label="Message actions" className="flex flex-col">
           {sheetActions.map((action) => (
             <button
@@ -250,6 +259,7 @@ const ChatMessage = React.memo(({
           )}
           <span className="flex items-center gap-2.5 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
             <TermLink label="copy" onClick={handleCopy} />
+            {canReact && <TermLink label={msg.reaction === "❤️" ? "unlike" : "like"} onClick={() => handleReact("❤️")} />}
             {!isUser && !msg.isImpersonated && <TermLink label="regen" onClick={handleRegenerate} />}
             {!isUser && !msg.isImpersonated && isLastMessage && onContinue && (
               <TermLink label="continue" onClick={handleContinue} disabled={aiLoading} title="Ask the model to keep writing from where this reply left off" />
@@ -273,6 +283,12 @@ const ChatMessage = React.memo(({
           {oocLabel}
           <MarkdownRenderer msgText={stripImageContextTag(msg.txt || "")} isUser={isUser} />
           {refusalNotice}
+          {thoughtsBlock}
+          {(msg.reaction || msg.characterReaction) && (
+            <div className="mt-1 text-[12px] text-muted-foreground">
+              # {isUser ? `${reactorName || "they"} reacted ${msg.characterReaction?.emoji}` : `you reacted ${msg.reaction}`}
+            </div>
+          )}
           {msg.images && msg.images.map((imgSrc, idx) => (
             <NsfwBlur key={idx} active={blurMedia} className="w-fit max-w-full">
               <DisplayImage
@@ -451,6 +467,12 @@ const ChatMessage = React.memo(({
           <MarkdownRenderer msgText={stripImageContextTag(msg.txt || "")} isUser={isUser} />
           {refusalNotice}
         </div>
+        {thoughtsBlock}
+
+        {!isUser && msg.reaction && <ReactionBadge emoji={msg.reaction} side="right" label={`You reacted ${msg.reaction}`} />}
+        {isUser && msg.characterReaction && (
+          <ReactionBadge emoji={msg.characterReaction.emoji} side="left" label={`${reactorName || "They"} reacted ${msg.characterReaction.emoji}`} />
+        )}
 
         {msg.images && msg.images.map((imgSrc, idx) => (
           <NsfwBlur key={idx} active={blurMedia} className="w-fit max-w-full">
@@ -531,6 +553,13 @@ const ChatMessage = React.memo(({
                 </TooltipTrigger>
                 <TooltipContent>Copy</TooltipContent>
               </Tooltip>
+              {canReact && (
+                <ReactionPicker
+                  current={msg.reaction}
+                  onPick={handleReact}
+                  className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+                />
+              )}
               {!msg.isImpersonated && (
                 <Tooltip>
                   <TooltipTrigger asChild>

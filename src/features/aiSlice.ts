@@ -6,6 +6,7 @@ import { extractAndSaveBase64ImagesLocally, stripLeakedBase64 } from "./ai/utils
 import { deriveImagePrompt, generateImage, RoomReferenceCharacter } from "./ai/utils/imageGeneration";
 import { generateVideo } from "./ai/utils/videoGeneration";
 import { extractEmotionTag } from "./ai/utils/emotionUtils";
+import { extractReactionTag, extractThoughts } from "./ai/utils/messageTags";
 import { extractMemoryChanges } from "./ai/utils/memoryExtraction";
 import { looksLikeRefusal } from "./ai/utils/refusal";
 import { CHAT_PROVIDERS, IMAGE_PROVIDERS, VIDEO_PROVIDERS } from "./ai/providers/registry";
@@ -30,6 +31,8 @@ export interface GenerateAIResponseResult {
   videoPrompt?: string;
   videos?: string[];
   emotion?: string;
+  thoughts?: string;
+  reaction?: string; // the character's reaction to the message it answered (#11)
   isRefusal?: boolean;
 }
 
@@ -214,9 +217,17 @@ export const generateAIResponse = createAsyncThunk(
       // present) rather than gated on the character having Emotion Portraits
       // enabled right now - a toggle flip mid-conversation shouldn't require
       // extra plumbing here to stay correct.
-      const { text: responseWithoutEmotion, emotion } = extractEmotionTag(response, customEmotions);
+      // The reaction tag can come before or after the emotion tag; thoughts
+      // close the reply. Like the emotion tag, both are stripped whether or
+      // not they were asked for.
+      const reactionFirst = extractReactionTag(response);
+      const emotionResult = extractEmotionTag(reactionFirst.text, customEmotions);
+      const { emotion } = emotionResult;
+      const reactionAfter = reactionFirst.reaction ? { text: emotionResult.text, reaction: undefined } : extractReactionTag(emotionResult.text);
+      const reaction = reactionFirst.reaction || reactionAfter.reaction;
+      const { text: responseWithoutTags, thoughts } = extractThoughts(reactionAfter.text);
 
-      const finalResponseText = await extractAndSaveBase64ImagesLocally(responseWithoutEmotion, generatedImages);
+      const finalResponseText = await extractAndSaveBase64ImagesLocally(responseWithoutTags, generatedImages);
 
       const returnPayload: GenerateAIResponseResult = {
         text: finalResponseText.trim(),
@@ -225,6 +236,8 @@ export const generateAIResponse = createAsyncThunk(
         imagePrompt: finalDerivedImagePrompt,
         imageParams: finalDerivedImageParams,
         emotion,
+        thoughts,
+        reaction,
         // Only a plain text reply can be an out-of-character refusal; image/
         // video turns carry a derived scene summary instead.
         isRefusal: !isImageRequest && !isVideoRequest && looksLikeRefusal(finalResponseText) ? true : undefined,
