@@ -1,43 +1,5 @@
 [
   {
-    "page": "adventure",
-    "rule": "color-contrast",
-    "counts": {
-      "desktop": 4
-    },
-    "help": "Elements must meet minimum color contrast ratio thresholds"
-  },
-  {
-    "page": "adventure gallery",
-    "rule": "color-contrast",
-    "counts": {
-      "desktop": 4
-    },
-    "help": "Elements must meet minimum color contrast ratio thresholds"
-  },
-  {
-    "page": "character editor",
-    "rule": "button-name",
-    "counts": {
-      "desktop": 1,
-      "tablet": 1,
-      "iphone": 1,
-      "pixel": 1
-    },
-    "help": "Buttons must have discernible text"
-  },
-  {
-    "page": "character editor",
-    "rule": "color-contrast",
-    "counts": {
-      "desktop": 9,
-      "tablet": 2,
-      "iphone": 1,
-      "pixel": 1
-    },
-    "help": "Elements must meet minimum color contrast ratio thresholds"
-  },
-  {
     "page": "character editor",
     "rule": "target-size",
     "counts": {
@@ -45,49 +7,5 @@
       "pixel": 1
     },
     "help": "All touch targets must be 24px large, or leave sufficient space"
-  },
-  {
-    "page": "character gallery",
-    "rule": "color-contrast",
-    "counts": {
-      "desktop": 5,
-      "tablet": 1
-    },
-    "help": "Elements must meet minimum color contrast ratio thresholds"
-  },
-  {
-    "page": "chat",
-    "rule": "color-contrast",
-    "counts": {
-      "desktop": 6,
-      "tablet": 2,
-      "iphone": 2,
-      "pixel": 2
-    },
-    "help": "Elements must meet minimum color contrast ratio thresholds"
-  },
-  {
-    "page": "home",
-    "rule": "color-contrast",
-    "counts": {
-      "desktop": 4
-    },
-    "help": "Elements must meet minimum color contrast ratio thresholds"
-  },
-  {
-    "page": "home (first run)",
-    "rule": "color-contrast",
-    "counts": {
-      "desktop": 2
-    },
-    "help": "Elements must meet minimum color contrast ratio thresholds"
-  },
-  {
-    "page": "settings",
-    "rule": "color-contrast",
-    "counts": {
-      "desktop": 4
-    },
-    "help": "Elements must meet minimum color contrast ratio thresholds"
   }
 ]

@@ -48,6 +48,17 @@ in order.
 Decide, for both light and dark:
 - A page background, a card/surface color, a primary brand color, a
   secondary/neutral surface, and text colors with enough contrast on each.
+- "Enough" means WCAG AA, 4.5:1, because most of the app's secondary text
+  is 10-12px. Check every text tier (`--foreground`, `--muted-foreground`,
+  `--subtle`, `--color-text-faint`) against `--background`, `--card`,
+  `--popover`, `--secondary` and `--color-hover-bg` (the selected chat row);
+  `--primary` as text against the page, card and popover, and against its own
+  `bg-primary/10` chip; and `--primary-foreground` on `--primary`. Keep the
+  tiers apart (muted clearly stronger than faint) rather than letting faint
+  drop below 4.5:1. If no single `--primary` passes both as dark-mode text and
+  under white, use a dark `--primary-foreground` instead, as cozy and
+  material dark do. `e2e/a11y.spec.ts` scans the default theme only, so try
+  a new theme's pages with axe yourself.
 - Convert every color to an `R G B` triple (not hex) — e.g. `#4F46E5` →
   `79 70 229`. `tokens.css` stores colors this way so Tailwind's
   `rgb(var(--x) / <alpha-value>)` pattern can vary opacity per-usage.
