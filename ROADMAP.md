@@ -40,6 +40,50 @@ The app is called WhatsGemini, so lean into the messaging-app fantasy.
 
 30. **Relationship that evolves** (S). Periodically suggest an update to the character's "relationship" field from what's happened ("strangers" → "reluctant allies"). You approve each change; nothing is rewritten automatically.
 
+## Consistent faces and appearance in images
+
+Goal: the same character looks like the same person in every picture, using only providers that work from India (Wan, OpenAI, Seedream 4 and FLUX.1 Kontext through fal.ai, FLUX directly from Black Forest Labs) or that run locally (Stable Diffusion WebUI, ComfyUI). Gemini/Nano Banana is out of scope (cost), and so is Qwen's own sign-up (it rejects Indian phone numbers). Qwen-Image-Edit is still usable as open weights inside ComfyUI.
+
+**Why faces drift today** (from the code):
+- Only Gemini and the SD WebUI receive the character's reference photos. The Wan, OpenAI and GLM adapters send text only, so every picture invents a new face.
+- `deriveImagePrompt` has the chat model rewrite the whole prompt, appearance included, each time, so the description slowly changes.
+- Stable Diffusion gets no fixed seed per character.
+
+The items below fix the shared parts first, then add references to each provider.
+
+34. **Locked appearance line** (M). Every character gets a short, fixed list of visual traits (face shape, eyes, hair, skin, build, distinguishing marks, usual outfit), drafted once by the AI from the appearance text and editable in the character editor. Image prompts insert it word for word for every character in the picture; the chat model only writes the scene (pose, place, action, expression). This works for every provider, including text-only ones. Files: `imageGeneration.ts`, `adventurePrompt.ts`, the character editor, `Character.visualTags` (or similar).
+35. **Reference sheet and main reference** (M). A "Generate reference sheet" action makes a neutral front, three-quarter and side portrait with whichever provider is set up, and lets you mark one photo as the main reference. Providers that take a single image get the main one; multi-image providers get the sheet. The same sheet can serve as LoRA training images (#40).
+36. **Wan with references** (S–M). When a character has reference photos, send them to a Wan model that accepts reference images (for example `wan2.5-i2i-preview`, which edits or fuses up to about 3 images with subject consistency) on the same DashScope key and endpoint; keep the text-only model otherwise. Check first: the docs list different input types for the Singapore (international) region than for Beijing, and the request schema, on the [Wan 2.5 image edit reference](https://www.alibabacloud.com/help/en/model-studio/wan2-5-image-edit-api-reference). File: `wanAdapter.ts`.
+37. **OpenAI with references** (S). Use `/v1/images/edits` with the character's reference images for `gpt-image-1` and the cheaper `gpt-image-1-mini` (about $0.005–0.011 per image at low/medium quality, plus input-image tokens). Replace the outdated comment in `openaiImageAdapter.ts`, which says references aren't possible. Confirm the input-image limit for the mini model in the API reference.
+38. **fal.ai provider: Seedream 4 and FLUX.1 Kontext** (M). One new image adapter for fal.ai's queue API with a short model list:
+    - Seedream 4 edit: multi-reference (reportedly up to 14 images), about $0.03 per image.
+    - FLUX.1 Kontext pro (about $0.04) or dev (about $0.01): edits from one reference.
+    - Optionally a FLUX face-ID model (PuLID) if available there.
+
+    **Spike first (about an hour):** check that fal.ai accepts an Indian card, and that its REST API can be called straight from the browser (CORS), since the app has no server. Fallbacks: BFL's own API for FLUX Kontext (about $0.04 pro / $0.08 max), or another host of Seedream. Replicate is out: its API doesn't allow browser calls. Files: new `falImageAdapter.ts`, `registry.ts`, image settings.
+39. **ComfyUI provider (local, free)** (L). A new image adapter for a local ComfyUI: submit a workflow (`POST /prompt`), poll `/history/{id}`, fetch `/view`. ComfyUI must be started with `--enable-cors-header`.
+
+    The app ships a few workflow templates with placeholders for the prompt, reference image(s), seed, size, checkpoint and LoRA:
+    - (a) SDXL / Illustrious / Pony + IP-Adapter FaceID or InstantID, with an optional character LoRA;
+    - (b) FLUX.1 Kontext dev (GGUF) or Qwen-Image-Edit from one reference image;
+    - (c) an optional ReActor face-swap pass.
+
+    You can also import your own workflow JSON and map its nodes to the placeholders. Settings: URL, template, checkpoint.
+
+    Hardware: SDXL + FaceID runs on about 8 GB of VRAM; FLUX Kontext dev needs about 12 GB (less with heavier GGUF quantization). Apple Silicon works through PyTorch MPS, but it's slow for FLUX. FLUX.1 dev weights are licensed for non-commercial use, which is fine for personal use.
+40. **Per-character local settings** (S). For SD WebUI and ComfyUI: a fixed seed, a LoRA (file name, weight, trigger word) and a reference mode (FaceID/InstantID, ReActor, img2img, none) per character, instead of only app-wide.
+    - The SD WebUI's ControlNet default (`ip-adapter_sd15`) should offer FaceID presets.
+    - The ReActor face model name is currently guessed from the character's first name in `sdWebuiUtils.ts`; make it an explicit setting.
+    - A short guide in the app: train a LoRA from the reference sheet with Kohya or OneTrainer (about 15–30 images, under an hour on a mid-range GPU).
+41. **Consistency check in the tests** (S). Unit tests that every image path receives the locked appearance line and the reference images; mocked-provider e2e tests per adapter (Wan, OpenAI, fal, ComfyUI) that check the request carries the references.
+
+**Suggested order:** #34 and #35 first, since they help every provider. Then #36 and #37 (the services you can already use), the #38 spike before building it, and #39 and #40 for local generation. As parallel lanes:
+- Lane A: #34, #35, #41, in the prompt code and character editor.
+- Lane B: #36, #37, #38, in the provider adapters and image settings.
+- Lane C: #39, #40, in the ComfyUI adapter and local settings; its `registry.ts` line is added at merge.
+
+Prices are approximate (late 2026) and change; check each provider's pricing page.
+
 ## Smaller follow-ups
 
 Leftovers noted while building the finished items. Pick them up alongside related work.

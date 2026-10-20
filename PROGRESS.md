@@ -7,7 +7,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 ## Where we stand
 
 - **State:** everything planned so far is built, merged into `main` and pushed. CI on GitHub is green (type-check, 358 unit tests, 256 UI tests on Linux).
-- **Next up:** the 17 remaining roadmap items below, in waves of parallel lanes.
+- **Next up:** the 25 remaining roadmap items below, in waves of parallel lanes. Image consistency (#34–#41) is planned for the user's providers: Wan, OpenAI, fal.ai (Seedream 4, FLUX Kontext) and local SD WebUI / ComfyUI; no Gemini, and no Qwen sign-up.
 - **Open questions for the user:** none.
 
 ## Remaining items
@@ -31,6 +31,14 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | 27 | Persona character sheet | todo | With #26. |
 | 28 | Attach a World to normal chats | todo | |
 | 30 | Relationship that evolves | todo | |
+| 34 | Locked appearance line | todo | Image consistency; do first. |
+| 35 | Reference sheet and main reference | todo | Image consistency; with #34. |
+| 36 | Wan with references | todo | Check the Singapore-region input types first. |
+| 37 | OpenAI with references | todo | `/v1/images/edits`, `gpt-image-1-mini`. |
+| 38 | fal.ai provider (Seedream 4, FLUX Kontext) | todo | Spike first: Indian card, browser CORS. Replicate can't be called from a browser. |
+| 39 | ComfyUI provider (local) | todo | Needs `--enable-cors-header`; bundled workflow templates. |
+| 40 | Per-character local settings | todo | Seed, LoRA, reference mode for SD WebUI / ComfyUI. |
+| 41 | Consistency tests | todo | References and appearance line reach every provider. |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
 
@@ -61,6 +69,7 @@ One line per area. Pointers for when you need to work on it again.
 Choices a later session shouldn't revisit. Add the date.
 
 - 2026-10-20: Layout is tested with Playwright in real browsers; Jest/jsdom is for logic and component behavior only, since jsdom can't measure layout.
+- 2026-10-20: Image providers are limited to ones the user can sign up for from India, or local: Wan, OpenAI, fal.ai (Seedream 4, FLUX Kontext), BFL, SD WebUI, ComfyUI. Not Gemini image models (cost) and not Qwen's own API (rejects Indian phone numbers).
 - 2026-10-20: Compression is non-destructive (summaries are inserted, never replace messages).
 - 2026-10-20: Screenshot tests are macOS-local (`@visual`); CI leaves them out because Linux fonts differ.
 
@@ -83,4 +92,5 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
+- 2026-10-20: Planned consistent character faces in images (#34–#41) for providers usable from India and local generation; nothing built yet.
 - 2026-10-20: Reviewed the app and wrote the roadmap; then, in four waves of parallel lanes, fixed the 7 logic bugs and 12 layout/mobile bugs, added Playwright UI, flow, accessibility and screenshot tests plus CI, and built 16 features (memory #1–#5, narrative tools #14–#18, #20, #21, lorebook #29, inspector #31, per-character model #32, context meter #33). Merged into `main`, pushed, CI green. Cleaned up the docs.
