@@ -8,8 +8,8 @@ type ToasterProps = React.ComponentProps<typeof Sonner>
 // src/contexts/ThemeContext.tsx) rather than next-themes, which is what the
 // shadcn CLI wires up by default - swapped so sonner actually tracks the
 // app's real theme instead of always falling back to "system".
-// Phone widths: toasts drop in from the top, so they don't land on the
-// composer and its Send button at the bottom of the screen.
+// Toasts sit at the top (top-center on phones): at the bottom they landed
+// on the floating composer's Send button.
 const PHONE_QUERY = "(max-width: 639px)"
 const useIsPhone = () => {
   const [isPhone, setIsPhone] = useState(() => typeof window !== "undefined" && window.matchMedia?.(PHONE_QUERY).matches)

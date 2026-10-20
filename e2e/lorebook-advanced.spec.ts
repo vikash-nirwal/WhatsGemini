@@ -82,18 +82,19 @@ test("a second keyword keeps the lore out until both words come up in the chat",
   await addSecondKeyword(page, "fire");
   await save(page);
 
-  // The whole request for the turn that sent `text` (the lore lands in its system prompt).
-  const requestFor = (text: string) => {
-    const req = mockAI.requests.find((r) => r.prompt.includes(text));
-    expect(req, `a request for "${text}"`).toBeTruthy();
-    return req!.messages.map((m) => m.content).join("\n");
+  // The whole request for the turn that sent `text` (the lore lands in its
+  // system prompt). Polled: right after sending, the reply may not have
+  // started yet, so "no reply in progress" alone doesn't mean it was sent.
+  const requestFor = async (text: string) => {
+    await expect.poll(() => mockAI.requests.some((r) => r.prompt.includes(text)), { message: `a request for "${text}"` }).toBe(true);
+    return mockAI.requests.find((r) => r.prompt.includes(text))!.messages.map((m) => m.content).join("\n");
   };
   await openChat(page);
   await sendMessage(page, "Show me your sword.");
   await waitForReplyDone(page);
-  expect(requestFor("Show me your sword.")).not.toContain(LORE);
+  expect(await requestFor("Show me your sword.")).not.toContain(LORE);
 
   await sendMessage(page, "Does the sword really hold fire?");
   await waitForReplyDone(page);
-  expect(requestFor("Does the sword really hold fire?")).toContain(LORE);
+  expect(await requestFor("Does the sword really hold fire?")).toContain(LORE);
 });

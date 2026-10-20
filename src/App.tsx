@@ -247,7 +247,7 @@ const App = () => (
             </SidebarProvider>
           </ModalProvider>
         </TooltipProvider>
-        <Toaster position="bottom-right" />
+        <Toaster position="top-right" />
       </ThemeProvider>
     </AuthProvider>
   </Provider>
