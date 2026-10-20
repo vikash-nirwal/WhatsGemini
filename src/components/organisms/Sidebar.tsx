@@ -123,6 +123,15 @@ const Sidebar = () => {
     dispatch(fetchCharacters());
   }, [dispatch]);
 
+  // The drawer's own links close it, but navigation can also come from
+  // back/forward, a link elsewhere on the page or a keyboard shortcut - and
+  // the open drawer would then cover the new page. The key alone isn't
+  // enough: history entries made outside the router (a plain hash change)
+  // all share the key "default", so the path is watched too.
+  useEffect(() => {
+    close();
+  }, [location.pathname, location.search, location.key, close]);
+
   const handleDeleteChat = useCallback(async (chatId: number) => {
     const confirmed = await showConfirm("Delete Chat", "Are you sure you want to delete this chat?");
     if (confirmed) {
