@@ -4,6 +4,7 @@ import { openaiImageAdapter } from "./openaiImageAdapter";
 import { glmImageAdapter } from "./glmImageAdapter";
 import { wanAdapter, wanVideoAdapter } from "./wanAdapter";
 import { falImageAdapter } from "./falImageAdapter";
+import { comfyuiAdapter } from "./comfyuiAdapter";
 import { createOpenAiCompatibleAdapter } from "./openaiCompatibleAdapter";
 import { ChatProviderAdapter, ImageProviderAdapter, VideoProviderAdapter } from "./types";
 import { withRequestLog } from "../requestLog";
@@ -90,6 +91,7 @@ export const IMAGE_PROVIDERS: Record<string, ImageProviderAdapter> = {
   wan: wanAdapter,
   glm: glmImageAdapter,
   fal: falImageAdapter,
+  comfyui: comfyuiAdapter,
 };
 
 export const CHAT_PROVIDER_META: ProviderMeta[] = [
@@ -111,6 +113,7 @@ export const IMAGE_PROVIDER_META: ProviderMeta[] = [
   { id: "glm", label: "GLM (CogView / GLM-Image, Z.ai)" },
   { id: "fal", label: "fal.ai (Seedream / FLUX Kontext)" },
   { id: "sdwebui", label: "Local/Remote SD WebUI Forge" },
+  { id: "comfyui", label: "ComfyUI (local)" },
 ];
 
 // Wan is the only video-generation provider on offer - same DashScope

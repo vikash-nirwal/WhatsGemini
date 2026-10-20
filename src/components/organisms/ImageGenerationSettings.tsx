@@ -10,6 +10,7 @@ import ToggleSwitch from 'src/components/atoms/ToggleSwitch';
 import { ProviderPicker } from 'src/components/molecules/ProviderPicker';
 import { SegmentedControl } from 'src/components/molecules/SegmentedControl';
 import { NumberStepper } from 'src/components/molecules/NumberStepper';
+import ComfyUISettings from './ComfyUISettings';
 
 interface ImageGenerationSettingsProps {
   imageProvider: string;
@@ -140,7 +141,9 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
           <ProviderPicker providers={IMAGE_PROVIDER_META} value={imageProvider} onChange={setImageProvider} />
         </div>
 
-        {imageProvider === 'sdwebui' ? (
+        {imageProvider === 'comfyui' ? (
+          <ComfyUISettings />
+        ) : imageProvider === 'sdwebui' ? (
           <>
             <SettingsRow label="API URL" hint="Your local Forge / WebUI instance.">
               <TextInput
