@@ -1,6 +1,7 @@
 import { appendCharacterImages } from "./imageProcessing";
 import { getStoredValue } from "./settings";
-import { SDImageParams } from "../../../types";
+import { LocalImageSettings, SDImageParams } from "../../../types";
+import { applyLocalImageSettings } from "./localImageSettings";
 import {
   LS_SD_WEBUI_API_URL,
   DEFAULT_SD_WEBUI_API_URL,
@@ -23,12 +24,15 @@ export const generateSDImage = async (
   derivedParams: SDImageParams,
   characterImages?: string[],
   characterName?: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  // The character's own seed, LoRA, reference mode and face model (#40).
+  localSettings?: LocalImageSettings
 ): Promise<string[]> => {
   const generatedImages: string[] = [];
+  ({ prompt: derivedImagePrompt, params: derivedParams } = applyLocalImageSettings(derivedImagePrompt, derivedParams, localSettings));
 
   const sdApiUrl = getStoredValue(LS_SD_WEBUI_API_URL, DEFAULT_SD_WEBUI_API_URL);
-  const refMode = getStoredValue<string>(LS_SD_WEBUI_REF_MODE, DEFAULT_SD_WEBUI_REF_MODE);
+  const refMode = localSettings?.referenceMode || getStoredValue<string>(LS_SD_WEBUI_REF_MODE, DEFAULT_SD_WEBUI_REF_MODE);
   const denoising = getStoredValue(LS_SD_WEBUI_DENOISING, DEFAULT_SD_WEBUI_DENOISING, parseFloat);
   const controlnetModel = getStoredValue(LS_SD_WEBUI_CONTROLNET_MODEL, DEFAULT_SD_WEBUI_CONTROLNET_MODEL);
   const sdModel = getStoredValue(LS_SD_WEBUI_MODEL, DEFAULT_SD_WEBUI_MODEL);
@@ -48,7 +52,8 @@ export const generateSDImage = async (
     }
   }
 
-  const reactorFaceModel = characterName ? `${characterName.split(' ')[0].toLowerCase()}` : "elena";
+  // An explicit face model wins; otherwise guess it from the first name.
+  const reactorFaceModel = localSettings?.reactorFaceModel || (characterName ? `${characterName.split(' ')[0].toLowerCase()}` : "elena");
 
   let endpoint = '/sdapi/v1/txt2img';
   const payload: any = {

@@ -92,3 +92,20 @@ test("a chat picture request carries the locked look word for word", async ({ pa
   // isn't configured in tests, so the check stops at what was asked for.
   await expect.poll(() => mockAI.requests.some((r) => r.prompt.includes("word for word") && r.prompt.includes(TAGS))).toBe(true);
 });
+
+test("local image settings are saved with the character", async ({ page }) => {
+  await openRoute(page, "/characters/1/edit");
+  await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
+  for (let i = 0; i < 5; i++) await page.getByRole("button", { name: "Next" }).click();
+  const section = page.locator("details").filter({ has: page.locator("summary", { hasText: "Local image settings" }) });
+  await section.locator("summary").first().click();
+  await section.getByLabel("Seed").fill("1234");
+  await section.getByLabel("LoRA file name").fill("aria_v1");
+  await section.getByLabel("LoRA trigger word").fill("aria_char");
+  await section.getByRole("combobox", { name: "How reference photos are used" }).click();
+  await page.getByRole("option", { name: "ReActor face swap" }).click();
+  await expect(section.locator("summary").first()).toContainText("LoRA aria_v1, seed 1234");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText("Character saved")).toBeVisible();
+  expect((await readCharacter(page)).localImageSettings).toEqual({ seed: 1234, loraName: "aria_v1", loraTrigger: "aria_char", referenceMode: "reactor" });
+});

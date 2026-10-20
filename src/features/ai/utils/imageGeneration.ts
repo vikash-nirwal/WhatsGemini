@@ -1,4 +1,4 @@
-import { AISafetySettings, SDImageParams, ArtStyle } from "../../../types";
+import { AISafetySettings, SDImageParams, ArtStyle, LocalImageSettings } from "../../../types";
 import { appendCharacterImages } from "./imageProcessing";
 import { generateSDImage } from "./sdWebuiUtils";
 import { UsageInfo } from "../types";
@@ -181,11 +181,13 @@ export const generateImage = async (
   aspectRatio?: string,
   // Room-only (Gemini-only for now, see NamedReferenceImages) - every OTHER
   // character present besides characterName/characterImages above.
-  otherRoomCharacters?: RoomReferenceCharacter[]
+  otherRoomCharacters?: RoomReferenceCharacter[],
+  // SD WebUI only for now (#40): the character's seed, LoRA and reference mode.
+  localImageSettings?: LocalImageSettings
 ): Promise<ImageGenerationResult> => {
   try {
     if (useSdWebui) {
-      const images = await generateSDImage(derivedImagePrompt, derivedParams, characterImages, characterName, signal);
+      const images = await generateSDImage(derivedImagePrompt, derivedParams, characterImages, characterName, signal, localImageSettings);
       return { images };
     }
 

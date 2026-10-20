@@ -162,6 +162,17 @@ export interface DiaryEntry {
   text: string;
 }
 
+// Per-character settings for local image generation (#40), used by the SD
+// WebUI (and ComfyUI) instead of the app-wide ones when set.
+export interface LocalImageSettings {
+  seed?: number; // fixed seed, so the same prompt gives the same person
+  loraName?: string; // LoRA file name without extension, e.g. "mira_v2"
+  loraWeight?: number; // usually 0.6-1.0
+  loraTrigger?: string; // the LoRA's trigger word(s)
+  referenceMode?: "none" | "img2img" | "controlnet" | "reactor"; // how reference photos are used
+  reactorFaceModel?: string; // ReActor face model name (without .safetensors)
+}
+
 // What a long-term memory fact is about.
 export type MemoryCategory = "user" | "relationship" | "story";
 
@@ -195,6 +206,7 @@ export interface Character {
   // Locked look for pictures (#34): a fixed, comma-separated list of visual
   // traits that goes into every image prompt word for word.
   visualTags?: string;
+  localImageSettings?: LocalImageSettings; // #40, local generation only
   appearanceImages?: string[];
   artStyle?: ArtStyle;
   avatar?: string;

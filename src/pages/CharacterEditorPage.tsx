@@ -4,7 +4,7 @@ import { addCharacter, updateCharacter } from "../features/characterSlice";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { FaUpload, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaCrop } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { Character, LoreEntry, ArtStyle, ContentRating } from "../types";
+import { Character, LoreEntry, ArtStyle, ContentRating, LocalImageSettings } from "../types";
 import { dbService } from "../services/dbService";
 import { generateAssistText, generateAvatarImage } from "../features/aiSlice";
 import { buildVisualTagsDraftPrompt, cleanVisualTags } from "../features/ai/utils/appearanceLock";
@@ -26,6 +26,8 @@ import { detectMinorIndicators, characterTextFields } from "../features/characte
 import { useModal } from "../contexts/ModalContext";
 import { CharacterModelOverride, cleanModelOverride } from "../features/ai/modelResolution";
 import ModelOverrideSection from "./CharacterEditorPage/ModelOverrideSection";
+import LocalImageSettingsSection from "./CharacterEditorPage/LocalImageSettingsSection";
+import { cleanLocalImageSettings } from "../features/ai/utils/localImageSettings";
 import { toast } from "sonner";
 
 // Deferred to its own chunk - only fetched once the user actually opens the
@@ -135,6 +137,7 @@ const CharacterEditorPage = () => {
   const [loreEntries, setLoreEntries] = useState<LoreEntry[]>([]);
   const [personalityTraits, setPersonalityTraits] = useState<string[]>([]);
   const [modelOverride, setModelOverride] = useState<CharacterModelOverride | undefined>(undefined);
+  const [localImageSettings, setLocalImageSettings] = useState<LocalImageSettings | undefined>(undefined);
 
   // Seed the form from whichever source applies: editing an existing
   // character, duplicating one, or a blank create. Always runs on
@@ -174,6 +177,7 @@ const CharacterEditorPage = () => {
       setLoreEntries(source.loreEntries || []);
       setPersonalityTraits(source.personalityTraits || []);
       setModelOverride(source.modelOverride);
+      setLocalImageSettings(source.localImageSettings);
     } else {
       setName("");
       setDescription("");
@@ -200,6 +204,7 @@ const CharacterEditorPage = () => {
       setLoreEntries([]);
       setPersonalityTraits([]);
       setModelOverride(undefined);
+      setLocalImageSettings(undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [characterId]);
@@ -361,7 +366,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
       return;
     }
     if (!checkContentRating()) return;
-    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride) }));
+    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings) }));
     navigate("/characters");
   };
 
@@ -379,7 +384,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     // Spread the stored record first: db.put replaces the whole row, so any
     // field this form doesn't own (memory, pinnedMemory, avatar, creatorNotes)
     // was being wiped on every save.
-    dispatch(updateCharacter({ ...editCharacter, id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride) }));
+    dispatch(updateCharacter({ ...editCharacter, id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings) }));
     if (options?.stay) {
       toast.success("Character saved");
     } else {
@@ -512,6 +517,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
           appearanceImages: appearanceImages.length > 0 ? appearanceImages.slice(0, 1) : undefined,
           artStyle,
           hint: view.hint,
+          localImageSettings: cleanLocalImageSettings(localImageSettings),
         })).unwrap();
         const image = result.images?.[0];
         if (!image) throw new Error("No image was returned.");
@@ -551,7 +557,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     setGeneratingEmotion(emotion);
     try {
       const referenceImages = appearanceImages.length > 0 ? appearanceImages : undefined;
-      const result = await dispatch(generateAvatarImage({ name, appearance, visualTags, appearanceImages: referenceImages, emotion, artStyle, hint: emotionHint.trim() || undefined })).unwrap();
+      const result = await dispatch(generateAvatarImage({ name, appearance, visualTags, appearanceImages: referenceImages, emotion, artStyle, hint: emotionHint.trim() || undefined, localImageSettings: cleanLocalImageSettings(localImageSettings) })).unwrap();
       if (result.images && result.images.length > 0) {
         // Generated against a chroma-key backdrop (see the emotion-only prompt
         // clause in aiSlice.ts) - strip it to real transparency before the crop
@@ -611,7 +617,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
         setGeneratingEmotion(emo);
         try {
           // eslint-disable-next-line no-await-in-loop
-          const result = await dispatch(generateAvatarImage({ name, appearance, visualTags, appearanceImages: referenceImages, emotion: emo, artStyle, hint: emotionHint.trim() || undefined })).unwrap();
+          const result = await dispatch(generateAvatarImage({ name, appearance, visualTags, appearanceImages: referenceImages, emotion: emo, artStyle, hint: emotionHint.trim() || undefined, localImageSettings: cleanLocalImageSettings(localImageSettings) })).unwrap();
           const dataUrl = result.images?.[0];
           if (!dataUrl) continue;
           // Same chroma-key strip as the single-emotion path above, just
@@ -1120,6 +1126,9 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
             {step === STEPS.length - 1 && (
               <Card className="p-6">
                 <ModelOverrideSection value={modelOverride} onChange={setModelOverride} />
+                <div className="mt-4 border-t border-border pt-4">
+                  <LocalImageSettingsSection value={localImageSettings} onChange={setLocalImageSettings} />
+                </div>
               </Card>
             )}
 

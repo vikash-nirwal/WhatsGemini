@@ -268,6 +268,7 @@ const ChatPage = () => {
         name: characterData.name,
         appearance: characterData.appearance,
         visualTags: characterData.visualTags,
+        localImageSettings: characterData.localImageSettings,
         appearanceImages: referenceImages,
         emotion: missingEmotionPortrait,
         artStyle: characterData.artStyle,
@@ -656,7 +657,7 @@ const ChatPage = () => {
       prompt: followupPrompt,
       history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle,
       isImageRequest: includeImage, isVideoRequest: includeVideo, isCharacterInitiated: true, isAutoSelfie: shouldAutoSelfie,
-      customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks,
+      customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings,
     }));
 
     if (!isGenerationSuccess(aiResponse)) {
@@ -900,7 +901,7 @@ const ChatPage = () => {
         Math.random() * 100 < (autoSelfieCfg.frequency ?? DEFAULT_AUTO_SELFIE_FREQUENCY);
 
       const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = buildTurnContext(contextMessages, speaker, undefined, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: text, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isVideoRequest, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: text, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isVideoRequest, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
       reportGenerationFailure(aiResponse);
@@ -980,7 +981,7 @@ const ChatPage = () => {
         if (!speaker) return;
 
         const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = buildTurnContext(contextUpToEdit, speaker, undefined, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
-        aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks }));
+        aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings }));
         const aiResponse = await aiPromiseRef.current;
         aiPromiseRef.current = null;
         reportGenerationFailure(aiResponse);
@@ -1074,7 +1075,7 @@ const ChatPage = () => {
       if (!speaker) return;
 
       const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = buildTurnContext(historyUpToTarget, speaker, extraDirectives, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
       reportGenerationFailure(aiResponse);
@@ -1229,7 +1230,7 @@ const ChatPage = () => {
         scene
       );
 
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: "Continue.", history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker.artStyle, customEmotions: speaker.emotionPortraits?.customEmotions, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: "Continue.", history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker.artStyle, customEmotions: speaker.emotionPortraits?.customEmotions, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
       reportGenerationFailure(aiResponse);

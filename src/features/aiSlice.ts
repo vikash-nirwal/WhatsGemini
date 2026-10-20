@@ -12,7 +12,7 @@ import { CHAT_PROVIDERS, IMAGE_PROVIDERS, VIDEO_PROVIDERS } from "./ai/providers
 import { ProviderRuntimeConfig } from "./ai/providers/types";
 import { ChatMessage, UsageInfo } from "./ai/types";
 import { RootState } from "../store/store";
-import { SDImageParams, Message, ArtStyle, Character, UserProfile, World, DiaryEntry } from "../types";
+import { SDImageParams, Message, ArtStyle, Character, UserProfile, World, DiaryEntry, LocalImageSettings } from "../types";
 import { buildDiaryPrompt, cleanDiaryEntry } from "./ai/utils/diary";
 import { buildAdventureSceneImageInstruction, findCastInNarration } from "./ai/utils/adventurePrompt";
 import { insertCompressionSummary, fetchChats } from "./chatSlice";
@@ -61,7 +61,7 @@ const resolveHelperCall = async (settings: RootState["settings"]) => {
 
 export const generateAIResponse = createAsyncThunk(
   "ai/generateResponse",
-  async ({ prompt, history = [], systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters, protectedCount, modelOverride, appearanceLocks }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, postHistoryNote?: string, streamKey?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[], protectedCount?: number, modelOverride?: Character["modelOverride"], appearanceLocks?: AppearanceLock[] }, { getState, dispatch, rejectWithValue, signal }) => {
+  async ({ prompt, history = [], systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters, protectedCount, modelOverride, appearanceLocks, localImageSettings }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, postHistoryNote?: string, streamKey?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[], protectedCount?: number, modelOverride?: Character["modelOverride"], appearanceLocks?: AppearanceLock[], localImageSettings?: LocalImageSettings }, { getState, dispatch, rejectWithValue, signal }) => {
     try {
       const state = getState() as RootState;
       const settings = state.settings;
@@ -167,7 +167,7 @@ export const generateAIResponse = createAsyncThunk(
 
           const imageResult = await generateImage(
             imageProviderId, imageConfig, useSdWebui, imageModelName, derivation.derivedImagePrompt, derivation.derivedParams,
-            characterImages, characterName, settings.safetySettings, signal, settings.geminiImageSize, undefined, otherRoomCharacters
+            characterImages, characterName, settings.safetySettings, signal, settings.geminiImageSize, undefined, otherRoomCharacters, localImageSettings
           );
           trackUsage(imageResult.usage, imageProviderId, imageModelName);
           generatedImages = imageResult.images;
@@ -442,7 +442,7 @@ export const generateAssistText = createAsyncThunk(
 export const generateAvatarImage = createAsyncThunk(
   "ai/generateAvatarImage",
   async (
-    { name, appearance, visualTags, appearanceImages, emotion, artStyle, hint }: { name: string; appearance?: string; visualTags?: string; appearanceImages?: string[]; emotion?: string; artStyle?: ArtStyle; hint?: string },
+    { name, appearance, visualTags, appearanceImages, emotion, artStyle, hint, localImageSettings }: { name: string; appearance?: string; visualTags?: string; appearanceImages?: string[]; emotion?: string; artStyle?: ArtStyle; hint?: string; localImageSettings?: LocalImageSettings },
     { getState, rejectWithValue }
   ) => {
     try {
@@ -491,7 +491,7 @@ export const generateAvatarImage = createAsyncThunk(
         imageProviderId, imageConfig, useSdWebui, imageModelName,
         prompt, {}, // no SD-specific params
         appearanceImages, name,
-        settings.safetySettings, undefined, settings.geminiImageSize, "3:4"
+        settings.safetySettings, undefined, settings.geminiImageSize, "3:4", undefined, localImageSettings
       );
 
       if (!result.images || result.images.length === 0) {
