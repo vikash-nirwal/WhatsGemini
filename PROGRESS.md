@@ -6,8 +6,8 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **State:** everything planned so far is built, merged into `main` and pushed. CI on GitHub is green (type-check, 358 unit tests, 256 UI tests on Linux).
-- **Next up:** the 25 remaining roadmap items below, in waves of parallel lanes. Image consistency (#34–#41) is planned for the user's providers: Wan, OpenAI, fal.ai (Seedream 4, FLUX Kontext) and local SD WebUI / ComfyUI; no Gemini, and no Qwen sign-up.
+- **State:** image consistency is under way. #34, #35 and the SD WebUI half of #40 are committed on local `main` (not pushed). Lanes B (#36–#38) and C (#39) are still running in their worktrees. The last full local run passed: type-check, 376 unit tests, 288 UI tests and 16 screenshot tests.
+- **Next up:** verify Lanes B and C, run them combined in a throwaway worktree, and merge with the user's OK. Then wire ComfyUI into `registry.ts` and image settings, add its half of #40 plus FaceID presets for the SD WebUI ControlNet, and finish #41.
 - **Open questions for the user:** none.
 
 ## Remaining items
@@ -31,14 +31,12 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | 27 | Persona character sheet | todo | With #26. |
 | 28 | Attach a World to normal chats | todo | |
 | 30 | Relationship that evolves | todo | |
-| 34 | Locked appearance line | todo | Image consistency; do first. |
-| 35 | Reference sheet and main reference | todo | Image consistency; with #34. |
-| 36 | Wan with references | todo | Check the Singapore-region input types first. |
-| 37 | OpenAI with references | todo | `/v1/images/edits`, `gpt-image-1-mini`. |
-| 38 | fal.ai provider (Seedream 4, FLUX Kontext) | todo | Spike first: Indian card, browser CORS. Replicate can't be called from a browser. |
-| 39 | ComfyUI provider (local) | todo | Needs `--enable-cors-header`; bundled workflow templates. |
-| 40 | Per-character local settings | todo | Seed, LoRA, reference mode for SD WebUI / ComfyUI. |
-| 41 | Consistency tests | todo | References and appearance line reach every provider. |
+| 36 | Wan with references | in progress | Lane B. Check the Singapore-region input types first. |
+| 37 | OpenAI with references | in progress | Lane B. `/v1/images/edits`, `gpt-image-1-mini`. |
+| 38 | fal.ai provider (Seedream 4, FLUX Kontext) | in progress | Lane B. Spike first: Indian card, browser CORS. Replicate can't be called from a browser. |
+| 39 | ComfyUI provider (local) | in progress | Lane C. Needs `--enable-cors-header`; bundled workflow templates. |
+| 40 | Per-character local settings | in progress | SD WebUI done (`Character.localImageSettings`). Left: ComfyUI, and FaceID presets for the ControlNet model. |
+| 41 | Consistency tests | in progress | Locked line and SD payload covered. Left: per-adapter reference e2e tests after the merge. |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
 
@@ -62,6 +60,7 @@ One line per area. Pointers for when you need to work on it again.
 - **Adventures** stream, compress, follow the cast's content rating and the roleplay style, and have per-adventure hard limits.
 - **Layout and mobile:** the composer grows with the text and collapses its tools behind "+" on phones; touch screens get a long-press action sheet; side panels are a sheet, an overlay or a column depending on width; `h-dvh` everywhere; toasts at the top.
 - **Accessibility:** every theme meets WCAG AA contrast. The axe baseline is empty, so any violation fails the scan.
+- **Consistent looks:** each character's locked look (`Character.visualTags`, drafted from the appearance) is forced into every image prompt word for word (`appearanceLock.ts`: tags for SD, "Name: …" sentences otherwise), in chat, portraits and adventure scenes. The first reference photo is the main one; "Generate reference sheet" makes front, three-quarter and side portraits. Per-character SD WebUI seed, LoRA, reference mode and ReActor face model live in `Character.localImageSettings` (`localImageSettings.ts`, applied in `generateSDImage`).
 - **Known gaps:** chats whose seed messages were never flagged `isSystem` (very old ones) aren't detected as seeded; mood-portrait generation from inside a chat wasn't checked with a real image provider; `h-dvh` wasn't checked on a real iPhone.
 
 ## Decisions
@@ -92,5 +91,6 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
+- 2026-10-20: Built #34 (locked look), #35 (reference sheet, main reference) and the SD WebUI half of #40; started Lanes B (#36–#38) and C (#39).
 - 2026-10-20: Planned consistent character faces in images (#34–#41) for providers usable from India and local generation; nothing built yet.
 - 2026-10-20: Reviewed the app and wrote the roadmap; then, in four waves of parallel lanes, fixed the 7 logic bugs and 12 layout/mobile bugs, added Playwright UI, flow, accessibility and screenshot tests plus CI, and built 16 features (memory #1–#5, narrative tools #14–#18, #20, #21, lorebook #29, inspector #31, per-character model #32, context meter #33). Merged into `main`, pushed, CI green. Cleaned up the docs.
