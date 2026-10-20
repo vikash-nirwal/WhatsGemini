@@ -13,7 +13,7 @@ import {
   setChatProvider, setImageProvider, setOllamaBaseUrl,
   setEmotionPanelEnabled, setEmotionPopupEnabled, setEmotionPopupDuration, setAlwaysShowInitials, setTextingMode,
 } from "../features/settingsSlice";
-import { FaInfoCircle, FaUser, FaMicrochip, FaImage, FaComments, FaShieldAlt, FaDatabase, FaPalette, FaLock } from "react-icons/fa";
+import { FaInfoCircle, FaUser, FaMicrochip, FaImage, FaComments, FaShieldAlt, FaDatabase, FaPalette, FaLock, FaWallet } from "react-icons/fa";
 import Header from "src/components/organisms/Header";
 import { toast } from "sonner";
 import { useColorTheme } from "../hooks/useColorTheme";
@@ -80,6 +80,8 @@ import {
   LS_COMPRESS_THRESHOLD,
   // DEFAULT_COMPRESS_THRESHOLD,
   LS_LAST_BACKUP_AT,
+  LS_SPENDING_LEDGER,
+  LS_SPENDING_BUDGET,
   PROVIDER_CHAT_MODELS,
   PROVIDER_IMAGE_MODELS,
   PROVIDER_VIDEO_MODELS,
@@ -94,10 +96,12 @@ import ChatInterfaceSettings from "src/components/organisms/ChatInterfaceSetting
 import SafetySettings from "src/components/organisms/SafetySettings";
 import DataBackupSettings from "src/components/organisms/DataBackupSettings";
 import PrivacySettings from "src/components/organisms/PrivacySettings";
+import SpendingSettings from "src/components/organisms/SpendingSettings";
+import { getSpendingSnapshot, importLedger, setBudget } from "../features/spending/spending";
 import { formatRelativeTime } from "../utils/formatRelativeTime";
 import { cn } from "../utils/cn";
 
-const SECTION_IDS = ["profile", "text", "image", "chat", "appearance", "privacy", "safety", "data"] as const;
+const SECTION_IDS = ["profile", "text", "image", "chat", "appearance", "privacy", "safety", "spending", "data"] as const;
 
 const SettingsPage = () => {
   const navigate = useNavigate();
@@ -567,6 +571,9 @@ const SettingsPage = () => {
     [LS_USER_PERSONAS]: personas,
     [LS_ACTIVE_PERSONA_ID]: activePersonaId,
     [LS_INITIAL_MESSAGES]: JSON.parse(localStorage.getItem(LS_INITIAL_MESSAGES) || "[]"),
+    // Read at export time from the spending store (#42), which lives outside Redux.
+    [LS_SPENDING_LEDGER]: getSpendingSnapshot().ledger,
+    [LS_SPENDING_BUDGET]: getSpendingSnapshot().budget,
   }), [selectedModel, maxOutputTokens, replyLengthLimit, compressThreshold, temperature, samplers, roleplayStyle, safetySettings, maxChatLength, fontSize, imageResolution, geminiImageSize, portraitSaveSize, portraitResizeEnabled, emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials, textingMode, personas, activePersonaId]);
 
   const downloadJson = (data: unknown, filename: string) => {
@@ -661,6 +668,10 @@ const SettingsPage = () => {
         localStorage.setItem(LS_INITIAL_MESSAGES, JSON.stringify(settings[LS_INITIAL_MESSAGES]));
         setInitialMessagesKey(prev => prev + 1);
     }
+    // Merged rather than replaced, so restoring a backup never loses (or
+    // double-counts) spending recorded in this browser.
+    if (settings[LS_SPENDING_LEDGER] && typeof settings[LS_SPENDING_LEDGER] === "object") importLedger(settings[LS_SPENDING_LEDGER]);
+    if (settings[LS_SPENDING_BUDGET] && typeof settings[LS_SPENDING_BUDGET] === "object") setBudget(settings[LS_SPENDING_BUDGET]);
   }, [dispatch]);
 
   const handleSettingsFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -764,6 +775,7 @@ const SettingsPage = () => {
     { id: "appearance", icon: <FaPalette size={13} />, title: "Appearance", subtitle: "Color theme", conf: "appearance" },
     { id: "privacy", icon: <FaLock size={13} />, title: "Privacy", subtitle: "Blur, discreet list, app lock", conf: "privacy" },
     { id: "safety", icon: <FaShieldAlt size={13} />, title: "Safety Settings", subtitle: chatProvider === "gemini" ? "Content filtering thresholds" : "Gemini only - not used by other providers", conf: "safety" },
+    { id: "spending", icon: <FaWallet size={13} />, title: "Spending", subtitle: "Estimated costs and a monthly limit", conf: "spending" },
     { id: "data", icon: <FaDatabase size={13} />, title: "Data & Import/Export", subtitle: "Import / export conversations", conf: "data_io" },
   ];
   const activeSection = sections.find((s) => s.id === selectedSection) || sections[0];
@@ -983,6 +995,8 @@ const SettingsPage = () => {
                 {selectedSection === "privacy" && (
                   <PrivacySettings privacy={privacy} setPrivacy={(val) => dispatch(setPrivacy(val))} />
                 )}
+
+                {selectedSection === "spending" && <SpendingSettings />}
 
                 {selectedSection === "data" && (
                   <DataBackupSettings

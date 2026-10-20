@@ -142,6 +142,21 @@ export const getModelPricing = (providerId: string, model: string): { input: num
   if (providerId === "gemini") return MODEL_PRICING[model] || DEFAULT_MODEL_PRICING;
   return PROVIDER_MODEL_PRICING[`${providerId}:${model}`] || DEFAULT_MODEL_PRICING;
 };
+// Rough USD per generated image or video clip, for providers whose API reports
+// no token usage for them (fal.ai, Wan, GLM, DALL-E 3). Only used by the
+// spending dashboard (#42), so it doesn't read $0 for a paid picture. List
+// prices at the time of writing; the dashboard says these are estimates.
+export const FLAT_IMAGE_PRICING: Record<string, number> = {
+  fal: 0.04,
+  wan: 0.03,
+  glm: 0.015,
+  openai: 0.04,
+  gemini: 0.04,
+};
+export const FLAT_VIDEO_PRICING: Record<string, number> = {
+  // A 5-second 720p clip at roughly $0.10 a second.
+  wan: 0.5,
+};
 // Rough max-context-window sizes (in tokens) per model, used only to color-code
 // the pre-send context budget indicator - not authoritative, and intentionally
 // conservative for anything not explicitly listed below.
@@ -480,6 +495,10 @@ export const DEFAULT_WAN_BASE_URL = "";
 // Namespaced per provider id so each provider keeps its own encrypted-at-rest key,
 // independent of Gemini's existing LS_GOOGLE_API_KEY.
 export const LS_PROVIDER_API_KEY_PREFIX = "provider_api_key_";
+// Spending dashboard and monthly limit (#42), see src/features/spending.
+export const LS_SPENDING_LEDGER = "spending_ledger";
+export const LS_SPENDING_BUDGET = "spending_budget";
+export const LS_SPENDING_WARNED = "spending_warned";
 
 // Hardcoded model choices offered per hosted chat provider. Ollama is
 // intentionally omitted - its model list is whatever the user has pulled

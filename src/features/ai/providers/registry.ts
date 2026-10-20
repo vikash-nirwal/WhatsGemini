@@ -8,6 +8,7 @@ import { comfyuiAdapter } from "./comfyuiAdapter";
 import { createOpenAiCompatibleAdapter } from "./openaiCompatibleAdapter";
 import { ChatProviderAdapter, ImageProviderAdapter, VideoProviderAdapter } from "./types";
 import { withRequestLog } from "../requestLog";
+import { withChatSpending, withImageSpending, withVideoSpending } from "../../spending/spendingAdapters";
 
 export interface ProviderMeta {
   id: string;
@@ -64,6 +65,8 @@ const glmAdapter = createOpenAiCompatibleAdapter({
 
 // Every chat adapter is wrapped by withRequestLog, so each call lands in the
 // prompt inspector's log (#31) without aiSlice or the utils knowing about it.
+// The spending wrapper (#42) sits outside it, so a call the monthly limit
+// stops never reaches the log.
 const RAW_CHAT_PROVIDERS: Record<string, ChatProviderAdapter> = {
   gemini: geminiAdapter,
   openai: openaiAdapter,
@@ -77,7 +80,7 @@ const RAW_CHAT_PROVIDERS: Record<string, ChatProviderAdapter> = {
 };
 
 export const CHAT_PROVIDERS: Record<string, ChatProviderAdapter> = Object.fromEntries(
-  Object.entries(RAW_CHAT_PROVIDERS).map(([id, adapter]) => [id, withRequestLog(adapter)])
+  Object.entries(RAW_CHAT_PROVIDERS).map(([id, adapter]) => [id, withChatSpending(withRequestLog(adapter))])
 );
 
 // Of the requested providers, Gemini (native), OpenAI (DALL-E/gpt-image-1),
@@ -85,7 +88,9 @@ export const CHAT_PROVIDERS: Record<string, ChatProviderAdapter> = Object.fromEn
 // real image-generation APIs, alongside the existing local SD WebUI
 // integration (handled separately - see aiSlice.ts). fal.ai hosts Seedream
 // and FLUX Kontext, which keep faces consistent from reference photos.
-export const IMAGE_PROVIDERS: Record<string, ImageProviderAdapter> = {
+// Wrapped for spending like the chat adapters; ComfyUI is free, so its
+// wrapper never blocks or records it. SD WebUI isn't an adapter at all.
+const RAW_IMAGE_PROVIDERS: Record<string, ImageProviderAdapter> = {
   gemini: geminiImageAdapter,
   openai: openaiImageAdapter,
   wan: wanAdapter,
@@ -93,6 +98,10 @@ export const IMAGE_PROVIDERS: Record<string, ImageProviderAdapter> = {
   fal: falImageAdapter,
   comfyui: comfyuiAdapter,
 };
+
+export const IMAGE_PROVIDERS: Record<string, ImageProviderAdapter> = Object.fromEntries(
+  Object.entries(RAW_IMAGE_PROVIDERS).map(([id, adapter]) => [id, withImageSpending(adapter)])
+);
 
 export const CHAT_PROVIDER_META: ProviderMeta[] = [
   { id: "gemini", label: "Google Gemini" },
@@ -119,7 +128,7 @@ export const IMAGE_PROVIDER_META: ProviderMeta[] = [
 // Wan is the only video-generation provider on offer - same DashScope
 // account/key/workspace endpoint as its image adapter above.
 export const VIDEO_PROVIDERS: Record<string, VideoProviderAdapter> = {
-  wan: wanVideoAdapter,
+  wan: withVideoSpending(wanVideoAdapter),
 };
 
 export const VIDEO_PROVIDER_META: ProviderMeta[] = [{ id: "wan", label: "Wan (Wanxiang, DashScope)" }];

@@ -41,7 +41,6 @@ The app is called WhatsGemini, so lean into the messaging-app fantasy.
 
 Built one at a time, in this order. Each runs in a fresh session.
 
-42. **Spending dashboard and budget cap** (S–M). Cost per provider and per month (chat, image, video, helper calls), from the usage the app already tracks. Optional monthly limit: a warning at 80%, and either a warning or a hard stop at 100% (your choice).
 43. **Notifications** (S). When a character reaches out (a follow-up) or a reply finishes while the tab is in the background, show a browser notification that opens the chat. Asks permission once, from Settings; off by default.
 44. **Voice notes** (M). Built together with Voice (#12), which it needs. A character sometimes sends a voice message (spoken by the browser's free text-to-speech, shown as a playable bubble with its transcript), and you can record one back (speech-to-text, sent as text with a "voice note" mark).
 45. **Character from one line** (S). Type an idea ("grumpy pirate cook who secretly writes poetry") and the AI drafts the whole character: name, description, personality, scenario, greeting, appearance and locked look. You review it in the editor before saving.

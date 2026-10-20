@@ -17,6 +17,7 @@ import Sidebar from "src/components/organisms/Sidebar";
 import Header from "src/components/organisms/Header";
 import ServiceWorkerUpdater from "src/components/molecules/ServiceWorkerUpdater";
 import BackupReminderBanner from "src/components/molecules/BackupReminderBanner";
+import SpendingAlerts from "src/components/molecules/SpendingAlerts";
 import Logo from "src/components/atoms/Logo";
 import { TooltipProvider } from "src/components/atoms/tooltip";
 import { Toaster } from "src/components/atoms/sonner";
@@ -195,6 +196,7 @@ const AppContent = () => {
     <div className="bg-background min-h-dvh text-foreground font-sans">
       <div className="flex flex-col h-dvh w-full">
         <BackupReminderBanner />
+        <SpendingAlerts />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar />
           <main className="app-main flex-1 bg-background relative z-1 min-w-0">

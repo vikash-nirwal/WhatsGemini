@@ -60,8 +60,26 @@ interface PageCase {
   name: string;
   route: string;
   seed?: SeedOptions | false;
+  // Extra localStorage for this page, e.g. data the page shows.
+  storage?: Record<string, string>;
   ready: (page: Page) => Promise<void>;
 }
+
+// Spending seeded under half of a limit, so the page shows its provider
+// rows, month bars and meter without an 80% warning toast covering it.
+const thisMonth = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+const SPENDING_STORAGE = {
+  spending_ledger: JSON.stringify({
+    [thisMonth()]: {
+      openai: { cost: 1.2, calls: 14, tokens: 0, byKind: { text: 0.8, image: 0.4 } },
+      fal: { cost: 0.36, calls: 9, tokens: 0, byKind: { image: 0.36 } },
+    },
+  }),
+  spending_budget: JSON.stringify({ monthlyLimit: 5, mode: "warn" }),
+};
 
 const pages: PageCase[] = [
   // First run (empty database) gets the welcome screen; once there are
@@ -72,12 +90,13 @@ const pages: PageCase[] = [
   { name: "character gallery", route: "/characters", ready: (p) => expect(p.getByRole("heading", { name: "Aria" })).toBeVisible({ timeout: 30_000 }) },
   { name: "character editor", route: "/characters/new", ready: (p) => expect(p.getByRole("textbox", { name: "Character Name" })).toBeVisible({ timeout: 30_000 }) },
   { name: "settings", route: "/settings/profile", ready: (p) => expect(p.getByRole("button", { name: "Back" }).first()).toBeVisible({ timeout: 30_000 }) },
+  { name: "spending", route: "/settings/spending", storage: SPENDING_STORAGE, ready: (p) => expect(p.getByRole("list", { name: "Spending by provider this month" })).toBeVisible({ timeout: 30_000 }) },
   { name: "adventure gallery", route: "/adventures", seed: { adventure: true }, ready: (p) => expect(p.getByText("The Sunken Archive").first()).toBeVisible({ timeout: 30_000 }) },
   { name: "adventure", route: "/adventures/1", seed: { adventure: true }, ready: (p) => expect(p.getByText(ADVENTURE_OPENING)).toBeVisible({ timeout: 30_000 }) },
 ];
 
 // A3: the default cozy dark theme gets every page above. Each other color
-// theme and light/dark mode gets only the two pages that show the most kinds
+// theme and light/dark mode gets only the pages that show the most kinds
 // of controls and text, on one desktop and one phone viewport, which keeps
 // the run short while still catching a contrast regression in any theme.
 // Their baseline entries carry the theme in the page key, e.g.
@@ -89,7 +108,7 @@ const pages: PageCase[] = [
 // too small. How many chips that hits depends on each theme's font metrics.
 const THEMES = ["cozy", "neumorphic", "aurora", "terminal", "parchment", "material"] as const;
 const MODES = ["dark", "light"] as const;
-const THEMED_PAGES = ["chat", "character editor"];
+const THEMED_PAGES = ["chat", "character editor", "spending"];
 const THEMED_PROJECTS = ["desktop", "pixel"];
 
 interface ScanCase {
@@ -112,7 +131,9 @@ for (const color of THEMES) {
 for (const { key, pc, theme } of cases) {
   test.describe(key, () => {
     if (pc.seed !== undefined) test.use({ seed: pc.seed });
-    if (theme) test.use({ localStorageOverrides: { color_theme: theme.color, theme: theme.mode } });
+    if (theme || pc.storage) {
+      test.use({ localStorageOverrides: { ...pc.storage, ...(theme ? { color_theme: theme.color, theme: theme.mode } : {}) } });
+    }
 
     test(`a11y: no new axe violations on ${key}`, async ({ page }, testInfo) => {
       const project = testInfo.project.name;
