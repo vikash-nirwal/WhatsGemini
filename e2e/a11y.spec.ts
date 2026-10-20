@@ -76,12 +76,47 @@ const pages: PageCase[] = [
   { name: "adventure", route: "/adventures/1", seed: { adventure: true }, ready: (p) => expect(p.getByText(ADVENTURE_OPENING)).toBeVisible({ timeout: 30_000 }) },
 ];
 
-for (const pc of pages) {
-  test.describe(pc.name, () => {
-    if (pc.seed !== undefined) test.use({ seed: pc.seed });
+// A3: the default cozy dark theme gets every page above. Each other color
+// theme and light/dark mode gets only the two pages that show the most kinds
+// of controls and text, on one desktop and one phone viewport, which keeps
+// the run short while still catching a contrast regression in any theme.
+// Their baseline entries carry the theme in the page key, e.g.
+// "chat [aurora light]".
+//
+// The character editor's target-size entries on Pixel (every theme) are not
+// small controls: its sticky Back/Next bar covers whichever suggestion chips
+// sit at the bottom of the screen, and axe counts a partly covered chip as
+// too small. How many chips that hits depends on each theme's font metrics.
+const THEMES = ["cozy", "neumorphic", "aurora", "terminal", "parchment", "material"] as const;
+const MODES = ["dark", "light"] as const;
+const THEMED_PAGES = ["chat", "character editor"];
+const THEMED_PROJECTS = ["desktop", "pixel"];
 
-    test(`a11y: no new axe violations on ${pc.name}`, async ({ page }, testInfo) => {
+interface ScanCase {
+  key: string;
+  pc: PageCase;
+  // Absent for cozy dark, which is what the app starts in.
+  theme?: { color: (typeof THEMES)[number]; mode: (typeof MODES)[number] };
+}
+
+const cases: ScanCase[] = pages.map((pc) => ({ key: pc.name, pc }));
+for (const color of THEMES) {
+  for (const mode of MODES) {
+    if (color === "cozy" && mode === "dark") continue;
+    for (const pc of pages.filter((p) => THEMED_PAGES.includes(p.name))) {
+      cases.push({ key: `${pc.name} [${color} ${mode}]`, pc, theme: { color, mode } });
+    }
+  }
+}
+
+for (const { key, pc, theme } of cases) {
+  test.describe(key, () => {
+    if (pc.seed !== undefined) test.use({ seed: pc.seed });
+    if (theme) test.use({ localStorageOverrides: { color_theme: theme.color, theme: theme.mode } });
+
+    test(`a11y: no new axe violations on ${key}`, async ({ page }, testInfo) => {
       const project = testInfo.project.name;
+      test.skip(!!theme && !THEMED_PROJECTS.includes(project), "Other themes are scanned on desktop and Pixel only");
       await openRoute(page, pc.route);
       await pc.ready(page);
       await settle(page);
@@ -92,24 +127,24 @@ for (const pc of pages) {
       if (process.env.A11Y_UPDATE_BASELINE) {
         const others = readBaseline();
         // Drop this page and project's old counts, keep everyone else's.
-        for (const e of others) if (e.page === pc.name) delete e.counts[project];
+        for (const e of others) if (e.page === key) delete e.counts[project];
         for (const v of violations) {
-          let entry = others.find((e) => e.page === pc.name && e.rule === v.id);
-          if (!entry) others.push((entry = { page: pc.name, rule: v.id, counts: {}, help: v.help }));
+          let entry = others.find((e) => e.page === key && e.rule === v.id);
+          if (!entry) others.push((entry = { page: key, rule: v.id, counts: {}, help: v.help }));
           entry.counts[project] = v.nodes.length;
         }
         writeBaseline(others.filter((e) => Object.keys(e.counts).length > 0));
         return;
       }
 
-      const allowed = new Map(readBaseline().filter((e) => e.page === pc.name).map((e) => [e.rule, e.counts[project] ?? 0]));
+      const allowed = new Map(readBaseline().filter((e) => e.page === key).map((e) => [e.rule, e.counts[project] ?? 0]));
       const problems = [...found.values()]
         .filter((v) => v.nodes.length > (allowed.get(v.id) ?? 0))
         .map((v) => {
           const targets = v.nodes.slice(0, 5).map((n) => `    ${n.target.join(" ")}`).join("\n");
           return `${v.id} (${v.impact}): ${v.nodes.length} element(s), baseline ${allowed.get(v.id) ?? 0}. ${v.help}\n${targets}\n    ${v.helpUrl}`;
         });
-      expect(problems, `New accessibility violations on ${pc.name} (${project}):\n${problems.join("\n")}`).toEqual([]);
+      expect(problems, `New accessibility violations on ${key} (${project}):\n${problems.join("\n")}`).toEqual([]);
     });
   });
 }
