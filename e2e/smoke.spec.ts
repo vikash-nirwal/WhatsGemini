@@ -14,6 +14,14 @@ test("send a message and get the mocked reply", async ({ page, mockAI }) => {
   // The request went through the streamed path with the user's text in it.
   expect(mockAI.requests[0].stream).toBe(true);
   expect(mockAI.requests[0].messages.map((m) => m.content).join("\n")).toContain("Tell me something nice.");
+
+  // Both messages were saved: they're still there after a full reload.
+  await expect(page.getByRole("button", { name: "Stop Generating" })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Tell me something nice.")).toBeVisible();
+  await expect(page.getByText("Hello from the mock, nice to meet you!")).toBeVisible();
+  expect(mockAI.requests).toHaveLength(1);
 });
 
 test.describe("with a group room", () => {

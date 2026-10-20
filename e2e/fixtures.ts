@@ -35,9 +35,25 @@ export interface SeedChat {
   characterIds: number[];
 }
 
+export interface SeedChoice {
+  id: string;
+  label: string;
+}
+
+export interface SeedAdventure {
+  id: number;
+  title: string;
+  timestamp: number;
+  characterIds: number[];
+  premise?: string;
+  status: "active" | "completed";
+  content: (SeedMessage & { choices?: SeedChoice[] })[];
+}
+
 export interface SeedData {
   characters: SeedCharacter[];
   chats: SeedChat[];
+  adventures: SeedAdventure[];
 }
 
 export interface SeedOptions {
@@ -45,6 +61,9 @@ export interface SeedOptions {
   messages?: number;
   // Also seed a second character and a room (chat 2) with both characters.
   room?: boolean;
+  // Also seed a worldless adventure (adventure 1) whose narrator has just
+  // offered the ADVENTURE_CHOICES below.
+  adventure?: boolean;
 }
 
 export const ARIA: SeedCharacter = {
@@ -65,10 +84,22 @@ export const KAI: SeedCharacter = {
   accent: ["#6366F1", "#8B5CF6"],
 };
 
+export const ADVENTURE_OPENING = "Rain hammers the door of the sunken archive. A lantern flickers inside.";
+export const ADVENTURE_CHOICES: SeedChoice[] = [
+  { id: "c1", label: "Push the door open" },
+  { id: "c2", label: "Knock three times" },
+  { id: "c3", label: "Circle round to the back" },
+];
+
+// Formats a narrator reply the way the adventure prompt asks the model to:
+// prose, then a <<<CHOICES ... CHOICES>>> block with one option per line.
+export const adventureReply = (text: string, choices: string[]) =>
+  `${text}\n\n<<<CHOICES\n${choices.map((c, i) => `${i + 1}. ${c}`).join("\n")}\nCHOICES>>>`;
+
 // Fixed so every run seeds identical data (timestamps show up in the UI).
 const BASE_TIME = Date.UTC(2026, 0, 15, 12, 0, 0);
 
-export const buildSeed = ({ messages = 30, room = false }: SeedOptions = {}): SeedData => {
+export const buildSeed = ({ messages = 30, room = false, adventure = false }: SeedOptions = {}): SeedData => {
   const chatMessages: SeedMessage[] = Array.from({ length: messages }, (_, i) => ({
     id: `seed-1-${i}`,
     timestamp: BASE_TIME + i * 60_000,
@@ -79,6 +110,7 @@ export const buildSeed = ({ messages = 30, room = false }: SeedOptions = {}): Se
   const data: SeedData = {
     characters: [ARIA],
     chats: [{ id: 1, title: ARIA.name, timestamp: BASE_TIME + messages * 60_000, content: chatMessages, characterIds: [ARIA.id] }],
+    adventures: [],
   };
   if (room) {
     data.characters.push(KAI);
@@ -88,6 +120,19 @@ export const buildSeed = ({ messages = 30, room = false }: SeedOptions = {}): Se
       { id: "seed-2-2", timestamp: BASE_TIME + 120_000, role: "you", txt: "Hi both." },
     ];
     data.chats.push({ id: 2, title: "Aria & Kai", timestamp: BASE_TIME + 180_000, content: roomMessages, characterIds: [ARIA.id, KAI.id] });
+  }
+  if (adventure) {
+    data.adventures.push({
+      id: 1,
+      title: "The Sunken Archive",
+      timestamp: BASE_TIME,
+      characterIds: [],
+      premise: "A flooded library hides a map to the old city.",
+      status: "active",
+      // Not empty: an empty adventure would ask the AI for an opening turn
+      // as soon as it opens.
+      content: [{ id: "seed-adv-0", timestamp: BASE_TIME, role: "ai", txt: ADVENTURE_OPENING, choices: ADVENTURE_CHOICES }],
+    });
   }
   return data;
 };
@@ -114,9 +159,10 @@ const writeSeed = async (page: Page, data: SeedData) => {
       req.onerror = () => reject(req.error);
     });
     await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(["characters", "chats"], "readwrite");
+      const tx = db.transaction(["characters", "chats", "adventures"], "readwrite");
       for (const c of seed.characters) tx.objectStore("characters").put(c);
       for (const c of seed.chats) tx.objectStore("chats").put(c);
+      for (const a of seed.adventures) tx.objectStore("adventures").put(a);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
@@ -256,8 +302,40 @@ export const openChat = async (page: Page, chatId = 1) => {
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
 };
 
+// Runs one of the chat header's actions by its label. From 1024px up the
+// primary ones are icon buttons in the header; everything else (and every
+// action below 1024px) sits in the header's "More options" menu.
+export const headerAction = async (page: Page, label: string) => {
+  const header = page.locator("header").first();
+  const button = header.getByRole("button", { name: label, exact: true });
+  if (await button.isVisible()) {
+    await button.click();
+    return;
+  }
+  await header.getByRole("button", { name: "More options" }).locator("visible=true").click();
+  await page.getByRole("menuitem", { name: label, exact: true }).click();
+};
+
 export const sendMessage = async (page: Page, text: string) => {
   const input = page.getByLabel("Message input");
   await input.fill(text);
   await page.getByRole("button", { name: "Send Message" }).click();
 };
+
+// Waits until the AI has finished replying: the composer's Stop button gives
+// way to Send again, so the message actions are enabled.
+export const waitForReplyDone = async (page: Page) => {
+  await expect(page.getByRole("button", { name: "Stop Generating" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Send Message" })).toBeVisible();
+};
+
+// The chat bubble holding `text`, so a message action ("Edit", "Regenerate",
+// "Previous variant"...) is clicked on that message and not another one. The
+// footer actions only fade in on hover, so hover the bubble before clicking.
+export const messageBubble = (page: Page, text: string) =>
+  page.locator('[data-slot="message-bubble"]').filter({ hasText: text });
+
+// Flows that use the composer's tool buttons or per-message action buttons
+// skip phones for now: both are being redesigned there (a "+" tool menu and
+// a long-press message menu), so selectors written today would only break.
+export const PHONE_REDESIGN_SKIP = "phone composer/message actions are being redesigned (U3/U7)";
