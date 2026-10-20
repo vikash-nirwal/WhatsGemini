@@ -6,8 +6,8 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **Current phase:** Waves 1 and 2 are done, on branch `phase-0-bug-fixes` (not pushed, no PR yet). Wave 2 Lane B is merged (70ac633).
-- **Next up:** Wave 3 Lane A (memory #1–#5) is done. Waiting for Lane B (#29) and Lane C (U10, A1); then merge (user's OK) and start Wave 4.
+- **Current phase:** Waves 1–3 are done and merged on branch `phase-0-bug-fixes` (not pushed, no PR yet). Wave 3 merges: e30b673 (Lane B), 70ee9c8 (Lane C).
+- **Next up:** Wave 4: composer and narrative tools (#15, #17, #18, #16, #14, #20, #21), prompt inspector (#31), context meter (#33), per-character model (#32); A2 and A3 are small leftovers for a parallel lane.
 - **Open questions for the user:** none. (They chose to start Wave 3 before pushing; nothing is pushed yet.)
 
 ## Execution plan
@@ -25,14 +25,14 @@ Parallel lanes work in their own worktree and branch and **don't edit PROGRESS.m
 - **Lane B:** T4 (flows) and T6 (accessibility); test files only.
 - Then T5 (screenshots), once the layout fixes have landed.
 
-**Wave 3 (now)**
+**Wave 3 (done)**
 - **Lane A** (coordinating session, branch `phase-0-bug-fixes`): memory, #2, #3, #1, #4, #5 in that order. Owns: `memoryExtraction.ts`, `promptComposition.ts`, `transcript.ts`, `chatHistoryUtils.ts`, `aiSlice.ts`, `chatSlice.ts`, `characterSlice.ts`, `ChatPage.tsx`, `ChatWindow.tsx`, `ChatMessage.tsx`, `ScenePanel.tsx`, `CharacterPage.tsx`, `constants.ts`.
 - **Lane B** (parallel session): #29 lorebook triggers. Owns: `loreUtils.ts`, `LorebookStep.tsx`, `characterCard.ts`, `importCustomize.ts`, `ImportReviewDialog.tsx`, `WorldEditorPage.tsx`, `worldSlice.ts` and their tests.
 - **Lane C** (parallel session): U10 and A1. Owns: `MessageInput.tsx`, `src/styles/` and `src/index.css`, `CharacterEditorPage.tsx` and its step files except `LorebookStep.tsx`, `e2e/a11y-baseline.json` and the visual baselines.
 - **Shared-file exception:** `src/types/index.ts` may be edited by several lanes, each only adding optional fields to the interfaces its items need (Lane B: `LoreEntry`; Lane A: `Chat`, `Character`, `Message`). Conflicts there get resolved at merge.
 - Parallel lanes run UI tests on their own ports: Lane B `E2E_PORT=3100`, Lane C `E2E_PORT=3200`.
 
-**Wave 4:** composer and narrative tools (#15, #17, #18, #16, #14, #20, #21), the prompt inspector (#31), the context meter (#33) and per-character models (#32).
+**Wave 4 (next):** composer and narrative tools (#15, #17, #18, #16, #14, #20, #21), the prompt inspector (#31), the context meter (#33) and per-character models (#32).
 
 **Later:** immersion (#6–#13), group chats (#22–#24), adventures (#25–#28), #30.
 
@@ -70,8 +70,10 @@ Each wave ends with: merge (user's OK), full unit + UI test run, PROGRESS.md upd
 | U7 | Bubbles waste space on touch | done | 5d11cc1 | Touch screens: hover rows hidden; long-press or contextmenu opens a bottom sheet (`role=menu` "Message actions"). |
 | U8 | Scroll button and toasts collide with composer | done | 008aea9 | Scroll button anchored above `bottomInset`; toasts at top-center below 640px. |
 | U9 | Wizard step bars scroll sideways on phones | done | d6ae19e | New `WizardSteps` component: compact "Step n of m" when the row doesn't fit. `e2e/wizard.spec.ts`. |
-| U10 | Terminal theme composer cramped on phones | in progress | | Wave 3 Lane C (parallel session). |
-| A1 | Fix the a11y baseline issues | in progress | | Wave 3 Lane C (parallel session). 49 contrast, 4 button-name, 2 target-size. |
+| U10 | Terminal theme composer cramped on phones | done | b246776 | `[+]` menu below 640px from the shared `composerTools`. `e2e/terminal-composer.spec.ts`. |
+| A1 | Fix the a11y baseline issues | done | 457a137, 3ba2842 | Contrast fixed in `tokens.css` for all 6 themes × 4 palettes × light/dark (579 failures → 0 across themes); rule documented in THEMING.md. Visual baselines refreshed. Baseline 55 → 2. Most visible change: Aurora dark buttons use near-black text. |
+| A2 | Small touch targets in shared form controls | todo | | The 2 baseline entries left: "Hide suggestions" (16px, `ModeToggleButton.tsx`) and suggestion chips (19px, `ChipSelectField.tsx`); need ≥24px (e.g. `min-h-6`). S. |
+| A3 | Run the a11y scan in every theme | todo | | `a11y.spec.ts` only covers cozy dark, so contrast in the other themes can regress unnoticed. S. |
 
 ## Phases 1–7: Features
 
@@ -84,7 +86,7 @@ All `todo`. Item numbers 1–33 match ROADMAP.md. Rows are added here when an it
 | 3 | Fact categories | done | eeb0c04 | `memoryCategories` map (fact text → user/relationship/story), no migration. Grouped in the Scene panel. Not shown in the character editor's memory card yet (that file was Lane C's this wave). |
 | 4 | Chapters | done | b2367eb | "End chapter" (chat menu) → titled summary + recap at the end of the conversation; Chapters list in the Scene panel with rename. Not in adventures yet. |
 | 5 | Character diary | done | 04e8423 | Per-character switch (Scene panel); entry every 30 messages from memory-sharing 1:1 chats; latest entry in the prompt; "Read diary" on the Characters page. Rooms don't write entries yet. |
-| 29 | Better lorebook triggers | in progress | | Wave 3 Lane B (parallel session). |
+| 29 | Better lorebook triggers | done | e45e81b, 53fb864, eb0b4ba | New optional `LoreEntry` fields: priority, selective + secondaryKeywords (+ secondaryLogic any/all/none/not-all), sticky, scanDepth, probability (deterministic by entry id + message count). SillyTavern mapping: priority/insertion_order, selective, secondary_keys, extensions.selectiveLogic/sticky/scan_depth/probability (not `depth`, which is insertion position there). Advanced section in `LoreEntryAdvancedSettings.tsx`. Also fixed: the import AI-customize step dropped entry settings. Not mapped: cooldown, delay, regex keys, case-sensitivity, insertion position, groups. Sticky only applies to direct keyword hits. Scan depth > 10 and sticky rely on `buildTurnContext` passing the full history since the last summary - keep it that way. |
 | U11 | Side panels squeeze the chat / cover the composer | done | 55ce89a | Found while checking #3: full-screen sheet on phones, overlay below 1280px, column from 1280px. `e2e/side-panel.spec.ts`. |
 
 ## Decisions
@@ -112,6 +114,7 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session: what changed, and anything left half-done.
 
+- 2026-10-20: Merged Wave 3 Lanes B (e30b673) and C (70ee9c8) with the user's OK, after checking all three lanes together in a throwaway worktree. On the merged branch: 310 unit, 152 UI (36 skipped by viewport) and 16 visual tests pass, both typechecks clean. Removed both worktrees. New leftovers: A2, A3.
 - 2026-10-20: Wave 3 Lane A: memory #2 (f6b5839), #3 (eeb0c04), #1 (fc94df1), #4 (b2367eb), #5 (04e8423), plus U11 side-panel layout (55ce89a). 261 unit, 140 UI and 16 visual tests pass. Lanes B and C were proposed as cards (the app wouldn't start them directly) and the user started them.
 - 2026-10-20: Merged Wave 2 Lane B (70ac633) with the user's OK and removed its worktree. Fixed the a11y regression it found (91bbe8f). Added T5 screenshot tests. On the merged branch: 238 unit tests, 116 UI tests (24 skipped by viewport) and 16 visual tests pass. New leftovers: U10, A1.
 - 2026-10-20: Wave 2 Lane A: U1-U3, U6, U8 (008aea9) and U7 + U4 bubble half (5d11cc1). 238 unit and 62 UI tests pass (18 skipped by viewport). Started Wave 2 Lane B (T4, T6) in a parallel session. Told it about the new selectors (inline Copy/Edit/Delete on user bubbles, "Composer options" menu, long-press sheet).
