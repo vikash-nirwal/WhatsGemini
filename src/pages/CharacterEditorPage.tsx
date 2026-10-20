@@ -1035,7 +1035,23 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
               </Card>
             )}
 
-            <div className="sticky bottom-0 pt-6 pb-1 bg-gradient-to-t from-background via-background to-transparent flex gap-3 justify-end">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept=".json"
+              style={{ display: "none" }}
+            />
+          </div>
+        </div>
+      </div>
+      </div>
+
+      {/* Step navigation, docked under the scrolling form rather than sticky
+          inside it - a sticky bar floated over the form and covered whatever
+          sat at the bottom of the screen on phones (U12). */}
+      <div className="flex-none border-t border-border/40 bg-background px-4 md:px-8 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+        <div className="w-full max-w-[1180px] mx-auto flex gap-3 justify-end">
               {!editCharacter && step === 0 && (
                 <Button
                   onClick={handleImportClick}
@@ -1096,17 +1112,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   )}
                 </Button>
               )}
-            </div>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept=".json"
-              style={{ display: "none" }}
-            />
-          </div>
         </div>
-      </div>
       </div>
 
       {/* Avatar crop dialog — rendered as a portal overlay */}
