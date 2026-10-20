@@ -10,6 +10,7 @@ import { appearanceLocksFor } from "../features/ai/utils/appearanceLock";
 import { useChatRecap } from "../features/chat/useChatRecap";
 import { moveBeat } from "../features/chat/storyScript";
 import { buildCelebrationDirective, datesToCelebrate } from "../features/character/importantDates";
+import { buildEventDirective, drawEvent } from "../features/chat/eventDeck";
 import StoryScriptDialog from "../components/organisms/StoryScriptDialog";
 import { buildDraftReplyPrompt, cleanDraftReply, buildReplySuggestionsPrompt, parseReplySuggestions, NARRATIVE_CONTEXT_MESSAGES, SURPRISE_DIRECTIVE } from "../features/ai/utils/narrativeTools";
 import { appendDiaryEntry } from "../features/ai/utils/diary";
@@ -20,7 +21,7 @@ import Header, { HeaderAction } from "src/components/organisms/Header";
 import PortraitPreviewModal from "src/components/organisms/PortraitPreviewModal";
 import AutoReplyModal from "src/components/organisms/AutoReplyModal";
 import PersonaModal from "src/components/organisms/PersonaModal";
-import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20, FaBookOpen } from "react-icons/fa";
+import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20, FaLayerGroup, FaBookOpen } from "react-icons/fa";
 import { Button } from "src/components/atoms/button";
 import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DIARY_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
@@ -801,6 +802,22 @@ const ChatPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatIdNum, isRoom, characterData, aiLoading, messages.length]);
 
+  // Event deck (#49): draw a random event from the deck, and the next
+  // character reply works it into the scene.
+  const handleDrawEvent = async () => {
+    if (autoReplyInFlightRef.current || aiLoading) return;
+    const event = drawEvent();
+    toast.info(`You drew: ${event}`);
+    autoReplyInFlightRef.current = true;
+    try {
+      await sendCharacterFollowup(undefined, buildEventDirective(event));
+    } catch (err) {
+      console.error("Event reply failed:", err);
+    } finally {
+      autoReplyInFlightRef.current = false;
+    }
+  };
+
   // "Write my reply" (#15): an AI draft of your next message in your
   // persona's voice, for the composer to show and you to edit.
   const handleDraftReply = async (): Promise<string | null> => {
@@ -1549,6 +1566,9 @@ const ChatPage = () => {
       : []),
     ...(messages.length > 0
       ? [{ icon: FaDiceD20, label: "Surprise me (the next reply brings a twist)", onClick: handleSurprise, disabled: aiLoading }]
+      : []),
+    ...(messages.length > 0
+      ? [{ icon: FaLayerGroup, label: "Draw an event card (a random event happens)", onClick: handleDrawEvent, disabled: aiLoading }]
       : []),
     { icon: FaClock, label: "Auto follow-up settings", onClick: () => setIsAutoReplyModalOpen(true), active: autoReplySettings.enabled },
     { icon: FaSlidersH, label: "Scene & chat settings", onClick: () => { setSceneOpen((v) => !v); setParticipantsOpen(false); }, active: sceneOpen, primary: true, shortLabel: "scene" },

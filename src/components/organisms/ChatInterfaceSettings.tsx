@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { cn } from '../../utils/cn';
 import { useColorTheme } from '../../hooks/useColorTheme';
-import { TextInput } from "src/components/molecules/form-controls";
+import { TextArea, TextInput } from "src/components/molecules/form-controls";
+import { Button } from 'src/components/atoms/button';
+import { DEFAULT_EVENTS, loadEventDeck, saveEventDeck } from 'src/features/chat/eventDeck';
 import InitialMessages from 'src/components/molecules/InitialMessages';
 import { SettingsCard, SettingsCardHeader, SettingsRow } from 'src/components/molecules/settings-card';
 import { SegmentedControl } from 'src/components/molecules/SegmentedControl';
@@ -34,6 +36,30 @@ const FONT_SIZE_OPTIONS = [
   { value: "18px", label: "Large" },
   { value: "20px", label: "Extra large" },
 ];
+
+// The event deck (#49), one event per line, kept in this browser.
+const EventDeckSetting = () => {
+  const [text, setText] = useState(() => loadEventDeck().join("\n"));
+  const isDefault = text.trim() === DEFAULT_EVENTS.join("\n");
+  return (
+    <div className="flex flex-col gap-2">
+      <TextArea
+        aria-label="Event deck"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={() => setText(saveEventDeck(text).join("\n"))}
+        className="min-h-[140px] text-sm"
+      />
+      {!isDefault && (
+        <div>
+          <Button type="button" variant="outline" size="sm" onClick={() => setText(saveEventDeck("").join("\n"))}>
+            Reset to the built-in deck
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ChatInterfaceSettings: React.FC<ChatInterfaceSettingsProps> = ({
   maxChatLength, setMaxChatLength, fontSize, setFontSize, initialMessagesKey, onInitialMessagesSave, textingMode, setTextingMode, recapAfterDays, setRecapAfterDays,
@@ -68,6 +94,10 @@ const ChatInterfaceSettings: React.FC<ChatInterfaceSettingsProps> = ({
 
         <SettingsRow label={'"Previously on…" recap'} hint="Coming back to a chat after this long shows a short recap of where the story stands. Written once and kept; never sent to the AI." align="start">
           <SegmentedControl value={String(recapAfterDays)} onChange={(v) => setRecapAfterDays(Number(v))} options={RECAP_OPTIONS} />
+        </SettingsRow>
+
+        <SettingsRow label="Event deck" hint={'"Draw an event card" in a chat picks one of these at random, and the next reply works it into the scene. One per line.'} align="start">
+          <EventDeckSetting />
         </SettingsRow>
 
         <SettingsRow label="Max chat length" hint="Tokens (est.) of history kept in a conversation. 0 = unlimited.">
