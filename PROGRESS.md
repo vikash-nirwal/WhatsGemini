@@ -6,8 +6,8 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **Current phase:** Waves 1–4 are done and merged on branch `phase-0-bug-fixes` (not pushed, no PR yet). Wave 4 merges: adff90a (Lane B), 2845775 (Lane C); chat wiring 1ae1c82.
-- **Next up:** push `phase-0-bug-fixes` and open a PR so CI runs (user's call), then the remaining roadmap: immersion (#6–#13), group chats (#22–#24), adventures (#25–#28), #30, and leftover U12.
+- **Current phase:** Waves 1–4 are done, merged into `main` (fast-forward from `phase-0-bug-fixes`) and pushed to GitHub. CI passes on GitHub (run 39409503757, a1071a7).
+- **Next up:** the remaining roadmap (17 items): immersion (#6–#13), anti-repetition (#19), group chats (#22–#24), adventures (#25–#28), relationship that evolves (#30). Work now continues on `main` or a new branch per wave.
 - **Open questions for the user:** none. (They chose to start Wave 3 before pushing; nothing is pushed yet.)
 
 ## Execution plan
@@ -77,7 +77,7 @@ Each wave ends with: merge (user's OK), full unit + UI test run, PROGRESS.md upd
 | U10 | Terminal theme composer cramped on phones | done | b246776 | `[+]` menu below 640px from the shared `composerTools`. `e2e/terminal-composer.spec.ts`. |
 | A1 | Fix the a11y baseline issues | done | 457a137, 3ba2842 | Contrast fixed in `tokens.css` for all 6 themes × 4 palettes × light/dark (579 failures → 0 across themes); rule documented in THEMING.md. Visual baselines refreshed. Baseline 55 → 2. Most visible change: Aurora dark buttons use near-black text. |
 | A2 | Small touch targets in shared form controls | done | 070c5f2 | The Custom/Hide suggestions toggle is 24px (`min-h-6`, `-my-1` keeps the row height). The chips were already 26px: what axe flagged on Pixel is the character editor's sticky footer covering them, now U12. |
-| U12 | Character editor's sticky footer covers content on phones | todo | | `div.sticky.bottom-0` in `CharacterEditorPage` sits over the chips at the bottom of the screen on Pixel; it's the cause of the 12 a11y baseline entries (character editor target-size, Pixel, every theme). Move the footer out of the scrolling area or pad the content under it. S. |
+| U12 | Character editor's sticky footer covers content on phones | done | a1071a7 | Step buttons docked in their own row under the scroll area. It also failed the first CI run (Linux fonts let it cover one more chip). The a11y baseline is now empty. |
 | A3 | Run the a11y scan in every theme | done | 12b6b11 | All 8 pages in cozy dark on 4 viewports, plus chat and character editor in the other 11 theme/mode pairs on desktop and Pixel. No contrast violations anywhere. Baseline keys carry the theme. The a11y spec takes about 2 minutes. |
 
 ## Phases 1–7: Features
@@ -121,6 +121,7 @@ Facts that save the next session time.
 - **Seed test data:** IndexedDB database `ChatAppDB`, tables `chats`, `characters`, `worlds`, `adventures`, `settings`. Message roles are `"you"` and `"ai"` (not `user`/`model`). "Try a sample character" on the home screen creates character + chat 1.
 - **Proposed session cards** don't keep `source_branch`, so a lane brief has to tell the lane to `git merge --ff-only refs/heads/phase-0-bug-fixes` (or reset to it) first.
 - **Browser pane caveat:** a parallel session can share the pane's localhost:3000 storage (`chat_provider` kept flipping to `anthropic`). For checking layout, prefer Playwright, which runs in its own isolated browser; a throwaway spec that calls `page.screenshot` works well.
+- **CI on GitHub:** `.github/workflows/ci.yml` runs on every push. Step logs need a signed-in account, but Playwright's `github` reporter puts each failure in the run's annotations, readable without signing in: `GET /repos/vikash-nirwal/WhatsGemini/check-runs/<job id>/annotations`. Unauthenticated API calls are limited to 60 an hour, so poll sparsely. The actions still target Node 20 (deprecation warning): bump to newer major versions when convenient.
 - **Visual tests:** `npm run test:visual` (refresh: `test:visual:update`). Baselines are macOS renders in `e2e/visual.spec.ts-snapshots/`; review the PNG diffs before updating them.
 - **UI tests:** `npm run test:e2e` (reuses a dev server already on port 3000 - make sure it's this checkout's). From another worktree: `E2E_PORT=3100 npx playwright test`. Write new e2e tests with role/aria-label selectors and geometry helpers from `e2e/layout.ts`.
 - **Lockfiles:** both `package-lock.json` and `yarn.lock` exist. Use npm (the scripts and README do).
@@ -129,6 +130,7 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session: what changed, and anything left half-done.
 
+- 2026-10-20: With the user's OK, fast-forwarded `main` to `phase-0-bug-fixes` and pushed (8032eec → 96c0aaf); no secrets in the diff. CI's first run failed on 6 Pixel a11y checks (the editor's sticky footer, U12). Added the `github` reporter so failures show as public annotations (1f47922), fixed U12 (a1071a7); CI is green: 256 UI tests on Linux.
 - 2026-10-20: Merged Wave 4 Lanes B (adff90a) and C (2845775) with the user's OK, after a combined check in a throwaway worktree; removed both worktrees. Wired the per-character model and "Show what was sent" into the chat (1ae1c82). On the merged branch: 358 unit, 256 UI (80 skipped by viewport) and 16 visual tests pass. New leftover: U12.
 - 2026-10-20: Wave 4 Lane A: #15 + #18 (ee271fa), #17 (2dee64a), #16 (d11e8c1), #14 (859aeba), #20 + #21 (4abbc4e), #33 (d2b2ee5), and toasts moved to the top (7e40c7d). 331 unit, 192 UI and 16 visual tests pass. Lanes B (#31, #32) and C (A2, A3) running in parallel sessions.
 - 2026-10-20: Merged Wave 3 Lanes B (e30b673) and C (70ee9c8) with the user's OK, after checking all three lanes together in a throwaway worktree. On the merged branch: 310 unit, 152 UI (36 skipped by viewport) and 16 visual tests pass, both typechecks clean. Removed both worktrees. New leftovers: A2, A3.
