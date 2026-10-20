@@ -6,9 +6,10 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **State:** image consistency (#34–#41) is merged, pushed and deployed. Texting mode (#6), inner thoughts (#10) and reactions (#11) are committed on local `main`, not pushed. The last full local run passed: type-check, 503 unit tests, 346 UI tests and 16 screenshot tests.
-- **Next up:** the 14 remaining roadmap items below, in waves. The image providers were only tested against mocked servers; checking them with real keys and a real ComfyUI is a follow-up in ROADMAP.md.
+- **State:** image consistency (#34–#41) is merged, pushed and deployed. Texting mode (#6), inner thoughts (#10) and reactions (#11) are pushed and deployed too. The last full local run passed: type-check, 503 unit tests, 346 UI tests and 16 screenshot tests.
+- **Next up:** the new ideas #42–#56, one per fresh session in table order (#12 goes with #44), then the other 13 items. The image providers were only tested against mocked servers; checking them with real keys and a real ComfyUI is a follow-up in ROADMAP.md.
 - **Open questions for the user:** none.
+- **How this run works:** each item gets its own fresh session in this checkout (no worktree), committing to local `main` when its tests pass; nothing is pushed or deployed until the user says so.
 
 ## Remaining items
 
@@ -28,6 +29,21 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | 27 | Persona character sheet | todo | With #26. |
 | 28 | Attach a World to normal chats | todo | |
 | 30 | Relationship that evolves | todo | |
+| 42 | Spending dashboard and budget cap | todo | New ideas start here; built one per session, in order. |
+| 43 | Notifications | todo | |
+| 44 | Voice notes | todo | With #12. |
+| 45 | Character from one line | todo | |
+| 46 | "Previously on…" | todo | |
+| 47 | Dates that matter | todo | |
+| 48 | Send them a photo | todo | |
+| 49 | Event deck | todo | |
+| 50 | Wardrobe | todo | |
+| 51 | Relationship timeline | todo | |
+| 52 | Mini-games | todo | |
+| 53 | Branch map | todo | |
+| 54 | Backup to Google Drive | todo | Needs the user's Google OAuth client ID to test. |
+| 55 | Free local model in the browser | todo | Adds the WebLLM dependency. |
+| 56 | Phone calls | todo | After #12 and #44. |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
 

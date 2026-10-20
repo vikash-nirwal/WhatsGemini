@@ -37,6 +37,26 @@ The app is called WhatsGemini, so lean into the messaging-app fantasy.
 
 30. **Relationship that evolves** (S). Periodically suggest an update to the character's "relationship" field from what's happened ("strangers" → "reluctant allies"). You approve each change; nothing is rewritten automatically.
 
+## More ideas (added 2026-10-20)
+
+Built one at a time, in this order. Each runs in a fresh session.
+
+42. **Spending dashboard and budget cap** (S–M). Cost per provider and per month (chat, image, video, helper calls), from the usage the app already tracks. Optional monthly limit: a warning at 80%, and either a warning or a hard stop at 100% (your choice).
+43. **Notifications** (S). When a character reaches out (a follow-up) or a reply finishes while the tab is in the background, show a browser notification that opens the chat. Asks permission once, from Settings; off by default.
+44. **Voice notes** (M). Built together with Voice (#12), which it needs. A character sometimes sends a voice message (spoken by the browser's free text-to-speech, shown as a playable bubble with its transcript), and you can record one back (speech-to-text, sent as text with a "voice note" mark).
+45. **Character from one line** (S). Type an idea ("grumpy pirate cook who secretly writes poetry") and the AI drafts the whole character: name, description, personality, scenario, greeting, appearance and locked look. You review it in the editor before saving.
+46. **"Previously on…"** (S). Opening a chat after a few days away shows a short recap built from the chapter summaries and recent messages, dismissable, and never sent to the model.
+47. **Dates that matter** (S). Birthdays, anniversaries and "the day we met" are picked up from memory or set by hand; on the day, the character mentions it or reaches out first.
+48. **Send them a photo** (S–M). Attach a picture to a message; on models that accept images the character sees it and reacts. Elsewhere it's described by a vision-capable helper model, or the user is told it can't be seen.
+49. **Event deck** (S). A "Draw an event" action that adds a random twist to the scene ("a stranger knocks", "the power goes out"), from a built-in deck you can edit, as a one-turn directive.
+50. **Wardrobe** (S–M). A few named outfits per character. Picking one swaps the outfit part of the locked look (#34), so pictures change clothes without changing the face.
+51. **Relationship timeline** (S). A small chart of mood and affection over time, from the emotion tags (and #9's meter once it exists), in the Scene panel.
+52. **Mini-games** (M). 20 Questions, Would You Rather and Truth or Dare, started from the composer; the character plays in character, and the app keeps score where there is one.
+53. **Branch map** (M). A visual tree of the conversation's branches and variants, to see and jump between storylines.
+54. **Backup to Google Drive** (M). An encrypted backup to your own Drive (app-data folder), restorable on another device. Needs a Google OAuth client ID that you create once; the app still has no server.
+55. **Free local model in the browser** (M). A small model run on your GPU with WebLLM: no key, no cost, as a fallback chat provider. Adds a large dependency, downloaded on first use only.
+56. **Phone calls** (L). A call screen with a timer: you talk, the character answers out loud, hands-free. Builds on #12 and #44.
+
 ## Smaller follow-ups
 
 Leftovers noted while building the finished items. Pick them up alongside related work.
