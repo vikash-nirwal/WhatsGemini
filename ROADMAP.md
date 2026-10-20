@@ -58,6 +58,9 @@ Jest and React Testing Library stay for component behavior (composer modes, ment
 | U7 | **Message bubbles waste space on phones.** Each bubble keeps an empty strip at the bottom for hover-only actions, and the ⋮ and trash icons are always visible. | Desktop hover layout reused on touch. | On touch devices, hide inline actions and show them on long-press (as an action sheet: copy, edit, regenerate, continue, delete). Drop the reserved strip. | M |
 | U8 | **The floating "scroll to bottom" button and toasts collide with the composer.** The button is `fixed bottom-24 right-6` (`ChatWindow.tsx:544`) and toasts are bottom-right (`src/App.tsx:250`); both overlap a tall composer and the phone Send button. | Fixed offsets that don't know the composer's height. | Anchor both above the measured composer height (shares the U2 measurement); show toasts at the top on phones. | S |
 | U9 | **The wizard step bars scroll sideways on phones** (character editor and adventure wizard), with later steps cut off at the edge and no sign there are more. | Every step label is shown at every width. | On phones, show "Step 2 of 6 · Personality" with a progress bar instead of the full row. | S |
+| U10 | **The terminal theme's composer is still cramped on phones.** It has its own markup (`[img] [mask] [silent] [cfg]` plus `[enter]`), which U3 didn't touch, so "Message Aria…" wraps in a narrow box. Found in the T5 screenshots. | The terminal branch of `MessageInput.tsx` keeps every tool inline at every width. | Reuse U3's `composerTools` list: a `[+]` menu below 640px. | S |
+
+Also new from the Wave 2 tests: **A1** fix the 49 colour-contrast, 4 button-name and 2 target-size issues in `e2e/a11y-baseline.json`, shrinking the baseline as they're fixed (M).
 
 Suggested order: T1 and T2, then U1–U3 (the composer) with their T3 checks, then U4–U6, then U7–U9, then T4–T7.
 
