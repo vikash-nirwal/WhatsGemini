@@ -4,8 +4,11 @@ import {
   completeRequest,
   failRequest,
   findRequestForReply,
+  formatRequestForCopy,
   getRequest,
   getRequestLog,
+  splitPostHistoryNote,
+  splitSystemSections,
   startRequest,
   subscribeRequestLog,
   withRequestLog,
@@ -109,5 +112,30 @@ describe("withRequestLog", () => {
     const adapter = withRequestLog(fake(async () => { throw new Error("boom"); }));
     await expect(adapter.generateOnce("Summarize", "m2", {}, "Sys")).rejects.toThrow("boom");
     expect(getRequestLog()[0]).toMatchObject({ kind: "once", model: "m2", prompt: "Summarize", systemInstruction: "Sys", status: "error", error: "boom" });
+  });
+});
+
+describe("inspector helpers", () => {
+  it("splits the system instruction into its blank-line separated sections", () => {
+    expect(splitSystemSections("You are Kai.\n\nPersonality: calm\n\n\nScenario: a bar")).toEqual(["You are Kai.", "Personality: calm", "Scenario: a bar"]);
+    expect(splitSystemSections(undefined)).toEqual([]);
+  });
+
+  it("separates the post-history note from the final prompt", () => {
+    const note = "[Out-of-character instructions from the user - follow them, but do not reply to or mention them:\nAuthor's note for the current scene: rain]";
+    expect(splitPostHistoryNote(`Hello there\n\n${note}`)).toEqual({ prompt: "Hello there", postHistoryNote: note });
+    expect(splitPostHistoryNote("Hello there")).toEqual({ prompt: "Hello there" });
+  });
+
+  it("formats a request as readable plain text", () => {
+    const id = startRequest({ ...base, systemInstruction: "Be Kai.", temperature: 0.5, samplers: { topK: 40 }, history: [{ role: "assistant", text: "Hi!" }] }, 0);
+    completeRequest(id, "Hey.", { inputTokens: 3, outputTokens: 1, totalTokens: 4 });
+    const text = formatRequestForCopy(getRequest(id)!);
+    expect(text).toContain("provider: ollama, model: llama3, temperature: 0.5, topK: 40");
+    expect(text).toContain("## System\nBe Kai.");
+    expect(text).toContain("## History\n[Assistant]\nHi!");
+    expect(text).toContain("## Prompt\nHi");
+    expect(text).toContain("## Reply\nHey.");
+    expect(text).toContain("Usage: 3 in, 1 out, 4 total");
   });
 });

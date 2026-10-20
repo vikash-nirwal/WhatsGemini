@@ -157,3 +157,48 @@ export const withRequestLog = (adapter: ChatProviderAdapter): ChatProviderAdapte
     }
   },
 });
+
+// buildSystemInstruction joins its sections with blank lines, so splitting on
+// them gives the sections back for the inspector. A section that itself has a
+// blank line inside (example dialogue, several lore entries) comes out as
+// more than one piece, which is still readable.
+export const splitSystemSections = (systemInstruction?: string): string[] =>
+  (systemInstruction || "")
+    .split(/\n\s*\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+// generateAIResponse appends the post-history note (author's note, hard
+// limits, the card's post_history_instructions) to the prompt after a blank
+// line, wrapped in this bracket - see buildPostHistoryNote.
+const POST_HISTORY_MARKER = "[Out-of-character instructions from the user";
+
+export const splitPostHistoryNote = (prompt: string): { prompt: string; postHistoryNote?: string } => {
+  const at = prompt.lastIndexOf(`\n\n${POST_HISTORY_MARKER}`);
+  if (at === -1) return prompt.startsWith(POST_HISTORY_MARKER) ? { prompt: "", postHistoryNote: prompt } : { prompt };
+  return { prompt: prompt.slice(0, at), postHistoryNote: prompt.slice(at + 2) };
+};
+
+const ROLE_LABELS: Record<ChatMessage["role"], string> = { user: "User", assistant: "Assistant", system: "System" };
+export const roleLabel = (role: ChatMessage["role"]) => ROLE_LABELS[role] || role;
+
+// Plain-text dump of one request for the inspector's copy button, laid out
+// so it can be pasted into a bug report or another tool and still read.
+export const formatRequestForCopy = (entry: LoggedRequest): string => {
+  const lines: string[] = [];
+  const settings = [`provider: ${entry.provider}`, `model: ${entry.model}`];
+  if (entry.temperature != null) settings.push(`temperature: ${entry.temperature}`);
+  if (entry.maxOutputTokens != null) settings.push(`max output tokens: ${entry.maxOutputTokens}`);
+  for (const [key, value] of Object.entries(entry.samplers || {})) if (value != null) settings.push(`${key}: ${value}`);
+  lines.push(`# Request (${entry.kind}) at ${new Date(entry.startedAt).toISOString()}`, settings.join(", "));
+  if (entry.systemInstruction) lines.push("", "## System", entry.systemInstruction);
+  if (entry.history.length > 0) {
+    lines.push("", "## History");
+    for (const m of entry.history) lines.push(`[${roleLabel(m.role)}]`, m.text, "");
+  }
+  lines.push("", "## Prompt", entry.prompt);
+  if (entry.status === "done") lines.push("", "## Reply", entry.response || "");
+  if (entry.status === "error") lines.push("", "## Error", entry.error || "");
+  if (entry.usage) lines.push("", `Usage: ${entry.usage.inputTokens} in, ${entry.usage.outputTokens} out, ${entry.usage.totalTokens} total`);
+  return lines.join("\n").replace(/\n{3,}/g, "\n\n");
+};

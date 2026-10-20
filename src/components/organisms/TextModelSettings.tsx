@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TextInput, Select, Slider } from "src/components/molecules/form-controls";
 import { CHAT_PROVIDER_META } from '../../features/ai/providers/registry';
 import { PROVIDER_CHAT_MODELS } from '../../utils/constants';
@@ -10,6 +10,7 @@ import { SegmentedControl } from 'src/components/molecules/SegmentedControl';
 import { TextArea } from "src/components/molecules/form-controls";
 import ToggleSwitch from 'src/components/atoms/ToggleSwitch';
 import { RoleplayPov, RoleplayStyle, SamplerSettings } from '../../types';
+import PromptInspectorDialog from './PromptInspectorDialog';
 
 // Which sampler knobs each chat provider's adapter actually forwards (see
 // the adapters) - shown so an ignored setting isn't a silent no-op.
@@ -90,6 +91,7 @@ const TextModelSettings: React.FC<TextModelSettingsProps> = ({
   onLogout,
 }) => {
   const isOllama = chatProviderCapabilities.requiresBaseUrl;
+  const [inspectorOpen, setInspectorOpen] = useState(false);
 
   // Blank input = unset = the provider's own default.
   const samplerInput = (key: keyof SamplerSettings, step: string, placeholder: string, min?: string, max?: string) => (
@@ -328,6 +330,19 @@ const TextModelSettings: React.FC<TextModelSettingsProps> = ({
           />
         </SettingsRow>
       </SettingsCard>
+
+      <SettingsCard>
+        <SettingsRow
+          label="Prompt inspector"
+          hint="See exactly what was sent to the model on a recent request: the system prompt by section, the history, and the reply. Kept until the page is reloaded."
+          align="start"
+        >
+          <Button type="button" variant="outline" onClick={() => setInspectorOpen(true)}>
+            Show last request
+          </Button>
+        </SettingsRow>
+      </SettingsCard>
+      <PromptInspectorDialog isOpen={inspectorOpen} onClose={() => setInspectorOpen(false)} />
     </div>
   );
 };
