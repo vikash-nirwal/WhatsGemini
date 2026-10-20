@@ -3,6 +3,7 @@ import { anthropicAdapter } from "./anthropicAdapter";
 import { openaiImageAdapter } from "./openaiImageAdapter";
 import { glmImageAdapter } from "./glmImageAdapter";
 import { wanAdapter, wanVideoAdapter } from "./wanAdapter";
+import { falImageAdapter } from "./falImageAdapter";
 import { createOpenAiCompatibleAdapter } from "./openaiCompatibleAdapter";
 import { ChatProviderAdapter, ImageProviderAdapter, VideoProviderAdapter } from "./types";
 import { withRequestLog } from "../requestLog";
@@ -81,12 +82,14 @@ export const CHAT_PROVIDERS: Record<string, ChatProviderAdapter> = Object.fromEn
 // Of the requested providers, Gemini (native), OpenAI (DALL-E/gpt-image-1),
 // Wan (Wanxiang, via DashScope) and GLM (CogView/GLM-Image, via Z.ai) have
 // real image-generation APIs, alongside the existing local SD WebUI
-// integration (handled separately - see aiSlice.ts).
+// integration (handled separately - see aiSlice.ts). fal.ai hosts Seedream
+// and FLUX Kontext, which keep faces consistent from reference photos.
 export const IMAGE_PROVIDERS: Record<string, ImageProviderAdapter> = {
   gemini: geminiImageAdapter,
   openai: openaiImageAdapter,
   wan: wanAdapter,
   glm: glmImageAdapter,
+  fal: falImageAdapter,
 };
 
 export const CHAT_PROVIDER_META: ProviderMeta[] = [
@@ -106,6 +109,7 @@ export const IMAGE_PROVIDER_META: ProviderMeta[] = [
   { id: "openai", label: "OpenAI (DALL·E / gpt-image-1)" },
   { id: "wan", label: "Wan (Wanxiang, DashScope)" },
   { id: "glm", label: "GLM (CogView / GLM-Image, Z.ai)" },
+  { id: "fal", label: "fal.ai (Seedream / FLUX Kontext)" },
   { id: "sdwebui", label: "Local/Remote SD WebUI Forge" },
 ];
 
