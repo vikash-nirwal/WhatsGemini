@@ -462,9 +462,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ bottomInset = 0, messages = [],
           </>
         )}
         <div
-          className="relative z-[1] flex-1 overflow-auto"
+          className="relative z-[1] flex-1 overflow-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           ref={scrollContainerRef}
           onScroll={handleScroll}
+          // Focusable so keyboard and switch users can scroll the history even
+          // where the bubbles have no buttons of their own (touch screens).
+          // A labeled region rather than role="log", which would announce
+          // every streamed chunk of a reply.
+          tabIndex={0}
+          role="region"
+          aria-label="Messages"
         >
           <div
             ref={contentRef}
