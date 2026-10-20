@@ -213,6 +213,21 @@ export const updateChatMessage = createAsyncThunk(
   }
 );
 
+// Updates simple per-chat switches, leaving content and tree untouched.
+export const updateChatOptions = createAsyncThunk(
+  "chat/updateChatOptions",
+  async ({ chatId, patch }: { chatId: number; patch: Pick<Chat, "replySuggestions"> }, { rejectWithValue }) => {
+    try {
+      const chat = await dbService.getChatById(chatId);
+      Object.assign(chat, patch);
+      await dbService.updateChat(chat);
+      return { chatId, patch };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
 // Updates just a chat's auto-follow-up settings (enabled/cooldown/max/count),
 // leaving content and tree untouched.
 export const updateChatAutoReply = createAsyncThunk(
@@ -681,6 +696,10 @@ const chatSlice = createSlice({
           chat.tree = action.payload.tree;
           chat.activeLeafId = action.payload.activeLeafId;
         }
+      })
+      .addCase(updateChatOptions.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c.id === action.payload.chatId);
+        if (chat) Object.assign(chat, action.payload.patch);
       })
       .addCase(updateChatMessage.fulfilled, (state, action) => {
         const chat = state.chats.find((c) => c.id === action.payload.chatId);

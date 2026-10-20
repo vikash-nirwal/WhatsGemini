@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, insertCompressionSummary, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatMemory, updateChatGreeting, setPendingFollowupAt } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
 import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage, summarizeChapter, writeDiaryEntry, generateAssistText } from "../features/aiSlice";
-import { buildDraftReplyPrompt, cleanDraftReply, NARRATIVE_CONTEXT_MESSAGES, SURPRISE_DIRECTIVE } from "../features/ai/utils/narrativeTools";
+import { buildDraftReplyPrompt, cleanDraftReply, buildReplySuggestionsPrompt, parseReplySuggestions, NARRATIVE_CONTEXT_MESSAGES, SURPRISE_DIRECTIVE } from "../features/ai/utils/narrativeTools";
 import { appendDiaryEntry } from "../features/ai/utils/diary";
 import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
 import ChatWindow from "src/components/organisms/ChatWindow";
@@ -468,9 +468,34 @@ const ChatPage = () => {
     }
   };
 
-  // After each reply: memory first, then the diary, one after the other so
-  // their two character saves can't overwrite each other.
+  // Reply suggestions (#16): three short ideas for your next message, shown
+  // under the newest reply when the chat has them switched on. Kept in
+  // memory only; they're for this moment, not the story.
+  const [replySuggestions, setReplySuggestions] = useState<{ forMessageId: string; items: string[] } | null>(null);
+  const [draftInjection, setDraftInjection] = useState<{ text: string; nonce: number } | undefined>(undefined);
+  const maybeSuggestReplies = async (allMessages: Message[], speaker = characterData) => {
+    const last = allMessages[allMessages.length - 1];
+    if (!currentChat?.replySuggestions || !speaker || !last?.id || last.role !== AI) return;
+    const userName = activePersona?.name?.trim() || "User";
+    const recent = trimToLatestSummary(allMessages).slice(-NARRATIVE_CONTEXT_MESSAGES);
+    try {
+      const reply = await dispatch(generateAssistText({
+        instruction: buildReplySuggestionsPrompt(userName, speaker.name, formatTranscript(recent, transcriptNames())),
+        background: true,
+      })).unwrap();
+      const items = parseReplySuggestions(reply);
+      if (items.length > 0) setReplySuggestions({ forMessageId: last.id, items });
+    } catch (err) {
+      console.warn("Reply suggestions failed (non-fatal):", err);
+    }
+  };
+  const handlePickSuggestion = (text: string) => setDraftInjection({ text, nonce: Date.now() });
+
+  // After each reply: suggestions in parallel (they write nothing), then
+  // memory and the diary one after the other, so their two character saves
+  // can't overwrite each other.
   const runBackgroundUpdates = async (allMessages: Message[], speaker = characterData) => {
+    void maybeSuggestReplies(allMessages, speaker);
     await maybeExtractMemory(allMessages, speaker);
     await maybeWriteDiary(allMessages, speaker);
   };
@@ -1431,7 +1456,7 @@ const ChatPage = () => {
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden relative">
-        <ChatWindow bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} />
+        <ChatWindow replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} />
       </div>
 
       {/* Message Input - floats over the chat, except under terminal where it
@@ -1466,6 +1491,7 @@ const ChatPage = () => {
           mutedParticipantIds={currentChat?.mutedParticipantIds}
           onForceReply={handleForceReply}
           onDraftReply={characterData ? handleDraftReply : undefined}
+          draftInjection={draftInjection}
         />
       </div>
     </div>

@@ -27,6 +27,9 @@ import { Badge } from "src/components/atoms/badge";
 import { useColorTheme } from "../../hooks/useColorTheme";
 
 interface ChatWindowProps {
+  // Reply ideas for the newest message (#16) and what tapping one does.
+  replySuggestions?: { forMessageId: string; items: string[] } | null;
+  onPickSuggestion?: (text: string) => void;
   // Height of the composer floating over the bottom of the list (0 when it's
   // docked below it instead, as in the terminal theme).
   bottomInset?: number;
@@ -118,7 +121,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc }: { charInitials: s
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -570,6 +573,26 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ bottomInset = 0, messages = [],
                     chapterNumber={msg.chapterTitle ? chapterNumbers.get(msg.id || "") : undefined}
                   />
                 );
+                const suggestions = !aiLoading && i === filteredMessages.length - 1 && replySuggestions && replySuggestions.forMessageId === msg.id ? replySuggestions.items : undefined;
+                if (suggestions && onPickSuggestion) {
+                  return (
+                    <React.Fragment key={msg.id || i}>
+                      {message}
+                      <div role="group" aria-label="Reply suggestions" className="flex flex-wrap gap-2 -mt-3 mb-6 pl-11">
+                        {suggestions.map((text) => (
+                          <button
+                            key={text}
+                            type="button"
+                            onClick={() => onPickSuggestion(text)}
+                            className="min-h-8 px-3 py-1.5 rounded-full border border-primary/40 bg-primary/[0.08] text-[13px] text-foreground hover:bg-primary/[0.16] text-left"
+                          >
+                            {text}
+                          </button>
+                        ))}
+                      </div>
+                    </React.Fragment>
+                  );
+                }
                 // Already covered by the latest summary: still readable (and
                 // editable), but no longer sent to the AI.
                 return i < latestSummaryAt ? (

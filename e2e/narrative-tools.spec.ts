@@ -64,3 +64,18 @@ test("author's note presets add and remove their line, and reach the next reply"
   await page.getByRole("button", { name: "Slow burn" }).click();
   await expect(note).toHaveValue("");
 });
+
+test("reply suggestions appear after a reply and fill the box when tapped", async ({ page, mockAI }) => {
+  mockAI.reply((req) => (req.stream ? "Shall we go to the market?" : req.prompt.includes("Suggest 3") ? "1. Yes, let's go!\n2. Only if you're buying.\n3. What's at the market?" : "NONE"));
+  await openChat(page, 1);
+  await chatAction(page, "Scene & chat settings");
+  await page.getByRole("switch", { name: "Suggest replies" }).click();
+  await page.getByRole("button", { name: "Close scene panel" }).click();
+
+  await page.getByLabel("Message input").fill("I'm bored.");
+  await page.getByRole("button", { name: "Send Message" }).click();
+  const group = page.getByRole("group", { name: "Reply suggestions" });
+  await expect(group).toBeVisible();
+  await group.getByRole("button", { name: "Only if you're buying." }).click();
+  await expect(page.getByLabel("Message input")).toHaveValue("Only if you're buying.");
+});

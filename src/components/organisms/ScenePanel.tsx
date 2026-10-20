@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { FaTimes, FaPlus, FaPencilAlt, FaThumbtack, FaTag } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
-import { updateChatAuthorNote, updateChatWorldTags, updateChatMemory, updateChatScenario, updateChatBoundaries, updateChatMemoryScope, updateChatMessage } from "src/features/chatSlice";
+import { updateChatAuthorNote, updateChatWorldTags, updateChatMemory, updateChatScenario, updateChatBoundaries, updateChatMemoryScope, updateChatMessage, updateChatOptions } from "src/features/chatSlice";
 import { TagInput } from "src/components/molecules/form-controls";
 import { SegmentedControl } from "src/components/molecules/SegmentedControl";
 import { updateCharacter } from "src/features/characterSlice";
@@ -458,6 +458,19 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
               </button>
             )}
           </div>
+        </div>
+
+        {/* Reply suggestions (#16) - per chat */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[12.5px] font-medium text-foreground">Suggest replies</div>
+            <div className="text-[11px] text-subtle">After each reply, three short ideas for what you could say. Tap one to edit it in the box.</div>
+          </div>
+          <ToggleSwitch
+            checked={Boolean(chat?.replySuggestions)}
+            onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { replySuggestions: val || undefined } }))}
+            label={<span className="sr-only">Suggest replies</span>}
+          />
         </div>
 
         {/* Diary (#5) - a per-character switch, so it's set here in context */}
