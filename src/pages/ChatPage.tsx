@@ -6,6 +6,7 @@ import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCo
 import { parseSlashCommand, SLASH_COMMANDS } from "../features/chat/slashCommands";
 import { buildStoryMarkdown, storyFileName } from "../features/chat/storyExport";
 import { resolveTurnModel } from "../features/ai/modelResolution";
+import { appearanceLocksFor } from "../features/ai/utils/appearanceLock";
 import { buildDraftReplyPrompt, cleanDraftReply, buildReplySuggestionsPrompt, parseReplySuggestions, NARRATIVE_CONTEXT_MESSAGES, SURPRISE_DIRECTIVE } from "../features/ai/utils/narrativeTools";
 import { appendDiaryEntry } from "../features/ai/utils/diary";
 import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
@@ -158,6 +159,7 @@ const ChatPage = () => {
       groupScenario: currentChat?.scenario,
       groupMemory: currentChat?.memory,
       groupPinnedMemory: currentChat?.pinnedMemory,
+      otherAppearanceLocks: appearanceLocksFor(others),
     };
   };
 
@@ -265,6 +267,7 @@ const ChatPage = () => {
       const result = await dispatch(generateAvatarImage({
         name: characterData.name,
         appearance: characterData.appearance,
+        visualTags: characterData.visualTags,
         appearanceImages: referenceImages,
         emotion: missingEmotionPortrait,
         artStyle: characterData.artStyle,
@@ -640,7 +643,7 @@ const ChatPage = () => {
     warnBackgroundFailure("compress", compressError);
     await trackUsage(compressTokens, compressCost);
 
-    const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount } = buildTurnContext(
+    const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = buildTurnContext(
       compressedFreshMessages,
       speaker,
       extraDirective ? [AUTO_REPLY_DIRECTIVE, extraDirective] : [AUTO_REPLY_DIRECTIVE],
@@ -653,7 +656,7 @@ const ChatPage = () => {
       prompt: followupPrompt,
       history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle,
       isImageRequest: includeImage, isVideoRequest: includeVideo, isCharacterInitiated: true, isAutoSelfie: shouldAutoSelfie,
-      customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride,
+      customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks,
     }));
 
     if (!isGenerationSuccess(aiResponse)) {
@@ -896,8 +899,8 @@ const ChatPage = () => {
       const shouldAutoSelfie = !isImageRequest && !isVideoRequest && !!autoSelfieCfg?.enabled &&
         Math.random() * 100 < (autoSelfieCfg.frequency ?? DEFAULT_AUTO_SELFIE_FREQUENCY);
 
-      const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount } = buildTurnContext(contextMessages, speaker, undefined, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: text, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isVideoRequest, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride }));
+      const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = buildTurnContext(contextMessages, speaker, undefined, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: text, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isVideoRequest, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
       reportGenerationFailure(aiResponse);
@@ -976,8 +979,8 @@ const ChatPage = () => {
           || characterData;
         if (!speaker) return;
 
-        const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount } = buildTurnContext(contextUpToEdit, speaker, undefined, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
-        aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride }));
+        const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = buildTurnContext(contextUpToEdit, speaker, undefined, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
+        aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks }));
         const aiResponse = await aiPromiseRef.current;
         aiPromiseRef.current = null;
         reportGenerationFailure(aiResponse);
@@ -1070,8 +1073,8 @@ const ChatPage = () => {
         || characterData;
       if (!speaker) return;
 
-      const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount } = buildTurnContext(historyUpToTarget, speaker, extraDirectives, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride }));
+      const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = buildTurnContext(historyUpToTarget, speaker, extraDirectives, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
       reportGenerationFailure(aiResponse);
@@ -1216,7 +1219,7 @@ const ChatPage = () => {
       if (!speaker) return;
       const continueDirective =
         "The previous assistant message got cut off before finishing. Continue writing directly from exactly where it left off - do not repeat any earlier text, do not restart the sentence, and add no preamble or acknowledgement. Keep going in the same voice, tone, and format.";
-      const { history, systemInstruction, postHistoryNote, characterImages, characterName, protectedCount } = buildTurnContext(
+      const { history, systemInstruction, postHistoryNote, characterImages, characterName, protectedCount, appearanceLocks } = buildTurnContext(
         [...historyUpToTarget, targetMessage],
         speaker,
         [continueDirective],
@@ -1226,7 +1229,7 @@ const ChatPage = () => {
         scene
       );
 
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: "Continue.", history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker.artStyle, customEmotions: speaker.emotionPortraits?.customEmotions, protectedCount, modelOverride: speaker.modelOverride }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: "Continue.", history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker.artStyle, customEmotions: speaker.emotionPortraits?.customEmotions, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks }));
       const aiResponse = await aiPromiseRef.current;
       aiPromiseRef.current = null;
       reportGenerationFailure(aiResponse);

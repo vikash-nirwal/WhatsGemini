@@ -149,7 +149,8 @@ export const buildAdventureSceneImageInstruction = (
   if (world) context.push(`Setting: ${world.name} - ${world.premise}${world.tone ? ` (tone: ${world.tone})` : ""}`);
   const people = presentCast.map((c) => {
     const mood = castEmotions?.[c.id] ? ` - currently looking ${castEmotions[c.id]}, show it in their expression` : "";
-    return `${c.name}: ${c.appearance || c.description || "no visual description"}${mood}`;
+    // A locked look (#34) is the description to use word for word.
+    return `${c.name}: ${c.visualTags?.trim() ? `${c.visualTags.trim()} (copy exactly)` : c.appearance || c.description || "no visual description"}${mood}`;
   });
   if (activePersona?.name || activePersona?.appearance) {
     people.push(`${activePersona.name || "The player"} (the player, referred to as "you"): ${activePersona.appearance || "no visual description"}`);

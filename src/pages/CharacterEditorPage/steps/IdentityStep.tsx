@@ -32,6 +32,15 @@ interface IdentityStepProps {
   onContentRatingChange: (rating: ContentRating | undefined, adultsConfirmed: boolean) => void;
   appearance: string;
   setAppearance: (v: string) => void;
+  visualTags: string;
+  setVisualTags: (v: string) => void;
+  onDraftVisualTags: () => void;
+  draftingVisualTags: boolean;
+  visualTagsError: string | null;
+  onMakeMainReference: (index: number) => void;
+  onGenerateReferenceSheet: () => void;
+  generatingSheetView: string | null; // which view is being drawn, while the sheet is generating
+  sheetError: string | null;
   artStyle: ArtStyle;
   setArtStyle: (v: ArtStyle) => void;
   appearanceImages: string[];
@@ -84,6 +93,15 @@ const IdentityStep: React.FC<IdentityStepProps> = ({
   onContentRatingChange,
   appearance,
   setAppearance,
+  visualTags,
+  setVisualTags,
+  onDraftVisualTags,
+  draftingVisualTags,
+  visualTagsError,
+  onMakeMainReference,
+  onGenerateReferenceSheet,
+  generatingSheetView,
+  sheetError,
   artStyle,
   setArtStyle,
   appearanceImages,
@@ -192,6 +210,23 @@ const IdentityStep: React.FC<IdentityStepProps> = ({
         onChange={(e) => setAppearance(e.target.value)}
         className="resize-none"
       />
+      {/* Locked look (#34): copied word for word into every image prompt. */}
+      <div>
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          <FieldLabel htmlFor="visual-tags" hint="A fixed list of visual traits copied word for word into every picture of this character, so the face and look stay the same. The AI only describes the scene around it.">Locked look for pictures</FieldLabel>
+          <Button type="button" variant="ghost" size="sm" onClick={onDraftVisualTags} disabled={draftingVisualTags} className="h-auto px-2 py-1 text-xs">
+            <FaMagic size={11} /> {draftingVisualTags ? "Drafting..." : "Draft from appearance"}
+          </Button>
+        </div>
+        <TextArea
+          id="visual-tags"
+          placeholder="e.g. early 20s, slim, pale skin, long silver hair, violet almond-shaped eyes, small scar over left eyebrow, dark blue cloak"
+          value={visualTags}
+          onChange={(e) => setVisualTags(e.target.value)}
+          className="resize-none"
+        />
+        {visualTagsError && <p className="text-xs text-destructive mt-1">{visualTagsError}</p>}
+      </div>
       <div>
         <FieldLabel hint="Pins a consistent look for the main avatar and every generated emotion portrait, instead of the AI picking a style per call.">Art style</FieldLabel>
         <SegmentedControl
@@ -204,8 +239,21 @@ const IdentityStep: React.FC<IdentityStepProps> = ({
         <label className="block text-sm text-foreground font-medium mb-2">Reference Images</label>
         <div className="flex flex-wrap gap-2 mb-2">
           {appearanceImages.map((src, idx) => (
-            <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border border-border bg-muted">
-              <DisplayImage srcContext={src} alt="Appearance Reference" className="w-full h-full object-cover" />
+            <div key={idx} className={cn("relative w-20 h-20 rounded-lg overflow-hidden border bg-muted", idx === 0 ? "border-primary border-2" : "border-border")}>
+              <DisplayImage srcContext={src} alt={idx === 0 ? "Main reference" : "Appearance reference"} className="w-full h-full object-cover" />
+              {/* Main reference (#35): what single-image providers get. */}
+              {idx === 0 ? (
+                <span className="absolute bottom-0 inset-x-0 bg-primary text-primary-foreground text-[10px] font-semibold text-center py-0.5">Main</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onMakeMainReference(idx)}
+                  className="absolute bottom-0 inset-x-0 bg-background/80 text-foreground text-[10px] font-medium text-center py-0.5 hover:bg-primary hover:text-primary-foreground"
+                  aria-label={`Make reference ${idx + 1} the main reference`}
+                >
+                  Make main
+                </button>
+              )}
               <Button
                 onClick={() => removeAppearanceImage(idx)}
                 variant="destructive"
@@ -226,7 +274,15 @@ const IdentityStep: React.FC<IdentityStepProps> = ({
             <span className="text-[10px] mt-1 text-center font-medium">Add Image</span>
           </button>
         </div>
-        <p className="text-xs text-subtle">Provided to image-capable models to keep generated appearance consistent.</p>
+        <p className="text-xs text-subtle">Provided to image models that accept references, to keep the face consistent. The main one (first) is used when a model takes only one image.</p>
+        {/* Reference sheet (#35) */}
+        <div className="flex flex-wrap items-center gap-2 mt-2">
+          <Button type="button" variant="outline" size="sm" onClick={onGenerateReferenceSheet} disabled={Boolean(generatingSheetView)} className="h-auto px-3 py-1.5 text-xs">
+            <FaMagic size={11} /> {generatingSheetView ? `Drawing the ${generatingSheetView}...` : "Generate reference sheet"}
+          </Button>
+          <span className="text-[11px] text-subtle">Front, three-quarter and side portraits from the locked look, added as references.</span>
+        </div>
+        {sheetError && <p className="text-xs text-destructive mt-1">{sheetError}</p>}
         <input
           type="file"
           ref={imageInputRef}

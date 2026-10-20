@@ -7,6 +7,7 @@ import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Character, LoreEntry, ArtStyle, ContentRating } from "../types";
 import { dbService } from "../services/dbService";
 import { generateAssistText, generateAvatarImage } from "../features/aiSlice";
+import { buildVisualTagsDraftPrompt, cleanVisualTags } from "../features/ai/utils/appearanceLock";
 import { DisplayImage } from "src/components/molecules/DisplayImage";
 import { Slider } from "src/components/molecules/form-controls";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
@@ -19,7 +20,7 @@ import { WizardSteps } from "src/components/molecules/WizardSteps";
 import { CHARACTER_SWATCHES, MAX_MEMORY_ENTRIES, DEFAULT_AUTO_SELFIE_FREQUENCY, EMOTIONS, DEFAULT_ART_STYLE, RELATIONSHIP_PRESETS, TAG_PRESETS, PERSONALITY_TRAIT_PRESETS } from "../utils/constants";
 import { estimateTokens } from "../features/ai/utils/tokenEstimator";
 import AvatarGenerateButton from "src/components/molecules/AvatarGenerateButton";
-import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
+import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl, dataUrlToBlob } from "../features/ai/utils/portraitUtils";
 import { parseCharacterCardText } from "../features/character/characterCard";
 import { detectMinorIndicators, characterTextFields } from "../features/character/contentRating";
 import { useModal } from "../contexts/ModalContext";
@@ -77,6 +78,14 @@ const extractSurpriseSection = (text: string, label: string): string => {
   return match ? match[1].trim() : "";
 };
 
+// The reference sheet's three views (#35): plain and neutral on purpose, so
+// they show the face and build rather than a mood or a scene.
+const REFERENCE_SHEET_VIEWS = [
+  { id: "front", label: "front view", hint: "Reference sheet view: straight-on front view facing the camera, neutral relaxed expression, even soft lighting, head and shoulders" },
+  { id: "three-quarter", label: "three-quarter view", hint: "Reference sheet view: three-quarter view turned slightly to the left, neutral relaxed expression, even soft lighting, head and shoulders" },
+  { id: "side", label: "side view", hint: "Reference sheet view: side profile facing left, neutral expression, even soft lighting, head and shoulders" },
+];
+
 const CharacterEditorPage = () => {
   const dispatch = useAppDispatch();
   const { is } = useColorTheme();
@@ -114,6 +123,7 @@ const CharacterEditorPage = () => {
   const [mesExample, setMesExample] = useState("");
   const [relationship, setRelationship] = useState("");
   const [appearance, setAppearance] = useState("");
+  const [visualTags, setVisualTags] = useState("");
   const [appearanceImages, setAppearanceImages] = useState<string[]>([]);
   const [artStyle, setArtStyle] = useState<ArtStyle>(DEFAULT_ART_STYLE);
   const [accentIndex, setAccentIndex] = useState(0);
@@ -152,6 +162,7 @@ const CharacterEditorPage = () => {
       setMesExample(source.mes_example || "");
       setRelationship(source.relationship || "");
       setAppearance(source.appearance || "");
+      setVisualTags(source.visualTags || "");
       setAppearanceImages(source.appearanceImages || []);
       setArtStyle(source.artStyle || DEFAULT_ART_STYLE);
       setAccentIndex(findSwatchIndex(source.accent));
@@ -177,6 +188,7 @@ const CharacterEditorPage = () => {
       setMesExample("");
       setRelationship("");
       setAppearance("");
+      setVisualTags("");
       setAppearanceImages([]);
       setArtStyle(DEFAULT_ART_STYLE);
       setAccentIndex(0);
@@ -349,7 +361,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
       return;
     }
     if (!checkContentRating()) return;
-    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride) }));
+    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride) }));
     navigate("/characters");
   };
 
@@ -367,7 +379,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     // Spread the stored record first: db.put replaces the whole row, so any
     // field this form doesn't own (memory, pinnedMemory, avatar, creatorNotes)
     // was being wiped on every save.
-    dispatch(updateCharacter({ ...editCharacter, id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride) }));
+    dispatch(updateCharacter({ ...editCharacter, id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride) }));
     if (options?.stay) {
       toast.success("Character saved");
     } else {
@@ -449,6 +461,73 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     setAppearanceImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Locked look (#34): drafted from the free-text appearance by the AI,
+  // then edited by hand; image prompts copy it word for word.
+  const [draftingVisualTags, setDraftingVisualTags] = useState(false);
+  const [visualTagsError, setVisualTagsError] = useState<string | null>(null);
+  const handleDraftVisualTags = async () => {
+    if (!appearance.trim()) {
+      setVisualTagsError("Write the appearance first, then draft the locked look from it.");
+      return;
+    }
+    setVisualTagsError(null);
+    setDraftingVisualTags(true);
+    try {
+      const text = await dispatch(generateAssistText({ instruction: buildVisualTagsDraftPrompt(name.trim() || "the character", appearance) })).unwrap();
+      const tags = cleanVisualTags(text);
+      if (tags) setVisualTags(tags);
+      else setVisualTagsError("The AI returned nothing. Try again, or write it yourself.");
+    } catch (err: any) {
+      setVisualTagsError(typeof err === "string" ? err : "Couldn't draft the locked look.");
+    } finally {
+      setDraftingVisualTags(false);
+    }
+  };
+
+  // Main reference (#35): the first reference photo is the one providers
+  // that take a single image get, so "make main" moves a photo to the front.
+  const handleMakeMainReference = (index: number) => {
+    setAppearanceImages((prev) => (index <= 0 || index >= prev.length ? prev : [prev[index], ...prev.filter((_, i) => i !== index)]));
+  };
+
+  // Reference sheet (#35): neutral front, three-quarter and side portraits
+  // from the current look, saved as reference photos. Built from the main
+  // reference when there is one, so the sheet shows the same face.
+  const [generatingSheetView, setGeneratingSheetView] = useState<string | null>(null);
+  const [sheetError, setSheetError] = useState<string | null>(null);
+  const handleGenerateReferenceSheet = async () => {
+    if (!name.trim()) {
+      setSheetError("Give the character a name first.");
+      return;
+    }
+    setSheetError(null);
+    const created: string[] = [];
+    try {
+      for (const view of REFERENCE_SHEET_VIEWS) {
+        setGeneratingSheetView(view.label);
+        const result = await dispatch(generateAvatarImage({
+          name,
+          appearance,
+          visualTags,
+          appearanceImages: appearanceImages.length > 0 ? appearanceImages.slice(0, 1) : undefined,
+          artStyle,
+          hint: view.hint,
+        })).unwrap();
+        const image = result.images?.[0];
+        if (!image) throw new Error("No image was returned.");
+        // Saved to the Image Save Directory when one is set, otherwise kept
+        // inline (references can be data: URLs too).
+        created.push(await savePortraitBlob(await dataUrlToBlob(image), `char_ref_${view.id}`).catch(() => image));
+      }
+    } catch (err: any) {
+      setSheetError(typeof err === "string" ? err : err?.message || "Failed to generate the reference sheet. Check your image provider in Settings.");
+    } finally {
+      // Keep whatever views were made before a failure.
+      if (created.length > 0) setAppearanceImages((prev) => [...prev, ...created]);
+      setGeneratingSheetView(null);
+    }
+  };
+
   // Called when AvatarGenerateButton returns a generated image data URL.
   const handleAvatarGenerated = (dataUrl: string) => {
     setCropTargetEmotion(null);
@@ -472,7 +551,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     setGeneratingEmotion(emotion);
     try {
       const referenceImages = appearanceImages.length > 0 ? appearanceImages : undefined;
-      const result = await dispatch(generateAvatarImage({ name, appearance, appearanceImages: referenceImages, emotion, artStyle, hint: emotionHint.trim() || undefined })).unwrap();
+      const result = await dispatch(generateAvatarImage({ name, appearance, visualTags, appearanceImages: referenceImages, emotion, artStyle, hint: emotionHint.trim() || undefined })).unwrap();
       if (result.images && result.images.length > 0) {
         // Generated against a chroma-key backdrop (see the emotion-only prompt
         // clause in aiSlice.ts) - strip it to real transparency before the crop
@@ -532,7 +611,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
         setGeneratingEmotion(emo);
         try {
           // eslint-disable-next-line no-await-in-loop
-          const result = await dispatch(generateAvatarImage({ name, appearance, appearanceImages: referenceImages, emotion: emo, artStyle, hint: emotionHint.trim() || undefined })).unwrap();
+          const result = await dispatch(generateAvatarImage({ name, appearance, visualTags, appearanceImages: referenceImages, emotion: emo, artStyle, hint: emotionHint.trim() || undefined })).unwrap();
           const dataUrl = result.images?.[0];
           if (!dataUrl) continue;
           // Same chroma-key strip as the single-emotion path above, just
@@ -913,6 +992,15 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   onContentRatingChange={(rating, confirmed) => { setContentRating(rating); setAdultsConfirmed(confirmed); }}
                   appearance={appearance}
                   setAppearance={setAppearance}
+                  visualTags={visualTags}
+                  setVisualTags={setVisualTags}
+                  onDraftVisualTags={handleDraftVisualTags}
+                  draftingVisualTags={draftingVisualTags}
+                  visualTagsError={visualTagsError}
+                  onMakeMainReference={handleMakeMainReference}
+                  onGenerateReferenceSheet={handleGenerateReferenceSheet}
+                  generatingSheetView={generatingSheetView}
+                  sheetError={sheetError}
                   artStyle={artStyle}
                   setArtStyle={setArtStyle}
                   appearanceImages={appearanceImages}

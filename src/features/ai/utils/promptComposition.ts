@@ -7,6 +7,7 @@ import { applyMacros } from "./macros";
 import { countProtectedPrefix, trimToLatestSummary } from "./transcript";
 import { selectRelevantFacts } from "./memoryRelevance";
 import { buildDiarySection } from "./diary";
+import { AppearanceLock, appearanceLocksFor } from "./appearanceLock";
 import { effectiveContentRating } from "../../character/contentRating";
 import { ChatMessage } from "../types";
 
@@ -390,6 +391,9 @@ export interface TurnContext {
   // Leading messages (seed, compression summary) that history truncation must
   // keep - pass straight through to generateAIResponse.
   protectedCount: number;
+  // Locked looks (#34) of the replying character and anyone else present,
+  // for image requests.
+  appearanceLocks: AppearanceLock[];
 }
 
 // Only passed for a multi-character room (Phase 12); a normal 1:1 chat
@@ -403,6 +407,7 @@ export interface RoomContext {
   groupScenario?: string; // the room's own Chat.scenario - shared by every participant, replaces the speaker's personal one
   groupMemory?: string[]; // the room's own Chat.memory - facts learned in this room, shared by every participant
   groupPinnedMemory?: string[]; // the room's own Chat.pinnedMemory
+  otherAppearanceLocks?: AppearanceLock[]; // every OTHER member's locked look (#34)
 }
 
 // Per-chat scene settings and app-wide style, shared by 1:1 chats and rooms.
@@ -467,5 +472,6 @@ export const buildTurnContext = (
     characterName,
     otherParticipantImages,
     protectedCount: countProtectedPrefix(messages),
+    appearanceLocks: [...appearanceLocksFor(character ? [character] : []), ...(roomContext?.otherAppearanceLocks || [])],
   };
 };

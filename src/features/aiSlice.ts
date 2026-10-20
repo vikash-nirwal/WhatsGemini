@@ -17,6 +17,7 @@ import { buildDiaryPrompt, cleanDiaryEntry } from "./ai/utils/diary";
 import { buildAdventureSceneImageInstruction, findCastInNarration } from "./ai/utils/adventurePrompt";
 import { insertCompressionSummary, fetchChats } from "./chatSlice";
 import { resolveTurnModel } from "./ai/modelResolution";
+import { AppearanceLock, appearanceLocksFor, applyAppearanceLocks } from "./ai/utils/appearanceLock";
 import { insertAdventureCompressionSummary } from "./adventureSlice";
 
 export interface GenerateAIResponseResult {
@@ -60,7 +61,7 @@ const resolveHelperCall = async (settings: RootState["settings"]) => {
 
 export const generateAIResponse = createAsyncThunk(
   "ai/generateResponse",
-  async ({ prompt, history = [], systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters, protectedCount, modelOverride }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, postHistoryNote?: string, streamKey?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[], protectedCount?: number, modelOverride?: Character["modelOverride"] }, { getState, dispatch, rejectWithValue, signal }) => {
+  async ({ prompt, history = [], systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters, protectedCount, modelOverride, appearanceLocks }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, postHistoryNote?: string, streamKey?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[], protectedCount?: number, modelOverride?: Character["modelOverride"], appearanceLocks?: AppearanceLock[] }, { getState, dispatch, rejectWithValue, signal }) => {
     try {
       const state = getState() as RootState;
       const settings = state.settings;
@@ -148,7 +149,7 @@ export const generateAIResponse = createAsyncThunk(
         const derivation = await deriveImagePrompt(
           chatAdapter, chatConfig, selectedModel, turnConfig, historyForSdk, fullPrompt,
           settings.imageGenPrompt, settings.sdWebuiModel, useSdWebui,
-          existingImagePrompt, existingImageParams, signal, isCharacterInitiated, isAutoSelfie, artStyle
+          existingImagePrompt, existingImageParams, signal, isCharacterInitiated, isAutoSelfie, artStyle, appearanceLocks
         );
         trackUsage(derivation.usage, chatProviderId, selectedModel);
         response = derivation.derivedSummary;
@@ -441,7 +442,7 @@ export const generateAssistText = createAsyncThunk(
 export const generateAvatarImage = createAsyncThunk(
   "ai/generateAvatarImage",
   async (
-    { name, appearance, appearanceImages, emotion, artStyle, hint }: { name: string; appearance?: string; appearanceImages?: string[]; emotion?: string; artStyle?: ArtStyle; hint?: string },
+    { name, appearance, visualTags, appearanceImages, emotion, artStyle, hint }: { name: string; appearance?: string; visualTags?: string; appearanceImages?: string[]; emotion?: string; artStyle?: ArtStyle; hint?: string },
     { getState, rejectWithValue }
   ) => {
     try {
@@ -464,6 +465,9 @@ export const generateAvatarImage = createAsyncThunk(
       // drift between anime/realistic/in-between looks.
       const styleClause = ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE];
       const parts = [`Character portrait of ${name}`];
+      // The locked look first (#34), so every portrait and mood variant
+      // starts from the same fixed traits; the free text adds the rest.
+      if (visualTags?.trim()) parts.push(visualTags.trim());
       if (appearance) parts.push(appearance);
       if (emotion) parts.push(`Showing a clear, unmistakable "${emotion}" facial expression and body language, same character and outfit as usual`);
       if (hint) parts.push(`Also incorporate this direction: ${hint}`);
@@ -551,6 +555,8 @@ export const generateAdventureSceneImage = createAsyncThunk(
         trackUsage(derivation.usage, settings.chatProvider, settings.selectedModel);
         imagePrompt = derivation.text.trim() || narration;
       }
+      // Each drawn NPC's locked look (#34), guaranteed in the final prompt.
+      imagePrompt = applyAppearanceLocks(imagePrompt, appearanceLocksFor(presentCast), useSdWebui ? "tags" : "sentences");
 
       const references: RoomReferenceCharacter[] = presentCast
         .filter((c) => c.appearanceImages && c.appearanceImages.length > 0)

@@ -192,6 +192,9 @@ export interface Character {
   mes_example?: string; // freeform example exchanges, given to the model purely as a style/format reference
   relationship?: string;
   appearance?: string;
+  // Locked look for pictures (#34): a fixed, comma-separated list of visual
+  // traits that goes into every image prompt word for word.
+  visualTags?: string;
   appearanceImages?: string[];
   artStyle?: ArtStyle;
   avatar?: string;

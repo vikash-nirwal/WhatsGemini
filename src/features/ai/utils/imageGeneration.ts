@@ -5,6 +5,7 @@ import { UsageInfo } from "../types";
 import { ChatProviderAdapter, ImageProviderAdapter, NamedReferenceImages, ProviderRuntimeConfig } from "../providers/types";
 import { IMAGE_PROVIDERS } from "../providers/registry";
 import { ART_STYLE_CLAUSES, DEFAULT_ART_STYLE } from "../../../utils/constants";
+import { AppearanceLock, applyAppearanceLocks, buildAppearanceLockInstruction } from "./appearanceLock";
 
 // A room's OTHER participants (never the speaking character, who is passed
 // separately as characterImages/characterName below) - name + raw appearance
@@ -58,14 +59,18 @@ export const deriveImagePrompt = async (
   signal?: AbortSignal,
   isCharacterInitiated = false,
   isAutoSelfie = false,
-  artStyle?: ArtStyle
+  artStyle?: ArtStyle,
+  // Locked looks (#34) of the characters who may appear in the picture.
+  appearanceLocks: AppearanceLock[] = []
 ): Promise<ImageDerivationResult> => {
+  const lockStyle = useSdWebui ? "tags" : "sentences";
   if (existingImagePrompt) {
     const regenSummary = isCharacterInitiated || isAutoSelfie
       ? "Here's another look at that same moment.\n[Image Context: Retrying generation of the previous scene]"
       : "Here is the regenerated image you requested.\n[Image Context: Retrying generation of the previous scene]";
     return {
-      derivedImagePrompt: existingImagePrompt,
+      // Re-applied so a look locked after the first try still reaches the redraw.
+      derivedImagePrompt: applyAppearanceLocks(existingImagePrompt, appearanceLocks, lockStyle),
       derivedParams: existingImageParams || {},
       derivedSummary: regenSummary,
     };
@@ -103,7 +108,8 @@ export const deriveImagePrompt = async (
   // avatar and emotion portraits already do (generateAvatarImage, aiSlice.ts).
   const artStyleClause = ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE];
 
-  const derivationPrompt = `${requestContext}${useSdWebui ? sdModelInfo : ""}\n\nYou must function as an expert prompt engineer. Prioritize this base style rule:\n${imageGenPrompt}\nAlso match this character's established art style: ${artStyleClause}.\n\nPlease output EXACTLY ${parseSection}\n\nPROMPT:\n<write a highly detailed, clean, and optimized tag-based SD 1.5 image generation prompt that fits the scene and context. Make sure the subject matches your visual description.${selfieStyleHint}>${sdInstruction}\n\nSUMMARY:\n${summaryInstruction} MUST INCLUDE: At the end of your response, append [Image Context: <short visual description of the generated image>] so you can remember what you sent in future turns.>`;
+  const lockInstruction = buildAppearanceLockInstruction(appearanceLocks);
+  const derivationPrompt = `${requestContext}${useSdWebui ? sdModelInfo : ""}\n\nYou must function as an expert prompt engineer. Prioritize this base style rule:\n${imageGenPrompt}\nAlso match this character's established art style: ${artStyleClause}.${lockInstruction ? `\n\n${lockInstruction}` : ""}\n\nPlease output EXACTLY ${parseSection}\n\nPROMPT:\n<write a highly detailed, clean, and optimized tag-based SD 1.5 image generation prompt that fits the scene and context. Make sure the subject matches your visual description.${selfieStyleHint}>${sdInstruction}\n\nSUMMARY:\n${summaryInstruction} MUST INCLUDE: At the end of your response, append [Image Context: <short visual description of the generated image>] so you can remember what you sent in future turns.>`;
 
   const derivationResult = await chatAdapter.generateChat(
     {
@@ -131,6 +137,8 @@ export const deriveImagePrompt = async (
   if (promptMatch && promptMatch[1]) {
     derivedImagePrompt = promptMatch[1].trim();
   }
+  // Models still paraphrase sometimes; make sure each locked look is there.
+  derivedImagePrompt = applyAppearanceLocks(derivedImagePrompt, appearanceLocks, lockStyle);
   if (paramsMatch && paramsMatch[1]) {
     try {
       // Remove any markdown code block formatting if present
