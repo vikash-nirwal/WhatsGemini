@@ -1,4 +1,4 @@
-import { isEmptyModelOverride, resolveTurnModel } from "./modelResolution";
+import { cleanModelOverride, isEmptyModelOverride, resolveTurnModel } from "./modelResolution";
 import { PROVIDER_CHAT_MODELS } from "../../utils/constants";
 
 const settings = { chatProvider: "openai", selectedModel: "gpt-4.1", temperature: 0.7, samplers: { topP: 0.9, frequencyPenalty: 0.3 } };
@@ -65,5 +65,16 @@ describe("isEmptyModelOverride", () => {
     expect(isEmptyModelOverride({ temperature: 0 })).toBe(false);
     expect(isEmptyModelOverride({ samplers: { topK: 1 } })).toBe(false);
     expect(isEmptyModelOverride({ provider: "gemini" })).toBe(false);
+  });
+});
+
+describe("cleanModelOverride", () => {
+  it("trims, drops blanks and returns undefined when nothing is left", () => {
+    expect(cleanModelOverride({ provider: " anthropic ", model: "", temperature: 0.2, samplers: { topP: undefined, topK: 20 } })).toEqual({
+      provider: "anthropic",
+      temperature: 0.2,
+      samplers: { topK: 20 },
+    });
+    expect(cleanModelOverride({ provider: "", samplers: {} })).toBeUndefined();
   });
 });

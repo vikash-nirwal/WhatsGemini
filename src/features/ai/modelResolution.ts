@@ -65,3 +65,19 @@ export const resolveTurnModel = (settings: TurnModelSettings, character?: Pick<C
 export const isEmptyModelOverride = (override?: CharacterModelOverride): boolean =>
   !override ||
   (!override.provider?.trim() && !override.model?.trim() && override.temperature == null && Object.keys(definedOnly(override.samplers)).length === 0);
+
+// What the editor saves: strings trimmed, blank fields and unset samplers
+// dropped, and undefined when nothing is left, so a character without an
+// override never carries an empty object.
+export const cleanModelOverride = (override?: CharacterModelOverride): CharacterModelOverride | undefined => {
+  if (isEmptyModelOverride(override)) return undefined;
+  const cleaned: CharacterModelOverride = {};
+  const provider = override!.provider?.trim();
+  const model = override!.model?.trim();
+  const samplers = definedOnly(override!.samplers);
+  if (provider) cleaned.provider = provider;
+  if (model) cleaned.model = model;
+  if (override!.temperature != null && !Number.isNaN(override!.temperature)) cleaned.temperature = override!.temperature;
+  if (Object.keys(samplers).length > 0) cleaned.samplers = samplers;
+  return cleaned;
+};

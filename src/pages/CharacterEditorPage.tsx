@@ -23,6 +23,8 @@ import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackgr
 import { parseCharacterCardText } from "../features/character/characterCard";
 import { detectMinorIndicators, characterTextFields } from "../features/character/contentRating";
 import { useModal } from "../contexts/ModalContext";
+import { CharacterModelOverride, cleanModelOverride } from "../features/ai/modelResolution";
+import ModelOverrideSection from "./CharacterEditorPage/ModelOverrideSection";
 import { toast } from "sonner";
 
 // Deferred to its own chunk - only fetched once the user actually opens the
@@ -122,6 +124,7 @@ const CharacterEditorPage = () => {
   const [customEmotions, setCustomEmotions] = useState<string[]>([]);
   const [loreEntries, setLoreEntries] = useState<LoreEntry[]>([]);
   const [personalityTraits, setPersonalityTraits] = useState<string[]>([]);
+  const [modelOverride, setModelOverride] = useState<CharacterModelOverride | undefined>(undefined);
 
   // Seed the form from whichever source applies: editing an existing
   // character, duplicating one, or a blank create. Always runs on
@@ -159,6 +162,7 @@ const CharacterEditorPage = () => {
       setCustomEmotions(source.emotionPortraits?.customEmotions || []);
       setLoreEntries(source.loreEntries || []);
       setPersonalityTraits(source.personalityTraits || []);
+      setModelOverride(source.modelOverride);
     } else {
       setName("");
       setDescription("");
@@ -183,6 +187,7 @@ const CharacterEditorPage = () => {
       setCustomEmotions([]);
       setLoreEntries([]);
       setPersonalityTraits([]);
+      setModelOverride(undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [characterId]);
@@ -344,7 +349,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
       return;
     }
     if (!checkContentRating()) return;
-    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits }));
+    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride) }));
     navigate("/characters");
   };
 
@@ -362,7 +367,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     // Spread the stored record first: db.put replaces the whole row, so any
     // field this form doesn't own (memory, pinnedMemory, avatar, creatorNotes)
     // was being wiped on every save.
-    dispatch(updateCharacter({ ...editCharacter, id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits }));
+    dispatch(updateCharacter({ ...editCharacter, id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride) }));
     if (options?.stay) {
       toast.success("Character saved");
     } else {
@@ -880,6 +885,10 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   <p className="text-xs text-subtle mt-1.5">Chance each of their replies includes a spontaneous selfie - lower saves AI credits.</p>
                 </div>
               )}
+            </div>
+
+            <div className="mt-6 pt-6 border-t border-border/30">
+              <ModelOverrideSection value={modelOverride} onChange={setModelOverride} />
             </div>
           </Card>
 
