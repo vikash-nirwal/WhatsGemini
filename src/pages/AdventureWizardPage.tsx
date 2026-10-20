@@ -16,6 +16,7 @@ import { Button } from "src/components/atoms/button";
 import { Card } from "src/components/atoms/card";
 import { Badge } from "src/components/atoms/badge";
 import Header from "src/components/organisms/Header";
+import { WizardSteps } from "src/components/molecules/WizardSteps";
 import Modal from "src/components/molecules/Modal";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { NumberStepper } from "src/components/molecules/NumberStepper";
@@ -184,7 +185,7 @@ const AdventureWizardPage = () => {
       <div className="flex-1 overflow-auto p-4 md:p-8">
         <div className="w-full max-w-[860px] mx-auto">
 
-          <div className="flex items-center gap-1 mb-6 overflow-x-auto pb-1">
+          <WizardSteps steps={STEPS} current={step}>
             {STEPS.map((label, i) => (
               <React.Fragment key={label}>
                 <button
@@ -203,7 +204,7 @@ const AdventureWizardPage = () => {
                 {i < STEPS.length - 1 && <div className="h-px flex-1 min-w-[12px] bg-border" />}
               </React.Fragment>
             ))}
-          </div>
+          </WizardSteps>
 
           {blockedMessage && (
             <div className="mb-4 px-4 py-2.5 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">{blockedMessage}</div>
