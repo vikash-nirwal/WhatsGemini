@@ -20,14 +20,14 @@ import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DIARY_INTERVAL, DEFAULT_AUTO_SELFI
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Message, Chat, Character } from "../types";
 import { stripLeakedBase64 } from "../features/ai/utils/apiUtils";
-import { buildChatHistory, buildSystemInstruction, buildTurnContext, AUTO_REPLY_DIRECTIVE, FOLLOWUP_CONTINUATION_PROMPT, RoomContext, SceneContext } from "../features/ai/utils/promptComposition";
+import { buildSystemInstruction, buildTurnContext, AUTO_REPLY_DIRECTIVE, FOLLOWUP_CONTINUATION_PROMPT, RoomContext, SceneContext } from "../features/ai/utils/promptComposition";
 import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
 import { applyMemoryChanges, carryMemoryCategories } from "../features/ai/utils/memoryExtraction";
 import { effectiveContentRating } from "../features/character/contentRating";
 import { resolveNextSpeaker, parseMention, stripSpeakerPrefix } from "../features/ai/utils/roomRouting";
 import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo, generateNodeId } from "../features/chat/messageTree";
 import { estimateTokens, estimateHistoryTokens } from "../features/ai/utils/tokenEstimator";
-import { truncateHistory, countProtectedPrefix, trimToLatestSummary, latestSummaryIndex, countSeedMessages, buildSummaryMessages, formatTranscript, TranscriptNames } from "../features/ai/utils/chatHistoryUtils";
+import { truncateHistory, trimToLatestSummary, latestSummaryIndex, countSeedMessages, buildSummaryMessages, formatTranscript, TranscriptNames } from "../features/ai/utils/chatHistoryUtils";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { Alert, AlertDescription } from "src/components/atoms/alert";
 import { useModal } from "../contexts/ModalContext";
@@ -309,13 +309,17 @@ const ChatPage = () => {
   // truncateHistory() cap generateAIResponse actually applies at send time,
   // so this reflects what will really be sent - not the full stored
   // conversation - once maxChatLength is set to something other than 0.
+  // Built exactly like the next send (#33): the speaker who'd reply next, with
+  // the room's context in a group chat, then the same trimming and protected
+  // messages generateAIResponse applies - it used to skip the room parts and
+  // under-count group chats.
   const contextTokenEstimate = useMemo(() => {
-    const { systemInstruction: systemInstructionText, postHistoryNote } = buildTurnContext(messages, characterData, undefined, replyLengthLimit, activePersona, undefined, scene);
-    const sentMessages = trimToLatestSummary(messages);
-    const effectiveHistory = truncateHistory(buildChatHistory(sentMessages), maxChatLength, countProtectedPrefix(sentMessages));
-    return estimateTokens(systemInstructionText) + estimateTokens(postHistoryNote) + estimateHistoryTokens(effectiveHistory.map((m) => m.text));
+    const speaker = resolveNextSpeaker(roomCharacters, messages, currentChat?.mutedParticipantIds) || characterData;
+    const turn = buildTurnContext(messages, speaker, undefined, replyLengthLimit, activePersona, speaker ? buildRoomContext(speaker) : undefined, scene);
+    const effectiveHistory = truncateHistory([...turn.history], maxChatLength, turn.protectedCount);
+    return estimateTokens(turn.systemInstruction) + estimateTokens(turn.postHistoryNote) + estimateHistoryTokens(effectiveHistory.map((m) => m.text));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [characterData, replyLengthLimit, messages, maxChatLength, activePersona, currentChat?.authorNote, currentChat?.worldTags, currentChat?.hardLimits, currentChat?.intensity, currentChat?.memory, currentChat?.pinnedMemory, currentChat?.memoryScope, roleplayStyle]);
+  }, [characterData, roomCharacters, replyLengthLimit, messages, maxChatLength, activePersona, currentChat?.authorNote, currentChat?.worldTags, currentChat?.hardLimits, currentChat?.intensity, currentChat?.memory, currentChat?.pinnedMemory, currentChat?.memoryScope, currentChat?.scenario, currentChat?.mutedParticipantIds, roleplayStyle]);
   const maxContextTokens = useMemo(
     () => getModelContextWindow(chatProvider, selectedModel),
     [chatProvider, selectedModel]
