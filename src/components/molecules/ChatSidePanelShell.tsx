@@ -20,7 +20,16 @@ export const ChatSidePanelShell: React.FC<ChatSidePanelShellProps> = ({ title, o
   const { is } = useColorTheme();
   const terminal = is("terminal");
   return (
-    <aside className={cn("w-[300px] flex-none border-l border-border/40 bg-card/70 backdrop-blur-md flex flex-col overflow-hidden", terminal && "bg-background border-border")}>
+    // Phones: a full-screen sheet. Tablets and small laptops: a 300px panel
+    // over the right of the chat. A column beside the chat only from xl
+    // (1280px), where both still have room - narrower, a column left the
+    // chat (and its composer) cramped.
+    <aside
+      className={cn(
+        "fixed inset-y-0 right-0 z-40 w-full md:w-[300px] md:shadow-2xl bg-card xl:static xl:z-auto xl:shadow-none xl:bg-card/70 flex-none md:border-l border-border/40 backdrop-blur-md flex flex-col overflow-hidden",
+        terminal && "bg-background xl:bg-background border-border"
+      )}
+    >
       <div className={cn("h-[52px] flex-shrink-0 flex items-center justify-between px-[18px] border-b border-border/40", terminal && "border-border")}>
         {terminal ? (
           <span className="text-[11px] text-muted-foreground lowercase"># {title}</span>

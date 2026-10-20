@@ -29,6 +29,7 @@ import { Alert, AlertDescription } from "src/components/atoms/alert";
 import { useModal } from "../contexts/ModalContext";
 import { toast } from "sonner";
 import { useColorTheme } from "../hooks/useColorTheme";
+import { cn } from "../utils/cn";
 
 const DEFAULT_AUTO_REPLY = { enabled: false, minDelaySeconds: 30, maxDelaySeconds: 120, maxFollowups: 2, followupCount: 0 };
 
@@ -1312,7 +1313,12 @@ const ChatPage = () => {
         className={
           terminal
             ? "relative flex-none w-full px-4 md:px-[26px] pt-3.5 pb-5 border-t border-border bg-background z-20"
-            : "absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 transform -translate-x-1/2 w-full max-w-4xl px-4 z-20"
+            : cn(
+                "absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 transform -translate-x-1/2 w-full max-w-4xl px-4 z-20",
+                // With a side panel open as a column (xl and up, 300px), center
+                // over the chat column only instead of running under the panel.
+                (sceneOpen || participantsOpen) && "xl:left-[calc(50%-150px)] xl:w-[calc(100%-300px)]"
+              )
         }
       >
         <MessageInput
