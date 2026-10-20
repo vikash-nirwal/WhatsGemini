@@ -1,4 +1,4 @@
-import { useContext } from "react"
+import { useContext, useEffect, useState } from "react"
 import { Toaster as Sonner } from "sonner"
 import { ThemeContext } from "src/contexts/ThemeContext"
 
@@ -8,8 +8,24 @@ type ToasterProps = React.ComponentProps<typeof Sonner>
 // src/contexts/ThemeContext.tsx) rather than next-themes, which is what the
 // shadcn CLI wires up by default - swapped so sonner actually tracks the
 // app's real theme instead of always falling back to "system".
+// Phone widths: toasts drop in from the top, so they don't land on the
+// composer and its Send button at the bottom of the screen.
+const PHONE_QUERY = "(max-width: 639px)"
+const useIsPhone = () => {
+  const [isPhone, setIsPhone] = useState(() => typeof window !== "undefined" && window.matchMedia?.(PHONE_QUERY).matches)
+  useEffect(() => {
+    const mq = window.matchMedia?.(PHONE_QUERY)
+    if (!mq) return
+    const update = () => setIsPhone(mq.matches)
+    mq.addEventListener("change", update)
+    return () => mq.removeEventListener("change", update)
+  }, [])
+  return isPhone
+}
+
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme } = useContext(ThemeContext)
+  const isPhone = useIsPhone()
 
   return (
     <Sonner
@@ -29,6 +45,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
         },
       }}
       {...props}
+      position={isPhone ? "top-center" : props.position}
     />
   )
 }

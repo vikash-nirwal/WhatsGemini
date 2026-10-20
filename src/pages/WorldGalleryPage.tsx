@@ -38,7 +38,7 @@ const WorldGalleryPage = () => {
   };
 
   return (
-    <div className="w-full h-screen flex flex-col">
+    <div className="w-full h-dvh flex flex-col">
       <Header title="Worlds" subtitle="Settings and universes your adventures can share." onBack={() => navigate("/adventures")} />
       <div className="flex-1 overflow-auto p-4 md:p-8">
         <div className="w-full max-w-[1180px] mx-auto">

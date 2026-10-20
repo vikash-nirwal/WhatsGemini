@@ -721,7 +721,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
   };
 
   return (
-    <div className="w-full h-screen flex flex-col">
+    <div className="w-full h-dvh flex flex-col">
       <Header
         title={editCharacter ? "Edit character" : "New character"}
         subtitle={editCharacter ? "Update who Gemini becomes" : "Define who Gemini becomes"}

@@ -722,7 +722,7 @@ const SettingsPage = () => {
   const activeSection = sections.find((s) => s.id === selectedSection) || sections[0];
 
   return (
-    <div className="w-full h-screen flex flex-col">
+    <div className="w-full h-dvh flex flex-col">
       <Header title="Settings" subtitle="Providers, chat behavior, and data" onBack={goBackOrHome} />
       <div className="flex-1 overflow-auto p-4 md:p-8 flex justify-center">
       <div className="w-full max-w-5xl bg-transparent">

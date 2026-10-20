@@ -113,7 +113,7 @@ const WorldEditorPage = () => {
   };
 
   return (
-    <div className="w-full h-screen flex flex-col">
+    <div className="w-full h-dvh flex flex-col">
       <Header
         title={editWorld ? "Edit world" : "New world"}
         subtitle={editWorld ? "Update this adventure setting" : "Define a setting to run adventures in"}

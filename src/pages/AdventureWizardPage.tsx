@@ -180,7 +180,7 @@ const AdventureWizardPage = () => {
   const cast = characters.filter((c) => characterIds.includes(c.id));
 
   return (
-    <div className="w-full h-screen flex flex-col">
+    <div className="w-full h-dvh flex flex-col">
       <Header title="New adventure" subtitle="Set the stage, then start playing" onBack={() => navigate("/adventures")} />
       <div className="flex-1 overflow-auto p-4 md:p-8">
         <div className="w-full max-w-[860px] mx-auto">

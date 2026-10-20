@@ -34,7 +34,7 @@ class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback;
       }
       return (
-        <div className="flex items-center justify-center h-full min-h-screen bg-background p-4">
+        <div className="flex items-center justify-center h-full min-h-dvh bg-background p-4">
           <Card className="border-destructive/30 bg-destructive/10 max-w-md w-full rounded-2xl shadow-strong">
             <CardContent className="p-6 flex gap-4 items-start">
               <div className="w-11 h-11 rounded-full bg-destructive/15 flex items-center justify-center flex-shrink-0">

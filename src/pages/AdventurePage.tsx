@@ -305,7 +305,7 @@ const AdventurePage = () => {
 
   if (!adventure) {
     return (
-      <div className="w-full h-screen flex flex-col">
+      <div className="w-full h-dvh flex flex-col">
         <Header title="Adventure" onBack={() => navigate("/adventures")} />
         <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">Adventure not found.</div>
       </div>
@@ -385,7 +385,7 @@ const AdventurePage = () => {
   ] : [];
 
   return (
-    <div className="w-full h-screen flex flex-col">
+    <div className="w-full h-dvh flex flex-col">
       <Header
         title={adventure.title}
         subtitle={world ? world.name : "Freeform"}

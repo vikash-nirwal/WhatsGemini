@@ -186,6 +186,28 @@ const ChatPage = () => {
   // otherwise whichever persona is globally active (Settings > Personas).
   const { is } = useColorTheme();
   const terminal = is("terminal");
+  // The floating composer's footprint (its height plus the gap below it),
+  // measured live so the message list can always scroll its last message
+  // clear of it - however tall a multi-line draft or the mode banners make it.
+  const composerRef = useRef<HTMLDivElement>(null);
+  const [composerInset, setComposerInset] = useState(0);
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const parent = el.offsetParent as HTMLElement | null;
+      const gapBelow = parent ? parent.getBoundingClientRect().bottom - el.getBoundingClientRect().bottom : 0;
+      setComposerInset(Math.ceil(el.offsetHeight + Math.max(0, gapBelow)));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [terminal]);
   const activePersona = useMemo(
     () => personas.find((p) => p.id === (currentChat?.personaId || globalActivePersonaId)) || personas[0],
     [personas, currentChat?.personaId, globalActivePersonaId]
@@ -1191,7 +1213,7 @@ const ChatPage = () => {
   ];
 
   return (
-    <div className="flex flex-col w-full h-screen relative">
+    <div className="flex flex-col w-full h-dvh relative">
       <Header
         title={character || "Chat"}
         subtitle={isRoom ? `With ${roomCharacters.map((c) => c.name).join(", ")}` : (characterData?.relationship || characterData?.description)}
@@ -1280,16 +1302,17 @@ const ChatPage = () => {
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden relative">
-        <ChatWindow characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} />
+        <ChatWindow bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} />
       </div>
 
       {/* Message Input - floats over the chat, except under terminal where it
           docks below it as a bordered prompt strip */}
       <div
+        ref={composerRef}
         className={
           terminal
             ? "relative flex-none w-full px-4 md:px-[26px] pt-3.5 pb-5 border-t border-border bg-background z-20"
-            : "absolute bottom-6 left-1/2 transform -translate-x-1/2 w-full max-w-4xl px-4 z-20"
+            : "absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 transform -translate-x-1/2 w-full max-w-4xl px-4 z-20"
         }
       >
         <MessageInput

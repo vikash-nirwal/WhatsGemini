@@ -73,7 +73,7 @@ const EmptyChatState = () => {
   };
 
   return (
-    <div className="flex flex-col w-full h-screen">
+    <div className="flex flex-col w-full h-dvh">
       <Header title="WhatsGemini" subtitle={isFirstRun ? "Welcome!" : "Select a chat to get started"} />
       <div className="flex-1 flex flex-col items-center justify-center gap-4 text-muted-foreground px-6 text-center">
         {isFirstRun ? (
@@ -185,15 +185,15 @@ const AppContent = () => {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-screen text-red-500">
+      <div className="flex items-center justify-center h-dvh text-red-500">
         {error}
       </div>
     );
   }
 
   return (
-    <div className="bg-background min-h-screen text-foreground font-sans">
-      <div className="flex flex-col h-screen w-full">
+    <div className="bg-background min-h-dvh text-foreground font-sans">
+      <div className="flex flex-col h-dvh w-full">
         <BackupReminderBanner />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar />

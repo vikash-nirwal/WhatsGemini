@@ -29,7 +29,7 @@ const AgeGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4 text-foreground">
+    <div className="min-h-dvh flex items-center justify-center bg-background p-4 text-foreground">
       <div className="w-full max-w-[420px] flex flex-col items-center gap-4 text-center">
         <Logo />
         {declined ? (

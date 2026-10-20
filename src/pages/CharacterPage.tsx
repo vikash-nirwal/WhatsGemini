@@ -257,7 +257,7 @@ const CharacterPage = () => {
   );
 
   return (
-    <div className="w-full h-screen flex flex-col">
+    <div className="w-full h-dvh flex flex-col">
       <Header
         title="Characters"
         subtitle="Craft a persona to embody, or open one you've already made."

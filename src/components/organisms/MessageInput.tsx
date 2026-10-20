@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo, lazy, Suspense } from "react";
-import { FaPaperPlane, FaStop, FaCog, FaImage, FaVideo, FaTimes, FaMask, FaUserFriends, FaCommentSlash } from "react-icons/fa";
+import { FaPaperPlane, FaStop, FaCog, FaImage, FaVideo, FaTimes, FaMask, FaUserFriends, FaCommentSlash, FaPlus } from "react-icons/fa";
 import { cn } from "../../utils/cn";
 import { Button } from "src/components/atoms/button";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
@@ -198,6 +198,29 @@ const MessageInput: React.FC<MessageInputProps> = ({
     };
   }, [pickerOpen]);
 
+  // Phone-width "+" menu holding the composer's tools (image, video,
+  // impersonate, silent send, image settings), so the text box gets the row's
+  // width instead of being squeezed to a sliver by five icon buttons.
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const toolsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!toolsOpen) return;
+    const handlePointerDown = (e: MouseEvent | TouchEvent) => {
+      if (toolsRef.current && !toolsRef.current.contains(e.target as Node)) setToolsOpen(false);
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setToolsOpen(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [toolsOpen]);
+
   const resize = useCallback(() => {
     const el = inputRef.current;
     if (!el) return;
@@ -316,6 +339,53 @@ const MessageInput: React.FC<MessageInputProps> = ({
     </div>
   );
 
+  // The composer's tools, described once and rendered two ways: inline icon
+  // buttons from sm up, and a labeled "+" menu on phones.
+  const composerTools: {
+    key: string;
+    icon: React.ComponentType<{ size?: number; className?: string }>;
+    label: string;
+    title: string;
+    ariaLabel: string;
+    active: boolean;
+    toggle: boolean;
+    disabled?: boolean;
+    onClick: () => void;
+    activeClass: string; // menu row when on
+    activeButtonClass: string; // icon button when on
+  }[] = [
+    {
+      key: "image", icon: FaImage, label: "Request an image", title: "Request an image with this message",
+      ariaLabel: "Request an image with this message", active: isImageRequest, toggle: true, disabled,
+      onClick: toggleImageRequest,
+      activeClass: "bg-primary/[0.12] text-primary", activeButtonClass: "bg-primary/[0.14] text-primary hover:bg-primary/[0.2]",
+    },
+    ...(isVideoGenAvailable ? [{
+      key: "video", icon: FaVideo, label: "Request a video", title: "Request a video with this message",
+      ariaLabel: "Request a video with this message", active: isVideoRequest, toggle: true, disabled,
+      onClick: toggleVideoRequest,
+      activeClass: "bg-primary/[0.12] text-primary", activeButtonClass: "bg-primary/[0.14] text-primary hover:bg-primary/[0.2]",
+    }] : []),
+    {
+      key: "impersonate", icon: FaMask, label: `Write as ${impersonatedName || "the character"}`, title: `Write as ${impersonatedName || "the character"} instead of yourself`,
+      ariaLabel: "Toggle impersonation mode", active: isImpersonated, toggle: true, disabled,
+      onClick: () => setIsImpersonated((v) => { if (!v) setIsSilentSend(false); return !v; }),
+      activeClass: "bg-violet-500/[0.12] text-violet-500", activeButtonClass: "bg-violet-500/[0.14] text-violet-500 hover:bg-violet-500/[0.2]",
+    },
+    {
+      key: "silent", icon: FaCommentSlash, label: "Send without a reply", title: "Send without triggering an AI reply",
+      ariaLabel: "Toggle silent send", active: isSilentSend, toggle: true, disabled,
+      onClick: () => setIsSilentSend((v) => { if (!v) setIsImpersonated(false); return !v; }),
+      activeClass: "bg-amber-500/[0.12] text-amber-500", activeButtonClass: "bg-amber-500/[0.14] text-amber-500 hover:bg-amber-500/[0.2]",
+    },
+    {
+      key: "settings", icon: FaCog, label: "Image settings", title: "Image Generation Settings",
+      ariaLabel: "Image Generation Settings", active: false, toggle: false,
+      onClick: () => setIsSettingsModalOpen(true),
+      activeClass: "", activeButtonClass: "",
+    },
+  ];
+
   const composerTextarea = (
   <textarea
     ref={inputRef}
@@ -344,7 +414,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
         : "Type a message..."
     }
     className={cn(
-      "flex-1 min-w-0 px-2.5 py-1 leading-[22px] bg-transparent text-foreground placeholder-subtle outline-none transition-colors resize-none disabled:opacity-50",
+      "flex-1 min-w-0 px-2.5 py-[9px] leading-[22px] bg-transparent text-foreground placeholder-subtle outline-none transition-colors resize-none disabled:opacity-50",
       terminal && "block w-full px-1 py-1.5"
     )}
     style={{ fontSize: 'var(--chat-font-size, 16px)', maxHeight: MAX_TEXTAREA_HEIGHT }}
@@ -652,7 +722,10 @@ const MessageInput: React.FC<MessageInputProps> = ({
         // impersonate/silent modes so their warning tints still show.
         data-slot={isImpersonated || isSilentSend ? undefined : "composer"}
         className={cn(
-          "flex items-center gap-1 h-14 px-2 rounded-full backdrop-blur-md transition-colors",
+          // min-h, not h: the row grows with a multi-line draft (the text
+          // used to spill out of a fixed 56px pill), and items-end keeps the
+          // buttons on the bottom line beside the caret.
+          "flex items-end gap-1 min-h-14 px-2 py-2 rounded-[28px] backdrop-blur-md transition-colors",
           neumorphic && !isImpersonated && !isSilentSend ? "surface-sunken" : "shadow-soft",
           isImpersonated
             ? "bg-violet-500/[0.06] border border-violet-500/40"
@@ -689,85 +762,67 @@ const MessageInput: React.FC<MessageInputProps> = ({
           </div>
         )}
 
-        <Button
-          onClick={toggleImageRequest}
-          disabled={disabled}
-          variant="ghost"
-          title="Request an image with this message"
-          aria-label="Request an image with this message"
-          aria-pressed={isImageRequest}
-          className={cn(
-            "h-10 w-10 flex-shrink-0 rounded-lg",
-            isImageRequest
-              ? "bg-primary/[0.14] text-primary hover:bg-primary/[0.2]"
-              : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-          )}
-        >
-          <FaImage size={16} />
-        </Button>
-
-        {isVideoGenAvailable && (
+        {/* Phones: one "+" button opens the tools as a labeled menu. */}
+        <div className="relative flex-shrink-0 sm:hidden" ref={toolsRef}>
           <Button
-            onClick={toggleVideoRequest}
-            disabled={disabled}
+            type="button"
+            onClick={() => setToolsOpen((v) => !v)}
             variant="ghost"
-            title="Request a video with this message"
-            aria-label="Request a video with this message"
-            aria-pressed={isVideoRequest}
+            title="More options"
+            aria-label="Composer options"
+            aria-expanded={toolsOpen}
             className={cn(
               "h-10 w-10 flex-shrink-0 rounded-lg",
-              isVideoRequest
+              composerTools.some((t) => t.active)
                 ? "bg-primary/[0.14] text-primary hover:bg-primary/[0.2]"
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             )}
           >
-            <FaVideo size={16} />
+            <FaPlus size={15} />
           </Button>
-        )}
-
-        <Button
-          onClick={() => setIsImpersonated((v) => { if (!v) setIsSilentSend(false); return !v; })}
-          disabled={disabled}
-          variant="ghost"
-          title={`Write as ${impersonatedName || "the character"} instead of yourself`}
-          aria-label="Toggle impersonation mode"
-          aria-pressed={isImpersonated}
-          className={cn(
-            "h-10 w-10 flex-shrink-0 rounded-lg",
-            isImpersonated
-              ? "bg-violet-500/[0.14] text-violet-500 hover:bg-violet-500/[0.2]"
-              : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+          {toolsOpen && (
+            <div role="menu" className="absolute bottom-full left-0 mb-2 w-60 p-1.5 rounded-xl bg-card border border-border shadow-soft z-30 flex flex-col">
+              {composerTools.map((tool) => (
+                <button
+                  key={tool.key}
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={tool.toggle ? tool.active : undefined}
+                  aria-label={tool.ariaLabel}
+                  disabled={tool.disabled}
+                  onClick={() => { tool.onClick(); setToolsOpen(false); }}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-[14px] disabled:opacity-50",
+                    tool.active ? tool.activeClass : "text-foreground hover:bg-secondary"
+                  )}
+                >
+                  <tool.icon size={15} className="flex-shrink-0" />
+                  <span className="flex-1">{tool.label}</span>
+                  {tool.toggle && tool.active && <span className="text-[11px] font-semibold">On</span>}
+                </button>
+              ))}
+            </div>
           )}
-        >
-          <FaMask size={16} />
-        </Button>
+        </div>
 
-        <Button
-          onClick={() => setIsSilentSend((v) => { if (!v) setIsImpersonated(false); return !v; })}
-          disabled={disabled}
-          variant="ghost"
-          title="Send without triggering an AI reply"
-          aria-label="Toggle silent send"
-          aria-pressed={isSilentSend}
-          className={cn(
-            "h-10 w-10 flex-shrink-0 rounded-lg",
-            isSilentSend
-              ? "bg-amber-500/[0.14] text-amber-500 hover:bg-amber-500/[0.2]"
-              : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-          )}
-        >
-          <FaCommentSlash size={16} />
-        </Button>
-
-        <Button
-          onClick={() => setIsSettingsModalOpen(true)}
-          variant="ghost"
-          title="Image Generation Settings"
-          aria-label="Image Generation Settings"
-          className="h-10 w-10 flex-shrink-0 rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
-        >
-          <FaCog size={16} />
-        </Button>
+        {/* Wider screens: the same tools as inline icon buttons. */}
+        {composerTools.map((tool) => (
+          <Button
+            key={tool.key}
+            onClick={tool.onClick}
+            disabled={tool.disabled}
+            variant="ghost"
+            title={tool.title}
+            aria-label={tool.ariaLabel}
+            aria-pressed={tool.toggle ? tool.active : undefined}
+            className={cn(
+              "hidden sm:inline-flex h-10 w-10 flex-shrink-0 rounded-lg",
+              tool.active ? tool.activeButtonClass : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+            )}
+          >
+            <tool.icon size={16} />
+          </Button>
+        ))}
 
         {composerTextarea}
 
@@ -779,7 +834,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
             title="Stop Generating"
             aria-label="Stop Generating"
           >
-            <FaStop size={13} /> Stop
+            <FaStop size={13} /> <span className="hidden sm:inline">Stop</span>
           </Button>
         ) : (
           <Button
@@ -792,7 +847,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
             title="Send Message"
             aria-label="Send Message"
           >
-            Send <FaPaperPlane size={14} />
+            <span className="hidden sm:inline">Send</span> <FaPaperPlane size={14} />
           </Button>
         )}
       </div>

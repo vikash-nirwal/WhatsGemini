@@ -27,6 +27,9 @@ import { Badge } from "src/components/atoms/badge";
 import { useColorTheme } from "../../hooks/useColorTheme";
 
 interface ChatWindowProps {
+  // Height of the composer floating over the bottom of the list (0 when it's
+  // docked below it instead, as in the terminal theme).
+  bottomInset?: number;
   messages: Message[];
   tree?: ConversationTree;
   onSwitchBranch?: (nodeId: string) => void;
@@ -115,7 +118,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc }: { charInitials: s
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -171,6 +174,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
   // only if the user hadn't deliberately scrolled up to read history.
   const isScrolledUpRef = useRef(isScrolledUp);
   isScrolledUpRef.current = isScrolledUp;
+
+  // When the composer grows (more lines, a banner), stay pinned to the
+  // newest message instead of letting it slide under the composer.
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (el && !isScrolledUpRef.current) el.scrollTop = el.scrollHeight;
+  }, [bottomInset]);
 
   useEffect(() => {
     const el = scrollContainerRef.current;
@@ -440,7 +450,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
           ref={scrollContainerRef}
           onScroll={handleScroll}
         >
-          <div className={terminal ? "max-w-[760px] px-4 md:px-[26px] py-5" : "max-w-4xl mx-auto p-4 pb-32"}>
+          <div
+            className={terminal ? "max-w-[760px] px-4 md:px-[26px] py-5" : "max-w-4xl mx-auto p-4 pb-32"}
+            // Room for the floating composer, sized to it rather than a fixed
+            // pb-32 that a multi-line draft or the mode banners outgrew.
+            style={!terminal && bottomInset > 0 ? { paddingBottom: bottomInset + 16 } : undefined}
+          >
             {filteredMessages.length === 0 ? (
               <div className="flex flex-col items-center h-full w-full px-4 pt-10">
                 <Card className="flex flex-col items-center text-center gap-3 w-full max-w-[440px] px-5 py-8">
@@ -555,7 +570,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
               chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
             }}
             size="icon"
-            className="fixed bottom-24 right-6 z-50 h-11 w-11 rounded-full shadow-lg hover:scale-105 opacity-80 hover:opacity-100"
+            // Sits just above the composer, wherever its measured top is,
+            // instead of a fixed offset a tall composer covered.
+            className="absolute right-4 md:right-6 z-30 h-11 w-11 rounded-full shadow-lg hover:scale-105 opacity-80 hover:opacity-100"
+            style={{ bottom: (bottomInset > 0 ? bottomInset : 24) + 12 }}
             title="Scroll to bottom"
             aria-label="Scroll to bottom"
           >

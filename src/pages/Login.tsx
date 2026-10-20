@@ -50,7 +50,7 @@ const Login = () => {
   }
 
   return (
-    <div className="relative flex items-center justify-center h-screen bg-background overflow-hidden">
+    <div className="relative flex items-center justify-center h-dvh bg-background overflow-hidden">
       <div
         className="pointer-events-none absolute inset-0"
         style={{
