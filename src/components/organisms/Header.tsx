@@ -145,7 +145,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, avatar, onBack, action
     );
     return (
       <header className="h-[60px] flex-shrink-0 border-b border-border bg-background flex items-center gap-3.5 px-3 md:px-[22px] z-20">
-        <TermLink label="≡" onClick={open} aria-label="Open menu" className="md:hidden" />
+        <TermLink label="≡" onClick={open} aria-label="Open menu" className="lg:hidden" />
         {onBack && (
           <button type="button" onClick={onBack} aria-label="Back" className="text-[12px] font-bold text-ring hover:underline underline-offset-2 flex-shrink-0">
             cd ..
@@ -164,7 +164,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, avatar, onBack, action
 
         <div className="flex-1" />
 
-        <div className="hidden md:flex items-center gap-3.5">
+        <div className="hidden lg:flex items-center gap-3.5">
           {primaryActions.map((action, ai) => (
             <TermLink
               key={ai}
@@ -179,7 +179,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, avatar, onBack, action
           ))}
           {overflowGroups.length > 0 && moreMenu(overflowGroups)}
         </div>
-        <div className="md:hidden">{moreMenu(groups)}</div>
+        <div className="lg:hidden">{moreMenu(groups)}</div>
 
         <KeyboardShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
       </header>
@@ -188,7 +188,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, avatar, onBack, action
 
   return (
     <header className="h-[60px] flex-shrink-0 border-b border-border/40 bg-card flex items-center gap-2.5 px-3 md:px-4 z-20">
-      <Button onClick={open} variant="outline" size="icon" title="Menu" aria-label="Open menu" className={cn(iconBtnClass, "md:hidden")}>
+      <Button onClick={open} variant="outline" size="icon" title="Menu" aria-label="Open menu" className={cn(iconBtnClass, "lg:hidden")}>
         <FaBars size={16} />
       </Button>
 
@@ -219,9 +219,12 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, avatar, onBack, action
 
       <div className="flex-1" />
 
-      {/* Desktop: primary actions stay as tooltipped icon buttons; everything
-          else collapses into the trailing "more" menu. */}
-      <div className="hidden md:flex items-center gap-1">
+      {/* Desktop (lg and up, where the sidebar is docked): primary actions
+          stay as tooltipped icon buttons; everything else collapses into the
+          trailing "more" menu. Tablets get the single menu below: next to a
+          docked sidebar their icon row squeezed the title down to "A..", and
+          now that the sidebar is a drawer there the menu keeps it roomy. */}
+      <div className="hidden lg:flex items-center gap-1">
         {primaryActions.map((action, ai) => (
           <Tooltip key={ai}>
             <TooltipTrigger asChild>
@@ -255,8 +258,8 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, avatar, onBack, action
         )}
       </div>
 
-      {/* Mobile: everything collapses into one menu so buttons stop crowding the header */}
-      <div className="md:hidden">
+      {/* Phones and tablets: everything collapses into one menu so buttons stop crowding the header */}
+      <div className="lg:hidden">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" aria-label="More options" className={iconBtnClass}>

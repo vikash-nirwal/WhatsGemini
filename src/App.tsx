@@ -109,7 +109,7 @@ const EmptyChatState = () => {
             <Button
               variant="default"
               onClick={open}
-              className="md:hidden px-4 py-2.5 h-auto"
+              className="lg:hidden px-4 py-2.5 h-auto"
             >
               Browse chats
             </Button>

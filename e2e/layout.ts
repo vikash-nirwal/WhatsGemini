@@ -4,7 +4,7 @@ import { expect, Page, Locator } from "@playwright/test";
 // of screenshots, so they don't flake on fonts or anti-aliasing.
 
 // Below this width the sidebar is an off-canvas drawer; from it up, it's docked.
-export const SIDEBAR_DOCK_MIN_WIDTH = 768;
+export const SIDEBAR_DOCK_MIN_WIDTH = 1024;
 
 export const viewportWidth = (page: Page) => page.viewportSize()?.width ?? 0;
 
@@ -63,6 +63,10 @@ export const elementsCutOffHorizontally = async (root: Locator) =>
 export const expectNothingCutOffHorizontally = async (root: Locator) => {
   expect(await elementsCutOffHorizontally(root)).toEqual([]);
 };
+
+// Boxes that intersect by more than a hairline.
+export const overlaps = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) =>
+  Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > 0.5 && Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > 0.5;
 
 export const box = async (locator: Locator) => {
   const b = await locator.boundingBox();
