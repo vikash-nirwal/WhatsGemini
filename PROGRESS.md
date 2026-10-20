@@ -6,8 +6,8 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **State:** image consistency is under way. #34, #35 and the SD WebUI half of #40 are committed on local `main` (not pushed). Lanes B (#36–#38) and C (#39) are still running in their worktrees. The last full local run passed: type-check, 376 unit tests, 288 UI tests and 16 screenshot tests.
-- **Next up:** verify Lanes B and C, run them combined in a throwaway worktree, and merge with the user's OK. Then wire ComfyUI into `registry.ts` and image settings, add its half of #40 plus FaceID presets for the SD WebUI ControlNet, and finish #41.
+- **State:** image consistency (#34–#41) is built and merged into local `main`, not pushed yet. The last full local run passed: type-check, 481 unit tests, 330 UI tests and 16 screenshot tests.
+- **Next up:** the 17 remaining roadmap items below, in waves of parallel lanes. The image providers were only tested against mocked servers; checking them with real keys and a real ComfyUI is a follow-up in ROADMAP.md.
 - **Open questions for the user:** none.
 
 ## Remaining items
@@ -31,12 +31,6 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | 27 | Persona character sheet | todo | With #26. |
 | 28 | Attach a World to normal chats | todo | |
 | 30 | Relationship that evolves | todo | |
-| 36 | Wan with references | in progress | Lane B. Check the Singapore-region input types first. |
-| 37 | OpenAI with references | in progress | Lane B. `/v1/images/edits`, `gpt-image-1-mini`. |
-| 38 | fal.ai provider (Seedream 4, FLUX Kontext) | in progress | Lane B. Spike first: Indian card, browser CORS. Replicate can't be called from a browser. |
-| 39 | ComfyUI provider (local) | in progress | Lane C. Needs `--enable-cors-header`; bundled workflow templates. |
-| 40 | Per-character local settings | in progress | SD WebUI done (`Character.localImageSettings`). Left: ComfyUI, and FaceID presets for the ControlNet model. |
-| 41 | Consistency tests | in progress | Locked line and SD payload covered. Left: per-adapter reference e2e tests after the merge. |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
 
@@ -60,8 +54,11 @@ One line per area. Pointers for when you need to work on it again.
 - **Adventures** stream, compress, follow the cast's content rating and the roleplay style, and have per-adventure hard limits.
 - **Layout and mobile:** the composer grows with the text and collapses its tools behind "+" on phones; touch screens get a long-press action sheet; side panels are a sheet, an overlay or a column depending on width; `h-dvh` everywhere; toasts at the top.
 - **Accessibility:** every theme meets WCAG AA contrast. The axe baseline is empty, so any violation fails the scan.
-- **Consistent looks:** each character's locked look (`Character.visualTags`, drafted from the appearance) is forced into every image prompt word for word (`appearanceLock.ts`: tags for SD, "Name: …" sentences otherwise), in chat, portraits and adventure scenes. The first reference photo is the main one; "Generate reference sheet" makes front, three-quarter and side portraits. Per-character SD WebUI seed, LoRA, reference mode and ReActor face model live in `Character.localImageSettings` (`localImageSettings.ts`, applied in `generateSDImage`).
-- **Known gaps:** chats whose seed messages were never flagged `isSystem` (very old ones) aren't detected as seeded; mood-portrait generation from inside a chat wasn't checked with a real image provider; `h-dvh` wasn't checked on a real iPhone.
+- **Consistent looks:** each character's locked look (`Character.visualTags`, drafted from the appearance) is forced into every image prompt word for word (`appearanceLock.ts`: tags for SD, "Name: …" sentences otherwise), in chat, portraits and adventure scenes. The first reference photo is the main one; "Generate reference sheet" makes front, three-quarter and side portraits.
+- **Reference photos per provider:** Wan uses a separate reference model (`wan_reference_model`, default wan2.7-image, which retries once if wan2.5-i2i-preview rejects a request), OpenAI GPT image models use `/v1/images/edits`, fal.ai (`falImageAdapter.ts`) runs Seedream / FLUX Kontext / PuLID and uploads photos to fal's storage. Shared helpers are in `referenceImages.ts`.
+- **ComfyUI** (`comfyuiAdapter.ts`, `src/features/ai/comfyui/`, `ComfyUISettings.tsx`): bundled templates (SDXL FaceID, FLUX Kontext GGUF, txt2img, ReActor) or an imported workflow; settings in localStorage `comfyui_settings`. Needs ComfyUI started with `--enable-cors-header`.
+- **Per-character local settings** (`Character.localImageSettings`, `localImageSettings.ts`): seed, LoRA, trigger word, reference mode and ReActor face model, applied in `generateSDImage` and the ComfyUI adapter (where the mode picks the template). The SD WebUI ControlNet gets the preprocessor that matches its model (`controlnetModuleFor`), with FaceID presets in Settings.
+- **Known gaps:** none of the image providers was tried with a real key or a real ComfyUI; chats whose seed messages were never flagged `isSystem` (very old ones) aren't detected as seeded; mood-portrait generation from inside a chat wasn't checked with a real image provider; `h-dvh` wasn't checked on a real iPhone.
 
 ## Decisions
 
@@ -76,6 +73,7 @@ Choices a later session shouldn't revisit. Add the date.
 
 Facts that save the next session time.
 
+- **Fake image providers in UI tests:** `e2e/image-references.spec.ts` mocks fal.ai, OpenAI, Wan and ComfyUI with `page.route`; `e2e/comfyui.ts` has a ComfyUI mock and a harness that runs the adapter's source in a browser. `openRoute` seeds the database again, so patch IndexedDB after opening a route and then reload.
 - **Run the app:** `.claude/launch.json` has a `web` config (`npm start`, port 3000) for the browser pane.
 - **Get past the login and 18+ gate without a key:** set localStorage `age_confirmed_18 = "true"` and `chat_provider = "ollama"` (a keyless provider), then reload.
 - **Fake the AI in the browser pane:** with `chat_provider = "ollama"`, override `window.fetch` in the page for URLs containing `/chat/completions`: return SSE (`data: {"choices":[{"delta":{"content":"…"}}]}` then `data: [DONE]`) when the body has `stream: true`, otherwise JSON `{choices:[{message:{content}}]}`. The override is lost on reload. Prefer the Playwright fixtures for anything repeatable.
@@ -91,6 +89,6 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
-- 2026-10-20: Built #34 (locked look), #35 (reference sheet, main reference) and the SD WebUI half of #40; started Lanes B (#36–#38) and C (#39).
+- 2026-10-20: Image consistency: built #34, #35, #40 and #41 here; Lane B built #36–#38 (spike: fal.ai is callable from a browser, Wan's Singapore region takes image-only input for wan2.5-i2i-preview), Lane C built #39. Merged into local `main` after a combined check.
 - 2026-10-20: Planned consistent character faces in images (#34–#41) for providers usable from India and local generation; nothing built yet.
 - 2026-10-20: Reviewed the app and wrote the roadmap; then, in four waves of parallel lanes, fixed the 7 logic bugs and 12 layout/mobile bugs, added Playwright UI, flow, accessibility and screenshot tests plus CI, and built 16 features (memory #1–#5, narrative tools #14–#18, #20, #21, lorebook #29, inspector #31, per-character model #32, context meter #33). Merged into `main`, pushed, CI green. Cleaned up the docs.
