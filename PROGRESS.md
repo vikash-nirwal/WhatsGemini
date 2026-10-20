@@ -7,7 +7,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 ## Where we stand
 
 - **Current phase:** Waves 1 and 2 are done, on branch `phase-0-bug-fixes` (not pushed, no PR yet). Wave 2 Lane B is merged (70ac633).
-- **Next up:** Wave 3 is running: memory (#2, #3, #1, #4, #5) here, lorebook (#29) and U10/A1 in parallel sessions.
+- **Next up:** Wave 3 Lane A (memory #1–#5) is done. Waiting for Lane B (#29) and Lane C (U10, A1); then merge (user's OK) and start Wave 4.
 - **Open questions for the user:** none. (They chose to start Wave 3 before pushing; nothing is pushed yet.)
 
 ## Execution plan
@@ -70,8 +70,8 @@ Each wave ends with: merge (user's OK), full unit + UI test run, PROGRESS.md upd
 | U7 | Bubbles waste space on touch | done | 5d11cc1 | Touch screens: hover rows hidden; long-press or contextmenu opens a bottom sheet (`role=menu` "Message actions"). |
 | U8 | Scroll button and toasts collide with composer | done | 008aea9 | Scroll button anchored above `bottomInset`; toasts at top-center below 640px. |
 | U9 | Wizard step bars scroll sideways on phones | done | d6ae19e | New `WizardSteps` component: compact "Step n of m" when the row doesn't fit. `e2e/wizard.spec.ts`. |
-| U10 | Terminal theme composer cramped on phones | todo | | Found in the T5 screenshots. See ROADMAP. |
-| A1 | Fix the a11y baseline issues | todo | | 49 contrast, 4 button-name, 2 target-size. See ROADMAP. |
+| U10 | Terminal theme composer cramped on phones | in progress | | Wave 3 Lane C (parallel session). |
+| A1 | Fix the a11y baseline issues | in progress | | Wave 3 Lane C (parallel session). 49 contrast, 4 button-name, 2 target-size. |
 
 ## Phases 1–7: Features
 
@@ -79,6 +79,13 @@ All `todo`. Item numbers 1–33 match ROADMAP.md. Rows are added here when an it
 
 | # | Item | Status | Commit | Notes |
 |---|------|--------|--------|-------|
+| 1 | Memory scope per chat | done | fc94df1 | `Chat.memoryScope` ("chat" = own memory, seeded as a copy of the character's). Scene panel switch; `PromptOptions.memoryOverride`. |
+| 2 | Relevant memory, bigger cap | done | f6b5839 | Cap 40 → 200; each prompt gets pinned facts + the 30 most relevant (`memoryRelevance.ts`). |
+| 3 | Fact categories | done | eeb0c04 | `memoryCategories` map (fact text → user/relationship/story), no migration. Grouped in the Scene panel. Not shown in the character editor's memory card yet (that file was Lane C's this wave). |
+| 4 | Chapters | done | b2367eb | "End chapter" (chat menu) → titled summary + recap at the end of the conversation; Chapters list in the Scene panel with rename. Not in adventures yet. |
+| 5 | Character diary | done | 04e8423 | Per-character switch (Scene panel); entry every 30 messages from memory-sharing 1:1 chats; latest entry in the prompt; "Read diary" on the Characters page. Rooms don't write entries yet. |
+| 29 | Better lorebook triggers | in progress | | Wave 3 Lane B (parallel session). |
+| U11 | Side panels squeeze the chat / cover the composer | done | 55ce89a | Found while checking #3: full-screen sheet on phones, overlay below 1280px, column from 1280px. `e2e/side-panel.spec.ts`. |
 
 ## Decisions
 
@@ -95,6 +102,7 @@ Facts that save the next session time.
 - **Get past the login and 18+ gate without a key:** set localStorage `age_confirmed_18 = "true"` and `chat_provider = "ollama"` (a keyless provider), then reload.
 - **Fake the AI in the browser pane:** with `chat_provider = "ollama"`, override `window.fetch` in the page for URLs containing `/chat/completions`: return SSE (`data: {"choices":[{"delta":{"content":"…"}}]}` then `data: [DONE]`) when the body has `stream: true`, else JSON `{choices:[{message:{content}}]}`. The override is lost on reload.
 - **Seed test data:** IndexedDB database `ChatAppDB`, tables `chats`, `characters`, `worlds`, `adventures`, `settings`. Message roles are `"you"` and `"ai"` (not `user`/`model`). "Try a sample character" on the home screen creates character + chat 1.
+- **Proposed session cards** don't keep `source_branch`, so a lane brief has to tell the lane to `git merge --ff-only refs/heads/phase-0-bug-fixes` (or reset to it) first.
 - **Browser pane caveat:** a parallel session can share the pane's localhost:3000 storage (`chat_provider` kept flipping to `anthropic`). For checking layout, prefer Playwright, which runs in its own isolated browser; a throwaway spec that calls `page.screenshot` works well.
 - **Visual tests:** `npm run test:visual` (refresh: `test:visual:update`). Baselines are macOS renders in `e2e/visual.spec.ts-snapshots/`; review the PNG diffs before updating them.
 - **UI tests:** `npm run test:e2e` (reuses a dev server already on port 3000 - make sure it's this checkout's). From another worktree: `E2E_PORT=3100 npx playwright test`. Write new e2e tests with role/aria-label selectors and geometry helpers from `e2e/layout.ts`.
@@ -104,6 +112,7 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session: what changed, and anything left half-done.
 
+- 2026-10-20: Wave 3 Lane A: memory #2 (f6b5839), #3 (eeb0c04), #1 (fc94df1), #4 (b2367eb), #5 (04e8423), plus U11 side-panel layout (55ce89a). 261 unit, 140 UI and 16 visual tests pass. Lanes B and C were proposed as cards (the app wouldn't start them directly) and the user started them.
 - 2026-10-20: Merged Wave 2 Lane B (70ac633) with the user's OK and removed its worktree. Fixed the a11y regression it found (91bbe8f). Added T5 screenshot tests. On the merged branch: 238 unit tests, 116 UI tests (24 skipped by viewport) and 16 visual tests pass. New leftovers: U10, A1.
 - 2026-10-20: Wave 2 Lane A: U1-U3, U6, U8 (008aea9) and U7 + U4 bubble half (5d11cc1). 238 unit and 62 UI tests pass (18 skipped by viewport). Started Wave 2 Lane B (T4, T6) in a parallel session. Told it about the new selectors (inline Copy/Edit/Delete on user bubbles, "Composer options" menu, long-press sheet).
 - 2026-10-20: Merged Wave 1 Lane B (6612ae1) with the user's OK. On the merged branch: 238 unit tests, 32 UI tests pass (8 skipped by viewport), typecheck clean. Removed its worktree. Started Wave 2.
