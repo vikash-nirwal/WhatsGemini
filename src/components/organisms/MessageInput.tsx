@@ -52,6 +52,8 @@ interface MessageInputProps {
 
 const MAX_TEXTAREA_HEIGHT = 120;
 const ASCII_BAR_CELLS = 40;
+// The terminal theme's short bracketed names for the composer tools.
+const TERMINAL_TOOL_LABELS: Record<string, string> = { image: "img", video: "vid", impersonate: "mask", silent: "silent", settings: "cfg" };
 
 const formatTokenCount = (n: number): string => {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -641,7 +643,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
       )}
 
       {terminal ? (
-        <div className="flex items-center gap-2.5 mt-1">
+        <div data-slot="terminal-composer" className="flex items-center gap-2.5 mt-1">
           {isRoom && roomCharacters && (
             <div className="flex-shrink-0" ref={pickerRef}>
               <TermLink
@@ -656,45 +658,54 @@ const MessageInput: React.FC<MessageInputProps> = ({
               {pickerOpen && participantPicker}
             </div>
           )}
-          <TermLink
-            label="img"
-            onClick={toggleImageRequest}
-            disabled={disabled}
-            aria-pressed={isImageRequest}
-            title="Request an image with this message"
-            aria-label="Request an image with this message"
-            className={cn(isImageRequest && "bg-primary text-primary-foreground no-underline")}
-          />
-          {isVideoGenAvailable && (
+          {/* Phones: one [+] opens the tools as a labeled menu (U3's list),
+              so the text box isn't squeezed by five bracketed links. */}
+          <div className="relative flex-shrink-0 sm:hidden" ref={toolsRef}>
             <TermLink
-              label="vid"
-              onClick={toggleVideoRequest}
-              disabled={disabled}
-              aria-pressed={isVideoRequest}
-              title="Request a video with this message"
-              aria-label="Request a video with this message"
-              className={cn(isVideoRequest && "bg-primary text-primary-foreground no-underline")}
+              label="+"
+              onClick={() => setToolsOpen((v) => !v)}
+              active={composerTools.some((t) => t.active)}
+              title="More options"
+              aria-label="Composer options"
+              aria-expanded={toolsOpen}
+              className="min-h-6 min-w-6 justify-center"
             />
-          )}
-          <TermLink
-            label="mask"
-            onClick={() => setIsImpersonated((v) => { if (!v) setIsSilentSend(false); return !v; })}
-            disabled={disabled}
-            aria-pressed={isImpersonated}
-            title={`Write as ${impersonatedName || "the character"} instead of yourself`}
-            aria-label="Toggle impersonation mode"
-            className={cn(isImpersonated && "bg-primary text-primary-foreground no-underline")}
-          />
-          <TermLink
-            label="silent"
-            onClick={() => setIsSilentSend((v) => { if (!v) setIsImpersonated(false); return !v; })}
-            disabled={disabled}
-            aria-pressed={isSilentSend}
-            title="Send without triggering an AI reply"
-            aria-label="Toggle silent send"
-            className={cn(isSilentSend && "bg-primary text-primary-foreground no-underline")}
-          />
-          <TermLink label="cfg" onClick={() => setIsSettingsModalOpen(true)} title="Image Generation Settings" aria-label="Image Generation Settings" />
+            {toolsOpen && (
+              <div role="menu" className="absolute bottom-full left-0 mb-2 w-60 p-1 bg-card border border-border-bright z-30 flex flex-col">
+                {composerTools.map((tool) => (
+                  <button
+                    key={tool.key}
+                    type="button"
+                    role="menuitemcheckbox"
+                    aria-checked={tool.toggle ? tool.active : undefined}
+                    aria-label={tool.ariaLabel}
+                    disabled={tool.disabled}
+                    onClick={() => { tool.onClick(); setToolsOpen(false); }}
+                    className={cn(
+                      "flex items-center gap-2 px-2.5 py-2 text-left text-[12px] lowercase disabled:opacity-40",
+                      tool.active ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-secondary"
+                    )}
+                  >
+                    <span className="flex-1">&gt; {tool.label}</span>
+                    {tool.toggle && tool.active && <span className="font-bold">[on]</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* Wider screens: the same tools as inline bracketed links. */}
+          {composerTools.map((tool) => (
+            <TermLink
+              key={tool.key}
+              label={TERMINAL_TOOL_LABELS[tool.key] ?? tool.key}
+              onClick={tool.onClick}
+              disabled={tool.disabled}
+              aria-pressed={tool.toggle ? tool.active : undefined}
+              title={tool.title}
+              aria-label={tool.ariaLabel}
+              className={cn("hidden sm:inline-flex", tool.active && "bg-primary text-primary-foreground no-underline")}
+            />
+          ))}
           <span className="hidden sm:inline flex-none font-bold text-[13px] text-ring">{promptName}:~$</span>
           {/* Underline on a wrapper: a border on the auto-sized textarea itself
               would overflow it by 1px and show a scrollbar. */}
