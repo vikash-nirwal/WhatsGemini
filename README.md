@@ -33,6 +33,7 @@ WhatsGemini is a client-side AI roleplay and chat app built with **React, Redux 
 - Automatic follow-ups (the character can message you first), and auto-compression of long histories into a structured story summary. Compression never deletes anything: older messages and branches stay readable.
 - Chapters: end a chapter to get a titled summary and recap; the next reply starts fresh from it.
 - Narrative tools: "Write my reply" drafts your next message, "Surprise me" brings in a twist, optional reply suggestions, and slash commands (`/roll 2d6+1` with real dice, `/timeskip`, `/scene`, `/narrate`, `/ooc`, `/image`, `/summarize`, `/help`).
+- Voice: each character can have one of your browser's built-in voices (free), with speed and pitch. Any reply can be read aloud, characters can send voice notes now and then, and you can dictate or hold the mic to send a voice note back where the browser supports speech recognition.
 - Export a chat as a readable story (Markdown), or as a JSON backup file.
 
 **Adventures**

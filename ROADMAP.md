@@ -13,7 +13,6 @@ The app is called WhatsGemini, so lean into the messaging-app fantasy.
 7. **Character schedule and presence** (M). Give each character a simple daily routine (asleep 1–8, work 9–5, …). The header shows "online" or "last seen", follow-ups mention what they're doing ("just got off my shift"), and an optional "realistic" setting delays replies while they're "busy". This uses the existing time awareness.
 8. **Status updates** (M). Like WhatsApp Status: now and then a character posts a short status with an optional generated picture, based on their schedule and recent events. It shows as a ring on their avatar in the sidebar, and replying to a status opens the chat quoting it.
 9. **Scene state HUD** (M). Next to the emotion tag, the model reports a small hidden state block: location, time of day, outfit, and a relationship meter (affection/trust). Show it as a compact strip under the header and feed it back each turn so details stay consistent. It's parsed and stripped the same way the emotion tag is.
-12. **Voice** (M). Per-character text-to-speech with the browser's built-in Web Speech API (free, offline, no backend), a voice picker in the character editor, and a speaker button on messages. Speech-to-text dictation in the composer. Paid TTS (OpenAI/ElevenLabs) can come later through the provider registry.
 13. **Chat backdrops** (S). Generate or upload a background image for a chat from its setting tags or scenario, shown subtly behind the bubbles.
 
 ## Story tools
@@ -41,7 +40,6 @@ The app is called WhatsGemini, so lean into the messaging-app fantasy.
 
 Built one at a time, in this order. Each runs in a fresh session.
 
-44. **Voice notes** (M). Built together with Voice (#12), which it needs. A character sometimes sends a voice message (spoken by the browser's free text-to-speech, shown as a playable bubble with its transcript), and you can record one back (speech-to-text, sent as text with a "voice note" mark).
 45. **Character from one line** (S). Type an idea ("grumpy pirate cook who secretly writes poetry") and the AI drafts the whole character: name, description, personality, scenario, greeting, appearance and locked look. You review it in the editor before saving.
 46. **"Previously on…"** (S). Opening a chat after a few days away shows a short recap built from the chapter summaries and recent messages, dismissable, and never sent to the model.
 47. **Dates that matter** (S). Birthdays, anniversaries and "the day we met" are picked up from memory or set by hand; on the day, the character mentions it or reaches out first.
@@ -68,4 +66,5 @@ Leftovers noted while building the finished items. Pick them up alongside relate
 - **Image providers:** try each with a real key: Wan from a Singapore workspace, fal.ai uploads and its safety flags, OpenAI's `input_fidelity` and `image[]` fields, and the ComfyUI templates' node names against a real server. An InstantID preset for the SD WebUI ControlNet (it needs two units). ComfyUI prompts could use tag style for SDXL templates.
 - **Accessibility:** `/settings/image` isn't in the axe scan yet and has three violations: an unnamed ToggleSwitch, unlabeled portrait-size inputs, and the selected provider pill's contrast.
 - **Notifications:** not tried on a real device: the installed app's service-worker path (`showNotification` and its `notificationclick`), Android Chrome, and an iPhone Home Screen app. Portraits saved to a local folder (`local:`) show the app icon instead of the avatar.
+- **Voice:** not tried with real voices or a real microphone: Android Chrome's continuous recognition (it can repeat earlier words; `readTranscript` rebuilds from all results to cope), iPhone Safari (needs Siri and dictation on), and voices on Windows. Paid TTS (OpenAI, ElevenLabs) could come later through the provider registry. Voice notes aren't shown as "🎤 Voice message" in the sidebar's chat list, and texting mode/terminal theme have no hold-to-record animation.
 - **CI:** the GitHub actions in `ci.yml` target Node 20 (a deprecation warning); move them to newer major versions.

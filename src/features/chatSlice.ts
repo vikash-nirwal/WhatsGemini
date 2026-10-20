@@ -57,7 +57,7 @@ export const addChat = createAsyncThunk(
 
 export const addMessage = createAsyncThunk(
   "chat/addMessage",
-  async ({ chatId, role, text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration, thoughts }: { chatId: number; role: string; text: string; images?: string[], isImageRequest?: boolean, videos?: string[], isVideoRequest?: boolean, videoPrompt?: string, isImpersonated?: boolean, emotion?: string, imagePrompt?: string, imageParams?: any, speakerId?: number, isRefusal?: boolean, isNarration?: boolean, thoughts?: string }, { dispatch, getState, rejectWithValue }) => {
+  async ({ chatId, role, text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration, thoughts, isVoiceNote }: { chatId: number; role: string; text: string; images?: string[], isImageRequest?: boolean, videos?: string[], isVideoRequest?: boolean, videoPrompt?: string, isImpersonated?: boolean, emotion?: string, imagePrompt?: string, imageParams?: any, speakerId?: number, isRefusal?: boolean, isNarration?: boolean, thoughts?: string, isVoiceNote?: boolean }, { dispatch, getState, rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
 
@@ -91,7 +91,7 @@ export const addMessage = createAsyncThunk(
         }
       }
 
-      const newMessage: Message = { role, txt: text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration: isNarration || undefined, thoughts, id: generateNodeId(), timestamp: Date.now() };
+      const newMessage: Message = { role, txt: text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration: isNarration || undefined, thoughts, isVoiceNote: isVoiceNote || undefined, id: generateNodeId(), timestamp: Date.now() };
 
       // A real reply from the user - or the user speaking as the character via
       // Impersonate mode - both mean the user is actively here, so any pending

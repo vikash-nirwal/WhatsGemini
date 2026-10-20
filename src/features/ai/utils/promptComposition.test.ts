@@ -33,6 +33,14 @@ describe("buildChatHistory", () => {
     ]);
   });
 
+  it("marks your voice notes (#44) but not the character's", () => {
+    const messages: Message[] = [{ role: YOU, txt: "on my way", isVoiceNote: true }, { role: AI, txt: "hurry up", speakerId: 1, isVoiceNote: true }];
+    expect(buildChatHistory(messages)).toEqual([
+      { role: "user", text: "(voice note) on my way" },
+      { role: "assistant", text: "hurry up" },
+    ]);
+  });
+
   it("never prefixes a user-role message even if speakerNames is provided", () => {
     const messages = [msg(YOU, "hi", 1)];
     const history = buildChatHistory(messages, { 1: "Aria" });

@@ -1,9 +1,9 @@
 import React, { useCallback, useRef, useState } from "react";
 import { useColorTheme } from "../../hooks/useColorTheme";
-import { FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask, FaBookmark, FaStar, FaCode } from "react-icons/fa";
+import { FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask, FaBookmark, FaStar, FaCode, FaVolumeUp, FaStop } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { cn } from "../../utils/cn";
-import { Message } from "../../types";
+import { CharacterVoice, Message } from "../../types";
 import { YOU } from "../../utils/constants";
 import { stripImageContextTag } from "../../features/ai/utils/imageGeneration";
 import MarkdownRenderer from "src/components/molecules/MarkdownRenderer";
@@ -18,6 +18,9 @@ import { TermLink } from "src/components/atoms/TermLink";
 import { NsfwBlur } from "src/components/molecules/NsfwBlur";
 import { InnerThoughts, ReactionBadge, ReactionPicker, ReactionRow } from "src/components/molecules/MessageExtras";
 import { splitIntoTexts } from "../../features/ai/utils/textingMode";
+import { VoiceNote } from "src/components/molecules/VoiceNote";
+import { isSpeechSupported, speak, stopSpeaking, toSpokenText } from "../../features/voice/speech";
+import { useSpeakingFor } from "../../features/voice/useSpeech";
 
 interface SiblingInfo {
   index: number;
@@ -56,6 +59,7 @@ interface ChatMessageProps {
   texting?: boolean;
   visibleParts?: number;
   receipt?: "sent" | "read";
+  voice?: CharacterVoice; // the speaker's voice, for "Read aloud" and voice notes (#12, #44)
 }
 
 // Shown under a reply flagged as an out-of-character refusal (see
@@ -108,6 +112,7 @@ const ChatMessage = React.memo(({
   texting = false,
   visibleParts,
   receipt,
+  voice,
 }: ChatMessageProps) => {
   const isUser = msg.role === YOU;
   const { is } = useColorTheme();
@@ -135,8 +140,20 @@ const ChatMessage = React.memo(({
   const bookmarkLabel = msg.bookmarked ? "Remove bookmark" : "Bookmark";
   const handleReact = useCallback((emoji: string) => onReact?.(msg, emoji), [onReact, msg]);
   const canReact = Boolean(onReact && !isUser && msg.id);
-  // Texting mode splits a reply into its texts; one text stays a normal bubble.
-  const splitParts = texting && !isUser && !msg.isImpersonated && !msg.isCompressionSummary && !msg.isRoomEvent && !msg.isNarration
+  // "Read aloud" (#12) on a character's reply; a voice note has its own
+  // play button instead. It's a stop button while that reply is speaking.
+  const speaking = Boolean(useSpeakingFor(msg.id));
+  const canReadAloud = !isUser && !msg.isVoiceNote && Boolean(msg.id) && isSpeechSupported();
+  const readAloudLabel = speaking ? "Stop reading" : "Read aloud";
+  const handleReadAloud = useCallback(() => {
+    if (!msg.id) return;
+    if (speaking) stopSpeaking();
+    else speak(msg.id, toSpokenText(msg.txt || ""), voice);
+  }, [speaking, msg.id, msg.txt, voice]);
+  const voiceNote = msg.isVoiceNote && msg.id ? <VoiceNote id={msg.id} text={stripImageContextTag(msg.txt || "")} voice={voice} isUser={isUser} terminal={is("terminal")} /> : null;
+  // Texting mode splits a reply into its texts; one text stays a normal
+  // bubble, and so does a voice note.
+  const splitParts = texting && !isUser && !msg.isVoiceNote && !msg.isImpersonated && !msg.isCompressionSummary && !msg.isRoomEvent && !msg.isNarration
     ? splitIntoTexts(stripImageContextTag(msg.txt || ""))
     : [];
   const textParts = splitParts.length > 1 ? splitParts : null;
@@ -184,6 +201,7 @@ const ChatMessage = React.memo(({
     { label: "Copy", icon: FaCopy, onSelect: handleCopy },
     ...(!isUser && !msg.isImpersonated ? [{ label: "Regenerate", icon: FaRedo, onSelect: handleRegenerate, disabled: aiLoading }] : []),
     ...(!isUser && !msg.isImpersonated && isLastMessage && onContinue ? [{ label: "Continue", icon: FaForward, onSelect: handleContinue, disabled: aiLoading }] : []),
+    ...(canReadAloud ? [{ label: readAloudLabel, icon: speaking ? FaStop : FaVolumeUp, onSelect: handleReadAloud }] : []),
     { label: "Edit", icon: FaEdit, onSelect: handleEdit, disabled: isUser && aiLoading },
     ...(onToggleBookmark ? [{ label: bookmarkLabel, icon: FaStar, onSelect: handleToggleBookmark }] : []),
     ...(canInspect ? [{ label: "Show what was sent", icon: FaCode, onSelect: handleInspect }] : []),
@@ -276,6 +294,7 @@ const ChatMessage = React.memo(({
           )}
           <span className="flex items-center gap-2.5 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
             <TermLink label="copy" onClick={handleCopy} />
+            {canReadAloud && <TermLink label={speaking ? "hush" : "say"} onClick={handleReadAloud} aria-label={readAloudLabel} />}
             {canReact && <TermLink label={msg.reaction === "❤️" ? "unlike" : "like"} onClick={() => handleReact("❤️")} />}
             {!isUser && !msg.isImpersonated && <TermLink label="regen" onClick={handleRegenerate} />}
             {!isUser && !msg.isImpersonated && isLastMessage && onContinue && (
@@ -298,7 +317,7 @@ const ChatMessage = React.memo(({
           style={{ fontSize: "var(--chat-font-size, 16px)" }}
         >
           {oocLabel}
-          <MarkdownRenderer msgText={stripImageContextTag(msg.txt || "")} isUser={isUser} />
+          {voiceNote || <MarkdownRenderer msgText={stripImageContextTag(msg.txt || "")} isUser={isUser} />}
           {refusalNotice}
           {thoughtsBlock}
           {(msg.reaction || msg.characterReaction) && (
@@ -472,7 +491,7 @@ const ChatMessage = React.memo(({
 
           <div className="font-serif">
             {oocLabel}
-            <MarkdownRenderer msgText={textParts ? textParts[textParts.length - 1] : stripImageContextTag(msg.txt || "")} isUser={isUser} />
+            {voiceNote || <MarkdownRenderer msgText={textParts ? textParts[textParts.length - 1] : stripImageContextTag(msg.txt || "")} isUser={isUser} />}
             {refusalNotice}
           </div>
           {thoughtsBlock}
@@ -567,6 +586,16 @@ const ChatMessage = React.memo(({
                   </TooltipTrigger>
                   <TooltipContent>Copy</TooltipContent>
                 </Tooltip>
+                {canReadAloud && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" onClick={handleReadAloud} aria-label={readAloudLabel} className={cn("h-auto w-auto p-1.5 rounded-md hover:bg-secondary", speaking ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
+                        {speaking ? <FaStop size={11} /> : <FaVolumeUp size={12} />}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{readAloudLabel}</TooltipContent>
+                  </Tooltip>
+                )}
                 {canReact && (
                   <ReactionPicker
                     current={msg.reaction}

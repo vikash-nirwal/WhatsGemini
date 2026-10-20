@@ -6,8 +6,8 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **State:** image consistency (#34–#41) is merged, pushed and deployed. Texting mode (#6), inner thoughts (#10) and reactions (#11) are pushed and deployed too. The spending dashboard (#42) and notifications (#43) are committed to local `main`, not pushed. The last full local run passed: type-check, 552 unit tests, 385 UI tests and 16 screenshot tests.
-- **Next up:** the new ideas #44–#56 (#42 and #43 are done), one per fresh session in table order (#12 goes with #44), then the other 13 items. The image providers were only tested against mocked servers; checking them with real keys and a real ComfyUI is a follow-up in ROADMAP.md.
+- **State:** image consistency (#34–#41) is merged, pushed and deployed. Texting mode (#6), inner thoughts (#10) and reactions (#11) are pushed and deployed too. The spending dashboard (#42), notifications (#43), voice (#12) and voice notes (#44) are committed to local `main`, not pushed. The last full local run passed: type-check, 604 unit tests, 409 UI tests and 16 screenshot tests.
+- **Next up:** the new ideas #45–#56 (#42–#44 and #12 are done), one per fresh session in table order, then the other 12 items. The image providers were only tested against mocked servers; checking them with real keys and a real ComfyUI is a follow-up in ROADMAP.md.
 - **Open questions for the user:** none.
 - **How this run works:** each item gets its own fresh session in this checkout (no worktree), committing to local `main` when its tests pass; nothing is pushed or deployed until the user says so.
 
@@ -18,7 +18,6 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | 7 | Character schedule and presence | todo | |
 | 8 | Status updates | todo | Builds on #7. |
 | 9 | Scene state HUD | todo | |
-| 12 | Voice | todo | |
 | 13 | Chat backdrops | todo | |
 | 19 | Anti-repetition guard | todo | |
 | 22 | More than one reply per message | todo | |
@@ -29,8 +28,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | 27 | Persona character sheet | todo | With #26. |
 | 28 | Attach a World to normal chats | todo | |
 | 30 | Relationship that evolves | todo | |
-| 44 | Voice notes | todo | With #12. New ideas continue here; built one per session, in order. |
-| 45 | Character from one line | todo | |
+| 45 | Character from one line | todo | New ideas continue here; built one per session, in order. |
 | 46 | "Previously on…" | todo | |
 | 47 | Dates that matter | todo | |
 | 48 | Send them a photo | todo | |
@@ -41,7 +39,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | 53 | Branch map | todo | |
 | 54 | Backup to Google Drive | todo | Needs the user's Google OAuth client ID to test. |
 | 55 | Free local model in the browser | todo | Adds the WebLLM dependency. |
-| 56 | Phone calls | todo | After #12 and #44. |
+| 56 | Phone calls | todo | Builds on #12 and #44 (`src/features/voice/`). |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
 
@@ -72,6 +70,7 @@ One line per area. Pointers for when you need to work on it again.
 - **Messaging feel:** texting mode (`settings.textingMode`, `textingMode.ts`) splits a reply into texts by paragraph or line and reveals a new one text by text in ChatWindow (`reveal` state), with read ticks on your messages; display only. Inner thoughts (`Character.innerThoughts`, switch in the Scene panel) and reactions (`Message.reaction` from you, `Message.characterReaction` from the character, `roleplayStyle.characterReactions`) are control tags parsed in `messageTags.ts`, like the emotion tag; reactions reach the model as a note before your next message (`buildChatHistory`).
 - **Spending (#42):** `src/features/spending/spending.ts` keeps a ledger per month and provider plus the monthly limit, in localStorage (`spending_ledger`, `spending_budget`, `spending_warned`) so the budget check can read it synchronously; it goes out with the settings export and full backup and is merged (larger entry wins) on import. `spendingAdapters.ts` wraps every chat, image and video adapter in `registry.ts` (outside `withRequestLog`), so every paid call is checked and recorded with no caller involved; streamed replies without usage are estimated from text length, pictures and videos without usage use `FLAT_IMAGE_PRICING`/`FLAT_VIDEO_PRICING` in `constants.ts`. Ollama, SD WebUI and ComfyUI are never recorded or blocked. UI: Settings › Spending (`SpendingSettings.tsx`); toasts at 80% and 100% and on a blocked call come from `SpendingAlerts.tsx`, mounted in `App.tsx`. Per-chat `totalCostEstimate` is unchanged and doesn't include the flat picture prices.
 - **Notifications (#43):** `src/features/notifications/notifications.ts` decides what to show (`buildNotificationContent`: generic "New message" with the app lock on, or for NSFW chats in discreet mode; no portrait for NSFW chats with blurred media) and shows it only when the switch is on, permission is granted and the tab is hidden, through the service worker's `showNotification` when one is active, else `new Notification`. The switch is localStorage `notifications_enabled` (not exported: the permission is per browser), in Settings › Chat (`NotificationSettings.tsx`). ChatPage calls `useChatNotifier` after saving a reply or a follow-up; clicks route through `useNotificationClicks` (App.tsx) and the worker's `notificationclick` (`service-worker.ts`).
+- **Voice (#12) and voice notes (#44):** `src/features/voice/`: `speech.ts` (browser `speechSynthesis`: `toSpokenText` drops *actions*, control tags and the image-context tag; speech is queued in sentence pieces under 200 characters for Chrome's cut-off; one app-wide "what's speaking" store keyed by message id, read with `useSpeakingFor`), `recognition.ts` (`SpeechRecognition`/`webkitSpeechRecognition`, continuous with interim results), `voiceNotes.ts` (the roll, `fitsVoiceNote`, the "(voice note)" mark). Voice settings are `Character.voice` (voice URI plus name and language for fallback on other devices, rate, pitch, `voiceNotes` off/sometimes/often), edited in `CharacterEditorPage/VoiceSection.tsx`. "Read aloud" is in ChatMessage's hover footer, long-press sheet and the terminal row. ChatPage rolls a voice note before each reply (shows "recording audio..."), keeps it only if the reply fits (≤600 spoken characters, no media, no refusal) and stores `Message.isVoiceNote`; `VoiceNote.tsx` plays it at play time. The composer has Dictate (a tool) and a hold-to-record button (empty draft only; Space/Enter held works too; letting go far away cancels); your voice notes reach the model as "(voice note) …" through `promptTextFor` in `buildChatHistory` and the prompt. Nothing voice-related shows where an API is missing (Firefox has no recognition). Playwright's Chromium and WebKit both have recognition on localhost, so the composer's record button shows in every project. `e2e/voice.spec.ts` has the speech fakes.
 - **Known gaps:** none of the image providers was tried with a real key or a real ComfyUI; chats whose seed messages were never flagged `isSystem` (very old ones) aren't detected as seeded; mood-portrait generation from inside a chat wasn't checked with a real image provider; `h-dvh` wasn't checked on a real iPhone; notifications weren't tried on a real device or in the installed app.
 
 ## Decisions
@@ -103,6 +102,8 @@ Facts that save the next session time.
 ## Session log
 
 Newest first. One or two lines per session.
+
+- 2026-10-20: Built voice (#12) and voice notes (#44) together: per-character browser voices with a picker and preview, Read aloud, dictation, character voice notes decided by the app, and hold-to-record. The terminal theme's Pixel chat screenshot changed on purpose (the new `[say]` action wraps each reply's action row, plus the `[●]` record link) and its baseline was updated; the other chat screenshots gained the mic buttons within their 1% tolerance and were left as they were.
 
 - 2026-10-20: Built notifications (#43): Settings switch, privacy-aware content, service worker or page notification, click opens the chat. The iphone UI project only checks the Settings explanation, since mobile WebKit has no Notification API.
 - 2026-10-20: Built the spending dashboard and monthly limit (#42): ledger in localStorage, adapter wrappers in the registry, Settings › Spending, warning or hard stop. Added the Spending page to the axe scan in every theme.

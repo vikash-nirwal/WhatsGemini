@@ -11,6 +11,7 @@ import { buildDiarySection } from "./diary";
 import { AppearanceLock, appearanceLocksFor } from "./appearanceLock";
 import { effectiveContentRating } from "../../character/contentRating";
 import { ChatMessage } from "../types";
+import { promptTextFor } from "../../voice/voiceNotes";
 
 // Whose turn it is in a multi-character room, for buildChatHistory's
 // per-speaker role mapping (see there).
@@ -41,7 +42,8 @@ export const buildChatHistory = (
   perspective?: HistoryPerspective
 ): ChatMessage[] => {
   const toTurn = (msg: Message): ChatMessage => {
-    const text = stripLeakedBase64(msg.txt || "");
+    // Your voice notes (#44) are marked, so the character knows they were spoken.
+    const text = stripLeakedBase64(promptTextFor(msg));
     const trimmed = text.trim() || " ";
 
     // A /narrate line is the scene's narration, not the user speaking.

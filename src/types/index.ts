@@ -51,6 +51,10 @@ export interface Message {
   isRefusal?: boolean;
   emotion?: string; // one of EMOTIONS, parsed from the AI's own reply when the character has emotionPortraits enabled
   thoughts?: string; // the character's hidden inner thoughts for this reply (#10), never sent back to the model
+  // A voice note (#44): shown as a playable bubble and spoken with the
+  // speaker's voice when played. Only the text is stored; the user's own
+  // reach the model as "(voice note) ...".
+  isVoiceNote?: boolean;
   reaction?: string; // the user's emoji reaction to this message (#11)
   // The character's emoji reaction to this (user) message (#11), and who
   // reacted in a room.
@@ -178,6 +182,22 @@ export interface LocalImageSettings {
   reactorFaceModel?: string; // ReActor face model name (without .safetensors)
 }
 
+// How often a character replies with a voice note (#44), decided by the
+// app, not the model.
+export type VoiceNoteFrequency = "off" | "sometimes" | "often";
+
+// A character's text-to-speech voice (#12), from the browser's own Web
+// Speech voices. Voices differ between devices, so the name and language are
+// kept too: they pick the closest voice where the saved one doesn't exist.
+export interface CharacterVoice {
+  voiceURI?: string; // unset = the browser's default voice
+  voiceName?: string;
+  lang?: string;
+  rate?: number; // 0.5-2, 1 when unset
+  pitch?: number; // 0-2, 1 when unset
+  voiceNotes?: VoiceNoteFrequency; // "off" when unset
+}
+
 // What a long-term memory fact is about.
 export type MemoryCategory = "user" | "relationship" | "story";
 
@@ -213,6 +233,7 @@ export interface Character {
   visualTags?: string;
   localImageSettings?: LocalImageSettings; // #40, local generation only
   innerThoughts?: boolean; // #10: also write hidden thoughts with each reply
+  voice?: CharacterVoice; // #12/#44: how they sound when read aloud, and how often they send voice notes
   appearanceImages?: string[];
   artStyle?: ArtStyle;
   avatar?: string;

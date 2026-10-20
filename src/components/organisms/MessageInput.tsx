@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo, lazy, Suspense } from "react";
-import { FaPaperPlane, FaStop, FaCog, FaImage, FaVideo, FaTimes, FaMask, FaUserFriends, FaCommentSlash, FaPlus, FaMagic } from "react-icons/fa";
+import { FaPaperPlane, FaStop, FaCog, FaImage, FaVideo, FaTimes, FaMask, FaUserFriends, FaCommentSlash, FaPlus, FaMagic, FaMicrophone, FaMicrophoneAlt } from "react-icons/fa";
 import { cn } from "../../utils/cn";
 import { Button } from "src/components/atoms/button";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
@@ -10,6 +10,8 @@ import { VIDEO_PROVIDERS } from "../../features/ai/providers/registry";
 import { getProviderApiKey, getWanBaseUrl } from "../../features/ai/utils/settings";
 import { Character } from "../../types";
 import { matchSlashCommands, parseSlashCommand } from "../../features/chat/slashCommands";
+import { isRecognitionSupported, RecognitionSession, startRecognition } from "../../features/voice/recognition";
+import { formatDuration, stopSpeaking } from "../../features/voice/speech";
 
 // Deferred to its own chunk - only fetched once the user actually opens the
 // image settings modal, instead of loading with the rest of the chat page.
@@ -26,7 +28,8 @@ interface MessageInputProps {
   // (via the room picker below) while a draft was in the box - only that
   // character should reply to this particular message, bypassing the usual
   // @mention/round-robin pick.
-  onSend: (text: string, isImageRequest?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean) => void;
+  // `isVoiceNote` marks a message recorded with hold-to-talk (#44).
+  onSend: (text: string, isImageRequest?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean, isVoiceNote?: boolean) => void;
   disabled?: boolean;
   onStop?: () => void;
   // Fires while the user is actively typing a non-empty draft - lets a
@@ -58,9 +61,14 @@ interface MessageInputProps {
 }
 
 const MAX_TEXTAREA_HEIGHT = 120;
+// Releasing the record button further than this (px) from it cancels the
+// voice note instead of sending it.
+const RECORD_CANCEL_SLOP = 60;
+// A press shorter than this was a tap: say how the button works.
+const RECORD_MIN_MS = 600;
 const ASCII_BAR_CELLS = 40;
 // The terminal theme's short bracketed names for the composer tools.
-const TERMINAL_TOOL_LABELS: Record<string, string> = { image: "img", video: "vid", impersonate: "mask", silent: "silent", draft: "draft", settings: "cfg" };
+const TERMINAL_TOOL_LABELS: Record<string, string> = { image: "img", video: "vid", impersonate: "mask", silent: "silent", draft: "draft", dictate: "mic", settings: "cfg" };
 
 const formatTokenCount = (n: number): string => {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -270,6 +278,144 @@ const MessageInput: React.FC<MessageInputProps> = ({
     setMention(null);
   }, [text, isImageRequest, isVideoRequest, isImpersonated, isSilentSend, selectedSpeakerId, onSend, disabled]);
 
+  // ---- Voice (#12, #44) ----
+  // Dictation types what you say into the box; holding the record button
+  // sends what you say as a voice note. Both use the browser's speech
+  // recognition, so neither shows where it's missing (Firefox).
+  const recognitionSupported = useMemo(() => isRecognitionSupported(), []);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const dictationRef = useRef<RecognitionSession | null>(null);
+  const [dictating, setDictating] = useState(false);
+  const toggleDictation = useCallback(() => {
+    if (dictationRef.current) {
+      dictationRef.current.stop();
+      return;
+    }
+    // A character reading aloud would be typed in too.
+    stopSpeaking();
+    setVoiceError(null);
+    const base = text.trim() ? `${text.trimEnd()} ` : "";
+    const session = startRecognition({
+      onUpdate: (final, interim) => {
+        setText(base + [final, interim].filter(Boolean).join(" "));
+        onDraftActivity?.();
+      },
+      onEnd: (heard, error) => {
+        dictationRef.current = null;
+        setDictating(false);
+        if (heard) setText(base + heard);
+        if (error) setVoiceError(error);
+        requestAnimationFrame(() => inputRef.current?.focus());
+      },
+    });
+    if (!session) {
+      setVoiceError("Couldn't start speech recognition in this browser.");
+      return;
+    }
+    dictationRef.current = session;
+    setDictating(true);
+  }, [text, onDraftActivity]);
+
+  const recordRef = useRef<{ session: RecognitionSession; startedAt: number; cancelled: boolean } | null>(null);
+  const [recording, setRecording] = useState<{ startedAt: number; heard: string } | null>(null);
+  const [recordNow, setRecordNow] = useState(0);
+  useEffect(() => {
+    if (!recording) return;
+    const timer = window.setInterval(() => setRecordNow(Date.now()), 250);
+    return () => window.clearInterval(timer);
+  }, [recording]);
+  // Sends with whatever the toggles are when the note ends, through a ref
+  // since recognition reports back after the press that started it.
+  const sendVoiceNoteRef = useRef<(heard: string) => void>(() => {});
+  sendVoiceNoteRef.current = (heard: string) => {
+    onSend(heard, false, false, false, selectedSpeakerId ?? undefined, isSilentSend, true);
+    setIsImageRequest(false);
+    setIsVideoRequest(false);
+    setIsSilentSend(false);
+    setSelectedSpeakerId(null);
+  };
+  const startRecording = useCallback(() => {
+    if (recordRef.current || disabled) return;
+    stopSpeaking();
+    dictationRef.current?.abort();
+    setVoiceError(null);
+    const startedAt = Date.now();
+    const session = startRecognition({
+      onUpdate: (final, interim) => setRecording((r) => (r ? { ...r, heard: [final, interim].filter(Boolean).join(" ") } : r)),
+      onEnd: (heard, error) => {
+        const rec = recordRef.current;
+        recordRef.current = null;
+        setRecording(null);
+        if (!rec || rec.cancelled) return;
+        if (heard.trim()) sendVoiceNoteRef.current(heard.trim());
+        else if (error) setVoiceError(error);
+        else setVoiceError(Date.now() - rec.startedAt < RECORD_MIN_MS ? "Hold the button while you speak, then let go to send." : "Didn't catch anything, so nothing was sent.");
+      },
+    });
+    if (!session) {
+      setVoiceError("Couldn't start speech recognition in this browser.");
+      return;
+    }
+    recordRef.current = { session, startedAt, cancelled: false };
+    setRecording({ startedAt, heard: "" });
+    setRecordNow(startedAt);
+  }, [disabled]);
+  const finishRecording = useCallback((cancel = false) => {
+    const rec = recordRef.current;
+    if (!rec) return;
+    if (cancel) {
+      rec.cancelled = true;
+      rec.session.abort();
+    } else {
+      rec.session.stop();
+    }
+  }, []);
+  // Leaving the chat mid-sentence throws it away.
+  useEffect(() => () => {
+    dictationRef.current?.abort();
+    if (recordRef.current) recordRef.current.cancelled = true;
+    recordRef.current?.session.abort();
+  }, []);
+  const showRecordButton = recognitionSupported && !text.trim() && !disabled && !isImpersonated && !dictating;
+  // Press and hold (mouse, touch or pen), or hold Space/Enter on the
+  // keyboard. Letting go far from the button cancels.
+  const recordButtonHandlers = {
+    onPointerDown: (e: React.PointerEvent<HTMLButtonElement>) => {
+      // Only the main button: a right-click shouldn't start recording.
+      if (e.button > 0) return;
+      e.preventDefault();
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        // Not every browser can capture a synthetic pointer.
+      }
+      startRecording();
+    },
+    onPointerUp: (e: React.PointerEvent<HTMLButtonElement>) => {
+      const r = e.currentTarget.getBoundingClientRect();
+      const away = e.clientX < r.left - RECORD_CANCEL_SLOP || e.clientX > r.right + RECORD_CANCEL_SLOP || e.clientY < r.top - RECORD_CANCEL_SLOP || e.clientY > r.bottom + RECORD_CANCEL_SLOP;
+      finishRecording(away);
+    },
+    onPointerCancel: () => finishRecording(true),
+    onKeyDown: (e: React.KeyboardEvent<HTMLButtonElement>) => {
+      if (e.key === " " || e.key === "Enter") {
+        e.preventDefault();
+        if (!e.repeat) startRecording();
+      } else if (e.key === "Escape") {
+        finishRecording(true);
+      }
+    },
+    onKeyUp: (e: React.KeyboardEvent<HTMLButtonElement>) => {
+      if (e.key === " " || e.key === "Enter") {
+        e.preventDefault();
+        finishRecording();
+      }
+    },
+    onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+  };
+  const recordLabel = recording ? "Recording voice note, let go to send" : "Hold to record a voice note";
+  const recordSeconds = recording ? Math.max(0, (recordNow - recording.startedAt) / 1000) : 0;
+
   // Mutually exclusive - toggling one clears the other, since a single reply
   // only ever generates one kind of media.
   // "Write my reply": fills the box with an AI draft of your next message.
@@ -429,6 +575,12 @@ const MessageInput: React.FC<MessageInputProps> = ({
       onClick: handleDraftReply,
       activeClass: "bg-primary/[0.12] text-primary", activeButtonClass: "bg-primary/[0.14] text-primary hover:bg-primary/[0.2] animate-pulse",
     }] : []),
+    ...(recognitionSupported ? [{
+      key: "dictate", icon: FaMicrophoneAlt, label: dictating ? "Stop dictating" : "Dictate", title: "Dictate: speak and your words appear in the box",
+      ariaLabel: "Dictate", active: dictating, toggle: true, disabled,
+      onClick: toggleDictation,
+      activeClass: "bg-destructive/[0.12] text-destructive", activeButtonClass: "bg-destructive/[0.14] text-destructive hover:bg-destructive/[0.2]",
+    }] : []),
     {
       key: "settings", icon: FaCog, label: "Image settings", title: "Image Generation Settings",
       ariaLabel: "Image Generation Settings", active: false, toggle: false,
@@ -445,6 +597,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
       const value = e.target.value;
       setText(value);
       if (slashError) setSlashError(null);
+      if (voiceError) setVoiceError(null);
       if (value.trim()) onDraftActivity?.();
       // A forced-speaker selection only makes sense for a message
       // that's actually being composed - clearing the draft back to
@@ -673,6 +826,51 @@ const MessageInput: React.FC<MessageInputProps> = ({
         </div>
       )}
 
+      {voiceError && (
+        <div role="alert" className={cn("flex items-center gap-2.5 px-3 py-2 text-[12.5px] text-foreground", terminal ? "border border-border-bright" : "rounded-lg bg-destructive/10 border border-destructive/40")}>
+          <span className="flex-1">{terminal && "# "}{voiceError}</span>
+          {terminal ? (
+            <TermLink label="x" onClick={() => setVoiceError(null)} aria-label="Dismiss" />
+          ) : (
+            <Button onClick={() => setVoiceError(null)} variant="ghost" size="icon" className="h-6 w-6 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground flex-shrink-0" aria-label="Dismiss">
+              <FaTimes size={11} />
+            </Button>
+          )}
+        </div>
+      )}
+
+      {dictating && terminal && terminalBanner("listening - speak and your words appear in the box.", () => dictationRef.current?.stop(), "Stop dictating")}
+      {dictating && !terminal && (
+        <div className="flex items-center gap-2.5 px-3 py-2 bg-destructive/10 border border-destructive/40 rounded-lg">
+          <span className="text-destructive flex-shrink-0 flex animate-pulse"><FaMicrophoneAlt size={13} /></span>
+          <span className="flex-1 text-[12.5px] text-foreground font-medium">
+            Listening — speak and your words appear in the box.
+          </span>
+          <Button
+            onClick={() => dictationRef.current?.stop()}
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground flex-shrink-0"
+            aria-label="Stop dictating"
+          >
+            <FaTimes size={11} />
+          </Button>
+        </div>
+      )}
+
+      {recording && (
+        <div
+          role="status"
+          className={cn("flex items-center gap-2.5 px-3 py-2 text-[12.5px] text-foreground", terminal ? "border border-border-bright" : "rounded-lg bg-destructive/10 border border-destructive/40")}
+        >
+          {terminal ? <span className="text-destructive">#</span> : <span aria-hidden className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-destructive animate-pulse" />}
+          <span className="tabular-nums font-medium">{formatDuration(recordSeconds)}</span>
+          <span className="flex-1 min-w-0 truncate">
+            {recording.heard || "Recording a voice note. Let go to send, slide away to cancel."}
+          </span>
+        </div>
+      )}
+
       {/* Slash command hints (#14), while the command word is being typed */}
       {slashHints.length > 0 && (
         <div role="listbox" aria-label="Commands" className="flex flex-col gap-0.5 p-1.5 rounded-lg bg-card border border-border shadow-soft max-h-56 overflow-y-auto">
@@ -789,6 +987,17 @@ const MessageInput: React.FC<MessageInputProps> = ({
           {/* Underline on a wrapper: a border on the auto-sized textarea itself
               would overflow it by 1px and show a scrollbar. */}
           <div className="flex-1 min-w-0 border-b border-border focus-within:border-ring">{composerTextarea}</div>
+          {showRecordButton && (
+            // A dot, not "rec": on a phone the text box needs the room.
+            <TermLink
+              label="●"
+              danger={Boolean(recording)}
+              title="Hold to record a voice note"
+              aria-label={recordLabel}
+              className="min-h-6 touch-none select-none flex-shrink-0"
+              {...recordButtonHandlers}
+            />
+          )}
           {disabled && onStop ? (
             <Button onClick={onStop} variant="destructive" className="h-auto py-2 px-3.5 text-[11px] flex-shrink-0" title="Stop Generating" aria-label="Stop Generating">
               stop
@@ -915,6 +1124,22 @@ const MessageInput: React.FC<MessageInputProps> = ({
         ))}
 
         {composerTextarea}
+
+        {showRecordButton && (
+          <Button
+            type="button"
+            variant="ghost"
+            title="Hold to record a voice note"
+            aria-label={recordLabel}
+            className={cn(
+              "h-10 w-10 flex-shrink-0 rounded-lg touch-none select-none [-webkit-touch-callout:none]",
+              recording ? "bg-destructive text-destructive-foreground hover:bg-destructive scale-110" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+            )}
+            {...recordButtonHandlers}
+          >
+            <FaMicrophone size={16} />
+          </Button>
+        )}
 
         {disabled && onStop ? (
           <Button

@@ -37,6 +37,7 @@ import { toast } from "sonner";
 import { useColorTheme } from "../hooks/useColorTheme";
 import { cn } from "../utils/cn";
 import { useChatNotifier } from "../features/notifications/useNotifications";
+import { fitsVoiceNote, markVoiceNote, promptTextFor, rollVoiceNote } from "../features/voice/voiceNotes";
 
 const DEFAULT_AUTO_REPLY = { enabled: false, minDelaySeconds: 30, maxDelaySeconds: 120, maxFollowups: 2, followupCount: 0 };
 
@@ -179,6 +180,20 @@ const ChatPage = () => {
   // 1:1 chat's reply is never touched, so there's no behavior change there.
   const finalizeSpeakerText = (rawText: string, speaker: Character): string =>
     isRoom ? stripSpeakerPrefix(rawText, speaker.name) : rawText;
+
+  // Voice notes (#44): rolled before a reply is written, so the chat shows
+  // "recording audio..." instead of the text streaming in. The reply only
+  // goes out as one if it still fits (short, no pictures, not a refusal).
+  const [recordingVoiceNote, setRecordingVoiceNote] = useState(false);
+  const rollReplyVoiceNote = (speaker: Character, mediaRequest: boolean): boolean => {
+    const rolled = rollVoiceNote(speaker.voice, { mediaRequest });
+    setRecordingVoiceNote(rolled);
+    return rolled;
+  };
+  const replyIsVoiceNote = (rolled: boolean, reply: { text?: string; images?: string[]; videos?: string[]; isRefusal?: boolean }): true | undefined =>
+    rolled && fitsVoiceNote(reply) ? true : undefined;
+  // What a notification says about a voice note, instead of its transcript.
+  const notificationText = (text: string, isVoiceNote?: boolean) => (isVoiceNote ? "🎤 Voice message" : text);
 
   // Per-chat scene settings (author's note, world tags) plus the app-wide
   // roleplay style, passed to every buildTurnContext call. The author's note
@@ -640,7 +655,7 @@ const ChatPage = () => {
     // through as the prompt here mirrors handleSend and keeps it in context.
     const lastMessage = freshMessages[freshMessages.length - 1];
     const followupPrompt = lastMessage?.role === YOU && lastMessage.txt?.trim()
-      ? lastMessage.txt
+      ? promptTextFor(lastMessage)
       : FOLLOWUP_CONTINUATION_PROMPT;
 
     const { messages: compressedFreshMessages, tokens: compressTokens, cost: compressCost, error: compressError } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: freshMessages, names: transcriptNames() })).unwrap();
@@ -656,12 +671,14 @@ const ChatPage = () => {
       buildRoomContext(speaker),
       scene
     );
+    const followupVoiceNote = rollReplyVoiceNote(speaker, includeImage || includeVideo);
     const aiResponse = await dispatch(generateAIResponse({
       prompt: followupPrompt,
       history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle,
       isImageRequest: includeImage, isVideoRequest: includeVideo, isCharacterInitiated: true, isAutoSelfie: shouldAutoSelfie,
       customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings,
     }));
+    setRecordingVoiceNote(false);
 
     if (!isGenerationSuccess(aiResponse)) {
       reportGenerationFailure(aiResponse);
@@ -673,6 +690,7 @@ const ChatPage = () => {
     const generatedImages = payloadObj?.images || undefined;
     const generatedVideos = payloadObj?.videos || undefined;
     const followupText = finalizeSpeakerText(typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string), speaker);
+    const followupIsVoiceNote = replyIsVoiceNote(followupVoiceNote, { text: followupText, images: generatedImages, videos: generatedVideos, isRefusal: payloadObj?.isRefusal });
     const aiAddResult = await dispatch(addMessage({
       chatId: chatIdNum,
       role: AI,
@@ -688,10 +706,11 @@ const ChatPage = () => {
       imagePrompt: payloadObj?.imagePrompt,
       imageParams: payloadObj?.imageParams,
       speakerId: speaker.id,
+      isVoiceNote: followupIsVoiceNote,
     }));
     // Manual follow-ups go through here too, but they start from a click in
     // a visible tab, so they only notify if the user has left meanwhile.
-    notifyIfAway(speaker, followupText, generatedImages);
+    notifyIfAway(speaker, notificationText(followupText, followupIsVoiceNote), generatedImages);
 
     // Await the refresh before the caller can act on it (e.g. bump followupCount) -
     // otherwise the scheduling effect below can still be looking at the previous
@@ -836,7 +855,7 @@ const ChatPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoReplySettings.enabled, autoReplySettings.minDelaySeconds, autoReplySettings.maxDelaySeconds, autoReplySettings.maxFollowups, autoReplySettings.followupCount, chatIdNum, characterData, currentChat?.content, aiLoading, lastTypingActivityAt]);
 
-  const handleSend = async (rawText: string, requestedImage?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean) => {
+  const handleSend = async (rawText: string, requestedImage?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean, isVoiceNote?: boolean) => {
     if (!rawText.trim() || !chatIdNum) return;
 
     setError(null);
@@ -845,7 +864,8 @@ const ChatPage = () => {
     // like a normal message; a few act right here instead.
     let text = rawText;
     let isImageRequest = requestedImage;
-    const command = parseSlashCommand(rawText);
+    // A voice note is what you said, never a command.
+    const command = isVoiceNote ? null : parseSlashCommand(rawText);
     if (command) {
       if (command.kind === "error") { toast.error(command.message); return; }
       if (command.kind === "help") {
@@ -876,7 +896,7 @@ const ChatPage = () => {
         return;
       }
 
-      const resultAction = await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, isImageRequest, isVideoRequest }));
+      const resultAction = await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, isImageRequest, isVideoRequest, isVoiceNote }));
       const updatedMessages = resultAction.payload as Message[] || [];
 
       if (silentSend) {
@@ -910,8 +930,12 @@ const ChatPage = () => {
         Math.random() * 100 < (autoSelfieCfg.frequency ?? DEFAULT_AUTO_SELFIE_FREQUENCY);
 
       const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = buildTurnContext(contextMessages, speaker, undefined, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: text, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isVideoRequest, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings }));
+      const sendVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest || shouldAutoSelfie));
+      // Matches the "(voice note)" mark buildChatHistory puts on the same
+      // message, so it's recognized as the prompt and not sent twice.
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: isVoiceNote ? markVoiceNote(text) : text, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isVideoRequest, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings }));
       const aiResponse = await aiPromiseRef.current;
+      setRecordingVoiceNote(false);
       aiPromiseRef.current = null;
       reportGenerationFailure(aiResponse);
 
@@ -921,6 +945,7 @@ const ChatPage = () => {
         const generatedImages = payloadObj?.images || undefined;
         const generatedVideos = payloadObj?.videos || undefined;
         const replyText = finalizeSpeakerText(typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string), speaker);
+        const replyVoiceNote = replyIsVoiceNote(sendVoiceNote, { text: replyText, images: generatedImages, videos: generatedVideos, isRefusal: payloadObj?.isRefusal });
         const aiAddResult = await dispatch(addMessage({
           chatId: chatIdNum,
           role: AI,
@@ -934,8 +959,9 @@ const ChatPage = () => {
           imagePrompt: payloadObj?.imagePrompt,
           imageParams: payloadObj?.imageParams,
           speakerId: speaker.id,
+          isVoiceNote: replyVoiceNote,
         }));
-        notifyIfAway(speaker, replyText, generatedImages);
+        notifyIfAway(speaker, notificationText(replyText, replyVoiceNote), generatedImages);
 
         if (generatedImages && generatedImages.length > 0) {
           dispatch(updateCharacter({ ...speaker, gallery: [...(speaker.gallery || []), ...generatedImages] }));
@@ -994,8 +1020,10 @@ const ChatPage = () => {
         if (!speaker) return;
 
         const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = buildTurnContext(contextUpToEdit, speaker, undefined, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
+        const editVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest));
         aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings }));
         const aiResponse = await aiPromiseRef.current;
+        setRecordingVoiceNote(false);
         aiPromiseRef.current = null;
         reportGenerationFailure(aiResponse);
 
@@ -1004,9 +1032,11 @@ const ChatPage = () => {
           await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
           const generatedImages = payloadObj?.images || undefined;
           const generatedVideos = payloadObj?.videos || undefined;
+          const editReplyText = finalizeSpeakerText(typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string), speaker);
           const newAiMsg: Message = {
             role: AI,
-            txt: finalizeSpeakerText(typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string), speaker),
+            txt: editReplyText,
+            isVoiceNote: replyIsVoiceNote(editVoiceNote, { text: editReplyText, images: generatedImages, videos: generatedVideos, isRefusal: payloadObj?.isRefusal }),
             images: generatedImages,
             videos: generatedVideos,
             videoPrompt: payloadObj?.videoPrompt,
@@ -1075,7 +1105,7 @@ const ChatPage = () => {
 
       const prompt = isFollowup
         ? FOLLOWUP_CONTINUATION_PROMPT
-        : precedingMessage.txt || "";
+        : promptTextFor(precedingMessage);
       // For a followup, whether it had a picture is recorded on the followup
       // message itself (no preceding user turn to read it off of).
       const isImageRequest = isFollowup ? (targetMessage?.isImageRequest || false) : (precedingMessage.isImageRequest || false);
@@ -1093,8 +1123,10 @@ const ChatPage = () => {
       if (!speaker) return;
 
       const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = buildTurnContext(historyUpToTarget, speaker, extraDirectives, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
+      const regenVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest));
       aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings }));
       const aiResponse = await aiPromiseRef.current;
+      setRecordingVoiceNote(false);
       aiPromiseRef.current = null;
       reportGenerationFailure(aiResponse);
 
@@ -1103,9 +1135,11 @@ const ChatPage = () => {
         await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
         const generatedImages = payloadObj?.images || undefined;
         const generatedVideos = payloadObj?.videos || undefined;
+        const regenText = finalizeSpeakerText(typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string), speaker);
         const newMessage: Message = {
           role: AI,
-          txt: finalizeSpeakerText(typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string), speaker),
+          txt: regenText,
+          isVoiceNote: replyIsVoiceNote(regenVoiceNote, { text: regenText, images: generatedImages, videos: generatedVideos, isRefusal: payloadObj?.isRefusal }),
           images: generatedImages,
           isImageRequest: isFollowup ? Boolean(generatedImages && generatedImages.length > 0) : undefined,
           videos: generatedVideos,
@@ -1554,7 +1588,7 @@ const ChatPage = () => {
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden relative">
-        <ChatWindow onToggleBookmark={handleToggleBookmark} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} />
+        <ChatWindow onToggleBookmark={handleToggleBookmark} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} />
       </div>
 
       {/* Message Input - floats over the chat, except under terminal where it

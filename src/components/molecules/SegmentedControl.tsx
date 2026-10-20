@@ -55,6 +55,7 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({ value, onCha
           <button
             key={opt.value}
             type="button"
+            aria-pressed={active}
             onClick={() => onChange(opt.value)}
             className={cn(
               "h-8 px-3.5 rounded-md text-[13px] font-medium whitespace-nowrap transition-colors",

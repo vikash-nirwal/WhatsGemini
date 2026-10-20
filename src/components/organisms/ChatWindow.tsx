@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useCallback, useMemo, useState } from "react";
-import { FaCheck, FaTimes, FaArrowDown, FaClock } from "react-icons/fa";
+import { FaCheck, FaTimes, FaArrowDown, FaClock, FaMicrophone } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { YOU, LS_INITIAL_MESSAGES } from "../../utils/constants";
 import { Message, Character, ConversationTree, Intensity } from "../../types";
@@ -10,6 +10,7 @@ import { receiptFor, revealDelayMs, splitIntoTexts } from "../../features/ai/uti
 import { stripImageContextTag } from "../../features/ai/utils/imageGeneration";
 import { applyMacros, getGreetings } from "../../features/ai/utils/macros";
 import { isNsfwCharacter } from "../../features/character/contentRating";
+import { stopSpeaking } from "../../features/voice/speech";
 import MarkdownRenderer from "src/components/molecules/MarkdownRenderer";
 import { DisplayImage } from "src/components/molecules/DisplayImage";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
@@ -72,6 +73,9 @@ interface ChatWindowProps {
   participantsOpen?: boolean;
   onCloseParticipants?: () => void;
   mutedParticipantIds?: number[];
+  // The reply being written will be a voice note (#44): show "recording
+  // audio..." instead of the text streaming in.
+  recordingVoiceNote?: boolean;
 }
 
 const TerminalCursorLine = ({ name, note }: { name?: string; note?: string }) => (
@@ -81,10 +85,15 @@ const TerminalCursorLine = ({ name, note }: { name?: string; note?: string }) =>
   </div>
 );
 
-const TypingIndicator = ({ charInitials, accent, imageSrc }: { charInitials: string; accent?: [string, string]; imageSrc?: string }) => (
+const TypingIndicator = ({ charInitials, accent, imageSrc, recording }: { charInitials: string; accent?: [string, string]; imageSrc?: string; recording?: boolean }) => (
   <div className="flex items-end gap-3 mb-6">
     <CharacterAvatar name={charInitials} accent={accent} imageSrc={imageSrc} size={32} className="mt-1" />
     <div className="flex items-center gap-1 px-4 py-3.5 bg-card/[0.88] border border-border/40 shadow-soft rounded-2xl rounded-tl-[5px]">
+      {recording && (
+        <span className="mr-1.5 flex items-center gap-1.5 text-xs text-subtle">
+          <FaMicrophone size={11} className="text-primary" /> recording audio...
+        </span>
+      )}
       {[0, 1, 2].map((i) => (
         <motion.span
           key={i}
@@ -127,7 +136,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc }: { charInitials: s
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ onToggleBookmark, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ onToggleBookmark, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -288,7 +297,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onToggleBookmark, onReact, repl
       setReveal(null);
       return;
     }
-    if (!textingMode || !last?.id || last.id === previous.id || last.role === YOU) return;
+    if (!textingMode || !last?.id || last.id === previous.id || last.role === YOU || last.isVoiceNote) return;
     if (Date.now() - (last.timestamp || 0) > 60_000) return;
     const parts = splitIntoTexts(stripImageContextTag(last.txt || ""));
     if (parts.length > 1) setReveal({ id: last.id, shown: 1, parts });
@@ -302,6 +311,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onToggleBookmark, onReact, repl
     const timer = window.setTimeout(() => setReveal((r) => (r ? { ...r, shown: r.shown + 1 } : r)), revealDelayMs(reveal.parts[reveal.shown]));
     return () => window.clearTimeout(timer);
   }, [reveal, textingMode]);
+  // Reading aloud stops when you leave the chat.
+  useEffect(() => () => stopSpeaking(), [chatId]);
+
   const lastReplyIndex = useMemo(() => {
     for (let i = filteredMessages.length - 1; i >= 0; i--) if (filteredMessages[i].role !== YOU) return i;
     return -1;
@@ -625,6 +637,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onToggleBookmark, onReact, repl
                     visibleParts={reveal && reveal.id === msg.id ? reveal.shown : undefined}
                     receipt={textingMode && msg.role === YOU && !msg.isNarration ? receiptFor(i, lastReplyIndex, filteredMessages.length - 1, Boolean(aiLoading)) : undefined}
                     reactorName={msg.characterReaction ? resolveReactor(msg.characterReaction.speakerId) : undefined}
+                    voice={msg.role === YOU ? undefined : speaker?.voice}
                   />
                 );
                 const suggestions = !aiLoading && i === filteredMessages.length - 1 && replySuggestions && replySuggestions.forMessageId === msg.id ? replySuggestions.items : undefined;
@@ -658,14 +671,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onToggleBookmark, onReact, repl
             )}
             {terminal ? (
               aiLoading ? (
-                <TerminalCursorLine name={characterName} />
+                <TerminalCursorLine name={characterName} note={recordingVoiceNote ? "recording audio..." : undefined} />
               ) : isFollowupPending ? (
                 <TerminalCursorLine name={characterName} note="thinking of reaching out..." />
               ) : null
-            ) : aiLoading && streamingText && !textingMode ? (
+            ) : aiLoading && streamingText && !textingMode && !recordingVoiceNote ? (
               <StreamingBubble text={streamingText} charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} />
             ) : aiLoading || reveal ? (
-              <TypingIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} />
+              <TypingIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} recording={aiLoading && recordingVoiceNote} />
             ) : isFollowupPending ? (
               <FollowupIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} />
             ) : null}
