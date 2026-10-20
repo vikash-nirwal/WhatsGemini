@@ -886,10 +886,6 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                 </div>
               )}
             </div>
-
-            <div className="mt-6 pt-6 border-t border-border/30">
-              <ModelOverrideSection value={modelOverride} onChange={setModelOverride} />
-            </div>
           </Card>
 
           {/* Stepped field cards */}
@@ -1030,6 +1026,14 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                 />
               )}
             </Suspense>
+
+            {/* On the last step, next to the test chat: picking a model is
+                part of finishing a character, and most never change it. */}
+            {step === STEPS.length - 1 && (
+              <Card className="p-6">
+                <ModelOverrideSection value={modelOverride} onChange={setModelOverride} />
+              </Card>
+            )}
 
             <div className="sticky bottom-0 pt-6 pb-1 bg-gradient-to-t from-background via-background to-transparent flex gap-3 justify-end">
               {!editCharacter && step === 0 && (
