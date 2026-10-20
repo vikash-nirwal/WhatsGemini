@@ -448,6 +448,32 @@ export const updateChatMemory = createAsyncThunk(
   }
 );
 
+// Switches a 1:1 chat between sharing its character's memory and keeping
+// its own. The first switch to "chat" starts the chat's memory as a copy of
+// the character's (passed in as `seed`), so it still knows the backstory.
+export const updateChatMemoryScope = createAsyncThunk(
+  "chat/updateChatMemoryScope",
+  async (
+    { chatId, memoryScope, seed }: { chatId: number; memoryScope: "character" | "chat"; seed?: Pick<Chat, "memory" | "pinnedMemory" | "memoryCategories"> },
+    { rejectWithValue }
+  ) => {
+    try {
+      const chat = await dbService.getChatById(chatId);
+      chat.memoryScope = memoryScope === "chat" ? "chat" : undefined;
+      const isEmpty = !(chat.memory?.length || chat.pinnedMemory?.length);
+      if (memoryScope === "chat" && isEmpty && seed) {
+        chat.memory = seed.memory ? [...seed.memory] : undefined;
+        chat.pinnedMemory = seed.pinnedMemory ? [...seed.pinnedMemory] : undefined;
+        chat.memoryCategories = seed.memoryCategories ? { ...seed.memoryCategories } : undefined;
+      }
+      await dbService.updateChat(chat);
+      return { chatId, memoryScope: chat.memoryScope, memory: chat.memory, pinnedMemory: chat.pinnedMemory, memoryCategories: chat.memoryCategories };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
 // Updates just a room's own group-scoped scenario (Scene panel) - see
 // Chat.scenario. Meaningless for a 1:1 chat, which uses the character's own
 // Character.scenario instead and never touches this field.
@@ -713,6 +739,15 @@ const chatSlice = createSlice({
       .addCase(updateChatMemory.fulfilled, (state, action) => {
         const chat = state.chats.find((c) => c.id === action.payload.chatId);
         if (chat) {
+          chat.memory = action.payload.memory;
+          chat.pinnedMemory = action.payload.pinnedMemory;
+          chat.memoryCategories = action.payload.memoryCategories;
+        }
+      })
+      .addCase(updateChatMemoryScope.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c.id === action.payload.chatId);
+        if (chat) {
+          chat.memoryScope = action.payload.memoryScope;
           chat.memory = action.payload.memory;
           chat.pinnedMemory = action.payload.pinnedMemory;
           chat.memoryCategories = action.payload.memoryCategories;

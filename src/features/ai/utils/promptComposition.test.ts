@@ -255,3 +255,31 @@ describe("boundaries and OOC", () => {
     expect(text).toContain("(OOC: ...)");
   });
 });
+
+describe("memory in the prompt", () => {
+  const withMemory: Character = { id: 9, name: "Mira", description: "", prompt: "", memory: ["Mira's own fact."], pinnedMemory: ["Mira's pinned fact."] };
+
+  it("uses the chat's own memory instead of the character's when the chat keeps its own", () => {
+    const { systemInstruction } = buildTurnContext([], withMemory, undefined, undefined, undefined, undefined, {
+      memoryOverride: { memory: ["A what-if fact."], pinned: [] },
+    });
+    expect(systemInstruction).toContain("A what-if fact.");
+    expect(systemInstruction).not.toContain("Mira's own fact.");
+    expect(systemInstruction).not.toContain("Mira's pinned fact.");
+  });
+
+  it("uses the character's memory by default", () => {
+    const { systemInstruction } = buildTurnContext([], withMemory);
+    expect(systemInstruction).toContain("Mira's own fact.");
+    expect(systemInstruction).toContain("Mira's pinned fact.");
+  });
+
+  it("always sends pinned facts, and only the relevant rest of a long list", () => {
+    const memory = Array.from({ length: 60 }, (_, i) => `Filler fact number ${i}.`).concat("Mira hides a silver key.");
+    const character: Character = { ...withMemory, memory: ["Mira likes boats.", ...memory] };
+    const { systemInstruction } = buildTurnContext([{ role: YOU, txt: "Where is the silver key?" }], character);
+    expect(systemInstruction).toContain("Mira's pinned fact.");
+    expect(systemInstruction).toContain("Mira hides a silver key.");
+    expect(systemInstruction).not.toContain("Mira likes boats.");
+  });
+});

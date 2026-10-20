@@ -175,12 +175,17 @@ const ChatPage = () => {
   // is sent after the history (see buildPostHistoryNote), not in the system
   // prompt, so the model actually weighs it; for a room it doubles as the
   // shared scene-setting every participant sees.
+  // A 1:1 chat that keeps its own memory (Chat.memoryScope) - rooms always do.
+  const chatScopedMemory = isRoom || currentChat?.memoryScope === "chat";
   const scene: SceneContext = {
     authorNote: currentChat?.authorNote,
     worldTags: currentChat?.worldTags,
     hardLimits: currentChat?.hardLimits,
     intensity: currentChat?.intensity,
     roleplayStyle,
+    memoryOverride: !isRoom && chatScopedMemory
+      ? { memory: currentChat?.memory || [], pinned: currentChat?.pinnedMemory || [] }
+      : undefined,
   };
 
   // Which persona this chat actually speaks as: its own override if set,
@@ -306,7 +311,7 @@ const ChatPage = () => {
     const effectiveHistory = truncateHistory(buildChatHistory(sentMessages), maxChatLength, countProtectedPrefix(sentMessages));
     return estimateTokens(systemInstructionText) + estimateTokens(postHistoryNote) + estimateHistoryTokens(effectiveHistory.map((m) => m.text));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [characterData, replyLengthLimit, messages, maxChatLength, activePersona, currentChat?.authorNote, currentChat?.worldTags, currentChat?.hardLimits, currentChat?.intensity, roleplayStyle]);
+  }, [characterData, replyLengthLimit, messages, maxChatLength, activePersona, currentChat?.authorNote, currentChat?.worldTags, currentChat?.hardLimits, currentChat?.intensity, currentChat?.memory, currentChat?.pinnedMemory, currentChat?.memoryScope, roleplayStyle]);
   const maxContextTokens = useMemo(
     () => getModelContextWindow(chatProvider, selectedModel),
     [chatProvider, selectedModel]
@@ -390,8 +395,8 @@ const ChatPage = () => {
 
     try {
       const recentMessages = allMessages.slice(-Math.min(count - baseline, MEMORY_EXTRACTION_INTERVAL * 2));
-      const existingMemory = isRoom ? (currentChat?.memory || []) : (speaker.memory || []);
-      const pinned = isRoom ? (currentChat?.pinnedMemory || []) : (speaker.pinnedMemory || []);
+      const existingMemory = chatScopedMemory ? (currentChat?.memory || []) : (speaker.memory || []);
+      const pinned = chatScopedMemory ? (currentChat?.pinnedMemory || []) : (speaker.pinnedMemory || []);
       const names = transcriptNames();
       const changes = await dispatch(
         extractCharacterMemory({
@@ -407,7 +412,7 @@ const ChatPage = () => {
         // Applied to the same snapshot the model was shown, since the
         // changes refer to its facts by position.
         const merged = applyMemoryChanges(existingMemory, changes, pinned);
-        if (isRoom && chatIdNum) {
+        if (chatScopedMemory && chatIdNum) {
           const memoryCategories = carryMemoryCategories(merged, pinned, currentChat?.memoryCategories, existingMemory, changes);
           dispatch(updateChatMemory({ chatId: chatIdNum, memory: merged, memoryCategories: memoryCategories ?? null }));
         } else {

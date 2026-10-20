@@ -119,6 +119,11 @@ export interface Chat {
   memory?: string[];
   pinnedMemory?: string[]; // room equivalent of Character.pinnedMemory
   memoryCategories?: Record<string, MemoryCategory>; // see Character.memoryCategories
+  // 1:1 chats only: "chat" keeps this chat's facts in its own Chat.memory
+  // (like a room), so a what-if chat doesn't leak into the character's main
+  // story. Unset or "character" shares the character's memory. Rooms always
+  // keep their own.
+  memoryScope?: "character" | "chat";
   personaId?: string; // overrides the global active persona for just this chat; unset = use the global one
   // Per-chat boundaries, sent right before each reply (see buildPostHistoryNote).
   hardLimits?: string[]; // things the story must never include, whatever the rating

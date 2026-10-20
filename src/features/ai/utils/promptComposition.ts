@@ -111,6 +111,9 @@ export interface PromptOptions {
   // only as permissive as its most restrictive member.
   roomAllowsNsfw?: boolean;
   now?: number; // injectable clock for the time-awareness section (tests)
+  // A 1:1 chat that keeps its own memory (Chat.memoryScope "chat"): these
+  // facts replace the character's own in the prompt.
+  memoryOverride?: { memory: string[]; pinned: string[] };
 }
 
 const describeDuration = (ms: number): string => {
@@ -286,7 +289,8 @@ export const buildSystemInstruction = (
   }
   // Pinned facts always go in; the rest are picked by relevance once the
   // list is longer than MEMORY_PROMPT_LIMIT.
-  const personalFacts = [...(character.pinnedMemory || []), ...selectRelevantFacts(character.memory || [], recentMessages)];
+  const ownMemory = options.memoryOverride || { memory: character.memory || [], pinned: character.pinnedMemory || [] };
+  const personalFacts = [...ownMemory.pinned, ...selectRelevantFacts(ownMemory.memory, recentMessages)];
   if (personalFacts.length > 0) {
     sections.push(`Known facts about the user, your relationship and the story so far, remembered from past conversations:\n- ${personalFacts.join("\n- ")}`);
   }
@@ -398,6 +402,7 @@ export interface SceneContext {
   intensity?: Intensity;
   worldTags?: string[];
   roleplayStyle?: RoleplayStyle;
+  memoryOverride?: PromptOptions["memoryOverride"]; // see PromptOptions
 }
 
 // The single function replacing the copy-pasted "build history + build system
@@ -426,6 +431,7 @@ export const buildTurnContext = (
       roomLoreEntries: roomContext?.otherLoreEntries,
       groupPinnedMemory: roomContext?.groupPinnedMemory,
       roomAllowsNsfw: roomContext?.othersAllowNsfw,
+      memoryOverride: scene?.memoryOverride,
     }
   );
   // The active persona's own reference photos (UserProfile.appearanceImages),

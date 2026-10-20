@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { FaTimes, FaPlus, FaPencilAlt, FaThumbtack, FaTag } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
-import { updateChatAuthorNote, updateChatWorldTags, updateChatMemory, updateChatScenario, updateChatBoundaries } from "src/features/chatSlice";
+import { updateChatAuthorNote, updateChatWorldTags, updateChatMemory, updateChatScenario, updateChatBoundaries, updateChatMemoryScope } from "src/features/chatSlice";
 import { TagInput } from "src/components/molecules/form-controls";
 import { SegmentedControl } from "src/components/molecules/SegmentedControl";
 import { updateCharacter } from "src/features/characterSlice";
@@ -77,12 +77,22 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
   // Character.memory, the same data the Character Editor manages.
   // Pinned facts are a separate list: always injected, never evicted by the
   // MAX_MEMORY_ENTRIES cap that trims the least recently mentioned ones.
-  const memory = isRoom ? (chatMemory || []) : (character?.memory || []);
-  const pinned = isRoom ? (chatPinnedMemory || []) : (character?.pinnedMemory || []);
   // Read straight from the store, so new chat fields don't have to be
   // threaded through ChatWindow.
   const chat = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId));
-  const categories = (isRoom ? chat?.memoryCategories : character?.memoryCategories) || {};
+  // A 1:1 chat can keep its own memory too (Chat.memoryScope), like a room.
+  const chatScoped = Boolean(isRoom || chat?.memoryScope === "chat");
+  const memory = chatScoped ? (chat?.memory || chatMemory || []) : (character?.memory || []);
+  const pinned = chatScoped ? (chat?.pinnedMemory || chatPinnedMemory || []) : (character?.pinnedMemory || []);
+  const categories = (chatScoped ? chat?.memoryCategories : character?.memoryCategories) || {};
+
+  const handleScopeChange = (scope: "character" | "chat") => {
+    dispatch(updateChatMemoryScope({
+      chatId,
+      memoryScope: scope,
+      seed: character ? { memory: character.memory, pinnedMemory: character.pinnedMemory, memoryCategories: character.memoryCategories } : undefined,
+    }));
+  };
 
   // `renamed` carries a fact's category over when its wording is edited.
   const commitMemory = (newMemory: string[], newPinned: string[] = pinned, renamed?: { from: string; to: string }, categoryPatch?: Record<string, MemoryCategory | undefined>) => {
@@ -94,7 +104,7 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
       if (category) nextCategories[fact] = category;
     }
     const memoryCategories = Object.keys(nextCategories).length > 0 ? nextCategories : undefined;
-    if (isRoom) {
+    if (chatScoped) {
       dispatch(updateChatMemory({ chatId, memory: newMemory, pinnedMemory: newPinned, memoryCategories: memoryCategories ?? null }));
     } else if (character) {
       dispatch(updateCharacter({ ...character, memory: newMemory, pinnedMemory: newPinned, memoryCategories }));
@@ -314,6 +324,23 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
             <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">{isRoom ? "Group Memory" : "Memory"}</span>
             <span className="text-[11px] text-primary">{memory.length + pinned.length} facts</span>
           </div>
+          {!isRoom && character && (
+            <div className="mb-2.5">
+              <SegmentedControl
+                value={chatScoped ? "chat" : "character"}
+                onChange={(v) => handleScopeChange(v as "character" | "chat")}
+                options={[
+                  { value: "character", label: `Shared with ${character.name}` },
+                  { value: "chat", label: "This chat only" },
+                ]}
+              />
+              <p className="text-[11px] text-subtle mt-1.5">
+                {chatScoped
+                  ? `New facts stay in this chat and won't change ${character.name}'s other chats.`
+                  : `Facts are shared by every chat with ${character.name}.`}
+              </p>
+            </div>
+          )}
           <div className="flex flex-col gap-1.5">
             {pinned.map((fact, idx) => (
               <div
@@ -387,6 +414,7 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
               <button
                 type="button"
                 onClick={() => { setAddingCategory(undefined); setAddingFact(true); }}
+                aria-label="Add a memory fact"
                 className="inline-flex items-center gap-1.5 self-start px-2.5 py-1 mt-0.5 rounded-full border border-dashed border-border/40 text-subtle text-xs hover:border-primary hover:text-primary transition"
               >
                 <FaPlus size={9} /> Add
