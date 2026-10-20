@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useCallback, useMemo, useState } from "react"
 import { FaCheck, FaTimes, FaArrowDown, FaClock, FaMicrophone } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { YOU, LS_INITIAL_MESSAGES } from "../../utils/constants";
-import { Message, Character, ConversationTree, Intensity, StoryScript } from "../../types";
+import { Message, Character, ConversationTree, Intensity, StoryScript, ChatGame } from "../../types";
 import { getSiblingInfo } from "../../features/chat/messageTree";
 import { resolveEmotionPortrait } from "../../features/ai/utils/emotionUtils";
 import { stripStreamingTags } from "../../features/ai/utils/messageTags";
@@ -11,6 +11,7 @@ import { stripImageContextTag } from "../../features/ai/utils/imageGeneration";
 import type { RecapView } from "../../features/chat/useChatRecap";
 import { RecapCard } from "src/components/molecules/RecapCard";
 import { StoryProgress } from "src/components/molecules/StoryProgress";
+import { GameProgress } from "src/components/molecules/GameProgress";
 import { applyMacros, getGreetings } from "../../features/ai/utils/macros";
 import { isNsfwCharacter } from "../../features/character/contentRating";
 import { stopSpeaking } from "../../features/voice/speech";
@@ -39,6 +40,9 @@ interface ChatWindowProps {
   onReact?: (msg: Message, emoji: string) => void; // your emoji reaction to a reply (#11)
   recap?: RecapView; // "Previously on..." after a few days away (#46)
   storyScript?: StoryScript; // the story this chat follows (#57)
+  game?: ChatGame; // the mini-game being played (#52)
+  gameScore?: { user: number; character: number };
+  onEndGame?: () => void;
   onEditStory?: () => void;
   onMoveBeat?: (step: number) => void;
   // Reply ideas for the newest message (#16) and what tapping one does.
@@ -143,7 +147,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc }: { charInitials: s
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ storyScript, onEditStory, onMoveBeat, recap, onToggleBookmark, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, recap, onToggleBookmark, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -691,6 +695,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ storyScript, onEditStory, onMov
               })
             )}
             {recap && !aiLoading && <RecapCard recap={recap} terminal={terminal} />}
+            {game && onEndGame && (
+              <GameProgress game={game} score={gameScore} characterName={characterName || "them"} onEnd={onEndGame} terminal={terminal} />
+            )}
             {storyScript && filteredMessages.length > 0 && onMoveBeat && onEditStory && (
               <StoryProgress script={storyScript} onMove={onMoveBeat} onEdit={onEditStory} terminal={terminal} />
             )}

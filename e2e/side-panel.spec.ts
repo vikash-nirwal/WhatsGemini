@@ -19,6 +19,9 @@ const openScene = async (page: Page) => {
   }
   const panel = page.locator("aside").filter({ has: page.getByRole("button", { name: "Close scene panel" }) });
   await expect(panel).toBeVisible();
+  // The "More options" menu fades out after the click; until it's gone it
+  // can still be what's on top at a given point.
+  await expect(page.getByRole("menu")).toHaveCount(0);
   return panel;
 };
 

@@ -9,6 +9,7 @@ import { extractEmotionTag } from "./ai/utils/emotionUtils";
 import { extractReactionTag, extractThoughts } from "./ai/utils/messageTags";
 import { buildRecapPrompt, cleanRecap, latestStorySummary, recentForRecap } from "./chat/recap";
 import { extractBeatTag } from "./chat/storyScript";
+import { extractGameOverTag, GameOutcome } from "./chat/miniGames";
 import { modelSeesImages } from "./ai/vision";
 import { appendCharacterImages } from "./ai/utils/imageProcessing";
 import type { NormalizedImage } from "./ai/types";
@@ -44,6 +45,7 @@ export interface GenerateAIResponseResult {
   thoughts?: string;
   reaction?: string; // the character's reaction to the message it answered (#11)
   beatDone?: boolean; // the story script's current beat was reached (#57)
+  gameOver?: GameOutcome; // the mini-game ended, and who won (#52)
   photoDescription?: string; // what a helper model saw in the user's photo (#48)
   photoUnseen?: boolean; // nobody could see the user's photo (#48)
   isRefusal?: boolean;
@@ -273,7 +275,12 @@ export const generateAIResponse = createAsyncThunk(
       const reaction = reactionFirst.reaction || reactionAfter.reaction;
       const { text: withoutThoughts, thoughts } = extractThoughts(reactionAfter.text);
       // A story script's [Beat done] tag (#57) closes the reply, if present.
-      const { text: responseWithoutTags, beatDone } = extractBeatTag(withoutThoughts);
+      const { text: withoutBeat, beatDone } = extractBeatTag(withoutThoughts);
+      // A mini-game's [Game over] tag (#52), in either order with the beat tag.
+      const gameTag = extractGameOverTag(withoutBeat);
+      const beatAfter = beatDone ? { text: gameTag.text, beatDone } : extractBeatTag(gameTag.text);
+      const responseWithoutTags = beatAfter.text;
+      const gameOver = gameTag.gameOver;
 
       const finalResponseText = await extractAndSaveBase64ImagesLocally(responseWithoutTags, generatedImages);
 
@@ -288,7 +295,8 @@ export const generateAIResponse = createAsyncThunk(
         reaction,
         photoDescription,
         photoUnseen: photoUnseen || undefined,
-        beatDone: beatDone || undefined,
+        beatDone: beatAfter.beatDone || undefined,
+        gameOver,
         // Only a plain text reply can be an out-of-character refusal; image/
         // video turns carry a derived scene summary instead.
         isRefusal: !isImageRequest && !isVideoRequest && looksLikeRefusal(finalResponseText) ? true : undefined,

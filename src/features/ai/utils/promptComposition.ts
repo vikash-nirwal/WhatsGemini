@@ -1,9 +1,10 @@
-import { Character, Intensity, LoreEntry, Message, RoleplayStyle, StoryScript, UserProfile } from "../../../types";
+import { Character, ChatGame, Intensity, LoreEntry, Message, RoleplayStyle, StoryScript, UserProfile } from "../../../types";
 import { YOU } from "../../../utils/constants";
 import { stripLeakedBase64 } from "./apiUtils";
 import { buildEmotionDirective } from "./emotionUtils";
 import { buildReactionDirective, buildThoughtsDirective, formatReactionNote } from "./messageTags";
 import { buildStoryScriptSection } from "../../chat/storyScript";
+import { buildGameSection } from "../../chat/miniGames";
 import { buildDatesSection } from "../../character/importantDates";
 import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
 import { applyMacros } from "./macros";
@@ -460,6 +461,7 @@ export interface SceneContext {
   roleplayStyle?: RoleplayStyle;
   memoryOverride?: PromptOptions["memoryOverride"]; // see PromptOptions
   storyScript?: StoryScript; // the story this chat follows (#57)
+  game?: ChatGame; // the mini-game being played (#52)
 }
 
 // The single function replacing the copy-pasted "build history + build system
@@ -481,7 +483,12 @@ export const buildTurnContext = (
   const history = buildChatHistory(messages, roomContext?.speakerNames, perspective);
   // The story script (#57) goes in the system instruction, which is never
   // compressed, so it holds however long the chat runs.
-  const directives = scene?.storyScript ? [buildStoryScriptSection(scene.storyScript), ...(extraDirectives || [])] : extraDirectives;
+  // A mini-game's rules (#52) ride along the same way while it's on.
+  const sceneDirectives = [
+    ...(scene?.storyScript ? [buildStoryScriptSection(scene.storyScript)] : []),
+    ...(scene?.game && character ? [buildGameSection(scene.game, character.name)] : []),
+  ];
+  const directives = sceneDirectives.length > 0 ? [...sceneDirectives, ...(extraDirectives || [])] : extraDirectives;
   const { text, images, characterName } = buildSystemInstruction(
     character, directives, replyLengthLimit, activePersona, messages, roomContext?.otherParticipants,
     roomContext?.groupScenario, roomContext?.groupMemory,

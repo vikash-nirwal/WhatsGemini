@@ -116,6 +116,15 @@ export interface ImportantDate {
   lastCelebratedYear?: number; // so that happens once a year
 }
 
+// A mini-game being played in a chat (#52).
+export type GameKind = "twenty-questions" | "would-you-rather" | "truth-or-dare";
+export interface ChatGame {
+  kind: GameKind;
+  guesser?: "user" | "character"; // 20 Questions: who guesses
+  turns: number; // replies to the user since the game started
+  startedAt: number;
+}
+
 // Story script (#57): the story a chat stays inside. See storyScript.ts.
 export interface StoryBeat {
   id: string;
@@ -185,6 +194,8 @@ export interface Chat {
   replySuggestions?: boolean; // show 3 tappable reply ideas after each reply (#16)
   recap?: ChatRecap; // the cached "Previously on..." card (#46), never sent to the model
   storyScript?: StoryScript; // the story this chat follows (#57)
+  game?: ChatGame; // the mini-game being played (#52)
+  gameScore?: { user: number; character: number }; // games won, where there's a winner
   personaId?: string; // overrides the global active persona for just this chat; unset = use the global one
   // Per-chat boundaries, sent right before each reply (see buildPostHistoryNote).
   hardLimits?: string[]; // things the story must never include, whatever the rating
