@@ -7,7 +7,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 ## Where we stand
 
 - **Current phase:** Wave 2, on branch `phase-0-bug-fixes` (not pushed, no PR yet). Wave 1 is done and merged (6612ae1).
-- **Next up:** Wave 2 Lane A (U1, U2, U3, U6, U7, U8, bubble half of U4) here; Wave 2 Lane B (T4, T6) in a parallel session.
+- **Next up:** Wave 2 Lane A is done. Waiting for Wave 2 Lane B (T4, T6); then merge (user's OK) and T5 (screenshot tests).
 - **Open questions for the user:** none yet.
 
 ## Execution plan
@@ -51,19 +51,19 @@ Each wave ends with: merge (user's OK), full unit + UI test run, PROGRESS.md upd
 |---|------|--------|--------|-------|
 | T1 | Playwright setup, 4 viewport projects | done | b93caf6 | `npm run test:e2e`. Projects: desktop 1280×800, tablet 768×1024, iPhone 14 (WebKit), Pixel 7. Served under `/WhatsGemini/` (the `homepage` path). `E2E_PORT` runs it from a second checkout without reusing another checkout's dev server. |
 | T2 | Seed fixtures and mocked AI replies | done | 0d40c5d | `e2e/fixtures.ts` seeds IndexedDB/localStorage and mocks `**/chat/completions`; `e2e/layout.ts` has geometry helpers. |
-| T3 | Layout geometry checks | todo | | Added alongside each U fix. |
+| T3 | Layout geometry checks | done | 008aea9, 5d11cc1 | Wave 1 specs plus `e2e/composer.spec.ts` and `e2e/message-actions.spec.ts`. |
 | T4 | Flow tests | todo | | |
 | T5 | Screenshot tests | todo | | |
 | T6 | Accessibility scan | todo | | |
 | T7 | GitHub Actions CI | done | 2ddc302 | `.github/workflows/ci.yml`. Not run on GitHub yet (nothing pushed). |
-| U1 | Multi-line input overflows composer | todo | | |
-| U2 | Composer covers latest messages | todo | | |
-| U3 | Phone composer too narrow | todo | | |
-| U4 | Sidebar crowds chat at tablet width | in progress | 7e7bd7f | Sidebar/header half done: sidebar docks from `lg` (1024px), drawer below. Message-bubble menu overlap is Wave 2 Lane A. |
+| U1 | Multi-line input overflows composer | done | 008aea9 | `min-h-14`, `items-end`, `rounded-[28px]`. |
+| U2 | Composer covers latest messages | done | 008aea9, 5d11cc1 | ChatPage measures the composer (ResizeObserver) and passes `bottomInset` to ChatWindow. The list also sticks to the bottom when its content grows (fonts/images loading late on WebKit). |
+| U3 | Phone composer too narrow | done | 008aea9 | Below 640px the tools sit behind "Composer options" (`menuitemcheckbox` items, same aria-labels); Send/Stop are icon-only. |
+| U4 | Sidebar crowds chat at tablet width | done | 7e7bd7f, 5d11cc1 | Sidebar docks from `lg` (1024px). User bubbles lost the ⋮ menu that sat on the text and use a footer row like AI replies. |
 | U5 | Mobile drawer stays open after navigating | done | 3a9c02b | Closes on every route change. `e2e/drawer.spec.ts`. |
-| U6 | `100vh` wrong on phones | todo | | |
-| U7 | Bubbles waste space on touch | todo | | |
-| U8 | Scroll button and toasts collide with composer | todo | | |
+| U6 | `100vh` wrong on phones | done | 008aea9 | `h-dvh`/`min-h-dvh` in all 16 files, and a safe-area gap under the composer. Not checked on a real iPhone. |
+| U7 | Bubbles waste space on touch | done | 5d11cc1 | Touch screens: hover rows hidden; long-press or contextmenu opens a bottom sheet (`role=menu` "Message actions"). |
+| U8 | Scroll button and toasts collide with composer | done | 008aea9 | Scroll button anchored above `bottomInset`; toasts at top-center below 640px. |
 | U9 | Wizard step bars scroll sideways on phones | done | d6ae19e | New `WizardSteps` component: compact "Step n of m" when the row doesn't fit. `e2e/wizard.spec.ts`. |
 
 ## Phases 1–7: Features
@@ -88,6 +88,7 @@ Facts that save the next session time.
 - **Get past the login and 18+ gate without a key:** set localStorage `age_confirmed_18 = "true"` and `chat_provider = "ollama"` (a keyless provider), then reload.
 - **Fake the AI in the browser pane:** with `chat_provider = "ollama"`, override `window.fetch` in the page for URLs containing `/chat/completions`: return SSE (`data: {"choices":[{"delta":{"content":"…"}}]}` then `data: [DONE]`) when the body has `stream: true`, else JSON `{choices:[{message:{content}}]}`. The override is lost on reload.
 - **Seed test data:** IndexedDB database `ChatAppDB`, tables `chats`, `characters`, `worlds`, `adventures`, `settings`. Message roles are `"you"` and `"ai"` (not `user`/`model`). "Try a sample character" on the home screen creates character + chat 1.
+- **Browser pane caveat:** a parallel session can share the pane's localhost:3000 storage (`chat_provider` kept flipping to `anthropic`). For checking layout, prefer Playwright, which runs in its own isolated browser; a throwaway spec that calls `page.screenshot` works well.
 - **UI tests:** `npm run test:e2e` (reuses a dev server already on port 3000 - make sure it's this checkout's). From another worktree: `E2E_PORT=3100 npx playwright test`. Write new e2e tests with role/aria-label selectors and geometry helpers from `e2e/layout.ts`.
 - **Lockfiles:** both `package-lock.json` and `yarn.lock` exist. Use npm (the scripts and README do).
 
@@ -95,6 +96,7 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session: what changed, and anything left half-done.
 
+- 2026-10-20: Wave 2 Lane A: U1-U3, U6, U8 (008aea9) and U7 + U4 bubble half (5d11cc1). 238 unit and 62 UI tests pass (18 skipped by viewport). Started Wave 2 Lane B (T4, T6) in a parallel session. Told it about the new selectors (inline Copy/Edit/Delete on user bubbles, "Composer options" menu, long-press sheet).
 - 2026-10-20: Merged Wave 1 Lane B (6612ae1) with the user's OK. On the merged branch: 238 unit tests, 32 UI tests pass (8 skipped by viewport), typecheck clean. Removed its worktree. Started Wave 2.
 - 2026-10-20: Fixed B5 (non-destructive compression) and B6 (adventure pipeline). Started Lane B (UI tests) as a parallel session. 238 unit tests pass.
 - 2026-10-20: Fixed B4 (memory updates, forgetting, recency-based eviction). 222 unit tests pass.
