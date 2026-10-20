@@ -7,8 +7,8 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 ## Where we stand
 
 - **Current phase:** Waves 1 and 2 are done, on branch `phase-0-bug-fixes` (not pushed, no PR yet). Wave 2 Lane B is merged (70ac633).
-- **Next up:** Wave 3 (features), with lanes picked from the files each item touches. U10 and A1 are small leftovers that can go in a parallel lane.
-- **Open questions for the user:** whether to push `phase-0-bug-fixes` and open a PR before Wave 3, so CI runs on GitHub for the first time.
+- **Next up:** Wave 3 is running: memory (#2, #3, #1, #4, #5) here, lorebook (#29) and U10/A1 in parallel sessions.
+- **Open questions for the user:** none. (They chose to start Wave 3 before pushing; nothing is pushed yet.)
 
 ## Execution plan
 
@@ -25,11 +25,16 @@ Parallel lanes work in their own worktree and branch and **don't edit PROGRESS.m
 - **Lane B:** T4 (flows) and T6 (accessibility); test files only.
 - Then T5 (screenshots), once the layout fixes have landed.
 
-**Wave 3: features.** Lanes are picked at the start of the wave from the files each item touches. Likely groups:
-- Memory: #1, #2, #3, then #4 (needs B5), #5.
-- Composer and narrative tools: #15, #17, #18, #16, #14, #20, #21.
-- Mostly self-contained: #29 (lorebook), #31 (prompt inspector), #33 (context meter), #32 (per-character model).
-- Later: immersion (#6–#13), group chats (#22–#24), adventures (#25–#28), #30.
+**Wave 3 (now)**
+- **Lane A** (coordinating session, branch `phase-0-bug-fixes`): memory, #2, #3, #1, #4, #5 in that order. Owns: `memoryExtraction.ts`, `promptComposition.ts`, `transcript.ts`, `chatHistoryUtils.ts`, `aiSlice.ts`, `chatSlice.ts`, `characterSlice.ts`, `ChatPage.tsx`, `ChatWindow.tsx`, `ChatMessage.tsx`, `ScenePanel.tsx`, `CharacterPage.tsx`, `constants.ts`.
+- **Lane B** (parallel session): #29 lorebook triggers. Owns: `loreUtils.ts`, `LorebookStep.tsx`, `characterCard.ts`, `importCustomize.ts`, `ImportReviewDialog.tsx`, `WorldEditorPage.tsx`, `worldSlice.ts` and their tests.
+- **Lane C** (parallel session): U10 and A1. Owns: `MessageInput.tsx`, `src/styles/` and `src/index.css`, `CharacterEditorPage.tsx` and its step files except `LorebookStep.tsx`, `e2e/a11y-baseline.json` and the visual baselines.
+- **Shared-file exception:** `src/types/index.ts` may be edited by several lanes, each only adding optional fields to the interfaces its items need (Lane B: `LoreEntry`; Lane A: `Chat`, `Character`, `Message`). Conflicts there get resolved at merge.
+- Parallel lanes run UI tests on their own ports: Lane B `E2E_PORT=3100`, Lane C `E2E_PORT=3200`.
+
+**Wave 4:** composer and narrative tools (#15, #17, #18, #16, #14, #20, #21), the prompt inspector (#31), the context meter (#33) and per-character models (#32).
+
+**Later:** immersion (#6–#13), group chats (#22–#24), adventures (#25–#28), #30.
 
 Each wave ends with: merge (user's OK), full unit + UI test run, PROGRESS.md update, disk report.
 
