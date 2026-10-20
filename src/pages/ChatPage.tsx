@@ -18,7 +18,7 @@ import { Message, Chat, Character } from "../types";
 import { stripLeakedBase64 } from "../features/ai/utils/apiUtils";
 import { buildChatHistory, buildSystemInstruction, buildTurnContext, AUTO_REPLY_DIRECTIVE, FOLLOWUP_CONTINUATION_PROMPT, RoomContext, SceneContext } from "../features/ai/utils/promptComposition";
 import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
-import { applyMemoryChanges } from "../features/ai/utils/memoryExtraction";
+import { applyMemoryChanges, carryMemoryCategories } from "../features/ai/utils/memoryExtraction";
 import { effectiveContentRating } from "../features/character/contentRating";
 import { resolveNextSpeaker, parseMention, stripSpeakerPrefix } from "../features/ai/utils/roomRouting";
 import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo } from "../features/chat/messageTree";
@@ -408,13 +408,15 @@ const ChatPage = () => {
         // changes refer to its facts by position.
         const merged = applyMemoryChanges(existingMemory, changes, pinned);
         if (isRoom && chatIdNum) {
-          dispatch(updateChatMemory({ chatId: chatIdNum, memory: merged }));
+          const memoryCategories = carryMemoryCategories(merged, pinned, currentChat?.memoryCategories, existingMemory, changes);
+          dispatch(updateChatMemory({ chatId: chatIdNum, memory: merged, memoryCategories: memoryCategories ?? null }));
         } else {
           // Re-read the character before writing: `speaker` was captured
           // before the extraction call, and saving it whole would undo
           // anything written meanwhile (e.g. this turn's selfie in gallery).
-          const fresh = await dispatch(fetchCharacterById(speaker.id)).unwrap().catch(() => speaker);
-          dispatch(updateCharacter({ ...(fresh || speaker), memory: merged }));
+          const fresh = (await dispatch(fetchCharacterById(speaker.id)).unwrap().catch(() => speaker)) || speaker;
+          const memoryCategories = carryMemoryCategories(merged, pinned, fresh.memoryCategories, existingMemory, changes);
+          dispatch(updateCharacter({ ...fresh, memory: merged, memoryCategories }));
         }
       }
     } catch (err) {

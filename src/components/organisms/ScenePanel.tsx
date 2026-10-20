@@ -1,18 +1,21 @@
 import React, { useEffect, useRef, useState } from "react";
-import { FaTimes, FaPlus, FaPencilAlt, FaThumbtack } from "react-icons/fa";
+import { FaTimes, FaPlus, FaPencilAlt, FaThumbtack, FaTag } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { updateChatAuthorNote, updateChatWorldTags, updateChatMemory, updateChatScenario, updateChatBoundaries } from "src/features/chatSlice";
 import { TagInput } from "src/components/molecules/form-controls";
 import { SegmentedControl } from "src/components/molecules/SegmentedControl";
 import { updateCharacter } from "src/features/characterSlice";
 import { setEmotionPanelEnabled, setEmotionPopupEnabled, setEmotionPopupDuration } from "src/features/settingsSlice";
-import { Character, Intensity } from "src/types";
+import { Character, Intensity, MemoryCategory } from "src/types";
 import { Textarea } from "src/components/atoms/textarea";
 import { Input } from "src/components/atoms/input";
 import { Button } from "src/components/atoms/button";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { ChatSidePanelShell } from "src/components/molecules/ChatSidePanelShell";
 import { MAX_MEMORY_ENTRIES } from "src/utils/constants";
+import { cn } from "src/utils/cn";
+
+const CATEGORY_LABELS: Record<MemoryCategory, string> = { user: "About you", relationship: "Relationship", story: "Story" };
 
 interface ScenePanelProps {
   chatId: number;
@@ -76,13 +79,33 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
   // MAX_MEMORY_ENTRIES cap that trims the least recently mentioned ones.
   const memory = isRoom ? (chatMemory || []) : (character?.memory || []);
   const pinned = isRoom ? (chatPinnedMemory || []) : (character?.pinnedMemory || []);
+  // Read straight from the store, so new chat fields don't have to be
+  // threaded through ChatWindow.
+  const chat = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId));
+  const categories = (isRoom ? chat?.memoryCategories : character?.memoryCategories) || {};
 
-  const commitMemory = (newMemory: string[], newPinned: string[] = pinned) => {
-    if (isRoom) {
-      dispatch(updateChatMemory({ chatId, memory: newMemory, pinnedMemory: newPinned }));
-    } else if (character) {
-      dispatch(updateCharacter({ ...character, memory: newMemory, pinnedMemory: newPinned }));
+  // `renamed` carries a fact's category over when its wording is edited.
+  const commitMemory = (newMemory: string[], newPinned: string[] = pinned, renamed?: { from: string; to: string }, categoryPatch?: Record<string, MemoryCategory | undefined>) => {
+    const nextCategories: Record<string, MemoryCategory> = {};
+    for (const fact of [...newPinned, ...newMemory]) {
+      const category = categoryPatch && fact in categoryPatch
+        ? categoryPatch[fact]
+        : categories[fact] ?? (renamed && fact === renamed.to ? categories[renamed.from] : undefined);
+      if (category) nextCategories[fact] = category;
     }
+    const memoryCategories = Object.keys(nextCategories).length > 0 ? nextCategories : undefined;
+    if (isRoom) {
+      dispatch(updateChatMemory({ chatId, memory: newMemory, pinnedMemory: newPinned, memoryCategories: memoryCategories ?? null }));
+    } else if (character) {
+      dispatch(updateCharacter({ ...character, memory: newMemory, pinnedMemory: newPinned, memoryCategories }));
+    }
+  };
+
+  // Cycles a fact through About you -> Relationship -> Story -> unsorted.
+  const handleCycleCategory = (fact: string) => {
+    const order: (MemoryCategory | undefined)[] = ["user", "relationship", "story", undefined];
+    const next = order[(order.indexOf(categories[fact]) + 1) % order.length];
+    commitMemory(memory, pinned, undefined, { [fact]: next });
   };
 
   const handlePinFact = (index: number) => {
@@ -106,6 +129,8 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
   const [editingFactIndex, setEditingFactIndex] = useState<number | null>(null);
   const [factDraft, setFactDraft] = useState("");
   const [addingFact, setAddingFact] = useState(false);
+  // The group a fact typed into "+ Add" joins (the group whose button was used).
+  const [addingCategory, setAddingCategory] = useState<MemoryCategory | undefined>(undefined);
 
   const startEditFact = (index: number) => {
     setEditingFactIndex(index);
@@ -118,7 +143,7 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
     const newMemory = trimmed
       ? memory.map((fact, i) => (i === editingFactIndex ? trimmed : fact))
       : memory.filter((_, i) => i !== editingFactIndex);
-    commitMemory(newMemory);
+    commitMemory(newMemory, pinned, trimmed ? { from: memory[editingFactIndex], to: trimmed } : undefined);
     setEditingFactIndex(null);
     setFactDraft("");
   };
@@ -128,7 +153,7 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
     if (trimmed) {
       const withNewFact = [...memory, trimmed];
       const capped = withNewFact.length > MAX_MEMORY_ENTRIES ? withNewFact.slice(withNewFact.length - MAX_MEMORY_ENTRIES) : withNewFact;
-      commitMemory(capped);
+      commitMemory(capped, pinned, undefined, addingCategory ? { [trimmed]: addingCategory } : undefined);
     }
     setFactDraft("");
     setAddingFact(false);
@@ -164,6 +189,89 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
   const tagColor = character?.accent?.[0];
   const tagBg = tagColor ? `${tagColor}26` : "rgb(var(--primary) / 0.14)";
   const tagFg = tagColor || "rgb(var(--primary))";
+
+  // Memory grouped by what it's about, once any fact has a category; a
+  // memory nobody has sorted yet stays one plain list, as before.
+  const groupMemory = memory.some((fact) => categories[fact]);
+  const memoryGroups: { key: string; label: string; category?: MemoryCategory; items: { fact: string; idx: number }[] }[] = [
+    { key: "user", label: CATEGORY_LABELS.user, category: "user" as MemoryCategory },
+    { key: "relationship", label: CATEGORY_LABELS.relationship, category: "relationship" as MemoryCategory },
+    { key: "story", label: CATEGORY_LABELS.story, category: "story" as MemoryCategory },
+    { key: "other", label: "Other", category: undefined },
+  ].map((g) => ({
+    ...g,
+    items: memory
+      .map((fact, idx) => ({ fact, idx }))
+      .filter(({ fact }) => (groupMemory ? (categories[fact] ?? undefined) === g.category : g.key === "other")),
+  }));
+
+  const renderFact = (fact: string, idx: number) =>
+                editingFactIndex === idx ? (
+                  <Input
+                    key={idx}
+                    autoFocus
+                    value={factDraft}
+                    onChange={(e) => setFactDraft(e.target.value)}
+                    onBlur={commitFactEdit}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        commitFactEdit();
+                      } else if (e.key === "Escape") {
+                        setEditingFactIndex(null);
+                        setFactDraft("");
+                      }
+                    }}
+                    className="h-auto py-2 px-3 text-[12.5px] rounded-lg bg-background"
+                  />
+                ) : (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-background border border-border/30 text-[12.5px] text-foreground"
+                  >
+                    <span className="flex-1">{fact}</span>
+                    <Button
+                      onClick={() => handleCycleCategory(fact)}
+                      variant="ghost"
+                      size="icon"
+                      className={cn("h-auto w-auto p-0.5 hover:bg-transparent flex-shrink-0", categories[fact] ? "text-primary/70 hover:text-primary" : "text-subtle hover:text-primary")}
+                      title={`Group: ${categories[fact] ? CATEGORY_LABELS[categories[fact]] : "Unsorted"} - click to change`}
+                      aria-label={`Change group (now ${categories[fact] ? CATEGORY_LABELS[categories[fact]] : "Unsorted"})`}
+                    >
+                      <FaTag size={9} />
+                    </Button>
+                    <Button
+                      onClick={() => handlePinFact(idx)}
+                      variant="ghost"
+                      size="icon"
+                      className="h-auto w-auto p-0.5 text-subtle hover:text-primary hover:bg-transparent flex-shrink-0"
+                      title="Pin (always remembered, never dropped)"
+                      aria-label="Pin this fact"
+                    >
+                      <FaThumbtack size={10} />
+                    </Button>
+                    <Button
+                      onClick={() => startEditFact(idx)}
+                      variant="ghost"
+                      size="icon"
+                      className="h-auto w-auto p-0.5 text-subtle hover:text-primary hover:bg-transparent flex-shrink-0"
+                      title="Edit"
+                      aria-label="Edit this fact"
+                    >
+                      <FaPencilAlt size={10} />
+                    </Button>
+                    <Button
+                      onClick={() => handleRemoveMemoryFact(idx)}
+                      variant="ghost"
+                      size="icon"
+                      className="h-auto w-auto p-0.5 text-subtle hover:text-destructive hover:bg-transparent flex-shrink-0"
+                      title="Forget"
+                      aria-label="Forget this fact"
+                    >
+                      <FaTimes size={11} />
+                    </Button>
+                  </div>
+                )
 
   return (
     <ChatSidePanelShell title="Scene" onClose={onClose} closeLabel="Close scene panel">
@@ -238,64 +346,24 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
             {memory.length === 0 && pinned.length === 0 && !addingFact ? (
               <p className="text-[12.5px] text-subtle">{isRoom ? "No shared facts remembered yet." : "No facts remembered yet."}</p>
             ) : (
-              memory.map((fact, idx) =>
-                editingFactIndex === idx ? (
-                  <Input
-                    key={idx}
-                    autoFocus
-                    value={factDraft}
-                    onChange={(e) => setFactDraft(e.target.value)}
-                    onBlur={commitFactEdit}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        commitFactEdit();
-                      } else if (e.key === "Escape") {
-                        setEditingFactIndex(null);
-                        setFactDraft("");
-                      }
-                    }}
-                    className="h-auto py-2 px-3 text-[12.5px] rounded-lg bg-background"
-                  />
-                ) : (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-background border border-border/30 text-[12.5px] text-foreground"
-                  >
-                    <span className="flex-1">{fact}</span>
-                    <Button
-                      onClick={() => handlePinFact(idx)}
-                      variant="ghost"
-                      size="icon"
-                      className="h-auto w-auto p-0.5 text-subtle hover:text-primary hover:bg-transparent flex-shrink-0"
-                      title="Pin (always remembered, never dropped)"
-                      aria-label="Pin this fact"
-                    >
-                      <FaThumbtack size={10} />
-                    </Button>
-                    <Button
-                      onClick={() => startEditFact(idx)}
-                      variant="ghost"
-                      size="icon"
-                      className="h-auto w-auto p-0.5 text-subtle hover:text-primary hover:bg-transparent flex-shrink-0"
-                      title="Edit"
-                      aria-label="Edit this fact"
-                    >
-                      <FaPencilAlt size={10} />
-                    </Button>
-                    <Button
-                      onClick={() => handleRemoveMemoryFact(idx)}
-                      variant="ghost"
-                      size="icon"
-                      className="h-auto w-auto p-0.5 text-subtle hover:text-destructive hover:bg-transparent flex-shrink-0"
-                      title="Forget"
-                      aria-label="Forget this fact"
-                    >
-                      <FaTimes size={11} />
-                    </Button>
-                  </div>
-                )
-              )
+              memoryGroups.map((group) => (
+                <React.Fragment key={group.key}>
+                  {groupMemory && group.items.length > 0 && (
+                    <div className="flex items-center justify-between mt-1.5 first:mt-0">
+                      <span className="text-[10.5px] tracking-[0.08em] uppercase text-subtle font-semibold">{group.label}</span>
+                      <button
+                        type="button"
+                        onClick={() => { setAddingCategory(group.category); setAddingFact(true); }}
+                        className="text-[10.5px] text-subtle hover:text-primary"
+                        aria-label={`Add a fact to ${group.label}`}
+                      >
+                        + add
+                      </button>
+                    </div>
+                  )}
+                  {group.items.map(({ fact, idx }) => renderFact(fact, idx))}
+                </React.Fragment>
+              ))
             )}
             {addingFact ? (
               <Input
@@ -318,7 +386,7 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
             ) : (
               <button
                 type="button"
-                onClick={() => setAddingFact(true)}
+                onClick={() => { setAddingCategory(undefined); setAddingFact(true); }}
                 className="inline-flex items-center gap-1.5 self-start px-2.5 py-1 mt-0.5 rounded-full border border-dashed border-border/40 text-subtle text-xs hover:border-primary hover:text-primary transition"
               >
                 <FaPlus size={9} /> Add

@@ -118,6 +118,7 @@ export interface Chat {
   scenario?: string;
   memory?: string[];
   pinnedMemory?: string[]; // room equivalent of Character.pinnedMemory
+  memoryCategories?: Record<string, MemoryCategory>; // see Character.memoryCategories
   personaId?: string; // overrides the global active persona for just this chat; unset = use the global one
   // Per-chat boundaries, sent right before each reply (see buildPostHistoryNote).
   hardLimits?: string[]; // things the story must never include, whatever the rating
@@ -141,6 +142,9 @@ export interface Chat {
 export type ArtStyle = "anime" | "realistic" | "3d";
 
 export type ContentRating = "sfw" | "nsfw";
+
+// What a long-term memory fact is about.
+export type MemoryCategory = "user" | "relationship" | "story";
 
 export type Intensity = "fade" | "suggestive" | "explicit";
 
@@ -182,6 +186,9 @@ export interface Character {
   adultsConfirmed?: boolean; // author confirmed every character in the card is 18+
   memory?: string[]; // durable facts about the user/relationship, extracted over time
   pinnedMemory?: string[]; // facts the user pinned: always injected, never evicted by the MAX_MEMORY_ENTRIES cap
+  // What each fact (memory or pinned, keyed by its text) is about - for
+  // grouping in the Scene panel. Facts with no entry show as "Other".
+  memoryCategories?: Record<string, MemoryCategory>;
   autoSelfie?: {
     enabled: boolean;
     frequency: number; // 1-100, % chance each of the character's own replies spontaneously includes a selfie

@@ -1,4 +1,4 @@
-import { applyMemoryChanges, buildMemoryExtractionPrompt, parseMemoryChanges, NO_MEMORY_CHANGES, MemoryChanges } from "./memoryExtraction";
+import { applyMemoryChanges, buildMemoryExtractionPrompt, parseMemoryChanges, carryMemoryCategories, NO_MEMORY_CHANGES, MemoryChanges } from "./memoryExtraction";
 import { MAX_MEMORY_ENTRIES } from "../../../utils/constants";
 
 const changes = (patch: Partial<MemoryChanges>): MemoryChanges => ({ ...NO_MEMORY_CHANGES, ...patch });
@@ -86,5 +86,37 @@ describe("buildMemoryExtractionPrompt", () => {
     expect(prompt).toContain("- Arin is a knight.");
     expect(prompt).not.toContain("1. Arin is a knight.");
     expect(prompt).toContain("roleplay character (Mira)");
+  });
+});
+
+describe("memory categories", () => {
+  it("reads a category tag off new and updated facts", () => {
+    const parsed = parseMemoryChanges("- [user] Arin hates rain.\nUPDATE 1: [relationship] Mira trusts Arin now.\n- [weird] Lena visited.", 1);
+    expect(parsed.added).toEqual(["Arin hates rain.", "Lena visited."]);
+    expect(parsed.updated).toEqual([{ index: 0, text: "Mira trusts Arin now." }]);
+    expect(parsed.categories).toEqual({ "Arin hates rain.": "user", "Mira trusts Arin now.": "relationship" });
+  });
+
+  it("leaves categories unset when the model gives none", () => {
+    expect(parseMemoryChanges("- Arin hates rain.", 0).categories).toBeUndefined();
+  });
+
+  it("carries categories across updates and drops forgotten facts", () => {
+    const existing = ["Arin lives in Paris.", "Mira owes Arin a favor."];
+    const previous = { "Arin lives in Paris.": "user" as const, "Mira owes Arin a favor.": "relationship" as const };
+    const changes: MemoryChanges = { ...NO_MEMORY_CHANGES, updated: [{ index: 0, text: "Arin moved to Berlin." }], forgotten: [1], added: ["The inn burned down."], categories: { "The inn burned down.": "story" } };
+    const merged = applyMemoryChanges(existing, changes);
+    expect(carryMemoryCategories(merged, [], previous, existing, changes)).toEqual({
+      "Arin moved to Berlin.": "user",
+      "The inn burned down.": "story",
+    });
+  });
+
+  it("keeps pinned facts' categories", () => {
+    expect(carryMemoryCategories([], ["Arin is a knight."], { "Arin is a knight.": "user" }, [], NO_MEMORY_CHANGES)).toEqual({ "Arin is a knight.": "user" });
+  });
+
+  it("asks the model to tag each fact", () => {
+    expect(buildMemoryExtractionPrompt("x", [], [], { userName: "Arin" })).toContain("[user] (about Arin)");
   });
 });

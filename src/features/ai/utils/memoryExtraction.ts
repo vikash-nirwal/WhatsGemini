@@ -1,4 +1,5 @@
 import { MAX_MEMORY_ENTRIES } from "../../../utils/constants";
+import { MemoryCategory } from "../../../types";
 import { UsageInfo } from "../types";
 import { ChatProviderAdapter, ProviderRuntimeConfig } from "../providers/types";
 
@@ -11,6 +12,8 @@ export interface MemoryChanges {
   updated: { index: number; text: string }[];
   forgotten: number[];
   reinforced: number[]; // known facts that came up again and still matter
+  // Category the model gave each added or updated fact, keyed by its text.
+  categories?: Record<string, MemoryCategory>;
 }
 
 export interface MemoryExtractionResult {
@@ -51,12 +54,24 @@ From the recent conversation only, work out what to change in the known facts. W
 Skip small talk and anything that only mattered in the moment. Use real names, not "the user" or "the AI". Keep each fact short and self-contained (one line).
 
 Reply with one change per line, using only these forms:
-- <new fact>              (something new worth remembering)
-UPDATE <number>: <fact>   (a known fact changed - e.g. they moved, a relationship shifted - give the corrected version)
+- [category] <new fact>              (something new worth remembering)
+UPDATE <number>: [category] <fact>   (a known fact changed - e.g. they moved, a relationship shifted - give the corrected version)
 FORGET <number>           (a known fact is no longer true and has no replacement)
 STILL TRUE: <numbers>     (known facts that came up again in this conversation and still matter, comma-separated)
 
+[category] is one of [user] (about ${user}), [relationship] (between ${char} and ${user}) or [story] (events, plans, places, items).
+
 Never add a fact that repeats a known or pinned one; update it instead. If nothing changed, reply with exactly NONE.`;
+};
+
+const CATEGORY_TAGS: Record<string, MemoryCategory> = { user: "user", relationship: "relationship", story: "story" };
+
+// Pulls a leading "[story]"-style tag off a fact. An unknown tag is dropped
+// from the text too, so a stray label never ends up stored as part of it.
+const splitCategory = (raw: string): { fact: string; category?: MemoryCategory } => {
+  const match = raw.trim().match(/^\[\s*([a-z]+)\s*\]\s*(.*)$/i);
+  if (!match) return { fact: raw.trim() };
+  return { fact: match[2].trim(), category: CATEGORY_TAGS[match[1].toLowerCase()] };
 };
 
 // Reads the model's reply back into MemoryChanges, ignoring anything that
@@ -68,6 +83,7 @@ export const parseMemoryChanges = (reply: string, memoryLength: number): MemoryC
 
   const inRange = (n: number) => Number.isInteger(n) && n >= 1 && n <= memoryLength;
   const changes: MemoryChanges = { added: [], updated: [], forgotten: [], reinforced: [] };
+  const categories: Record<string, MemoryCategory> = {};
 
   for (const rawLine of text.split("\n")) {
     const line = rawLine.trim().replace(/^[*_`]+|[*_`]+$/g, "").trim();
@@ -76,8 +92,11 @@ export const parseMemoryChanges = (reply: string, memoryLength: number): MemoryC
     const update = line.match(/^update\s*#?(\d+)\s*[:\-–]\s*(.+)$/i);
     if (update) {
       const n = Number(update[1]);
-      const fact = update[2].trim();
-      if (inRange(n) && fact) changes.updated.push({ index: n - 1, text: fact });
+      const { fact, category } = splitCategory(update[2]);
+      if (inRange(n) && fact) {
+        changes.updated.push({ index: n - 1, text: fact });
+        if (category) categories[fact] = category;
+      }
       continue;
     }
 
@@ -94,9 +113,13 @@ export const parseMemoryChanges = (reply: string, memoryLength: number): MemoryC
       continue;
     }
 
-    const fact = line.replace(/^[-*•]\s*/, "").trim();
-    if (fact) changes.added.push(fact);
+    const { fact, category } = splitCategory(line.replace(/^[-*•]\s*/, ""));
+    if (fact) {
+      changes.added.push(fact);
+      if (category) categories[fact] = category;
+    }
   }
+  if (Object.keys(categories).length > 0) changes.categories = categories;
   return changes;
 };
 
@@ -151,4 +174,25 @@ export const applyMemoryChanges = (existing: string[] = [], changes: MemoryChang
   }
 
   return merged.length > MAX_MEMORY_ENTRIES ? merged.slice(merged.length - MAX_MEMORY_ENTRIES) : merged;
+};
+
+// The category map to save alongside a new memory list: the model's
+// category for anything it added or reworded, otherwise whatever the fact
+// had before (following an updated fact from its old wording to its new
+// one), and nothing for facts no longer in either list.
+export const carryMemoryCategories = (
+  merged: string[],
+  pinnedMemory: string[],
+  previous: Record<string, MemoryCategory> | undefined,
+  existing: string[],
+  changes: MemoryChanges
+): Record<string, MemoryCategory> | undefined => {
+  const renamedFrom = new Map(changes.updated.map((u) => [u.text, existing[u.index]]));
+  const result: Record<string, MemoryCategory> = {};
+  for (const fact of [...pinnedMemory, ...merged]) {
+    const oldText = renamedFrom.get(fact);
+    const category = changes.categories?.[fact] ?? previous?.[fact] ?? (oldText !== undefined ? previous?.[oldText] : undefined);
+    if (category) result[fact] = category;
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
 };
