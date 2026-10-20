@@ -149,6 +149,7 @@ const IdentityStep: React.FC<IdentityStepProps> = ({
           />
         </div>
         <PresetSelectField
+          id="char-relationship"
           label="Tagline / Relationship"
           value={relationship}
           onChange={setRelationship}

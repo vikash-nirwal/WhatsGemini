@@ -1,17 +1,6 @@
 [
   {
     "page": "character editor",
-    "rule": "button-name",
-    "counts": {
-      "desktop": 1,
-      "tablet": 1,
-      "iphone": 1,
-      "pixel": 1
-    },
-    "help": "Buttons must have discernible text"
-  },
-  {
-    "page": "character editor",
     "rule": "target-size",
     "counts": {
       "desktop": 1,
