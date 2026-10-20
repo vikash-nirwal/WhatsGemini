@@ -3,6 +3,8 @@ import { FaTimes, FaPlus, FaPencilAlt, FaThumbtack, FaTag } from "react-icons/fa
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { updateChatAuthorNote, updateChatWorldTags, updateChatMemory, updateChatScenario, updateChatBoundaries, updateChatMemoryScope, updateChatMessage, updateChatOptions } from "src/features/chatSlice";
 import { Select, TagInput } from "src/components/molecules/form-controls";
+import { MoodTimeline } from "src/components/molecules/MoodTimeline";
+import { moodPoints } from "src/features/chat/moodTimeline";
 import { SegmentedControl } from "src/components/molecules/SegmentedControl";
 import { updateCharacter } from "src/features/characterSlice";
 import { setEmotionPanelEnabled, setEmotionPopupEnabled, setEmotionPopupDuration } from "src/features/settingsSlice";
@@ -555,6 +557,16 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
               onChange={(val) => dispatch(updateCharacter({ ...character, innerThoughts: val || undefined }))}
               label={<span className="sr-only">Show {character.name}'s inner thoughts</span>}
             />
+          </div>
+        )}
+
+        {/* Relationship timeline (#51): mood over the chat, 1:1 only */}
+        {!isRoom && character && (
+          <div>
+            <div className="mb-2">
+              <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">{character.name}'s mood over time</span>
+            </div>
+            <MoodTimeline points={moodPoints(chat?.content || [], character.id)} name={character.name} />
           </div>
         )}
 

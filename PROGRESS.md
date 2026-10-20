@@ -28,7 +28,6 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | 27 | Persona character sheet | todo | With #26. |
 | 28 | Attach a World to normal chats | todo | |
 | 30 | Relationship that evolves | todo | |
-| 51 | Relationship timeline | todo | |
 | 52 | Mini-games | todo | |
 | 53 | Branch map | todo | |
 | 54 | Backup to Google Drive | todo | Needs the user's Google OAuth client ID to test. |
@@ -72,6 +71,7 @@ One line per area. Pointers for when you need to work on it again.
 - **Send them a photo (#48):** the composer's "Send a photo" tool (and paste) attaches up to 4 photos, shrunk by `photoAttachments.ts`, stored as the user message's `images`. `generateAIResponse` takes `promptImages`: a model that `modelSeesImages` (`src/features/ai/vision.ts`, by provider and name) gets them as `ChatCallOptions.promptImages` (Gemini inline parts, OpenAI-compatible `image_url`, Anthropic image blocks); otherwise a vision-capable helper describes them (kept as `Message.photoDescription`); otherwise the character is told it can't see it and the user gets a hint. History notes "[sent a photo: …]" in front of the user's words. Composer tools now fold into the "+" menu by the composer's own width (ResizeObserver), not only on phones.
 - **Event deck (#49):** `src/features/chat/eventDeck.ts` (30 built-in events, or the user's own list in localStorage `event_deck`, edited in Settings › Chat; the last 8 draws aren't repeated). "Draw an event card" in the chat actions sends a character reply with `buildEventDirective` through `sendCharacterFollowup`, like "Surprise me".
 - **Wardrobe (#50):** `Character.wardrobe` (named outfits with a visual description) and `currentOutfitId`. `lockedLookFor` in `appearanceLock.ts` appends "; outfit: …" to the locked look for every picture (the lock instruction says it replaces clothing listed before it), and the system prompt says what they're wearing. Edited on the editor's last step (`WardrobeSection.tsx`), switched in a 1:1 chat's Scene panel.
+- **Relationship timeline (#51):** `src/features/chat/moodTimeline.ts` scores each reply's emotion tag from -3 to +3 (`MOOD_SCORES`; unknown custom moods count as 0) and summarizes the top mood and the recent trend; `MoodTimeline.tsx` draws it in a 1:1 chat's Scene panel as one line against a neutral baseline, with a crosshair tooltip (pointer or arrow keys) and a list view. Needs emotion portraits on, since that's what adds the tags.
 - **Known gaps:** character drafts were only tested with a mocked model, not a real one's JSON; none of the image providers was tried with a real key or a real ComfyUI; chats whose seed messages were never flagged `isSystem` (very old ones) aren't detected as seeded; mood-portrait generation from inside a chat wasn't checked with a real image provider; `h-dvh` wasn't checked on a real iPhone; notifications weren't tried on a real device or in the installed app.
 
 ## Decisions
@@ -105,7 +105,7 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
-- 2026-10-20 (overnight): Built #46 "Previously on…", #57 Story script, #47 Dates that matter, #48 Send them a photo, #49 Event deck and #50 Wardrobe in the coordinating session (new sessions can't be started over Remote Control).
+- 2026-10-20 (overnight): Built #46 "Previously on…", #57 Story script, #47 Dates that matter, #48 Send them a photo, #49 Event deck, #50 Wardrobe and #51 Relationship timeline in the coordinating session (new sessions can't be started over Remote Control).
 - 2026-10-20: Built character from one line (#45): idea dialog with rating and art-style hints, one JSON draft filling the editor, Try another, optional portrait. Fixed `addCharacter` dropping newer fields (alternate greetings, content rating, locked look, voice, model) when creating or importing a character.
 - 2026-10-20: Built voice (#12) and voice notes (#44) together: per-character browser voices with a picker and preview, Read aloud, dictation, character voice notes decided by the app, and hold-to-record. The terminal theme's Pixel chat screenshot changed on purpose (the new `[say]` action wraps each reply's action row, plus the `[●]` record link) and its baseline was updated; the other chat screenshots gained the mic buttons within their 1% tolerance and were left as they were.
 
