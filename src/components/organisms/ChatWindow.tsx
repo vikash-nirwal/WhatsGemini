@@ -239,6 +239,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
     return sliced;
   }, [messages, startIndex]);
 
+  // Position of the newest compression summary in the visible list, or -1.
+  // Everything above it has been summarized and is left out of the prompt.
+  const latestSummaryAt = useMemo(
+    () => filteredMessages.map((m) => Boolean(m.isCompressionSummary)).lastIndexOf(true),
+    [filteredMessages]
+  );
+
   useEffect(() => {
     setEditingIndex(null);
     setEditText("");
@@ -493,7 +500,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
               filteredMessages.map((msg, i) => {
                 const siblingInfo = tree && msg.id ? getSiblingInfo(tree, msg.id) : undefined;
                 const speaker = resolveSpeaker(msg);
-                return (
+                const message = (
                   <ChatMessage
                     key={msg.id || i}
                     msg={msg}
@@ -516,6 +523,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages = [], tree, onSwitchBr
                     blurMedia={blurMedia}
                   />
                 );
+                // Already covered by the latest summary: still readable (and
+                // editable), but no longer sent to the AI.
+                return i < latestSummaryAt ? (
+                  <div key={msg.id || i} className="opacity-60" title="Summarized below - no longer sent to the AI">
+                    {message}
+                  </div>
+                ) : message;
               })
             )}
             {terminal ? (

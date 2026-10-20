@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatMemory, updateChatGreeting, setPendingFollowupAt } from "../features/chatSlice";
+import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, insertCompressionSummary, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatMemory, updateChatGreeting, setPendingFollowupAt } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
 import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage } from "../features/aiSlice";
 import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
@@ -23,7 +23,7 @@ import { effectiveContentRating } from "../features/character/contentRating";
 import { resolveNextSpeaker, parseMention, stripSpeakerPrefix } from "../features/ai/utils/roomRouting";
 import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo } from "../features/chat/messageTree";
 import { estimateTokens, estimateHistoryTokens } from "../features/ai/utils/tokenEstimator";
-import { truncateHistory, countProtectedPrefix, TranscriptNames } from "../features/ai/utils/chatHistoryUtils";
+import { truncateHistory, countProtectedPrefix, trimToLatestSummary, latestSummaryIndex, countSeedMessages, buildSummaryMessages, TranscriptNames } from "../features/ai/utils/chatHistoryUtils";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { Alert, AlertDescription } from "src/components/atoms/alert";
 import { useModal } from "../contexts/ModalContext";
@@ -279,7 +279,8 @@ const ChatPage = () => {
   // conversation - once maxChatLength is set to something other than 0.
   const contextTokenEstimate = useMemo(() => {
     const { systemInstruction: systemInstructionText, postHistoryNote } = buildTurnContext(messages, characterData, undefined, replyLengthLimit, activePersona, undefined, scene);
-    const effectiveHistory = truncateHistory(buildChatHistory(messages), maxChatLength, countProtectedPrefix(messages));
+    const sentMessages = trimToLatestSummary(messages);
+    const effectiveHistory = truncateHistory(buildChatHistory(sentMessages), maxChatLength, countProtectedPrefix(sentMessages));
     return estimateTokens(systemInstructionText) + estimateTokens(postHistoryNote) + estimateHistoryTokens(effectiveHistory.map((m) => m.text));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [characterData, replyLengthLimit, messages, maxChatLength, activePersona, currentChat?.authorNote, currentChat?.worldTags, currentChat?.hardLimits, currentChat?.intensity, roleplayStyle]);
@@ -793,12 +794,22 @@ const ChatPage = () => {
         // Persist the branch point immediately so it survives even if generation fails.
         await dispatch(updateChatTree({ chatId: chatIdNum, content: contentUpToEdit, tree: treeWithEdit, activeLeafId: editedNodeId }));
 
+        // Same auto-compression handleSend runs. It may splice a summary into
+        // the tree, so the reply below is added to the tree as saved after
+        // that, not to treeWithEdit.
+        const { messages: contextUpToEdit, tokens: compressTokens, cost: compressCost, error: compressError } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: contentUpToEdit, names: transcriptNames() })).unwrap();
+        warnBackgroundFailure("compress", compressError);
+        await trackUsage(compressTokens, compressCost);
+        const treeForReply = contextUpToEdit === contentUpToEdit
+          ? treeWithEdit
+          : (await dispatch(fetchChatById(chatIdNum)).unwrap()).tree || treeWithEdit;
+
         const speaker = (isRoom ? parseMention(newText, roomCharacters) : undefined)
-          || resolveNextSpeaker(roomCharacters, contentUpToEdit, currentChat?.mutedParticipantIds)
+          || resolveNextSpeaker(roomCharacters, contextUpToEdit, currentChat?.mutedParticipantIds)
           || characterData;
         if (!speaker) return;
 
-        const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount } = buildTurnContext(contentUpToEdit, speaker, undefined, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
+        const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount } = buildTurnContext(contextUpToEdit, speaker, undefined, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
         aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount }));
         const aiResponse = await aiPromiseRef.current;
         aiPromiseRef.current = null;
@@ -824,7 +835,7 @@ const ChatPage = () => {
             speakerId: speaker.id,
             timestamp: Date.now(),
           };
-          const { tree: finalTree, nodeId: aiNodeId } = addChildNode(treeWithEdit, editedNodeId, newAiMsg);
+          const { tree: finalTree, nodeId: aiNodeId } = addChildNode(treeForReply, editedNodeId, newAiMsg);
           const finalContent = flattenPath(finalTree, aiNodeId);
           await dispatch(updateChatTree({ chatId: chatIdNum, content: finalContent, tree: finalTree, activeLeafId: aiNodeId }));
 
@@ -999,7 +1010,9 @@ const ChatPage = () => {
 
     let targetIndex = treeContent.length - 1;
     for (let i = treeContent.length - 1; i >= 0; i--) {
-      if (treeContent[i].role === YOU) {
+      // A compression summary is stored as a user turn, but rewinding to it
+      // would delete everything after it.
+      if (treeContent[i].role === YOU && !treeContent[i].isCompressionSummary) {
         targetIndex = i;
         break;
       }
@@ -1098,32 +1111,38 @@ const ChatPage = () => {
     }
   };
 
+  // Where the part of the chat the model still sees begins (after the seed,
+  // or at the latest summary) - manual compression only summarizes from
+  // there, and is only offered once there's something worth summarizing.
+  const compressibleStart = useMemo(() => {
+    const latest = latestSummaryIndex(messages);
+    return latest >= 0 ? latest : countSeedMessages(messages);
+  }, [messages]);
+  const canCompress = messages.length - compressibleStart > 4;
+
   const handleCompress = async () => {
-    if (messages.length <= 4 || !chatIdNum) return;
+    if (!canCompress || !chatIdNum) return;
 
     setError(null);
     try {
-      // Keep only the last 2 messages uncompressed if possible, but summarize everything before
-      const cutoff = Math.max(messages.length - 2, 2);
-      const msgsToCompress = messages.slice(0, cutoff);
+      // Summarize everything the model still sees except the last 2 messages.
+      // The summary goes right after the last summarized message; nothing is
+      // deleted, so the history and its branches stay readable.
+      const cutoff = messages.length - 2;
+      const msgsToCompress = messages.slice(compressibleStart, cutoff);
       const { text: systemInstructionText } = buildSystemInstruction(characterData, undefined, undefined, activePersona);
 
       const { summary, tokens: compressTokens, cost: compressCost } = await dispatch(compressChatHistory({ messages: msgsToCompress, names: transcriptNames(), systemInstruction: systemInstructionText })).unwrap();
       await trackUsage(compressTokens, compressCost);
 
       if (summary) {
-        const retainedMsgs = messages.slice(cutoff);
-
-        // Same shape as the auto-compression path (buildAutoCompressedMessages)
-        // so it renders as a "Compressed history" banner instead of a plain bubble.
-        const newMessages: Message[] = [
-          { role: YOU, txt: `Earlier conversation summary (treat as established context, continue naturally):\n\n${summary}`, isCompressionSummary: true, timestamp: Date.now() },
-          { role: AI, txt: "Understood, continuing from that context.", isSystem: true, timestamp: Date.now() },
-          ...retainedMsgs
-        ];
-
-        // Full DB overwrite of the chat's content - characterIds/timestamp etc. are untouched.
-        await dispatch(updateMessages({ chatId: chatIdNum, newMessages }));
+        const lastCovered = messages[cutoff - 1];
+        await dispatch(insertCompressionSummary({
+          chatId: chatIdNum,
+          afterMessageId: lastCovered.id,
+          afterIndex: cutoff - 1,
+          summaryMessages: buildSummaryMessages(summary, lastCovered.timestamp),
+        })).unwrap();
         dispatch(fetchChats());
       }
     } catch (err) {
@@ -1155,7 +1174,7 @@ const ChatPage = () => {
     ...(messages.length > 0
       ? [{ icon: FaHistory, label: "Rewind last turn", onClick: handleRewindLastTurn, disabled: aiLoading, danger: true }]
       : []),
-    ...(messages.length > 4
+    ...(canCompress
       ? [{ icon: FaCompressArrowsAlt, label: "Summarize and compress older messages to save tokens", onClick: handleCompress, disabled: aiCompressing }]
       : []),
     ...(messages.length > 0

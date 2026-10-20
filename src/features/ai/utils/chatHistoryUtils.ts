@@ -1,13 +1,13 @@
-import { YOU, AI, getModelPricing } from "../../../utils/constants";
+import { getModelPricing } from "../../../utils/constants";
 import { ChatMessage, UsageInfo } from "../types";
 import { ChatProviderAdapter, ProviderRuntimeConfig } from "../providers/types";
 import { Message } from "../../../types";
-import { formatTranscript, TranscriptNames, countSeedMessages } from "./transcript";
+import { formatTranscript, TranscriptNames, countSeedMessages, latestSummaryIndex, buildSummaryMessages } from "./transcript";
 import { splitForCompression } from "./compressionSplit";
 
 // Pure helpers live in transcript.ts (testable without the provider registry's
 // ESM imports) and are re-exported here for existing callers.
-export { formatTranscript, splitTrailingUserMessages, truncateHistory, countSeedMessages, countProtectedPrefix } from "./transcript";
+export { formatTranscript, splitTrailingUserMessages, truncateHistory, countSeedMessages, countProtectedPrefix, latestSummaryIndex, trimToLatestSummary, buildSummaryMessages } from "./transcript";
 export type { TranscriptNames } from "./transcript";
 
 // Clones the raw history into fresh objects and drops the trailing user
@@ -56,15 +56,20 @@ ${transcript}`;
   return { summary: result.text.trim(), usage: result.usage };
 };
 
-// If the chat's message count has grown past compressThresholdMessages,
-// summarizes the aged-out portion (excluding any seeded initial messages) into
-// a single persisted message pair, collapsing down to half that many recent
-// messages kept verbatim (see splitForCompression) rather than pinning right
-// at the threshold - that headroom is what stops compression from firing
-// again on almost every subsequent turn. If the oldest surviving message is
-// already a prior compression summary, it's folded into the new one (via the
-// plain-text summarization input) rather than re-summarized alongside it - so
-// there's only ever one live summary message.
+// If the part of the chat the model still sees (the seed, then everything
+// from the latest summary on - see trimToLatestSummary) has grown past
+// compressThresholdMessages, summarizes its older portion, keeping half that
+// many recent messages verbatim (see splitForCompression) rather than pinning
+// right at the threshold - that headroom is what stops compression from
+// firing again on almost every subsequent turn. A previous summary at the
+// start of that window is folded into the new one rather than re-summarized
+// alongside it.
+//
+// Nothing is removed. The result says where the new summary pair goes: right
+// after `messages[afterIndex]`, the last message it covers. The caller
+// splices it into the conversation tree there (insertCompressionSummary), so
+// every message and branch stays readable and the prompt simply starts from
+// the newest summary.
 export const buildAutoCompressedMessages = async (
   adapter: ChatProviderAdapter,
   config: ProviderRuntimeConfig,
@@ -72,47 +77,36 @@ export const buildAutoCompressedMessages = async (
   messages: Message[],
   compressThresholdMessages: number,
   names?: TranscriptNames
-): Promise<{ messages: Message[]; compressed: boolean; usage?: UsageInfo; error?: string }> => {
-  if (compressThresholdMessages <= 0) return { messages, compressed: false };
+): Promise<{ compressed: boolean; summaryMessages?: Message[]; afterIndex?: number; usage?: UsageInfo; error?: string }> => {
+  if (compressThresholdMessages <= 0) return { compressed: false };
 
-  const startIndex = countSeedMessages(messages);
-  const compressible = messages.slice(startIndex);
-  if (compressible.length <= compressThresholdMessages) return { messages, compressed: false };
+  const latest = latestSummaryIndex(messages);
+  const windowStart = latest >= 0 ? latest : countSeedMessages(messages);
+  const compressible = messages.slice(windowStart);
+  if (compressible.length <= compressThresholdMessages) return { compressed: false };
 
   const splitIndex = splitForCompression(compressible, compressThresholdMessages);
-  if (splitIndex <= 1) return { messages, compressed: false };
+  if (splitIndex <= 1) return { compressed: false };
 
   const oldChunk = compressible.slice(0, splitIndex);
-  const tail = compressible.slice(splitIndex);
 
   try {
     const summarizable = oldChunk.filter((m) => !m.isSystem);
-    if (summarizable.length === 0) return { messages, compressed: false };
+    if (summarizable.length === 0) return { compressed: false };
 
     const { summary, usage } = await summarizeConversation(adapter, config, selectedModel, formatTranscript(summarizable, names));
-    if (!summary) return { messages, compressed: false };
+    if (!summary) return { compressed: false };
 
-    const summaryMsg: Message = {
-      role: YOU,
-      txt: `Earlier conversation summary (treat as established context, continue naturally):\n\n${summary}`,
-      isCompressionSummary: true,
-      timestamp: Date.now(),
-    };
-    const ackMsg: Message = {
-      role: AI,
-      txt: "Understood, continuing from that context.",
-      isSystem: true,
-      timestamp: Date.now(),
-    };
-
+    const last = oldChunk[oldChunk.length - 1];
     return {
-      messages: [...messages.slice(0, startIndex), summaryMsg, ackMsg, ...tail],
       compressed: true,
+      summaryMessages: buildSummaryMessages(summary, last.timestamp),
+      afterIndex: windowStart + splitIndex - 1,
       usage,
     };
   } catch (e) {
     console.warn("Auto-compression failed, continuing with full history.", e);
-    return { messages, compressed: false, error: e instanceof Error ? e.message : String(e) };
+    return { compressed: false, error: e instanceof Error ? e.message : String(e) };
   }
 };
 

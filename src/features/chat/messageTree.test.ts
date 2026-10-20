@@ -8,6 +8,7 @@ import {
   getSiblingInfo,
   findDefaultLeafFrom,
   deleteBranch,
+  insertAfterNode,
 } from "./messageTree";
 import { Message, ConversationTree } from "../../types";
 
@@ -250,5 +251,40 @@ describe("findDefaultLeafFrom", () => {
     expect(findDefaultLeafFrom(t4, activeLeafId!)).toBe(grandchild);
     // the older sibling branch (child1) still resolves to itself, it has no descendants
     expect(findDefaultLeafFrom(t4, child1)).toBe(child1);
+  });
+});
+
+describe("insertAfterNode", () => {
+  const msg = (txt: string, extra: Partial<Message> = {}): Message => ({ role: "you", txt, ...extra });
+
+  it("splices messages in after a node and keeps everything that followed", () => {
+    const { tree, activeLeafId, content } = migrateToTree([msg("a"), msg("b"), msg("c"), msg("d")]);
+    const { tree: next, insertedIds } = insertAfterNode(tree, content[1].id!, [msg("summary"), msg("ack")]);
+    expect(insertedIds).toHaveLength(2);
+    expect(flattenPath(next, activeLeafId).map((m) => m.txt)).toEqual(["a", "b", "summary", "ack", "c", "d"]);
+  });
+
+  it("moves alternate variants of the following message under the inserted chain", () => {
+    const base = migrateToTree([msg("a"), msg("b"), msg("c")]);
+    const bId = base.content[1].id!;
+    const { tree: withVariant, nodeId: variantId } = addChildNode(base.tree, bId, msg("c2"));
+    const { tree: next, insertedIds } = insertAfterNode(withVariant, bId, [msg("summary"), msg("ack")]);
+    const ackId = insertedIds[1];
+    expect(next.nodes[bId].childIds).toEqual([insertedIds[0]]);
+    expect(next.nodes[ackId].childIds).toEqual([base.content[2].id, variantId]);
+    expect(next.nodes[variantId].parentId).toBe(ackId);
+    expect(flattenPath(next, variantId).map((m) => m.txt)).toEqual(["a", "b", "summary", "ack", "c2"]);
+  });
+
+  it("leaves the tree unchanged for an unknown node", () => {
+    const { tree } = migrateToTree([msg("a")]);
+    expect(insertAfterNode(tree, "nope", [msg("x")]).tree).toBe(tree);
+  });
+
+  it("does not mutate the input tree", () => {
+    const { tree, content } = migrateToTree([msg("a"), msg("b")]);
+    const before = JSON.stringify(tree);
+    insertAfterNode(tree, content[0].id!, [msg("x")]);
+    expect(JSON.stringify(tree)).toBe(before);
   });
 });

@@ -1,4 +1,4 @@
-import { formatTranscript, splitTrailingUserMessages, countSeedMessages, countProtectedPrefix, truncateHistory } from "./transcript";
+import { formatTranscript, splitTrailingUserMessages, countSeedMessages, countProtectedPrefix, truncateHistory, latestSummaryIndex, trimToLatestSummary } from "./transcript";
 import { Message } from "../../../types";
 import { ChatMessage } from "../types";
 import { AI, YOU } from "../../../utils/constants";
@@ -115,5 +115,41 @@ describe("truncateHistory", () => {
 
   it("leaves history alone with no token cap", () => {
     expect(truncateHistory(history(), 0, 2)).toHaveLength(6);
+  });
+});
+
+describe("trimToLatestSummary", () => {
+  const seed: Message[] = [
+    { role: YOU, txt: "seed q", isSystem: true },
+    { role: AI, txt: "seed a", isSystem: true },
+  ];
+  const summary = (txt: string): Message[] => [
+    { role: YOU, txt, isCompressionSummary: true },
+    { role: AI, txt: "ok", isSystem: true },
+  ];
+  const texts = (m: Message[]) => m.map((x) => x.txt);
+
+  it("returns the messages unchanged when nothing was compressed", () => {
+    const messages: Message[] = [...seed, { role: YOU, txt: "hi" }];
+    expect(trimToLatestSummary(messages)).toBe(messages);
+    expect(latestSummaryIndex(messages)).toBe(-1);
+  });
+
+  it("keeps the seed and everything from the latest summary on", () => {
+    const messages: Message[] = [
+      ...seed,
+      { role: YOU, txt: "old 1" },
+      ...summary("first summary"),
+      { role: YOU, txt: "old 2" },
+      ...summary("second summary"),
+      { role: YOU, txt: "new" },
+    ];
+    expect(latestSummaryIndex(messages)).toBe(6);
+    expect(texts(trimToLatestSummary(messages))).toEqual(["seed q", "seed a", "second summary", "ok", "new"]);
+  });
+
+  it("works for a greeting-seeded chat with no hidden seed", () => {
+    const messages: Message[] = [{ role: AI, txt: "Hello!" }, { role: YOU, txt: "old" }, ...summary("s"), { role: YOU, txt: "new" }];
+    expect(texts(trimToLatestSummary(messages))).toEqual(["s", "ok", "new"]);
   });
 });

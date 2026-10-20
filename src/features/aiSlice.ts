@@ -14,7 +14,7 @@ import { ChatMessage, UsageInfo } from "./ai/types";
 import { RootState } from "../store/store";
 import { SDImageParams, Message, ArtStyle, Character, UserProfile, World } from "../types";
 import { buildAdventureSceneImageInstruction, findCastInNarration } from "./ai/utils/adventurePrompt";
-import { updateMessages, fetchChats } from "./chatSlice";
+import { insertCompressionSummary, fetchChats } from "./chatSlice";
 
 export interface GenerateAIResponseResult {
   text: string;
@@ -264,9 +264,11 @@ const initialState: AIState = {
 
 
 
-// If the chat's message count has grown past settings.compressThreshold,
-// summarizes the aged-out portion into one persisted, visible message and returns
-// the resulting (shorter) message list; otherwise returns `messages` unchanged.
+// If the part of the chat the model sees has grown past
+// settings.compressThreshold, summarizes its older portion into one persisted,
+// visible summary placed right after the messages it covers (nothing is
+// deleted), and returns the chat's new active path; otherwise returns
+// `messages` unchanged.
 // Called from ChatPage before building turn context for a new send, so the
 // compression - and its cost - happens once, up front, rather than being
 // silently redone on every subsequent turn.
@@ -287,9 +289,17 @@ export const autoCompressChat = createAsyncThunk(
       // `error` lets the caller tell the user compression is failing (e.g. a
       // content filter rejecting the transcript) instead of it silently
       // never happening while the history keeps growing.
-      if (!result.compressed) return { messages, tokens: 0, cost: 0, error: result.error };
+      if (!result.compressed || !result.summaryMessages || result.afterIndex == null) return { messages, tokens: 0, cost: 0, error: result.error };
 
-      await dispatch(updateMessages({ chatId, newMessages: result.messages }));
+      // Spliced into the tree after the last summarized message - nothing is
+      // deleted, and the returned path includes everything plus the summary
+      // (callers' buildTurnContext trims to the newest summary).
+      const inserted = await dispatch(insertCompressionSummary({
+        chatId,
+        afterMessageId: messages[result.afterIndex]?.id,
+        afterIndex: result.afterIndex,
+        summaryMessages: result.summaryMessages,
+      })).unwrap();
       dispatch(fetchChats());
 
       const pricing = getModelPricing(helper.providerId, helper.model);
@@ -297,7 +307,7 @@ export const autoCompressChat = createAsyncThunk(
       const cost = result.usage
         ? (result.usage.inputTokens / 1_000_000) * pricing.input + (result.usage.outputTokens / 1_000_000) * pricing.output
         : 0;
-      return { messages: result.messages, tokens, cost };
+      return { messages: inserted.content, tokens, cost };
     } catch (error: any) {
       console.warn("Auto-compression failed, continuing with full history.", error);
       return { messages, tokens: 0, cost: 0, error: error?.message || String(error) };

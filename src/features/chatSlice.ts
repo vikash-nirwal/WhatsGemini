@@ -2,7 +2,7 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { dbService } from "../services/dbService";
 import { LS_INITIAL_MESSAGES, YOU, AI } from "../utils/constants";
 import { Chat, Message, ConversationTree } from "../types";
-import { addChildNode, flattenPath, generateNodeId } from "./chat/messageTree";
+import { addChildNode, flattenPath, generateNodeId, insertAfterNode, migrateToTree } from "./chat/messageTree";
 import { applyMacros, getGreetings } from "./ai/utils/macros";
 
 // The persona name a chat speaks as (its own override, else the global active
@@ -128,10 +128,9 @@ export const deleteChat = createAsyncThunk("chat/delete", async (chatId: number,
   }
 });
 
-// Wholesale content replacement - used by chat compression. This intentionally
-// discards any branch tree: compression is already a deliberate "throw away
-// granular history" action, and a stale tree would otherwise silently
-// resurrect the pre-compression messages the next time a branch is touched.
+// Wholesale content replacement for a chat with no branch tree (e.g. the
+// leaked-base64 cleanup). Discards any tree, so never use it on a branched
+// chat - compression goes through insertCompressionSummary instead.
 export const updateMessages = createAsyncThunk(
   "chat/updateMessages",
   async ({ chatId, newMessages }: { chatId: number; newMessages: Message[] }, { rejectWithValue }) => {
@@ -163,6 +162,39 @@ export const updateChatTree = createAsyncThunk(
       chat.activeLeafId = activeLeafId;
       await dbService.updateChat(chat);
       return { chatId, content, tree, activeLeafId };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
+// Splices a compression summary pair into the chat right after the last
+// message it covers, without deleting anything: the summarized messages and
+// every branch stay in the tree, and the prompt starts from the newest
+// summary (trimToLatestSummary). `afterMessageId` is the preferred anchor;
+// `afterIndex` (into the active path) covers older chats whose messages have
+// no ids until they're migrated to a tree here.
+export const insertCompressionSummary = createAsyncThunk(
+  "chat/insertCompressionSummary",
+  async (
+    { chatId, afterMessageId, afterIndex, summaryMessages }: { chatId: number; afterMessageId?: string; afterIndex: number; summaryMessages: Message[] },
+    { rejectWithValue }
+  ) => {
+    try {
+      const chat = await dbService.getChatById(chatId);
+      const base = chat.tree
+        ? { tree: chat.tree, activeLeafId: chat.activeLeafId ?? null, content: chat.content }
+        : migrateToTree(chat.content);
+      const anchorId = afterMessageId && base.tree.nodes[afterMessageId] ? afterMessageId : base.content[afterIndex]?.id;
+      if (!anchorId || !base.tree.nodes[anchorId]) throw new Error("Couldn't find where to place the summary.");
+
+      const { tree } = insertAfterNode(base.tree, anchorId, summaryMessages.map((m) => ({ ...m, id: m.id || generateNodeId() })));
+      const content = flattenPath(tree, base.activeLeafId);
+      chat.tree = tree;
+      chat.activeLeafId = base.activeLeafId;
+      chat.content = content;
+      await dbService.updateChat(chat);
+      return { chatId, content, tree, activeLeafId: base.activeLeafId };
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
@@ -600,6 +632,14 @@ const chatSlice = createSlice({
         }
       })
       .addCase(updateChatTree.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c.id === action.payload.chatId);
+        if (chat) {
+          chat.content = action.payload.content;
+          chat.tree = action.payload.tree;
+          chat.activeLeafId = action.payload.activeLeafId;
+        }
+      })
+      .addCase(insertCompressionSummary.fulfilled, (state, action) => {
         const chat = state.chats.find((c) => c.id === action.payload.chatId);
         if (chat) {
           chat.content = action.payload.content;

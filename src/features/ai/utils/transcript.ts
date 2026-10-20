@@ -1,5 +1,5 @@
 import { Message } from "../../../types";
-import { YOU } from "../../../utils/constants";
+import { YOU, AI } from "../../../utils/constants";
 import { ChatMessage } from "../types";
 import { stripLeakedBase64 } from "./apiUtils";
 import { estimateMessageTokens } from "./tokenEstimator";
@@ -41,6 +41,41 @@ export const countSeedMessages = (messages: Message[]): number => {
   while (i < messages.length && messages[i].isSystem && !messages[i].isCompressionSummary) i++;
   return i;
 };
+
+// Index of the latest compression summary after the seed, or -1. Compression
+// no longer deletes what it summarizes - the summary sits in the
+// conversation right after those messages - so this is where the part the
+// model still needs to see begins.
+export const latestSummaryIndex = (messages: Message[]): number => {
+  const seed = countSeedMessages(messages);
+  for (let i = messages.length - 1; i >= seed; i--) {
+    if (messages[i].isCompressionSummary) return i;
+  }
+  return -1;
+};
+
+// What the model is shown of a conversation: the seed, then everything from
+// the latest compression summary on. Messages the summary already covers
+// stay on screen and in the tree, but are left out of the prompt.
+export const trimToLatestSummary = (messages: Message[]): Message[] => {
+  const summary = latestSummaryIndex(messages);
+  if (summary < 0) return messages;
+  return [...messages.slice(0, countSeedMessages(messages)), ...messages.slice(summary)];
+};
+
+// The persisted summary pair a compression adds: the summary itself (sent to
+// the model as a user turn) plus a hidden acknowledgement, so history still
+// alternates. Stamped with the time of the last message it covers rather
+// than "now", since it sits at that point in the conversation.
+export const buildSummaryMessages = (summary: string, timestamp?: number): Message[] => [
+  {
+    role: YOU,
+    txt: `Earlier conversation summary (treat as established context, continue naturally):\n\n${summary}`,
+    isCompressionSummary: true,
+    timestamp: timestamp ?? Date.now(),
+  },
+  { role: AI, txt: "Understood, continuing from that context.", isSystem: true, timestamp: timestamp ?? Date.now() },
+];
 
 // Leading messages that history truncation must never drop: the seed, plus
 // the compression summary and its hidden acknowledgement right after it -

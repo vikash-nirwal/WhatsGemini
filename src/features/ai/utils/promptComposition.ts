@@ -4,7 +4,7 @@ import { stripLeakedBase64 } from "./apiUtils";
 import { buildEmotionDirective } from "./emotionUtils";
 import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
 import { applyMacros } from "./macros";
-import { countProtectedPrefix } from "./transcript";
+import { countProtectedPrefix, trimToLatestSummary } from "./transcript";
 import { effectiveContentRating } from "../../character/contentRating";
 import { ChatMessage } from "../types";
 
@@ -401,7 +401,7 @@ export interface SceneContext {
 // instruction" block that used to appear separately in handleSend,
 // handleEditMessage, and handleRegenerate.
 export const buildTurnContext = (
-  messages: Message[],
+  fullMessages: Message[],
   character: Character | undefined,
   extraDirectives?: string[],
   replyLengthLimit?: number,
@@ -409,6 +409,9 @@ export const buildTurnContext = (
   roomContext?: RoomContext,
   scene?: SceneContext
 ): TurnContext => {
+  // Messages an earlier compression already summarized stay in the chat but
+  // aren't sent: the model sees the seed, then the newest summary onward.
+  const messages = trimToLatestSummary(fullMessages);
   const perspective = roomContext && character ? { selfId: character.id, userName: activePersona?.name?.trim() || "User" } : undefined;
   const history = buildChatHistory(messages, roomContext?.speakerNames, perspective);
   const { text, images, characterName } = buildSystemInstruction(

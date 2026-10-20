@@ -62,6 +62,39 @@ export const addChildNode = (
   return { tree: { nodes }, nodeId: id };
 };
 
+// Splices a chain of new messages into the tree directly after `nodeId`:
+// the first new message becomes its only child, and every child it had
+// (the following message plus any alternate variants of it) moves under the
+// last new message. Used to place a compression summary between the
+// messages it summarizes and the ones that follow, so every branch below
+// that point picks it up and nothing is deleted.
+export const insertAfterNode = (
+  tree: ConversationTree,
+  nodeId: string,
+  messages: Message[]
+): { tree: ConversationTree; insertedIds: string[] } => {
+  const anchor = tree.nodes[nodeId];
+  if (!anchor || messages.length === 0) return { tree, insertedIds: [] };
+
+  const nodes: Record<string, MessageNode> = { ...tree.nodes };
+  const insertedIds: string[] = [];
+  let parentId = nodeId;
+  for (const message of messages) {
+    const id = message.id || generateNodeId();
+    nodes[id] = { id, message: { ...message, id }, parentId, childIds: [] };
+    nodes[parentId] = { ...nodes[parentId], childIds: parentId === nodeId ? [id] : [...nodes[parentId].childIds, id] };
+    insertedIds.push(id);
+    parentId = id;
+  }
+
+  const lastId = parentId;
+  nodes[lastId] = { ...nodes[lastId], childIds: [...anchor.childIds] };
+  for (const childId of anchor.childIds) {
+    if (nodes[childId]) nodes[childId] = { ...nodes[childId], parentId: lastId };
+  }
+  return { tree: { nodes }, insertedIds };
+};
+
 // Replaces a node's message content in place (used for non-branching text
 // edits of an earlier message) without touching its position in the tree.
 export const updateNodeMessage = (tree: ConversationTree, nodeId: string, message: Message): ConversationTree => {
