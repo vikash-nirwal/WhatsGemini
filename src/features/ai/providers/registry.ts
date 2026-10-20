@@ -5,6 +5,7 @@ import { glmImageAdapter } from "./glmImageAdapter";
 import { wanAdapter, wanVideoAdapter } from "./wanAdapter";
 import { createOpenAiCompatibleAdapter } from "./openaiCompatibleAdapter";
 import { ChatProviderAdapter, ImageProviderAdapter, VideoProviderAdapter } from "./types";
+import { withRequestLog } from "../requestLog";
 
 export interface ProviderMeta {
   id: string;
@@ -59,7 +60,9 @@ const glmAdapter = createOpenAiCompatibleAdapter({
   requiresApiKey: true,
 });
 
-export const CHAT_PROVIDERS: Record<string, ChatProviderAdapter> = {
+// Every chat adapter is wrapped by withRequestLog, so each call lands in the
+// prompt inspector's log (#31) without aiSlice or the utils knowing about it.
+const RAW_CHAT_PROVIDERS: Record<string, ChatProviderAdapter> = {
   gemini: geminiAdapter,
   openai: openaiAdapter,
   anthropic: anthropicAdapter,
@@ -70,6 +73,10 @@ export const CHAT_PROVIDERS: Record<string, ChatProviderAdapter> = {
   openrouter: openrouterAdapter,
   ollama: ollamaAdapter,
 };
+
+export const CHAT_PROVIDERS: Record<string, ChatProviderAdapter> = Object.fromEntries(
+  Object.entries(RAW_CHAT_PROVIDERS).map(([id, adapter]) => [id, withRequestLog(adapter)])
+);
 
 // Of the requested providers, Gemini (native), OpenAI (DALL-E/gpt-image-1),
 // Wan (Wanxiang, via DashScope) and GLM (CogView/GLM-Image, via Z.ai) have
