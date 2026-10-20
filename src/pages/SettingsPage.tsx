@@ -82,7 +82,11 @@ import {
   PROVIDER_CHAT_MODELS,
   PROVIDER_IMAGE_MODELS,
   PROVIDER_VIDEO_MODELS,
+  LS_WAN_REFERENCE_MODEL,
+  DEFAULT_WAN_REFERENCE_MODEL,
+  WAN_REFERENCE_MODELS,
 } from "../utils/constants";
+import { FAL_IMAGE_MODEL_OPTIONS } from "../features/ai/providers/falImageAdapter";
 import { AISafetySettings, UserProfile } from "../types";
 import { dbService } from "../services/dbService";
 import ChatInterfaceSettings from "src/components/organisms/ChatInterfaceSettings";
@@ -351,6 +355,33 @@ const SettingsPage = () => {
     saveWanBaseUrl(url);
   }, []);
 
+  // The Wan model for pictures with reference photos (#36). wanAdapter.ts
+  // reads it from localStorage at generation time.
+  const [wanReferenceModel, setWanReferenceModelState] = useState(
+    () => localStorage.getItem(LS_WAN_REFERENCE_MODEL) || DEFAULT_WAN_REFERENCE_MODEL
+  );
+  const handleSetWanReferenceModel = useCallback((model: string) => {
+    setWanReferenceModelState(model);
+    localStorage.setItem(LS_WAN_REFERENCE_MODEL, model);
+  }, []);
+
+  // fal.ai is image-only, so its key is loaded only when it's the image provider.
+  const [falApiKey, setFalApiKeyState] = useState("");
+  useEffect(() => {
+    if (imageProvider !== "fal") return;
+    let cancelled = false;
+    (async () => {
+      const key = await getProviderApiKey("fal");
+      if (!cancelled) setFalApiKeyState(key || "");
+    })();
+    return () => { cancelled = true; };
+  }, [imageProvider]);
+
+  const handleSetFalApiKey = useCallback((key: string) => {
+    setFalApiKeyState(key);
+    saveProviderApiKey("fal", key);
+  }, []);
+
   // GLM's key is shared between its chat and image adapters (same provider id
   // "glm"), same pattern as OpenAI's image key above.
   const [glmImageApiKey, setGlmImageApiKeyState] = useState("");
@@ -398,6 +429,19 @@ const SettingsPage = () => {
   const canFetchImageModels = !!IMAGE_PROVIDERS[imageProvider]?.listModels;
   const wanImageModelList = (PROVIDER_IMAGE_MODELS.wan || []).map((m) => ({ value: m, label: m }));
   const glmImageModelList = (PROVIDER_IMAGE_MODELS.glm || []).map((m) => ({ value: m, label: m }));
+  const wanReferenceModelList = WAN_REFERENCE_MODELS.map((m) => ({ value: m, label: m === "none" ? "None (text only)" : m }));
+
+  // Switching image provider keeps the old model id otherwise, which the new
+  // provider's dropdown can't show (and fal would silently replace), so it
+  // moves to the new provider's first model. Gemini's list is fetched live,
+  // so it's left alone.
+  const handleSetImageProvider = useCallback((providerId: string) => {
+    dispatch(setImageProvider(providerId));
+    const list = PROVIDER_IMAGE_MODELS[providerId];
+    if (providerId !== "gemini" && list?.length && !list.includes(imageModel)) {
+      dispatch(setImageModel(list[0]));
+    }
+  }, [dispatch, imageModel]);
 
   const selectedSection = SECTION_IDS.includes(section as any) ? (section as string) : "profile";
   const setSelectedSection = (id: string) => navigate(`/settings/${id}`);
@@ -844,7 +888,7 @@ const SettingsPage = () => {
                 {selectedSection === "image" && (
                   <ImageGenerationSettings
                     imageProvider={imageProvider}
-                    setImageProvider={(val) => dispatch(setImageProvider(val))}
+                    setImageProvider={handleSetImageProvider}
                     openaiApiKey={openaiImageApiKey}
                     setOpenaiApiKey={handleSetOpenaiImageApiKey}
                     wanApiKey={wanApiKey}
@@ -852,6 +896,12 @@ const SettingsPage = () => {
                     wanBaseUrl={wanBaseUrl}
                     setWanBaseUrl={handleSetWanBaseUrl}
                     wanImageModelList={wanImageModelList}
+                    wanReferenceModel={wanReferenceModel}
+                    setWanReferenceModel={handleSetWanReferenceModel}
+                    wanReferenceModelList={wanReferenceModelList}
+                    falApiKey={falApiKey}
+                    setFalApiKey={handleSetFalApiKey}
+                    falImageModelList={FAL_IMAGE_MODEL_OPTIONS}
                     glmApiKey={glmImageApiKey}
                     setGlmApiKey={handleSetGlmImageApiKey}
                     glmImageModelList={glmImageModelList}

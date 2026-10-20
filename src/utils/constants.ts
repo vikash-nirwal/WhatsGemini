@@ -501,10 +501,29 @@ export const PROVIDER_CHAT_MODELS: Record<string, string[]> = {
 // SD WebUI option) - see registry.ts.
 export const PROVIDER_IMAGE_MODELS: Record<string, string[]> = {
   gemini: imageModels,
-  openai: ["gpt-image-1", "dall-e-3"],
+  openai: ["gpt-image-1-mini", "gpt-image-1", "gpt-image-1.5", "gpt-image-2", "dall-e-3"],
   wan: ["wan2.7-image", "wan2.7-image-pro", "wan2.6-t2i"],
   glm: ["glm-image", "cogview-4-250304"],
+  // fal endpoint ids of each model's reference (edit) variant; falImageAdapter.ts
+  // maps each to its text-to-image variant for calls without reference photos.
+  fal: [
+    "fal-ai/bytedance/seedream/v4/edit",
+    "fal-ai/bytedance/seedream/v4.5/edit",
+    "fal-ai/flux-pro/kontext",
+    "fal-ai/flux-kontext/dev",
+    "fal-ai/flux-pulid",
+  ],
 };
+
+// The Wan model used when a picture has reference photos of the character
+// (#36). Separate from the main image model because the text-only Wan models
+// can't take images. wan2.7-image takes text plus up to 9 images in every
+// region; wan2.5-i2i-preview takes up to 3, but Alibaba lists it as
+// image-only input in the Singapore (international) region, so the adapter
+// falls back to wan2.7-image if it's rejected. "none" sends text only.
+export const LS_WAN_REFERENCE_MODEL = "wan_reference_model";
+export const DEFAULT_WAN_REFERENCE_MODEL = "wan2.7-image";
+export const WAN_REFERENCE_MODELS = ["wan2.7-image", "wan2.7-image-pro", "wan2.5-i2i-preview", "none"];
 
 // Auto-backup reminder: everything lives only in this browser's IndexedDB,
 // so a periodic nudge is the only thing standing between a user and silent

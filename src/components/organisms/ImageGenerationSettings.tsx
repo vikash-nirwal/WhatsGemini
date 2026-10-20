@@ -21,6 +21,12 @@ interface ImageGenerationSettingsProps {
   wanBaseUrl: string;
   setWanBaseUrl: (url: string) => void;
   wanImageModelList: { value: string; label: string }[];
+  wanReferenceModel: string;
+  setWanReferenceModel: (model: string) => void;
+  wanReferenceModelList: { value: string; label: string }[];
+  falApiKey: string;
+  setFalApiKey: (key: string) => void;
+  falImageModelList: { value: string; label: string }[];
   glmApiKey: string;
   setGlmApiKey: (key: string) => void;
   glmImageModelList: { value: string; label: string }[];
@@ -79,6 +85,12 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
   wanBaseUrl,
   setWanBaseUrl,
   wanImageModelList,
+  wanReferenceModel,
+  setWanReferenceModel,
+  wanReferenceModelList,
+  falApiKey,
+  setFalApiKey,
+  falImageModelList,
   glmApiKey,
   setGlmApiKey,
   glmImageModelList,
@@ -273,6 +285,44 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
             <SettingsRow label="Model" hint={'Used when "send pic" or similar is queried. Generation is async and typically takes 1-2 minutes.'}>
               <Select value={imageModel} onChange={(e) => setImageModel(e.target.value)}>
                 {wanImageModelList.map((model) => (
+                  <option key={model.value} value={model.value}>
+                    {model.label}
+                  </option>
+                ))}
+              </Select>
+            </SettingsRow>
+
+            <SettingsRow
+              label="Model with reference photos"
+              hint="Used instead when the character has appearance images, so their face stays the same. wan2.7-image takes up to 9 photos in every region; wan2.5-i2i-preview takes 3 and falls back to wan2.7-image if your region rejects it."
+            >
+              <Select aria-label="Wan model with reference photos" value={wanReferenceModel} onChange={(e) => setWanReferenceModel(e.target.value)}>
+                {wanReferenceModelList.map((model) => (
+                  <option key={model.value} value={model.value}>
+                    {model.label}
+                  </option>
+                ))}
+              </Select>
+            </SettingsRow>
+          </>
+        ) : imageProvider === 'fal' ? (
+          <>
+            <SettingsRow label="API key" hint="Your fal.ai key (fal.ai/dashboard/keys). Stored encrypted, only on this device.">
+              <TextInput
+                type="password"
+                aria-label="fal.ai API key"
+                value={falApiKey}
+                onChange={(e) => setFalApiKey(e.target.value)}
+                placeholder="Paste your API key here..."
+              />
+            </SettingsRow>
+
+            <SettingsRow
+              label="Model"
+              hint="The character's appearance images go to the model as references, so their face stays the same. Seedream takes several photos; FLUX Kontext and PuLID use the main one. Without photos, each model draws from the text alone."
+            >
+              <Select aria-label="fal.ai model" value={imageModel} onChange={(e) => setImageModel(e.target.value)}>
+                {falImageModelList.map((model) => (
                   <option key={model.value} value={model.value}>
                     {model.label}
                   </option>
