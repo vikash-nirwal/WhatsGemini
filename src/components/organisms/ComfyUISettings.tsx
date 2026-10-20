@@ -43,6 +43,9 @@ const BASE_SIZE_OPTIONS = [
   { value: '1024', label: '1024' },
 ];
 
+// Marks this component's rows, so a test can scan just them.
+const ROW_CLASS = 'comfyui-settings-row';
+
 const sourceKey = (source: ModelSource) => `${source.classType}.${source.input}`;
 const formatGb = (bytes: number) => `${(bytes / 1024 ** 3).toFixed(bytes >= 10 * 1024 ** 3 ? 0 : 1)} GB`;
 
@@ -258,7 +261,7 @@ const ComfyUISettings: React.FC = () => {
 
   return (
     <>
-      <SettingsRow label="Server URL" hint={<>Your ComfyUI, started with <code>--enable-cors-header</code>.</>} align="start">
+      <SettingsRow className={ROW_CLASS} label="Server URL" hint={<>Your ComfyUI, started with <code>--enable-cors-header</code>.</>} align="start">
         <div className="flex items-center gap-2.5">
           <TextInput
             type="text"
@@ -274,14 +277,14 @@ const ComfyUISettings: React.FC = () => {
         <StatusLine status={connection} testId="comfyui-connection-status" />
       </SettingsRow>
 
-      <SettingsRow label="With a reference photo" hint="Workflow used when the character has a reference photo." align="start">
+      <SettingsRow className={ROW_CLASS} label="With a reference photo" hint="Workflow used when the character has a reference photo." align="start">
         <Select aria-label="Workflow with a reference photo" value={referenceTemplate.id} onChange={(e) => update({ referenceTemplateId: e.target.value })}>
           {templates.map(templateOption)}
         </Select>
         <p className="text-xs text-muted-foreground mt-1">{referenceTemplate.description}</p>
       </SettingsRow>
 
-      <SettingsRow label="Without a reference" hint="Workflow used when the character has no photo." align="start">
+      <SettingsRow className={ROW_CLASS} label="Without a reference" hint="Workflow used when the character has no photo." align="start">
         <Select aria-label="Workflow without a reference" value={textTemplate.id} onChange={(e) => update({ textTemplateId: e.target.value })}>
           {textTemplates.map(templateOption)}
         </Select>
@@ -299,6 +302,7 @@ const ComfyUISettings: React.FC = () => {
         const listId = (kind: string) => `comfyui-${kind}-${t.id.replace(/[^a-z0-9-]/gi, '')}`;
         return (
           <SettingsRow
+            className={ROW_CLASS}
             key={t.id}
             label={`Models: ${t.label}`}
             hint={checkpointList.length > 0 ? 'Suggestions come from your ComfyUI.' : 'Test the connection to get suggestions from your ComfyUI.'}
@@ -354,11 +358,11 @@ const ComfyUISettings: React.FC = () => {
         );
       })}
 
-      <SettingsRow label="Base size" hint="1024 for SDXL and FLUX, 512 or 768 for SD 1.5. The picture's shape still follows the requested aspect ratio.">
+      <SettingsRow className={ROW_CLASS} label="Base size" hint="1024 for SDXL and FLUX, 512 or 768 for SD 1.5. The picture's shape still follows the requested aspect ratio.">
         <SegmentedControl value={String(settings.baseSize)} onChange={(v) => update({ baseSize: Number(v) })} options={BASE_SIZE_OPTIONS} />
       </SettingsRow>
 
-      <SettingsRow label="Seed" hint="Leave empty for a new picture every time. A fixed seed keeps poses and lighting closer between pictures.">
+      <SettingsRow className={ROW_CLASS} label="Seed" hint="Leave empty for a new picture every time. A fixed seed keeps poses and lighting closer between pictures.">
         <TextInput
           type="text"
           inputMode="numeric"
@@ -369,11 +373,12 @@ const ComfyUISettings: React.FC = () => {
         />
       </SettingsRow>
 
-      <SettingsRow label="Negative prompt" hint="Things to keep out of the picture. FLUX Kontext ignores it." align="start">
+      <SettingsRow className={ROW_CLASS} label="Negative prompt" hint="Things to keep out of the picture. FLUX Kontext ignores it." align="start">
         <TextArea aria-label="ComfyUI negative prompt" value={settings.negativePrompt} onChange={(e) => update({ negativePrompt: e.target.value })} />
       </SettingsRow>
 
       <SettingsRow
+            className={ROW_CLASS}
         label="Your own workflows"
         hint="In ComfyUI, use Workflow → Export (API) and import that file. Then say which node inputs get the prompt, seed, size, model and reference photo."
         align="start"
@@ -422,7 +427,7 @@ const ComfyUISettings: React.FC = () => {
         </div>
       </SettingsRow>
 
-      <SettingsRow label="Setup" hint="What ComfyUI needs for these workflows." align="start">
+      <SettingsRow className={ROW_CLASS} label="Setup" hint="What ComfyUI needs for these workflows." align="start">
         <div className="text-xs text-muted-foreground grid gap-1.5" data-testid="comfyui-setup-note">
           <p>
             Start ComfyUI with <code className="text-foreground">{LAUNCH_HINT}</code> so this page may call it. Your browser may also ask to allow access to
@@ -438,7 +443,7 @@ const ComfyUISettings: React.FC = () => {
         </div>
       </SettingsRow>
 
-      <SettingsRow label="Test picture" hint="Runs the no-reference workflow once and shows the result or ComfyUI's error." align="start">
+      <SettingsRow className={ROW_CLASS} label="Test picture" hint="Runs the no-reference workflow once and shows the result or ComfyUI's error." align="start">
         <Button type="button" variant="outline" onClick={runTest} disabled={testStatus.kind === 'busy'}>
           Generate a test picture
         </Button>
