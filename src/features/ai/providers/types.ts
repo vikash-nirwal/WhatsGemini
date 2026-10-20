@@ -40,11 +40,12 @@ export interface ModelOption {
   label: string;
 }
 
-// One character's reference photo(s), labeled by name - lets an adapter that
-// supports it (currently only Gemini) tell the model which face/appearance
-// each reference image belongs to, so a group-room "picture of us together"
-// request can actually place the right people rather than blending an
-// unlabeled pile of images into one ambiguous subject.
+// One character's reference photo(s), labeled by name - lets an adapter tell
+// the model which face/appearance each reference image belongs to, so a
+// group-room "picture of us together" request can actually place the right
+// people rather than blending an unlabeled pile of images into one ambiguous
+// subject. Gemini labels each image inline; Wan, OpenAI and fal flatten the
+// groups (referenceImages.ts) and name them in the prompt.
 export interface NamedReferenceImages {
   name: string;
   images: NormalizedImage[];
@@ -54,10 +55,9 @@ export interface ImageGenCallOptions {
   model: string;
   prompt: string;
   referenceImages?: NormalizedImage[];
-  // Gemini-only for now - takes priority over `referenceImages` when present
-  // (geminiAdapter labels each character's images by name instead of sending
-  // one flat unlabeled list). Other adapters ignore this and fall back to
-  // `referenceImages`, which callers still populate for compatibility.
+  // Takes priority over `referenceImages` when present: one group per
+  // character in the picture. Adapters that take a single list of images
+  // flatten it with collectReferences (referenceImages.ts).
   referenceCharacters?: NamedReferenceImages[];
   signal?: AbortSignal;
   safetySettings?: AISafetySettings;

@@ -9,6 +9,20 @@ export interface CollectedReferences {
   names: (string | undefined)[];
 }
 
+// appendCharacterImages labels every reference image/jpeg, but images too
+// small to downscale keep their original bytes (often PNG or WebP). The
+// providers here get a file name, data URI or upload content type from the
+// label, so it's corrected from the bytes' signature.
+const MIME_BY_BASE64_PREFIX: [string, string][] = [
+  ["iVBORw0KGgo", "image/png"],
+  ["/9j/", "image/jpeg"],
+  ["UklGR", "image/webp"],
+];
+const withActualMimeType = (image: NormalizedImage): NormalizedImage => {
+  const match = MIME_BY_BASE64_PREFIX.find(([prefix]) => image.data.startsWith(prefix));
+  return match && match[1] !== image.mimeType ? { ...image, mimeType: match[1] } : image;
+};
+
 // Flattens a call's reference photos into the single ordered list that the
 // non-Gemini providers take, capped at what the model accepts. A group
 // picture interleaves the characters (everyone's main photo first, then
@@ -17,7 +31,7 @@ export interface CollectedReferences {
 export const collectReferences = (opts: Pick<ImageGenCallOptions, "referenceImages" | "referenceCharacters">, limit: number): CollectedReferences => {
   const groups = (opts.referenceCharacters || []).filter((g) => g.images.length > 0);
   if (groups.length === 0) {
-    const images = (opts.referenceImages || []).slice(0, Math.max(0, limit));
+    const images = (opts.referenceImages || []).slice(0, Math.max(0, limit)).map(withActualMimeType);
     return { images, names: images.map(() => undefined) };
   }
 
@@ -29,7 +43,7 @@ export const collectReferences = (opts: Pick<ImageGenCallOptions, "referenceImag
       if (images.length >= limit) break;
       const image = group.images[round];
       if (!image) continue;
-      images.push(image);
+      images.push(withActualMimeType(image));
       names.push(group.name);
     }
   }

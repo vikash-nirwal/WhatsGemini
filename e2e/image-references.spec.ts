@@ -131,7 +131,7 @@ test.describe("OpenAI", () => {
     const body = edit!.postDataBuffer()!;
     expect(body.includes(REFERENCE_BYTES)).toBe(true);
     const text = body.toString("latin1");
-    expect(text).toContain('name="image[]"; filename="reference-1.');
+    expect(text).toContain('name="image[]"; filename="reference-1.png"');
     expect(text).toContain('name="model"\r\n\r\ngpt-image-1-mini');
   });
 });
@@ -168,8 +168,8 @@ test.describe("Wan", () => {
     expect(body.model).toBe("wan2.7-image");
     const content = body.input.messages[0].content;
     expect(content[0].text).toContain("Aria waving at the camera");
-    // The app labels every reference image/jpeg; the bytes are the PNG as stored.
-    expect(content.slice(1)).toEqual([{ image: `data:image/jpeg;base64,${REFERENCE_PNG}` }]);
+    // The app labels the reference image/jpeg; the adapter corrects it from the bytes.
+    expect(content.slice(1)).toEqual([{ image: `data:image/png;base64,${REFERENCE_PNG}` }]);
   });
 });
 
