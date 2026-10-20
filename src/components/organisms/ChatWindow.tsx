@@ -11,6 +11,7 @@ import MarkdownRenderer from "src/components/molecules/MarkdownRenderer";
 import { DisplayImage } from "src/components/molecules/DisplayImage";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import ChatMessage from "./ChatMessage";
+import PromptInspectorDialog from "./PromptInspectorDialog";
 import ScenePanel from "./ScenePanel";
 import ParticipantsPanel from "src/components/molecules/ParticipantsPanel";
 import EmotionSpritePanel from "src/components/molecules/EmotionSpritePanel";
@@ -268,6 +269,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onToggleBookmark, replySuggesti
 
     return sliced;
   }, [messages, startIndex]);
+
+  // Prompt inspector (#31): the request behind an AI reply, matched by its text.
+  const [inspectText, setInspectText] = useState<string | null>(null);
+  const handleInspect = useCallback((msg: Message) => setInspectText(msg.txt || ""), []);
 
   // Chapter numbers by message id, in story order.
   const chapterNumbers = useMemo(() => {
@@ -573,6 +578,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onToggleBookmark, replySuggesti
                     blurMedia={blurMedia}
                     chapterNumber={msg.chapterTitle ? chapterNumbers.get(msg.id || "") : undefined}
                     onToggleBookmark={onToggleBookmark}
+                    onInspect={handleInspect}
                   />
                 );
                 const suggestions = !aiLoading && i === filteredMessages.length - 1 && replySuggestions && replySuggestions.forMessageId === msg.id ? replySuggestions.items : undefined;
@@ -620,6 +626,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onToggleBookmark, replySuggesti
             <div ref={chatEndRef} />
           </div>
         </div>
+        <PromptInspectorDialog isOpen={inspectText != null} onClose={() => setInspectText(null)} replyText={inspectText ?? undefined} />
         {isScrolledUp && (
           <Button
             onClick={() => {

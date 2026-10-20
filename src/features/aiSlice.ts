@@ -16,6 +16,7 @@ import { SDImageParams, Message, ArtStyle, Character, UserProfile, World, DiaryE
 import { buildDiaryPrompt, cleanDiaryEntry } from "./ai/utils/diary";
 import { buildAdventureSceneImageInstruction, findCastInNarration } from "./ai/utils/adventurePrompt";
 import { insertCompressionSummary, fetchChats } from "./chatSlice";
+import { resolveTurnModel } from "./ai/modelResolution";
 import { insertAdventureCompressionSummary } from "./adventureSlice";
 
 export interface GenerateAIResponseResult {
@@ -59,16 +60,21 @@ const resolveHelperCall = async (settings: RootState["settings"]) => {
 
 export const generateAIResponse = createAsyncThunk(
   "ai/generateResponse",
-  async ({ prompt, history = [], systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters, protectedCount }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, postHistoryNote?: string, streamKey?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[], protectedCount?: number }, { getState, dispatch, rejectWithValue, signal }) => {
+  async ({ prompt, history = [], systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters, protectedCount, modelOverride }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, postHistoryNote?: string, streamKey?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[], protectedCount?: number, modelOverride?: Character["modelOverride"] }, { getState, dispatch, rejectWithValue, signal }) => {
     try {
       const state = getState() as RootState;
       const settings = state.settings;
 
-      const chatProviderId = settings.chatProvider;
+      // The replying character's own model settings (#32), falling back to
+      // the app's text model settings for anything it doesn't set.
+      const turnModel = resolveTurnModel(settings, { modelOverride });
+      const chatProviderId = turnModel.provider;
       const chatAdapter = CHAT_PROVIDERS[chatProviderId] || CHAT_PROVIDERS.gemini;
       const chatConfig = await resolveProviderConfig(chatProviderId, chatAdapter.capabilities.requiresBaseUrl);
       if (!chatConfig.apiKey && chatAdapter.capabilities.requiresApiKey) {
-        throw new Error("API key is missing. Please log in.");
+        throw new Error(turnModel.overridden && chatProviderId !== settings.chatProvider
+          ? `This character uses ${chatProviderId}, but no API key is saved for it. Add one in Settings, or change the character's model.`
+          : "API key is missing. Please log in.");
       }
 
       const imageProviderId = settings.imageProvider;
@@ -88,12 +94,12 @@ export const generateAIResponse = createAsyncThunk(
         : { apiKey: null };
       const videoModelName = settings.videoModel;
 
-      const selectedModel = settings.selectedModel;
+      const selectedModel = turnModel.model;
       const imageModelName = settings.imageModel;
 
       const turnConfig = {
         maxOutputTokens: settings.maxOutputTokens,
-        temperature: settings.temperature,
+        temperature: turnModel.temperature,
         systemInstruction,
         safetySettings: settings.safetySettings,
       };
@@ -188,7 +194,7 @@ export const generateAIResponse = createAsyncThunk(
               temperature: turnConfig.temperature,
               maxOutputTokens: turnConfig.maxOutputTokens,
               safetySettings: turnConfig.safetySettings,
-              samplers: settings.samplers,
+              samplers: turnModel.samplers,
               history: historyForSdk,
               prompt: postHistoryNote ? `${fullPrompt}\n\n${postHistoryNote}` : fullPrompt,
               signal,

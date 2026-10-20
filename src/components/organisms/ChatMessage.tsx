@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from "react";
 import { useColorTheme } from "../../hooks/useColorTheme";
-import { FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask, FaBookmark, FaStar } from "react-icons/fa";
+import { FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask, FaBookmark, FaStar, FaCode } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { cn } from "../../utils/cn";
 import { Message } from "../../types";
@@ -45,6 +45,7 @@ interface ChatMessageProps {
   blurMedia?: boolean; // Privacy > Blur NSFW images, for a chat with an NSFW character
   chapterNumber?: number; // for a summary made by "End chapter": its position among the chapters
   onToggleBookmark?: (msg: Message) => void; // star / unstar (#21)
+  onInspect?: (msg: Message) => void; // "Show what was sent" for an AI reply (#31)
 }
 
 // Shown under a reply flagged as an out-of-character refusal (see
@@ -91,6 +92,7 @@ const ChatMessage = React.memo(({
   blurMedia = false,
   chapterNumber,
   onToggleBookmark,
+  onInspect,
 }: ChatMessageProps) => {
   const isUser = msg.role === YOU;
   const { is } = useColorTheme();
@@ -112,6 +114,9 @@ const ChatMessage = React.memo(({
   const handleEdit = useCallback(() => onStartEdit(msg), [onStartEdit, msg]);
   const handleDeleteBranch = useCallback(() => msg.id && onDeleteBranch?.(msg.id), [onDeleteBranch, msg.id]);
   const handleToggleBookmark = useCallback(() => onToggleBookmark?.(msg), [onToggleBookmark, msg]);
+  const handleInspect = useCallback(() => onInspect?.(msg), [onInspect, msg]);
+  // Only a real generation has a request behind it.
+  const canInspect = Boolean(onInspect && !isUser && !msg.isImpersonated);
   const bookmarkLabel = msg.bookmarked ? "Remove bookmark" : "Bookmark";
 
   // Long-press (touch) or the browser's own long-press/context-menu gesture
@@ -156,6 +161,7 @@ const ChatMessage = React.memo(({
     ...(!isUser && !msg.isImpersonated && isLastMessage && onContinue ? [{ label: "Continue", icon: FaForward, onSelect: handleContinue, disabled: aiLoading }] : []),
     { label: "Edit", icon: FaEdit, onSelect: handleEdit, disabled: isUser && aiLoading },
     ...(onToggleBookmark ? [{ label: bookmarkLabel, icon: FaStar, onSelect: handleToggleBookmark }] : []),
+    ...(canInspect ? [{ label: "Show what was sent", icon: FaCode, onSelect: handleInspect }] : []),
     ...(onDeleteBranch ? [{ label: siblingInfo ? "Delete this variant" : "Delete message", icon: FaTrash, onSelect: handleDeleteBranch, disabled: aiLoading, danger: true }] : []),
   ];
   const actionSheet = (
@@ -568,6 +574,16 @@ const ChatMessage = React.memo(({
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>{bookmarkLabel}</TooltipContent>
+                </Tooltip>
+              )}
+              {canInspect && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" onClick={handleInspect} aria-label="Show what was sent" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
+                      <FaCode size={11} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Show what was sent to the model for this reply</TooltipContent>
                 </Tooltip>
               )}
               {onDeleteBranch && (
