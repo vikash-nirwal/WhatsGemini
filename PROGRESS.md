@@ -6,8 +6,8 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **Current phase:** Wave 1. Phase 0 is done on branch `phase-0-bug-fixes` (not pushed, no PR yet). Lane B is running in its own worktree (branch from `ui-tests`).
-- **Next up:** Lane A of Wave 1 is done. Waiting for Lane B (UI tests) to report, then merge its branch (needs the user's OK) and start Wave 2.
+- **Current phase:** Wave 2, on branch `phase-0-bug-fixes` (not pushed, no PR yet). Wave 1 is done and merged (6612ae1).
+- **Next up:** Wave 2 Lane A (U1, U2, U3, U6, U7, U8, bubble half of U4) here; Wave 2 Lane B (T4, T6) in a parallel session.
 - **Open questions for the user:** none yet.
 
 ## Execution plan
@@ -49,22 +49,22 @@ Each wave ends with: merge (user's OK), full unit + UI test run, PROGRESS.md upd
 
 | # | Item | Status | Commit | Notes |
 |---|------|--------|--------|-------|
-| T1 | Playwright setup, 4 viewport projects | todo | | |
-| T2 | Seed fixtures and mocked AI replies | todo | | |
+| T1 | Playwright setup, 4 viewport projects | done | b93caf6 | `npm run test:e2e`. Projects: desktop 1280×800, tablet 768×1024, iPhone 14 (WebKit), Pixel 7. Served under `/WhatsGemini/` (the `homepage` path). `E2E_PORT` runs it from a second checkout without reusing another checkout's dev server. |
+| T2 | Seed fixtures and mocked AI replies | done | 0d40c5d | `e2e/fixtures.ts` seeds IndexedDB/localStorage and mocks `**/chat/completions`; `e2e/layout.ts` has geometry helpers. |
 | T3 | Layout geometry checks | todo | | Added alongside each U fix. |
 | T4 | Flow tests | todo | | |
 | T5 | Screenshot tests | todo | | |
 | T6 | Accessibility scan | todo | | |
-| T7 | GitHub Actions CI | todo | | |
+| T7 | GitHub Actions CI | done | 2ddc302 | `.github/workflows/ci.yml`. Not run on GitHub yet (nothing pushed). |
 | U1 | Multi-line input overflows composer | todo | | |
 | U2 | Composer covers latest messages | todo | | |
 | U3 | Phone composer too narrow | todo | | |
-| U4 | Sidebar crowds chat at tablet width | todo | | |
-| U5 | Mobile drawer stays open after navigating | todo | | |
+| U4 | Sidebar crowds chat at tablet width | in progress | 7e7bd7f | Sidebar/header half done: sidebar docks from `lg` (1024px), drawer below. Message-bubble menu overlap is Wave 2 Lane A. |
+| U5 | Mobile drawer stays open after navigating | done | 3a9c02b | Closes on every route change. `e2e/drawer.spec.ts`. |
 | U6 | `100vh` wrong on phones | todo | | |
 | U7 | Bubbles waste space on touch | todo | | |
 | U8 | Scroll button and toasts collide with composer | todo | | |
-| U9 | Wizard step bars scroll sideways on phones | todo | | |
+| U9 | Wizard step bars scroll sideways on phones | done | d6ae19e | New `WizardSteps` component: compact "Step n of m" when the row doesn't fit. `e2e/wizard.spec.ts`. |
 
 ## Phases 1–7: Features
 
@@ -88,12 +88,14 @@ Facts that save the next session time.
 - **Get past the login and 18+ gate without a key:** set localStorage `age_confirmed_18 = "true"` and `chat_provider = "ollama"` (a keyless provider), then reload.
 - **Fake the AI in the browser pane:** with `chat_provider = "ollama"`, override `window.fetch` in the page for URLs containing `/chat/completions`: return SSE (`data: {"choices":[{"delta":{"content":"…"}}]}` then `data: [DONE]`) when the body has `stream: true`, else JSON `{choices:[{message:{content}}]}`. The override is lost on reload.
 - **Seed test data:** IndexedDB database `ChatAppDB`, tables `chats`, `characters`, `worlds`, `adventures`, `settings`. Message roles are `"you"` and `"ai"` (not `user`/`model`). "Try a sample character" on the home screen creates character + chat 1.
+- **UI tests:** `npm run test:e2e` (reuses a dev server already on port 3000 - make sure it's this checkout's). From another worktree: `E2E_PORT=3100 npx playwright test`. Write new e2e tests with role/aria-label selectors and geometry helpers from `e2e/layout.ts`.
 - **Lockfiles:** both `package-lock.json` and `yarn.lock` exist. Use npm (the scripts and README do).
 
 ## Session log
 
 Newest first. One or two lines per session: what changed, and anything left half-done.
 
+- 2026-10-20: Merged Wave 1 Lane B (6612ae1) with the user's OK. On the merged branch: 238 unit tests, 32 UI tests pass (8 skipped by viewport), typecheck clean. Removed its worktree. Started Wave 2.
 - 2026-10-20: Fixed B5 (non-destructive compression) and B6 (adventure pipeline). Started Lane B (UI tests) as a parallel session. 238 unit tests pass.
 - 2026-10-20: Fixed B4 (memory updates, forgetting, recency-based eviction). 222 unit tests pass.
 - 2026-10-20: Fixed B1, B2, B3 and B7 (image prompt part) in one commit on `phase-0-bug-fixes`. 211 unit tests pass, typecheck clean.
