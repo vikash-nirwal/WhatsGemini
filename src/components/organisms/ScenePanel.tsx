@@ -14,6 +14,7 @@ import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { ChatSidePanelShell } from "src/components/molecules/ChatSidePanelShell";
 import { MAX_MEMORY_ENTRIES, DIARY_INTERVAL } from "src/utils/constants";
 import { cn } from "src/utils/cn";
+import { AUTHOR_NOTE_PRESETS, hasPreset, togglePreset } from "src/features/ai/utils/narrativeTools";
 
 const CATEGORY_LABELS: Record<MemoryCategory, string> = { user: "About you", relationship: "Relationship", story: "Story" };
 
@@ -310,6 +311,31 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
             placeholder="Keep it slow and sensory…"
             className="min-h-[72px] font-serif text-[13.5px] leading-[1.55] bg-background rounded-lg"
           />
+          {/* One-tap presets (#17): each adds or removes its own line. */}
+          <div className="flex flex-wrap gap-1.5 mt-2" role="group" aria-label="Author's note presets">
+            {AUTHOR_NOTE_PRESETS.map((preset) => {
+              const on = hasPreset(noteValue, preset);
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  aria-pressed={on}
+                  title={preset.text}
+                  onClick={() => {
+                    const next = togglePreset(noteValue, preset);
+                    setNoteValue(next);
+                    dispatch(updateChatAuthorNote({ chatId, authorNote: next || undefined }));
+                  }}
+                  className={cn(
+                    "min-h-6 px-2.5 py-1 rounded-full border text-[11.5px] transition",
+                    on ? "border-primary bg-primary/15 text-primary font-medium" : "border-border/50 text-subtle hover:border-primary hover:text-primary"
+                  )}
+                >
+                  {preset.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Scenario - room-only; a 1:1 chat's scenario lives on the character itself */}

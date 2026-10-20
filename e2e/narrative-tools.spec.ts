@@ -43,3 +43,24 @@ test("Surprise me asks the next reply for a twist", async ({ page, mockAI }) => 
   const sent = mockAI.requests.filter((r) => r.stream).pop()!;
   expect(sent.messages.map((m) => String(m.content)).join("\n")).toContain("introduce an unexpected but fitting development");
 });
+
+test("author's note presets add and remove their line, and reach the next reply", async ({ page, mockAI }) => {
+  mockAI.reply("Mock reply");
+  await openChat(page, 1);
+  await chatAction(page, "Scene & chat settings");
+  const slowBurn = page.getByRole("button", { name: "Slow burn" });
+  await slowBurn.click();
+  await expect(slowBurn).toHaveAttribute("aria-pressed", "true");
+  const note = page.getByPlaceholder("Keep it slow and sensory…");
+  await expect(note).toHaveValue(/Pace the relationship slowly/);
+  await page.getByRole("button", { name: "Close scene panel" }).click();
+
+  await page.getByLabel("Message input").fill("Hello again.");
+  await page.getByRole("button", { name: "Send Message" }).click();
+  await expect(page.getByText("Mock reply")).toBeVisible();
+  expect(mockAI.requests.filter((r) => r.stream).pop()!.prompt).toContain("Pace the relationship slowly");
+
+  await chatAction(page, "Scene & chat settings");
+  await page.getByRole("button", { name: "Slow burn" }).click();
+  await expect(note).toHaveValue("");
+});
