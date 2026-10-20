@@ -1,0 +1,45 @@
+import { test, expect, openChat } from "./fixtures";
+import { viewportWidth } from "./layout";
+import type { Page } from "@playwright/test";
+
+// Narrative tools: "Write my reply" (#15) and "Surprise me" (#18).
+
+test.use({ seed: { messages: 6 } });
+
+const chatAction = async (page: Page, name: string | RegExp) => {
+  const direct = page.getByRole("button", { name });
+  if (await direct.first().isVisible()) return direct.first().click();
+  await page.getByRole("button", { name: /more/i }).last().click();
+  await page.getByRole("menuitem", { name }).click();
+};
+
+// The composer tool is inline from 640px, behind "Composer options" below.
+const composerTool = async (page: Page, name: string) => {
+  if (viewportWidth(page) < 640) {
+    await page.getByRole("button", { name: "Composer options" }).click();
+    await page.getByRole("menuitemcheckbox", { name }).click();
+  } else {
+    await page.getByRole("button", { name }).click();
+  }
+};
+
+test("Write my reply puts an editable draft in the box", async ({ page, mockAI }) => {
+  mockAI.reply((req) => (req.stream ? "Mock reply" : "User: *grins* I'd love that, lead the way."));
+  await openChat(page, 1);
+  await composerTool(page, "Write my reply");
+  const input = page.getByLabel("Message input");
+  await expect(input).toHaveValue("*grins* I'd love that, lead the way.");
+  const draftRequest = mockAI.requests.find((r) => !r.stream)!;
+  expect(draftRequest.prompt).toContain("next message");
+  // Nothing was sent: it's only a draft.
+  expect(mockAI.requests.filter((r) => r.stream)).toHaveLength(0);
+});
+
+test("Surprise me asks the next reply for a twist", async ({ page, mockAI }) => {
+  mockAI.reply("A stranger bursts through the door.");
+  await openChat(page, 1);
+  await chatAction(page, /Surprise me/);
+  await expect(page.getByText("A stranger bursts through the door.")).toBeVisible();
+  const sent = mockAI.requests.filter((r) => r.stream).pop()!;
+  expect(sent.messages.map((m) => String(m.content)).join("\n")).toContain("introduce an unexpected but fitting development");
+});

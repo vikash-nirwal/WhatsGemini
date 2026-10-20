@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo, lazy, Suspense } from "react";
-import { FaPaperPlane, FaStop, FaCog, FaImage, FaVideo, FaTimes, FaMask, FaUserFriends, FaCommentSlash, FaPlus } from "react-icons/fa";
+import { FaPaperPlane, FaStop, FaCog, FaImage, FaVideo, FaTimes, FaMask, FaUserFriends, FaCommentSlash, FaPlus, FaMagic } from "react-icons/fa";
 import { cn } from "../../utils/cn";
 import { Button } from "src/components/atoms/button";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
@@ -15,6 +15,12 @@ import { Character } from "../../types";
 const ImageSettingsModal = lazy(() => import("./ImageSettingsModal"));
 
 interface MessageInputProps {
+  // "Write my reply" (#15): asks the AI for a draft of your next message and
+  // puts it in the box to edit; resolves to null when it couldn't.
+  onDraftReply?: () => Promise<string | null>;
+  // Text pushed into the box from outside (a tapped reply suggestion); a new
+  // nonce replaces the draft even when the text repeats.
+  draftInjection?: { text: string; nonce: number };
   // `forcedSpeakerId` is set when the user picked a specific participant
   // (via the room picker below) while a draft was in the box - only that
   // character should reply to this particular message, bypassing the usual
@@ -53,7 +59,7 @@ interface MessageInputProps {
 const MAX_TEXTAREA_HEIGHT = 120;
 const ASCII_BAR_CELLS = 40;
 // The terminal theme's short bracketed names for the composer tools.
-const TERMINAL_TOOL_LABELS: Record<string, string> = { image: "img", video: "vid", impersonate: "mask", silent: "silent", settings: "cfg" };
+const TERMINAL_TOOL_LABELS: Record<string, string> = { image: "img", video: "vid", impersonate: "mask", silent: "silent", draft: "draft", settings: "cfg" };
 
 const formatTokenCount = (n: number): string => {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -77,6 +83,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
   roomCharacters,
   mutedParticipantIds,
   onForceReply,
+  onDraftReply,
+  draftInjection,
 }) => {
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
@@ -107,6 +115,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   // can supply the character's side of the exchange instead.
   const [isSilentSend, setIsSilentSend] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [drafting, setDrafting] = useState(false);
   // Once true, stays true - keeps the (lazy-loaded) modal mounted after its
   // first open so its own open/close transition keeps working, while still
   // not fetching its chunk before it's ever needed.
@@ -252,6 +261,29 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
   // Mutually exclusive - toggling one clears the other, since a single reply
   // only ever generates one kind of media.
+  // "Write my reply": fills the box with an AI draft of your next message.
+  const handleDraftReply = useCallback(async () => {
+    if (!onDraftReply || drafting) return;
+    setDrafting(true);
+    try {
+      const draft = await onDraftReply();
+      if (draft) {
+        setText(draft);
+        onDraftActivity?.();
+        requestAnimationFrame(() => inputRef.current?.focus());
+      }
+    } finally {
+      setDrafting(false);
+    }
+  }, [onDraftReply, drafting, onDraftActivity]);
+
+  // A reply suggestion tapped elsewhere replaces the draft.
+  useEffect(() => {
+    if (!draftInjection) return;
+    setText(draftInjection.text);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, [draftInjection]);
+
   const toggleImageRequest = useCallback(() => {
     setIsImageRequest((v) => {
       const next = !v;
@@ -380,6 +412,12 @@ const MessageInput: React.FC<MessageInputProps> = ({
       onClick: () => setIsSilentSend((v) => { if (!v) setIsImpersonated(false); return !v; }),
       activeClass: "bg-amber-500/[0.12] text-amber-500", activeButtonClass: "bg-amber-500/[0.14] text-amber-500 hover:bg-amber-500/[0.2]",
     },
+    ...(onDraftReply ? [{
+      key: "draft", icon: FaMagic, label: drafting ? "Writing your reply..." : "Write my reply", title: "Let the AI draft your next message for you to edit",
+      ariaLabel: "Write my reply", active: drafting, toggle: false, disabled: disabled || drafting,
+      onClick: handleDraftReply,
+      activeClass: "bg-primary/[0.12] text-primary", activeButtonClass: "bg-primary/[0.14] text-primary hover:bg-primary/[0.2] animate-pulse",
+    }] : []),
     {
       key: "settings", icon: FaCog, label: "Image settings", title: "Image Generation Settings",
       ariaLabel: "Image Generation Settings", active: false, toggle: false,

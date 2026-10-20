@@ -2,7 +2,8 @@ import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, insertCompressionSummary, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatMemory, updateChatGreeting, setPendingFollowupAt } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
-import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage, summarizeChapter, writeDiaryEntry } from "../features/aiSlice";
+import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage, summarizeChapter, writeDiaryEntry, generateAssistText } from "../features/aiSlice";
+import { buildDraftReplyPrompt, cleanDraftReply, NARRATIVE_CONTEXT_MESSAGES, SURPRISE_DIRECTIVE } from "../features/ai/utils/narrativeTools";
 import { appendDiaryEntry } from "../features/ai/utils/diary";
 import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
 import ChatWindow from "src/components/organisms/ChatWindow";
@@ -11,7 +12,7 @@ import Header, { HeaderAction } from "src/components/organisms/Header";
 import PortraitPreviewModal from "src/components/organisms/PortraitPreviewModal";
 import AutoReplyModal from "src/components/organisms/AutoReplyModal";
 import PersonaModal from "src/components/organisms/PersonaModal";
-import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark } from "react-icons/fa";
+import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20 } from "react-icons/fa";
 import { Button } from "src/components/atoms/button";
 import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DIARY_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
@@ -24,7 +25,7 @@ import { effectiveContentRating } from "../features/character/contentRating";
 import { resolveNextSpeaker, parseMention, stripSpeakerPrefix } from "../features/ai/utils/roomRouting";
 import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo, generateNodeId } from "../features/chat/messageTree";
 import { estimateTokens, estimateHistoryTokens } from "../features/ai/utils/tokenEstimator";
-import { truncateHistory, countProtectedPrefix, trimToLatestSummary, latestSummaryIndex, countSeedMessages, buildSummaryMessages, TranscriptNames } from "../features/ai/utils/chatHistoryUtils";
+import { truncateHistory, countProtectedPrefix, trimToLatestSummary, latestSummaryIndex, countSeedMessages, buildSummaryMessages, formatTranscript, TranscriptNames } from "../features/ai/utils/chatHistoryUtils";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { Alert, AlertDescription } from "src/components/atoms/alert";
 import { useModal } from "../contexts/ModalContext";
@@ -553,7 +554,9 @@ const ChatPage = () => {
   // first two touch followupCount, so a manual click never eats into the
   // automatic streak's budget. `forcedSpeakerId` is the participant-strip
   // path; omitted, it round-robins like a normal turn would.
-  const sendCharacterFollowup = async (forcedSpeakerId?: number): Promise<boolean> => {
+  // `extraDirective`: a one-turn instruction riding along with this reply
+  // ("Surprise me" uses it for a plot twist).
+  const sendCharacterFollowup = async (forcedSpeakerId?: number, extraDirective?: string): Promise<boolean> => {
     if (!chatIdNum || !currentChat || roomCharacters.length === 0) return false;
 
     // Read the chat fresh from the DB rather than trusting the component's local
@@ -607,7 +610,7 @@ const ChatPage = () => {
     const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount } = buildTurnContext(
       compressedFreshMessages,
       speaker,
-      [AUTO_REPLY_DIRECTIVE],
+      extraDirective ? [AUTO_REPLY_DIRECTIVE, extraDirective] : [AUTO_REPLY_DIRECTIVE],
       undefined,
       activePersona,
       buildRoomContext(speaker),
@@ -683,6 +686,42 @@ const ChatPage = () => {
       console.error("Manual follow-up failed:", err);
     } finally {
       autoReplyInFlightRef.current = false;
+    }
+  };
+
+  // "Surprise me" (#18): the next character reply brings in an unexpected but
+  // fitting development, so you don't have to write the twist yourself.
+  const handleSurprise = async () => {
+    if (autoReplyInFlightRef.current || aiLoading) return;
+    autoReplyInFlightRef.current = true;
+    try {
+      await sendCharacterFollowup(undefined, SURPRISE_DIRECTIVE);
+    } catch (err) {
+      console.error("Surprise reply failed:", err);
+    } finally {
+      autoReplyInFlightRef.current = false;
+    }
+  };
+
+  // "Write my reply" (#15): an AI draft of your next message in your
+  // persona's voice, for the composer to show and you to edit.
+  const handleDraftReply = async (): Promise<string | null> => {
+    if (!characterData) return null;
+    const userName = activePersona?.name?.trim() || "User";
+    const recent = trimToLatestSummary(messages).slice(-NARRATIVE_CONTEXT_MESSAGES);
+    const instruction = buildDraftReplyPrompt({
+      userName,
+      userBio: [activePersona?.bio, activePersona?.backstory].filter(Boolean).join(" "),
+      charName: isRoom ? roomCharacters.map((c) => c.name).join(" and ") : characterData.name,
+      transcript: formatTranscript(recent, transcriptNames()),
+      style: roleplayStyle,
+    });
+    try {
+      const draft = await dispatch(generateAssistText({ instruction })).unwrap();
+      return cleanDraftReply(draft, userName) || null;
+    } catch (err) {
+      toast.error(typeof err === "string" ? err : "Couldn't write a draft. Check your model settings.");
+      return null;
     }
   };
 
@@ -1289,6 +1328,9 @@ const ChatPage = () => {
     ...(messages.length > 0
       ? [{ icon: FaBolt, label: isRoom ? "Make the next bot send a follow-up now" : `Make ${characterData?.name || "them"} send a follow-up now`, onClick: handleManualFollowup, disabled: aiLoading, primary: true, shortLabel: "follow-up" }]
       : []),
+    ...(messages.length > 0
+      ? [{ icon: FaDiceD20, label: "Surprise me (the next reply brings a twist)", onClick: handleSurprise, disabled: aiLoading }]
+      : []),
     { icon: FaClock, label: "Auto follow-up settings", onClick: () => setIsAutoReplyModalOpen(true), active: autoReplySettings.enabled },
     { icon: FaSlidersH, label: "Scene & chat settings", onClick: () => { setSceneOpen((v) => !v); setParticipantsOpen(false); }, active: sceneOpen, primary: true, shortLabel: "scene" },
     ...(roomCharacters.length > 0
@@ -1423,6 +1465,7 @@ const ChatPage = () => {
           roomCharacters={roomCharacters}
           mutedParticipantIds={currentChat?.mutedParticipantIds}
           onForceReply={handleForceReply}
+          onDraftReply={characterData ? handleDraftReply : undefined}
         />
       </div>
     </div>

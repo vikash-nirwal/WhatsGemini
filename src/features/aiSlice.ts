@@ -402,10 +402,17 @@ export const writeDiaryEntry = createAsyncThunk(
 // extraction use, just with a freeform instruction instead of a fixed prompt.
 export const generateAssistText = createAsyncThunk(
   "ai/generateAssistText",
-  async ({ instruction }: { instruction: string }, { getState, rejectWithValue }) => {
+  // `background`: use the cheaper background model (see resolveHelperCall),
+  // for helpers like reply suggestions that run after every reply.
+  async ({ instruction, background = false }: { instruction: string; background?: boolean }, { getState, rejectWithValue }) => {
     try {
       const state = getState() as RootState;
       const settings = state.settings;
+      if (background) {
+        const helper = await resolveHelperCall(settings);
+        const result = await helper.adapter.generateOnce(instruction, helper.model, helper.config);
+        return result.text.trim();
+      }
       const chatProviderId = settings.chatProvider;
       const chatAdapter = CHAT_PROVIDERS[chatProviderId] || CHAT_PROVIDERS.gemini;
       const chatConfig = await resolveProviderConfig(chatProviderId, chatAdapter.capabilities.requiresBaseUrl);
