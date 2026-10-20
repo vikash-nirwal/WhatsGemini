@@ -201,6 +201,16 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
   const tagBg = tagColor ? `${tagColor}26` : "rgb(var(--primary) / 0.14)";
   const tagFg = tagColor || "rgb(var(--primary))";
 
+  const bookmarks = (chat?.content || []).filter((m) => m.bookmarked && m.id);
+  // Below 1280px the panel covers the chat, so close it before scrolling.
+  const jumpToMessage = (id: string) => {
+    const covering = typeof window !== "undefined" && window.matchMedia?.("(max-width: 1279px)").matches;
+    if (covering) onClose();
+    setTimeout(() => {
+      document.querySelector(`[data-message-id="${CSS.escape(id)}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, covering ? 250 : 0);
+  };
+
   // Chapters ended in this chat, in story order (the active branch's path).
   const chapters = (chat?.content || []).filter((m) => m.chapterTitle && m.id);
   const [renamingChapterId, setRenamingChapterId] = useState<string | null>(null);
@@ -491,6 +501,33 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
             />
           </div>
         )}
+
+        {/* Bookmarks (#21) - starred messages on the current branch */}
+        <div>
+          <div className="flex items-baseline justify-between mb-2">
+            <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">Bookmarks</span>
+            {bookmarks.length > 0 && <span className="text-[11px] text-primary">{bookmarks.length}</span>}
+          </div>
+          {bookmarks.length === 0 ? (
+            <p className="text-[12.5px] text-subtle">Star a message (its ★ button, or long-press on a phone) to find it again here.</p>
+          ) : (
+            <ul className="flex flex-col gap-1.5">
+              {bookmarks.map((m) => (
+                <li key={m.id}>
+                  <button
+                    type="button"
+                    onClick={() => jumpToMessage(m.id!)}
+                    className="w-full text-left px-3 py-2 rounded-lg bg-background border border-border/30 text-[12.5px] hover:border-primary/50"
+                    aria-label={`Jump to: ${(m.txt || "").slice(0, 60)}`}
+                  >
+                    <span className="block text-[11px] text-subtle mb-0.5">{m.role === "you" ? "You" : (character?.name || "Character")}</span>
+                    <span className="line-clamp-2 text-foreground">{m.txt}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         {/* Chapters - the story so far, one titled recap per "End chapter" */}
         <div>

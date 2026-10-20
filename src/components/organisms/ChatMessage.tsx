@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from "react";
 import { useColorTheme } from "../../hooks/useColorTheme";
-import { FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask, FaBookmark } from "react-icons/fa";
+import { FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask, FaBookmark, FaStar } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { cn } from "../../utils/cn";
 import { Message } from "../../types";
@@ -44,6 +44,7 @@ interface ChatMessageProps {
   onClearRefusal?: (msg: Message) => void;
   blurMedia?: boolean; // Privacy > Blur NSFW images, for a chat with an NSFW character
   chapterNumber?: number; // for a summary made by "End chapter": its position among the chapters
+  onToggleBookmark?: (msg: Message) => void; // star / unstar (#21)
 }
 
 // Shown under a reply flagged as an out-of-character refusal (see
@@ -89,6 +90,7 @@ const ChatMessage = React.memo(({
   onClearRefusal,
   blurMedia = false,
   chapterNumber,
+  onToggleBookmark,
 }: ChatMessageProps) => {
   const isUser = msg.role === YOU;
   const { is } = useColorTheme();
@@ -109,6 +111,8 @@ const ChatMessage = React.memo(({
   ) : null;
   const handleEdit = useCallback(() => onStartEdit(msg), [onStartEdit, msg]);
   const handleDeleteBranch = useCallback(() => msg.id && onDeleteBranch?.(msg.id), [onDeleteBranch, msg.id]);
+  const handleToggleBookmark = useCallback(() => onToggleBookmark?.(msg), [onToggleBookmark, msg]);
+  const bookmarkLabel = msg.bookmarked ? "Remove bookmark" : "Bookmark";
 
   // Long-press (touch) or the browser's own long-press/context-menu gesture
   // opens the action sheet. Moving the finger cancels it, so scrolling past a
@@ -151,6 +155,7 @@ const ChatMessage = React.memo(({
     ...(!isUser && !msg.isImpersonated ? [{ label: "Regenerate", icon: FaRedo, onSelect: handleRegenerate, disabled: aiLoading }] : []),
     ...(!isUser && !msg.isImpersonated && isLastMessage && onContinue ? [{ label: "Continue", icon: FaForward, onSelect: handleContinue, disabled: aiLoading }] : []),
     { label: "Edit", icon: FaEdit, onSelect: handleEdit, disabled: isUser && aiLoading },
+    ...(onToggleBookmark ? [{ label: bookmarkLabel, icon: FaStar, onSelect: handleToggleBookmark }] : []),
     ...(onDeleteBranch ? [{ label: siblingInfo ? "Delete this variant" : "Delete message", icon: FaTrash, onSelect: handleDeleteBranch, disabled: aiLoading, danger: true }] : []),
   ];
   const actionSheet = (
@@ -362,7 +367,8 @@ const ChatMessage = React.memo(({
 
   return (
     <motion.div
-      className={cn("flex w-full mb-6", isUser ? "justify-end" : "justify-start")}
+      data-message-id={msg.id}
+      className={cn("flex w-full mb-6 scroll-mt-20", isUser ? "justify-end" : "justify-start")}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
@@ -421,6 +427,12 @@ const ChatMessage = React.memo(({
           </Button>
         )}
 
+        {msg.bookmarked && (
+          <span className="absolute -top-2 -right-2 text-amber-400 drop-shadow" title="Bookmarked" aria-label="Bookmarked">
+            <FaStar size={12} />
+          </span>
+        )}
+
         {msg.isImpersonated && (
           <div className="flex items-center gap-1.5 mb-1.5 text-[11px] font-semibold text-primary/80">
             <FaMask size={10} />
@@ -467,6 +479,11 @@ const ChatMessage = React.memo(({
               <Button variant="ghost" size="icon" onClick={handleEdit} disabled={aiLoading} aria-label="Edit" title="Edit" className="h-auto w-auto p-1.5 rounded-md text-foreground/60 hover:bg-primary/10 hover:text-foreground">
                 <FaEdit size={12} />
               </Button>
+              {onToggleBookmark && (
+                <Button variant="ghost" size="icon" onClick={handleToggleBookmark} aria-label={bookmarkLabel} aria-pressed={Boolean(msg.bookmarked)} title={bookmarkLabel} className={cn("h-auto w-auto p-1.5 rounded-md hover:bg-primary/10", msg.bookmarked ? "text-amber-500" : "text-foreground/60 hover:text-foreground")}>
+                  <FaStar size={11} />
+                </Button>
+              )}
               {onDeleteBranch && (
                 <Button
                   variant="ghost"
@@ -543,6 +560,16 @@ const ChatMessage = React.memo(({
                 </TooltipTrigger>
                 <TooltipContent>Edit</TooltipContent>
               </Tooltip>
+              {onToggleBookmark && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" onClick={handleToggleBookmark} aria-label={bookmarkLabel} aria-pressed={Boolean(msg.bookmarked)} className={cn("h-auto w-auto p-1.5 rounded-md hover:bg-secondary", msg.bookmarked ? "text-amber-500" : "text-muted-foreground hover:text-foreground")}>
+                      <FaStar size={11} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{bookmarkLabel}</TooltipContent>
+                </Tooltip>
+              )}
               {onDeleteBranch && (
                 <Tooltip>
                   <TooltipTrigger asChild>

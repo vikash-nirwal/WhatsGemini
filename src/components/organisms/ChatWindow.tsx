@@ -27,6 +27,7 @@ import { Badge } from "src/components/atoms/badge";
 import { useColorTheme } from "../../hooks/useColorTheme";
 
 interface ChatWindowProps {
+  onToggleBookmark?: (msg: Message) => void; // star / unstar a message (#21)
   // Reply ideas for the newest message (#16) and what tapping one does.
   replySuggestions?: { forMessageId: string; items: string[] } | null;
   onPickSuggestion?: (text: string) => void;
@@ -121,7 +122,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc }: { charInitials: s
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ onToggleBookmark, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -571,6 +572,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ replySuggestions, onPickSuggest
                     onClearRefusal={onClearRefusal ? handleClearRefusal : undefined}
                     blurMedia={blurMedia}
                     chapterNumber={msg.chapterTitle ? chapterNumbers.get(msg.id || "") : undefined}
+                    onToggleBookmark={onToggleBookmark}
                   />
                 );
                 const suggestions = !aiLoading && i === filteredMessages.length - 1 && replySuggestions && replySuggestions.forMessageId === msg.id ? replySuggestions.items : undefined;
