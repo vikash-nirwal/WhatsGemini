@@ -5,6 +5,7 @@ import { buildEmotionDirective } from "./emotionUtils";
 import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
 import { applyMacros } from "./macros";
 import { countProtectedPrefix, trimToLatestSummary } from "./transcript";
+import { selectRelevantFacts } from "./memoryRelevance";
 import { effectiveContentRating } from "../../character/contentRating";
 import { ChatMessage } from "../types";
 
@@ -283,7 +284,9 @@ export const buildSystemInstruction = (
   if (character.appearance) {
     sections.push(`Your physical appearance/looks: ${m(character.appearance)}`);
   }
-  const personalFacts = [...(character.pinnedMemory || []), ...(character.memory || [])];
+  // Pinned facts always go in; the rest are picked by relevance once the
+  // list is longer than MEMORY_PROMPT_LIMIT.
+  const personalFacts = [...(character.pinnedMemory || []), ...selectRelevantFacts(character.memory || [], recentMessages)];
   if (personalFacts.length > 0) {
     sections.push(`Known facts about the user, your relationship and the story so far, remembered from past conversations:\n- ${personalFacts.join("\n- ")}`);
   }
@@ -291,7 +294,7 @@ export const buildSystemInstruction = (
   // conversation (Chat.memory), on top of - never instead of - the speaker's
   // own personal memory above. Never written back to any participant's own
   // Character.memory, so it stays scoped to this one room.
-  const groupFacts = isRoomTurn ? [...(options.groupPinnedMemory || []), ...(groupMemory || [])] : [];
+  const groupFacts = isRoomTurn ? [...(options.groupPinnedMemory || []), ...selectRelevantFacts(groupMemory || [], recentMessages)] : [];
   if (groupFacts.length > 0) {
     sections.push(`Facts learned during this group conversation, shared by everyone here:\n- ${groupFacts.join("\n- ")}`);
   }

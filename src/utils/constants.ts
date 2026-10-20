@@ -191,7 +191,13 @@ export const getModelContextWindow = (providerId: string, model: string): number
 export const MEMORY_EXTRACTION_INTERVAL = 12;
 // Once a memory list exceeds this size, the facts least recently added,
 // updated or mentioned again are trimmed first (see applyMemoryChanges).
-export const MAX_MEMORY_ENTRIES = 40;
+// Only the most relevant MEMORY_PROMPT_LIMIT of them go into each prompt
+// (see memoryRelevance.ts), so the list can be long without bloating replies.
+export const MAX_MEMORY_ENTRIES = 200;
+// How many unpinned facts are sent with each reply, picked by relevance to
+// the last MEMORY_RELEVANCE_SCAN_COUNT messages.
+export const MEMORY_PROMPT_LIMIT = 30;
+export const MEMORY_RELEVANCE_SCAN_COUNT = 10;
 // How many of the most recent messages are scanned for Lorebook/World Info
 // keyword matches before each reply - recent-only keeps matching cheap and
 // keeps lore relevant to what's actually being talked about right now.
