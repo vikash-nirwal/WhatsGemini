@@ -6,6 +6,7 @@ import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
 import { applyMacros } from "./macros";
 import { countProtectedPrefix, trimToLatestSummary } from "./transcript";
 import { selectRelevantFacts } from "./memoryRelevance";
+import { buildDiarySection } from "./diary";
 import { effectiveContentRating } from "../../character/contentRating";
 import { ChatMessage } from "../types";
 
@@ -301,6 +302,12 @@ export const buildSystemInstruction = (
   const groupFacts = isRoomTurn ? [...(options.groupPinnedMemory || []), ...selectRelevantFacts(groupMemory || [], recentMessages)] : [];
   if (groupFacts.length > 0) {
     sections.push(`Facts learned during this group conversation, shared by everyone here:\n- ${groupFacts.join("\n- ")}`);
+  }
+  // The character's own latest diary entry (#5) - skipped in a chat that
+  // keeps its own memory, which is a separate what-if.
+  if (character.diaryEnabled && !options.memoryOverride) {
+    const diarySection = buildDiarySection(character.diary);
+    if (diarySection) sections.push(m(diarySection));
   }
   if (character.mes_example) {
     sections.push(

@@ -3,7 +3,7 @@ import { useColorTheme } from "../hooks/useColorTheme";
 import { addCharacter, deleteCharacter } from "../features/characterSlice";
 import { addChat, fetchChats } from "../features/chatSlice";
 import { useNavigate } from "react-router-dom";
-import { FaTrash, FaEdit, FaDownload, FaImages, FaPlus, FaComment, FaEllipsisV, FaSearch, FaCopy, FaFileImage, FaUpload } from "react-icons/fa";
+import { FaTrash, FaEdit, FaDownload, FaImages, FaPlus, FaComment, FaEllipsisV, FaSearch, FaCopy, FaFileImage, FaUpload, FaBook } from "react-icons/fa";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "src/components/molecules/dropdown-menu";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { setShowNsfwCharacters } from "../features/settingsSlice";
@@ -21,9 +21,10 @@ import { Card } from "src/components/atoms/card";
 import { Input } from "src/components/atoms/input";
 import { TermLink } from "src/components/atoms/TermLink";
 import Header from "src/components/organisms/Header";
-import { CHARACTER_SWATCHES, SAMPLE_CHARACTER } from "../utils/constants";
+import { CHARACTER_SWATCHES, SAMPLE_CHARACTER, DIARY_INTERVAL } from "../utils/constants";
 import { characterToCardV2, parseCharacterCardText, buildCharacterCardPng, extractCharacterCardFromPng, ParsedCharacterCard } from "../features/character/characterCard";
 import ImportReviewDialog from "src/components/organisms/ImportReviewDialog";
+import { Dialog, DialogContent, DialogTitle, DialogClose } from "src/components/molecules/dialog";
 import { parseSize, resolveImageSrcToUrl, autoCoverCropToBlob, generatePlaceholderPortraitBlob, blobToDataUrl } from "../features/ai/utils/portraitUtils";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -54,6 +55,9 @@ const CharacterPage = () => {
   const alwaysShowInitials = useAppSelector((state) => state.settings.alwaysShowInitials);
 
   const [gallerySearch, setGallerySearch] = useState("");
+  // Whose diary is open (#5), by id so it shows new entries as they arrive.
+  const [diaryCharacterId, setDiaryCharacterId] = useState<number | null>(null);
+  const diaryCharacter = characters.find((c) => c.id === diaryCharacterId);
   const importCardInputRef = useRef<HTMLInputElement>(null);
   const [importingCard, setImportingCard] = useState(false);
   const [importReviewData, setImportReviewData] = useState<ParsedCharacterCard | null>(null);
@@ -226,6 +230,12 @@ const CharacterPage = () => {
 
   const renderCharacterMenu = (char: Character) => (
     <DropdownMenuContent align="end">
+      {(char.diaryEnabled || (char.diary && char.diary.length > 0)) && (
+        <DropdownMenuItem onSelect={() => setDiaryCharacterId(char.id)}>
+          <FaBook className="mr-2 h-4 w-4" />
+          <span>Read diary</span>
+        </DropdownMenuItem>
+      )}
       <DropdownMenuItem onSelect={() => navigate(`/characters/${char.id}/gallery`)}>
         <FaImages className="mr-2 h-4 w-4" />
         <span>View Gallery</span>
@@ -380,7 +390,7 @@ const CharacterPage = () => {
                         <div className="text-[13px] font-bold text-foreground truncate">{char.name}</div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <TermLink label="..." aria-label="More options" className="flex-none" />
+                            <TermLink label="..." aria-label={`More options for ${char.name}`} className="flex-none" />
                           </DropdownMenuTrigger>
                           {renderCharacterMenu(char)}
                         </DropdownMenu>
@@ -457,7 +467,7 @@ const CharacterPage = () => {
                           size="icon"
                           className="h-9 w-9 bg-card/70 hover:bg-hover hover:text-foreground"
                           title="More options"
-                          aria-label="More options"
+                          aria-label={`More options for ${char.name}`}
                         >
                           <FaEllipsisV size={13} />
                         </Button>
@@ -506,6 +516,34 @@ const CharacterPage = () => {
 
       </div>
       </div>
+      {/* Character diary (#5), newest entry first */}
+      <Dialog open={diaryCharacter != null} onOpenChange={(open) => { if (!open) setDiaryCharacterId(null); }}>
+        <DialogContent aria-describedby={undefined}>
+          <div className="flex items-center justify-between gap-3">
+            <DialogTitle>{diaryCharacter?.name}'s diary</DialogTitle>
+            <DialogClose asChild>
+              <Button variant="ghost" size="sm">Close</Button>
+            </DialogClose>
+          </div>
+          <div className="overflow-y-auto flex flex-col gap-4 pr-1">
+            {!diaryCharacter?.diary?.length ? (
+              <p className="text-sm text-muted-foreground">
+                No entries yet. {diaryCharacter?.name} writes one every {DIARY_INTERVAL} messages in chats that share their memory.
+              </p>
+            ) : (
+              [...diaryCharacter.diary].reverse().map((entry) => (
+                <article key={entry.id} className="border-l-2 border-primary/40 pl-3">
+                  <div className="text-[11px] uppercase tracking-wide text-subtle mb-1">
+                    {new Date(entry.timestamp).toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                  </div>
+                  <p className="font-serif text-[15px] leading-relaxed whitespace-pre-line">{entry.text}</p>
+                </article>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <ImportReviewDialog
         isOpen={importReviewData !== null}
         onClose={() => setImportReviewData(null)}

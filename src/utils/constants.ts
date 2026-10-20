@@ -197,6 +197,10 @@ export const MAX_MEMORY_ENTRIES = 200;
 // How many unpinned facts are sent with each reply, picked by relevance to
 // the last MEMORY_RELEVANCE_SCAN_COUNT messages.
 export const MEMORY_PROMPT_LIMIT = 30;
+// Character diary: a new entry every DIARY_INTERVAL messages, at most
+// MAX_DIARY_ENTRIES kept (oldest dropped first).
+export const DIARY_INTERVAL = 30;
+export const MAX_DIARY_ENTRIES = 60;
 export const MEMORY_RELEVANCE_SCAN_COUNT = 10;
 // How many of the most recent messages are scanned for Lorebook/World Info
 // keyword matches before each reply - recent-only keeps matching cheap and

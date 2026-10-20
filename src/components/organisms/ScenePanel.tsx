@@ -12,7 +12,7 @@ import { Input } from "src/components/atoms/input";
 import { Button } from "src/components/atoms/button";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { ChatSidePanelShell } from "src/components/molecules/ChatSidePanelShell";
-import { MAX_MEMORY_ENTRIES } from "src/utils/constants";
+import { MAX_MEMORY_ENTRIES, DIARY_INTERVAL } from "src/utils/constants";
 import { cn } from "src/utils/cn";
 
 const CATEGORY_LABELS: Record<MemoryCategory, string> = { user: "About you", relationship: "Relationship", story: "Story" };
@@ -433,6 +433,25 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
             )}
           </div>
         </div>
+
+        {/* Diary (#5) - a per-character switch, so it's set here in context */}
+        {!isRoom && character && (
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[12.5px] font-medium text-foreground">{character.name} keeps a diary</div>
+              <div className="text-[11px] text-subtle">
+                {chatScoped
+                  ? `Paused in this chat: entries only come from chats that share ${character.name}'s memory.`
+                  : `Every ${DIARY_INTERVAL} messages, a short private entry about you. The latest one shapes how ${character.name} acts. Read it from the Characters page.`}
+              </div>
+            </div>
+            <ToggleSwitch
+              checked={Boolean(character.diaryEnabled)}
+              onChange={(val) => dispatch(updateCharacter({ ...character, diaryEnabled: val }))}
+              label={<span className="sr-only">{character.name} keeps a diary</span>}
+            />
+          </div>
+        )}
 
         {/* Chapters - the story so far, one titled recap per "End chapter" */}
         <div>

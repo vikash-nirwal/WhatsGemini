@@ -12,7 +12,8 @@ import { CHAT_PROVIDERS, IMAGE_PROVIDERS, VIDEO_PROVIDERS } from "./ai/providers
 import { ProviderRuntimeConfig } from "./ai/providers/types";
 import { ChatMessage, UsageInfo } from "./ai/types";
 import { RootState } from "../store/store";
-import { SDImageParams, Message, ArtStyle, Character, UserProfile, World } from "../types";
+import { SDImageParams, Message, ArtStyle, Character, UserProfile, World, DiaryEntry } from "../types";
+import { buildDiaryPrompt, cleanDiaryEntry } from "./ai/utils/diary";
 import { buildAdventureSceneImageInstruction, findCastInNarration } from "./ai/utils/adventurePrompt";
 import { insertCompressionSummary, fetchChats } from "./chatSlice";
 import { insertAdventureCompressionSummary } from "./adventureSlice";
@@ -371,6 +372,26 @@ export const summarizeChapter = createAsyncThunk(
     } catch (error: any) {
       console.error("Chapter summary error:", error);
       return rejectWithValue(error.message || "Failed to summarize the chapter.");
+    }
+  }
+);
+
+// Character diary (#5): one background call writing a short private entry
+// in the character's voice about the recent conversation.
+export const writeDiaryEntry = createAsyncThunk(
+  "ai/writeDiaryEntry",
+  async (
+    { charName, userName, recentMessages, names, previousEntry }: { charName: string; userName: string; recentMessages: Message[]; names?: TranscriptNames; previousEntry?: DiaryEntry },
+    { getState, rejectWithValue }
+  ) => {
+    try {
+      const helper = await resolveHelperCall((getState() as RootState).settings);
+      const prompt = buildDiaryPrompt(charName, userName, formatTranscript(recentMessages, names), previousEntry);
+      const result = await helper.adapter.generateOnce(prompt, helper.model, helper.config);
+      return cleanDiaryEntry(result.text);
+    } catch (error: any) {
+      console.error("Diary entry error:", error);
+      return rejectWithValue(error.message || "Failed to write a diary entry.");
     }
   }
 );

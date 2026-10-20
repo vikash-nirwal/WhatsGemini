@@ -152,6 +152,13 @@ export type ArtStyle = "anime" | "realistic" | "3d";
 
 export type ContentRating = "sfw" | "nsfw";
 
+export interface DiaryEntry {
+  id: string;
+  timestamp: number;
+  chatId?: number; // the chat it was written about
+  text: string;
+}
+
 // What a long-term memory fact is about.
 export type MemoryCategory = "user" | "relationship" | "story";
 
@@ -213,6 +220,11 @@ export interface Character {
     customEmotions?: string[]; // extra single-word moods this character can report, beyond the fixed EMOTIONS list
   };
   loreEntries?: LoreEntry[]; // keyword-triggered world info, injected into the system prompt only when relevant
+  // Character diary (#5): when on, the character writes a short first-person
+  // entry every DIARY_INTERVAL messages in chats that share its memory; the
+  // latest entry goes back into its prompt.
+  diaryEnabled?: boolean;
+  diary?: DiaryEntry[]; // oldest first, capped at MAX_DIARY_ENTRIES
   personalityTraits?: string[]; // quick-pick trait chips, folded into the system prompt alongside the main `prompt` field
 }
 

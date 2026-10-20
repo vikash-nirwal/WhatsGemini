@@ -2,7 +2,8 @@ import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, insertCompressionSummary, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatMemory, updateChatGreeting, setPendingFollowupAt } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
-import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage, summarizeChapter } from "../features/aiSlice";
+import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage, summarizeChapter, writeDiaryEntry } from "../features/aiSlice";
+import { appendDiaryEntry } from "../features/ai/utils/diary";
 import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
 import ChatWindow from "src/components/organisms/ChatWindow";
 import MessageInput from "src/components/organisms/MessageInput";
@@ -12,7 +13,7 @@ import AutoReplyModal from "src/components/organisms/AutoReplyModal";
 import PersonaModal from "src/components/organisms/PersonaModal";
 import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark } from "react-icons/fa";
 import { Button } from "src/components/atoms/button";
-import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
+import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DIARY_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Message, Chat, Character } from "../types";
 import { stripLeakedBase64 } from "../features/ai/utils/apiUtils";
@@ -21,7 +22,7 @@ import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
 import { applyMemoryChanges, carryMemoryCategories } from "../features/ai/utils/memoryExtraction";
 import { effectiveContentRating } from "../features/character/contentRating";
 import { resolveNextSpeaker, parseMention, stripSpeakerPrefix } from "../features/ai/utils/roomRouting";
-import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo } from "../features/chat/messageTree";
+import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo, generateNodeId } from "../features/chat/messageTree";
 import { estimateTokens, estimateHistoryTokens } from "../features/ai/utils/tokenEstimator";
 import { truncateHistory, countProtectedPrefix, trimToLatestSummary, latestSummaryIndex, countSeedMessages, buildSummaryMessages, TranscriptNames } from "../features/ai/utils/chatHistoryUtils";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
@@ -414,20 +415,63 @@ const ChatPage = () => {
         const merged = applyMemoryChanges(existingMemory, changes, pinned);
         if (chatScopedMemory && chatIdNum) {
           const memoryCategories = carryMemoryCategories(merged, pinned, currentChat?.memoryCategories, existingMemory, changes);
-          dispatch(updateChatMemory({ chatId: chatIdNum, memory: merged, memoryCategories: memoryCategories ?? null }));
+          await dispatch(updateChatMemory({ chatId: chatIdNum, memory: merged, memoryCategories: memoryCategories ?? null }));
         } else {
           // Re-read the character before writing: `speaker` was captured
           // before the extraction call, and saving it whole would undo
           // anything written meanwhile (e.g. this turn's selfie in gallery).
           const fresh = (await dispatch(fetchCharacterById(speaker.id)).unwrap().catch(() => speaker)) || speaker;
           const memoryCategories = carryMemoryCategories(merged, pinned, fresh.memoryCategories, existingMemory, changes);
-          dispatch(updateCharacter({ ...fresh, memory: merged, memoryCategories }));
+          await dispatch(updateCharacter({ ...fresh, memory: merged, memoryCategories }));
         }
       }
     } catch (err) {
       console.warn("Memory extraction failed (non-fatal):", err);
       warnBackgroundFailure("memory", typeof err === "string" ? err : (err as Error)?.message);
     }
+  };
+
+  // Diary (#5): every DIARY_INTERVAL messages a character with the diary on
+  // writes a private first-person entry about the recent conversation. Only
+  // in 1:1 chats that share the character's memory, so a "this chat only"
+  // what-if never reaches the diary. Same per-chat baseline counting as
+  // memory extraction above.
+  const diaryBaselineRef = useRef<Record<number, number>>({});
+  const maybeWriteDiary = async (allMessages: Message[], speaker = characterData) => {
+    if (!speaker?.diaryEnabled || !chatIdNum || isRoom || chatScopedMemory || allMessages.length === 0) return;
+    const count = allMessages.length;
+    let baseline = diaryBaselineRef.current[chatIdNum];
+    if (baseline == null) baseline = Math.floor((count - 1) / DIARY_INTERVAL) * DIARY_INTERVAL;
+    if (count < baseline) baseline = count;
+    diaryBaselineRef.current[chatIdNum] = baseline;
+    if (count - baseline < DIARY_INTERVAL) return;
+    diaryBaselineRef.current[chatIdNum] = count;
+
+    try {
+      const recent = trimToLatestSummary(allMessages).slice(-DIARY_INTERVAL);
+      const text = await dispatch(writeDiaryEntry({
+        charName: speaker.name,
+        userName: activePersona?.name?.trim() || "the user",
+        recentMessages: recent,
+        names: transcriptNames(),
+        previousEntry: speaker.diary?.[speaker.diary.length - 1],
+      })).unwrap();
+      if (!text) return;
+      const fresh = (await dispatch(fetchCharacterById(speaker.id)).unwrap().catch(() => speaker)) || speaker;
+      await dispatch(updateCharacter({
+        ...fresh,
+        diary: appendDiaryEntry(fresh.diary, { id: generateNodeId(), timestamp: Date.now(), chatId: chatIdNum, text }),
+      }));
+    } catch (err) {
+      console.warn("Diary entry failed (non-fatal):", err);
+    }
+  };
+
+  // After each reply: memory first, then the diary, one after the other so
+  // their two character saves can't overwrite each other.
+  const runBackgroundUpdates = async (allMessages: Message[], speaker = characterData) => {
+    await maybeExtractMemory(allMessages, speaker);
+    await maybeWriteDiary(allMessages, speaker);
   };
 
   // Adds a call's real usage/cost to this chat's running total - persisted,
@@ -611,7 +655,7 @@ const ChatPage = () => {
       dispatch(updateCharacter({ ...speaker, gallery: [...(speaker.gallery || []), ...generatedImages] }));
     }
 
-    maybeExtractMemory((aiAddResult.payload as Message[]) || [], speaker);
+    runBackgroundUpdates((aiAddResult.payload as Message[]) || [], speaker);
     return true;
   };
 
@@ -788,7 +832,7 @@ const ChatPage = () => {
           dispatch(updateCharacter({ ...speaker, gallery: [...(speaker.gallery || []), ...generatedImages] }));
         }
 
-        maybeExtractMemory((aiAddResult.payload as Message[]) || [], speaker);
+        runBackgroundUpdates((aiAddResult.payload as Message[]) || [], speaker);
       }
 
       dispatch(fetchChats());
@@ -873,7 +917,7 @@ const ChatPage = () => {
             dispatch(updateCharacter({ ...speaker, gallery: [...(speaker.gallery || []), ...generatedImages] }));
           }
 
-          maybeExtractMemory(finalContent, speaker);
+          runBackgroundUpdates(finalContent, speaker);
         }
       } else {
         // Mid-conversation edit: update this node's text in place, no branch, no regeneration.
@@ -967,7 +1011,7 @@ const ChatPage = () => {
           dispatch(updateCharacter({ ...speaker, gallery: [...(speaker.gallery || []), ...generatedImages] }));
         }
 
-        maybeExtractMemory(newContent, speaker);
+        runBackgroundUpdates(newContent, speaker);
       }
 
       dispatch(fetchChats());
@@ -1113,7 +1157,7 @@ const ChatPage = () => {
         const updatedContent = flattenPath(updatedTree, currentActiveLeafId);
         await dispatch(updateChatTree({ chatId: chatIdNum, content: updatedContent, tree: updatedTree, activeLeafId: currentActiveLeafId }));
 
-        maybeExtractMemory(updatedContent, speaker);
+        runBackgroundUpdates(updatedContent, speaker);
       }
 
       dispatch(fetchChats());
