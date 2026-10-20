@@ -44,6 +44,9 @@ export const buildChatHistory = (
     const text = stripLeakedBase64(msg.txt || "");
     const trimmed = text.trim() || " ";
 
+    // A /narrate line is the scene's narration, not the user speaking.
+    if (msg.isNarration) return { role: "user", text: `[Narration] ${trimmed}` };
+
     if (perspective) {
       if (msg.role === YOU) {
         return { role: "user", text: perspective.userName && !msg.isCompressionSummary ? `${perspective.userName}: ${trimmed}` : trimmed };

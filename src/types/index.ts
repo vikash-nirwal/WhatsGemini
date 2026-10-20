@@ -42,6 +42,8 @@ export interface Message {
   isImageRequest?: boolean; // True if it triggered image generation
   isVideoRequest?: boolean; // True if it triggered video generation (mutually exclusive with isImageRequest)
   isImpersonated?: boolean; // role AI, but the user wrote it themselves (Impersonate mode) - not a real generation
+  isNarration?: boolean; // a /narrate line: neither the user nor a character speaking (stored with role "you")
+  bookmarked?: boolean; // starred by the user to find again (#21)
   // Heuristically detected out-of-character refusal ("I can't continue this
   // roleplay..."). Kept visible, but left out of the context sent to the
   // model, memory and summaries - otherwise one refusal teaches every later

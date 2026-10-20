@@ -24,6 +24,7 @@ export const formatTranscript = (messages: Message[], names: TranscriptNames = {
       const text = stripLeakedBase64(m.txt || "").trim();
       if (m.isCompressionSummary) return `[Summary of earlier events]\n${text}`;
       if (m.isRoomEvent) return `[${text}]`;
+      if (m.isNarration) return `[Narration] ${text}`;
       const speaker = m.role === YOU
         ? names.userName || "User"
         : (m.speakerId != null ? names.speakerNames?.[m.speakerId] : undefined) || names.charName || "Character";

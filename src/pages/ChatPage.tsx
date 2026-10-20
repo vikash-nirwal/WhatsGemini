@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, insertCompressionSummary, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatMemory, updateChatGreeting, setPendingFollowupAt } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
 import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage, summarizeChapter, writeDiaryEntry, generateAssistText } from "../features/aiSlice";
+import { parseSlashCommand, SLASH_COMMANDS } from "../features/chat/slashCommands";
 import { buildDraftReplyPrompt, cleanDraftReply, buildReplySuggestionsPrompt, parseReplySuggestions, NARRATIVE_CONTEXT_MESSAGES, SURPRISE_DIRECTIVE } from "../features/ai/utils/narrativeTools";
 import { appendDiaryEntry } from "../features/ai/utils/diary";
 import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
@@ -815,10 +816,31 @@ const ChatPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoReplySettings.enabled, autoReplySettings.minDelaySeconds, autoReplySettings.maxDelaySeconds, autoReplySettings.maxFollowups, autoReplySettings.followupCount, chatIdNum, characterData, currentChat?.content, aiLoading, lastTypingActivityAt]);
 
-  const handleSend = async (text: string, isImageRequest?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean) => {
-    if (!text.trim() || !chatIdNum) return;
+  const handleSend = async (rawText: string, requestedImage?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean) => {
+    if (!rawText.trim() || !chatIdNum) return;
 
     setError(null);
+
+    // Slash commands (#14): most become an out-of-character direction sent
+    // like a normal message; a few act right here instead.
+    let text = rawText;
+    let isImageRequest = requestedImage;
+    const command = parseSlashCommand(rawText);
+    if (command) {
+      if (command.kind === "error") { toast.error(command.message); return; }
+      if (command.kind === "help") {
+        toast.message("Commands", { description: SLASH_COMMANDS.map((c) => `${c.usage} - ${c.description}`).join("\n"), duration: 12000 });
+        return;
+      }
+      if (command.kind === "summarize") { await handleCompress(); return; }
+      if (command.kind === "narrate") {
+        await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text: command.text, isNarration: true }));
+        dispatch(fetchChats());
+        return;
+      }
+      text = command.text;
+      isImageRequest = isImageRequest || command.isImageRequest;
+    }
 
     try {
       if (isImpersonated) {

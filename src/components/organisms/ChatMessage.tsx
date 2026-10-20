@@ -186,6 +186,9 @@ const ChatMessage = React.memo(({
     if (msg.isRoomEvent) {
       return <div className="mb-4 text-[12px] text-muted-foreground"># {msg.txt}</div>;
     }
+    if (msg.isNarration) {
+      return <div className="mb-5 text-[13px] italic text-muted-foreground">~ {msg.txt}</div>;
+    }
     if (msg.isCompressionSummary) {
       return (
         <div className="mb-4 border border-border p-3">
@@ -278,6 +281,23 @@ const ChatMessage = React.memo(({
             </NsfwBlur>
           ))}
         </div>
+      </motion.div>
+    );
+  }
+
+  // A /narrate line: the scene's own voice, centered between the speakers.
+  if (msg.isNarration) {
+    return (
+      <motion.div
+        data-slot="narration"
+        className="flex w-full mb-6 justify-center"
+        initial={{ opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
+      >
+        <p className="max-w-[85%] md:max-w-[70%] text-center font-serif italic text-[15px] leading-relaxed text-muted-foreground">
+          {msg.txt}
+        </p>
       </motion.div>
     );
   }

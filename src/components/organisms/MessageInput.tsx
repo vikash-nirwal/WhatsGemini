@@ -9,6 +9,7 @@ import { estimateTokens } from "../../features/ai/utils/tokenEstimator";
 import { VIDEO_PROVIDERS } from "../../features/ai/providers/registry";
 import { getProviderApiKey, getWanBaseUrl } from "../../features/ai/utils/settings";
 import { Character } from "../../types";
+import { matchSlashCommands, parseSlashCommand } from "../../features/chat/slashCommands";
 
 // Deferred to its own chunk - only fetched once the user actually opens the
 // image settings modal, instead of loading with the rest of the chat page.
@@ -116,6 +117,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const [isSilentSend, setIsSilentSend] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [drafting, setDrafting] = useState(false);
+  const [slashError, setSlashError] = useState<string | null>(null);
+  const slashHints = matchSlashCommands(text);
   // Once true, stays true - keeps the (lazy-loaded) modal mounted after its
   // first open so its own open/close transition keeps working, while still
   // not fetching its chunk before it's ever needed.
@@ -248,6 +251,14 @@ const MessageInput: React.FC<MessageInputProps> = ({
     if (disabled) return;
     const trimmedText = text.trim();
     if (!trimmedText) return;
+    // A mistyped slash command stays in the box with a hint, instead of
+    // being sent or lost.
+    const command = parseSlashCommand(trimmedText);
+    if (command?.kind === "error") {
+      setSlashError(command.message);
+      return;
+    }
+    setSlashError(null);
 
     onSend(trimmedText, isImageRequest, isVideoRequest, isImpersonated, selectedSpeakerId ?? undefined, isSilentSend);
     setText("");
@@ -433,6 +444,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
     onChange={(e) => {
       const value = e.target.value;
       setText(value);
+      if (slashError) setSlashError(null);
       if (value.trim()) onDraftActivity?.();
       // A forced-speaker selection only makes sense for a message
       // that's actually being composed - clearing the draft back to
@@ -652,6 +664,35 @@ const MessageInput: React.FC<MessageInputProps> = ({
           >
             <FaTimes size={11} />
           </Button>
+        </div>
+      )}
+
+      {slashError && (
+        <div role="alert" className="px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/40 text-[12.5px] text-foreground">
+          {slashError}
+        </div>
+      )}
+
+      {/* Slash command hints (#14), while the command word is being typed */}
+      {slashHints.length > 0 && (
+        <div role="listbox" aria-label="Commands" className="flex flex-col gap-0.5 p-1.5 rounded-lg bg-card border border-border shadow-soft max-h-56 overflow-y-auto">
+          {slashHints.map((command) => (
+            <button
+              key={command.name}
+              type="button"
+              role="option"
+              aria-selected={false}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setText(command.name === "help" || command.name === "summarize" ? `/${command.name}` : `/${command.name} `);
+                inputRef.current?.focus();
+              }}
+              className="flex flex-col items-start px-2 py-1.5 rounded-md text-left hover:bg-secondary"
+            >
+              <span className="font-mono text-[12.5px] text-primary">{command.usage}</span>
+              <span className="text-[12px] text-subtle">{command.description}</span>
+            </button>
+          ))}
         </div>
       )}
 
