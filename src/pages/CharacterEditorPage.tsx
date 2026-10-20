@@ -28,6 +28,8 @@ import { CharacterModelOverride, cleanModelOverride } from "../features/ai/model
 import ModelOverrideSection from "./CharacterEditorPage/ModelOverrideSection";
 import LocalImageSettingsSection from "./CharacterEditorPage/LocalImageSettingsSection";
 import VoiceSection, { cleanVoice } from "./CharacterEditorPage/VoiceSection";
+import IdeaDraftSection from "./CharacterEditorPage/IdeaDraftSection";
+import { buildCharacterDraftPrompt, parseCharacterDraft, CharacterDraftRequest, CharacterDraftError } from "../features/character/characterDraft";
 import { cleanLocalImageSettings } from "../features/ai/utils/localImageSettings";
 import { toast } from "sonner";
 
@@ -111,6 +113,9 @@ const CharacterEditorPage = () => {
   // Seeded once from a "Duplicate" action on the gallery card - a real
   // character to copy fields from, but this is still a create (no id yet).
   const duplicateFrom = (location.state as { duplicateFrom?: Character } | null)?.duplicateFrom;
+  // Set by the gallery's "Create from an idea" button: open the idea dialog
+  // straight away (#45).
+  const fromIdea = Boolean((location.state as { fromIdea?: boolean } | null)?.fromIdea);
 
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
@@ -140,6 +145,12 @@ const CharacterEditorPage = () => {
   const [modelOverride, setModelOverride] = useState<CharacterModelOverride | undefined>(undefined);
   const [localImageSettings, setLocalImageSettings] = useState<LocalImageSettings | undefined>(undefined);
   const [voice, setVoice] = useState<CharacterVoice | undefined>(undefined);
+  // Character from one line (#45).
+  const [ideaDialogOpen, setIdeaDialogOpen] = useState(false);
+  const [ideaDraftRequest, setIdeaDraftRequest] = useState<CharacterDraftRequest | null>(null);
+  const [ideaDraftName, setIdeaDraftName] = useState("");
+  const [draftingFromIdea, setDraftingFromIdea] = useState(false);
+  const [ideaDraftError, setIdeaDraftError] = useState<string | null>(null);
 
   // Seed the form from whichever source applies: editing an existing
   // character, duplicating one, or a blank create. Always runs on
@@ -152,6 +163,10 @@ const CharacterEditorPage = () => {
   useEffect(() => {
     const source = editCharacter || duplicateFrom;
     setStep(0);
+    setIdeaDialogOpen(!source && fromIdea);
+    setIdeaDraftRequest(null);
+    setIdeaDraftName("");
+    setIdeaDraftError(null);
     if (source) {
       setName(editCharacter ? source.name : `${source.name} (Copy)`);
       setDescription(source.description);
@@ -336,6 +351,43 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
       setAssistError(typeof err === "string" ? err : err?.message || "Failed to generate a surprise character. Check your API key in Settings.");
     } finally {
       setSurprising(false);
+    }
+  };
+
+  // Character from one line (#45): one AI call drafts the whole character,
+  // which fills the editor's fields for review - nothing is saved here. Goes
+  // through the helper model when one is set, like other background work, so
+  // a user whose main provider filters mature content can still draft an
+  // NSFW character they've confirmed as adult.
+  const handleDraftFromIdea = async (request: CharacterDraftRequest, another = false) => {
+    setIdeaDraftError(null);
+    setDraftingFromIdea(true);
+    try {
+      const instruction = buildCharacterDraftPrompt(another ? { ...request, avoidName: ideaDraftName } : request);
+      const text = await dispatch(generateAssistText({ instruction, background: true })).unwrap();
+      const draft = parseCharacterDraft(text);
+      setName(draft.name);
+      setDescription(draft.description);
+      setPersonalityTraits(draft.personalityTraits);
+      setPrompt(draft.prompt);
+      setScenario(draft.scenario);
+      setFirstMes(draft.first_mes);
+      setAlternateGreetings(draft.alternateGreetings);
+      setMesExample(draft.mes_example);
+      setRelationship(draft.relationship);
+      setAppearance(draft.appearance);
+      setVisualTags(draft.visualTags);
+      setContentRating(request.contentRating);
+      setAdultsConfirmed(request.contentRating === "nsfw" && Boolean(request.adultsConfirmed));
+      if (request.artStyle) setArtStyle(request.artStyle);
+      setIdeaDraftRequest(request);
+      setIdeaDraftName(draft.name);
+      setIdeaDialogOpen(false);
+    } catch (err: any) {
+      if (err instanceof CharacterDraftError) setIdeaDraftError(`${err.message} Try again, or reword the idea.`);
+      else setIdeaDraftError(typeof err === "string" ? err : err?.message || "Couldn't draft a character. Check your API key in Settings.");
+    } finally {
+      setDraftingFromIdea(false);
     }
   };
 
@@ -983,6 +1035,25 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
 
           {/* Stepped field cards */}
           <div className="flex flex-col gap-6">
+            {!editCharacter && step === 0 && (
+              <IdeaDraftSection
+                lastRequest={ideaDraftRequest}
+                drafting={draftingFromIdea}
+                error={ideaDraftError}
+                dialogOpen={ideaDialogOpen}
+                onDialogOpenChange={(open) => { setIdeaDraftError(null); setIdeaDialogOpen(open); }}
+                onDraft={(request) => handleDraftFromIdea(request)}
+                onTryAnother={() => ideaDraftRequest && handleDraftFromIdea(ideaDraftRequest, true)}
+                contentRating={contentRating}
+                adultsConfirmed={adultsConfirmed}
+                artStyle={artStyle}
+                name={name}
+                appearance={appearance}
+                visualTags={visualTags}
+                localImageSettings={cleanLocalImageSettings(localImageSettings)}
+                onPortraitGenerated={handleAvatarGenerated}
+              />
+            )}
             <Suspense fallback={<StepLoader />}>
               {step === 0 && (
                 <IdentityStep

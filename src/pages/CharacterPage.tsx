@@ -354,9 +354,12 @@ const CharacterPage = () => {
           <Card className={cn("p-6 text-center flex flex-col items-center gap-3", neumorphic && "surface-sunken")}>
             <p className="text-muted-foreground">{allCharacters.length > 0 ? "Your characters are all NSFW and hidden. Turn on Show NSFW to see them." : "No characters created yet."}</p>
             <p className="text-sm text-muted-foreground">Create your own, or jump straight into a chat with a ready-made one.</p>
-            <div className="flex gap-2.5">
+            <div className="flex flex-wrap justify-center gap-2.5">
               <Button onClick={() => navigate("/characters/new")} variant="outline" className="h-auto px-4 py-2.5 font-semibold text-sm">
                 Create your own
+              </Button>
+              <Button onClick={() => navigate("/characters/new", { state: { fromIdea: true } })} variant="outline" className="h-auto px-4 py-2.5 font-semibold text-sm">
+                Create from an idea
               </Button>
               <Button onClick={handleTrySampleCharacter} variant="default" className="h-auto px-4 py-2.5 font-semibold text-sm">
                 Try a sample character

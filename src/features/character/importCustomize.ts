@@ -75,7 +75,7 @@ const asStringArray = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x)
 // walks the text tracking whether it's inside a "..." string (respecting
 // backslash escapes) and escapes any bare newline/tab/carriage-return it
 // finds there, leaving whitespace outside strings untouched.
-const escapeBareControlCharsInStrings = (text: string): string => {
+export const escapeBareControlCharsInStrings = (text: string): string => {
   let result = "";
   let inString = false;
   let escapedNext = false;
@@ -110,7 +110,7 @@ const escapeBareControlCharsInStrings = (text: string): string => {
 // A trailing comma before a closing `}`/`]` is invalid JSON but a common
 // model slip (especially when it's editing an array/object it was shown as
 // an example) - strip it rather than reject the whole response over it.
-const stripTrailingCommas = (text: string): string => text.replace(/,(\s*[}\]])/g, "$1");
+export const stripTrailingCommas = (text: string): string => text.replace(/,(\s*[}\]])/g, "$1");
 
 // Defensive parse - the model is asked for strict JSON but still sometimes
 // wraps it in a ```json fence, adds a stray sentence, leaves a trailing

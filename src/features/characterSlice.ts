@@ -37,12 +37,18 @@ export const fetchCharacterById = createAsyncThunk(
 
 export const addCharacter = createAsyncThunk(
   "character/add",
-  async ({ name, description, prompt, scenario, first_mes, mes_example, relationship, appearance, appearanceImages, artStyle, avatar, accent, tags, autoSelfie, emotionPortraits, loreEntries, personalityTraits }: Omit<Character, "id">, { rejectWithValue }) => {
+  async (character: Omit<Character, "id">, { rejectWithValue }) => {
     try {
-      if (!name.trim() || !prompt.trim()) {
+      if (!character.name.trim() || !character.prompt.trim()) {
         throw new Error("Character name and prompt are required.");
       }
-      const newChar = { name, description, prompt, scenario, first_mes, mes_example, relationship, appearance, appearanceImages, artStyle, avatar, accent, tags, autoSelfie, emotionPortraits, loreEntries, personalityTraits };
+      // Every field is kept: this used to copy a fixed list of fields, so
+      // anything added to Character later (alternate greetings, content
+      // rating, locked look, voice, model...) was silently dropped when a
+      // character was created or imported, and only survived an edit. An id
+      // that came along (say, from an exported file) is dropped so the
+      // database assigns a fresh one instead of overwriting another row.
+      const { id: _ignoredId, ...newChar } = character as Character;
       const id = await dbService.addCharacter(newChar);
       return { id, ...newChar } as Character;
     } catch (error) {

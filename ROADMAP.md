@@ -40,7 +40,6 @@ The app is called WhatsGemini, so lean into the messaging-app fantasy.
 
 Built one at a time, in this order. Each runs in a fresh session.
 
-45. **Character from one line** (S). Type an idea ("grumpy pirate cook who secretly writes poetry") and the AI drafts the whole character: name, description, personality, scenario, greeting, appearance and locked look. You review it in the editor before saving.
 46. **"Previously on…"** (S). Opening a chat after a few days away shows a short recap built from the chapter summaries and recent messages, dismissable, and never sent to the model.
 47. **Dates that matter** (S). Birthdays, anniversaries and "the day we met" are picked up from memory or set by hand; on the day, the character mentions it or reaches out first.
 48. **Send them a photo** (S–M). Attach a picture to a message; on models that accept images the character sees it and reacts. Elsewhere it's described by a vision-capable helper model, or the user is told it can't be seen.
