@@ -8,6 +8,7 @@ import { cn } from "../../../utils/cn";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { LORE_SCAN_MESSAGE_COUNT } from "../../../utils/constants";
 import { estimateTokens } from "../../../features/ai/utils/tokenEstimator";
+import LoreEntryAdvancedSettings from "src/components/molecules/LoreEntryAdvancedSettings";
 
 interface LorebookStepProps {
   loreEntries: LoreEntry[];
@@ -43,7 +44,9 @@ const LorebookStep: React.FC<LorebookStepProps> = ({
       Add lore entries for places, factions, items, or backstory that shouldn't live in the personality
       prompt full-time. Each entry is only added to the conversation when one of its keywords shows up (as a
       whole word) in the last {LORE_SCAN_MESSAGE_COUNT} messages, or in another entry that was triggered.
-      Turn on Always on for core facts that should be present every reply.
+      Turn on Always on for core facts that should be present every reply. Each entry's Advanced section can
+      change how it triggers: its priority, a second keyword, how far back it looks, how long it stays and
+      how often it fires.
     </p>
 
     {loreEntries.length === 0 && (
@@ -109,6 +112,7 @@ const LorebookStep: React.FC<LorebookStepProps> = ({
                 <FaMagic size={10} /> {expandingLoreId === entry.id ? "Expanding..." : "Expand with AI"}
               </button>
             </div>
+            <LoreEntryAdvancedSettings entry={entry} onChange={(patch) => handleUpdateLoreEntry(entry.id, patch)} />
           </div>
         );
       })}
