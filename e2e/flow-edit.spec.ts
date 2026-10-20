@@ -13,15 +13,7 @@ test("edit your last message and get a new reply to it", async ({ page, mockAI }
 
   const bubble = messageBubble(page, "Coffee or tea?");
   await bubble.hover();
-  const edit = bubble.getByRole("button", { name: "Edit", exact: true });
-  if (await edit.count()) {
-    await edit.click();
-  } else {
-    // Before U7 a user message kept Edit in a "Message options" menu
-    // instead of the footer. Drop this branch once U7 is merged.
-    await bubble.getByRole("button", { name: "Message options" }).click();
-    await page.getByRole("menuitem", { name: "Edit" }).click();
-  }
+  await bubble.getByRole("button", { name: "Edit", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Edit Message" });
   await expect(dialog).toBeVisible();
   const box = dialog.getByRole("textbox");
