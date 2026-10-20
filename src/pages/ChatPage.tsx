@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, insertCompressionSummary, updateChatMessage, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatMemory, updateChatGreeting, setPendingFollowupAt } from "../features/chatSlice";
+import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, insertCompressionSummary, updateChatMessage, updateChatOptions, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatMemory, updateChatGreeting, setPendingFollowupAt } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
 import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage, summarizeChapter, writeDiaryEntry, generateAssistText } from "../features/aiSlice";
 import { parseSlashCommand, SLASH_COMMANDS } from "../features/chat/slashCommands";
@@ -8,6 +8,8 @@ import { buildStoryMarkdown, storyFileName } from "../features/chat/storyExport"
 import { resolveTurnModel } from "../features/ai/modelResolution";
 import { appearanceLocksFor } from "../features/ai/utils/appearanceLock";
 import { useChatRecap } from "../features/chat/useChatRecap";
+import { moveBeat } from "../features/chat/storyScript";
+import StoryScriptDialog from "../components/organisms/StoryScriptDialog";
 import { buildDraftReplyPrompt, cleanDraftReply, buildReplySuggestionsPrompt, parseReplySuggestions, NARRATIVE_CONTEXT_MESSAGES, SURPRISE_DIRECTIVE } from "../features/ai/utils/narrativeTools";
 import { appendDiaryEntry } from "../features/ai/utils/diary";
 import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
@@ -212,6 +214,7 @@ const ChatPage = () => {
     memoryOverride: !isRoom && chatScopedMemory
       ? { memory: currentChat?.memory || [], pinned: currentChat?.pinnedMemory || [] }
       : undefined,
+    storyScript: currentChat?.storyScript,
   };
 
   // Which persona this chat actually speaks as: its own override if set,
@@ -579,6 +582,7 @@ const ChatPage = () => {
   // scanning, and nothing fires once the tab/app is closed.
   const [isAutoReplyModalOpen, setIsAutoReplyModalOpen] = useState(false);
   const [sceneOpen, setSceneOpen] = useState(false);
+  const [storyOpen, setStoryOpen] = useState(false);
   const [participantsOpen, setParticipantsOpen] = useState(false);
   const autoReplySettings = normalizeAutoReply(currentChat?.autoReply);
   const autoReplyInFlightRef = useRef(false);
@@ -727,6 +731,7 @@ const ChatPage = () => {
     }
 
     await saveCharacterReaction(payloadObj?.reaction, compressedFreshMessages, speaker.id);
+    advanceStoryIfDone(payloadObj);
     runBackgroundUpdates((aiAddResult.payload as Message[]) || [], speaker);
     return true;
   };
@@ -972,6 +977,7 @@ const ChatPage = () => {
         }
 
         await saveCharacterReaction(payloadObj?.reaction, contextMessages, speaker.id);
+        advanceStoryIfDone(payloadObj);
         runBackgroundUpdates((aiAddResult.payload as Message[]) || [], speaker);
       }
 
@@ -1066,6 +1072,7 @@ const ChatPage = () => {
             dispatch(updateCharacter({ ...speaker, gallery: [...(speaker.gallery || []), ...generatedImages] }));
           }
 
+          advanceStoryIfDone(payloadObj);
           runBackgroundUpdates(finalContent, speaker);
         }
       } else {
@@ -1169,6 +1176,7 @@ const ChatPage = () => {
           dispatch(updateCharacter({ ...speaker, gallery: [...(speaker.gallery || []), ...generatedImages] }));
         }
 
+        advanceStoryIfDone(payloadObj);
         runBackgroundUpdates(newContent, speaker);
       }
 
@@ -1316,6 +1324,7 @@ const ChatPage = () => {
         const updatedContent = flattenPath(updatedTree, currentActiveLeafId);
         await dispatch(updateChatTree({ chatId: chatIdNum, content: updatedContent, tree: updatedTree, activeLeafId: currentActiveLeafId }));
 
+        advanceStoryIfDone(payloadObj);
         runBackgroundUpdates(updatedContent, speaker);
       }
 
@@ -1432,6 +1441,18 @@ const ChatPage = () => {
     a.download = storyFileName(currentChat.title || characterData?.name || "story");
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  // Story script (#57): saved on the chat; a reply that reports reaching the
+  // current beat moves the story on to the next one.
+  const saveStoryScript = (script: Chat["storyScript"]) => {
+    if (chatIdNum) dispatch(updateChatOptions({ chatId: chatIdNum, patch: { storyScript: script } }));
+  };
+  const moveStoryBeat = (step: number) => {
+    if (currentChat?.storyScript) saveStoryScript(moveBeat(currentChat.storyScript, step));
+  };
+  const advanceStoryIfDone = (payload: { beatDone?: boolean } | undefined) => {
+    if (payload?.beatDone) moveStoryBeat(1);
   };
 
   // A character's emoji reaction (#11) goes on the user message its reply
@@ -1592,7 +1613,8 @@ const ChatPage = () => {
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden relative">
-        <ChatWindow recap={recap} onToggleBookmark={handleToggleBookmark} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} />
+        <ChatWindow storyScript={currentChat?.storyScript} onEditStory={() => setStoryOpen(true)} onMoveBeat={moveStoryBeat} recap={recap} onToggleBookmark={handleToggleBookmark} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} />
+        <StoryScriptDialog open={storyOpen} onOpenChange={setStoryOpen} script={currentChat?.storyScript} onSave={saveStoryScript} />
       </div>
 
       {/* Message Input - floats over the chat, except under terminal where it

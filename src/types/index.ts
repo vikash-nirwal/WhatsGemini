@@ -97,6 +97,21 @@ export interface ConversationTree {
   nodes: Record<string, MessageNode>;
 }
 
+// Story script (#57): the story a chat stays inside. See storyScript.ts.
+export interface StoryBeat {
+  id: string;
+  text: string;
+}
+export interface StoryScript {
+  premise: string;
+  beats: StoryBeat[];
+  directions: string;
+  ending?: string;
+  // strict: nothing outside the script; loose: improvise between beats.
+  mode: "strict" | "loose";
+  currentBeat: number; // index into beats; beats.length once all are done
+}
+
 // A "Previously on..." recap (#46), written for the chat's last message at
 // the time and reused until the story moves on.
 export interface ChatRecap {
@@ -150,6 +165,7 @@ export interface Chat {
   memoryScope?: "character" | "chat";
   replySuggestions?: boolean; // show 3 tappable reply ideas after each reply (#16)
   recap?: ChatRecap; // the cached "Previously on..." card (#46), never sent to the model
+  storyScript?: StoryScript; // the story this chat follows (#57)
   personaId?: string; // overrides the global active persona for just this chat; unset = use the global one
   // Per-chat boundaries, sent right before each reply (see buildPostHistoryNote).
   hardLimits?: string[]; // things the story must never include, whatever the rating

@@ -1,4 +1,5 @@
 import { stripStreamingEmotionTag } from "./emotionUtils";
+import { stripStreamingBeatTag } from "../../chat/storyScript";
 
 // Control tags a character's reply can carry besides [Emotion: ...]: hidden
 // inner thoughts (#10) and an emoji reaction to the user's message (#11).
@@ -79,6 +80,6 @@ export const stripStreamingTags = (text: string): string => {
   out = out.replace(THOUGHTS_BLOCK, "");
   const unclosed = out.match(THOUGHTS_UNCLOSED);
   if (unclosed) out = out.slice(0, unclosed.index);
-  // A tag still being typed at the very end.
-  return out.replace(/<\s*t?h?o?u?g?h?t?s?\s*$/i, "").trimEnd();
+  // A tag still being typed at the very end, including a story beat tag (#57).
+  return stripStreamingBeatTag(out.replace(/<\s*t?h?o?u?g?h?t?s?\s*$/i, "").trimEnd());
 };

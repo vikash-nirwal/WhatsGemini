@@ -1,8 +1,9 @@
-import { Character, Intensity, LoreEntry, Message, RoleplayStyle, UserProfile } from "../../../types";
+import { Character, Intensity, LoreEntry, Message, RoleplayStyle, StoryScript, UserProfile } from "../../../types";
 import { YOU } from "../../../utils/constants";
 import { stripLeakedBase64 } from "./apiUtils";
 import { buildEmotionDirective } from "./emotionUtils";
 import { buildReactionDirective, buildThoughtsDirective, formatReactionNote } from "./messageTags";
+import { buildStoryScriptSection } from "../../chat/storyScript";
 import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
 import { applyMacros } from "./macros";
 import { countProtectedPrefix, trimToLatestSummary } from "./transcript";
@@ -443,6 +444,7 @@ export interface SceneContext {
   worldTags?: string[];
   roleplayStyle?: RoleplayStyle;
   memoryOverride?: PromptOptions["memoryOverride"]; // see PromptOptions
+  storyScript?: StoryScript; // the story this chat follows (#57)
 }
 
 // The single function replacing the copy-pasted "build history + build system
@@ -462,8 +464,11 @@ export const buildTurnContext = (
   const messages = trimToLatestSummary(fullMessages);
   const perspective = roomContext && character ? { selfId: character.id, userName: activePersona?.name?.trim() || "User" } : undefined;
   const history = buildChatHistory(messages, roomContext?.speakerNames, perspective);
+  // The story script (#57) goes in the system instruction, which is never
+  // compressed, so it holds however long the chat runs.
+  const directives = scene?.storyScript ? [buildStoryScriptSection(scene.storyScript), ...(extraDirectives || [])] : extraDirectives;
   const { text, images, characterName } = buildSystemInstruction(
-    character, extraDirectives, replyLengthLimit, activePersona, messages, roomContext?.otherParticipants,
+    character, directives, replyLengthLimit, activePersona, messages, roomContext?.otherParticipants,
     roomContext?.groupScenario, roomContext?.groupMemory,
     {
       roleplayStyle: scene?.roleplayStyle,

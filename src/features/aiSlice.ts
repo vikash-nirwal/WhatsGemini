@@ -8,6 +8,7 @@ import { generateVideo } from "./ai/utils/videoGeneration";
 import { extractEmotionTag } from "./ai/utils/emotionUtils";
 import { extractReactionTag, extractThoughts } from "./ai/utils/messageTags";
 import { buildRecapPrompt, cleanRecap, latestStorySummary, recentForRecap } from "./chat/recap";
+import { extractBeatTag } from "./chat/storyScript";
 import { extractMemoryChanges } from "./ai/utils/memoryExtraction";
 import { looksLikeRefusal } from "./ai/utils/refusal";
 import { CHAT_PROVIDERS, IMAGE_PROVIDERS, VIDEO_PROVIDERS } from "./ai/providers/registry";
@@ -34,6 +35,7 @@ export interface GenerateAIResponseResult {
   emotion?: string;
   thoughts?: string;
   reaction?: string; // the character's reaction to the message it answered (#11)
+  beatDone?: boolean; // the story script's current beat was reached (#57)
   isRefusal?: boolean;
 }
 
@@ -226,7 +228,9 @@ export const generateAIResponse = createAsyncThunk(
       const { emotion } = emotionResult;
       const reactionAfter = reactionFirst.reaction ? { text: emotionResult.text, reaction: undefined } : extractReactionTag(emotionResult.text);
       const reaction = reactionFirst.reaction || reactionAfter.reaction;
-      const { text: responseWithoutTags, thoughts } = extractThoughts(reactionAfter.text);
+      const { text: withoutThoughts, thoughts } = extractThoughts(reactionAfter.text);
+      // A story script's [Beat done] tag (#57) closes the reply, if present.
+      const { text: responseWithoutTags, beatDone } = extractBeatTag(withoutThoughts);
 
       const finalResponseText = await extractAndSaveBase64ImagesLocally(responseWithoutTags, generatedImages);
 
@@ -239,6 +243,7 @@ export const generateAIResponse = createAsyncThunk(
         emotion,
         thoughts,
         reaction,
+        beatDone: beatDone || undefined,
         // Only a plain text reply can be an out-of-character refusal; image/
         // video turns carry a derived scene summary instead.
         isRefusal: !isImageRequest && !isVideoRequest && looksLikeRefusal(finalResponseText) ? true : undefined,

@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useCallback, useMemo, useState } from "react"
 import { FaCheck, FaTimes, FaArrowDown, FaClock, FaMicrophone } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { YOU, LS_INITIAL_MESSAGES } from "../../utils/constants";
-import { Message, Character, ConversationTree, Intensity } from "../../types";
+import { Message, Character, ConversationTree, Intensity, StoryScript } from "../../types";
 import { getSiblingInfo } from "../../features/chat/messageTree";
 import { resolveEmotionPortrait } from "../../features/ai/utils/emotionUtils";
 import { stripStreamingTags } from "../../features/ai/utils/messageTags";
@@ -10,6 +10,7 @@ import { receiptFor, revealDelayMs, splitIntoTexts } from "../../features/ai/uti
 import { stripImageContextTag } from "../../features/ai/utils/imageGeneration";
 import type { RecapView } from "../../features/chat/useChatRecap";
 import { RecapCard } from "src/components/molecules/RecapCard";
+import { StoryProgress } from "src/components/molecules/StoryProgress";
 import { applyMacros, getGreetings } from "../../features/ai/utils/macros";
 import { isNsfwCharacter } from "../../features/character/contentRating";
 import { stopSpeaking } from "../../features/voice/speech";
@@ -37,6 +38,9 @@ interface ChatWindowProps {
   onToggleBookmark?: (msg: Message) => void; // star / unstar a message (#21)
   onReact?: (msg: Message, emoji: string) => void; // your emoji reaction to a reply (#11)
   recap?: RecapView; // "Previously on..." after a few days away (#46)
+  storyScript?: StoryScript; // the story this chat follows (#57)
+  onEditStory?: () => void;
+  onMoveBeat?: (step: number) => void;
   // Reply ideas for the newest message (#16) and what tapping one does.
   replySuggestions?: { forMessageId: string; items: string[] } | null;
   onPickSuggestion?: (text: string) => void;
@@ -139,7 +143,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc }: { charInitials: s
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ recap, onToggleBookmark, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ storyScript, onEditStory, onMoveBeat, recap, onToggleBookmark, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -606,6 +610,20 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ recap, onToggleBookmark, onReac
                     </p>
                   </Card>
                 )}
+                {/* Story script (#57): written before the roleplay starts. */}
+                {onEditStory && (
+                  storyScript && onMoveBeat ? (
+                    <div className="w-full max-w-[560px] mt-4">
+                      <StoryProgress script={storyScript} onMove={onMoveBeat} onEdit={onEditStory} terminal={terminal} />
+                    </div>
+                  ) : (
+                    <Card className="w-full max-w-[560px] mt-4 px-5 py-4 flex flex-col items-start gap-2">
+                      <span className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">Story script</span>
+                      <p className="text-[13px] text-muted-foreground">Want the AI to follow a story of yours? Write the premise, the beats and your directions first, and every reply stays inside it.</p>
+                      <Button type="button" variant="outline" size="sm" onClick={onEditStory}>Write the story</Button>
+                    </Card>
+                  )
+                )}
               </div>
             ) : (
               filteredMessages.map((msg, i) => {
@@ -673,6 +691,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ recap, onToggleBookmark, onReac
               })
             )}
             {recap && !aiLoading && <RecapCard recap={recap} terminal={terminal} />}
+            {storyScript && filteredMessages.length > 0 && onMoveBeat && onEditStory && (
+              <StoryProgress script={storyScript} onMove={onMoveBeat} onEdit={onEditStory} terminal={terminal} />
+            )}
             {terminal ? (
               aiLoading ? (
                 <TerminalCursorLine name={characterName} note={recordingVoiceNote ? "recording audio..." : undefined} />
@@ -728,6 +749,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ recap, onToggleBookmark, onReac
           chatScenario={chatScenario}
           authorNote={authorNote}
           worldTags={worldTags}
+          onEditStory={onEditStory}
+          hasStoryScript={Boolean(storyScript)}
           onClose={onCloseScene || (() => {})}
         />
       )}

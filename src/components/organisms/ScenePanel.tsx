@@ -36,9 +36,11 @@ interface ScenePanelProps {
   intensity?: Intensity;
   isNsfwChat?: boolean; // intensity only matters (and is only shown) when the chat is effectively NSFW
   onClose: () => void;
+  onEditStory?: () => void; // opens the story script editor (#57)
+  hasStoryScript?: boolean;
 }
 
-const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chatMemory, chatPinnedMemory, chatScenario, authorNote, worldTags, hardLimits, intensity, isNsfwChat, onClose }) => {
+const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chatMemory, chatPinnedMemory, chatScenario, authorNote, worldTags, hardLimits, intensity, isNsfwChat, onClose, onEditStory, hasStoryScript }) => {
   const dispatch = useAppDispatch();
 
   // App-wide display preferences, not per-chat data like everything else in
@@ -499,6 +501,19 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
               onChange={(val) => dispatch(updateCharacter({ ...character, diaryEnabled: val }))}
               label={<span className="sr-only">{character.name} keeps a diary</span>}
             />
+          </div>
+        )}
+
+        {/* Story script (#57) */}
+        {onEditStory && (
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[12.5px] font-medium text-foreground">Story script</div>
+              <div className="text-[11px] text-subtle">{hasStoryScript ? "This chat follows your story, beat by beat." : "Give the AI a story, beats and directions to stay inside."}</div>
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={onEditStory}>
+              {hasStoryScript ? "Edit" : "Write"}
+            </Button>
           </div>
         )}
 
