@@ -189,7 +189,8 @@ export const getModelContextWindow = (providerId: string, model: string): number
 // How many new messages accumulate in a chat before long-term memory extraction
 // runs again (independent of the compression threshold, which defaults to off).
 export const MEMORY_EXTRACTION_INTERVAL = 12;
-// Oldest facts are trimmed once a character's memory list exceeds this size.
+// Once a memory list exceeds this size, the facts least recently added,
+// updated or mentioned again are trimmed first (see applyMemoryChanges).
 export const MAX_MEMORY_ENTRIES = 40;
 // How many of the most recent messages are scanned for Lorebook/World Info
 // keyword matches before each reply - recent-only keeps matching cheap and

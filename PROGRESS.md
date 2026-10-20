@@ -7,20 +7,20 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 ## Where we stand
 
 - **Current phase:** Phase 0, on branch `phase-0-bug-fixes` (not pushed, no PR yet).
-- **Next up:** B4 (memory updates and forgetting), then B5, then B6.
+- **Next up:** B5 (non-destructive compression), then B6.
 - **Open questions for the user:** none yet.
 
 ## Phase 0: Logic bugs
 
 | # | Item | Status | Commit | Notes |
 |---|------|--------|--------|-------|
-| B1 | Mood portrait wipes custom emotions | done | see log | Not checked in the app (needs an image provider); the fix is a one-line spread. |
-| B2 | Group-chat impersonate posts as first character | done | see log | Checked in the app: picked Kai, impersonated, stored `speakerId` was Kai. The composer banner names the picked speaker. |
-| B3 | Compression/truncation use the global seed count | done | see log | `countSeedMessages` / `countProtectedPrefix` in `transcript.ts`; `truncateHistory` moved there and now also protects the compression summary. Tests in `transcript.test.ts`. Legacy chats whose seed messages were never flagged `isSystem` aren't detected (only the display filter in ChatWindow handles those). |
-| B4 | Memory can't update or forget facts | todo | | |
+| B1 | Mood portrait wipes custom emotions | done | 5e1176c | Not checked in the app (needs an image provider); the fix is a one-line spread. |
+| B2 | Group-chat impersonate posts as first character | done | 5e1176c | Checked in the app: picked Kai, impersonated, stored `speakerId` was Kai. The composer banner names the picked speaker. |
+| B3 | Compression/truncation use the global seed count | done | 5e1176c | `countSeedMessages` / `countProtectedPrefix` in `transcript.ts`; `truncateHistory` moved there and now also protects the compression summary. Tests in `transcript.test.ts`. Legacy chats whose seed messages were never flagged `isSystem` aren't detected (only the display filter in ChatWindow handles those). |
+| B4 | Memory can't update or forget facts | done | see log | Extractor replies with `- fact`, `UPDATE n: …`, `FORGET n`, `STILL TRUE: n, m` against a numbered list; pinned facts are shown separately and can't be touched. The list is kept in recency order, so the 40 cap evicts facts not mentioned for longest. Also fixed: the memory write re-reads the character first, so it no longer undoes a same-turn gallery write. Tests in `memoryExtraction.test.ts`; checked end to end in the app with a faked Ollama endpoint. |
 | B5 | Compression destroys branches and history | todo | | Large. B6 depends on it. Also picks up B7's leftover: run auto-compression on edit-and-resend. |
 | B6 | Adventures skip the chat pipeline | todo | | After B5. |
-| B7 | Edit-and-resend drops image prompt, skips compression | done (partly) | see log | Image prompt/params kept. Auto-compression on this path moved to B5, because today's compression would delete the branch the edit just made. |
+| B7 | Edit-and-resend drops image prompt, skips compression | done (partly) | 5e1176c | Image prompt/params kept. Auto-compression on this path moved to B5, because today's compression would delete the branch the edit just made. |
 
 ## Phase 0.5: UI tests and layout fixes
 
@@ -63,6 +63,7 @@ Facts that save the next session time.
 
 - **Run the app:** `.claude/launch.json` has a `web` config (`npm start`, port 3000) for the browser pane.
 - **Get past the login and 18+ gate without a key:** set localStorage `age_confirmed_18 = "true"` and `chat_provider = "ollama"` (a keyless provider), then reload.
+- **Fake the AI in the browser pane:** with `chat_provider = "ollama"`, override `window.fetch` in the page for URLs containing `/chat/completions`: return SSE (`data: {"choices":[{"delta":{"content":"…"}}]}` then `data: [DONE]`) when the body has `stream: true`, else JSON `{choices:[{message:{content}}]}`. The override is lost on reload.
 - **Seed test data:** IndexedDB database `ChatAppDB`, tables `chats`, `characters`, `worlds`, `adventures`, `settings`. Message roles are `"you"` and `"ai"` (not `user`/`model`). "Try a sample character" on the home screen creates character + chat 1.
 - **Lockfiles:** both `package-lock.json` and `yarn.lock` exist. Use npm (the scripts and README do).
 
@@ -70,6 +71,7 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session: what changed, and anything left half-done.
 
+- 2026-10-20: Fixed B4 (memory updates, forgetting, recency-based eviction). 222 unit tests pass.
 - 2026-10-20: Fixed B1, B2, B3 and B7 (image prompt part) in one commit on `phase-0-bug-fixes`. 211 unit tests pass, typecheck clean.
 - 2026-10-20: With the user's OK, cleared about 760 MB: removed the merged `image-backup-2` worktree, `build/` and `node_modules/.cache/gh-pages`. The local branch `worktree-image-backup-2` still exists (merged in PR #1). The dev-server caches were kept.
 - 2026-10-20: Reviewed the app; wrote ROADMAP.md (logic bugs, UI tests and layout bugs, 33 feature ideas). Added `.claude/launch.json`, this file, CLAUDE.md and `scripts/disk-usage.sh`. No app code changed.

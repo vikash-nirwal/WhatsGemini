@@ -18,7 +18,7 @@ import { Message, Chat, Character } from "../types";
 import { stripLeakedBase64 } from "../features/ai/utils/apiUtils";
 import { buildChatHistory, buildSystemInstruction, buildTurnContext, AUTO_REPLY_DIRECTIVE, FOLLOWUP_CONTINUATION_PROMPT, RoomContext, SceneContext } from "../features/ai/utils/promptComposition";
 import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
-import { mergeMemory } from "../features/ai/utils/memoryExtraction";
+import { applyMemoryChanges } from "../features/ai/utils/memoryExtraction";
 import { effectiveContentRating } from "../features/character/contentRating";
 import { resolveNextSpeaker, parseMention, stripSpeakerPrefix } from "../features/ai/utils/roomRouting";
 import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo } from "../features/chat/messageTree";
@@ -369,20 +369,28 @@ const ChatPage = () => {
       const existingMemory = isRoom ? (currentChat?.memory || []) : (speaker.memory || []);
       const pinned = isRoom ? (currentChat?.pinnedMemory || []) : (speaker.pinnedMemory || []);
       const names = transcriptNames();
-      const newFacts = await dispatch(
+      const changes = await dispatch(
         extractCharacterMemory({
           recentMessages,
-          existingMemory: [...pinned, ...existingMemory],
+          memory: existingMemory,
+          pinnedMemory: pinned,
           names: { ...names, charName: isRoom ? undefined : speaker.name },
         })
       ).unwrap();
 
-      if (newFacts && newFacts.length > 0) {
-        const merged = mergeMemory(existingMemory, newFacts);
+      const hasChanges = changes.added.length + changes.updated.length + changes.forgotten.length + changes.reinforced.length > 0;
+      if (hasChanges) {
+        // Applied to the same snapshot the model was shown, since the
+        // changes refer to its facts by position.
+        const merged = applyMemoryChanges(existingMemory, changes, pinned);
         if (isRoom && chatIdNum) {
           dispatch(updateChatMemory({ chatId: chatIdNum, memory: merged }));
         } else {
-          dispatch(updateCharacter({ ...speaker, memory: merged }));
+          // Re-read the character before writing: `speaker` was captured
+          // before the extraction call, and saving it whole would undo
+          // anything written meanwhile (e.g. this turn's selfie in gallery).
+          const fresh = await dispatch(fetchCharacterById(speaker.id)).unwrap().catch(() => speaker);
+          dispatch(updateCharacter({ ...(fresh || speaker), memory: merged }));
         }
       }
     } catch (err) {

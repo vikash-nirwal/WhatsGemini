@@ -73,7 +73,7 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
   // Memory - a room reads/writes its own Chat.memory; a 1:1 chat reuses
   // Character.memory, the same data the Character Editor manages.
   // Pinned facts are a separate list: always injected, never evicted by the
-  // MAX_MEMORY_ENTRIES cap that trims the oldest auto-extracted ones.
+  // MAX_MEMORY_ENTRIES cap that trims the least recently mentioned ones.
   const memory = isRoom ? (chatMemory || []) : (character?.memory || []);
   const pinned = isRoom ? (chatPinnedMemory || []) : (character?.pinnedMemory || []);
 

@@ -6,7 +6,7 @@ import { extractAndSaveBase64ImagesLocally, stripLeakedBase64 } from "./ai/utils
 import { deriveImagePrompt, generateImage, RoomReferenceCharacter } from "./ai/utils/imageGeneration";
 import { generateVideo } from "./ai/utils/videoGeneration";
 import { extractEmotionTag } from "./ai/utils/emotionUtils";
-import { extractMemoryFacts } from "./ai/utils/memoryExtraction";
+import { extractMemoryChanges } from "./ai/utils/memoryExtraction";
 import { looksLikeRefusal } from "./ai/utils/refusal";
 import { CHAT_PROVIDERS, IMAGE_PROVIDERS, VIDEO_PROVIDERS } from "./ai/providers/registry";
 import { ProviderRuntimeConfig } from "./ai/providers/types";
@@ -494,19 +494,22 @@ export const generateAdventureSceneImage = createAsyncThunk(
   }
 );
 
-// Async Thunk for extracting long-term character memory from a slice of recent messages
+// Async Thunk for working out what to add, correct, drop or reconfirm in
+// long-term memory from a slice of recent messages. Returns the changes, not
+// a new list - the caller applies them (applyMemoryChanges) to the same
+// `memory` snapshot it passed in, since the changes refer to it by index.
 export const extractCharacterMemory = createAsyncThunk(
   "ai/extractCharacterMemory",
   async (
-    { recentMessages, existingMemory, names }: { recentMessages: Message[]; existingMemory: string[]; names?: TranscriptNames },
+    { recentMessages, memory, pinnedMemory, names }: { recentMessages: Message[]; memory: string[]; pinnedMemory: string[]; names?: TranscriptNames },
     { getState, rejectWithValue }
   ) => {
     try {
       const helper = await resolveHelperCall((getState() as RootState).settings);
       const conversationText = formatTranscript(recentMessages, names);
 
-      const { facts } = await extractMemoryFacts(helper.adapter, helper.config, helper.model, conversationText, existingMemory, names);
-      return facts;
+      const { changes } = await extractMemoryChanges(helper.adapter, helper.config, helper.model, conversationText, memory, pinnedMemory, names);
+      return changes;
     } catch (error: any) {
       console.error("Memory extraction error:", error);
       return rejectWithValue(error.message || "Failed to extract memory.");
