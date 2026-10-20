@@ -7,8 +7,31 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 ## Where we stand
 
 - **Current phase:** Phase 0, on branch `phase-0-bug-fixes` (not pushed, no PR yet).
-- **Next up:** B5 (non-destructive compression), then B6.
+- **Next up:** Wave 1 of the execution plan below: B5 and B6 here, UI tests in a parallel lane.
 - **Open questions for the user:** none yet.
+
+## Execution plan
+
+Items run one after another within a lane, without stopping between items; a lane only pauses for a decision, a failing test it can't fix, or a merge. Lanes run in parallel only when they touch **different files**. These shared files have one writer at a time: `src/types/index.ts`, `ChatPage.tsx`, `ChatWindow.tsx`, `ChatMessage.tsx`, `MessageInput.tsx`, `promptComposition.ts`, `aiSlice.ts`, `chatSlice.ts`, `package.json`.
+
+Parallel lanes work in their own worktree and branch and **don't edit PROGRESS.md**. They report in their commit messages and final summary, and the coordinating session (the one on `phase-0-bug-fixes`) records them here when merging. Branches are merged only with the user's OK.
+
+**Wave 1 (now)**
+- **Lane A** (coordinating session, branch `phase-0-bug-fixes`): B5, then B6. Files: chat/compression code, `ChatPage`, `ChatWindow`, `ChatMessage`, `chatSlice`, `aiSlice`, `transcript`/`chatHistoryUtils`, `AdventurePage`, `adventurePrompt`, `adventureSlice`, `types`. Stays out of `AdventureWizardPage`.
+- **Lane B** (parallel session, own worktree): T1, T2, T7, then U5, U9, and the sidebar/header half of U4, each with its T3 check. Files: Playwright config, `e2e/`, `package.json`, `.github/`, `Sidebar.tsx`, `Header.tsx`, `CharacterEditorPage.tsx`, `AdventureWizardPage.tsx`.
+
+**Wave 2** (after Wave 1 is merged)
+- **Lane A:** U1, U2, U3, U6, U7, U8 and the message-bubble half of U4. They all touch the composer and chat layout, so they go in one lane, each with its T3 check.
+- **Lane B:** T4 (flows) and T6 (accessibility); test files only.
+- Then T5 (screenshots), once the layout fixes have landed.
+
+**Wave 3: features.** Lanes are picked at the start of the wave from the files each item touches. Likely groups:
+- Memory: #1, #2, #3, then #4 (needs B5), #5.
+- Composer and narrative tools: #15, #17, #18, #16, #14, #20, #21.
+- Mostly self-contained: #29 (lorebook), #31 (prompt inspector), #33 (context meter), #32 (per-character model).
+- Later: immersion (#6–#13), group chats (#22–#24), adventures (#25–#28), #30.
+
+Each wave ends with: merge (user's OK), full unit + UI test run, PROGRESS.md update, disk report.
 
 ## Phase 0: Logic bugs
 
@@ -17,7 +40,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | B1 | Mood portrait wipes custom emotions | done | 5e1176c | Not checked in the app (needs an image provider); the fix is a one-line spread. |
 | B2 | Group-chat impersonate posts as first character | done | 5e1176c | Checked in the app: picked Kai, impersonated, stored `speakerId` was Kai. The composer banner names the picked speaker. |
 | B3 | Compression/truncation use the global seed count | done | 5e1176c | `countSeedMessages` / `countProtectedPrefix` in `transcript.ts`; `truncateHistory` moved there and now also protects the compression summary. Tests in `transcript.test.ts`. Legacy chats whose seed messages were never flagged `isSystem` aren't detected (only the display filter in ChatWindow handles those). |
-| B4 | Memory can't update or forget facts | done | see log | Extractor replies with `- fact`, `UPDATE n: …`, `FORGET n`, `STILL TRUE: n, m` against a numbered list; pinned facts are shown separately and can't be touched. The list is kept in recency order, so the 40 cap evicts facts not mentioned for longest. Also fixed: the memory write re-reads the character first, so it no longer undoes a same-turn gallery write. Tests in `memoryExtraction.test.ts`; checked end to end in the app with a faked Ollama endpoint. |
+| B4 | Memory can't update or forget facts | done | 9ddde30 | Extractor replies with `- fact`, `UPDATE n: …`, `FORGET n`, `STILL TRUE: n, m` against a numbered list; pinned facts are shown separately and can't be touched. The list is kept in recency order, so the 40 cap evicts facts not mentioned for longest. Also fixed: the memory write re-reads the character first, so it no longer undoes a same-turn gallery write. Tests in `memoryExtraction.test.ts`; checked end to end in the app with a faked Ollama endpoint. |
 | B5 | Compression destroys branches and history | todo | | Large. B6 depends on it. Also picks up B7's leftover: run auto-compression on edit-and-resend. |
 | B6 | Adventures skip the chat pipeline | todo | | After B5. |
 | B7 | Edit-and-resend drops image prompt, skips compression | done (partly) | 5e1176c | Image prompt/params kept. Auto-compression on this path moved to B5, because today's compression would delete the branch the edit just made. |
