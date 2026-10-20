@@ -41,7 +41,6 @@ The app is called WhatsGemini, so lean into the messaging-app fantasy.
 
 Built one at a time, in this order. Each runs in a fresh session.
 
-43. **Notifications** (S). When a character reaches out (a follow-up) or a reply finishes while the tab is in the background, show a browser notification that opens the chat. Asks permission once, from Settings; off by default.
 44. **Voice notes** (M). Built together with Voice (#12), which it needs. A character sometimes sends a voice message (spoken by the browser's free text-to-speech, shown as a playable bubble with its transcript), and you can record one back (speech-to-text, sent as text with a "voice note" mark).
 45. **Character from one line** (S). Type an idea ("grumpy pirate cook who secretly writes poetry") and the AI drafts the whole character: name, description, personality, scenario, greeting, appearance and locked look. You review it in the editor before saving.
 46. **"Previously on…"** (S). Opening a chat after a few days away shows a short recap built from the chapter summaries and recent messages, dismissable, and never sent to the model.
@@ -68,4 +67,5 @@ Leftovers noted while building the finished items. Pick them up alongside relate
 - **Messaging feel:** texting mode isn't used by the terminal theme or the novel view; the terminal theme only offers ❤️ as a reaction; the inner-thoughts switch is only in a 1:1 chat's Scene panel (rooms have none yet).
 - **Image providers:** try each with a real key: Wan from a Singapore workspace, fal.ai uploads and its safety flags, OpenAI's `input_fidelity` and `image[]` fields, and the ComfyUI templates' node names against a real server. An InstantID preset for the SD WebUI ControlNet (it needs two units). ComfyUI prompts could use tag style for SDXL templates.
 - **Accessibility:** `/settings/image` isn't in the axe scan yet and has three violations: an unnamed ToggleSwitch, unlabeled portrait-size inputs, and the selected provider pill's contrast.
+- **Notifications:** not tried on a real device: the installed app's service-worker path (`showNotification` and its `notificationclick`), Android Chrome, and an iPhone Home Screen app. Portraits saved to a local folder (`local:`) show the app icon instead of the avatar.
 - **CI:** the GitHub actions in `ci.yml` target Node 20 (a deprecation warning); move them to newer major versions.

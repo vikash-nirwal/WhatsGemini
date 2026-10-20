@@ -6,6 +6,7 @@ import InitialMessages from 'src/components/molecules/InitialMessages';
 import { SettingsCard, SettingsCardHeader, SettingsRow } from 'src/components/molecules/settings-card';
 import { SegmentedControl } from 'src/components/molecules/SegmentedControl';
 import ToggleSwitch from 'src/components/atoms/ToggleSwitch';
+import NotificationSettings from 'src/components/organisms/NotificationSettings';
 
 interface ChatInterfaceSettingsProps {
   maxChatLength: number;
@@ -67,6 +68,8 @@ const ChatInterfaceSettings: React.FC<ChatInterfaceSettingsProps> = ({
           />
         </SettingsRow>
       </SettingsCard>
+
+      <NotificationSettings />
 
       <SettingsCard>
         <div className="p-5">

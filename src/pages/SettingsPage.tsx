@@ -771,7 +771,7 @@ const SettingsPage = () => {
     { id: "profile", icon: <FaUser size={13} />, title: "User Profile", subtitle: "Your name and bio", conf: "user_profile" },
     { id: "text", icon: <FaMicrochip size={13} />, title: "Text Generation Model", subtitle: "Provider, model, temperature, tokens", conf: "text_model" },
     { id: "image", icon: <FaImage size={13} />, title: "Image Generation Settings", subtitle: "Provider, model, ratio, count", conf: "image_model" },
-    { id: "chat", icon: <FaComments size={13} />, title: "Chat Interface Settings", subtitle: "System prompt, bubbles, sending", conf: "chat_ui" },
+    { id: "chat", icon: <FaComments size={13} />, title: "Chat Interface Settings", subtitle: "System prompt, bubbles, notifications", conf: "chat_ui" },
     { id: "appearance", icon: <FaPalette size={13} />, title: "Appearance", subtitle: "Color theme", conf: "appearance" },
     { id: "privacy", icon: <FaLock size={13} />, title: "Privacy", subtitle: "Blur, discreet list, app lock", conf: "privacy" },
     { id: "safety", icon: <FaShieldAlt size={13} />, title: "Safety Settings", subtitle: chatProvider === "gemini" ? "Content filtering thresholds" : "Gemini only - not used by other providers", conf: "safety" },

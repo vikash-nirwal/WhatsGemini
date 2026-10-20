@@ -36,6 +36,7 @@ import { useModal } from "../contexts/ModalContext";
 import { toast } from "sonner";
 import { useColorTheme } from "../hooks/useColorTheme";
 import { cn } from "../utils/cn";
+import { useChatNotifier } from "../features/notifications/useNotifications";
 
 const DEFAULT_AUTO_REPLY = { enabled: false, minDelaySeconds: 30, maxDelaySeconds: 120, maxFollowups: 2, followupCount: 0 };
 
@@ -138,6 +139,8 @@ const ChatPage = () => {
     [characters, currentChat]
   );
   const isRoom = roomCharacters.length > 1;
+  // Tells the user about a new message from this chat if they're away (#43).
+  const notifyIfAway = useChatNotifier(chatIdNum, roomCharacters);
 
   // Only built for a real room - a 1:1 chat's buildTurnContext call gets
   // `undefined` here and its prompt/history come out exactly as before
@@ -669,10 +672,11 @@ const ChatPage = () => {
     await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
     const generatedImages = payloadObj?.images || undefined;
     const generatedVideos = payloadObj?.videos || undefined;
+    const followupText = finalizeSpeakerText(typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string), speaker);
     const aiAddResult = await dispatch(addMessage({
       chatId: chatIdNum,
       role: AI,
-      text: finalizeSpeakerText(typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string), speaker),
+      text: followupText,
       images: generatedImages,
       isImageRequest: Boolean(generatedImages && generatedImages.length > 0),
       videos: generatedVideos,
@@ -685,6 +689,9 @@ const ChatPage = () => {
       imageParams: payloadObj?.imageParams,
       speakerId: speaker.id,
     }));
+    // Manual follow-ups go through here too, but they start from a click in
+    // a visible tab, so they only notify if the user has left meanwhile.
+    notifyIfAway(speaker, followupText, generatedImages);
 
     // Await the refresh before the caller can act on it (e.g. bump followupCount) -
     // otherwise the scheduling effect below can still be looking at the previous
@@ -913,10 +920,11 @@ const ChatPage = () => {
         await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
         const generatedImages = payloadObj?.images || undefined;
         const generatedVideos = payloadObj?.videos || undefined;
+        const replyText = finalizeSpeakerText(typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string), speaker);
         const aiAddResult = await dispatch(addMessage({
           chatId: chatIdNum,
           role: AI,
-          text: finalizeSpeakerText(typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string), speaker),
+          text: replyText,
           images: generatedImages,
           videos: generatedVideos,
           videoPrompt: payloadObj?.videoPrompt,
@@ -927,6 +935,7 @@ const ChatPage = () => {
           imageParams: payloadObj?.imageParams,
           speakerId: speaker.id,
         }));
+        notifyIfAway(speaker, replyText, generatedImages);
 
         if (generatedImages && generatedImages.length > 0) {
           dispatch(updateCharacter({ ...speaker, gallery: [...(speaker.gallery || []), ...generatedImages] }));

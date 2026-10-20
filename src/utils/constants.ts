@@ -499,6 +499,8 @@ export const LS_PROVIDER_API_KEY_PREFIX = "provider_api_key_";
 export const LS_SPENDING_LEDGER = "spending_ledger";
 export const LS_SPENDING_BUDGET = "spending_budget";
 export const LS_SPENDING_WARNED = "spending_warned";
+// Notifications switch (#43), see src/features/notifications.
+export const LS_NOTIFICATIONS_ENABLED = "notifications_enabled";
 
 // Hardcoded model choices offered per hosted chat provider. Ollama is
 // intentionally omitted - its model list is whatever the user has pulled

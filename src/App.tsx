@@ -24,6 +24,7 @@ import { Toaster } from "src/components/atoms/sonner";
 import { Button } from "src/components/atoms/button";
 import AgeGate from "src/components/organisms/AgeGate";
 import AppLock from "src/components/organisms/AppLock";
+import { useNotificationClicks } from "./features/notifications/useNotifications";
 
 const ChatPage = lazy(() => import("./pages/ChatPage"));
 const Login = lazy(() => import("./pages/Login"));
@@ -126,6 +127,7 @@ const AppContent = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  useNotificationClicks();
 
   useEffect(() => {
     const fetchData = async () => {

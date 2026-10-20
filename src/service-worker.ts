@@ -56,3 +56,26 @@ self.addEventListener("message", (event) => {
     self.skipWaiting();
   }
 });
+
+// Clicking a chat notification (#43, shown by the app through
+// registration.showNotification) focuses an open window of the app and asks
+// it to open that chat, or opens a new window on the chat when none is
+// open. The page does the routing (HashRouter), so the worker only passes
+// the chat id along.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const chatId = event.notification.data?.chatId;
+  if (typeof chatId !== "number") return;
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      const client = windows.find((c) => c.url.startsWith(self.registration.scope)) || windows[0];
+      if (client) {
+        await client.focus();
+        client.postMessage({ type: "OPEN_CHAT", chatId });
+        return;
+      }
+      await self.clients.openWindow(`${self.registration.scope}#/chat/${chatId}`);
+    })()
+  );
+});

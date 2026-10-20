@@ -6,8 +6,8 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **State:** image consistency (#34–#41) is merged, pushed and deployed. Texting mode (#6), inner thoughts (#10) and reactions (#11) are pushed and deployed too. The spending dashboard (#42) is committed to local `main`, not pushed. The last full local run passed: type-check, 530 unit tests, 372 UI tests and 16 screenshot tests.
-- **Next up:** the new ideas #43–#56 (#42 is done), one per fresh session in table order (#12 goes with #44), then the other 13 items. The image providers were only tested against mocked servers; checking them with real keys and a real ComfyUI is a follow-up in ROADMAP.md.
+- **State:** image consistency (#34–#41) is merged, pushed and deployed. Texting mode (#6), inner thoughts (#10) and reactions (#11) are pushed and deployed too. The spending dashboard (#42) and notifications (#43) are committed to local `main`, not pushed. The last full local run passed: type-check, 552 unit tests, 385 UI tests and 16 screenshot tests.
+- **Next up:** the new ideas #44–#56 (#42 and #43 are done), one per fresh session in table order (#12 goes with #44), then the other 13 items. The image providers were only tested against mocked servers; checking them with real keys and a real ComfyUI is a follow-up in ROADMAP.md.
 - **Open questions for the user:** none.
 - **How this run works:** each item gets its own fresh session in this checkout (no worktree), committing to local `main` when its tests pass; nothing is pushed or deployed until the user says so.
 
@@ -29,8 +29,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | 27 | Persona character sheet | todo | With #26. |
 | 28 | Attach a World to normal chats | todo | |
 | 30 | Relationship that evolves | todo | |
-| 43 | Notifications | todo | New ideas continue here; built one per session, in order. |
-| 44 | Voice notes | todo | With #12. |
+| 44 | Voice notes | todo | With #12. New ideas continue here; built one per session, in order. |
 | 45 | Character from one line | todo | |
 | 46 | "Previously on…" | todo | |
 | 47 | Dates that matter | todo | |
@@ -72,7 +71,8 @@ One line per area. Pointers for when you need to work on it again.
 - **Per-character local settings** (`Character.localImageSettings`, `localImageSettings.ts`): seed, LoRA, trigger word, reference mode and ReActor face model, applied in `generateSDImage` and the ComfyUI adapter (where the mode picks the template). The SD WebUI ControlNet gets the preprocessor that matches its model (`controlnetModuleFor`), with FaceID presets in Settings.
 - **Messaging feel:** texting mode (`settings.textingMode`, `textingMode.ts`) splits a reply into texts by paragraph or line and reveals a new one text by text in ChatWindow (`reveal` state), with read ticks on your messages; display only. Inner thoughts (`Character.innerThoughts`, switch in the Scene panel) and reactions (`Message.reaction` from you, `Message.characterReaction` from the character, `roleplayStyle.characterReactions`) are control tags parsed in `messageTags.ts`, like the emotion tag; reactions reach the model as a note before your next message (`buildChatHistory`).
 - **Spending (#42):** `src/features/spending/spending.ts` keeps a ledger per month and provider plus the monthly limit, in localStorage (`spending_ledger`, `spending_budget`, `spending_warned`) so the budget check can read it synchronously; it goes out with the settings export and full backup and is merged (larger entry wins) on import. `spendingAdapters.ts` wraps every chat, image and video adapter in `registry.ts` (outside `withRequestLog`), so every paid call is checked and recorded with no caller involved; streamed replies without usage are estimated from text length, pictures and videos without usage use `FLAT_IMAGE_PRICING`/`FLAT_VIDEO_PRICING` in `constants.ts`. Ollama, SD WebUI and ComfyUI are never recorded or blocked. UI: Settings › Spending (`SpendingSettings.tsx`); toasts at 80% and 100% and on a blocked call come from `SpendingAlerts.tsx`, mounted in `App.tsx`. Per-chat `totalCostEstimate` is unchanged and doesn't include the flat picture prices.
-- **Known gaps:** none of the image providers was tried with a real key or a real ComfyUI; chats whose seed messages were never flagged `isSystem` (very old ones) aren't detected as seeded; mood-portrait generation from inside a chat wasn't checked with a real image provider; `h-dvh` wasn't checked on a real iPhone.
+- **Notifications (#43):** `src/features/notifications/notifications.ts` decides what to show (`buildNotificationContent`: generic "New message" with the app lock on, or for NSFW chats in discreet mode; no portrait for NSFW chats with blurred media) and shows it only when the switch is on, permission is granted and the tab is hidden, through the service worker's `showNotification` when one is active, else `new Notification`. The switch is localStorage `notifications_enabled` (not exported: the permission is per browser), in Settings › Chat (`NotificationSettings.tsx`). ChatPage calls `useChatNotifier` after saving a reply or a follow-up; clicks route through `useNotificationClicks` (App.tsx) and the worker's `notificationclick` (`service-worker.ts`).
+- **Known gaps:** none of the image providers was tried with a real key or a real ComfyUI; chats whose seed messages were never flagged `isSystem` (very old ones) aren't detected as seeded; mood-portrait generation from inside a chat wasn't checked with a real image provider; `h-dvh` wasn't checked on a real iPhone; notifications weren't tried on a real device or in the installed app.
 
 ## Decisions
 
@@ -97,12 +97,14 @@ Facts that save the next session time.
 - **Visual tests:** `npm run test:visual` (refresh with `test:visual:update`). Baselines are macOS renders in `e2e/visual.spec.ts-snapshots/`; review the PNG diffs before updating them.
 - **CI on GitHub:** `.github/workflows/ci.yml` runs on every push. Step logs need a signed-in account, but Playwright's `github` reporter puts each failure in the run's annotations, readable without signing in: `GET /repos/vikash-nirwal/WhatsGemini/check-runs/<job id>/annotations`. Unauthenticated API calls are limited to 60 an hour, so poll sparsely.
 - **Parallel lanes from proposed session cards** don't keep the source branch, so a lane's brief should tell it to bring in the current branch first (`git merge --ff-only refs/heads/<branch>`, or reset to it while the lane branch is still empty).
+- **Notifications in Playwright:** grant with `permissions: ["notifications"]`, but read it through `navigator.permissions.query`: the headless Chromium shell reports `Notification.permission` as "denied" and WebKit as "default" even after a grant. Mobile WebKit (the iphone project) has no Notification API at all. `e2e/notifications.spec.ts` has the fakes (hidden tab, recorded notifications).
 - **Lockfiles:** both `package-lock.json` and `yarn.lock` exist. Use npm.
 
 ## Session log
 
 Newest first. One or two lines per session.
 
+- 2026-10-20: Built notifications (#43): Settings switch, privacy-aware content, service worker or page notification, click opens the chat. The iphone UI project only checks the Settings explanation, since mobile WebKit has no Notification API.
 - 2026-10-20: Built the spending dashboard and monthly limit (#42): ledger in localStorage, adapter wrappers in the registry, Settings › Spending, warning or hard stop. Added the Spending page to the axe scan in every theme.
 - 2026-10-20: Pushed and deployed image consistency. Built texting mode (#6), inner thoughts (#10) and reactions (#11) here, one after another: all three change `ChatMessage.tsx`.
 - 2026-10-20: Image consistency: built #34, #35, #40 and #41 here; Lane B built #36–#38 (spike: fal.ai is callable from a browser, Wan's Singapore region takes image-only input for wan2.5-i2i-preview), Lane C built #39. Merged into local `main` after a combined check.
