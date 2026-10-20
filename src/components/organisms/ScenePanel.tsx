@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { FaTimes, FaPlus, FaPencilAlt, FaThumbtack, FaTag } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { updateChatAuthorNote, updateChatWorldTags, updateChatMemory, updateChatScenario, updateChatBoundaries, updateChatMemoryScope, updateChatMessage, updateChatOptions } from "src/features/chatSlice";
-import { TagInput } from "src/components/molecules/form-controls";
+import { Select, TagInput } from "src/components/molecules/form-controls";
 import { SegmentedControl } from "src/components/molecules/SegmentedControl";
 import { updateCharacter } from "src/features/characterSlice";
 import { setEmotionPanelEnabled, setEmotionPopupEnabled, setEmotionPopupDuration } from "src/features/settingsSlice";
@@ -514,6 +514,30 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
             <Button type="button" variant="outline" size="sm" onClick={onEditStory}>
               {hasStoryScript ? "Edit" : "Write"}
             </Button>
+          </div>
+        )}
+
+        {/* Wardrobe (#50): what the character is wearing in this story */}
+        {!isRoom && character && character.wardrobe && character.wardrobe.length > 0 && (
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[12.5px] font-medium text-foreground">{character.name} is wearing</div>
+              <div className="text-[11px] text-subtle">Used in pictures and in how they describe themselves.</div>
+            </div>
+            <div className="w-40 flex-shrink-0">
+              <Select
+                aria-label={`${character.name}'s outfit`}
+                value={character.currentOutfitId || ""}
+                onChange={(e) => dispatch(updateCharacter({ ...character, currentOutfitId: e.target.value || undefined }))}
+              >
+                <option value="">Their usual look</option>
+                {character.wardrobe.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name || "Unnamed outfit"}
+                  </option>
+                ))}
+              </Select>
+            </div>
           </div>
         )}
 

@@ -40,7 +40,6 @@ The app is called WhatsGemini, so lean into the messaging-app fantasy.
 
 Built one at a time, in this order.
 
-50. **Wardrobe** (S–M). A few named outfits per character. Picking one swaps the outfit part of the locked look (#34), so pictures change clothes without changing the face.
 51. **Relationship timeline** (S). A small chart of mood and affection over time, from the emotion tags (and #9's meter once it exists), in the Scene panel.
 52. **Mini-games** (M). 20 Questions, Would You Rather and Truth or Dare, started from the composer; the character plays in character, and the app keeps score where there is one.
 53. **Branch map** (M). A visual tree of the conversation's branches and variants, to see and jump between storylines.

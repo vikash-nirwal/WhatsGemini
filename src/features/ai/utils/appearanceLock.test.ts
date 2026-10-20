@@ -1,4 +1,4 @@
-import { appearanceLocksFor, applyAppearanceLocks, buildAppearanceLockInstruction, buildVisualTagsDraftPrompt, cleanVisualTags } from "./appearanceLock";
+import { appearanceLocksFor, applyAppearanceLocks, buildAppearanceLockInstruction, buildVisualTagsDraftPrompt, cleanVisualTags, lockedLookFor } from "./appearanceLock";
 
 const MIRA = { name: "Mira", visualTags: "early 20s, slim, pale skin, long silver hair, violet eyes, small scar over left eyebrow" };
 const KAI = { name: "Kai", visualTags: "tall, broad shoulders, dark brown skin, shaved head, grey stubble" };
@@ -36,5 +36,24 @@ describe("appearance lock", () => {
   it("drafts and cleans a locked look", () => {
     expect(buildVisualTagsDraftPrompt("Mira", "A pale elf with silver hair.")).toContain("Description: A pale elf with silver hair.");
     expect(cleanVisualTags('Visual traits: "pale skin\nsilver hair\nviolet eyes"')).toBe("pale skin, silver hair, violet eyes");
+  });
+});
+
+describe("wardrobe (#50)", () => {
+  const wardrobe = [{ id: "w", name: "Work", description: "grey blazer, white shirt" }, { id: "e", name: "Empty", description: " " }];
+
+  it("puts the current outfit after the fixed traits", () => {
+    expect(lockedLookFor({ name: "Aria", visualTags: "silver hair, violet eyes.", wardrobe, currentOutfitId: "w" })).toBe("silver hair, violet eyes; outfit: grey blazer, white shirt");
+    expect(lockedLookFor({ name: "Aria", wardrobe, currentOutfitId: "w" })).toBe("outfit: grey blazer, white shirt");
+  });
+
+  it("ignores no outfit, a missing one or an empty one", () => {
+    expect(lockedLookFor({ name: "Aria", visualTags: "silver hair", wardrobe })).toBe("silver hair");
+    expect(lockedLookFor({ name: "Aria", visualTags: "silver hair", wardrobe, currentOutfitId: "gone" })).toBe("silver hair");
+    expect(lockedLookFor({ name: "Aria", visualTags: "silver hair", wardrobe, currentOutfitId: "e" })).toBe("silver hair");
+  });
+
+  it("reaches the image locks", () => {
+    expect(appearanceLocksFor([{ name: "Aria", visualTags: "silver hair", wardrobe, currentOutfitId: "w" }])[0].visualTags).toContain("outfit: grey blazer");
   });
 });

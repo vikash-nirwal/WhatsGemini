@@ -4,7 +4,7 @@ import { addCharacter, updateCharacter } from "../features/characterSlice";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { FaUpload, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaCrop } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { Character, CharacterVoice, LoreEntry, ArtStyle, ContentRating, LocalImageSettings, ImportantDate } from "../types";
+import { Character, CharacterVoice, LoreEntry, ArtStyle, ContentRating, LocalImageSettings, ImportantDate, Outfit } from "../types";
 import { dbService } from "../services/dbService";
 import { generateAssistText, generateAvatarImage } from "../features/aiSlice";
 import { buildVisualTagsDraftPrompt, cleanVisualTags } from "../features/ai/utils/appearanceLock";
@@ -28,12 +28,19 @@ import { CharacterModelOverride, cleanModelOverride } from "../features/ai/model
 import ModelOverrideSection from "./CharacterEditorPage/ModelOverrideSection";
 import LocalImageSettingsSection from "./CharacterEditorPage/LocalImageSettingsSection";
 import ImportantDatesSection from "./CharacterEditorPage/ImportantDatesSection";
+import WardrobeSection from "./CharacterEditorPage/WardrobeSection";
 import { isValidDate } from "../features/character/importantDates";
 import VoiceSection, { cleanVoice } from "./CharacterEditorPage/VoiceSection";
 import IdeaDraftSection from "./CharacterEditorPage/IdeaDraftSection";
 import { buildCharacterDraftPrompt, parseCharacterDraft, CharacterDraftRequest, CharacterDraftError } from "../features/character/characterDraft";
 import { cleanLocalImageSettings } from "../features/ai/utils/localImageSettings";
 import { toast } from "sonner";
+
+// Saved outfits: ones with a name or a look; the worn one must still exist.
+const cleanWardrobe = (outfits: Outfit[], currentId?: string): Pick<Character, "wardrobe" | "currentOutfitId"> => {
+  const kept = outfits.map((o) => ({ ...o, name: o.name.trim(), description: o.description.trim() })).filter((o) => o.name || o.description);
+  return { wardrobe: kept.length > 0 ? kept : undefined, currentOutfitId: kept.some((o) => o.id === currentId) ? currentId : undefined };
+};
 
 // Saved dates: labelled and real (an impossible day is dropped), or none.
 const cleanDates = (dates: ImportantDate[]): ImportantDate[] | undefined => {
@@ -153,6 +160,8 @@ const CharacterEditorPage = () => {
   const [modelOverride, setModelOverride] = useState<CharacterModelOverride | undefined>(undefined);
   const [localImageSettings, setLocalImageSettings] = useState<LocalImageSettings | undefined>(undefined);
   const [importantDates, setImportantDates] = useState<ImportantDate[]>([]);
+  const [wardrobe, setWardrobe] = useState<Outfit[]>([]);
+  const [currentOutfitId, setCurrentOutfitId] = useState<string | undefined>(undefined);
   const [voice, setVoice] = useState<CharacterVoice | undefined>(undefined);
   // Character from one line (#45).
   const [ideaDialogOpen, setIdeaDialogOpen] = useState(false);
@@ -205,6 +214,8 @@ const CharacterEditorPage = () => {
       setModelOverride(source.modelOverride);
       setLocalImageSettings(source.localImageSettings);
       setImportantDates(source.importantDates || []);
+      setWardrobe(source.wardrobe || []);
+      setCurrentOutfitId(source.currentOutfitId);
       setVoice(source.voice);
     } else {
       setName("");
@@ -234,6 +245,8 @@ const CharacterEditorPage = () => {
       setModelOverride(undefined);
       setLocalImageSettings(undefined);
       setImportantDates([]);
+      setWardrobe([]);
+      setCurrentOutfitId(undefined);
       setVoice(undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -433,7 +446,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
       return;
     }
     if (!checkContentRating()) return;
-    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), importantDates: cleanDates(importantDates) }));
+    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), importantDates: cleanDates(importantDates), ...cleanWardrobe(wardrobe, currentOutfitId) }));
     navigate("/characters");
   };
 
@@ -451,7 +464,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     // Spread the stored record first: db.put replaces the whole row, so any
     // field this form doesn't own (memory, pinnedMemory, avatar, creatorNotes)
     // was being wiped on every save.
-    dispatch(updateCharacter({ ...editCharacter, id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), importantDates: cleanDates(importantDates) }));
+    dispatch(updateCharacter({ ...editCharacter, id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), importantDates: cleanDates(importantDates), ...cleanWardrobe(wardrobe, currentOutfitId) }));
     if (options?.stay) {
       toast.success("Character saved");
     } else {
@@ -1221,6 +1234,9 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                 </div>
                 <div className="mt-4 border-t border-border pt-4">
                   <ImportantDatesSection value={importantDates} onChange={setImportantDates} memory={editCharacter?.memory} />
+                </div>
+                <div className="mt-4 border-t border-border pt-4">
+                  <WardrobeSection outfits={wardrobe} currentId={currentOutfitId} onChange={(outfits, id) => { setWardrobe(outfits); setCurrentOutfitId(id); }} />
                 </div>
               </Card>
             )}

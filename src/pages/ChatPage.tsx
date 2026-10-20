@@ -6,7 +6,7 @@ import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCo
 import { parseSlashCommand, SLASH_COMMANDS } from "../features/chat/slashCommands";
 import { buildStoryMarkdown, storyFileName } from "../features/chat/storyExport";
 import { resolveTurnModel } from "../features/ai/modelResolution";
-import { appearanceLocksFor } from "../features/ai/utils/appearanceLock";
+import { appearanceLocksFor, lockedLookFor } from "../features/ai/utils/appearanceLock";
 import { useChatRecap } from "../features/chat/useChatRecap";
 import { moveBeat } from "../features/chat/storyScript";
 import { buildCelebrationDirective, datesToCelebrate } from "../features/character/importantDates";
@@ -294,7 +294,7 @@ const ChatPage = () => {
       const result = await dispatch(generateAvatarImage({
         name: characterData.name,
         appearance: characterData.appearance,
-        visualTags: characterData.visualTags,
+        visualTags: lockedLookFor(characterData),
         localImageSettings: characterData.localImageSettings,
         appearanceImages: referenceImages,
         emotion: missingEmotionPortrait,

@@ -98,6 +98,13 @@ export interface ConversationTree {
   nodes: Record<string, MessageNode>;
 }
 
+// One of a character's outfits (#50).
+export interface Outfit {
+  id: string;
+  name: string; // "Work clothes"
+  description: string; // the visual description used in pictures
+}
+
 // A date that matters to a character and the user (#47).
 export interface ImportantDate {
   id: string;
@@ -272,6 +279,8 @@ export interface Character {
   localImageSettings?: LocalImageSettings; // #40, local generation only
   innerThoughts?: boolean; // #10: also write hidden thoughts with each reply
   importantDates?: ImportantDate[]; // #47
+  wardrobe?: Outfit[]; // #50
+  currentOutfitId?: string; // the outfit being worn now (#50); none = the locked look's own
   voice?: CharacterVoice; // #12/#44: how they sound when read aloud, and how often they send voice notes
   appearanceImages?: string[];
   artStyle?: ArtStyle;

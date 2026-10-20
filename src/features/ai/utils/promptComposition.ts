@@ -10,7 +10,7 @@ import { applyMacros } from "./macros";
 import { countProtectedPrefix, trimToLatestSummary } from "./transcript";
 import { selectRelevantFacts } from "./memoryRelevance";
 import { buildDiarySection } from "./diary";
-import { AppearanceLock, appearanceLocksFor } from "./appearanceLock";
+import { AppearanceLock, appearanceLocksFor, currentOutfit } from "./appearanceLock";
 import { effectiveContentRating } from "../../character/contentRating";
 import { ChatMessage } from "../types";
 import { promptTextFor } from "../../voice/voiceNotes";
@@ -320,6 +320,12 @@ export const buildSystemInstruction = (
   }
   if (character.appearance) {
     sections.push(`Your physical appearance/looks: ${m(character.appearance)}`);
+  }
+  // Today's outfit (#50), so what the character says they're wearing
+  // matches the pictures.
+  const outfit = currentOutfit(character);
+  if (outfit) {
+    sections.push(`What you're wearing right now: ${m(outfit.name)} (${m(outfit.description)}). Keep any mention of your clothes consistent with it until the story changes it.`);
   }
   // Pinned facts always go in; the rest are picked by relevance once the
   // list is longer than MEMORY_PROMPT_LIMIT.
