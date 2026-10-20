@@ -7,7 +7,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 ## Where we stand
 
 - **Current phase:** Waves 1–3 are done and merged on branch `phase-0-bug-fixes` (not pushed, no PR yet). Wave 3 merges: e30b673 (Lane B), 70ee9c8 (Lane C).
-- **Next up:** Wave 4: composer and narrative tools (#15, #17, #18, #16, #14, #20, #21), prompt inspector (#31), context meter (#33), per-character model (#32); A2 and A3 are small leftovers for a parallel lane.
+- **Next up:** Wave 4 is running: composer and narrative tools + #33 here; #31/#32 and A2/A3 in parallel sessions.
 - **Open questions for the user:** none. (They chose to start Wave 3 before pushing; nothing is pushed yet.)
 
 ## Execution plan
@@ -32,7 +32,11 @@ Parallel lanes work in their own worktree and branch and **don't edit PROGRESS.m
 - **Shared-file exception:** `src/types/index.ts` may be edited by several lanes, each only adding optional fields to the interfaces its items need (Lane B: `LoreEntry`; Lane A: `Chat`, `Character`, `Message`). Conflicts there get resolved at merge.
 - Parallel lanes run UI tests on their own ports: Lane B `E2E_PORT=3100`, Lane C `E2E_PORT=3200`.
 
-**Wave 4 (next):** composer and narrative tools (#15, #17, #18, #16, #14, #20, #21), the prompt inspector (#31), the context meter (#33) and per-character models (#32).
+**Wave 4 (now)**
+- **Lane A** (coordinating session, branch `phase-0-bug-fixes`): #15, #18, #17, #16, #14, #20, #21, #33. Owns: `ChatPage.tsx`, `aiSlice.ts`, `MessageInput.tsx`, `ChatWindow.tsx`, `ChatMessage.tsx`, `ScenePanel.tsx`, `promptComposition.ts`, `transcript.ts`, `chatHistoryUtils.ts`, `chatSlice.ts`, `constants.ts`, and new files under `src/features/ai/utils/` and `src/features/chat/`.
+- **Lane B** (parallel session): #31 prompt inspector and #32 per-character model. Owns: `src/features/ai/providers/*` (adapters, registry, sse, types), new `src/features/ai/requestLog.ts`, new `src/features/ai/modelResolution.ts`, a new inspector dialog component, `CharacterEditorPage.tsx` and its step files, `settingsSlice.ts`, `TextModelSettings.tsx`. It doesn't touch Lane A's files: wiring into `aiSlice.ts` / `ChatPage.tsx` (passing the character's model to `generateAIResponse`, the "Show what was sent" entry point) is done by Lane A at merge time, from the integration notes Lane B's report gives.
+- **Lane C** (parallel session): A2 and A3. Owns: `src/components/molecules/form-controls/ModeToggleButton.tsx`, `ChipSelectField.tsx`, `e2e/a11y.spec.ts`, `e2e/a11y-baseline.json`.
+- `src/types/index.ts`: Lane A may add `Message`/`Chat` fields, Lane B only `Character.modelOverride` (or similar). Ports: Lane B `E2E_PORT=3100`, Lane C `E2E_PORT=3200`.
 
 **Later:** immersion (#6–#13), group chats (#22–#24), adventures (#25–#28), #30.
 
