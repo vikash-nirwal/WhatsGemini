@@ -1,13 +1,13 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import { useColorTheme } from "../../hooks/useColorTheme";
-import { FaCopy, FaRedo, FaEdit, FaEllipsisV, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask } from "react-icons/fa";
+import { FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { cn } from "../../utils/cn";
 import { Message } from "../../types";
 import { YOU } from "../../utils/constants";
 import { stripImageContextTag } from "../../features/ai/utils/imageGeneration";
 import MarkdownRenderer from "src/components/molecules/MarkdownRenderer";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "src/components/molecules/dropdown-menu";
+import { Dialog, DialogContent, DialogTitle } from "src/components/molecules/dialog";
 import { DisplayImage } from "src/components/molecules/DisplayImage";
 import { DisplayVideo } from "src/components/molecules/DisplayVideo";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
@@ -59,6 +59,15 @@ const RefusalNotice = ({ onRegenerate, onClear, disabled }: { onRegenerate: () =
   </div>
 );
 
+// How long a press on a message has to last before its action sheet opens.
+const LONG_PRESS_MS = 450;
+// Finger movement (px) that turns a press into a scroll and cancels it.
+const LONG_PRESS_SLOP = 10;
+// Touch screens have no hover, so the hover-revealed action row would only
+// leave an empty strip in every bubble; there it's hidden and long-press
+// opens an action sheet instead.
+const TOUCH_ONLY = "(hover: none)";
+
 const ChatMessage = React.memo(({
   msg,
   charInitials,
@@ -98,6 +107,78 @@ const ChatMessage = React.memo(({
   ) : null;
   const handleEdit = useCallback(() => onStartEdit(msg), [onStartEdit, msg]);
   const handleDeleteBranch = useCallback(() => msg.id && onDeleteBranch?.(msg.id), [onDeleteBranch, msg.id]);
+
+  // Long-press (touch) or the browser's own long-press/context-menu gesture
+  // opens the action sheet. Moving the finger cancels it, so scrolling past a
+  // message never opens it.
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const pressRef = useRef<{ timer: number; x: number; y: number } | null>(null);
+  const cancelPress = useCallback(() => {
+    if (pressRef.current) window.clearTimeout(pressRef.current.timer);
+    pressRef.current = null;
+  }, []);
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    cancelPress();
+    if (e.touches.length !== 1) return;
+    const { clientX, clientY } = e.touches[0];
+    pressRef.current = {
+      x: clientX,
+      y: clientY,
+      timer: window.setTimeout(() => {
+        pressRef.current = null;
+        navigator.vibrate?.(10);
+        setActionsOpen(true);
+      }, LONG_PRESS_MS),
+    };
+  }, [cancelPress]);
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const press = pressRef.current;
+    const touch = e.touches[0];
+    if (press && touch && Math.hypot(touch.clientX - press.x, touch.clientY - press.y) > LONG_PRESS_SLOP) cancelPress();
+  }, [cancelPress]);
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    // Only on touch screens; a mouse right-click keeps the browser's menu.
+    if (!window.matchMedia?.(TOUCH_ONLY).matches) return;
+    e.preventDefault();
+    cancelPress();
+    setActionsOpen(true);
+  }, [cancelPress]);
+
+  const sheetActions: { label: string; icon: React.ComponentType<{ size?: number; className?: string }>; onSelect: () => void; disabled?: boolean; danger?: boolean }[] = [
+    { label: "Copy", icon: FaCopy, onSelect: handleCopy },
+    ...(!isUser && !msg.isImpersonated ? [{ label: "Regenerate", icon: FaRedo, onSelect: handleRegenerate, disabled: aiLoading }] : []),
+    ...(!isUser && !msg.isImpersonated && isLastMessage && onContinue ? [{ label: "Continue", icon: FaForward, onSelect: handleContinue, disabled: aiLoading }] : []),
+    { label: "Edit", icon: FaEdit, onSelect: handleEdit, disabled: isUser && aiLoading },
+    ...(onDeleteBranch ? [{ label: siblingInfo ? "Delete this variant" : "Delete message", icon: FaTrash, onSelect: handleDeleteBranch, disabled: aiLoading, danger: true }] : []),
+  ];
+  const actionSheet = (
+    <Dialog open={actionsOpen} onOpenChange={setActionsOpen}>
+      <DialogContent
+        aria-describedby={undefined}
+        className="top-auto bottom-0 translate-y-0 data-[state=open]:slide-in-from-top-[100%] rounded-t-2xl rounded-b-none p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] gap-0"
+      >
+        <DialogTitle className="sr-only">Message actions</DialogTitle>
+        <div role="menu" aria-label="Message actions" className="flex flex-col">
+          {sheetActions.map((action) => (
+            <button
+              key={action.label}
+              type="button"
+              role="menuitem"
+              disabled={action.disabled}
+              onClick={() => { setActionsOpen(false); action.onSelect(); }}
+              className={cn(
+                "flex items-center gap-3 px-4 py-3.5 rounded-xl text-left text-[15px] font-sans disabled:opacity-50",
+                action.danger ? "text-destructive hover:bg-destructive/10" : "text-foreground hover:bg-secondary"
+              )}
+            >
+              <action.icon size={15} className="flex-shrink-0" />
+              {action.label}
+            </button>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 
   if (is("terminal")) {
     if (msg.isRoomEvent) {
@@ -269,7 +350,7 @@ const ChatMessage = React.memo(({
         data-slot="message-bubble"
         data-sender={isUser ? "user" : "ai"}
         className={cn(
-          "relative p-4 rounded-2xl max-w-[85%] md:max-w-[70%] min-w-0 group",
+          "relative p-4 rounded-2xl max-w-[85%] md:max-w-[70%] min-w-0 group [@media(hover:none)]:[-webkit-touch-callout:none]",
           // Canvas spec: "plain div. Incoming: bg-elevated surface-raised.
           // Outgoing: bg-accent-soft text-accent-ink." Cozy keeps its own
           // translucent-tint look untouched.
@@ -282,6 +363,11 @@ const ChatMessage = React.memo(({
               : "bg-card/[0.88] shadow-soft text-foreground rounded-tl-[5px]"
         )}
         style={{ fontSize: "var(--chat-font-size, 16px)" }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={cancelPress}
+        onTouchCancel={cancelPress}
+        onContextMenu={handleContextMenu}
       >
         {/* Floating sibling prev/next, anchored to the card's edges */}
         {siblingInfo && siblingInfo.index > 0 && (
@@ -342,9 +428,33 @@ const ChatMessage = React.memo(({
           </NsfwBlur>
         ))}
 
-        {/* User messages: dropdown is the only action surface (always visible so it's reachable on touch devices) */}
+        {/* User messages: the same hover-revealed footer as AI replies (the
+            old ⋮ menu floated over the text). Touch screens use the
+            long-press action sheet instead, so the row only shows there
+            when it has a variant count to display. */}
         {isUser && (
-          <div className="flex items-center justify-end gap-1.5 mt-2 font-sans">
+          <div className={cn("flex items-center justify-end gap-1 mt-2 font-sans", !siblingInfo && "[@media(hover:none)]:hidden")}>
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity [@media(hover:none)]:hidden">
+              <Button variant="ghost" size="icon" onClick={handleCopy} aria-label="Copy" title="Copy" className="h-auto w-auto p-1.5 rounded-md text-foreground/60 hover:bg-primary/10 hover:text-foreground">
+                <FaCopy size={12} />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={handleEdit} disabled={aiLoading} aria-label="Edit" title="Edit" className="h-auto w-auto p-1.5 rounded-md text-foreground/60 hover:bg-primary/10 hover:text-foreground">
+                <FaEdit size={12} />
+              </Button>
+              {onDeleteBranch && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleDeleteBranch}
+                  disabled={aiLoading}
+                  className="h-auto w-auto p-1.5 rounded-md text-subtle hover:bg-destructive/15 hover:text-destructive"
+                  aria-label={siblingInfo ? "Delete this variant" : "Delete message"}
+                  title={siblingInfo ? "Delete this variant" : "Delete message"}
+                >
+                  <FaTrash size={10} />
+                </Button>
+              )}
+            </div>
             {siblingInfo && (
               <span
                 className="text-[11px] font-mono font-semibold text-subtle tabular-nums"
@@ -353,47 +463,6 @@ const ChatMessage = React.memo(({
                 {siblingInfo.index + 1}/{siblingInfo.total}
               </span>
             )}
-            {onDeleteBranch && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleDeleteBranch}
-                disabled={aiLoading}
-                className="h-auto w-auto p-1 rounded-full text-subtle hover:bg-destructive/15 hover:text-destructive"
-                aria-label={siblingInfo ? "Delete this variant" : "Delete message"}
-                title={siblingInfo ? "Delete this variant" : "Delete message"}
-              >
-                <FaTrash size={9} />
-              </Button>
-            )}
-          </div>
-        )}
-
-        {isUser && (
-          <div className="absolute top-2 right-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-auto w-auto p-1.5 rounded-full text-foreground/70 hover:text-foreground hover:bg-primary/10"
-                  title="More options"
-                  aria-label="Message options"
-                >
-                  <FaEllipsisV size={12} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={handleCopy}>
-                  <FaCopy className="mr-2 h-4 w-4" />
-                  <span>Copy</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={handleEdit} disabled={aiLoading}>
-                  <FaEdit className="mr-2 h-4 w-4" />
-                  <span>Edit</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         )}
 
@@ -403,8 +472,8 @@ const ChatMessage = React.memo(({
             constant weight for something used occasionally. The outer
             bubble already carries the `group` class this reveal keys off. */}
         {!isUser && (
-          <div className="flex items-center gap-1 mt-2 font-sans">
-            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          <div className={cn("flex items-center gap-1 mt-2 font-sans", !siblingInfo && "[@media(hover:none)]:hidden")}>
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity [@media(hover:none)]:hidden">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="ghost" size="icon" onClick={handleCopy} aria-label="Copy" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
@@ -478,6 +547,7 @@ const ChatMessage = React.memo(({
           </div>
         )}
       </div>
+      {actionSheet}
     </motion.div>
   );
 });

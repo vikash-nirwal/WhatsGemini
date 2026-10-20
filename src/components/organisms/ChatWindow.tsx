@@ -158,6 +158,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ bottomInset = 0, messages = [],
   }, []);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
 
   const handleScroll = useCallback(() => {
@@ -177,9 +178,20 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ bottomInset = 0, messages = [],
 
   // When the composer grows (more lines, a banner), stay pinned to the
   // newest message instead of letting it slide under the composer.
+  // Judged by distance from the bottom rather than isScrolledUp alone: the
+  // first measurement lands right after the initial jump to the newest
+  // message, when the extra padding itself makes the list look "scrolled up".
+  const prevInsetRef = useRef(bottomInset);
   useEffect(() => {
     const el = scrollContainerRef.current;
-    if (el && !isScrolledUpRef.current) el.scrollTop = el.scrollHeight;
+    const grownBy = Math.max(0, bottomInset - prevInsetRef.current);
+    prevInsetRef.current = bottomInset;
+    if (!el) return;
+    const fromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (!isScrolledUpRef.current || fromBottom <= grownBy + 100) {
+      el.scrollTop = el.scrollHeight;
+      setIsScrolledUp(false);
+    }
   }, [bottomInset]);
 
   useEffect(() => {
@@ -191,6 +203,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ bottomInset = 0, messages = [],
       }
     });
     observer.observe(el);
+    // The content too: bubbles grow after the first scroll when web fonts or
+    // images finish loading (and while a reply streams in), which used to
+    // leave a freshly opened chat short of its newest message.
+    if (contentRef.current) observer.observe(contentRef.current);
     return () => observer.disconnect();
   }, []);
 
@@ -451,6 +467,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ bottomInset = 0, messages = [],
           onScroll={handleScroll}
         >
           <div
+            ref={contentRef}
             className={terminal ? "max-w-[760px] px-4 md:px-[26px] py-5" : "max-w-4xl mx-auto p-4 pb-32"}
             // Room for the floating composer, sized to it rather than a fixed
             // pb-32 that a multi-line draft or the mode banners outgrew.

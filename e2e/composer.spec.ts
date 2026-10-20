@@ -26,6 +26,16 @@ test.describe("chat composer", () => {
     expect(bar.y + bar.height).toBeLessThanOrEqual(page.viewportSize()!.height);
   });
 
+  test("a chat opens scrolled to its newest message, clear of the composer", async ({ page }) => {
+    await openChat(page);
+    await expect(lastMessage(page)).toBeVisible();
+    await page.waitForTimeout(600); // initial scroll + the composer's first measurement
+    const message = await box(lastMessage(page));
+    const bar = await box(composer(page));
+    expect(message.y + message.height).toBeLessThanOrEqual(bar.y);
+    await expect(page.getByRole("button", { name: "Scroll to bottom" })).toBeHidden();
+  });
+
   test("the latest message is never hidden behind the composer", async ({ page }) => {
     await openChat(page);
     await page.getByLabel("Message input").fill(SIX_LINES);
