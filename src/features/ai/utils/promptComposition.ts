@@ -4,6 +4,7 @@ import { stripLeakedBase64 } from "./apiUtils";
 import { buildEmotionDirective } from "./emotionUtils";
 import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
 import { applyMacros } from "./macros";
+import { countProtectedPrefix } from "./transcript";
 import { effectiveContentRating } from "../../character/contentRating";
 import { ChatMessage } from "../types";
 
@@ -369,6 +370,9 @@ export interface TurnContext {
   // request in a group chat ("a picture of us together") draw more than just
   // the speaker. Undefined outside a room, same as the fields above.
   otherParticipantImages?: { name: string; images: string[] }[];
+  // Leading messages (seed, compression summary) that history truncation must
+  // keep - pass straight through to generateAIResponse.
+  protectedCount: number;
 }
 
 // Only passed for a multi-character room (Phase 12); a normal 1:1 chat
@@ -440,5 +444,6 @@ export const buildTurnContext = (
     characterImages: images,
     characterName,
     otherParticipantImages,
+    protectedCount: countProtectedPrefix(messages),
   };
 };

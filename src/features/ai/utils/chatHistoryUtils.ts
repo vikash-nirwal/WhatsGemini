@@ -1,15 +1,13 @@
-import { getInitialMessages } from "./settings";
 import { YOU, AI, getModelPricing } from "../../../utils/constants";
 import { ChatMessage, UsageInfo } from "../types";
 import { ChatProviderAdapter, ProviderRuntimeConfig } from "../providers/types";
 import { Message } from "../../../types";
-import { formatTranscript, TranscriptNames } from "./transcript";
-import { estimateMessageTokens } from "./tokenEstimator";
+import { formatTranscript, TranscriptNames, countSeedMessages } from "./transcript";
 import { splitForCompression } from "./compressionSplit";
 
 // Pure helpers live in transcript.ts (testable without the provider registry's
 // ESM imports) and are re-exported here for existing callers.
-export { formatTranscript, splitTrailingUserMessages } from "./transcript";
+export { formatTranscript, splitTrailingUserMessages, truncateHistory, countSeedMessages, countProtectedPrefix } from "./transcript";
 export type { TranscriptNames } from "./transcript";
 
 // Clones the raw history into fresh objects and drops the trailing user
@@ -77,8 +75,7 @@ export const buildAutoCompressedMessages = async (
 ): Promise<{ messages: Message[]; compressed: boolean; usage?: UsageInfo; error?: string }> => {
   if (compressThresholdMessages <= 0) return { messages, compressed: false };
 
-  const initialMessages = getInitialMessages();
-  const startIndex = initialMessages.length || 0;
+  const startIndex = countSeedMessages(messages);
   const compressible = messages.slice(startIndex);
   if (compressible.length <= compressThresholdMessages) return { messages, compressed: false };
 
@@ -117,39 +114,6 @@ export const buildAutoCompressedMessages = async (
     console.warn("Auto-compression failed, continuing with full history.", e);
     return { messages, compressed: false, error: e instanceof Error ? e.message : String(e) };
   }
-};
-
-// Hard-caps history to maxHistoryTokens estimated tokens, splicing out the
-// oldest non-seeded messages once it's exceeded (used as a backstop alongside/
-// instead of compression). Walks backwards from the newest message,
-// accumulating estimated tokens, so the messages that survive are always the
-// most recent ones that fit - the newest message always stays regardless of
-// its own size, so truncation never empties the history entirely.
-export const truncateHistory = (validHistory: ChatMessage[], maxHistoryTokens: number): ChatMessage[] => {
-  if (maxHistoryTokens <= 0) return validHistory;
-
-  const initialMessages = getInitialMessages();
-  const initialMessagesLength = initialMessages.length || 0;
-  const startIndex = initialMessagesLength > 0 ? initialMessagesLength : 1;
-  if (startIndex >= validHistory.length) return validHistory;
-
-  let tokens = 0;
-  let cutoff = startIndex;
-  for (let i = validHistory.length - 1; i >= startIndex; i--) {
-    const msgTokens = estimateMessageTokens(validHistory[i].text);
-    const isNewest = i === validHistory.length - 1;
-    if (!isNewest && tokens + msgTokens > maxHistoryTokens) {
-      cutoff = i + 1;
-      break;
-    }
-    tokens += msgTokens;
-    cutoff = i;
-  }
-
-  if (cutoff > startIndex) {
-    validHistory.splice(startIndex, cutoff - startIndex);
-  }
-  return validHistory;
 };
 
 // Returns the summary text plus this call's own real usage/cost (priced off

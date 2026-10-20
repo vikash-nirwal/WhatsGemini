@@ -6,21 +6,21 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **Current phase:** none started. The roadmap is written and waiting for the user's review.
-- **Next up:** after approval, Phase 0 quick fixes B1, B2, B3, B7 as one commit.
+- **Current phase:** Phase 0, on branch `phase-0-bug-fixes` (not pushed, no PR yet).
+- **Next up:** B4 (memory updates and forgetting), then B5, then B6.
 - **Open questions for the user:** none yet.
 
 ## Phase 0: Logic bugs
 
 | # | Item | Status | Commit | Notes |
 |---|------|--------|--------|-------|
-| B1 | Mood portrait wipes custom emotions | todo | | |
-| B2 | Group-chat impersonate posts as first character | todo | | |
-| B3 | Compression/truncation use the global seed count | todo | | |
+| B1 | Mood portrait wipes custom emotions | done | see log | Not checked in the app (needs an image provider); the fix is a one-line spread. |
+| B2 | Group-chat impersonate posts as first character | done | see log | Checked in the app: picked Kai, impersonated, stored `speakerId` was Kai. The composer banner names the picked speaker. |
+| B3 | Compression/truncation use the global seed count | done | see log | `countSeedMessages` / `countProtectedPrefix` in `transcript.ts`; `truncateHistory` moved there and now also protects the compression summary. Tests in `transcript.test.ts`. Legacy chats whose seed messages were never flagged `isSystem` aren't detected (only the display filter in ChatWindow handles those). |
 | B4 | Memory can't update or forget facts | todo | | |
-| B5 | Compression destroys branches and history | todo | | Large. B6 depends on it. |
+| B5 | Compression destroys branches and history | todo | | Large. B6 depends on it. Also picks up B7's leftover: run auto-compression on edit-and-resend. |
 | B6 | Adventures skip the chat pipeline | todo | | After B5. |
-| B7 | Edit-and-resend drops image prompt, skips compression | todo | | |
+| B7 | Edit-and-resend drops image prompt, skips compression | done (partly) | see log | Image prompt/params kept. Auto-compression on this path moved to B5, because today's compression would delete the branch the edit just made. |
 
 ## Phase 0.5: UI tests and layout fixes
 
@@ -54,6 +54,7 @@ All `todo`. Item numbers 1–33 match ROADMAP.md. Rows are added here when an it
 
 Choices made along the way that a later session shouldn't revisit. Add the date.
 
+- 2026-10-20: Work happens on a branch per phase (`phase-0-bug-fixes` first), not directly on `main`.
 - 2026-10-20: Layout is tested with Playwright in real browsers. Jest/jsdom stays for logic and component behavior only, since jsdom can't measure layout.
 
 ## Working notes
@@ -69,5 +70,6 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session: what changed, and anything left half-done.
 
+- 2026-10-20: Fixed B1, B2, B3 and B7 (image prompt part) in one commit on `phase-0-bug-fixes`. 211 unit tests pass, typecheck clean.
 - 2026-10-20: With the user's OK, cleared about 760 MB: removed the merged `image-backup-2` worktree, `build/` and `node_modules/.cache/gh-pages`. The local branch `worktree-image-backup-2` still exists (merged in PR #1). The dev-server caches were kept.
 - 2026-10-20: Reviewed the app; wrote ROADMAP.md (logic bugs, UI tests and layout bugs, 33 feature ideas). Added `.claude/launch.json`, this file, CLAUDE.md and `scripts/disk-usage.sh`. No app code changed.

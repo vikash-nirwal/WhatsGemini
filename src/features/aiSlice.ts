@@ -57,7 +57,7 @@ const resolveHelperCall = async (settings: RootState["settings"]) => {
 
 export const generateAIResponse = createAsyncThunk(
   "ai/generateResponse",
-  async ({ prompt, history = [], systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, postHistoryNote?: string, streamKey?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[] }, { getState, dispatch, rejectWithValue, signal }) => {
+  async ({ prompt, history = [], systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters, protectedCount }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, postHistoryNote?: string, streamKey?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[], protectedCount?: number }, { getState, dispatch, rejectWithValue, signal }) => {
     try {
       const state = getState() as RootState;
       const settings = state.settings;
@@ -112,7 +112,7 @@ export const generateAIResponse = createAsyncThunk(
       // sure it ends on an assistant turn. (Auto-compression already happened, if
       // needed, before this thunk was dispatched - see autoCompressChat.)
       let validHistory = buildValidHistory(history, prompt);
-      validHistory = truncateHistory(validHistory, settings.maxChatLength);
+      validHistory = truncateHistory(validHistory, settings.maxChatLength, protectedCount);
       // Unanswered user turns at the end (a double-send, a silent send, or -
       // in a room - other characters' lines since this speaker last talked)
       // are folded into the outgoing prompt rather than dropped, so the

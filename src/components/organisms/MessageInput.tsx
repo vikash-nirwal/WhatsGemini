@@ -123,6 +123,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
   const isRoom = Boolean(roomCharacters && roomCharacters.length > 1);
   const selectedSpeaker = selectedSpeakerId != null ? roomCharacters?.find((c) => c.id === selectedSpeakerId) : undefined;
+  // Who an impersonated message is written as: the picked room speaker, if
+  // any, matching what ChatPage stores as the message's speaker.
+  const impersonatedName = selectedSpeaker?.name || characterName;
 
   // Looks backward from the caret for an "@" that starts the current word
   // (line start or preceded by whitespace, no space/newline/second "@" typed
@@ -276,7 +279,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
     contextUtilization >= 0.85 ? "bg-destructive" : contextUtilization >= 0.6 ? "bg-amber-500" : "bg-primary/60";
   const filledCells = Math.round(Math.min(contextUtilization, 1) * ASCII_BAR_CELLS);
   const promptName = isImpersonated
-    ? `${(characterName || "character").toLowerCase()}@session`
+    ? `${(impersonatedName || "character").toLowerCase()}@session`
     : `you@${(userName?.trim() || "you").toLowerCase()}`;
 
   // Banner row for the image/impersonation/forced-speaker toggles - terminal
@@ -333,7 +336,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
       disabled
         ? "Waiting for response..."
         : isImpersonated
-        ? `Write as ${characterName || "the character"}…`
+        ? `Write as ${impersonatedName || "the character"}…`
         : selectedSpeaker
         ? `Message ${selectedSpeaker.name}…`
         : characterName
@@ -485,12 +488,12 @@ const MessageInput: React.FC<MessageInputProps> = ({
         </div>
       )}
 
-      {isImpersonated && terminal && terminalBanner(`impersonation on - this message is sent as ${characterName || "the character"}, not you.`, () => setIsImpersonated(false), "Turn off impersonation")}
+      {isImpersonated && terminal && terminalBanner(`impersonation on - this message is sent as ${impersonatedName || "the character"}, not you.`, () => setIsImpersonated(false), "Turn off impersonation")}
       {isImpersonated && !terminal && (
         <div className="flex items-center gap-2.5 px-3 py-2 bg-violet-500/10 border border-violet-500/50 rounded-lg">
           <span className="text-violet-500 flex-shrink-0 flex"><FaMask size={13} /></span>
           <span className="flex-1 text-[12.5px] text-foreground font-medium">
-            Impersonation on — this message is sent as {characterName || "the character"}, not you.
+            Impersonation on — this message is sent as {impersonatedName || "the character"}, not you.
           </span>
           <Button
             onClick={() => setIsImpersonated(false)}
@@ -523,8 +526,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
         </div>
       )}
 
-      {selectedSpeaker && terminal && terminalBanner(`only ${selectedSpeaker.name} will reply to this message.`, () => setSelectedSpeakerId(null), "Clear selected replier")}
-      {selectedSpeaker && !terminal && (
+      {selectedSpeaker && !isImpersonated && terminal && terminalBanner(`only ${selectedSpeaker.name} will reply to this message.`, () => setSelectedSpeakerId(null), "Clear selected replier")}
+      {selectedSpeaker && !isImpersonated && !terminal && (
         <div className="flex items-center gap-2.5 px-3 py-2 bg-primary/10 border border-primary rounded-lg">
           <CharacterAvatar name={selectedSpeaker.name} accent={selectedSpeaker.accent} imageSrc={selectedSpeaker.appearanceImages?.[0]} size={18} className="flex-shrink-0" />
           <span className="flex-1 text-[12.5px] text-foreground font-medium">
@@ -608,7 +611,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
             onClick={() => setIsImpersonated((v) => { if (!v) setIsSilentSend(false); return !v; })}
             disabled={disabled}
             aria-pressed={isImpersonated}
-            title={`Write as ${characterName || "the character"} instead of yourself`}
+            title={`Write as ${impersonatedName || "the character"} instead of yourself`}
             aria-label="Toggle impersonation mode"
             className={cn(isImpersonated && "bg-primary text-primary-foreground no-underline")}
           />
@@ -726,7 +729,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
           onClick={() => setIsImpersonated((v) => { if (!v) setIsSilentSend(false); return !v; })}
           disabled={disabled}
           variant="ghost"
-          title={`Write as ${characterName || "the character"} instead of yourself`}
+          title={`Write as ${impersonatedName || "the character"} instead of yourself`}
           aria-label="Toggle impersonation mode"
           aria-pressed={isImpersonated}
           className={cn(
