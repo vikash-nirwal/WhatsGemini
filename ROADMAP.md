@@ -38,9 +38,10 @@ The app is called WhatsGemini, so lean into the messaging-app fantasy.
 
 ## More ideas (added 2026-10-20)
 
-Built one at a time, in this order. Each runs in a fresh session.
+Built one at a time: #46, then #57, then #47 onward.
 
 46. **"Previously on…"** (S). Opening a chat after a few days away shows a short recap built from the chapter summaries and recent messages, dismissable, and never sent to the model.
+57. **Story script** (M–L). Built right after #46. Before a chat, room or adventure starts, the user can write the story the AI must stay inside: a premise, an ordered list of story beats, directions (tone, pacing, must / must-never, the ending), or paste a whole script that the AI splits into beats for review. Each reply gets the premise, the directions and only the current beat. The model works toward it and reports reaching it with a hidden tag (like the emotion tag). Off-script turns are played along briefly, then steered back. Directions stay pinned through compression. A "Beat 2 of 6" strip lets the user mark a beat done, skip it, go back or edit the script. Strict or loose mode. Scripts can be saved as templates and reused with other characters.
 47. **Dates that matter** (S). Birthdays, anniversaries and "the day we met" are picked up from memory or set by hand; on the day, the character mentions it or reaches out first.
 48. **Send them a photo** (S–M). Attach a picture to a message; on models that accept images the character sees it and reacts. Elsewhere it's described by a vision-capable helper model, or the user is told it can't be seen.
 49. **Event deck** (S). A "Draw an event" action that adds a random twist to the scene ("a stranger knocks", "the power goes out"), from a built-in deck you can edit, as a one-turn directive.

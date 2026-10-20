@@ -29,6 +29,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | 28 | Attach a World to normal chats | todo | |
 | 30 | Relationship that evolves | todo | |
 | 46 | "Previously on…" | todo | New ideas continue here; built one per session, in order. |
+| 57 | Story script | todo | Right after #46. |
 | 47 | Dates that matter | todo | |
 | 48 | Send them a photo | todo | |
 | 49 | Event deck | todo | |
