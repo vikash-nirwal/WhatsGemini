@@ -229,6 +229,15 @@ export interface Character {
   diaryEnabled?: boolean;
   diary?: DiaryEntry[]; // oldest first, capped at MAX_DIARY_ENTRIES
   personalityTraits?: string[]; // quick-pick trait chips, folded into the system prompt alongside the main `prompt` field
+  // Per-character model (#32): this character's replies use these instead of
+  // the app-wide text model settings. Every field is optional and unset falls
+  // back to the app setting; see resolveTurnModel in modelResolution.ts.
+  modelOverride?: {
+    provider?: string; // chat provider id (a CHAT_PROVIDERS key)
+    model?: string;
+    temperature?: number;
+    samplers?: SamplerSettings; // merged over the app's samplers key by key
+  };
 }
 
 // A single Lorebook / World Info entry - a chunk of lore that's only injected
