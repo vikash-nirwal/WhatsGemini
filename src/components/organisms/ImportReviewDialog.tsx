@@ -89,7 +89,7 @@ const ImportReviewDialog: React.FC<ImportReviewDialogProps> = ({ isOpen, onClose
     try {
       const prompt = buildImportCustomizePrompt(fields, instruction.trim());
       const text = await dispatch(generateAssistText({ instruction: prompt })).unwrap();
-      setFields(parseImportCustomizeResponse(text));
+      setFields(parseImportCustomizeResponse(text, fields));
       setInstruction("");
     } catch (err: any) {
       setAiError(typeof err === "string" ? err : err?.message || "Failed to apply that change. Check your API key in Settings.");

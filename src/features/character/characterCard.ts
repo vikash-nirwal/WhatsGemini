@@ -46,18 +46,62 @@ export interface CharacterCardV2 {
     // WhatsGemini characters carry their lore into other apps.
     character_book?: {
       extensions: Record<string, unknown>;
-      entries: Array<{
-        id: number;
-        keys: string[];
-        content: string;
-        enabled: boolean;
-        constant?: boolean;
-        insertion_order: number;
-        extensions: Record<string, unknown>;
-      }>;
+      entries: CharacterBookEntry[];
     };
   };
 }
+
+// One `character_book` entry as the V2 spec and SillyTavern write it. The
+// advanced trigger fields are optional in the spec and only written when the
+// WhatsGemini entry sets them, so a plain lorebook exports as it always has.
+export interface CharacterBookEntry {
+  id: number;
+  keys: string[];
+  secondary_keys?: string[];
+  content: string;
+  enabled: boolean;
+  constant?: boolean;
+  selective?: boolean;
+  insertion_order: number;
+  priority?: number;
+  extensions: Record<string, unknown>;
+}
+
+// SillyTavern's `extensions.selectiveLogic` numbers (its world_info_logic
+// enum) for how secondary keys combine.
+const SELECTIVE_LOGIC: Record<number, LoreEntry["secondaryLogic"]> = { 0: "andAny", 1: "notAll", 2: "notAny", 3: "andAll" };
+const SELECTIVE_LOGIC_NUMBER: Record<NonNullable<LoreEntry["secondaryLogic"]>, number> = { andAny: 0, notAll: 1, notAny: 2, andAll: 3 };
+
+const finite = (v: unknown): number | undefined => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
+
+// SillyTavern reads `insertion_order` as both placement and budget priority
+// (higher is kept first), and ignores the spec's own `priority`. So once a
+// lorebook uses priorities, insertion_order carries them (unset counts as 0,
+// as in matchLoreEntries); otherwise it stays the entry's position, as it
+// always was. `priority` is written too, for readers that follow the spec.
+const toCharacterBookEntry = (entry: LoreEntry, i: number, usesPriority: boolean): CharacterBookEntry => {
+  const secondary = entry.secondaryKeywords && entry.secondaryKeywords.length > 0 ? entry.secondaryKeywords : undefined;
+  const extensions: Record<string, unknown> = {};
+  if (entry.secondaryLogic && entry.secondaryLogic !== "andAny") extensions.selectiveLogic = SELECTIVE_LOGIC_NUMBER[entry.secondaryLogic];
+  if (finite(entry.scanDepth) !== undefined) extensions.scan_depth = entry.scanDepth;
+  if (finite(entry.sticky) !== undefined) extensions.sticky = entry.sticky;
+  if (finite(entry.probability) !== undefined) {
+    extensions.probability = entry.probability;
+    extensions.useProbability = true;
+  }
+  return {
+    id: i,
+    keys: entry.keywords,
+    ...(secondary ? { secondary_keys: secondary } : {}),
+    content: entry.content,
+    enabled: entry.enabled !== false,
+    constant: entry.constant === true,
+    ...(entry.selective ? { selective: true } : {}),
+    insertion_order: usesPriority ? finite(entry.priority) ?? 0 : i,
+    ...(finite(entry.priority) !== undefined ? { priority: entry.priority } : {}),
+    extensions,
+  };
+};
 
 export const characterToCardV2 = (char: Character): CharacterCardV2 => ({
   spec: "chara_card_v2",
@@ -90,15 +134,8 @@ export const characterToCardV2 = (char: Character): CharacterCardV2 => ({
     },
     character_book: char.loreEntries && char.loreEntries.length > 0 ? {
       extensions: {},
-      entries: char.loreEntries.map((entry, i) => ({
-        id: i,
-        keys: entry.keywords,
-        content: entry.content,
-        enabled: entry.enabled !== false,
-        constant: entry.constant === true,
-        insertion_order: i,
-        extensions: {},
-      })),
+      entries: char.loreEntries.map((entry, i, all) =>
+        toCharacterBookEntry(entry, i, all.some((e) => finite(e.priority) !== undefined))),
     } : undefined,
   },
 });
@@ -107,14 +144,53 @@ export const characterToCardV2 = (char: Character): CharacterCardV2 => ({
 // "keys", not our "keywords") into WhatsGemini's own LoreEntry shape. Each
 // entry gets a fresh id since the spec's own `id` is an optional number
 // scoped to that one card, not a stable cross-app identifier.
-const mapCharacterBookEntries = (entries: any[]): LoreEntry[] =>
-  entries.map((entry, i) => ({
+//
+// The advanced trigger fields come from where SillyTavern keeps them:
+// `secondary_keys`/`selective` and `extensions.selectiveLogic`,
+// `extensions.scan_depth` (not `extensions.depth`, which is where in the chat
+// SillyTavern inserts the text), `extensions.sticky`, and
+// `extensions.probability` unless `useProbability` is explicitly off.
+// Priority is the spec's `priority`, else `insertion_order` (SillyTavern's
+// budget order); when every entry ends up with the same one it's dropped,
+// since equal priorities change nothing. Defaults that change nothing
+// (SillyTavern's selective-with-no-secondary-keys, a 100% chance) are left
+// unset so the entry reads as plain in the editor.
+const strings = (v: unknown): string[] =>
+  Array.isArray(v) ? v.filter((k): k is string => typeof k === "string") : [];
+
+const fromCharacterBookEntry = (entry: any, i: number): LoreEntry => {
+  const ext = entry.extensions && typeof entry.extensions === "object" ? entry.extensions : {};
+  const secondary = strings(entry.secondary_keys);
+  const hasSecondary = secondary.some((k) => k.trim() !== "");
+  const selective = entry.selective === true && hasSecondary;
+  const logic = SELECTIVE_LOGIC[finite(ext.selectiveLogic) ?? 0];
+  const scanDepth = finite(ext.scan_depth);
+  const sticky = finite(ext.sticky);
+  const probability = ext.useProbability === false ? undefined : finite(ext.probability);
+  const priority = finite(entry.priority) ?? finite(entry.insertion_order);
+  return {
     id: `book_${Date.now().toString(36)}_${i}_${Math.random().toString(36).slice(2, 7)}`,
-    keywords: Array.isArray(entry.keys) ? entry.keys : Array.isArray(entry.keywords) ? entry.keywords : [],
+    keywords: Array.isArray(entry.keys) ? strings(entry.keys) : strings(entry.keywords),
     content: entry.content || "",
     enabled: entry.enabled !== false,
     constant: entry.constant === true || undefined,
-  }));
+    ...(priority !== undefined ? { priority } : {}),
+    ...(hasSecondary ? { secondaryKeywords: secondary } : {}),
+    ...(selective ? { selective: true } : {}),
+    ...(selective && logic && logic !== "andAny" ? { secondaryLogic: logic } : {}),
+    ...(scanDepth !== undefined && scanDepth >= 0 ? { scanDepth: Math.floor(scanDepth) } : {}),
+    ...(sticky !== undefined && sticky > 0 ? { sticky: Math.floor(sticky) } : {}),
+    ...(probability !== undefined && probability < 100 ? { probability: Math.max(0, probability) } : {}),
+  };
+};
+
+const mapCharacterBookEntries = (entries: any[]): LoreEntry[] => {
+  const mapped = entries.filter((e) => e && typeof e === "object").map(fromCharacterBookEntry);
+  const priorities = new Set(mapped.map((e) => e.priority));
+  if (priorities.size > 1) return mapped;
+  mapped.forEach((e) => { delete e.priority; });
+  return mapped;
+};
 
 export type ParsedCharacterCard = Omit<Character, "id">;
 
