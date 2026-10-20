@@ -193,6 +193,26 @@ export const insertCompressionSummary = createAsyncThunk(
   }
 );
 
+// Patches fields on one message (e.g. renaming a chapter) in both the
+// flattened content and, if present, its tree node, without moving it.
+export const updateChatMessage = createAsyncThunk(
+  "chat/updateChatMessage",
+  async ({ chatId, messageId, patch }: { chatId: number; messageId: string; patch: Partial<Message> }, { rejectWithValue }) => {
+    try {
+      const chat = await dbService.getChatById(chatId);
+      chat.content = chat.content.map((m) => (m.id === messageId ? { ...m, ...patch } : m));
+      const node = chat.tree?.nodes[messageId];
+      if (chat.tree && node) {
+        chat.tree = { nodes: { ...chat.tree.nodes, [messageId]: { ...node, message: { ...node.message, ...patch } } } };
+      }
+      await dbService.updateChat(chat);
+      return { chatId, content: chat.content, tree: chat.tree };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
 // Updates just a chat's auto-follow-up settings (enabled/cooldown/max/count),
 // leaving content and tree untouched.
 export const updateChatAutoReply = createAsyncThunk(
@@ -660,6 +680,13 @@ const chatSlice = createSlice({
           chat.content = action.payload.content;
           chat.tree = action.payload.tree;
           chat.activeLeafId = action.payload.activeLeafId;
+        }
+      })
+      .addCase(updateChatMessage.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c.id === action.payload.chatId);
+        if (chat) {
+          chat.content = action.payload.content;
+          chat.tree = action.payload.tree;
         }
       })
       .addCase(insertCompressionSummary.fulfilled, (state, action) => {

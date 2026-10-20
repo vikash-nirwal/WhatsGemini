@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
-import { performChatCompression, buildValidHistory, buildAutoCompressedMessages, truncateHistory, splitTrailingUserMessages, formatTranscript, TranscriptNames } from "./ai/utils/chatHistoryUtils";
+import { performChatCompression, buildValidHistory, buildAutoCompressedMessages, truncateHistory, splitTrailingUserMessages, formatTranscript, TranscriptNames, summarizeConversation, parseChapterReply, CHAPTER_INSTRUCTIONS } from "./ai/utils/chatHistoryUtils";
 import { AI, getModelPricing, ART_STYLE_CLAUSES, DEFAULT_ART_STYLE } from "../utils/constants";
 import { getProviderApiKey, getOllamaBaseUrl, getWanBaseUrl } from "./ai/utils/settings";
 import { extractAndSaveBase64ImagesLocally, stripLeakedBase64 } from "./ai/utils/apiUtils";
@@ -347,6 +347,30 @@ export const compressChatHistory = createAsyncThunk(
     } catch (error: any) {
       console.error("AI Compress Error:", error);
       return rejectWithValue(error.message || "Failed to compress history.");
+    }
+  }
+);
+
+// "End chapter": summarizes the conversation since the last summary into a
+// titled chapter - a short recap of just this chapter, plus the usual
+// whole-story summary the next replies build on.
+export const summarizeChapter = createAsyncThunk(
+  "ai/summarizeChapter",
+  async ({ messages, names, systemInstruction }: { messages: Message[]; names?: TranscriptNames; systemInstruction?: string }, { getState, rejectWithValue }) => {
+    try {
+      const helper = await resolveHelperCall((getState() as RootState).settings);
+      const { summary: reply, usage } = await summarizeConversation(
+        helper.adapter, helper.config, helper.model, formatTranscript(messages, names), systemInstruction, CHAPTER_INSTRUCTIONS
+      );
+      const parsed = parseChapterReply(reply);
+      if (!parsed.summary) throw new Error("The model returned an empty summary.");
+      const pricing = getModelPricing(helper.providerId, helper.model);
+      const tokens = usage?.totalTokens || 0;
+      const cost = usage ? (usage.inputTokens / 1_000_000) * pricing.input + (usage.outputTokens / 1_000_000) * pricing.output : 0;
+      return { ...parsed, tokens, cost };
+    } catch (error: any) {
+      console.error("Chapter summary error:", error);
+      return rejectWithValue(error.message || "Failed to summarize the chapter.");
     }
   }
 );

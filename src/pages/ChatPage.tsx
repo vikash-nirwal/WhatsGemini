@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, insertCompressionSummary, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatMemory, updateChatGreeting, setPendingFollowupAt } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
-import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage } from "../features/aiSlice";
+import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage, summarizeChapter } from "../features/aiSlice";
 import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
 import ChatWindow from "src/components/organisms/ChatWindow";
 import MessageInput from "src/components/organisms/MessageInput";
@@ -10,7 +10,7 @@ import Header, { HeaderAction } from "src/components/organisms/Header";
 import PortraitPreviewModal from "src/components/organisms/PortraitPreviewModal";
 import AutoReplyModal from "src/components/organisms/AutoReplyModal";
 import PersonaModal from "src/components/organisms/PersonaModal";
-import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers } from "react-icons/fa";
+import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark } from "react-icons/fa";
 import { Button } from "src/components/atoms/button";
 import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
@@ -1181,6 +1181,38 @@ const ChatPage = () => {
     }
   };
 
+  // "End chapter": everything since the last summary becomes a titled
+  // chapter, placed at the end of the conversation like a compression
+  // summary, so the next reply starts fresh from it (nothing is deleted).
+  const [endingChapter, setEndingChapter] = useState(false);
+  const chapterCount = useMemo(() => messages.filter((m) => m.chapterTitle).length, [messages]);
+  const canEndChapter = messages.length - compressibleStart >= 2 && !messages[messages.length - 1]?.isSystem;
+  const handleEndChapter = async () => {
+    if (!chatIdNum || !canEndChapter || endingChapter) return;
+    setError(null);
+    setEndingChapter(true);
+    try {
+      const covered = messages.slice(compressibleStart);
+      const lastCovered = messages[messages.length - 1];
+      const { text: systemInstructionText } = buildSystemInstruction(characterData, undefined, undefined, activePersona);
+      const chapter = await dispatch(summarizeChapter({ messages: covered, names: transcriptNames(), systemInstruction: systemInstructionText })).unwrap();
+      await trackUsage(chapter.tokens, chapter.cost);
+      const title = chapter.title || `Chapter ${chapterCount + 1}`;
+      await dispatch(insertCompressionSummary({
+        chatId: chatIdNum,
+        afterMessageId: lastCovered.id,
+        afterIndex: messages.length - 1,
+        summaryMessages: buildSummaryMessages(chapter.summary, lastCovered.timestamp, { title, recap: chapter.recap }),
+      })).unwrap();
+      dispatch(fetchChats());
+      toast.success(`Chapter ${chapterCount + 1} ended: ${title}`);
+    } catch (err) {
+      setError(typeof err === "string" ? err : "Couldn't end the chapter. Check your model settings and try again.");
+    } finally {
+      setEndingChapter(false);
+    }
+  };
+
   const handleExport = () => {
     if (!chatIdNum || !chats) return;
     const currentChat = chats.find((c) => c.id === chatIdNum);
@@ -1203,6 +1235,9 @@ const ChatPage = () => {
     { icon: FaDownload, label: "Export chat", onClick: handleExport },
     ...(messages.length > 0
       ? [{ icon: FaHistory, label: "Rewind last turn", onClick: handleRewindLastTurn, disabled: aiLoading, danger: true }]
+      : []),
+    ...(canEndChapter
+      ? [{ icon: FaBookmark, label: endingChapter ? "Ending the chapter..." : "End chapter (summarize it and start the next)", onClick: handleEndChapter, disabled: aiLoading || endingChapter }]
       : []),
     ...(canCompress
       ? [{ icon: FaCompressArrowsAlt, label: "Summarize and compress older messages to save tokens", onClick: handleCompress, disabled: aiCompressing }]

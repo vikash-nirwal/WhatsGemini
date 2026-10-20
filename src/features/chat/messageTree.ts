@@ -113,8 +113,11 @@ export const spliceSummaryIntoConversation = (
   const anchorId = afterMessageId && base.tree.nodes[afterMessageId] ? afterMessageId : base.content[afterIndex]?.id;
   if (!anchorId || !base.tree.nodes[anchorId]) return null;
 
-  const { tree } = insertAfterNode(base.tree, anchorId, summaryMessages);
-  return { tree, activeLeafId: base.activeLeafId, content: flattenPath(tree, base.activeLeafId) };
+  const { tree, insertedIds } = insertAfterNode(base.tree, anchorId, summaryMessages);
+  // Placed after the newest message (ending a chapter), the summary becomes
+  // the new end of the conversation, so the next message follows it.
+  const activeLeafId = anchorId === base.activeLeafId && insertedIds.length > 0 ? insertedIds[insertedIds.length - 1] : base.activeLeafId;
+  return { tree, activeLeafId, content: flattenPath(tree, activeLeafId) };
 };
 
 // Replaces a node's message content in place (used for non-branching text

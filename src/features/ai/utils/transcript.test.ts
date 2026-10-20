@@ -1,4 +1,4 @@
-import { formatTranscript, splitTrailingUserMessages, countSeedMessages, countProtectedPrefix, truncateHistory, latestSummaryIndex, trimToLatestSummary } from "./transcript";
+import { formatTranscript, splitTrailingUserMessages, countSeedMessages, countProtectedPrefix, truncateHistory, latestSummaryIndex, trimToLatestSummary, parseChapterReply, buildSummaryMessages } from "./transcript";
 import { Message } from "../../../types";
 import { ChatMessage } from "../types";
 import { AI, YOU } from "../../../utils/constants";
@@ -151,5 +151,36 @@ describe("trimToLatestSummary", () => {
   it("works for a greeting-seeded chat with no hidden seed", () => {
     const messages: Message[] = [{ role: AI, txt: "Hello!" }, { role: YOU, txt: "old" }, ...summary("s"), { role: YOU, txt: "new" }];
     expect(texts(trimToLatestSummary(messages))).toEqual(["s", "ok", "new"]);
+  });
+});
+
+describe("parseChapterReply", () => {
+  it("reads the title, recap and summary", () => {
+    const reply = "TITLE: The Masquerade\nRECAP: Arin and Mira crashed the duke's ball. Mira stole the ledger.\nSUMMARY:\nStory so far: a lot happened.";
+    expect(parseChapterReply(reply)).toEqual({
+      title: "The Masquerade",
+      recap: "Arin and Mira crashed the duke's ball. Mira stole the ledger.",
+      summary: "Story so far: a lot happened.",
+    });
+  });
+
+  it("tolerates bold markers and quoted titles", () => {
+    const parsed = parseChapterReply('**TITLE:** "Ashes at Dawn"\n**RECAP:** The inn burned.\n**SUMMARY:** Everything.');
+    expect(parsed.title).toBe("Ashes at Dawn");
+    expect(parsed.recap).toBe("The inn burned.");
+    expect(parsed.summary).toBe("Everything.");
+  });
+
+  it("falls back to the whole reply as the summary", () => {
+    const parsed = parseChapterReply("Story so far: Arin met Mira. They argued. Then they made up.");
+    expect(parsed.title).toBeUndefined();
+    expect(parsed.summary).toBe("Story so far: Arin met Mira. They argued. Then they made up.");
+    expect(parsed.recap).toBe("Arin met Mira. They argued.");
+  });
+
+  it("puts the chapter on the summary message", () => {
+    const [summary, ack] = buildSummaryMessages("All of it.", 5, { title: "The Masquerade", recap: "A ball." });
+    expect(summary).toMatchObject({ isCompressionSummary: true, chapterTitle: "The Masquerade", chapterRecap: "A ball.", timestamp: 5 });
+    expect(ack.isSystem).toBe(true);
   });
 });

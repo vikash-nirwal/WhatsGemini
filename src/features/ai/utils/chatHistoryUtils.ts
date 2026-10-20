@@ -7,7 +7,7 @@ import { splitForCompression } from "./compressionSplit";
 
 // Pure helpers live in transcript.ts (testable without the provider registry's
 // ESM imports) and are re-exported here for existing callers.
-export { formatTranscript, splitTrailingUserMessages, truncateHistory, countSeedMessages, countProtectedPrefix, latestSummaryIndex, trimToLatestSummary, buildSummaryMessages } from "./transcript";
+export { formatTranscript, splitTrailingUserMessages, truncateHistory, countSeedMessages, countProtectedPrefix, latestSummaryIndex, trimToLatestSummary, buildSummaryMessages, parseChapterReply, CHAPTER_INSTRUCTIONS } from "./transcript";
 export type { TranscriptNames } from "./transcript";
 
 // Clones the raw history into fresh objects and drops the trailing user
@@ -36,9 +36,10 @@ export const summarizeConversation = async (
   config: ProviderRuntimeConfig,
   selectedModel: string,
   transcript: string,
-  systemInstruction?: string
+  systemInstruction?: string,
+  extraInstructions?: string
 ): Promise<{ summary: string; usage?: UsageInfo }> => {
-  const prompt = `Summarize the following roleplay conversation so it can replace the older messages as the AI's memory. Write it as a compact reference, not a story, using these headings (skip any that don't apply):
+  const prompt = `${extraInstructions ? `${extraInstructions}\n\n` : ""}Summarize the following roleplay conversation so it can replace the older messages as the AI's memory. Write it as a compact reference, not a story, using these headings (skip any that don't apply):
 
 Story so far: the key events in order, briefly.
 Current scene: where the characters are, the time of day, and what is happening right now.

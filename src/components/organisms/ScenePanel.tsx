@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { FaTimes, FaPlus, FaPencilAlt, FaThumbtack, FaTag } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
-import { updateChatAuthorNote, updateChatWorldTags, updateChatMemory, updateChatScenario, updateChatBoundaries, updateChatMemoryScope } from "src/features/chatSlice";
+import { updateChatAuthorNote, updateChatWorldTags, updateChatMemory, updateChatScenario, updateChatBoundaries, updateChatMemoryScope, updateChatMessage } from "src/features/chatSlice";
 import { TagInput } from "src/components/molecules/form-controls";
 import { SegmentedControl } from "src/components/molecules/SegmentedControl";
 import { updateCharacter } from "src/features/characterSlice";
@@ -199,6 +199,17 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
   const tagColor = character?.accent?.[0];
   const tagBg = tagColor ? `${tagColor}26` : "rgb(var(--primary) / 0.14)";
   const tagFg = tagColor || "rgb(var(--primary))";
+
+  // Chapters ended in this chat, in story order (the active branch's path).
+  const chapters = (chat?.content || []).filter((m) => m.chapterTitle && m.id);
+  const [renamingChapterId, setRenamingChapterId] = useState<string | null>(null);
+  const [chapterDraft, setChapterDraft] = useState("");
+  const commitChapterRename = () => {
+    const title = chapterDraft.trim();
+    if (renamingChapterId && title) dispatch(updateChatMessage({ chatId, messageId: renamingChapterId, patch: { chapterTitle: title } }));
+    setRenamingChapterId(null);
+    setChapterDraft("");
+  };
 
   // Memory grouped by what it's about, once any fact has a category; a
   // memory nobody has sorted yet stays one plain list, as before.
@@ -421,6 +432,53 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
               </button>
             )}
           </div>
+        </div>
+
+        {/* Chapters - the story so far, one titled recap per "End chapter" */}
+        <div>
+          <div className="flex items-baseline justify-between mb-2">
+            <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">Chapters</span>
+            {chapters.length > 0 && <span className="text-[11px] text-primary">{chapters.length}</span>}
+          </div>
+          {chapters.length === 0 ? (
+            <p className="text-[12.5px] text-subtle">No chapters yet. Use "End chapter" in the chat menu to close one with a title and recap; the next reply starts fresh from it.</p>
+          ) : (
+            <ol className="flex flex-col gap-1.5">
+              {chapters.map((chapter, i) => (
+                <li key={chapter.id} className="px-3 py-2 rounded-lg bg-background border border-border/30 text-[12.5px]">
+                  {renamingChapterId === chapter.id ? (
+                    <Input
+                      autoFocus
+                      aria-label="Chapter title"
+                      value={chapterDraft}
+                      onChange={(e) => setChapterDraft(e.target.value)}
+                      onBlur={commitChapterRename}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.preventDefault(); commitChapterRename(); }
+                        else if (e.key === "Escape") { setRenamingChapterId(null); setChapterDraft(""); }
+                      }}
+                      className="h-auto py-1 px-2 text-[12.5px] rounded-md"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="flex-1 font-semibold text-foreground">{i + 1}. {chapter.chapterTitle}</span>
+                      <Button
+                        onClick={() => { setRenamingChapterId(chapter.id!); setChapterDraft(chapter.chapterTitle || ""); }}
+                        variant="ghost"
+                        size="icon"
+                        className="h-auto w-auto p-0.5 text-subtle hover:text-primary hover:bg-transparent flex-shrink-0"
+                        title="Rename"
+                        aria-label={`Rename chapter ${i + 1}`}
+                      >
+                        <FaPencilAlt size={10} />
+                      </Button>
+                    </div>
+                  )}
+                  {chapter.chapterRecap && <p className="mt-1 text-subtle leading-snug">{chapter.chapterRecap}</p>}
+                </li>
+              ))}
+            </ol>
+          )}
         </div>
 
         {/* Boundaries */}

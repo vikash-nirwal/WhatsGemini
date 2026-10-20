@@ -265,6 +265,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ bottomInset = 0, messages = [],
     return sliced;
   }, [messages, startIndex]);
 
+  // Chapter numbers by message id, in story order.
+  const chapterNumbers = useMemo(() => {
+    const numbers = new Map<string, number>();
+    filteredMessages.filter((m) => m.chapterTitle).forEach((m, i) => numbers.set(m.id || "", i + 1));
+    return numbers;
+  }, [filteredMessages]);
+
   // Position of the newest compression summary in the visible list, or -1.
   // Everything above it has been summarized and is left out of the prompt.
   const latestSummaryAt = useMemo(
@@ -560,6 +567,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ bottomInset = 0, messages = [],
                     onDeleteBranch={onDeleteBranch}
                     onClearRefusal={onClearRefusal ? handleClearRefusal : undefined}
                     blurMedia={blurMedia}
+                    chapterNumber={msg.chapterTitle ? chapterNumbers.get(msg.id || "") : undefined}
                   />
                 );
                 // Already covered by the latest summary: still readable (and

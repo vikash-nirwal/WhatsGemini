@@ -29,6 +29,10 @@ export interface Message {
   speakerId?: number;
   isSystem?: boolean;
   isCompressionSummary?: boolean; // true for the persisted auto-compress summary message
+  // Set on a summary made by "End chapter": its title and a short recap of
+  // just that chapter (the summary text itself covers the whole story so far).
+  chapterTitle?: string;
+  chapterRecap?: string;
   // True for a room-membership notice (e.g. "Aria joined the chat.") added
   // when a character is invited into an existing chat. Rendered as a
   // centered, unattributed notice like isCompressionSummary - unlike

@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from "react";
 import { useColorTheme } from "../../hooks/useColorTheme";
-import { FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask } from "react-icons/fa";
+import { FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask, FaBookmark } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { cn } from "../../utils/cn";
 import { Message } from "../../types";
@@ -43,6 +43,7 @@ interface ChatMessageProps {
   onDeleteBranch?: (nodeId: string) => void;
   onClearRefusal?: (msg: Message) => void;
   blurMedia?: boolean; // Privacy > Blur NSFW images, for a chat with an NSFW character
+  chapterNumber?: number; // for a summary made by "End chapter": its position among the chapters
 }
 
 // Shown under a reply flagged as an out-of-character refusal (see
@@ -87,6 +88,7 @@ const ChatMessage = React.memo(({
   onDeleteBranch,
   onClearRefusal,
   blurMedia = false,
+  chapterNumber,
 }: ChatMessageProps) => {
   const isUser = msg.role === YOU;
   const { is } = useColorTheme();
@@ -187,9 +189,11 @@ const ChatMessage = React.memo(({
     if (msg.isCompressionSummary) {
       return (
         <div className="mb-4 border border-border p-3">
-          <div className="text-[10px] font-bold text-ring mb-1.5"># compressed history</div>
+          <div className="text-[10px] font-bold text-ring mb-1.5">
+            {msg.chapterTitle ? `# chapter ${chapterNumber ?? ""}: ${msg.chapterTitle}`.replace("  ", " ") : "# compressed history"}
+          </div>
           <div className={cn("text-xs text-muted-foreground", !isSummaryExpanded && "line-clamp-3")}>
-            <MarkdownRenderer msgText={msg.txt || ""} isUser={false} />
+            <MarkdownRenderer msgText={!isSummaryExpanded && msg.chapterRecap ? msg.chapterRecap : msg.txt || ""} isUser={false} />
           </div>
           <TermLink
             label={isSummaryExpanded ? "less" : "more"}
@@ -304,8 +308,8 @@ const ChatMessage = React.memo(({
         <Card className="max-w-[90%] md:max-w-[70%] bg-muted text-center">
           <CardContent className="px-4 py-3">
             <div className="flex items-center justify-center gap-2 text-xs font-semibold text-muted-foreground mb-1.5">
-              <FaCompressArrowsAlt size={11} />
-              Compressed history
+              {msg.chapterTitle ? <FaBookmark size={10} /> : <FaCompressArrowsAlt size={11} />}
+              {msg.chapterTitle ? `Chapter ${chapterNumber ?? ""}: ${msg.chapterTitle}`.replace("  ", " ") : "Compressed history"}
             </div>
             <div
               role="button"
@@ -321,11 +325,13 @@ const ChatMessage = React.memo(({
               aria-expanded={isSummaryExpanded}
               title={isSummaryExpanded ? "Click to collapse" : "Click to show the full summary"}
             >
+              {/* A chapter shows its own short recap; expanding shows the
+                  full story-so-far summary the next replies build on. */}
               <div className={cn(!isSummaryExpanded && "line-clamp-3")}>
-                <MarkdownRenderer msgText={msg.txt || ""} isUser={false} />
+                <MarkdownRenderer msgText={!isSummaryExpanded && msg.chapterRecap ? msg.chapterRecap : msg.txt || ""} isUser={false} />
               </div>
               <span className="mt-1 inline-block text-[11px] font-medium text-primary hover:underline">
-                {isSummaryExpanded ? "Show less" : "Show more"}
+                {isSummaryExpanded ? "Show less" : msg.chapterRecap ? "Show the full summary" : "Show more"}
               </span>
             </div>
           </CardContent>

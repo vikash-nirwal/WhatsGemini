@@ -309,3 +309,12 @@ describe("spliceSummaryIntoConversation", () => {
     expect(spliceSummaryIntoConversation({ content: [msg("a")] }, "nope", 5, [msg("s")])).toBeNull();
   });
 });
+
+describe("spliceSummaryIntoConversation at the end", () => {
+  it("makes a summary placed after the newest message the new end of the conversation", () => {
+    const { tree, activeLeafId, content } = migrateToTree([{ role: "you", txt: "a" }, { role: "ai", txt: "b" }]);
+    const result = spliceSummaryIntoConversation({ content, tree, activeLeafId }, content[1].id, 1, [{ role: "you", txt: "chapter" }, { role: "ai", txt: "ok" }]);
+    expect(result!.content.map((m) => m.txt)).toEqual(["a", "b", "chapter", "ok"]);
+    expect(result!.activeLeafId).toBe(result!.content[3].id);
+  });
+});

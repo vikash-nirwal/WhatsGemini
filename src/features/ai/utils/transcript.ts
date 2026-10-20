@@ -67,11 +67,12 @@ export const trimToLatestSummary = (messages: Message[]): Message[] => {
 // the model as a user turn) plus a hidden acknowledgement, so history still
 // alternates. Stamped with the time of the last message it covers rather
 // than "now", since it sits at that point in the conversation.
-export const buildSummaryMessages = (summary: string, timestamp?: number): Message[] => [
+export const buildSummaryMessages = (summary: string, timestamp?: number, chapter?: { title: string; recap?: string }): Message[] => [
   {
     role: YOU,
     txt: `Earlier conversation summary (treat as established context, continue naturally):\n\n${summary}`,
     isCompressionSummary: true,
+    ...(chapter ? { chapterTitle: chapter.title, chapterRecap: chapter.recap } : {}),
     timestamp: timestamp ?? Date.now(),
   },
   { role: AI, txt: "Understood, continuing from that context.", isSystem: true, timestamp: timestamp ?? Date.now() },
@@ -136,4 +137,24 @@ export const truncateHistory = (validHistory: ChatMessage[], maxHistoryTokens: n
     validHistory.splice(startIndex, cutoff - startIndex);
   }
   return validHistory;
+};
+
+// Extra instructions for an "End chapter" summary: a title and a recap of
+// just this chapter, ahead of the usual whole-story summary.
+export const CHAPTER_INSTRUCTIONS = `This marks the end of a chapter. Before the summary, write exactly these two lines:
+TITLE: a short, evocative title (2 to 6 words) for the part of the story since any earlier summary
+RECAP: two or three sentences recapping only that part
+Then a line with just SUMMARY: followed by the summary itself.`;
+
+// Reads a chapter reply back. Missing markers degrade gracefully: the whole
+// reply is the summary, and the recap is its first couple of sentences.
+export const parseChapterReply = (reply: string): { title?: string; recap?: string; summary: string } => {
+  const text = reply.trim();
+  const title = text.match(/^\s*\**TITLE\**\s*:\s*(.+)$/im)?.[1].replace(/^["*\s]+|["*\s]+$/g, "").trim();
+  // "**RECAP:**" puts the closing bold after the colon, hence the \** there.
+  const recap = text.match(/^\s*\**RECAP\**\s*:\s*\**\s*([\s\S]*?)(?=^\s*\**SUMMARY\**\s*:|$(?![\s\S]))/im)?.[1].trim();
+  const summaryMatch = text.match(/^\s*\**SUMMARY\**\s*:\s*\**\s*([\s\S]*)$/im);
+  const summary = (summaryMatch ? summaryMatch[1] : text).trim();
+  const fallbackRecap = summary.replace(/^[^:\n]*:\s*/, "").split(/(?<=[.!?])\s+/).slice(0, 2).join(" ");
+  return { title: title || undefined, recap: recap || fallbackRecap || undefined, summary };
 };
