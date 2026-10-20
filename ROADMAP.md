@@ -10,12 +10,9 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 The app is called WhatsGemini, so lean into the messaging-app fantasy.
 
-6. **Texting mode** (M). Optionally split a reply into several bubbles (by paragraph or line) and reveal them one at a time with typing pauses. Add read receipts and "typing…" between bubbles. This only changes display, so the stored message stays whole.
 7. **Character schedule and presence** (M). Give each character a simple daily routine (asleep 1–8, work 9–5, …). The header shows "online" or "last seen", follow-ups mention what they're doing ("just got off my shift"), and an optional "realistic" setting delays replies while they're "busy". This uses the existing time awareness.
 8. **Status updates** (M). Like WhatsApp Status: now and then a character posts a short status with an optional generated picture, based on their schedule and recent events. It shows as a ring on their avatar in the sidebar, and replying to a status opens the chat quoting it.
 9. **Scene state HUD** (M). Next to the emotion tag, the model reports a small hidden state block: location, time of day, outfit, and a relationship meter (affection/trust). Show it as a compact strip under the header and feed it back each turn so details stay consistent. It's parsed and stripped the same way the emotion tag is.
-10. **Inner thoughts** (S). Optionally the character also writes a hidden `<thoughts>` line. It renders as a tap-to-reveal spoiler and is kept out of what the model thinks it said aloud.
-11. **Reactions** (S). React to a message with an emoji (a footer button, and the long-press sheet on touch screens). The character sees it ("[reacted ❤️ to: …]") and can react back to yours using a tiny tag.
 12. **Voice** (M). Per-character text-to-speech with the browser's built-in Web Speech API (free, offline, no backend), a voice picker in the character editor, and a speaker button on messages. Speech-to-text dictation in the composer. Paid TTS (OpenAI/ElevenLabs) can come later through the provider registry.
 13. **Chat backdrops** (S). Generate or upload a background image for a chat from its setting tags or scenario, shown subtly behind the bubbles.
 
@@ -49,6 +46,7 @@ Leftovers noted while building the finished items. Pick them up alongside relate
 - **Lorebook:** SillyTavern fields not mapped yet: cooldown, delay, regex keys, case-sensitive matching, insertion position, groups. Sticky only applies to direct keyword hits, not recursive ones.
 - **Compression:** an "Undo compression" action (cheap, since nothing is deleted any more).
 - **Adventures:** long-term memory; hard limits in the creation wizard.
+- **Messaging feel:** texting mode isn't used by the terminal theme or the novel view; the terminal theme only offers ❤️ as a reaction; the inner-thoughts switch is only in a 1:1 chat's Scene panel (rooms have none yet).
 - **Image providers:** try each with a real key: Wan from a Singapore workspace, fal.ai uploads and its safety flags, OpenAI's `input_fidelity` and `image[]` fields, and the ComfyUI templates' node names against a real server. An InstantID preset for the SD WebUI ControlNet (it needs two units). ComfyUI prompts could use tag style for SDXL templates.
 - **Accessibility:** `/settings/image` isn't in the axe scan yet and has three violations: an unnamed ToggleSwitch, unlabeled portrait-size inputs, and the selected provider pill's contrast.
 - **CI:** the GitHub actions in `ci.yml` target Node 20 (a deprecation warning); move them to newer major versions.

@@ -6,20 +6,17 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **State:** image consistency (#34–#41) is built and merged into local `main`, not pushed yet. The last full local run passed: type-check, 481 unit tests, 330 UI tests and 16 screenshot tests.
-- **Next up:** the 17 remaining roadmap items below, in waves of parallel lanes. The image providers were only tested against mocked servers; checking them with real keys and a real ComfyUI is a follow-up in ROADMAP.md.
+- **State:** image consistency (#34–#41) is merged, pushed and deployed. Texting mode (#6), inner thoughts (#10) and reactions (#11) are committed on local `main`, not pushed. The last full local run passed: type-check, 503 unit tests, 346 UI tests and 16 screenshot tests.
+- **Next up:** the 14 remaining roadmap items below, in waves. The image providers were only tested against mocked servers; checking them with real keys and a real ComfyUI is a follow-up in ROADMAP.md.
 - **Open questions for the user:** none.
 
 ## Remaining items
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 6 | Texting mode | todo | |
 | 7 | Character schedule and presence | todo | |
 | 8 | Status updates | todo | Builds on #7. |
 | 9 | Scene state HUD | todo | |
-| 10 | Inner thoughts | todo | |
-| 11 | Reactions | todo | |
 | 12 | Voice | todo | |
 | 13 | Chat backdrops | todo | |
 | 19 | Anti-repetition guard | todo | |
@@ -58,6 +55,7 @@ One line per area. Pointers for when you need to work on it again.
 - **Reference photos per provider:** Wan uses a separate reference model (`wan_reference_model`, default wan2.7-image, which retries once if wan2.5-i2i-preview rejects a request), OpenAI GPT image models use `/v1/images/edits`, fal.ai (`falImageAdapter.ts`) runs Seedream / FLUX Kontext / PuLID and uploads photos to fal's storage. Shared helpers are in `referenceImages.ts`.
 - **ComfyUI** (`comfyuiAdapter.ts`, `src/features/ai/comfyui/`, `ComfyUISettings.tsx`): bundled templates (SDXL FaceID, FLUX Kontext GGUF, txt2img, ReActor) or an imported workflow; settings in localStorage `comfyui_settings`. Needs ComfyUI started with `--enable-cors-header`.
 - **Per-character local settings** (`Character.localImageSettings`, `localImageSettings.ts`): seed, LoRA, trigger word, reference mode and ReActor face model, applied in `generateSDImage` and the ComfyUI adapter (where the mode picks the template). The SD WebUI ControlNet gets the preprocessor that matches its model (`controlnetModuleFor`), with FaceID presets in Settings.
+- **Messaging feel:** texting mode (`settings.textingMode`, `textingMode.ts`) splits a reply into texts by paragraph or line and reveals a new one text by text in ChatWindow (`reveal` state), with read ticks on your messages; display only. Inner thoughts (`Character.innerThoughts`, switch in the Scene panel) and reactions (`Message.reaction` from you, `Message.characterReaction` from the character, `roleplayStyle.characterReactions`) are control tags parsed in `messageTags.ts`, like the emotion tag; reactions reach the model as a note before your next message (`buildChatHistory`).
 - **Known gaps:** none of the image providers was tried with a real key or a real ComfyUI; chats whose seed messages were never flagged `isSystem` (very old ones) aren't detected as seeded; mood-portrait generation from inside a chat wasn't checked with a real image provider; `h-dvh` wasn't checked on a real iPhone.
 
 ## Decisions
@@ -89,6 +87,7 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
+- 2026-10-20: Pushed and deployed image consistency. Built texting mode (#6), inner thoughts (#10) and reactions (#11) here, one after another: all three change `ChatMessage.tsx`.
 - 2026-10-20: Image consistency: built #34, #35, #40 and #41 here; Lane B built #36–#38 (spike: fal.ai is callable from a browser, Wan's Singapore region takes image-only input for wan2.5-i2i-preview), Lane C built #39. Merged into local `main` after a combined check.
 - 2026-10-20: Planned consistent character faces in images (#34–#41) for providers usable from India and local generation; nothing built yet.
 - 2026-10-20: Reviewed the app and wrote the roadmap; then, in four waves of parallel lanes, fixed the 7 logic bugs and 12 layout/mobile bugs, added Playwright UI, flow, accessibility and screenshot tests plus CI, and built 16 features (memory #1–#5, narrative tools #14–#18, #20, #21, lorebook #29, inspector #31, per-character model #32, context meter #33). Merged into `main`, pushed, CI green. Cleaned up the docs.
