@@ -97,6 +97,17 @@ export interface ConversationTree {
   nodes: Record<string, MessageNode>;
 }
 
+// A date that matters to a character and the user (#47).
+export interface ImportantDate {
+  id: string;
+  label: string; // "Your birthday", "The day we met"
+  month: number; // 1-12
+  day: number;
+  year?: number; // when known, for "26 years"
+  messageOnDay: boolean; // the character reaches out first on the day
+  lastCelebratedYear?: number; // so that happens once a year
+}
+
 // Story script (#57): the story a chat stays inside. See storyScript.ts.
 export interface StoryBeat {
   id: string;
@@ -259,6 +270,7 @@ export interface Character {
   visualTags?: string;
   localImageSettings?: LocalImageSettings; // #40, local generation only
   innerThoughts?: boolean; // #10: also write hidden thoughts with each reply
+  importantDates?: ImportantDate[]; // #47
   voice?: CharacterVoice; // #12/#44: how they sound when read aloud, and how often they send voice notes
   appearanceImages?: string[];
   artStyle?: ArtStyle;

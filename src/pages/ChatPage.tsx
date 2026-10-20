@@ -9,6 +9,7 @@ import { resolveTurnModel } from "../features/ai/modelResolution";
 import { appearanceLocksFor } from "../features/ai/utils/appearanceLock";
 import { useChatRecap } from "../features/chat/useChatRecap";
 import { moveBeat } from "../features/chat/storyScript";
+import { buildCelebrationDirective, datesToCelebrate } from "../features/character/importantDates";
 import StoryScriptDialog from "../components/organisms/StoryScriptDialog";
 import { buildDraftReplyPrompt, cleanDraftReply, buildReplySuggestionsPrompt, parseReplySuggestions, NARRATIVE_CONTEXT_MESSAGES, SURPRISE_DIRECTIVE } from "../features/ai/utils/narrativeTools";
 import { appendDiaryEntry } from "../features/ai/utils/diary";
@@ -776,6 +777,29 @@ const ChatPage = () => {
       autoReplyInFlightRef.current = false;
     }
   };
+
+  // Dates that matter (#47): on the day, the character messages first, once
+  // a year per date. Marked as celebrated before the call, so a failure or a
+  // reload doesn't send it twice.
+  const celebratedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!chatIdNum || isRoom || !characterData || aiLoading || messages.length === 0) return;
+    const now = Date.now();
+    const due = datesToCelebrate(characterData.importantDates || [], now);
+    const key = `${chatIdNum}-${new Date(now).toDateString()}`;
+    if (due.length === 0 || celebratedRef.current === key || autoReplyInFlightRef.current) return;
+    celebratedRef.current = key;
+    const year = new Date(now).getFullYear();
+    dispatch(updateCharacter({
+      ...characterData,
+      importantDates: (characterData.importantDates || []).map((d) => (due.some((x) => x.id === d.id) ? { ...d, lastCelebratedYear: year } : d)),
+    }));
+    autoReplyInFlightRef.current = true;
+    sendCharacterFollowup(undefined, buildCelebrationDirective(due))
+      .catch((err) => console.error("Special-date message failed:", err))
+      .finally(() => { autoReplyInFlightRef.current = false; });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatIdNum, isRoom, characterData, aiLoading, messages.length]);
 
   // "Write my reply" (#15): an AI draft of your next message in your
   // persona's voice, for the composer to show and you to edit.

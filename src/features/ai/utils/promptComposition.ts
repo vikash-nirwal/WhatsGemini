@@ -4,6 +4,7 @@ import { stripLeakedBase64 } from "./apiUtils";
 import { buildEmotionDirective } from "./emotionUtils";
 import { buildReactionDirective, buildThoughtsDirective, formatReactionNote } from "./messageTags";
 import { buildStoryScriptSection } from "../../chat/storyScript";
+import { buildDatesSection } from "../../character/importantDates";
 import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
 import { applyMacros } from "./macros";
 import { countProtectedPrefix, trimToLatestSummary } from "./transcript";
@@ -344,6 +345,10 @@ export const buildSystemInstruction = (
   }
   if (options.roleplayStyle?.timeAwareness && recentMessages) {
     sections.push(buildTimeSection(recentMessages, options.now ?? Date.now()));
+  }
+  if (character.importantDates && character.importantDates.length > 0) {
+    const dates = buildDatesSection(character.importantDates, options.now ?? Date.now());
+    if (dates) sections.push(m(dates));
   }
   if (character.emotionPortraits?.enabled) {
     sections.push(buildEmotionDirective(character.emotionPortraits.customEmotions));

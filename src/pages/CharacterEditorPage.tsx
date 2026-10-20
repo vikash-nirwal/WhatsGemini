@@ -4,7 +4,7 @@ import { addCharacter, updateCharacter } from "../features/characterSlice";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { FaUpload, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaCrop } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { Character, CharacterVoice, LoreEntry, ArtStyle, ContentRating, LocalImageSettings } from "../types";
+import { Character, CharacterVoice, LoreEntry, ArtStyle, ContentRating, LocalImageSettings, ImportantDate } from "../types";
 import { dbService } from "../services/dbService";
 import { generateAssistText, generateAvatarImage } from "../features/aiSlice";
 import { buildVisualTagsDraftPrompt, cleanVisualTags } from "../features/ai/utils/appearanceLock";
@@ -27,11 +27,19 @@ import { useModal } from "../contexts/ModalContext";
 import { CharacterModelOverride, cleanModelOverride } from "../features/ai/modelResolution";
 import ModelOverrideSection from "./CharacterEditorPage/ModelOverrideSection";
 import LocalImageSettingsSection from "./CharacterEditorPage/LocalImageSettingsSection";
+import ImportantDatesSection from "./CharacterEditorPage/ImportantDatesSection";
+import { isValidDate } from "../features/character/importantDates";
 import VoiceSection, { cleanVoice } from "./CharacterEditorPage/VoiceSection";
 import IdeaDraftSection from "./CharacterEditorPage/IdeaDraftSection";
 import { buildCharacterDraftPrompt, parseCharacterDraft, CharacterDraftRequest, CharacterDraftError } from "../features/character/characterDraft";
 import { cleanLocalImageSettings } from "../features/ai/utils/localImageSettings";
 import { toast } from "sonner";
+
+// Saved dates: labelled and real (an impossible day is dropped), or none.
+const cleanDates = (dates: ImportantDate[]): ImportantDate[] | undefined => {
+  const kept = dates.map((d) => ({ ...d, label: d.label.trim() })).filter((d) => d.label && isValidDate(d));
+  return kept.length > 0 ? kept : undefined;
+};
 
 // Deferred to its own chunk - only fetched once the user actually opens the
 // crop dialog, instead of loading with the rest of this already-large page.
@@ -144,6 +152,7 @@ const CharacterEditorPage = () => {
   const [personalityTraits, setPersonalityTraits] = useState<string[]>([]);
   const [modelOverride, setModelOverride] = useState<CharacterModelOverride | undefined>(undefined);
   const [localImageSettings, setLocalImageSettings] = useState<LocalImageSettings | undefined>(undefined);
+  const [importantDates, setImportantDates] = useState<ImportantDate[]>([]);
   const [voice, setVoice] = useState<CharacterVoice | undefined>(undefined);
   // Character from one line (#45).
   const [ideaDialogOpen, setIdeaDialogOpen] = useState(false);
@@ -195,6 +204,7 @@ const CharacterEditorPage = () => {
       setPersonalityTraits(source.personalityTraits || []);
       setModelOverride(source.modelOverride);
       setLocalImageSettings(source.localImageSettings);
+      setImportantDates(source.importantDates || []);
       setVoice(source.voice);
     } else {
       setName("");
@@ -223,6 +233,7 @@ const CharacterEditorPage = () => {
       setPersonalityTraits([]);
       setModelOverride(undefined);
       setLocalImageSettings(undefined);
+      setImportantDates([]);
       setVoice(undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -422,7 +433,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
       return;
     }
     if (!checkContentRating()) return;
-    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice) }));
+    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), importantDates: cleanDates(importantDates) }));
     navigate("/characters");
   };
 
@@ -440,7 +451,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     // Spread the stored record first: db.put replaces the whole row, so any
     // field this form doesn't own (memory, pinnedMemory, avatar, creatorNotes)
     // was being wiped on every save.
-    dispatch(updateCharacter({ ...editCharacter, id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice) }));
+    dispatch(updateCharacter({ ...editCharacter, id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), importantDates: cleanDates(importantDates) }));
     if (options?.stay) {
       toast.success("Character saved");
     } else {
@@ -1207,6 +1218,9 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                 <ModelOverrideSection value={modelOverride} onChange={setModelOverride} />
                 <div className="mt-4 border-t border-border pt-4">
                   <LocalImageSettingsSection value={localImageSettings} onChange={setLocalImageSettings} />
+                </div>
+                <div className="mt-4 border-t border-border pt-4">
+                  <ImportantDatesSection value={importantDates} onChange={setImportantDates} memory={editCharacter?.memory} />
                 </div>
               </Card>
             )}

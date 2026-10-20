@@ -40,7 +40,6 @@ The app is called WhatsGemini, so lean into the messaging-app fantasy.
 
 Built one at a time, in this order.
 
-47. **Dates that matter** (S). Birthdays, anniversaries and "the day we met" are picked up from memory or set by hand; on the day, the character mentions it or reaches out first.
 48. **Send them a photo** (S–M). Attach a picture to a message; on models that accept images the character sees it and reacts. Elsewhere it's described by a vision-capable helper model, or the user is told it can't be seen.
 49. **Event deck** (S). A "Draw an event" action that adds a random twist to the scene ("a stranger knocks", "the power goes out"), from a built-in deck you can edit, as a one-turn directive.
 50. **Wardrobe** (S–M). A few named outfits per character. Picking one swaps the outfit part of the locked look (#34), so pictures change clothes without changing the face.

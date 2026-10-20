@@ -28,7 +28,6 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | 27 | Persona character sheet | todo | With #26. |
 | 28 | Attach a World to normal chats | todo | |
 | 30 | Relationship that evolves | todo | |
-| 47 | Dates that matter | todo | |
 | 48 | Send them a photo | todo | |
 | 49 | Event deck | todo | |
 | 50 | Wardrobe | todo | |
@@ -72,6 +71,7 @@ One line per area. Pointers for when you need to work on it again.
 - **Character from one line (#45):** `src/features/character/characterDraft.ts` builds the one-call prompt (`buildCharacterDraftPrompt`: SFW unless NSFW is picked, confirmed 18+ and the idea has no minor indicators, per `draftAllowsNsfw`; art style; "Try another" names the previous draft to avoid) and parses the JSON reply defensively (`parseCharacterDraft`: fences, chatter, trailing commas, raw newlines, other key spellings, wrong types; name and personality required, else `CharacterDraftError`). It runs through `generateAssistText({ background: true })`, so the helper model when one is set. UI: `CharacterEditorPage/IdeaDraftSection.tsx` (a card on step 1 of a new character plus the idea dialog; Try another, Change idea, and Generate portrait only when the image provider is usable); the gallery's empty state opens it with `state.fromIdea`. The draft only fills the editor's fields; saving is the usual Create Character. `addCharacter` now keeps every field (it used to drop greetings, rating, locked look, voice and model on create and import).
 - **"Previously on…" (#46):** `src/features/chat/recap.ts` decides (last visible message older than `settings.recapAfterDays`, default 3, 0 = off; at least 4 messages) and builds the prompt from the newest summary plus recent messages; `useChatRecap.ts` writes it once on the helper model and caches it as `Chat.recap` keyed by the last message id (dismissal is saved too). `RecapCard` shows it at the end of the chat. Never sent to the model. The UI-test fixtures set `recap_after_days` to 0 since the seeded chats are old; `e2e/recap.spec.ts` turns it on.
 - **Story script (#57):** `Chat.storyScript` (premise, beats, directions, ending, strict/loose, `currentBeat`), logic in `src/features/chat/storyScript.ts`. `buildTurnContext` puts `buildStoryScriptSection` in the system instruction (never compressed) with only the current beat; a reply ending in `[Beat done]` moves to the next beat (`advanceStoryIfDone` in ChatPage, every reply path). Editor: `StoryScriptDialog.tsx` (paste a story to split it with the AI, templates in localStorage `story_script_templates`); progress strip `StoryProgress.tsx` at the end of the chat, in the empty chat and in the Scene panel. Not in adventures yet.
+- **Dates that matter (#47):** `Character.importantDates` (label, month, day, optional year, "message me on the day", `lastCelebratedYear`), logic in `src/features/character/importantDates.ts`. Every prompt lists them and calls out today's and the next 3 days' (`buildDatesSection`); on the day, opening the 1:1 chat sends one character-initiated message (`datesToCelebrate` effect in ChatPage, through `sendCharacterFollowup`), marked before sending so it never repeats. Editor: "Dates that matter" on the last step (`ImportantDatesSection.tsx`), with "Find dates in memory" (helper model reads `Character.memory`).
 - **Known gaps:** character drafts were only tested with a mocked model, not a real one's JSON; none of the image providers was tried with a real key or a real ComfyUI; chats whose seed messages were never flagged `isSystem` (very old ones) aren't detected as seeded; mood-portrait generation from inside a chat wasn't checked with a real image provider; `h-dvh` wasn't checked on a real iPhone; notifications weren't tried on a real device or in the installed app.
 
 ## Decisions
@@ -87,6 +87,7 @@ Choices a later session shouldn't revisit. Add the date.
 
 Facts that save the next session time.
 
+- **Lint before the UI tests:** an ESLint error (for example code between imports) shows CRA's full-page overlay in the dev server, and every UI test then times out on unclickable buttons. Run `npx eslint` on the changed files first.
 - **Fake image providers in UI tests:** `e2e/image-references.spec.ts` mocks fal.ai, OpenAI, Wan and ComfyUI with `page.route`; `e2e/comfyui.ts` has a ComfyUI mock and a harness that runs the adapter's source in a browser. `openRoute` seeds the database again, so patch IndexedDB after opening a route and then reload.
 - **Run the app:** `.claude/launch.json` has a `web` config (`npm start`, port 3000) for the browser pane.
 - **Get past the login and 18+ gate without a key:** set localStorage `age_confirmed_18 = "true"` and `chat_provider = "ollama"` (a keyless provider), then reload.
@@ -104,7 +105,7 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
-- 2026-10-20 (overnight): Built #46 "Previously on…" and #57 Story script in the coordinating session (new sessions can't be started over Remote Control).
+- 2026-10-20 (overnight): Built #46 "Previously on…", #57 Story script and #47 Dates that matter in the coordinating session (new sessions can't be started over Remote Control).
 - 2026-10-20: Built character from one line (#45): idea dialog with rating and art-style hints, one JSON draft filling the editor, Try another, optional portrait. Fixed `addCharacter` dropping newer fields (alternate greetings, content rating, locked look, voice, model) when creating or importing a character.
 - 2026-10-20: Built voice (#12) and voice notes (#44) together: per-character browser voices with a picker and preview, Read aloud, dictation, character voice notes decided by the app, and hold-to-record. The terminal theme's Pixel chat screenshot changed on purpose (the new `[say]` action wraps each reply's action row, plus the `[●]` record link) and its baseline was updated; the other chat screenshots gained the mic buttons within their 1% tolerance and were left as they were.
 
