@@ -39,20 +39,30 @@ export const expectNoHorizontalScroll = async (page: Page) => {
   expect(bodyScrollWidth, "body scrolls sideways").toBeLessThanOrEqual(clientWidth);
 };
 
-// Every element under `root` that sits (partly) outside the viewport's x range
-// or inside a horizontally scrolled container - i.e. content a phone user
-// can't see without scrolling sideways.
+// Content under `root` that a user can't see without scrolling sideways:
+// elements reaching past the viewport's left/right edge, and containers
+// that scroll horizontally (text fields excepted - they scroll by design).
 export const elementsCutOffHorizontally = async (root: Locator) =>
   root.evaluate((el) => {
     const vw = document.documentElement.clientWidth;
     const out: string[] = [];
+    const describe = (node: HTMLElement) => `${node.tagName.toLowerCase()} "${(node.textContent || "").trim().slice(0, 30)}"`;
     el.querySelectorAll<HTMLElement>("*").forEach((node) => {
       const r = node.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) return;
-      if (r.left < -0.5 || r.right > vw + 0.5) out.push(`${node.tagName.toLowerCase()} "${(node.textContent || "").trim().slice(0, 30)}" [${Math.round(r.left)}, ${Math.round(r.right)}]`);
+      if (r.left < -0.5 || r.right > vw + 0.5) out.push(`${describe(node)} spans [${Math.round(r.left)}, ${Math.round(r.right)}] of ${vw}px`);
+      if (node.matches("textarea, input, pre, code, pre *")) return;
+      const overflowX = getComputedStyle(node).overflowX;
+      if ((overflowX === "auto" || overflowX === "scroll") && node.scrollWidth > node.clientWidth + 1) {
+        out.push(`${describe(node)} scrolls sideways (${node.scrollWidth}px in ${node.clientWidth}px)`);
+      }
     });
     return out;
   });
+
+export const expectNothingCutOffHorizontally = async (root: Locator) => {
+  expect(await elementsCutOffHorizontally(root)).toEqual([]);
+};
 
 export const box = async (locator: Locator) => {
   const b = await locator.boundingBox();

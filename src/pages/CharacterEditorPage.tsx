@@ -15,6 +15,7 @@ import { Card } from "src/components/atoms/card";
 import { cn } from "../utils/cn";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import Header from "src/components/organisms/Header";
+import { WizardSteps } from "src/components/molecules/WizardSteps";
 import { CHARACTER_SWATCHES, MAX_MEMORY_ENTRIES, DEFAULT_AUTO_SELFIE_FREQUENCY, EMOTIONS, DEFAULT_ART_STYLE, RELATIONSHIP_PRESETS, TAG_PRESETS, PERSONALITY_TRAIT_PRESETS } from "../utils/constants";
 import { estimateTokens } from "../features/ai/utils/tokenEstimator";
 import AvatarGenerateButton from "src/components/molecules/AvatarGenerateButton";
@@ -730,7 +731,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
       <div className="w-full max-w-[1180px] mx-auto">
 
         {/* Step indicator */}
-        <div className="flex items-center gap-1 mb-6 overflow-x-auto pb-1">
+        <WizardSteps steps={STEPS} current={step}>
           {STEPS.map((label, i) => terminal ? (
             <React.Fragment key={label}>
               <button
@@ -770,7 +771,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
               {i < STEPS.length - 1 && <div className="h-px flex-1 min-w-[12px] bg-border" />}
             </React.Fragment>
           ))}
-        </div>
+        </WizardSteps>
 
         {blockedMessage && (
           <div className="mb-4 px-4 py-2.5 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
