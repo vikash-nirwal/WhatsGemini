@@ -17,6 +17,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "src/components/atoms/to
 import { TermLink } from "src/components/atoms/TermLink";
 import { NsfwBlur } from "src/components/molecules/NsfwBlur";
 import { InnerThoughts, ReactionBadge, ReactionPicker, ReactionRow } from "src/components/molecules/MessageExtras";
+import { splitIntoTexts } from "../../features/ai/utils/textingMode";
 
 interface SiblingInfo {
   index: number;
@@ -49,6 +50,12 @@ interface ChatMessageProps {
   onInspect?: (msg: Message) => void; // "Show what was sent" for an AI reply (#31)
   onReact?: (msg: Message, emoji: string) => void; // your emoji reaction to a reply (#11)
   reactorName?: string; // who left msg.characterReaction, for its label
+  // Texting mode (#6): show a reply as several bubbles. visibleParts limits
+  // how many are shown while a new reply is being revealed; receipt is the
+  // read tick on your own messages.
+  texting?: boolean;
+  visibleParts?: number;
+  receipt?: "sent" | "read";
 }
 
 // Shown under a reply flagged as an out-of-character refusal (see
@@ -98,6 +105,9 @@ const ChatMessage = React.memo(({
   onInspect,
   onReact,
   reactorName,
+  texting = false,
+  visibleParts,
+  receipt,
 }: ChatMessageProps) => {
   const isUser = msg.role === YOU;
   const { is } = useColorTheme();
@@ -125,6 +135,13 @@ const ChatMessage = React.memo(({
   const bookmarkLabel = msg.bookmarked ? "Remove bookmark" : "Bookmark";
   const handleReact = useCallback((emoji: string) => onReact?.(msg, emoji), [onReact, msg]);
   const canReact = Boolean(onReact && !isUser && msg.id);
+  // Texting mode splits a reply into its texts; one text stays a normal bubble.
+  const splitParts = texting && !isUser && !msg.isImpersonated && !msg.isCompressionSummary && !msg.isRoomEvent && !msg.isNarration
+    ? splitIntoTexts(stripImageContextTag(msg.txt || ""))
+    : [];
+  const textParts = splitParts.length > 1 ? splitParts : null;
+  const shownParts = textParts ? Math.min(visibleParts ?? textParts.length, textParts.length) : 0;
+  const showMainBubble = !textParts || shownParts === textParts.length;
   const thoughtsBlock = !isUser && msg.thoughts ? <InnerThoughts thoughts={msg.thoughts} terminal={is("terminal")} /> : null;
 
   // Long-press (touch) or the browser's own long-press/context-menu gesture
@@ -387,6 +404,263 @@ const ChatMessage = React.memo(({
     );
   }
 
+  // The bubble itself; in texting mode it holds only the last text, after
+  // the others.
+  const bubble = (
+        <div
+          data-slot="message-bubble"
+          data-sender={isUser ? "user" : "ai"}
+          className={cn(
+            "relative p-4 rounded-2xl min-w-0 group [@media(hover:none)]:[-webkit-touch-callout:none]",
+            textParts ? "max-w-full" : "max-w-[85%] md:max-w-[70%]",
+            // Canvas spec: "plain div. Incoming: bg-elevated surface-raised.
+            // Outgoing: bg-accent-soft text-accent-ink." Cozy keeps its own
+            // translucent-tint look untouched.
+            isUser
+              ? neumorphic
+                ? "bg-accent-soft text-accent-ink rounded-br-[5px]"
+                : "bg-primary/[0.16] text-foreground rounded-br-[5px]"
+              : neumorphic
+                ? "bg-elevated surface-raised text-foreground rounded-tl-[5px]"
+                : "bg-card/[0.88] shadow-soft text-foreground rounded-tl-[5px]"
+          )}
+          style={{ fontSize: "var(--chat-font-size, 16px)" }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={cancelPress}
+          onTouchCancel={cancelPress}
+          onContextMenu={handleContextMenu}
+        >
+          {/* Floating sibling prev/next, anchored to the card's edges */}
+          {siblingInfo && siblingInfo.index > 0 && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onSwitchBranch?.(siblingInfo.siblingIds[siblingInfo.index - 1])}
+              className="absolute -left-4 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-secondary border border-border/50 shadow-soft text-foreground hover:bg-muted z-10"
+              aria-label="Previous variant"
+              title="Previous variant"
+            >
+              <FaChevronLeft size={12} />
+            </Button>
+          )}
+          {siblingInfo && siblingInfo.index < siblingInfo.total - 1 && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onSwitchBranch?.(siblingInfo.siblingIds[siblingInfo.index + 1])}
+              className="absolute -right-4 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-secondary border border-border/50 shadow-soft text-foreground hover:bg-muted z-10"
+              aria-label="Next variant"
+              title="Next variant"
+            >
+              <FaChevronRight size={12} />
+            </Button>
+          )}
+
+          {msg.bookmarked && (
+            <span className="absolute -top-2 -right-2 text-amber-400 drop-shadow" title="Bookmarked" aria-label="Bookmarked">
+              <FaStar size={12} />
+            </span>
+          )}
+
+          {msg.isImpersonated && (
+            <div className="flex items-center gap-1.5 mb-1.5 text-[11px] font-semibold text-primary/80">
+              <FaMask size={10} />
+              You, in character
+            </div>
+          )}
+
+          <div className="font-serif">
+            {oocLabel}
+            <MarkdownRenderer msgText={textParts ? textParts[textParts.length - 1] : stripImageContextTag(msg.txt || "")} isUser={isUser} />
+            {refusalNotice}
+          </div>
+          {thoughtsBlock}
+          {receipt && (
+            <div className="mt-1 flex items-center justify-end gap-1 font-sans text-[11px] text-subtle" aria-label={receipt === "read" ? "Read" : "Sent"}>
+              {msg.timestamp && <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>}
+              <span aria-hidden className={cn("tracking-[-0.2em]", receipt === "read" && "text-primary")}>{receipt === "read" ? "✓✓" : "✓"}</span>
+            </div>
+          )}
+
+          {!isUser && msg.reaction && <ReactionBadge emoji={msg.reaction} side="right" label={`You reacted ${msg.reaction}`} />}
+          {isUser && msg.characterReaction && (
+            <ReactionBadge emoji={msg.characterReaction.emoji} side="left" label={`${reactorName || "They"} reacted ${msg.characterReaction.emoji}`} />
+          )}
+
+          {msg.images && msg.images.map((imgSrc, idx) => (
+            <NsfwBlur key={idx} active={blurMedia} className="w-fit max-w-full">
+              <DisplayImage
+                srcContext={imgSrc}
+                alt="Generated"
+                onClick={() => setFullscreenImage(imgSrc)}
+                className="mt-2 max-w-full rounded-lg shadow-sm cursor-zoom-in hover:opacity-90 transition-opacity"
+              />
+            </NsfwBlur>
+          ))}
+
+          {msg.videos && msg.videos.map((vidSrc, idx) => (
+            <NsfwBlur key={idx} active={blurMedia} className="w-fit max-w-full">
+              <DisplayVideo
+                srcContext={vidSrc}
+                className="mt-2 max-w-full rounded-lg shadow-sm"
+              />
+            </NsfwBlur>
+          ))}
+
+          {/* User messages: the same hover-revealed footer as AI replies (the
+              old ⋮ menu floated over the text). Touch screens use the
+              long-press action sheet instead, so the row only shows there
+              when it has a variant count to display. */}
+          {isUser && (
+            <div className={cn("flex items-center justify-end gap-1 mt-2 font-sans", !siblingInfo && "[@media(hover:none)]:hidden")}>
+              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity [@media(hover:none)]:hidden">
+                <Button variant="ghost" size="icon" onClick={handleCopy} aria-label="Copy" title="Copy" className="h-auto w-auto p-1.5 rounded-md text-foreground/60 hover:bg-primary/10 hover:text-foreground">
+                  <FaCopy size={12} />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={handleEdit} disabled={aiLoading} aria-label="Edit" title="Edit" className="h-auto w-auto p-1.5 rounded-md text-foreground/60 hover:bg-primary/10 hover:text-foreground">
+                  <FaEdit size={12} />
+                </Button>
+                {onToggleBookmark && (
+                  <Button variant="ghost" size="icon" onClick={handleToggleBookmark} aria-label={bookmarkLabel} aria-pressed={Boolean(msg.bookmarked)} title={bookmarkLabel} className={cn("h-auto w-auto p-1.5 rounded-md hover:bg-primary/10", msg.bookmarked ? "text-amber-500" : "text-foreground/60 hover:text-foreground")}>
+                    <FaStar size={11} />
+                  </Button>
+                )}
+                {onDeleteBranch && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleDeleteBranch}
+                    disabled={aiLoading}
+                    className="h-auto w-auto p-1.5 rounded-md text-subtle hover:bg-destructive/15 hover:text-destructive"
+                    aria-label={siblingInfo ? "Delete this variant" : "Delete message"}
+                    title={siblingInfo ? "Delete this variant" : "Delete message"}
+                  >
+                    <FaTrash size={10} />
+                  </Button>
+                )}
+              </div>
+              {siblingInfo && (
+                <span
+                  className="text-[11px] font-mono font-semibold text-subtle tabular-nums"
+                  title={`${siblingInfo.total} variants of this message`}
+                >
+                  {siblingInfo.index + 1}/{siblingInfo.total}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* AI messages: icon-only actions, hidden until the message is hovered
+              or a button inside it has focus (keyboard/touch) - a permanently
+              visible labeled row under every single reply added a lot of
+              constant weight for something used occasionally. The outer
+              bubble already carries the `group` class this reveal keys off. */}
+          {!isUser && (
+            <div className={cn("flex items-center gap-1 mt-2 font-sans", !siblingInfo && "[@media(hover:none)]:hidden")}>
+              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity [@media(hover:none)]:hidden">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" onClick={handleCopy} aria-label="Copy" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
+                      <FaCopy size={12} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Copy</TooltipContent>
+                </Tooltip>
+                {canReact && (
+                  <ReactionPicker
+                    current={msg.reaction}
+                    onPick={handleReact}
+                    className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  />
+                )}
+                {!msg.isImpersonated && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" onClick={handleRegenerate} aria-label="Regenerate" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
+                        <FaRedo size={12} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Regenerate</TooltipContent>
+                  </Tooltip>
+                )}
+                {!msg.isImpersonated && isLastMessage && onContinue && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleContinue}
+                        disabled={aiLoading}
+                        aria-label="Continue"
+                        className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      >
+                        <FaForward size={12} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Ask the model to keep writing from where this reply left off</TooltipContent>
+                  </Tooltip>
+                )}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" onClick={handleEdit} aria-label="Edit" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
+                      <FaEdit size={12} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Edit</TooltipContent>
+                </Tooltip>
+                {onToggleBookmark && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" onClick={handleToggleBookmark} aria-label={bookmarkLabel} aria-pressed={Boolean(msg.bookmarked)} className={cn("h-auto w-auto p-1.5 rounded-md hover:bg-secondary", msg.bookmarked ? "text-amber-500" : "text-muted-foreground hover:text-foreground")}>
+                        <FaStar size={11} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{bookmarkLabel}</TooltipContent>
+                  </Tooltip>
+                )}
+                {canInspect && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" onClick={handleInspect} aria-label="Show what was sent" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
+                        <FaCode size={11} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Show what was sent to the model for this reply</TooltipContent>
+                  </Tooltip>
+                )}
+                {onDeleteBranch && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleDeleteBranch}
+                        disabled={aiLoading}
+                        className="h-auto w-auto p-1.5 rounded-md text-subtle hover:bg-destructive/15 hover:text-destructive"
+                        aria-label={siblingInfo ? "Delete this variant" : "Delete message"}
+                      >
+                        <FaTrash size={10} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{siblingInfo ? "Delete this variant" : "Delete message"}</TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+              <div className="flex-1" />
+              {siblingInfo && (
+                <span
+                  className="text-[11px] font-mono font-semibold text-subtle tabular-nums"
+                  title={`${siblingInfo.total} variants of this message`}
+                >
+                  {siblingInfo.index + 1}/{siblingInfo.total}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+  );
+
   return (
     <motion.div
       data-message-id={msg.id}
@@ -400,251 +674,29 @@ const ChatMessage = React.memo(({
         <CharacterAvatar name={charInitials} accent={accent} imageSrc={avatarImageSrc} size={32} className="mt-1 mr-3 shadow-md" />
       )}
 
-      <div
-        data-slot="message-bubble"
-        data-sender={isUser ? "user" : "ai"}
-        className={cn(
-          "relative p-4 rounded-2xl max-w-[85%] md:max-w-[70%] min-w-0 group [@media(hover:none)]:[-webkit-touch-callout:none]",
-          // Canvas spec: "plain div. Incoming: bg-elevated surface-raised.
-          // Outgoing: bg-accent-soft text-accent-ink." Cozy keeps its own
-          // translucent-tint look untouched.
-          isUser
-            ? neumorphic
-              ? "bg-accent-soft text-accent-ink rounded-br-[5px]"
-              : "bg-primary/[0.16] text-foreground rounded-br-[5px]"
-            : neumorphic
-              ? "bg-elevated surface-raised text-foreground rounded-tl-[5px]"
-              : "bg-card/[0.88] shadow-soft text-foreground rounded-tl-[5px]"
-        )}
-        style={{ fontSize: "var(--chat-font-size, 16px)" }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={cancelPress}
-        onTouchCancel={cancelPress}
-        onContextMenu={handleContextMenu}
-      >
-        {/* Floating sibling prev/next, anchored to the card's edges */}
-        {siblingInfo && siblingInfo.index > 0 && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onSwitchBranch?.(siblingInfo.siblingIds[siblingInfo.index - 1])}
-            className="absolute -left-4 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-secondary border border-border/50 shadow-soft text-foreground hover:bg-muted z-10"
-            aria-label="Previous variant"
-            title="Previous variant"
-          >
-            <FaChevronLeft size={12} />
-          </Button>
-        )}
-        {siblingInfo && siblingInfo.index < siblingInfo.total - 1 && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onSwitchBranch?.(siblingInfo.siblingIds[siblingInfo.index + 1])}
-            className="absolute -right-4 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-secondary border border-border/50 shadow-soft text-foreground hover:bg-muted z-10"
-            aria-label="Next variant"
-            title="Next variant"
-          >
-            <FaChevronRight size={12} />
-          </Button>
-        )}
-
-        {msg.bookmarked && (
-          <span className="absolute -top-2 -right-2 text-amber-400 drop-shadow" title="Bookmarked" aria-label="Bookmarked">
-            <FaStar size={12} />
-          </span>
-        )}
-
-        {msg.isImpersonated && (
-          <div className="flex items-center gap-1.5 mb-1.5 text-[11px] font-semibold text-primary/80">
-            <FaMask size={10} />
-            You, in character
-          </div>
-        )}
-
-        <div className="font-serif">
-          {oocLabel}
-          <MarkdownRenderer msgText={stripImageContextTag(msg.txt || "")} isUser={isUser} />
-          {refusalNotice}
+      {textParts ? (
+        <div className="flex flex-col items-start gap-1.5 max-w-[85%] md:max-w-[70%] min-w-0">
+          {textParts.slice(0, shownParts - (showMainBubble ? 1 : 0)).map((part, i) => (
+            <motion.div
+              key={i}
+              data-slot="text-bubble"
+              className={cn("px-4 py-2.5 rounded-2xl max-w-full min-w-0 font-serif text-foreground [@media(hover:none)]:[-webkit-touch-callout:none]", neumorphic ? "bg-elevated surface-raised" : "bg-card/[0.88] shadow-soft", i === 0 && "rounded-tl-[5px]")}
+              style={{ fontSize: "var(--chat-font-size, 16px)" }}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={cancelPress}
+              onTouchCancel={cancelPress}
+              onContextMenu={handleContextMenu}
+            >
+              <MarkdownRenderer msgText={part} isUser={false} />
+            </motion.div>
+          ))}
+          {showMainBubble && bubble}
         </div>
-        {thoughtsBlock}
-
-        {!isUser && msg.reaction && <ReactionBadge emoji={msg.reaction} side="right" label={`You reacted ${msg.reaction}`} />}
-        {isUser && msg.characterReaction && (
-          <ReactionBadge emoji={msg.characterReaction.emoji} side="left" label={`${reactorName || "They"} reacted ${msg.characterReaction.emoji}`} />
-        )}
-
-        {msg.images && msg.images.map((imgSrc, idx) => (
-          <NsfwBlur key={idx} active={blurMedia} className="w-fit max-w-full">
-            <DisplayImage
-              srcContext={imgSrc}
-              alt="Generated"
-              onClick={() => setFullscreenImage(imgSrc)}
-              className="mt-2 max-w-full rounded-lg shadow-sm cursor-zoom-in hover:opacity-90 transition-opacity"
-            />
-          </NsfwBlur>
-        ))}
-
-        {msg.videos && msg.videos.map((vidSrc, idx) => (
-          <NsfwBlur key={idx} active={blurMedia} className="w-fit max-w-full">
-            <DisplayVideo
-              srcContext={vidSrc}
-              className="mt-2 max-w-full rounded-lg shadow-sm"
-            />
-          </NsfwBlur>
-        ))}
-
-        {/* User messages: the same hover-revealed footer as AI replies (the
-            old ⋮ menu floated over the text). Touch screens use the
-            long-press action sheet instead, so the row only shows there
-            when it has a variant count to display. */}
-        {isUser && (
-          <div className={cn("flex items-center justify-end gap-1 mt-2 font-sans", !siblingInfo && "[@media(hover:none)]:hidden")}>
-            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity [@media(hover:none)]:hidden">
-              <Button variant="ghost" size="icon" onClick={handleCopy} aria-label="Copy" title="Copy" className="h-auto w-auto p-1.5 rounded-md text-foreground/60 hover:bg-primary/10 hover:text-foreground">
-                <FaCopy size={12} />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={handleEdit} disabled={aiLoading} aria-label="Edit" title="Edit" className="h-auto w-auto p-1.5 rounded-md text-foreground/60 hover:bg-primary/10 hover:text-foreground">
-                <FaEdit size={12} />
-              </Button>
-              {onToggleBookmark && (
-                <Button variant="ghost" size="icon" onClick={handleToggleBookmark} aria-label={bookmarkLabel} aria-pressed={Boolean(msg.bookmarked)} title={bookmarkLabel} className={cn("h-auto w-auto p-1.5 rounded-md hover:bg-primary/10", msg.bookmarked ? "text-amber-500" : "text-foreground/60 hover:text-foreground")}>
-                  <FaStar size={11} />
-                </Button>
-              )}
-              {onDeleteBranch && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleDeleteBranch}
-                  disabled={aiLoading}
-                  className="h-auto w-auto p-1.5 rounded-md text-subtle hover:bg-destructive/15 hover:text-destructive"
-                  aria-label={siblingInfo ? "Delete this variant" : "Delete message"}
-                  title={siblingInfo ? "Delete this variant" : "Delete message"}
-                >
-                  <FaTrash size={10} />
-                </Button>
-              )}
-            </div>
-            {siblingInfo && (
-              <span
-                className="text-[11px] font-mono font-semibold text-subtle tabular-nums"
-                title={`${siblingInfo.total} variants of this message`}
-              >
-                {siblingInfo.index + 1}/{siblingInfo.total}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* AI messages: icon-only actions, hidden until the message is hovered
-            or a button inside it has focus (keyboard/touch) - a permanently
-            visible labeled row under every single reply added a lot of
-            constant weight for something used occasionally. The outer
-            bubble already carries the `group` class this reveal keys off. */}
-        {!isUser && (
-          <div className={cn("flex items-center gap-1 mt-2 font-sans", !siblingInfo && "[@media(hover:none)]:hidden")}>
-            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity [@media(hover:none)]:hidden">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={handleCopy} aria-label="Copy" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
-                    <FaCopy size={12} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Copy</TooltipContent>
-              </Tooltip>
-              {canReact && (
-                <ReactionPicker
-                  current={msg.reaction}
-                  onPick={handleReact}
-                  className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
-                />
-              )}
-              {!msg.isImpersonated && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" onClick={handleRegenerate} aria-label="Regenerate" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
-                      <FaRedo size={12} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Regenerate</TooltipContent>
-                </Tooltip>
-              )}
-              {!msg.isImpersonated && isLastMessage && onContinue && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleContinue}
-                      disabled={aiLoading}
-                      aria-label="Continue"
-                      className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
-                    >
-                      <FaForward size={12} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Ask the model to keep writing from where this reply left off</TooltipContent>
-                </Tooltip>
-              )}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={handleEdit} aria-label="Edit" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
-                    <FaEdit size={12} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Edit</TooltipContent>
-              </Tooltip>
-              {onToggleBookmark && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" onClick={handleToggleBookmark} aria-label={bookmarkLabel} aria-pressed={Boolean(msg.bookmarked)} className={cn("h-auto w-auto p-1.5 rounded-md hover:bg-secondary", msg.bookmarked ? "text-amber-500" : "text-muted-foreground hover:text-foreground")}>
-                      <FaStar size={11} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{bookmarkLabel}</TooltipContent>
-                </Tooltip>
-              )}
-              {canInspect && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" onClick={handleInspect} aria-label="Show what was sent" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
-                      <FaCode size={11} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Show what was sent to the model for this reply</TooltipContent>
-                </Tooltip>
-              )}
-              {onDeleteBranch && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleDeleteBranch}
-                      disabled={aiLoading}
-                      className="h-auto w-auto p-1.5 rounded-md text-subtle hover:bg-destructive/15 hover:text-destructive"
-                      aria-label={siblingInfo ? "Delete this variant" : "Delete message"}
-                    >
-                      <FaTrash size={10} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{siblingInfo ? "Delete this variant" : "Delete message"}</TooltipContent>
-                </Tooltip>
-              )}
-            </div>
-            <div className="flex-1" />
-            {siblingInfo && (
-              <span
-                className="text-[11px] font-mono font-semibold text-subtle tabular-nums"
-                title={`${siblingInfo.total} variants of this message`}
-              >
-                {siblingInfo.index + 1}/{siblingInfo.total}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
+      ) : bubble}
       {actionSheet}
     </motion.div>
   );

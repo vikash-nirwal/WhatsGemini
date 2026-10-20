@@ -5,6 +5,7 @@ import { TextInput } from "src/components/molecules/form-controls";
 import InitialMessages from 'src/components/molecules/InitialMessages';
 import { SettingsCard, SettingsCardHeader, SettingsRow } from 'src/components/molecules/settings-card';
 import { SegmentedControl } from 'src/components/molecules/SegmentedControl';
+import ToggleSwitch from 'src/components/atoms/ToggleSwitch';
 
 interface ChatInterfaceSettingsProps {
   maxChatLength: number;
@@ -13,6 +14,8 @@ interface ChatInterfaceSettingsProps {
   setFontSize: (val: string) => void;
   initialMessagesKey: number;
   onInitialMessagesSave: () => void;
+  textingMode: boolean;
+  setTextingMode: (val: boolean) => void;
 }
 
 const FONT_SIZE_OPTIONS = [
@@ -23,7 +26,7 @@ const FONT_SIZE_OPTIONS = [
 ];
 
 const ChatInterfaceSettings: React.FC<ChatInterfaceSettingsProps> = ({
-  maxChatLength, setMaxChatLength, fontSize, setFontSize, initialMessagesKey, onInitialMessagesSave,
+  maxChatLength, setMaxChatLength, fontSize, setFontSize, initialMessagesKey, onInitialMessagesSave, textingMode, setTextingMode,
 }) => {
   const { is } = useColorTheme();
   return (
@@ -47,6 +50,10 @@ const ChatInterfaceSettings: React.FC<ChatInterfaceSettingsProps> = ({
               remember? You're shipping code, not novels."
             </div>
           </div>
+        </SettingsRow>
+
+        <SettingsRow label="Texting mode" hint="Replies arrive as separate texts, one at a time with typing pauses, and your messages show read ticks. Only the display changes." align="start">
+          <ToggleSwitch checked={textingMode} onChange={setTextingMode} label={<span className="sr-only">Texting mode</span>} />
         </SettingsRow>
 
         <SettingsRow label="Max chat length" hint="Tokens (est.) of history kept in a conversation. 0 = unlimited.">

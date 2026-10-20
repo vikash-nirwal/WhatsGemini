@@ -52,6 +52,7 @@ import {
   DEFAULT_OLLAMA_BASE_URL,
   LS_EMOTION_PANEL_ENABLED,
   LS_ALWAYS_SHOW_INITIALS,
+  LS_TEXTING_MODE,
   LS_SAMPLERS,
   LS_ROLEPLAY_STYLE,
   DEFAULT_ROLEPLAY_STYLE,
@@ -133,6 +134,8 @@ export interface SettingsState {
   emotionPopupEnabled: boolean;
   emotionPopupDuration: number;
   alwaysShowInitials: boolean;
+  // Texting mode (#6): replies as several bubbles, revealed with typing pauses.
+  textingMode: boolean;
 }
 
 const initialPersonas = loadInitialPersonas();
@@ -180,6 +183,7 @@ const initialState: SettingsState = {
   emotionPopupEnabled: localStorage.getItem(LS_EMOTION_POPUP_ENABLED) !== 'false',
   emotionPopupDuration: getStoredValue(LS_EMOTION_POPUP_DURATION, DEFAULT_EMOTION_POPUP_DURATION),
   alwaysShowInitials: localStorage.getItem(LS_ALWAYS_SHOW_INITIALS) === 'true',
+  textingMode: localStorage.getItem(LS_TEXTING_MODE) === 'true',
 };
 
 const settingsSlice = createSlice({
@@ -323,6 +327,9 @@ const settingsSlice = createSlice({
     setAlwaysShowInitials: (state, action: PayloadAction<boolean>) => {
       state.alwaysShowInitials = action.payload;
     },
+    setTextingMode: (state, action: PayloadAction<boolean>) => {
+      state.textingMode = action.payload;
+    },
   },
 });
 
@@ -367,6 +374,7 @@ export const {
   setEmotionPopupEnabled,
   setEmotionPopupDuration,
   setAlwaysShowInitials,
+  setTextingMode,
 } = settingsSlice.actions;
 
 // The persona characters actually see: the active one, falling back to the

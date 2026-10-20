@@ -445,6 +445,7 @@ export const DEFAULT_EMOTION_POPUP_DURATION = 1500;
 // character portraits and persona photos everywhere CharacterAvatar renders
 // one. Defaults off (show the real picture when one is set).
 export const LS_ALWAYS_SHOW_INITIALS = "always_show_initials";
+export const LS_TEXTING_MODE = "texting_mode";
 export const LS_USER_PROFILE = "whatsgemini_user_profile"; // legacy single-persona shape, read only for migration
 export const LS_USER_PERSONAS = "whatsgemini_user_personas";
 export const LS_ACTIVE_PERSONA_ID = "whatsgemini_active_persona_id";

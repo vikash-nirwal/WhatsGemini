@@ -38,6 +38,7 @@ import {
   LS_EMOTION_POPUP_ENABLED,
   LS_EMOTION_POPUP_DURATION,
   LS_ALWAYS_SHOW_INITIALS,
+  LS_TEXTING_MODE,
   LS_SAMPLERS,
   LS_ROLEPLAY_STYLE,
   LS_HELPER_PROVIDER,
@@ -104,6 +105,7 @@ store.subscribe(() => {
   localStorage.setItem(LS_EMOTION_POPUP_ENABLED, state.emotionPopupEnabled.toString());
   localStorage.setItem(LS_EMOTION_POPUP_DURATION, JSON.stringify(state.emotionPopupDuration));
   localStorage.setItem(LS_ALWAYS_SHOW_INITIALS, state.alwaysShowInitials.toString());
+  localStorage.setItem(LS_TEXTING_MODE, state.textingMode.toString());
 });
 
 // Debug Logging (Only in Development)

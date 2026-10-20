@@ -11,7 +11,7 @@ import {
   setSdWebuiModel, setMaxOutputTokens, setReplyLengthLimit, setCompressThreshold, setMaxChatLength,
   setTemperature, setSamplers, setRoleplayStyle, setHelperModel, setPrivacy, setSafetySettings, setFontSize, setImageResolution, setGeminiImageSize, setPortraitSaveSize, setPortraitResizeEnabled,
   setChatProvider, setImageProvider, setOllamaBaseUrl,
-  setEmotionPanelEnabled, setEmotionPopupEnabled, setEmotionPopupDuration, setAlwaysShowInitials,
+  setEmotionPanelEnabled, setEmotionPopupEnabled, setEmotionPopupDuration, setAlwaysShowInitials, setTextingMode,
 } from "../features/settingsSlice";
 import { FaInfoCircle, FaUser, FaMicrochip, FaImage, FaComments, FaShieldAlt, FaDatabase, FaPalette, FaLock } from "react-icons/fa";
 import Header from "src/components/organisms/Header";
@@ -52,6 +52,7 @@ import {
   LS_PORTRAIT_RESIZE_ENABLED,
   LS_EMOTION_PANEL_ENABLED,
   LS_ALWAYS_SHOW_INITIALS,
+  LS_TEXTING_MODE,
   LS_EMOTION_POPUP_ENABLED,
   LS_EMOTION_POPUP_DURATION,
   // IMAGE_RESOLUTIONS,
@@ -260,7 +261,7 @@ const SettingsPage = () => {
     sdWebuiBatchSize, sdWebuiRefMode, sdWebuiDenoising, sdWebuiControlnetModel, sdWebuiModels,
     sdWebuiModel, maxOutputTokens, replyLengthLimit, compressThreshold, maxChatLength, temperature, samplers, roleplayStyle, helperProvider, helperModel, privacy,
     safetySettings, fontSize, imageResolution, geminiImageSize, portraitSaveSize, portraitResizeEnabled,
-    emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials,
+    emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials, textingMode,
   } = settings;
 
   const chatProviderCapabilities = CHAT_PROVIDERS[chatProvider]?.capabilities || CHAT_PROVIDERS.gemini.capabilities;
@@ -562,10 +563,11 @@ const SettingsPage = () => {
     [LS_EMOTION_POPUP_ENABLED]: emotionPopupEnabled,
     [LS_EMOTION_POPUP_DURATION]: emotionPopupDuration,
     [LS_ALWAYS_SHOW_INITIALS]: alwaysShowInitials,
+    [LS_TEXTING_MODE]: textingMode,
     [LS_USER_PERSONAS]: personas,
     [LS_ACTIVE_PERSONA_ID]: activePersonaId,
     [LS_INITIAL_MESSAGES]: JSON.parse(localStorage.getItem(LS_INITIAL_MESSAGES) || "[]"),
-  }), [selectedModel, maxOutputTokens, replyLengthLimit, compressThreshold, temperature, samplers, roleplayStyle, safetySettings, maxChatLength, fontSize, imageResolution, geminiImageSize, portraitSaveSize, portraitResizeEnabled, emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials, personas, activePersonaId]);
+  }), [selectedModel, maxOutputTokens, replyLengthLimit, compressThreshold, temperature, samplers, roleplayStyle, safetySettings, maxChatLength, fontSize, imageResolution, geminiImageSize, portraitSaveSize, portraitResizeEnabled, emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials, textingMode, personas, activePersonaId]);
 
   const downloadJson = (data: unknown, filename: string) => {
     const jsonString = JSON.stringify(data, null, 2);
@@ -644,6 +646,7 @@ const SettingsPage = () => {
     if (settings[LS_EMOTION_POPUP_ENABLED] !== undefined) dispatch(setEmotionPopupEnabled(Boolean(settings[LS_EMOTION_POPUP_ENABLED])));
     if (settings[LS_EMOTION_POPUP_DURATION]) dispatch(setEmotionPopupDuration(settings[LS_EMOTION_POPUP_DURATION]));
     if (settings[LS_ALWAYS_SHOW_INITIALS] !== undefined) dispatch(setAlwaysShowInitials(Boolean(settings[LS_ALWAYS_SHOW_INITIALS])));
+    if (settings[LS_TEXTING_MODE] !== undefined) dispatch(setTextingMode(Boolean(settings[LS_TEXTING_MODE])));
     if (settings[LS_USER_PERSONAS]) {
         dispatch(setPersonas(settings[LS_USER_PERSONAS]));
         if (settings[LS_ACTIVE_PERSONA_ID]) dispatch(setActivePersonaId(settings[LS_ACTIVE_PERSONA_ID]));
@@ -952,6 +955,8 @@ const SettingsPage = () => {
                     setFontSize={(val) => dispatch(setFontSize(val))}
                     initialMessagesKey={initialMessagesKey}
                     onInitialMessagesSave={handleInitialMessagesSave}
+                    textingMode={textingMode}
+                    setTextingMode={(val) => dispatch(setTextingMode(val))}
                   />
                 )}
 

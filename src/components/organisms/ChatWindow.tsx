@@ -6,6 +6,8 @@ import { Message, Character, ConversationTree, Intensity } from "../../types";
 import { getSiblingInfo } from "../../features/chat/messageTree";
 import { resolveEmotionPortrait } from "../../features/ai/utils/emotionUtils";
 import { stripStreamingTags } from "../../features/ai/utils/messageTags";
+import { receiptFor, revealDelayMs, splitIntoTexts } from "../../features/ai/utils/textingMode";
+import { stripImageContextTag } from "../../features/ai/utils/imageGeneration";
 import { applyMacros, getGreetings } from "../../features/ai/utils/macros";
 import { isNsfwCharacter } from "../../features/character/contentRating";
 import MarkdownRenderer from "src/components/molecules/MarkdownRenderer";
@@ -271,6 +273,39 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onToggleBookmark, onReact, repl
 
     return sliced;
   }, [messages, startIndex]);
+
+  // Texting mode (#6): a reply that arrives while the chat is open is shown
+  // one text at a time, with the typing dots in between. Messages already
+  // there when the chat opens (or reached by switching branches) show whole.
+  const textingMode = useAppSelector((state) => state.settings.textingMode) && !terminal;
+  const [reveal, setReveal] = useState<{ id: string; shown: number; parts: string[] } | null>(null);
+  const lastSeenRef = useRef<{ chatId?: number; id?: string } | null>(null);
+  useEffect(() => {
+    const last = filteredMessages[filteredMessages.length - 1];
+    const previous = lastSeenRef.current;
+    lastSeenRef.current = { chatId, id: last?.id };
+    if (!previous || previous.chatId !== chatId) {
+      setReveal(null);
+      return;
+    }
+    if (!textingMode || !last?.id || last.id === previous.id || last.role === YOU) return;
+    if (Date.now() - (last.timestamp || 0) > 60_000) return;
+    const parts = splitIntoTexts(stripImageContextTag(last.txt || ""));
+    if (parts.length > 1) setReveal({ id: last.id, shown: 1, parts });
+  }, [filteredMessages, chatId, textingMode]);
+  useEffect(() => {
+    if (!reveal) return;
+    if (!textingMode || reveal.shown >= reveal.parts.length) {
+      setReveal(null);
+      return;
+    }
+    const timer = window.setTimeout(() => setReveal((r) => (r ? { ...r, shown: r.shown + 1 } : r)), revealDelayMs(reveal.parts[reveal.shown]));
+    return () => window.clearTimeout(timer);
+  }, [reveal, textingMode]);
+  const lastReplyIndex = useMemo(() => {
+    for (let i = filteredMessages.length - 1; i >= 0; i--) if (filteredMessages[i].role !== YOU) return i;
+    return -1;
+  }, [filteredMessages]);
 
   // Prompt inspector (#31): the request behind an AI reply, matched by its text.
   const [inspectText, setInspectText] = useState<string | null>(null);
@@ -586,6 +621,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onToggleBookmark, onReact, repl
                     onToggleBookmark={onToggleBookmark}
                     onInspect={handleInspect}
                     onReact={onReact}
+                    texting={textingMode}
+                    visibleParts={reveal && reveal.id === msg.id ? reveal.shown : undefined}
+                    receipt={textingMode && msg.role === YOU && !msg.isNarration ? receiptFor(i, lastReplyIndex, filteredMessages.length - 1, Boolean(aiLoading)) : undefined}
                     reactorName={msg.characterReaction ? resolveReactor(msg.characterReaction.speakerId) : undefined}
                   />
                 );
@@ -624,9 +662,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onToggleBookmark, onReact, repl
               ) : isFollowupPending ? (
                 <TerminalCursorLine name={characterName} note="thinking of reaching out..." />
               ) : null
-            ) : aiLoading && streamingText ? (
+            ) : aiLoading && streamingText && !textingMode ? (
               <StreamingBubble text={streamingText} charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} />
-            ) : aiLoading ? (
+            ) : aiLoading || reveal ? (
               <TypingIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} />
             ) : isFollowupPending ? (
               <FollowupIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} />
