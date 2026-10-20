@@ -3,8 +3,95 @@
     "page": "character editor",
     "rule": "target-size",
     "counts": {
-      "desktop": 1,
       "pixel": 1
+    },
+    "help": "All touch targets must be 24px large, or leave sufficient space"
+  },
+  {
+    "page": "character editor [aurora dark]",
+    "rule": "target-size",
+    "counts": {
+      "pixel": 1
+    },
+    "help": "All touch targets must be 24px large, or leave sufficient space"
+  },
+  {
+    "page": "character editor [aurora light]",
+    "rule": "target-size",
+    "counts": {
+      "pixel": 1
+    },
+    "help": "All touch targets must be 24px large, or leave sufficient space"
+  },
+  {
+    "page": "character editor [cozy light]",
+    "rule": "target-size",
+    "counts": {
+      "pixel": 1
+    },
+    "help": "All touch targets must be 24px large, or leave sufficient space"
+  },
+  {
+    "page": "character editor [material dark]",
+    "rule": "target-size",
+    "counts": {
+      "pixel": 2
+    },
+    "help": "All touch targets must be 24px large, or leave sufficient space"
+  },
+  {
+    "page": "character editor [material light]",
+    "rule": "target-size",
+    "counts": {
+      "pixel": 2
+    },
+    "help": "All touch targets must be 24px large, or leave sufficient space"
+  },
+  {
+    "page": "character editor [neumorphic dark]",
+    "rule": "target-size",
+    "counts": {
+      "pixel": 3
+    },
+    "help": "All touch targets must be 24px large, or leave sufficient space"
+  },
+  {
+    "page": "character editor [neumorphic light]",
+    "rule": "target-size",
+    "counts": {
+      "pixel": 3
+    },
+    "help": "All touch targets must be 24px large, or leave sufficient space"
+  },
+  {
+    "page": "character editor [parchment dark]",
+    "rule": "target-size",
+    "counts": {
+      "pixel": 1
+    },
+    "help": "All touch targets must be 24px large, or leave sufficient space"
+  },
+  {
+    "page": "character editor [parchment light]",
+    "rule": "target-size",
+    "counts": {
+      "pixel": 1
+    },
+    "help": "All touch targets must be 24px large, or leave sufficient space"
+  },
+  {
+    "page": "character editor [terminal dark]",
+    "rule": "target-size",
+    "counts": {
+      "pixel": 3
+    },
+    "help": "All touch targets must be 24px large, or leave sufficient space"
+  },
+  {
+    "page": "character editor [terminal light]",
+    "rule": "target-size",
+    "counts": {
+      "pixel": 3
     },
     "help": "All touch targets must be 24px large, or leave sufficient space"
   }
