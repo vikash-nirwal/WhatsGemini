@@ -6,8 +6,8 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **Current phase:** Phase 0, on branch `phase-0-bug-fixes` (not pushed, no PR yet).
-- **Next up:** Wave 1 of the execution plan below: B5 and B6 here, UI tests in a parallel lane.
+- **Current phase:** Wave 1. Phase 0 is done on branch `phase-0-bug-fixes` (not pushed, no PR yet). Lane B is running in its own worktree (branch from `ui-tests`).
+- **Next up:** Lane A of Wave 1 is done. Waiting for Lane B (UI tests) to report, then merge its branch (needs the user's OK) and start Wave 2.
 - **Open questions for the user:** none yet.
 
 ## Execution plan
@@ -41,8 +41,8 @@ Each wave ends with: merge (user's OK), full unit + UI test run, PROGRESS.md upd
 | B2 | Group-chat impersonate posts as first character | done | 5e1176c | Checked in the app: picked Kai, impersonated, stored `speakerId` was Kai. The composer banner names the picked speaker. |
 | B3 | Compression/truncation use the global seed count | done | 5e1176c | `countSeedMessages` / `countProtectedPrefix` in `transcript.ts`; `truncateHistory` moved there and now also protects the compression summary. Tests in `transcript.test.ts`. Legacy chats whose seed messages were never flagged `isSystem` aren't detected (only the display filter in ChatWindow handles those). |
 | B4 | Memory can't update or forget facts | done | 9ddde30 | Extractor replies with `- fact`, `UPDATE n: …`, `FORGET n`, `STILL TRUE: n, m` against a numbered list; pinned facts are shown separately and can't be touched. The list is kept in recency order, so the 40 cap evicts facts not mentioned for longest. Also fixed: the memory write re-reads the character first, so it no longer undoes a same-turn gallery write. Tests in `memoryExtraction.test.ts`; checked end to end in the app with a faked Ollama endpoint. |
-| B5 | Compression destroys branches and history | todo | | Large. B6 depends on it. Also picks up B7's leftover: run auto-compression on edit-and-resend. |
-| B6 | Adventures skip the chat pipeline | todo | | After B5. |
+| B5 | Compression destroys branches and history | done | b6dda41 | The summary pair is spliced into the tree after the last covered message (`insertAfterNode`, `spliceSummaryIntoConversation`); prompts use `trimToLatestSummary` inside `buildTurnContext`. Summarized messages show dimmed. Manual compress no longer eats the seed. Rewind skips summaries. Edit-and-resend now auto-compresses (B7 leftover). Checked in the app: 38 → 42 nodes, a 2-variant branch kept, 13 of 41 messages sent. Not done: an "undo compression" button (easy now; nothing is deleted). |
+| B6 | Adventures skip the chat pipeline | done | 4edcbbd | Streaming, auto-compression, cast content rule, OOC/asterisks/custom style rules, hard limits (Boundaries dialog on the adventure page). `AdventureRules.safetySettings` removed (nothing set or read it). Not done: adventure long-term memory (the summary carries continuity for now; fits Phase 1); hard limits aren't in the creation wizard yet (`AdventureWizardPage` belongs to Lane B in Wave 1). Checked in the app with a faked AI. |
 | B7 | Edit-and-resend drops image prompt, skips compression | done (partly) | 5e1176c | Image prompt/params kept. Auto-compression on this path moved to B5, because today's compression would delete the branch the edit just made. |
 
 ## Phase 0.5: UI tests and layout fixes
@@ -94,6 +94,7 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session: what changed, and anything left half-done.
 
+- 2026-10-20: Fixed B5 (non-destructive compression) and B6 (adventure pipeline). Started Lane B (UI tests) as a parallel session. 238 unit tests pass.
 - 2026-10-20: Fixed B4 (memory updates, forgetting, recency-based eviction). 222 unit tests pass.
 - 2026-10-20: Fixed B1, B2, B3 and B7 (image prompt part) in one commit on `phase-0-bug-fixes`. 211 unit tests pass, typecheck clean.
 - 2026-10-20: With the user's OK, cleared about 760 MB: removed the merged `image-backup-2` worktree, `build/` and `node_modules/.cache/gh-pages`. The local branch `worktree-image-backup-2` still exists (merged in PR #1). The dev-server caches were kept.
