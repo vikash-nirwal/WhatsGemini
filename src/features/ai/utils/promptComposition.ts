@@ -45,8 +45,12 @@ export const buildChatHistory = (
 ): ChatMessage[] => {
   const toTurn = (msg: Message): ChatMessage => {
     // Your voice notes (#44) are marked, so the character knows they were spoken.
-    const text = stripLeakedBase64(promptTextFor(msg));
-    const trimmed = text.trim() || " ";
+    const text = stripLeakedBase64(promptTextFor(msg)).trim();
+    // A photo the user sent (#48) is noted in front of their words, with
+    // what a helper saw in it when the model couldn't look itself.
+    const photos = msg.role === YOU && !msg.isNarration ? msg.images?.length || 0 : 0;
+    const photoNote = photos > 0 ? `[sent ${photos > 1 ? `${photos} photos` : "a photo"}${msg.photoDescription ? `: ${msg.photoDescription}` : ""}]` : "";
+    const trimmed = photoNote ? (text ? `${photoNote}\n\n${text}` : photoNote) : text || " ";
 
     // A /narrate line is the scene's narration, not the user speaking.
     if (msg.isNarration) return { role: "user", text: `[Narration] ${trimmed}` };

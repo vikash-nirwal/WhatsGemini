@@ -888,8 +888,9 @@ const ChatPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoReplySettings.enabled, autoReplySettings.minDelaySeconds, autoReplySettings.maxDelaySeconds, autoReplySettings.maxFollowups, autoReplySettings.followupCount, chatIdNum, characterData, currentChat?.content, aiLoading, lastTypingActivityAt]);
 
-  const handleSend = async (rawText: string, requestedImage?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean, isVoiceNote?: boolean) => {
-    if (!rawText.trim() || !chatIdNum) return;
+  const handleSend = async (rawText: string, requestedImage?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean, isVoiceNote?: boolean, photos?: string[]) => {
+    // A photo can go on its own, without words (#48).
+    if ((!rawText.trim() && !photos?.length) || !chatIdNum) return;
 
     setError(null);
 
@@ -929,7 +930,7 @@ const ChatPage = () => {
         return;
       }
 
-      const resultAction = await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, isImageRequest, isVideoRequest, isVoiceNote }));
+      const resultAction = await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, images: photos && photos.length > 0 ? photos : undefined, isImageRequest, isVideoRequest, isVoiceNote }));
       const updatedMessages = resultAction.payload as Message[] || [];
 
       if (silentSend) {
@@ -966,7 +967,7 @@ const ChatPage = () => {
       const sendVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest || shouldAutoSelfie));
       // Matches the "(voice note)" mark buildChatHistory puts on the same
       // message, so it's recognized as the prompt and not sent twice.
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: isVoiceNote ? markVoiceNote(text) : text, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isVideoRequest, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: isVoiceNote ? markVoiceNote(text) : text, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isVideoRequest, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings, promptImages: photos }));
       const aiResponse = await aiPromiseRef.current;
       setRecordingVoiceNote(false);
       aiPromiseRef.current = null;
@@ -974,6 +975,7 @@ const ChatPage = () => {
 
       if (isGenerationSuccess(aiResponse)) {
         const payloadObj = aiResponse.payload as any;
+        await savePhotoOutcome(payloadObj, contextMessages);
         await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
         const generatedImages = payloadObj?.images || undefined;
         const generatedVideos = payloadObj?.videos || undefined;
@@ -1486,6 +1488,17 @@ const ChatPage = () => {
     const target = [...answered].reverse().find((m) => m.role === YOU && !m.isNarration && !m.isSystem && !m.isCompressionSummary);
     if (!target?.id) return;
     await dispatch(updateChatMessage({ chatId: chatIdNum, messageId: target.id, patch: { characterReaction: { emoji: reaction, speakerId } } }));
+  };
+
+  // A photo the user sent (#48): what a helper saw in it is kept on their
+  // message for later turns, and a photo nobody could see gets a hint.
+  const savePhotoOutcome = async (payload: { photoDescription?: string; photoUnseen?: boolean } | undefined, answered: Message[]) => {
+    if (payload?.photoUnseen) {
+      toast.info("This model can't see photos, so the character was told there's one it can't see. Pick a vision model, or a vision-capable helper model in Settings > Text.");
+    }
+    if (!payload?.photoDescription || !chatIdNum) return;
+    const target = [...answered].reverse().find((m) => m.role === YOU && m.images && m.images.length > 0);
+    if (target?.id) await dispatch(updateChatMessage({ chatId: chatIdNum, messageId: target.id, patch: { photoDescription: payload.photoDescription } }));
   };
 
   // Your own reaction to a message (#11); picking the same emoji again

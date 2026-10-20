@@ -40,7 +40,6 @@ The app is called WhatsGemini, so lean into the messaging-app fantasy.
 
 Built one at a time, in this order.
 
-48. **Send them a photo** (S–M). Attach a picture to a message; on models that accept images the character sees it and reacts. Elsewhere it's described by a vision-capable helper model, or the user is told it can't be seen.
 49. **Event deck** (S). A "Draw an event" action that adds a random twist to the scene ("a stranger knocks", "the power goes out"), from a built-in deck you can edit, as a one-turn directive.
 50. **Wardrobe** (S–M). A few named outfits per character. Picking one swaps the outfit part of the locked look (#34), so pictures change clothes without changing the face.
 51. **Relationship timeline** (S). A small chart of mood and affection over time, from the emotion tags (and #9's meter once it exists), in the Scene panel.
@@ -59,6 +58,7 @@ Leftovers noted while building the finished items. Pick them up alongside relate
 - **Lorebook:** SillyTavern fields not mapped yet: cooldown, delay, regex keys, case-sensitive matching, insertion position, groups. Sticky only applies to direct keyword hits, not recursive ones.
 - **Compression:** an "Undo compression" action (cheap, since nothing is deleted any more).
 - **Adventures:** long-term memory; hard limits in the creation wizard.
+- **Photos:** editing or regenerating keeps the photo off the edited message; real vision APIs weren't tried (mocked only).
 - **Story script:** use it in adventures too (the narrator following the user's beats); show which beat a message belongs to.
 - **Messaging feel:** texting mode isn't used by the terminal theme or the novel view; the terminal theme only offers ❤️ as a reaction; the inner-thoughts switch is only in a 1:1 chat's Scene panel (rooms have none yet).
 - **Image providers:** try each with a real key: Wan from a Singapore workspace, fal.ai uploads and its safety flags, OpenAI's `input_fidelity` and `image[]` fields, and the ComfyUI templates' node names against a real server. An InstantID preset for the SD WebUI ControlNet (it needs two units). ComfyUI prompts could use tag style for SDXL templates.

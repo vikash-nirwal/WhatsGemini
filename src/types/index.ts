@@ -51,6 +51,7 @@ export interface Message {
   isRefusal?: boolean;
   emotion?: string; // one of EMOTIONS, parsed from the AI's own reply when the character has emotionPortraits enabled
   thoughts?: string; // the character's hidden inner thoughts for this reply (#10), never sent back to the model
+  photoDescription?: string; // what a helper model saw in a photo the user sent (#48), for later turns
   // A voice note (#44): shown as a playable bubble and spoken with the
   // speaker's voice when played. Only the text is stored; the user's own
   // reach the model as "(voice note) ...".

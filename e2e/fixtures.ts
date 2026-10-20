@@ -211,7 +211,10 @@ const installMockAI = async (page: Page): Promise<MockAI> => {
     const body = route.request().postDataJSON() ?? {};
     const messages = Array.isArray(body.messages) ? body.messages : [];
     const lastUser = [...messages].reverse().find((m: any) => m.role === "user");
-    const req: MockAIRequest = { stream: !!body.stream, model: body.model, messages, prompt: lastUser?.content ?? "" };
+    // A message with a photo (#48) has an array of parts; the prompt is its text.
+    const content = lastUser?.content;
+    const prompt = Array.isArray(content) ? content.filter((p: any) => p?.type === "text").map((p: any) => p.text).join("\n") : content ?? "";
+    const req: MockAIRequest = { stream: !!body.stream, model: body.model, messages, prompt };
     requests.push(req);
     const text = queue.length ? queue.shift()! : typeof responder === "function" ? responder(req) : responder;
     if (req.stream) {

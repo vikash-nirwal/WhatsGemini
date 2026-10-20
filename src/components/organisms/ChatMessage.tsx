@@ -329,7 +329,7 @@ const ChatMessage = React.memo(({
             <NsfwBlur key={idx} active={blurMedia} className="w-fit max-w-full">
               <DisplayImage
                 srcContext={imgSrc}
-                alt="Generated"
+                alt={isUser ? "Sent by you" : "Generated"}
                 onClick={() => setFullscreenImage(imgSrc)}
                 className="mt-2 max-w-full md:max-w-[70%] border border-border-bright cursor-zoom-in hover:opacity-90 transition-opacity"
               />
@@ -511,7 +511,7 @@ const ChatMessage = React.memo(({
             <NsfwBlur key={idx} active={blurMedia} className="w-fit max-w-full">
               <DisplayImage
                 srcContext={imgSrc}
-                alt="Generated"
+                alt={isUser ? "Sent by you" : "Generated"}
                 onClick={() => setFullscreenImage(imgSrc)}
                 className="mt-2 max-w-full rounded-lg shadow-sm cursor-zoom-in hover:opacity-90 transition-opacity"
               />

@@ -32,9 +32,11 @@ export interface OpenAiCompatibleProviderDef {
   requiresApiKey: boolean;
 }
 
+type OpenAiContentPart = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
+
 interface OpenAiChatMessage {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: string | OpenAiContentPart[];
 }
 
 const toOpenAiRole = (role: ChatMessage["role"]): "system" | "user" | "assistant" =>
@@ -46,7 +48,14 @@ const toOpenAiMessages = (opts: ChatCallOptions): OpenAiChatMessage[] => {
   for (const m of opts.history) {
     messages.push({ role: toOpenAiRole(m.role), content: m.text || " " });
   }
-  messages.push({ role: "user", content: opts.prompt });
+  // Attached photos (#48) go as content parts, the format OpenAI, OpenRouter,
+  // Ollama and the other compatible APIs share.
+  messages.push({
+    role: "user",
+    content: opts.promptImages && opts.promptImages.length > 0
+      ? [...opts.promptImages.map((img): OpenAiContentPart => ({ type: "image_url", image_url: { url: `data:${img.mimeType};base64,${img.data}` } })), { type: "text", text: opts.prompt }]
+      : opts.prompt,
+  });
   return messages;
 };
 

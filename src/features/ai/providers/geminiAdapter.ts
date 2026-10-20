@@ -90,7 +90,10 @@ const generateChat = async (opts: ChatCallOptions, config: ProviderRuntimeConfig
     }
 
     const chat = ai.chats.create({ model: opts.model, config: modelConfig, history: toGeminiHistory(opts.history) });
-    const promptParts: Part[] = [{ text: opts.prompt }];
+    const promptParts: Part[] = [
+      ...(opts.promptImages || []).map((img): Part => ({ inlineData: { mimeType: img.mimeType, data: img.data } })),
+      { text: opts.prompt },
+    ];
 
     // sendMessage's per-call config replaces (rather than merges with) the chat's
     // config, so modelConfig has to be spread back in alongside the signal.

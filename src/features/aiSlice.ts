@@ -9,6 +9,10 @@ import { extractEmotionTag } from "./ai/utils/emotionUtils";
 import { extractReactionTag, extractThoughts } from "./ai/utils/messageTags";
 import { buildRecapPrompt, cleanRecap, latestStorySummary, recentForRecap } from "./chat/recap";
 import { extractBeatTag } from "./chat/storyScript";
+import { modelSeesImages } from "./ai/vision";
+import { appendCharacterImages } from "./ai/utils/imageProcessing";
+import type { NormalizedImage } from "./ai/types";
+
 import { extractMemoryChanges } from "./ai/utils/memoryExtraction";
 import { looksLikeRefusal } from "./ai/utils/refusal";
 import { CHAT_PROVIDERS, IMAGE_PROVIDERS, VIDEO_PROVIDERS } from "./ai/providers/registry";
@@ -23,6 +27,10 @@ import { resolveTurnModel } from "./ai/modelResolution";
 import { AppearanceLock, appearanceLocksFor, applyAppearanceLocks } from "./ai/utils/appearanceLock";
 import { insertAdventureCompressionSummary } from "./adventureSlice";
 
+// What a vision-capable helper writes about a photo the chat model can't see.
+const PHOTO_DESCRIPTION_PROMPT =
+  "Describe this photo for someone who can't see it, in 2 to 4 plain sentences: who or what is in it, what's happening, the setting, and any text in it. Facts only, no guesses about identity.";
+
 export interface GenerateAIResponseResult {
   text: string;
   tokenCount: number;
@@ -36,6 +44,8 @@ export interface GenerateAIResponseResult {
   thoughts?: string;
   reaction?: string; // the character's reaction to the message it answered (#11)
   beatDone?: boolean; // the story script's current beat was reached (#57)
+  photoDescription?: string; // what a helper model saw in the user's photo (#48)
+  photoUnseen?: boolean; // nobody could see the user's photo (#48)
   isRefusal?: boolean;
 }
 
@@ -67,7 +77,7 @@ const resolveHelperCall = async (settings: RootState["settings"]) => {
 
 export const generateAIResponse = createAsyncThunk(
   "ai/generateResponse",
-  async ({ prompt, history = [], systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters, protectedCount, modelOverride, appearanceLocks, localImageSettings }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, postHistoryNote?: string, streamKey?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[], protectedCount?: number, modelOverride?: Character["modelOverride"], appearanceLocks?: AppearanceLock[], localImageSettings?: LocalImageSettings }, { getState, dispatch, rejectWithValue, signal }) => {
+  async ({ prompt, history = [], systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters, protectedCount, modelOverride, appearanceLocks, localImageSettings, promptImages }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, postHistoryNote?: string, streamKey?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[], protectedCount?: number, modelOverride?: Character["modelOverride"], appearanceLocks?: AppearanceLock[], localImageSettings?: LocalImageSettings, promptImages?: string[] }, { getState, dispatch, rejectWithValue, signal }) => {
     try {
       const state = getState() as RootState;
       const settings = state.settings;
@@ -138,7 +148,39 @@ export const generateAIResponse = createAsyncThunk(
       // history labels it "Name: text", which buildValidHistory's exact-match
       // dedupe misses) - don't send it twice.
       const promptAlreadyTrailing = trailingText === prompt || trailingText.endsWith(`\n\n${prompt}`) || trailingText.endsWith(`: ${prompt}`);
-      const fullPrompt = !trailingText ? prompt : promptAlreadyTrailing ? trailingText : `${trailingText}\n\n${prompt}`;
+      let fullPrompt = !trailingText ? prompt : promptAlreadyTrailing ? trailingText : `${trailingText}\n\n${prompt}`;
+
+      // Photos the user attached (#48): shown directly to a model that can
+      // see images; otherwise described by a vision-capable helper model; and
+      // failing that, the character is told there's a photo it can't see.
+      let seenImages: NormalizedImage[] | undefined;
+      let photoDescription: string | undefined;
+      let photoUnseen = false;
+      if (promptImages && promptImages.length > 0) {
+        const images = await appendCharacterImages(promptImages);
+        if (images.length > 0 && modelSeesImages(chatProviderId, selectedModel)) {
+          seenImages = images;
+        } else if (images.length > 0) {
+          try {
+            const helper = await resolveHelperCall(settings);
+            if (modelSeesImages(helper.providerId, helper.model)) {
+              const described = await helper.adapter.generateChat({ model: helper.model, history: [], prompt: PHOTO_DESCRIPTION_PROMPT, promptImages: images, signal }, helper.config);
+              trackUsage(described.usage, helper.providerId, helper.model);
+              photoDescription = described.text.trim() || undefined;
+            }
+          } catch (e) {
+            console.warn("Couldn't describe the photo:", e);
+          }
+          photoUnseen = !photoDescription;
+        }
+        const plural = images.length > 1;
+        const note = seenImages
+          ? `[The user sent ${plural ? "these photos" : "this photo"} with their message.]`
+          : photoDescription
+            ? `[The user sent a photo. It shows: ${photoDescription}]`
+            : "[The user sent a photo, but you can't see it. If it matters, say so naturally and ask what it shows.]";
+        fullPrompt = `${note}\n\n${fullPrompt}`;
+      }
 
       const historyForSdk = [...validHistory];
 
@@ -204,6 +246,7 @@ export const generateAIResponse = createAsyncThunk(
               samplers: turnModel.samplers,
               history: historyForSdk,
               prompt: postHistoryNote ? `${fullPrompt}\n\n${postHistoryNote}` : fullPrompt,
+              promptImages: seenImages,
               signal,
               onToken,
             },
@@ -243,6 +286,8 @@ export const generateAIResponse = createAsyncThunk(
         emotion,
         thoughts,
         reaction,
+        photoDescription,
+        photoUnseen: photoUnseen || undefined,
         beatDone: beatDone || undefined,
         // Only a plain text reply can be an out-of-character refusal; image/
         // video turns carry a derived scene summary instead.

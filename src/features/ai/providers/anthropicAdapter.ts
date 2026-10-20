@@ -1,4 +1,4 @@
-import { ChatMessage, UsageInfo } from "../types";
+import { ChatMessage, NormalizedImage, UsageInfo } from "../types";
 import { ChatCallOptions, ChatCallResult, ChatProviderAdapter, ContentBlockedError, ProviderRuntimeConfig } from "./types";
 import { readSseStream } from "./sse";
 
@@ -10,16 +10,24 @@ import { readSseStream } from "./sse";
 const ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1";
 const ANTHROPIC_VERSION = "2023-06-01";
 
+type AnthropicBlock = { type: "text"; text: string } | { type: "image"; source: { type: "base64"; media_type: string; data: string } };
+
 interface AnthropicMessage {
   role: "user" | "assistant";
-  content: string;
+  content: string | AnthropicBlock[];
 }
 
-const toAnthropicMessages = (history: ChatMessage[], prompt: string): AnthropicMessage[] => {
+const toAnthropicMessages = (history: ChatMessage[], prompt: string, images?: NormalizedImage[]): AnthropicMessage[] => {
   const messages: AnthropicMessage[] = history
     .filter((m) => m.role !== "system")
     .map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.text || " " }));
-  messages.push({ role: "user", content: prompt });
+  // Attached photos (#48) go first in the last turn, as Anthropic recommends.
+  messages.push({
+    role: "user",
+    content: images && images.length > 0
+      ? [...images.map((img): AnthropicBlock => ({ type: "image", source: { type: "base64", media_type: img.mimeType, data: img.data } })), { type: "text", text: prompt }]
+      : prompt,
+  });
   return messages;
 };
 
@@ -119,7 +127,7 @@ const messagesCall = async (
 };
 
 const generateChat = (opts: ChatCallOptions, config: ProviderRuntimeConfig): Promise<ChatCallResult> =>
-  messagesCall(toAnthropicMessages(opts.history, opts.prompt), opts.model, config, {
+  messagesCall(toAnthropicMessages(opts.history, opts.prompt, opts.promptImages), opts.model, config, {
     systemInstruction: opts.systemInstruction,
     temperature: opts.temperature,
     maxOutputTokens: opts.maxOutputTokens,

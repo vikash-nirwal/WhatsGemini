@@ -324,3 +324,20 @@ describe("reactions and inner thoughts (#10, #11)", () => {
     expect(both).toContain("[React: <emoji>]");
   });
 });
+
+describe("photos the user sent (#48)", () => {
+  it("are noted in front of the user's words, with what a helper saw", () => {
+    const history = buildChatHistory([{ ...msg(YOU, "Meet Max"), images: ["data:image/png;base64,AAA"], photoDescription: "A dog on a beach." }, msg(AI, "Cute!", 1)]);
+    expect(history[0]).toEqual({ role: "user", text: "[sent a photo: A dog on a beach.]\n\nMeet Max" });
+  });
+
+  it("stand alone without words, and are counted", () => {
+    const history = buildChatHistory([{ ...msg(YOU, ""), images: ["a", "b"] }]);
+    expect(history[0].text).toBe("[sent 2 photos]");
+  });
+
+  it("aren't noted on the character's own pictures", () => {
+    const history = buildChatHistory([{ ...msg(AI, "Here I am", 1), images: ["a"] }]);
+    expect(history[0].text).toBe("Here I am");
+  });
+});

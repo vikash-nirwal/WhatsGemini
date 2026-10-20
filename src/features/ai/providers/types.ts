@@ -28,6 +28,9 @@ export interface ChatCallOptions {
   // after each chunk, so the UI can show the reply as it's written. The
   // returned ChatCallResult is still the complete text.
   onToken?: (textSoFar: string) => void;
+  // Photos the user attached to this prompt (#48). Only sent to models that
+  // can see them (see vision.ts); every adapter puts them on the last turn.
+  promptImages?: NormalizedImage[];
 }
 
 export interface ChatCallResult {

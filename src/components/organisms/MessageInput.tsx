@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo, lazy, Suspense } from "react";
-import { FaPaperPlane, FaStop, FaCog, FaImage, FaVideo, FaTimes, FaMask, FaUserFriends, FaCommentSlash, FaPlus, FaMagic, FaMicrophone, FaMicrophoneAlt } from "react-icons/fa";
+import { FaPaperPlane, FaStop, FaCog, FaImage, FaVideo, FaTimes, FaMask, FaUserFriends, FaCommentSlash, FaPlus, FaMagic, FaMicrophone, FaMicrophoneAlt, FaPaperclip } from "react-icons/fa";
 import { cn } from "../../utils/cn";
 import { Button } from "src/components/atoms/button";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
@@ -12,6 +12,7 @@ import { Character } from "../../types";
 import { matchSlashCommands, parseSlashCommand } from "../../features/chat/slashCommands";
 import { isRecognitionSupported, RecognitionSession, startRecognition } from "../../features/voice/recognition";
 import { formatDuration, stopSpeaking } from "../../features/voice/speech";
+import { MAX_PHOTOS, readPhoto } from "../../features/chat/photoAttachments";
 
 // Deferred to its own chunk - only fetched once the user actually opens the
 // image settings modal, instead of loading with the rest of the chat page.
@@ -29,7 +30,7 @@ interface MessageInputProps {
   // character should reply to this particular message, bypassing the usual
   // @mention/round-robin pick.
   // `isVoiceNote` marks a message recorded with hold-to-talk (#44).
-  onSend: (text: string, isImageRequest?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean, isVoiceNote?: boolean) => void;
+  onSend: (text: string, isImageRequest?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean, isVoiceNote?: boolean, photos?: string[]) => void;
   disabled?: boolean;
   onStop?: () => void;
   // Fires while the user is actively typing a non-empty draft - lets a
@@ -68,7 +69,7 @@ const RECORD_CANCEL_SLOP = 60;
 const RECORD_MIN_MS = 600;
 const ASCII_BAR_CELLS = 40;
 // The terminal theme's short bracketed names for the composer tools.
-const TERMINAL_TOOL_LABELS: Record<string, string> = { image: "img", video: "vid", impersonate: "mask", silent: "silent", draft: "draft", dictate: "mic", settings: "cfg" };
+const TERMINAL_TOOL_LABELS: Record<string, string> = { image: "img", photo: "photo", video: "vid", impersonate: "mask", silent: "silent", draft: "draft", dictate: "mic", settings: "cfg" };
 
 const formatTokenCount = (n: number): string => {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -123,6 +124,25 @@ const MessageInput: React.FC<MessageInputProps> = ({
   // usual auto AI-reply, so the very next send (e.g. an impersonated one)
   // can supply the character's side of the exchange instead.
   const [isSilentSend, setIsSilentSend] = useState(false);
+  // Photos attached to the next message (#48), already shrunk.
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const addPhotos = useCallback(async (files: File[]) => {
+    const images = files.filter((f) => f.type.startsWith("image/"));
+    if (images.length === 0) return;
+    setPhotoError(null);
+    try {
+      const read = await Promise.all(images.map(readPhoto));
+      setPhotos((prev) => {
+        const next = [...prev, ...read];
+        if (next.length > MAX_PHOTOS) setPhotoError(`Up to ${MAX_PHOTOS} photos per message.`);
+        return next.slice(0, MAX_PHOTOS);
+      });
+    } catch (err: any) {
+      setPhotoError(err?.message || "Couldn't read that photo.");
+    }
+  }, []);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const [slashError, setSlashError] = useState<string | null>(null);
@@ -258,7 +278,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const handleSend = useCallback(() => {
     if (disabled) return;
     const trimmedText = text.trim();
-    if (!trimmedText) return;
+    if (!trimmedText && photos.length === 0) return;
     // A mistyped slash command stays in the box with a hint, instead of
     // being sent or lost.
     const command = parseSlashCommand(trimmedText);
@@ -268,15 +288,17 @@ const MessageInput: React.FC<MessageInputProps> = ({
     }
     setSlashError(null);
 
-    onSend(trimmedText, isImageRequest, isVideoRequest, isImpersonated, selectedSpeakerId ?? undefined, isSilentSend);
+    onSend(trimmedText, isImageRequest, isVideoRequest, isImpersonated, selectedSpeakerId ?? undefined, isSilentSend, false, photos.length > 0 ? photos : undefined);
     setText("");
+    setPhotos([]);
+    setPhotoError(null);
     setIsImageRequest(false); // Disable/uncheck it afterward
     setIsVideoRequest(false);
     setIsImpersonated(false);
     setIsSilentSend(false);
     setSelectedSpeakerId(null);
     setMention(null);
-  }, [text, isImageRequest, isVideoRequest, isImpersonated, isSilentSend, selectedSpeakerId, onSend, disabled]);
+  }, [text, photos, isImageRequest, isVideoRequest, isImpersonated, isSilentSend, selectedSpeakerId, onSend, disabled]);
 
   // ---- Voice (#12, #44) ----
   // Dictation types what you say into the box; holding the record button
@@ -376,7 +398,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
     if (recordRef.current) recordRef.current.cancelled = true;
     recordRef.current?.session.abort();
   }, []);
-  const showRecordButton = recognitionSupported && !text.trim() && !disabled && !isImpersonated && !dictating;
+  const showRecordButton = recognitionSupported && !text.trim() && photos.length === 0 && !disabled && !isImpersonated && !dictating;
   // Press and hold (mouse, touch or pen), or hold Space/Enter on the
   // keyboard. Letting go far from the button cancels.
   const recordButtonHandlers = {
@@ -479,7 +501,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
     }, 300);
   }, []);
 
-  const canSend = Boolean(text.trim() && !disabled);
+  const canSend = Boolean((text.trim() || photos.length > 0) && !disabled);
 
   // Live pre-send estimate: context already committed to this chat, plus
   // whatever's currently typed but not sent yet - recomputed on every
@@ -558,6 +580,12 @@ const MessageInput: React.FC<MessageInputProps> = ({
       activeClass: "bg-primary/[0.12] text-primary", activeButtonClass: "bg-primary/[0.14] text-primary hover:bg-primary/[0.2]",
     }] : []),
     {
+      key: "photo", icon: FaPaperclip, label: "Send a photo", title: "Attach a photo for the character to see",
+      ariaLabel: "Send a photo", active: photos.length > 0, toggle: false, disabled: disabled || isImpersonated || photos.length >= MAX_PHOTOS,
+      onClick: () => photoInputRef.current?.click(),
+      activeClass: "bg-primary/[0.12] text-primary", activeButtonClass: "bg-primary/[0.14] text-primary hover:bg-primary/[0.2]",
+    },
+    {
       key: "impersonate", icon: FaMask, label: `Write as ${impersonatedName || "the character"}`, title: `Write as ${impersonatedName || "the character"} instead of yourself`,
       ariaLabel: "Toggle impersonation mode", active: isImpersonated, toggle: true, disabled,
       onClick: () => setIsImpersonated((v) => { if (!v) setIsSilentSend(false); return !v; }),
@@ -589,6 +617,24 @@ const MessageInput: React.FC<MessageInputProps> = ({
     },
   ];
 
+  // The tools fold into the "+" menu whenever the composer itself is too
+  // narrow for them and a usable text box, not only on phones: next to an
+  // open side panel the chat column is narrow on a desktop too.
+  const toolCountRef = useRef(composerTools.length);
+  toolCountRef.current = composerTools.length;
+  const [collapseTools, setCollapseTools] = useState(() => typeof window !== "undefined" && window.innerWidth < 640);
+  useEffect(() => {
+    const row = toolsRef.current?.parentElement;
+    if (!row || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      // Measured: inline, each tool takes ~44px and Send, padding and gaps
+      // ~160px; the rest, at least ~220px, is the text box.
+      setCollapseTools(entry.contentRect.width < toolCountRef.current * 44 + 380);
+    });
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [terminal]);
+
   const composerTextarea = (
   <textarea
     ref={inputRef}
@@ -606,6 +652,13 @@ const MessageInput: React.FC<MessageInputProps> = ({
       setMention(detectMention(value, e.target.selectionStart ?? value.length));
     }}
     onClick={updateMentionFromCaret}
+    // A pasted image is attached as a photo (#48); pasted text works as usual.
+    onPaste={(e) => {
+      const files = Array.from(e.clipboardData?.files || []).filter((f) => f.type.startsWith("image/"));
+      if (files.length === 0 || isImpersonated) return;
+      e.preventDefault();
+      void addPhotos(files);
+    }}
     rows={1}
     placeholder={
       disabled
@@ -826,6 +879,39 @@ const MessageInput: React.FC<MessageInputProps> = ({
         </div>
       )}
 
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        aria-hidden
+        tabIndex={-1}
+        data-testid="photo-input"
+        onChange={(e) => {
+          void addPhotos(Array.from(e.target.files || []));
+          e.target.value = "";
+        }}
+      />
+      {(photos.length > 0 || photoError) && (
+        <div role="group" aria-label="Attached photos" className="flex flex-wrap items-center gap-2">
+          {photos.map((src, i) => (
+            <div key={i} className={cn("relative h-16 w-16 overflow-hidden flex-shrink-0", terminal ? "border border-border-bright" : "rounded-lg border border-border")}>
+              <img src={src} alt={`Attachment ${i + 1}`} className="h-full w-full object-cover" />
+              <button
+                type="button"
+                onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))}
+                aria-label={`Remove photo ${i + 1}`}
+                className="absolute right-0.5 top-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-background/85 text-foreground hover:bg-background"
+              >
+                <FaTimes size={10} />
+              </button>
+            </div>
+          ))}
+          {photoError && <span role="alert" className="text-[12.5px] text-destructive">{photoError}</span>}
+        </div>
+      )}
+
       {voiceError && (
         <div role="alert" className={cn("flex items-center gap-2.5 px-3 py-2 text-[12.5px] text-foreground", terminal ? "border border-border-bright" : "rounded-lg bg-destructive/10 border border-destructive/40")}>
           <span className="flex-1">{terminal && "# "}{voiceError}</span>
@@ -937,7 +1023,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
           )}
           {/* Phones: one [+] opens the tools as a labeled menu (U3's list),
               so the text box isn't squeezed by five bracketed links. */}
-          <div className="relative flex-shrink-0 sm:hidden" ref={toolsRef}>
+          <div className={cn("relative flex-shrink-0", !collapseTools && "hidden")} ref={toolsRef}>
             <TermLink
               label="+"
               onClick={() => setToolsOpen((v) => !v)}
@@ -980,7 +1066,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
               aria-pressed={tool.toggle ? tool.active : undefined}
               title={tool.title}
               aria-label={tool.ariaLabel}
-              className={cn("hidden sm:inline-flex", tool.active && "bg-primary text-primary-foreground no-underline")}
+              className={cn(collapseTools ? "hidden" : "inline-flex", tool.active && "bg-primary text-primary-foreground no-underline")}
             />
           ))}
           <span className="hidden sm:inline flex-none font-bold text-[13px] text-ring">{promptName}:~$</span>
@@ -1062,7 +1148,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
         )}
 
         {/* Phones: one "+" button opens the tools as a labeled menu. */}
-        <div className="relative flex-shrink-0 sm:hidden" ref={toolsRef}>
+        <div className={cn("relative flex-shrink-0", !collapseTools && "hidden")} ref={toolsRef}>
           <Button
             type="button"
             onClick={() => setToolsOpen((v) => !v)}
@@ -1115,7 +1201,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
             aria-label={tool.ariaLabel}
             aria-pressed={tool.toggle ? tool.active : undefined}
             className={cn(
-              "hidden sm:inline-flex h-10 w-10 flex-shrink-0 rounded-lg",
+              collapseTools ? "hidden" : "inline-flex",
+              "h-10 w-10 flex-shrink-0 rounded-lg",
               tool.active ? tool.activeButtonClass : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             )}
           >
