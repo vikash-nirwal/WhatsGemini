@@ -6,12 +6,6 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 ---
 
-## Group chats
-
-22. **More than one reply per message** (M). Today exactly one character answers each message. Add a "natural" turn mode: a cheap helper call reads the last exchange and picks who would naturally respond (possibly two in a row, possibly nobody). The mode can be *round-robin*, *natural* or *everyone*, with a cap on how long a chain can run.
-23. **Built-in narrator member** (S). A toggleable narrator in rooms that describes the scene between characters' lines. It can build on the `/narrate` line type (`Message.isNarration`).
-24. **Character-to-character relationships** (M). Per-room notes like "Aria resents Kai". Each speaker sees only its own relationships, so friction in the group is written in.
-
 ## Adventures as games
 
 25. **Stats, inventory and quest log** (L). The narrator keeps a structured state block (HP, gold, items, active quests), parsed like the choices block and shown in a side panel. The player can't type items into existence because the state is authoritative.

@@ -148,6 +148,13 @@ export interface SceneState {
   updatedAt?: number;
 }
 
+// How one room member feels about another (#24); only `fromId` sees it.
+export interface RoomRelationship {
+  fromId: number;
+  toId: number;
+  note: string;
+}
+
 // A mini-game being played in a chat (#52).
 export type GameKind = "twenty-questions" | "would-you-rather" | "truth-or-dare";
 export interface ChatGame {
@@ -228,6 +235,11 @@ export interface Chat {
   sceneTracker?: boolean; // track location, time, outfit and two meters (#9)
   worldId?: number; // a World whose setting and lore this chat uses (#28)
   backdrop?: string; // a picture behind this chat's bubbles (#13)
+  // Rooms only (#22-#24): who answers a message, a narrator between rounds,
+  // and what members feel about each other.
+  turnMode?: "round-robin" | "natural" | "everyone";
+  narrator?: boolean;
+  roomRelationships?: RoomRelationship[];
   // Relationship that evolves (#30): off when false; the message count at
   // the last check; and a suggestion waiting for the user.
   relationshipSuggestions?: boolean;

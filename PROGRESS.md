@@ -6,8 +6,8 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **State:** the new-ideas queue (#42–#57) is built and pushed and deployed (CI green). The last full local run passed: type-check, 688 unit tests, 534 UI tests and 16 screenshot tests; `CI=true npm run build` compiles.
-- **Next up:** the 13 remaining earlier items below (#7–#9, #13, #19, #22–#28, #30).
+- **State:** the new-ideas queue (#42–#57) is built and pushed and deployed (CI green). The last full local run (after #22–#24) passed: type-check, 728 unit tests, 604 UI tests and 16 screenshot tests.
+- **Next up:** the adventure items #25–#27. #7–#9, #13, #19, #22–#24, #28 and #30 are done and committed locally (not pushed yet).
 - **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
 - **How the new-ideas run went:** #42, #43, #12+#44 and #45 ran in fresh sessions; from #46 on they were built in the coordinating session, because new sessions can't be started over Remote Control. Each item was committed only after every suite passed.
 
@@ -15,9 +15,6 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 22 | More than one reply per message | todo | |
-| 23 | Built-in narrator member | todo | |
-| 24 | Character-to-character relationships | todo | |
 | 25 | Stats, inventory and quest log | todo | |
 | 26 | Skill checks | todo | After #25. |
 | 27 | Persona character sheet | todo | With #26. |
@@ -73,6 +70,7 @@ One line per area. Pointers for when you need to work on it again.
 - **Schedule and presence (#7):** `Character.schedule` (hour blocks with an activity and free/busy/asleep, optional `realistic`), logic in `src/features/character/schedule.ts`. The chat header shows "online" or the activity and last seen (`presenceFor`, refreshed every minute; grey dot when away), the system prompt gets the routine and what they're doing now (`buildScheduleSection`), and a realistic routine holds replies 15-45 s (busy) or 45-120 s (asleep) with a note (`replyDelayMs`, `awayNote` in ChatPage). Edited on the editor's last step (`ScheduleSection.tsx`, "Start from a typical day").
 - **Status updates (#8):** `Character.postsStatuses` (switch in a 1:1 chat's Chat tab) and `Character.statuses` (last 10, shown for 24 h). `StatusPoster.tsx` (mounted in App) checks 15 s after load and every 30 min, posting at most one status per check and one per character every 10 h, on the helper model (`src/features/character/statusUpdates.ts`, using the routine #7 and memory). The sidebar's "Status" row (`StatusStrip.tsx`) rings unseen ones (chat-row avatars too); opening marks them seen, and "Reply" opens the 1:1 chat with the status quoted in the composer (route state `draft`). Text only, no picture yet.
 - **Chat backdrops (#13):** `Chat.backdrop`, set in the Scene tab: upload (shrunk by `readPhoto`) or generate (`generateBackdropImage` in aiSlice, prompt from `describeSetting` in `src/features/chat/backdrop.ts`: the tracked location, the attached world, the scenario and setting tags). ChatWindow shows it at 40% behind the bubbles, or the character's photo at 25% as before.
+- **Group chats (#22–#24):** `src/features/ai/utils/roomTurns.ts`. `Chat.turnMode` (Chat tab "Who replies"): round-robin as before, "natural" (a helper call, `buildWhoRepliesPrompt`/`parseWhoReplies`, picks up to `MAX_CHAIN` speakers or nobody) or "everyone" (`everyoneAfter`); the rest answer through `sendCharacterFollowup(id, CHAIN_DIRECTIVE)` in ChatPage `handleSend`. A picked speaker or an @mention skips this. `Chat.narrator` adds a narration line after each round (`maybeNarrate`). `Chat.roomRelationships` (Scene tab "Relationships") go only into the speaker's own system prompt (`buildRelationshipNotes` → `RoomContext.relationshipNotes`).
 - **Known gaps:** character drafts were only tested with a mocked model, not a real one's JSON; none of the image providers was tried with a real key or a real ComfyUI; chats whose seed messages were never flagged `isSystem` (very old ones) aren't detected as seeded; mood-portrait generation from inside a chat wasn't checked with a real image provider; `h-dvh` wasn't checked on a real iPhone; notifications weren't tried on a real device or in the installed app.
 
 ## Decisions
@@ -109,7 +107,7 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
-- 2026-10-21: Pushed and deployed #42–#57. Made texting mode a per-chat switch and split the Scene & chat panel into four tabs. Started the 13 earlier items: #9 Scene state HUD, #19 Anti-repetition guard, #28 World in normal chats, #30 Relationship that evolves, #7 Schedule and presence, #8 Status updates, #13 Chat backdrops.
+- 2026-10-21: Pushed and deployed #42–#57. Made texting mode a per-chat switch and split the Scene & chat panel into four tabs. Started the 13 earlier items: #9 Scene state HUD, #19 Anti-repetition guard, #28 World in normal chats, #30 Relationship that evolves, #7 Schedule and presence, #8 Status updates, #13 Chat backdrops, #22–#24 Group chats (turn modes, narrator, relationships).
 - 2026-10-20 (overnight): Built #46 "Previously on…", #57 Story script, #47 Dates that matter, #48 Send them a photo, #49 Event deck, #50 Wardrobe, #51 Relationship timeline, #52 Mini-games, #53 Branch map, #54 Google Drive backup, #55 Free in-browser model and #56 Phone calls in the coordinating session (new sessions can't be started over Remote Control).
 - 2026-10-20: Built character from one line (#45): idea dialog with rating and art-style hints, one JSON draft filling the editor, Try another, optional portrait. Fixed `addCharacter` dropping newer fields (alternate greetings, content rating, locked look, voice, model) when creating or importing a character.
 - 2026-10-20: Built voice (#12) and voice notes (#44) together: per-character browser voices with a picker and preview, Read aloud, dictation, character voice notes decided by the app, and hold-to-record. The terminal theme's Pixel chat screenshot changed on purpose (the new `[say]` action wraps each reply's action row, plus the `[●]` record link) and its baseline was updated; the other chat screenshots gained the mic buttons within their 1% tolerance and were left as they were.

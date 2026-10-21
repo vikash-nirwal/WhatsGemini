@@ -165,6 +165,7 @@ export interface PromptOptions {
   // facts replace the character's own in the prompt.
   memoryOverride?: { memory: string[]; pinned: string[] };
   world?: World; // a World attached to this chat (#28)
+  roomRelationshipNotes?: string; // the speaker's feelings about the others (#24)
 }
 
 const describeDuration = (ms: number): string => {
@@ -296,6 +297,8 @@ export const buildSystemInstruction = (
     const style = buildStyleSection(options.roleplayStyle, activePersona?.name?.trim() || "the user");
     if (style) sections.push(style);
   }
+
+  if (isRoomTurn && options.roomRelationshipNotes) sections.push(options.roomRelationshipNotes);
 
   // In a room, the shared group scenario (set on the chat itself) replaces
   // this character's own personal scenario - several characters could have
@@ -482,6 +485,7 @@ export interface RoomContext {
   groupMemory?: string[]; // the room's own Chat.memory - facts learned in this room, shared by every participant
   groupPinnedMemory?: string[]; // the room's own Chat.pinnedMemory
   otherAppearanceLocks?: AppearanceLock[]; // every OTHER member's locked look (#34)
+  relationshipNotes?: string; // what this speaker feels about the others (#24)
 }
 
 // Per-chat scene settings and app-wide style, shared by 1:1 chats and rooms.
@@ -538,6 +542,7 @@ export const buildTurnContext = (
       roomAllowsNsfw: roomContext?.othersAllowNsfw,
       memoryOverride: scene?.memoryOverride,
       world: scene?.world,
+      roomRelationshipNotes: roomContext?.relationshipNotes,
     }
   );
   // The active persona's own reference photos (UserProfile.appearanceImages),

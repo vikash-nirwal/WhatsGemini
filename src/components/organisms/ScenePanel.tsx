@@ -65,6 +65,22 @@ const readSceneTab = (): SceneTab => {
   }
 };
 
+// A relationship's note, saved on blur so typing doesn't write every key.
+const RelationshipNote: React.FC<{ value: string; onSave: (note: string) => void }> = ({ value, onSave }) => {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  return (
+    <Input
+      aria-label="How they feel"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => draft !== value && onSave(draft)}
+      placeholder="e.g. Resents him for the crash, but won't say so"
+      className="h-8 text-[12.5px] px-2.5 rounded-lg"
+    />
+  );
+};
+
 const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chatMemory, chatPinnedMemory, chatScenario, authorNote, worldTags, hardLimits, intensity, isNsfwChat, onClose, onEditStory, hasStoryScript }) => {
   const dispatch = useAppDispatch();
 
@@ -110,6 +126,11 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
   const chat = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId));
   const appTextingMode = useAppSelector((state) => state.settings.textingMode);
   const worlds = useAppSelector((state) => state.world.worlds);
+  // Room members (#24), for the relationships editor.
+  const allCharacters = useAppSelector((state) => state.character.characters);
+  const members = (chat?.characterIds || []).map((id) => allCharacters.find((c) => c.id === id)).filter((c): c is Character => Boolean(c));
+  const relationships = chat?.roomRelationships || [];
+  const setRelationships = (next: typeof relationships) => dispatch(updateChatOptions({ chatId, patch: { roomRelationships: next.length > 0 ? next : undefined } }));
   // Backdrop (#13): generated from where the story is set, or uploaded.
   const backdropInputRef = useRef<HTMLInputElement>(null);
   const [backdropBusy, setBackdropBusy] = useState(false);
@@ -452,6 +473,45 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
                 placeholder="The current setting/plot for this group…"
                 className="min-h-[72px] font-serif text-[13.5px] leading-[1.55] bg-background rounded-lg"
               />
+            </div>
+          )}
+
+          {/* Relationships between members (#24): each one only sees their own feelings */}
+          {isRoom && members.length > 1 && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-baseline justify-between">
+                <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">Relationships</span>
+                <span className="text-[11px] text-subtle">how they feel about each other</span>
+              </div>
+              {relationships.map((r, i) => (
+                <div key={i} role="group" aria-label={`Relationship ${i + 1}`} className="flex flex-col gap-1.5 rounded-lg border border-border p-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <Select aria-label="Who" value={String(r.fromId)} onChange={(e) => setRelationships(relationships.map((x, j) => (j === i ? { ...x, fromId: Number(e.target.value) } : x)))}>
+                        {members.map((m) => <option key={m.id} value={String(m.id)}>{m.name}</option>)}
+                      </Select>
+                    </div>
+                    <span className="text-[11px] text-subtle">about</span>
+                    <div className="flex-1">
+                      <Select aria-label="About whom" value={String(r.toId)} onChange={(e) => setRelationships(relationships.map((x, j) => (j === i ? { ...x, toId: Number(e.target.value) } : x)))}>
+                        {members.map((m) => <option key={m.id} value={String(m.id)}>{m.name}</option>)}
+                      </Select>
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => setRelationships(relationships.filter((_, j) => j !== i))} aria-label="Remove this relationship">
+                      <FaTimes size={11} />
+                    </Button>
+                  </div>
+                  <RelationshipNote
+                    value={r.note}
+                    onSave={(note) => setRelationships(relationships.map((x, j) => (j === i ? { ...x, note } : x)))}
+                  />
+                </div>
+              ))}
+              <div>
+                <Button type="button" variant="outline" size="sm" onClick={() => setRelationships([...relationships, { fromId: members[0].id, toId: members[1].id, note: "" }])}>
+                  <FaPlus size={10} /> Add a relationship
+                </Button>
+              </div>
             </div>
           )}
 
@@ -873,6 +933,44 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
               ]}
             />
           </div>
+
+          {/* Group chats (#22, #23): who answers, and an optional narrator */}
+          {isRoom && (
+            <div className="flex flex-col gap-2">
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-medium text-foreground">Who replies</div>
+                <div className="text-[11px] text-subtle">
+                  {chat?.turnMode === "natural"
+                    ? "Whoever would naturally answer, maybe two of them, maybe nobody."
+                    : chat?.turnMode === "everyone"
+                      ? "Everyone answers each message in turn (up to three)."
+                      : "One member at a time, taking turns."}
+                </div>
+              </div>
+              <SegmentedControl
+                value={chat?.turnMode || "round-robin"}
+                onChange={(v) => dispatch(updateChatOptions({ chatId, patch: { turnMode: v === "round-robin" ? undefined : (v as "natural" | "everyone") } }))}
+                options={[
+                  { value: "round-robin", label: "Taking turns" },
+                  { value: "natural", label: "Natural" },
+                  { value: "everyone", label: "Everyone" },
+                ]}
+              />
+            </div>
+          )}
+          {isRoom && (
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-medium text-foreground">Narrator</div>
+                <div className="text-[11px] text-subtle">After each round, a line of narration about the setting and what's happening around them.</div>
+              </div>
+              <ToggleSwitch
+                checked={Boolean(chat?.narrator)}
+                onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { narrator: val || undefined } }))}
+                label={<span className="sr-only">Narrator</span>}
+              />
+            </div>
+          )}
 
           {/* Reply suggestions (#16) - per chat */}
           <div className="flex items-center justify-between gap-3">

@@ -44,7 +44,8 @@ import { buildSystemInstruction, buildTurnContext, AUTO_REPLY_DIRECTIVE, FOLLOWU
 import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
 import { applyMemoryChanges, carryMemoryCategories } from "../features/ai/utils/memoryExtraction";
 import { effectiveContentRating } from "../features/character/contentRating";
-import { resolveNextSpeaker, parseMention, stripSpeakerPrefix } from "../features/ai/utils/roomRouting";
+import { resolveNextSpeaker, parseMention, stripSpeakerPrefix, getActiveParticipants } from "../features/ai/utils/roomRouting";
+import { buildNarrationPrompt, buildRelationshipNotes, buildWhoRepliesPrompt, CHAIN_DIRECTIVE, cleanNarration, everyoneAfter, parseWhoReplies } from "../features/ai/utils/roomTurns";
 import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo, generateNodeId } from "../features/chat/messageTree";
 import { estimateTokens, estimateHistoryTokens } from "../features/ai/utils/tokenEstimator";
 import { truncateHistory, trimToLatestSummary, latestSummaryIndex, countSeedMessages, buildSummaryMessages, formatTranscript, TranscriptNames } from "../features/ai/utils/chatHistoryUtils";
@@ -187,6 +188,7 @@ const ChatPage = () => {
       groupMemory: currentChat?.memory,
       groupPinnedMemory: currentChat?.pinnedMemory,
       otherAppearanceLocks: appearanceLocksFor(others),
+      relationshipNotes: buildRelationshipNotes(speaker.id, currentChat?.roomRelationships, Object.fromEntries(roomCharacters.map((c) => [c.id, c.name]))),
     };
   };
 
@@ -1039,11 +1041,33 @@ const ChatPage = () => {
       // unchanged behavior. @mention checks the FULL room (not just active
       // participants) - muting only sits someone out of the automatic
       // rotation, an explicit @mention can still call on them deliberately.
-      const speaker = (forcedSpeakerId != null ? roomCharacters.find((c) => c.id === forcedSpeakerId) : undefined)
-        || (isRoom ? parseMention(text, roomCharacters) : undefined)
+      const mentioned = isRoom ? parseMention(text, roomCharacters) : undefined;
+      let speaker = (forcedSpeakerId != null ? roomCharacters.find((c) => c.id === forcedSpeakerId) : undefined)
+        || mentioned
         || resolveNextSpeaker(roomCharacters, contextMessages, currentChat?.mutedParticipantIds)
         || characterData;
       if (!speaker) return;
+
+      // Group chats (#22): who else answers this message. "Natural" asks a
+      // helper who would reply (maybe nobody); "everyone" lets each active
+      // member answer in turn. A picked speaker or an @mention stays as is.
+      let followers: Character[] = [];
+      const turnMode = isRoom ? currentChat?.turnMode || "round-robin" : "round-robin";
+      const active = isRoom ? getActiveParticipants(roomCharacters, currentChat?.mutedParticipantIds) : [];
+      if (forcedSpeakerId == null && !mentioned && turnMode === "natural" && active.length > 1) {
+        const picked = await pickNaturalSpeakers(contextMessages, active);
+        if (picked && picked.length === 0) {
+          toast.info("Nobody jumped in. Say something else, or pick who replies.");
+          dispatch(fetchChats());
+          return;
+        }
+        if (picked) {
+          speaker = picked[0];
+          followers = picked.slice(1);
+        }
+      } else if (forcedSpeakerId == null && !mentioned && turnMode === "everyone") {
+        followers = everyoneAfter(active, speaker.id);
+      }
 
       const autoSelfieCfg = speaker.autoSelfie;
       const shouldAutoSelfie = !isImageRequest && !isVideoRequest && !!autoSelfieCfg?.enabled &&
@@ -1101,6 +1125,12 @@ const ChatPage = () => {
         saveSceneState(payloadObj);
         advanceGame(payloadObj, true);
         runBackgroundUpdates((aiAddResult.payload as Message[]) || [], speaker);
+
+        // The rest of the room's answers (#22), then the narrator (#23).
+        for (const follower of followers) {
+          if (!(await sendCharacterFollowup(follower.id, CHAIN_DIRECTIVE))) break;
+        }
+        await maybeNarrate();
       }
 
       dispatch(fetchChats());
@@ -1586,6 +1616,36 @@ const ChatPage = () => {
   const saveSceneState = (payload: { sceneState?: Partial<SceneState> } | undefined) => {
     if (!chatIdNum || !currentChat?.sceneTracker || !payload?.sceneState) return;
     dispatch(updateChatOptions({ chatId: chatIdNum, patch: { sceneState: mergeState(currentChat.sceneState, payload.sceneState) } }));
+  };
+
+  // "Natural" turns (#22): who would answer, by a cheap helper call. Null
+  // when the call fails, so the turn falls back to round-robin.
+  const pickNaturalSpeakers = async (contextMessages: Message[], active: Character[]): Promise<Character[] | null> => {
+    try {
+      const recent = trimToLatestSummary(contextMessages).slice(-NARRATIVE_CONTEXT_MESSAGES);
+      const reply = await dispatch(generateAssistText({
+        instruction: buildWhoRepliesPrompt(active.map((c) => c.name), activePersona?.name?.trim() || "User", formatTranscript(recent, transcriptNames())),
+        background: true,
+      })).unwrap();
+      return parseWhoReplies(reply, active);
+    } catch (err) {
+      console.warn("Picking who replies failed (non-fatal):", err);
+      return null;
+    }
+  };
+
+  // The room's narrator (#23): a short line of narration after each round.
+  const maybeNarrate = async () => {
+    if (!isRoom || !chatIdNum || !currentChat?.narrator) return;
+    try {
+      const fresh = await dispatch(fetchChatById(chatIdNum)).unwrap();
+      const recent = trimToLatestSummary(fresh.content).slice(-NARRATIVE_CONTEXT_MESSAGES);
+      const reply = await dispatch(generateAssistText({ instruction: buildNarrationPrompt(roomCharacters.map((c) => c.name), formatTranscript(recent, transcriptNames())) })).unwrap();
+      const text = cleanNarration(reply);
+      if (text) await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, isNarration: true }));
+    } catch (err) {
+      console.warn("Narration failed (non-fatal):", err);
+    }
   };
 
   // Mini-games (#52): each reply to the user's message moves the game on a
