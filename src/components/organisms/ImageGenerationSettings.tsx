@@ -170,6 +170,7 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
               }
             >
               <Select
+                aria-label="SD WebUI checkpoint"
                 value={sdWebuiModel}
                 onChange={(e) => {
                   setSdWebuiModel(e.target.value);
@@ -273,7 +274,7 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
                 )
               }
             >
-              <Select value={imageModel} onChange={(e) => setImageModel(e.target.value)}>
+              <Select aria-label="Image model" value={imageModel} onChange={(e) => setImageModel(e.target.value)}>
                 {openaiImageModelList.map((model) => (
                   <option key={model.value} value={model.value}>
                     {model.label}
@@ -303,7 +304,7 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
             </SettingsRow>
 
             <SettingsRow label="Model" hint={'Used when "send pic" or similar is queried. Generation is async and typically takes 1-2 minutes.'}>
-              <Select value={imageModel} onChange={(e) => setImageModel(e.target.value)}>
+              <Select aria-label="Image model" value={imageModel} onChange={(e) => setImageModel(e.target.value)}>
                 {wanImageModelList.map((model) => (
                   <option key={model.value} value={model.value}>
                     {model.label}
@@ -362,7 +363,7 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
             </SettingsRow>
 
             <SettingsRow label="Model" hint={'Used when "send pic" or similar is queried.'}>
-              <Select value={imageModel} onChange={(e) => setImageModel(e.target.value)}>
+              <Select aria-label="Image model" value={imageModel} onChange={(e) => setImageModel(e.target.value)}>
                 {glmImageModelList.map((model) => (
                   <option key={model.value} value={model.value}>
                     {model.label}
@@ -373,7 +374,7 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
           </>
         ) : (
           <SettingsRow label="Model" hint={'Used when "send pic" or similar is queried.'}>
-            <Select value={imageModel} onChange={(e) => setImageModel(e.target.value)}>
+            <Select aria-label="Image model" value={imageModel} onChange={(e) => setImageModel(e.target.value)}>
               {imageModelList.map((model) => (
                 <option key={model.value} value={model.value}>
                   {model.label}
@@ -463,7 +464,7 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
         )}
 
         <SettingsRow label="Resize portraits on save" hint="When off, portraits saved without an interactive crop step (PNG card imports, batch 'generate all emotions', and the quick in-chat missing-emotion generate) keep their native resolution instead of being resized below.">
-          <ToggleSwitch checked={portraitResizeEnabled} onChange={setPortraitResizeEnabled} />
+          <ToggleSwitch checked={portraitResizeEnabled} onChange={setPortraitResizeEnabled} label={<span className="sr-only">Resize portraits on save</span>} />
         </SettingsRow>
 
         <SettingsRow label="Portrait save size" hint="Every character portrait - main avatar and emotion portraits alike, generated or uploaded - is resized to this before being saved, regardless of what resolution it came in at.">
@@ -474,6 +475,7 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
               <div className={cn("flex items-center gap-2", !portraitResizeEnabled && "opacity-50")}>
                 <TextInput
                   type="number"
+                  aria-label="Portrait width"
                   min="32"
                   max="2048"
                   value={w}
@@ -484,6 +486,7 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
                 <span className="text-muted-foreground text-sm">×</span>
                 <TextInput
                   type="number"
+                  aria-label="Portrait height"
                   min="32"
                   max="2048"
                   value={h}

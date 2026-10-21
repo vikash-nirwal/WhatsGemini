@@ -77,10 +77,8 @@ test.describe("ComfyUI settings", () => {
     await expect(page.getByRole("textbox", { name: "ComfyUI seed" })).toHaveValue("777");
   });
 
-  // Only this component's rows: the rest of the image settings page has
-  // violations of its own (unnamed toggle, unlabeled portrait size inputs,
-  // the selected provider pill's contrast). Scanned with the connection
-  // status and an imported workflow's mapping editor showing.
+  // Only this component's rows (a11y.spec.ts scans the whole page), with
+  // the connection status and an imported workflow's mapping editor showing.
   test("has no accessibility violations", async ({ page }) => {
     await mockComfyUI(page, { knownNodes: IPADAPTER_NODES });
     await page.getByRole("button", { name: "Test connection" }).click();

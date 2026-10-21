@@ -29,6 +29,7 @@ export const ProviderPicker: React.FC<ProviderPickerProps> = ({ providers, value
           <button
             key={p.id}
             type="button"
+            aria-pressed={active}
             onClick={() => onChange(p.id)}
             className={cn(
               "h-[34px] px-3.5 text-[13px] font-medium whitespace-nowrap border transition-colors",
@@ -49,7 +50,7 @@ export const ProviderPicker: React.FC<ProviderPickerProps> = ({ providers, value
                   ? "cta-surface text-primary-foreground"
                   : "surface-elevated border-input text-foreground hover:text-foreground"
                 : active
-                  ? "bg-primary/[0.14] text-primary border-primary/40"
+                  ? "bg-primary/[0.14] text-foreground border-primary/60"
                   : "bg-background text-muted-foreground border-input hover:text-foreground"
             )}
           >
