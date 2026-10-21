@@ -14,10 +14,6 @@ The app is called WhatsGemini, so lean into the messaging-app fantasy.
 8. **Status updates** (M). Like WhatsApp Status: now and then a character posts a short status with an optional generated picture, based on their schedule and recent events. It shows as a ring on their avatar in the sidebar, and replying to a status opens the chat quoting it.
 13. **Chat backdrops** (S). Generate or upload a background image for a chat from its setting tags or scenario, shown subtly behind the bubbles.
 
-## Story tools
-
-19. **Anti-repetition guard** (M). Long roleplays drift into repeated phrases and openings. Detect n-grams the last few replies keep reusing and add a one-turn "avoid these phrases" directive. Optionally show a small indicator when it kicks in.
-
 ## Group chats
 
 22. **More than one reply per message** (M). Today exactly one character answers each message. Add a "natural" turn mode: a cheap helper call reads the last exchange and picks who would naturally respond (possibly two in a row, possibly nobody). The mode can be *round-robin*, *natural* or *everyone*, with a cap on how long a chain can run.

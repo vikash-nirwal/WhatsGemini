@@ -341,3 +341,23 @@ describe("photos the user sent (#48)", () => {
     expect(history[0].text).toBe("Here I am");
   });
 });
+
+describe("anti-repetition (#19)", () => {
+  const repeating = [
+    msg(YOU, "hi"),
+    msg(AI, "*She tucks a strand of hair behind her ear.* Hey!", 1),
+    msg(YOU, "what's up"),
+    msg(AI, "Not much. *She tucks a strand of hair behind her ear.*", 1),
+    msg(YOU, "cool"),
+  ];
+
+  it("asks the next reply to avoid phrases the character keeps reusing", () => {
+    const { postHistoryNote } = buildTurnContext(repeating, makeCharacter(), undefined, undefined, undefined, undefined, { roleplayStyle: DEFAULT_ROLEPLAY_STYLE });
+    expect(postHistoryNote).toContain('"she tucks a strand of hair behind her ear"');
+  });
+
+  it("can be switched off", () => {
+    const { postHistoryNote } = buildTurnContext(repeating, makeCharacter(), undefined, undefined, undefined, undefined, { roleplayStyle: { ...DEFAULT_ROLEPLAY_STYLE, antiRepetition: false } });
+    expect(postHistoryNote || "").not.toContain("keep reusing");
+  });
+});

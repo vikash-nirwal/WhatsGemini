@@ -415,6 +415,9 @@ export interface RoleplayStyle {
   timeAwareness: boolean;
   // Characters may react to the user's messages with an emoji (#11).
   characterReactions?: boolean;
+  // Warn the model off phrases its recent replies keep reusing (#19); on
+  // unless set to false.
+  antiRepetition?: boolean;
   customInstructions: string;
 }
 

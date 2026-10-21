@@ -21,6 +21,7 @@ export const DEFAULT_ROLEPLAY_STYLE: RoleplayStyle = {
   neverSpeakForUser: true,
   timeAwareness: true,
   characterReactions: true,
+  antiRepetition: true,
   customInstructions: "",
 };
 export const DEFAULT_OUTPUT_TOKENS = 1000;

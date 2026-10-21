@@ -18,6 +18,8 @@ test("Continue extends the last reply in place", async ({ page, mockAI }) => {
   await expect(page.getByText("It was a dark and stormy night, and the wind howled.")).toBeVisible();
   await waitForReplyDone(page);
   expect(mockAI.requests).toHaveLength(2);
-  expect(mockAI.requests[1].prompt).toBe("Continue.");
+  // "Continue." comes first; notes for the model (like #19's repetition
+  // warning) may follow it.
+  expect(mockAI.requests[1].prompt).toMatch(/^Continue\.(\n|$)/);
   await expect(page.getByText("night, and the wind howled.", { exact: true })).toHaveCount(0);
 });

@@ -348,6 +348,9 @@ const TextModelSettings: React.FC<TextModelSettingsProps> = ({
         <SettingsRow label="Character reactions" hint="Characters can now and then react to your messages with an emoji." align="start">
           <ToggleSwitch checked={Boolean(roleplayStyle.characterReactions)} onChange={(v) => updateStyle({ characterReactions: v })} />
         </SettingsRow>
+        <SettingsRow label="Avoid repetition" hint="When recent replies keep reusing the same phrases or openings, the next reply is asked to say it differently." align="start">
+          <ToggleSwitch checked={roleplayStyle.antiRepetition !== false} onChange={(v) => updateStyle({ antiRepetition: v })} />
+        </SettingsRow>
         <SettingsRow label="Extra rules" hint="Anything else every character should follow." align="start">
           <TextArea
             value={roleplayStyle.customInstructions}

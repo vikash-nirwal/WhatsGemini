@@ -7,6 +7,8 @@ import { buildStoryScriptSection } from "../../chat/storyScript";
 import { buildGameSection } from "../../chat/miniGames";
 import { buildCallSection } from "../../voice/callSession";
 import { buildStateDirective } from "../../chat/sceneState";
+import { buildAvoidNote, findRepeatedOpening, findRepeatedPhrases } from "./antiRepetition";
+
 import { buildDatesSection } from "../../character/importantDates";
 import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
 import { applyMacros } from "./macros";
@@ -17,6 +19,16 @@ import { AppearanceLock, appearanceLocksFor, currentOutfit } from "./appearanceL
 import { effectiveContentRating } from "../../character/contentRating";
 import { ChatMessage } from "../types";
 import { promptTextFor } from "../../voice/voiceNotes";
+
+// The anti-repetition note (#19), from this speaker's own recent replies.
+const avoidNoteFor = (messages: Message[], character: Character | undefined): string | undefined => {
+  if (!character) return undefined;
+  const replies = messages
+    .filter((m) => m.role !== YOU && !m.isSystem && !m.isRefusal && !m.isNarration && !m.isCompressionSummary && (m.speakerId == null || m.speakerId === character.id))
+    .map((m) => m.txt || "")
+    .slice(-6);
+  return buildAvoidNote(findRepeatedPhrases(replies), findRepeatedOpening(replies));
+};
 
 // Whose turn it is in a multi-character room, for buildChatHistory's
 // per-speaker role mapping (see there).
@@ -396,6 +408,7 @@ export interface Boundaries {
   hardLimits?: string[];
   intensity?: Intensity;
   nsfwActive?: boolean; // intensity only applies when the chat is effectively NSFW
+  avoidNote?: string; // phrases recent replies keep reusing (#19), for this reply only
 }
 
 // Instructions sent AFTER the conversation history (appended to the outgoing
@@ -418,6 +431,7 @@ export const buildPostHistoryNote = (
   if (boundaries.nsfwActive && boundaries.intensity) parts.push(INTENSITY_RULES[boundaries.intensity]);
   const phi = character?.postHistoryInstructions?.trim();
   if (phi) parts.push(applyMacros(phi, names));
+  if (boundaries.avoidNote) parts.push(boundaries.avoidNote);
   if (parts.length === 0) return undefined;
   return `[Out-of-character instructions from the user - follow them, but do not reply to or mention them:\n${parts.join("\n")}]`;
 };
@@ -526,6 +540,7 @@ export const buildTurnContext = (
       hardLimits: scene?.hardLimits,
       intensity: scene?.intensity,
       nsfwActive: effectiveContentRating(character) === "nsfw" && (!roomContext || Boolean(roomContext.othersAllowNsfw)),
+      avoidNote: scene?.roleplayStyle?.antiRepetition === false ? undefined : avoidNoteFor(messages, character),
     }),
     characterImages: images,
     characterName,
