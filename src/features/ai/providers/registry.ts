@@ -4,6 +4,7 @@ import { openaiImageAdapter } from "./openaiImageAdapter";
 import { glmImageAdapter } from "./glmImageAdapter";
 import { wanAdapter, wanVideoAdapter } from "./wanAdapter";
 import { falImageAdapter } from "./falImageAdapter";
+import { webllmAdapter } from "./webllmAdapter";
 import { comfyuiAdapter } from "./comfyuiAdapter";
 import { createOpenAiCompatibleAdapter } from "./openaiCompatibleAdapter";
 import { ChatProviderAdapter, ImageProviderAdapter, VideoProviderAdapter } from "./types";
@@ -77,6 +78,7 @@ const RAW_CHAT_PROVIDERS: Record<string, ChatProviderAdapter> = {
   glm: glmAdapter,
   openrouter: openrouterAdapter,
   ollama: ollamaAdapter,
+  webllm: webllmAdapter,
 };
 
 export const CHAT_PROVIDERS: Record<string, ChatProviderAdapter> = Object.fromEntries(
@@ -113,6 +115,7 @@ export const CHAT_PROVIDER_META: ProviderMeta[] = [
   { id: "glm", label: "GLM (Zhipu AI / Z.ai)", defaultBaseUrl: "https://api.z.ai/api/paas/v4" },
   { id: "openrouter", label: "OpenRouter", defaultBaseUrl: "https://openrouter.ai/api/v1" },
   { id: "ollama", label: "Ollama (local)", defaultBaseUrl: "http://localhost:11434/v1" },
+  { id: "webllm", label: "In this browser (free, WebLLM)" },
 ];
 
 export const IMAGE_PROVIDER_META: ProviderMeta[] = [

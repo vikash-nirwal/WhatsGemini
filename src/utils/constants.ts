@@ -517,6 +517,15 @@ export const PROVIDER_CHAT_MODELS: Record<string, string[]> = {
   glm: ["glm-4.6", "glm-4.5", "glm-4.5-air", "glm-4.5-flash"],
   // A starting point only - "Fetch models" pulls OpenRouter's live catalog.
   openrouter: ["deepseek/deepseek-chat", "meta-llama/llama-3.3-70b-instruct", "mistralai/mistral-nemo", "nousresearch/hermes-3-llama-3.1-405b"],
+  // In the browser (#55): small models WebLLM ships, roughly 1-2 GB each.
+  webllm: [
+    "Llama-3.2-3B-Instruct-q4f16_1-MLC",
+    "Qwen2.5-3B-Instruct-q4f16_1-MLC",
+    "Phi-3.5-mini-instruct-q4f16_1-MLC",
+    "gemma-2-2b-it-q4f16_1-MLC",
+    "Llama-3.2-1B-Instruct-q4f16_1-MLC",
+    "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
+  ],
 };
 
 // Of the requested providers, Gemini, OpenAI, Wan (Wanxiang, via Alibaba

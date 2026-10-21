@@ -51,7 +51,7 @@ export interface WarnedState {
 export const WARN_FRACTION = 0.8;
 
 // Local and self-hosted backends cost nothing and are never blocked.
-export const FREE_PROVIDERS = new Set(["ollama", "sdwebui", "comfyui"]);
+export const FREE_PROVIDERS = new Set(["ollama", "webllm", "sdwebui", "comfyui"]);
 export const isFreeProvider = (providerId: string) => FREE_PROVIDERS.has(providerId);
 
 export const monthKey = (date: Date = new Date()): string =>

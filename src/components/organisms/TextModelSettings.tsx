@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { TextInput, Select, Slider } from "src/components/molecules/form-controls";
 import { CHAT_PROVIDER_META } from '../../features/ai/providers/registry';
 import { PROVIDER_CHAT_MODELS } from '../../utils/constants';
@@ -11,6 +11,7 @@ import { TextArea } from "src/components/molecules/form-controls";
 import ToggleSwitch from 'src/components/atoms/ToggleSwitch';
 import { RoleplayPov, RoleplayStyle, SamplerSettings } from '../../types';
 import PromptInspectorDialog from './PromptInspectorDialog';
+import { checkWebGPU } from "src/features/ai/providers/webllmAdapter";
 
 // Which sampler knobs each chat provider's adapter actually forwards (see
 // the adapters) - shown so an ignored setting isn't a silent no-op.
@@ -91,6 +92,16 @@ const TextModelSettings: React.FC<TextModelSettingsProps> = ({
   onLogout,
 }) => {
   const isOllama = chatProviderCapabilities.requiresBaseUrl;
+  // Whether the in-browser model (#55) can run here; checked when it's picked.
+  const [webgpu, setWebgpu] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (chatProvider !== "webllm") return;
+    let live = true;
+    checkWebGPU().then((ok) => live && setWebgpu(ok));
+    return () => {
+      live = false;
+    };
+  }, [chatProvider]);
   const [inspectorOpen, setInspectorOpen] = useState(false);
 
   // Blank input = unset = the provider's own default.
@@ -143,6 +154,19 @@ const TextModelSettings: React.FC<TextModelSettingsProps> = ({
             >
               Log out
             </Button>
+          </SettingsRow>
+        )}
+
+        {chatProvider === "webllm" && (
+          <SettingsRow label="Runs on this device" hint="Free and private: the model runs on your GPU and nothing leaves this browser." align="start">
+            <div className="flex flex-col gap-1 text-xs text-muted-foreground max-w-md">
+              <span>The first reply downloads the model (about 1-2 GB) and keeps it in the browser's cache, so later chats start quickly. Small models write simpler roleplay than the big cloud ones.</span>
+              {webgpu != null && (
+                <span className={webgpu ? "text-foreground" : "text-destructive"}>
+                  {webgpu ? "This browser has WebGPU, so it can run here." : "This browser can't use the GPU (no WebGPU), so it can't run here. Try recent Chrome or Edge on a computer with a GPU."}
+                </span>
+              )}
+            </div>
           </SettingsRow>
         )}
 

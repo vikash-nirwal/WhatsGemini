@@ -18,6 +18,7 @@ import Header from "src/components/organisms/Header";
 import ServiceWorkerUpdater from "src/components/molecules/ServiceWorkerUpdater";
 import BackupReminderBanner from "src/components/molecules/BackupReminderBanner";
 import SpendingAlerts from "src/components/molecules/SpendingAlerts";
+import WebLLMProgress from "src/components/molecules/WebLLMProgress";
 import Logo from "src/components/atoms/Logo";
 import { TooltipProvider } from "src/components/atoms/tooltip";
 import { Toaster } from "src/components/atoms/sonner";
@@ -199,6 +200,7 @@ const AppContent = () => {
       <div className="flex flex-col h-dvh w-full">
         <BackupReminderBanner />
         <SpendingAlerts />
+        <WebLLMProgress />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar />
           <main className="app-main flex-1 bg-background relative z-1 min-w-0">
