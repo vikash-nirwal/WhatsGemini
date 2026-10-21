@@ -36,11 +36,6 @@ The app is called WhatsGemini, so lean into the messaging-app fantasy.
 
 30. **Relationship that evolves** (S). Periodically suggest an update to the character's "relationship" field from what's happened ("strangers" → "reluctant allies"). You approve each change; nothing is rewritten automatically.
 
-## More ideas (added 2026-10-20)
-
-Built one at a time, in this order.
-
-56. **Phone calls** (L). A call screen with a timer: you talk, the character answers out loud, hands-free. Builds on #12 and #44.
 
 ## Smaller follow-ups
 

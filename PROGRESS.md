@@ -6,10 +6,10 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **State:** image consistency (#34–#41) is merged, pushed and deployed. Texting mode (#6), inner thoughts (#10) and reactions (#11) are pushed and deployed too. The spending dashboard (#42), notifications (#43), voice (#12), voice notes (#44) and character from one line (#45) are committed to local `main`, not pushed. The last full local run passed: type-check, 624 unit tests, 417 UI tests and 16 screenshot tests.
-- **Next up:** the new ideas #46–#56 (#42–#45 and #12 are done), one per fresh session in table order, then the other 12 items. The image providers were only tested against mocked servers; checking them with real keys and a real ComfyUI is a follow-up in ROADMAP.md.
+- **State:** the new-ideas queue (#42–#57) is built and committed on local `main` (not pushed or deployed since #11). The last full local run passed: type-check, 688 unit tests, 534 UI tests and 16 screenshot tests; `CI=true npm run build` compiles.
+- **Next up:** the user's review, push and deploy; then the 13 remaining earlier items below (#7–#9, #13, #19, #22–#28, #30).
 - **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
-- **How this run works:** each item gets its own fresh session in this checkout (no worktree), committing to local `main` when its tests pass; nothing is pushed or deployed until the user says so.
+- **How the new-ideas run went:** #42, #43, #12+#44 and #45 ran in fresh sessions; from #46 on they were built in the coordinating session, because new sessions can't be started over Remote Control. Each item was committed only after every suite passed.
 
 ## Remaining items
 
@@ -28,7 +28,6 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | 27 | Persona character sheet | todo | With #26. |
 | 28 | Attach a World to normal chats | todo | |
 | 30 | Relationship that evolves | todo | |
-| 56 | Phone calls | todo | Builds on #12 and #44 (`src/features/voice/`). |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
 
@@ -72,6 +71,7 @@ One line per area. Pointers for when you need to work on it again.
 - **Branch map (#53):** `src/features/chat/branchMap.ts` folds the conversation tree into segments (runs with no fork) and counts storylines; `BranchMapDialog.tsx` shows them nested, marks "You're here", and jumping opens a branch at its latest point (`findDefaultLeafFrom`). "Branch map" appears in the chat actions once any message has variants.
 - **Google Drive backup (#54):** `src/services/driveBackup.ts` encrypts the full backup zip (AES-GCM, PBKDF2 from a passphrase that's never stored; "WGBK1" header), signs in with Google Identity Services (token client, `drive.appdata` scope, client ID in localStorage `google_drive_client_id`) and keeps the newest 5 in the Drive's app-data folder. `DriveBackupSection.tsx` in Settings › Data; restore goes through the same confirm and merge as a file restore (`restoreBackupFile` in SettingsPage). Only tested with a faked Google.
 - **Free in-browser model (#55):** chat provider `webllm` (`webllmAdapter.ts`), models in `PROVIDER_CHAT_MODELS.webllm`. WebLLM itself is loaded at runtime from jsDelivr at a pinned version (`webllmLoader.ts`, `webpackIgnore`), not bundled: its 6 MB chunk broke the service worker's precache limit, which fails `CI=true npm run build`. `checkWebGPU` asks for a real GPU adapter before anything downloads; first-load progress shows as a toast (`WebLLMProgress.tsx`). Never counted by Spending. Not tried on a real GPU.
+- **Phone calls (#56):** "Call <name>" in a 1:1 chat's actions (only where the browser can both listen and speak) opens `CallScreen.tsx`. `useCall.ts` loops: listen with `startRecognition`, send after a 1.4 s pause as a voice message (`handleSend` with `isVoiceNote`), wait for the reply (with a 2 s grace for it to reach the list), speak it with `speak()` in the character's voice, listen again; mute and a timer. While on a call, `SceneContext.onCall` adds `buildCallSection` (talk, don't write). UI tests share the speech fakes in `e2e/speechFakes.ts`.
 - **Known gaps:** character drafts were only tested with a mocked model, not a real one's JSON; none of the image providers was tried with a real key or a real ComfyUI; chats whose seed messages were never flagged `isSystem` (very old ones) aren't detected as seeded; mood-portrait generation from inside a chat wasn't checked with a real image provider; `h-dvh` wasn't checked on a real iPhone; notifications weren't tried on a real device or in the installed app.
 
 ## Decisions
@@ -105,7 +105,7 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
-- 2026-10-20 (overnight): Built #46 "Previously on…", #57 Story script, #47 Dates that matter, #48 Send them a photo, #49 Event deck, #50 Wardrobe, #51 Relationship timeline, #52 Mini-games, #53 Branch map, #54 Google Drive backup and #55 Free in-browser model in the coordinating session (new sessions can't be started over Remote Control).
+- 2026-10-20 (overnight): Built #46 "Previously on…", #57 Story script, #47 Dates that matter, #48 Send them a photo, #49 Event deck, #50 Wardrobe, #51 Relationship timeline, #52 Mini-games, #53 Branch map, #54 Google Drive backup, #55 Free in-browser model and #56 Phone calls in the coordinating session (new sessions can't be started over Remote Control).
 - 2026-10-20: Built character from one line (#45): idea dialog with rating and art-style hints, one JSON draft filling the editor, Try another, optional portrait. Fixed `addCharacter` dropping newer fields (alternate greetings, content rating, locked look, voice, model) when creating or importing a character.
 - 2026-10-20: Built voice (#12) and voice notes (#44) together: per-character browser voices with a picker and preview, Read aloud, dictation, character voice notes decided by the app, and hold-to-record. The terminal theme's Pixel chat screenshot changed on purpose (the new `[say]` action wraps each reply's action row, plus the `[●]` record link) and its baseline was updated; the other chat screenshots gained the mic buttons within their 1% tolerance and were left as they were.
 

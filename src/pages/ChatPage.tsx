@@ -14,6 +14,11 @@ import { buildEventDirective, drawEvent } from "../features/chat/eventDeck";
 import { buildGameStartDirective, gameLabel, GameOutcome } from "../features/chat/miniGames";
 import GameDialog from "../components/organisms/GameDialog";
 import BranchMapDialog from "../components/organisms/BranchMapDialog";
+import CallScreen from "../components/organisms/CallScreen";
+import { useCall } from "../features/voice/useCall";
+import { formatCallTime } from "../features/voice/callSession";
+import { isRecognitionSupported } from "../features/voice/recognition";
+import { isSpeechSupported } from "../features/voice/speech";
 import { hasBranches } from "../features/chat/branchMap";
 import StoryScriptDialog from "../components/organisms/StoryScriptDialog";
 import { buildDraftReplyPrompt, cleanDraftReply, buildReplySuggestionsPrompt, parseReplySuggestions, NARRATIVE_CONTEXT_MESSAGES, SURPRISE_DIRECTIVE } from "../features/ai/utils/narrativeTools";
@@ -25,7 +30,7 @@ import Header, { HeaderAction } from "src/components/organisms/Header";
 import PortraitPreviewModal from "src/components/organisms/PortraitPreviewModal";
 import AutoReplyModal from "src/components/organisms/AutoReplyModal";
 import PersonaModal from "src/components/organisms/PersonaModal";
-import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20, FaLayerGroup, FaGamepad, FaCodeBranch, FaBookOpen } from "react-icons/fa";
+import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20, FaLayerGroup, FaGamepad, FaCodeBranch, FaPhoneAlt, FaBookOpen } from "react-icons/fa";
 import { Button } from "src/components/atoms/button";
 import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DIARY_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
@@ -149,6 +154,8 @@ const ChatPage = () => {
     [characters, currentChat]
   );
   const isRoom = roomCharacters.length > 1;
+  // A phone call (#56): replies are spoken, and what you say is sent as voice messages.
+  const [inCall, setInCall] = useState(false);
   // Tells the user about a new message from this chat if they're away (#43).
   const notifyIfAway = useChatNotifier(chatIdNum, roomCharacters);
 
@@ -222,6 +229,7 @@ const ChatPage = () => {
       : undefined,
     storyScript: currentChat?.storyScript,
     game: currentChat?.game,
+    onCall: inCall,
   };
 
   // Which persona this chat actually speaks as: its own override if set,
@@ -1592,6 +1600,24 @@ const ChatPage = () => {
 
   // Described once so Header can render these both as tooltipped icon
   // buttons on desktop and as labeled rows in the mobile "more" menu.
+  // Phone call (#56): what you say goes in as a voice message, and the
+  // character's newest reply is spoken back.
+  const lastCharacterMessage = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) if (messages[i].role === AI && !messages[i].isSystem) return messages[i];
+    return undefined;
+  }, [messages]);
+  const call = useCall({
+    active: inCall,
+    onSend: (text) => void handleSend(text, false, false, false, undefined, false, true),
+    aiLoading,
+    lastReply: lastCharacterMessage,
+    voice: characterData?.voice,
+  });
+  const endCall = () => {
+    setInCall(false);
+    if (call.seconds > 0) toast.info(`Call ended · ${formatCallTime(call.seconds)}`);
+  };
+
   const chatActions: HeaderAction[] = [
     { icon: FaBookOpen, label: "Export as story (Markdown)", onClick: handleExportStory },
     { icon: FaDownload, label: "Export chat (backup file)", onClick: handleExport },
@@ -1612,6 +1638,9 @@ const ChatPage = () => {
       : []),
     ...(messages.length > 0
       ? [{ icon: FaLayerGroup, label: "Draw an event card (a random event happens)", onClick: handleDrawEvent, disabled: aiLoading }]
+      : []),
+    ...(!isRoom && characterData && isRecognitionSupported() && isSpeechSupported()
+      ? [{ icon: FaPhoneAlt, label: `Call ${characterData.name}`, onClick: () => setInCall(true), disabled: aiLoading || inCall }]
       : []),
     ...(hasBranches(currentChat?.tree)
       ? [{ icon: FaCodeBranch, label: "Branch map (every storyline in this chat)", onClick: () => setBranchMapOpen(true) }]
@@ -1720,6 +1749,16 @@ const ChatPage = () => {
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden relative">
         <ChatWindow game={currentChat?.game} gameScore={currentChat?.gameScore} onEndGame={() => chatIdNum && dispatch(updateChatOptions({ chatId: chatIdNum, patch: { game: undefined } }))} storyScript={currentChat?.storyScript} onEditStory={() => setStoryOpen(true)} onMoveBeat={moveStoryBeat} recap={recap} onToggleBookmark={handleToggleBookmark} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} />
+        {inCall && characterData && (
+          <CallScreen
+            name={characterData.name}
+            initials={characterData.name.slice(0, 2).toUpperCase()}
+            accent={characterData.accent}
+            imageSrc={headerEmotionImageSrc || characterData.appearanceImages?.[0]}
+            call={call}
+            onEnd={endCall}
+          />
+        )}
         <BranchMapDialog
           open={branchMapOpen}
           onOpenChange={setBranchMapOpen}

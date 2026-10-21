@@ -5,6 +5,7 @@ import { buildEmotionDirective } from "./emotionUtils";
 import { buildReactionDirective, buildThoughtsDirective, formatReactionNote } from "./messageTags";
 import { buildStoryScriptSection } from "../../chat/storyScript";
 import { buildGameSection } from "../../chat/miniGames";
+import { buildCallSection } from "../../voice/callSession";
 import { buildDatesSection } from "../../character/importantDates";
 import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
 import { applyMacros } from "./macros";
@@ -462,6 +463,7 @@ export interface SceneContext {
   memoryOverride?: PromptOptions["memoryOverride"]; // see PromptOptions
   storyScript?: StoryScript; // the story this chat follows (#57)
   game?: ChatGame; // the mini-game being played (#52)
+  onCall?: boolean; // a phone call is on (#56): replies are spoken aloud
 }
 
 // The single function replacing the copy-pasted "build history + build system
@@ -487,6 +489,7 @@ export const buildTurnContext = (
   const sceneDirectives = [
     ...(scene?.storyScript ? [buildStoryScriptSection(scene.storyScript)] : []),
     ...(scene?.game && character ? [buildGameSection(scene.game, character.name)] : []),
+    ...(scene?.onCall && character ? [buildCallSection(character.name)] : []),
   ];
   const directives = sceneDirectives.length > 0 ? [...sceneDirectives, ...(extraDirectives || [])] : extraDirectives;
   const { text, images, characterName } = buildSystemInstruction(
