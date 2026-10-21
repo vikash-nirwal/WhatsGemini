@@ -1184,7 +1184,11 @@ const ChatPage = () => {
         // Branch: the edited text becomes a new sibling of the original message
         // (both children of the same parent), then generate a reply as its child.
         const parentId = tree.nodes[targetNodeId].parentId;
-        const editedUserMsg: Message = { role: YOU, txt: newText, isImageRequest, isVideoRequest, timestamp: Date.now() };
+        // A photo you sent (#48) stays with the edited message, along with
+        // what a helper saw in it.
+        const original = tree.nodes[targetNodeId].message;
+        const sentPhotos = original.images && original.images.length > 0 ? original.images : undefined;
+        const editedUserMsg: Message = { role: YOU, txt: newText, isImageRequest, isVideoRequest, images: sentPhotos, photoDescription: sentPhotos ? original.photoDescription : undefined, timestamp: Date.now() };
         const { tree: treeWithEdit, nodeId: editedNodeId } = addChildNode(tree, parentId, editedUserMsg);
         const contentUpToEdit = flattenPath(treeWithEdit, editedNodeId);
 
@@ -1208,7 +1212,7 @@ const ChatPage = () => {
 
         const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = buildTurnContext(contextUpToEdit, speaker, undefined, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
         const editVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest));
-        aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings }));
+        aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings, promptImages: sentPhotos }));
         const aiResponse = await aiPromiseRef.current;
         setRecordingVoiceNote(false);
         aiPromiseRef.current = null;
@@ -1301,6 +1305,8 @@ const ChatPage = () => {
       const isImageRequest = isFollowup ? (targetMessage?.isImageRequest || false) : (precedingMessage.isImageRequest || false);
       const isVideoRequest = isFollowup ? (targetMessage?.isVideoRequest || false) : (precedingMessage.isVideoRequest || false);
       const extraDirectives = isFollowup ? [AUTO_REPLY_DIRECTIVE] : undefined;
+      // The photo you sent with the message (#48) goes to the model again.
+      const sentPhotos = !isFollowup && precedingMessage.images && precedingMessage.images.length > 0 ? precedingMessage.images : undefined;
 
       // Regenerating replies as whoever originally said it - not a fresh
       // round-robin pick - so "regenerate" reliably means "a different
@@ -1314,7 +1320,7 @@ const ChatPage = () => {
 
       const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = buildTurnContext(historyUpToTarget, speaker, extraDirectives, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
       const regenVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest));
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings, promptImages: sentPhotos }));
       const aiResponse = await aiPromiseRef.current;
       setRecordingVoiceNote(false);
       aiPromiseRef.current = null;

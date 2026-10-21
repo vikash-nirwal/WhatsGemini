@@ -6,7 +6,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **State:** the new-ideas queue (#42–#57) is built and pushed and deployed (CI green). The last full local run passed: type-check, 754 unit tests, 671 UI tests and 16 screenshot tests.
+- **State:** the new-ideas queue (#42–#57) is built and pushed and deployed (CI green). The last full local run passed: type-check, 754 unit tests, 673 UI tests and 16 screenshot tests.
 - **Next up:** push and deploy (with the user's OK), then the smaller follow-ups. All 13 earlier items (#7–#9, #13, #19, #22–#28, #30) are done and committed locally, not pushed yet.
 - **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
 - **How the new-ideas run went:** #42, #43, #12+#44 and #45 ran in fresh sessions; from #46 on they were built in the coordinating session, because new sessions can't be started over Remote Control. Each item was committed only after every suite passed.

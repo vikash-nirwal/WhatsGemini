@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openChat, sendMessage, waitForReplyDone, messageBubble } from "./fixtures";
+import { test, expect, openChat, sendMessage, waitForReplyDone, messageBubble, PHONE_REDESIGN_SKIP } from "./fixtures";
 
 // Send them a photo (#48): a vision model gets the photo itself; otherwise
 // a vision-capable helper describes it; otherwise the character is told
@@ -89,5 +89,37 @@ test.describe("with no model that can see", () => {
     expect(mockAI.requests).toHaveLength(1);
     expect(mockAI.requests[0].prompt).toContain("you can't see it");
     await expect(page.getByText("This model can't see photos")).toBeVisible();
+  });
+});
+
+test.describe("editing and regenerating", () => {
+  test.use({ localStorageOverrides: { ai_model: "llava:13b" } });
+  // Edit and regenerate sit in the hover toolbar, which phones are redesigning.
+  test.skip(({ isMobile }) => isMobile, PHONE_REDESIGN_SKIP);
+
+  test("a regenerated reply and an edited message still have the photo", async ({ page, mockAI }) => {
+    mockAI.replyOnce("What a view!", "Gorgeous, where is it?", "A beach at last!");
+    await openChat(page);
+    await attachPhoto(page);
+    await sendMessage(page, "Look where I am");
+    await expect(messageBubble(page, "What a view!")).toBeVisible();
+    await waitForReplyDone(page);
+
+    const reply = messageBubble(page, "What a view!");
+    await reply.hover();
+    await reply.getByRole("button", { name: "Regenerate" }).click();
+    await expect(messageBubble(page, "Gorgeous, where is it?")).toBeVisible();
+    await waitForReplyDone(page);
+    expect(Array.isArray(lastUserContent(mockAI.requests[1].messages))).toBe(true);
+
+    const mine = messageBubble(page, "Look where I am");
+    await mine.hover();
+    await mine.getByRole("button", { name: "Edit", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Edit Message" });
+    await dialog.getByRole("textbox").fill("Look where I am now");
+    await dialog.getByRole("button", { name: "Save Changes" }).click();
+    await expect(messageBubble(page, "A beach at last!")).toBeVisible();
+    await expect(messageBubble(page, "Look where I am now").getByRole("img", { name: "Sent by you" })).toBeVisible();
+    expect(Array.isArray(lastUserContent(mockAI.requests[2].messages))).toBe(true);
   });
 });

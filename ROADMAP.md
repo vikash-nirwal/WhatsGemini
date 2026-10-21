@@ -13,7 +13,7 @@ Leftovers noted while building the finished items. Pick them up alongside relate
 - **Memory:** show fact groups in the character editor's memory card (only the Scene panel groups them today).
 - **Chapters and diary:** diary entries from group chats.
 - **Lorebook:** SillyTavern fields not mapped yet: cooldown, delay, regex keys, case-sensitive matching, insertion position, groups. Sticky only applies to direct keyword hits, not recursive ones.
-- **Photos:** editing or regenerating keeps the photo off the edited message; real vision APIs weren't tried (mocked only).
+- **Photos:** real vision APIs weren't tried (mocked only).
 - **Status updates:** an optional picture with a status (the roadmap's original idea); the status row on phones and in the collapsed sidebar.
 - **Story script:** use it in adventures too (the narrator following the user's beats); show which beat a message belongs to.
 - **Messaging feel:** texting mode isn't used by the terminal theme or the novel view; the terminal theme only offers ❤️ as a reaction; the inner-thoughts switch is only in a 1:1 chat's Scene panel (rooms have none yet).
