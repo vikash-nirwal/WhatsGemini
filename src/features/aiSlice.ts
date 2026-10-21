@@ -3,7 +3,8 @@ import { performChatCompression, buildValidHistory, buildAutoCompressedMessages,
 import { AI, getModelPricing, ART_STYLE_CLAUSES, DEFAULT_ART_STYLE } from "../utils/constants";
 import { getProviderApiKey, getOllamaBaseUrl, getWanBaseUrl } from "./ai/utils/settings";
 import { extractAndSaveBase64ImagesLocally, stripLeakedBase64 } from "./ai/utils/apiUtils";
-import { deriveImagePrompt, generateImage, RoomReferenceCharacter } from "./ai/utils/imageGeneration";
+import { composeImagePrompt, deriveImagePrompt, generateImage, RoomReferenceCharacter } from "./ai/utils/imageGeneration";
+import { ImagePromptTarget, resolveImagePromptTarget } from "./ai/utils/imagePromptGuide";
 import { generateVideo } from "./ai/utils/videoGeneration";
 import { extractEmotionTag } from "./ai/utils/emotionUtils";
 import { extractReactionTag, extractThoughts } from "./ai/utils/messageTags";
@@ -76,6 +77,21 @@ const resolveHelperCall = async (settings: RootState["settings"]) => {
     throw new Error(`No API key saved for ${providerId}. Add one in Settings.`);
   }
   return { providerId, adapter, config, model: useHelper ? settings.helperModel : settings.selectedModel };
+};
+
+// Portraits and backdrops start from a fixed English description, which the
+// hosted models and FLUX read fine. Stable Diffusion models want tags, so for
+// those the helper model rewrites it first; if that fails, the description
+// goes as it is.
+const rewordForTagModel = async (settings: RootState["settings"], target: ImagePromptTarget, description: string): Promise<string> => {
+  if (!target.tags) return description;
+  try {
+    const helper = await resolveHelperCall(settings);
+    const { prompt } = await composeImagePrompt(helper.adapter, helper.config, helper.model, { target, scene: description, baseStyle: settings.imageGenPrompt });
+    return prompt;
+  } catch {
+    return description;
+  }
 };
 
 // Async Thunk for generating AI response
@@ -201,7 +217,15 @@ export const generateAIResponse = createAsyncThunk(
         // gets no extra camera-motion-specific instruction yet.
         const derivation = await deriveImagePrompt(
           chatAdapter, chatConfig, selectedModel, turnConfig, historyForSdk, fullPrompt,
-          settings.imageGenPrompt, settings.sdWebuiModel, useSdWebui,
+          settings.imageGenPrompt,
+          resolveImagePromptTarget({
+            providerId: imageProviderId,
+            imageModel: imageModelName,
+            sdWebuiModel: settings.sdWebuiModel,
+            hasReference: Boolean(characterImages?.length || otherRoomCharacters?.some((c) => c.images.length > 0)),
+            referenceMode: localImageSettings?.referenceMode,
+            isVideo: isVideoRequest,
+          }),
           existingImagePrompt, existingImageParams, signal, isCharacterInitiated, isAutoSelfie, artStyle, appearanceLocks
         );
         trackUsage(derivation.usage, chatProviderId, selectedModel);
@@ -546,9 +570,10 @@ export const generateBackdropImage = createAsyncThunk(
       const imageConfig = useSdWebui
         ? { apiKey: null }
         : await resolveProviderConfig(imageProviderId, IMAGE_PROVIDERS[imageProviderId]?.capabilities.requiresBaseUrl || false);
+      const target = resolveImagePromptTarget({ providerId: imageProviderId, imageModel: settings.imageModel, sdWebuiModel: settings.sdWebuiModel });
       const result = await generateImage(
         imageProviderId, imageConfig, useSdWebui, settings.imageModel,
-        buildBackdropPrompt(setting, ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE]),
+        await rewordForTagModel(settings, target, buildBackdropPrompt(setting, ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE])),
         useSdWebui ? { width: 1024, height: 576 } : {},
         undefined, undefined, settings.safetySettings, undefined, settings.geminiImageSize, "16:9"
       );
@@ -606,7 +631,14 @@ export const generateAvatarImage = createAsyncThunk(
           ? 'Solid, perfectly flat, uniform chroma-key background in pure magenta (hex #FF00FF) - no gradient, no shadow, no vignette, no texture, the entire background must be one single uniform color for background removal, only the character visible in the foreground, PNG output'
           : "Plain, uncluttered solid-color background, no scenery or props, only the character visible, PNG output"
       );
-      const prompt = parts.join(". ") + ".";
+      const target = resolveImagePromptTarget({
+        providerId: imageProviderId,
+        imageModel: imageModelName,
+        sdWebuiModel: settings.sdWebuiModel,
+        hasReference: Boolean(appearanceImages?.length),
+        referenceMode: localImageSettings?.referenceMode,
+      });
+      const prompt = await rewordForTagModel(settings, target, parts.join(". ") + ".");
 
       const result = await generateImage(
         imageProviderId, imageConfig, useSdWebui, imageModelName,
@@ -660,6 +692,8 @@ export const generateAdventureSceneImage = createAsyncThunk(
 
       // Normally only NPCs the narration names; an explicit request can ask for everyone.
       const presentCast = includeFullCast ? cast : findCastInNarration(narration, cast);
+      const hasReferences = presentCast.some((c) => c.appearanceImages?.length) || Boolean(persona?.avatar || persona?.appearanceImages?.length);
+      const sceneTarget = resolveImagePromptTarget({ providerId: imageProviderId, imageModel: imageModelName, sdWebuiModel: settings.sdWebuiModel, hasReference: hasReferences });
       let imagePrompt = existingImagePrompt;
       if (!imagePrompt) {
         const chatAdapter = CHAT_PROVIDERS[settings.chatProvider] || CHAT_PROVIDERS.gemini;
@@ -669,7 +703,7 @@ export const generateAdventureSceneImage = createAsyncThunk(
         }
         const instruction = buildAdventureSceneImageInstruction(
           stripLeakedBase64(narration), world, presentCast, persona,
-          ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE], settings.imageGenPrompt, useSdWebui,
+          ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE], settings.imageGenPrompt, sceneTarget,
           { castEmotions, requestedFocus, includeFullCast }
         );
         const derivation = await chatAdapter.generateOnce(instruction, settings.selectedModel, chatConfig);
@@ -677,7 +711,7 @@ export const generateAdventureSceneImage = createAsyncThunk(
         imagePrompt = derivation.text.trim() || narration;
       }
       // Each drawn NPC's locked look (#34), guaranteed in the final prompt.
-      imagePrompt = applyAppearanceLocks(imagePrompt, appearanceLocksFor(presentCast), useSdWebui ? "tags" : "sentences");
+      imagePrompt = applyAppearanceLocks(imagePrompt, appearanceLocksFor(presentCast), sceneTarget.tags ? "tags" : "sentences");
 
       const references: RoomReferenceCharacter[] = presentCast
         .filter((c) => c.appearanceImages && c.appearanceImages.length > 0)

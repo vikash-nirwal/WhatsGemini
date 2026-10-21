@@ -72,10 +72,10 @@ test("the worn outfit reaches the prompt and pictures, and is switched in the Sc
 
   mockAI.reply("PROMPT:\nAria at her desk\n\nSUMMARY:\nHere I am at work!");
   await sendMessage(page, "/image you at work");
-  await expect.poll(() => mockAI.requests.length).toBeGreaterThan(0);
-  const sent = JSON.stringify(mockAI.requests[0].messages);
-  expect(sent).toContain("What you're wearing right now: Work clothes (charcoal blazer, white shirt)");
-  expect(sent).toContain("silver hair, violet eyes; outfit: charcoal blazer, white shirt");
+  // The in-character call knows the outfit; the prompt-writing call gets the locked look with it.
+  await expect.poll(() => mockAI.requests.length).toBeGreaterThan(1);
+  expect(JSON.stringify(mockAI.requests[0].messages)).toContain("What you're wearing right now: Work clothes (charcoal blazer, white shirt)");
+  expect(mockAI.requests[1].prompt).toContain("silver hair, violet eyes; outfit: charcoal blazer, white shirt");
 
   await headerAction(page, "Scene & chat settings");
   await page.getByRole("tab", { name: "Chat", exact: true }).click();

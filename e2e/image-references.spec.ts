@@ -189,10 +189,32 @@ test.describe("ComfyUI", () => {
     expect(comfy.sequence()[0]).toBe("POST /upload/image");
     const nodes = Object.values(comfy.queuedWorkflow() as Record<string, { class_type: string; inputs: Record<string, any> }>);
     const texts = nodes.filter((n) => typeof n.inputs.text === "string").map((n) => n.inputs.text as string);
-    expect(texts.some((t) => t.startsWith("aria_char, ") && t.includes("Aria: silver hair, violet eyes.") && t.includes("Aria waving at the camera"))).toBe(true);
+    // ComfyUI's SDXL workflow takes tags, so the locked look goes in as tags.
+    expect(texts.some((t) => t.startsWith("aria_char, ") && t.includes("silver hair, violet eyes, ") && t.includes("Aria waving at the camera"))).toBe(true);
     expect(nodes.find((n) => "seed" in n.inputs)?.inputs.seed).toBe(1234);
     expect(nodes.find((n) => "lora_name" in n.inputs)?.inputs).toMatchObject({ lora_name: "aria_v1.safetensors", strength_model: 0.7 });
     expect(nodes.find((n) => n.class_type === "LoadImage")?.inputs.image).toBe(comfy.requests[0].uploadName);
+  });
+});
+
+test.describe("ComfyUI prompt writing", () => {
+  test.use({ seed: { messages: 2 }, localStorageOverrides: { image_provider: "comfyui" } });
+
+  test("the text model writes the prompt for the workflow, even when it ignores the format", async ({ page, mockAI }) => {
+    const comfy = await mockComfyUI(page);
+    // The in-character call answers without SCENE/REPLY labels; the
+    // prompt-writing call answers with SDXL tags.
+    mockAI.replyOnce("Here's me right now! [Image Context: Aria on a beach at sunset]", "1girl, solo, Aria, beach at sunset, sundress, waving, golden hour, upper body");
+    await openChat(page);
+    await sendMessage(page, "/image send me a pic at the beach");
+    await expect(page.getByText("Here's me right now!")).toBeVisible({ timeout: 20_000 });
+    await waitForReplyDone(page);
+
+    expect(mockAI.requests[1].prompt).toContain('You write prompts for an image generator: ComfyUI running the "SDXL text to image" workflow');
+    expect(mockAI.requests[1].prompt).toContain("It shows: Aria on a beach at sunset");
+    const texts = Object.values(comfy.queuedWorkflow() as Record<string, { inputs: Record<string, any> }>).map((n) => n.inputs.text).filter((t): t is string => typeof t === "string");
+    expect(texts).toContain("1girl, solo, Aria, beach at sunset, sundress, waving, golden hour, upper body");
+    expect(texts.some((t) => t.includes("send me a pic at the beach"))).toBe(false);
   });
 });
 

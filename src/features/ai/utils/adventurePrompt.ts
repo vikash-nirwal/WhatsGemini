@@ -6,6 +6,7 @@ import { effectiveContentRating } from "../../character/contentRating";
 import { NSFW_CONTENT_RULE, SFW_CONTENT_RULE } from "./promptComposition";
 import { buildGameStateDirective, currentGameState, STATS_START } from "../../adventure/gameState";
 import { buildSkillCheckDirective } from "../../adventure/skillChecks";
+import type { ImagePromptTarget } from "./imagePromptGuide";
 
 // Delimiters the narrator is instructed to wrap its suggested next actions
 // in, at the end of every reply - parsed back out by parseAdventureChoices
@@ -143,7 +144,7 @@ export const buildAdventureSceneImageInstruction = (
   activePersona: UserProfile | undefined,
   styleClause: string,
   baseStylePrompt: string,
-  useSdWebui: boolean,
+  target: ImagePromptTarget,
   options: {
     castEmotions?: Record<number, string>;
     requestedFocus?: string; // the player's action text when they asked for a picture with it
@@ -165,12 +166,8 @@ export const buildAdventureSceneImageInstruction = (
     context.push(`${includeFullCast && presentCast.length > 0 ? "Characters" : "Characters who may appear"}:\n${people.join("\n")}`);
   }
 
-  const format = useSdWebui
-    ? "a comma-separated, tag-based Stable Diffusion prompt (subject, setting, lighting, mood, composition, quality tags)"
-    : "one richly descriptive paragraph (subject, setting, lighting, mood, composition)";
-
   return [
-    "You are an expert prompt engineer illustrating a scene from an interactive text adventure.",
+    `You are an expert prompt engineer illustrating a scene from an interactive text adventure, writing for ${target.engine}.`,
     context.join("\n\n"),
     `Latest narration:\n"""\n${narration}\n"""`,
     requestedFocus
@@ -181,8 +178,9 @@ export const buildAdventureSceneImageInstruction = (
     includeFullCast && presentCast.length > 0
       ? `The player wants the whole cast in this picture: ${presentCast.map((c) => c.name).join(", ")}. Name and depict every one of them together in the scene, each clearly recognizable, even those the narration doesn't mention - place them naturally in the setting.`
       : "",
-    `Write ${format} for a wide, cinematic illustration of the single most visually striking moment in that narration. Depict the environment and any named characters who are present, matching their descriptions. The player is written in second person - show them from a third-person or over-the-shoulder view only if they're central to the moment. No text, captions, speech bubbles, or UI in the image.`,
+    `Write the prompt for a wide, cinematic illustration of the single most visually striking moment in that narration. Depict the environment and any named characters who are present, matching their descriptions. The player is written in second person - show them from a third-person or over-the-shoulder view only if they're central to the moment. No text, captions, speech bubbles, or UI in the image.`,
     `Base style rule: ${baseStylePrompt}\nArt style: ${styleClause}.`,
+    `How to write it for this model: ${target.guide}`,
     "Output ONLY the prompt itself - no preamble, labels, quotes, or explanation.",
   ]
     .filter(Boolean)

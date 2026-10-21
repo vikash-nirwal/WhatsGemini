@@ -1,5 +1,9 @@
 import { parseAdventureChoices, buildAdventureSystemInstruction, adventureContentRating, streamingNarrationForDisplay, findCastInNarration, buildAdventureSceneImageInstruction, extractAdventureEmotions, buildAdventureEmotionDirective, ADVENTURE_CHOICES_START, ADVENTURE_CHOICES_END } from "./adventurePrompt";
 import { Adventure, Character, World } from "../../../types";
+import { resolveImagePromptTarget } from "./imagePromptGuide";
+
+const PROSE = resolveImagePromptTarget({ providerId: "openai" });
+const SD = resolveImagePromptTarget({ providerId: "sdwebui" });
 
 describe("parseAdventureChoices", () => {
   it("returns the whole text with no choices when the block is absent", () => {
@@ -126,7 +130,7 @@ describe("buildAdventureSceneImageInstruction", () => {
   const cast: Character[] = [{ id: 1, name: "Mira", description: "A thief", prompt: "", appearance: "red cloak, silver hair" }];
 
   it("includes the narration, setting, present cast and style", () => {
-    const text = buildAdventureSceneImageInstruction("Mira leaps the rooftop.", world, cast, { id: "p", name: "Kai", bio: "", appearance: "tall" }, "Anime style", "High quality.", false);
+    const text = buildAdventureSceneImageInstruction("Mira leaps the rooftop.", world, cast, { id: "p", name: "Kai", bio: "", appearance: "tall" }, "Anime style", "High quality.", PROSE);
     expect(text).toContain("Mira leaps the rooftop.");
     expect(text).toContain("Ashfall");
     expect(text).toContain("red cloak, silver hair");
@@ -135,8 +139,11 @@ describe("buildAdventureSceneImageInstruction", () => {
     expect(text).toContain("High quality.");
   });
 
-  it("asks for tag-based prompts when using SD WebUI", () => {
-    expect(buildAdventureSceneImageInstruction("Scene.", undefined, [], undefined, "s", "b", true)).toContain("tag-based");
+  it("writes for the image model in use: tags for SD WebUI, prose for OpenAI", () => {
+    const sd = buildAdventureSceneImageInstruction("Scene.", undefined, [], undefined, "s", "b", SD);
+    expect(sd).toContain("writing for Stable Diffusion WebUI");
+    expect(sd).toContain("comma-separated tags");
+    expect(buildAdventureSceneImageInstruction("Scene.", undefined, [], undefined, "s", "b", PROSE)).toContain("natural-language paragraph");
   });
 });
 
@@ -178,8 +185,8 @@ ${ADVENTURE_CHOICES_END}`;
 
 describe("buildAdventureSceneImageInstruction requested focus", () => {
   it("makes the player's requested subject the focus only when asked", () => {
-    expect(buildAdventureSceneImageInstruction("You unroll the map.", undefined, [], undefined, "s", "b", false, { requestedFocus: "I study the map" })).toContain('"I study the map"');
-    expect(buildAdventureSceneImageInstruction("You unroll the map.", undefined, [], undefined, "s", "b", false)).not.toContain("explicitly asked");
+    expect(buildAdventureSceneImageInstruction("You unroll the map.", undefined, [], undefined, "s", "b", PROSE, { requestedFocus: "I study the map" })).toContain('"I study the map"');
+    expect(buildAdventureSceneImageInstruction("You unroll the map.", undefined, [], undefined, "s", "b", PROSE)).not.toContain("explicitly asked");
   });
 });
 
@@ -190,13 +197,13 @@ describe("buildAdventureSceneImageInstruction full cast", () => {
   ];
 
   it("requires every cast member to be depicted when asked", () => {
-    const text = buildAdventureSceneImageInstruction("Mira waits.", undefined, cast, undefined, "s", "b", false, { includeFullCast: true });
+    const text = buildAdventureSceneImageInstruction("Mira waits.", undefined, cast, undefined, "s", "b", PROSE, { includeFullCast: true });
     expect(text).toContain("whole cast in this picture: Mira, Old Tom");
     expect(text).not.toContain("Characters who may appear");
   });
 
   it("leaves casting to the narration otherwise", () => {
-    expect(buildAdventureSceneImageInstruction("Mira waits.", undefined, cast, undefined, "s", "b", false)).not.toContain("whole cast");
+    expect(buildAdventureSceneImageInstruction("Mira waits.", undefined, cast, undefined, "s", "b", PROSE)).not.toContain("whole cast");
   });
 });
 

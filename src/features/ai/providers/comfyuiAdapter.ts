@@ -1,7 +1,7 @@
 import type { ImageGenCallOptions, ImageGenCallResult, ImageProviderAdapter } from "./types";
 import type { NormalizedImage } from "../types";
 import { cancelPrompt, fetchOutputImage, normalizeServerUrl, queuePrompt, uploadImage, waitForOutputs } from "../comfyui/client";
-import { chooseTemplate, findTemplate, loadComfySettings, loadCustomWorkflows, parseSeed, templateOptionsFor } from "../comfyui/settings";
+import { chooseTemplate, findTemplate, loadComfySettings, loadCustomWorkflows, parseSeed, REFERENCE_MODE_TEMPLATES, templateOptionsFor } from "../comfyui/settings";
 import { fillWorkflow, PlaceholderValues, randomSeed, REFERENCE_PLACEHOLDERS, sizeForAspectRatio } from "../comfyui/workflow";
 
 // A local ComfyUI server (#39). Everything the adapter needs (server URL,
@@ -33,14 +33,6 @@ const hashData = (data: string): string => {
 
 export const referenceFileName = (image: NormalizedImage): string =>
   `whatsgemini-ref-${hashData(image.data)}-${image.data.length.toString(36)}.${EXTENSIONS[image.mimeType] || "png"}`;
-
-// A character's reference mode (#40), set in the character editor in SD
-// WebUI terms, picks the matching bundled template.
-const REFERENCE_MODE_TEMPLATES: Record<string, string> = {
-  controlnet: "sdxl-faceid",
-  reactor: "sdxl-reactor",
-  img2img: "flux-kontext-gguf",
-};
 
 // ComfyUI's loaders want the file name with its extension.
 const loraFileName = (name: string): string => (/\.(safetensors|pt|ckpt)$/i.test(name) ? name : `${name}.safetensors`);

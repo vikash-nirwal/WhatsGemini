@@ -41,6 +41,14 @@ export interface CustomWorkflow {
 
 export const CUSTOM_PREFIX = "custom:";
 
+// A character's reference mode (#40), set in the character editor in SD
+// WebUI terms, picks the matching bundled template.
+export const REFERENCE_MODE_TEMPLATES: Record<string, string> = {
+  controlnet: "sdxl-faceid",
+  reactor: "sdxl-reactor",
+  img2img: "flux-kontext-gguf",
+};
+
 export const DEFAULT_COMFYUI_SETTINGS: ComfyUISettings = {
   serverUrl: DEFAULT_COMFYUI_URL,
   referenceTemplateId: DEFAULT_REFERENCE_TEMPLATE_ID,
