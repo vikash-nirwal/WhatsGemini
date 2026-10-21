@@ -10,6 +10,7 @@ import { extractReactionTag, extractThoughts } from "./ai/utils/messageTags";
 import { buildRecapPrompt, cleanRecap, latestStorySummary, recentForRecap } from "./chat/recap";
 import { extractBeatTag } from "./chat/storyScript";
 import { extractGameOverTag, GameOutcome } from "./chat/miniGames";
+import { extractStateBlock } from "./chat/sceneState";
 import { modelSeesImages } from "./ai/vision";
 import { appendCharacterImages } from "./ai/utils/imageProcessing";
 import type { NormalizedImage } from "./ai/types";
@@ -20,7 +21,7 @@ import { CHAT_PROVIDERS, IMAGE_PROVIDERS, VIDEO_PROVIDERS } from "./ai/providers
 import { ProviderRuntimeConfig } from "./ai/providers/types";
 import { ChatMessage, UsageInfo } from "./ai/types";
 import { RootState } from "../store/store";
-import { SDImageParams, Message, ArtStyle, Character, UserProfile, World, DiaryEntry, LocalImageSettings } from "../types";
+import { SDImageParams, Message, ArtStyle, Character, UserProfile, World, DiaryEntry, LocalImageSettings, SceneState } from "../types";
 import { buildDiaryPrompt, cleanDiaryEntry } from "./ai/utils/diary";
 import { buildAdventureSceneImageInstruction, findCastInNarration } from "./ai/utils/adventurePrompt";
 import { insertCompressionSummary, fetchChats } from "./chatSlice";
@@ -46,6 +47,7 @@ export interface GenerateAIResponseResult {
   reaction?: string; // the character's reaction to the message it answered (#11)
   beatDone?: boolean; // the story script's current beat was reached (#57)
   gameOver?: GameOutcome; // the mini-game ended, and who won (#52)
+  sceneState?: Partial<SceneState>; // the scene's state as the reply left it (#9)
   photoDescription?: string; // what a helper model saw in the user's photo (#48)
   photoUnseen?: boolean; // nobody could see the user's photo (#48)
   isRefusal?: boolean;
@@ -273,7 +275,8 @@ export const generateAIResponse = createAsyncThunk(
       const { emotion } = emotionResult;
       const reactionAfter = reactionFirst.reaction ? { text: emotionResult.text, reaction: undefined } : extractReactionTag(emotionResult.text);
       const reaction = reactionFirst.reaction || reactionAfter.reaction;
-      const { text: withoutThoughts, thoughts } = extractThoughts(reactionAfter.text);
+      const { text: withoutState, state: sceneState } = extractStateBlock(reactionAfter.text);
+      const { text: withoutThoughts, thoughts } = extractThoughts(withoutState);
       // A story script's [Beat done] tag (#57) closes the reply, if present.
       const { text: withoutBeat, beatDone } = extractBeatTag(withoutThoughts);
       // A mini-game's [Game over] tag (#52), in either order with the beat tag.
@@ -297,6 +300,7 @@ export const generateAIResponse = createAsyncThunk(
         photoUnseen: photoUnseen || undefined,
         beatDone: beatAfter.beatDone || undefined,
         gameOver,
+        sceneState,
         // Only a plain text reply can be an out-of-character refusal; image/
         // video turns carry a derived scene summary instead.
         isRefusal: !isImageRequest && !isVideoRequest && looksLikeRefusal(finalResponseText) ? true : undefined,

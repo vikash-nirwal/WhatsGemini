@@ -419,7 +419,52 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
             </div>
           )}
 
-          {/* Story script (#57) */}
+          {/* Scene tracker (#9): a HUD with location, time, outfit and two meters */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[12.5px] font-medium text-foreground">Track the scene</div>
+              <div className="text-[11px] text-subtle">Each reply keeps where you are, the time, the outfit, affection and trust up to date, shown under the header. Adds a little to every reply.</div>
+            </div>
+            <ToggleSwitch
+              checked={Boolean(chat?.sceneTracker)}
+              onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { sceneTracker: val || undefined } }))}
+              label={<span className="sr-only">Track the scene</span>}
+            />
+          </div>
+          {chat?.sceneTracker && (
+            <div className="grid grid-cols-2 gap-2">
+              {(["location", "time", "outfit"] as const).map((field) => (
+                <label key={field} className={cn("flex flex-col gap-1 text-[11px] text-subtle capitalize", field === "location" && "col-span-2")}>
+                  {field}
+                  <Input
+                    value={chat.sceneState?.[field] || ""}
+                    onChange={(e) => dispatch(updateChatOptions({ chatId, patch: { sceneState: { ...chat.sceneState, [field]: e.target.value || undefined } } }))}
+                    className="h-8 text-[12.5px] px-2.5 rounded-lg"
+                  />
+                </label>
+              ))}
+              {(["affection", "trust"] as const).map((field) => (
+                <label key={field} className="flex flex-col gap-1 text-[11px] text-subtle capitalize">
+                  {field} (0-100)
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={chat.sceneState?.[field] ?? ""}
+                    onChange={(e) => {
+                      const n = e.target.value === "" ? undefined : Math.max(0, Math.min(100, Number(e.target.value)));
+                      dispatch(updateChatOptions({ chatId, patch: { sceneState: { ...chat.sceneState, [field]: n } } }));
+                    }}
+                    className="h-8 text-[12.5px] px-2.5 rounded-lg"
+                  />
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Story script (#57) */}
           {onEditStory && (
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">

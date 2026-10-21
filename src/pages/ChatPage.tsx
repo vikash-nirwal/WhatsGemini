@@ -9,6 +9,7 @@ import { resolveTurnModel } from "../features/ai/modelResolution";
 import { appearanceLocksFor, lockedLookFor } from "../features/ai/utils/appearanceLock";
 import { useChatRecap } from "../features/chat/useChatRecap";
 import { moveBeat } from "../features/chat/storyScript";
+import { mergeState } from "../features/chat/sceneState";
 import { buildCelebrationDirective, datesToCelebrate } from "../features/character/importantDates";
 import { buildEventDirective, drawEvent } from "../features/chat/eventDeck";
 import { buildGameStartDirective, gameLabel, GameOutcome } from "../features/chat/miniGames";
@@ -34,7 +35,7 @@ import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory
 import { Button } from "src/components/atoms/button";
 import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DIARY_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { Message, Chat, Character } from "../types";
+import { Message, Chat, Character, SceneState } from "../types";
 import { stripLeakedBase64 } from "../features/ai/utils/apiUtils";
 import { buildSystemInstruction, buildTurnContext, AUTO_REPLY_DIRECTIVE, FOLLOWUP_CONTINUATION_PROMPT, RoomContext, SceneContext } from "../features/ai/utils/promptComposition";
 import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
@@ -230,6 +231,8 @@ const ChatPage = () => {
     storyScript: currentChat?.storyScript,
     game: currentChat?.game,
     onCall: inCall,
+    sceneTracker: currentChat?.sceneTracker,
+    sceneState: currentChat?.sceneState,
   };
 
   // Which persona this chat actually speaks as: its own override if set,
@@ -749,6 +752,7 @@ const ChatPage = () => {
 
     await saveCharacterReaction(payloadObj?.reaction, compressedFreshMessages, speaker.id);
     advanceStoryIfDone(payloadObj);
+    saveSceneState(payloadObj);
     advanceGame(payloadObj, false);
     runBackgroundUpdates((aiAddResult.payload as Message[]) || [], speaker);
     return true;
@@ -1037,6 +1041,7 @@ const ChatPage = () => {
 
         await saveCharacterReaction(payloadObj?.reaction, contextMessages, speaker.id);
         advanceStoryIfDone(payloadObj);
+        saveSceneState(payloadObj);
         advanceGame(payloadObj, true);
         runBackgroundUpdates((aiAddResult.payload as Message[]) || [], speaker);
       }
@@ -1133,6 +1138,7 @@ const ChatPage = () => {
           }
 
           advanceStoryIfDone(payloadObj);
+          saveSceneState(payloadObj);
           advanceGame(payloadObj, false);
           runBackgroundUpdates(finalContent, speaker);
         }
@@ -1238,6 +1244,7 @@ const ChatPage = () => {
         }
 
         advanceStoryIfDone(payloadObj);
+        saveSceneState(payloadObj);
         advanceGame(payloadObj, false);
         runBackgroundUpdates(newContent, speaker);
       }
@@ -1387,6 +1394,7 @@ const ChatPage = () => {
         await dispatch(updateChatTree({ chatId: chatIdNum, content: updatedContent, tree: updatedTree, activeLeafId: currentActiveLeafId }));
 
         advanceStoryIfDone(payloadObj);
+        saveSceneState(payloadObj);
         runBackgroundUpdates(updatedContent, speaker);
       }
 
@@ -1515,6 +1523,12 @@ const ChatPage = () => {
   };
   const advanceStoryIfDone = (payload: { beatDone?: boolean } | undefined) => {
     if (payload?.beatDone) moveStoryBeat(1);
+  };
+
+  // Scene state (#9): what a reply reports is merged into the chat's state.
+  const saveSceneState = (payload: { sceneState?: Partial<SceneState> } | undefined) => {
+    if (!chatIdNum || !currentChat?.sceneTracker || !payload?.sceneState) return;
+    dispatch(updateChatOptions({ chatId: chatIdNum, patch: { sceneState: mergeState(currentChat.sceneState, payload.sceneState) } }));
   };
 
   // Mini-games (#52): each reply to the user's message moves the game on a

@@ -1,4 +1,4 @@
-import { Character, ChatGame, Intensity, LoreEntry, Message, RoleplayStyle, StoryScript, UserProfile } from "../../../types";
+import { Character, ChatGame, Intensity, LoreEntry, Message, RoleplayStyle, SceneState, StoryScript, UserProfile } from "../../../types";
 import { YOU } from "../../../utils/constants";
 import { stripLeakedBase64 } from "./apiUtils";
 import { buildEmotionDirective } from "./emotionUtils";
@@ -6,6 +6,7 @@ import { buildReactionDirective, buildThoughtsDirective, formatReactionNote } fr
 import { buildStoryScriptSection } from "../../chat/storyScript";
 import { buildGameSection } from "../../chat/miniGames";
 import { buildCallSection } from "../../voice/callSession";
+import { buildStateDirective } from "../../chat/sceneState";
 import { buildDatesSection } from "../../character/importantDates";
 import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
 import { applyMacros } from "./macros";
@@ -464,6 +465,8 @@ export interface SceneContext {
   storyScript?: StoryScript; // the story this chat follows (#57)
   game?: ChatGame; // the mini-game being played (#52)
   onCall?: boolean; // a phone call is on (#56): replies are spoken aloud
+  sceneTracker?: boolean; // track the scene's state (#9)
+  sceneState?: SceneState;
 }
 
 // The single function replacing the copy-pasted "build history + build system
@@ -490,6 +493,7 @@ export const buildTurnContext = (
     ...(scene?.storyScript ? [buildStoryScriptSection(scene.storyScript)] : []),
     ...(scene?.game && character ? [buildGameSection(scene.game, character.name)] : []),
     ...(scene?.onCall && character ? [buildCallSection(character.name)] : []),
+    ...(scene?.sceneTracker && character ? [buildStateDirective(scene.sceneState, character.name)] : []),
   ];
   const directives = sceneDirectives.length > 0 ? [...sceneDirectives, ...(extraDirectives || [])] : extraDirectives;
   const { text, images, characterName } = buildSystemInstruction(

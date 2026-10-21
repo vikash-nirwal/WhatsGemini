@@ -12,6 +12,7 @@ import type { RecapView } from "../../features/chat/useChatRecap";
 import { RecapCard } from "src/components/molecules/RecapCard";
 import { StoryProgress } from "src/components/molecules/StoryProgress";
 import { GameProgress } from "src/components/molecules/GameProgress";
+import { SceneStateStrip } from "src/components/molecules/SceneStateStrip";
 import { applyMacros, getGreetings } from "../../features/ai/utils/macros";
 import { isNsfwCharacter } from "../../features/character/contentRating";
 import { stopSpeaking } from "../../features/voice/speech";
@@ -297,6 +298,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ game, gameScore, onEndGame, sto
   // Texting mode (#6): a reply that arrives while the chat is open is shown
   // one text at a time, with the typing dots in between. Messages already
   // there when the chat opens (or reached by switching branches) show whole.
+  // The scene state HUD (#9), when this chat tracks it.
+  const sceneTracker = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.sceneTracker);
+  const sceneState = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.sceneState);
   // A chat's own choice wins over the app setting (Scene panel > Chat).
   const appTextingMode = useAppSelector((state) => state.settings.textingMode);
   const chatTextingMode = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.textingMode);
@@ -544,6 +548,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ game, gameScore, onEndGame, sto
             <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-background/60 via-background/80 to-background" />
           </>
         )}
+        {sceneTracker && <SceneStateStrip state={sceneState} terminal={terminal} />}
         <div
           className="relative z-[1] flex-1 overflow-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           ref={scrollContainerRef}

@@ -116,6 +116,16 @@ export interface ImportantDate {
   lastCelebratedYear?: number; // so that happens once a year
 }
 
+// The scene's tracked state (#9): kept on the chat, updated by each reply.
+export interface SceneState {
+  location?: string;
+  time?: string;
+  outfit?: string;
+  affection?: number; // 0-100
+  trust?: number; // 0-100
+  updatedAt?: number;
+}
+
 // A mini-game being played in a chat (#52).
 export type GameKind = "twenty-questions" | "would-you-rather" | "truth-or-dare";
 export interface ChatGame {
@@ -193,6 +203,8 @@ export interface Chat {
   memoryScope?: "character" | "chat";
   replySuggestions?: boolean; // show 3 tappable reply ideas after each reply (#16)
   textingMode?: boolean; // this chat's texting mode (#6); unset = the app setting
+  sceneTracker?: boolean; // track location, time, outfit and two meters (#9)
+  sceneState?: SceneState;
   recap?: ChatRecap; // the cached "Previously on..." card (#46), never sent to the model
   storyScript?: StoryScript; // the story this chat follows (#57)
   game?: ChatGame; // the mini-game being played (#52)
