@@ -6,12 +6,6 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 ---
 
-## Immersion in 1:1 chats
-
-The app is called WhatsGemini, so lean into the messaging-app fantasy.
-
-13. **Chat backdrops** (S). Generate or upload a background image for a chat from its setting tags or scenario, shown subtly behind the bubbles.
-
 ## Group chats
 
 22. **More than one reply per message** (M). Today exactly one character answers each message. Add a "natural" turn mode: a cheap helper call reads the last exchange and picks who would naturally respond (possibly two in a row, possibly nobody). The mode can be *round-robin*, *natural* or *everyone*, with a cap on how long a chain can run.

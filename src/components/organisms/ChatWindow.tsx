@@ -303,6 +303,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, relationshipSuggestio
   // Texting mode (#6): a reply that arrives while the chat is open is shown
   // one text at a time, with the typing dots in between. Messages already
   // there when the chat opens (or reached by switching branches) show whole.
+  const chatBackdrop = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.backdrop);
   // The scene state HUD (#9), when this chat tracks it.
   const sceneTracker = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.sceneTracker);
   const sceneState = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.sceneState);
@@ -545,10 +546,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, relationshipSuggestio
     <>
     <div className="relative h-full w-full flex overflow-hidden">
       <div className="flex-1 min-w-0 relative flex flex-col overflow-hidden">
-        {character?.appearanceImages?.[0] && !terminal && (
+        {(chatBackdrop || character?.appearanceImages?.[0]) && !terminal && (
           <>
-            <div className="absolute inset-0 opacity-25 pointer-events-none overflow-hidden">
-              <DisplayImage srcContext={character.appearanceImages[0]} alt="" aria-hidden="true" className="w-full h-full object-cover" />
+            {/* The chat's own backdrop (#13) when it has one, otherwise the
+                character's photo, both kept faint behind the bubbles. */}
+            <div className={cn("absolute inset-0 pointer-events-none overflow-hidden", chatBackdrop ? "opacity-40" : "opacity-25")} data-slot="chat-backdrop">
+              <DisplayImage srcContext={(chatBackdrop || character?.appearanceImages?.[0])!} alt="" aria-hidden="true" className="w-full h-full object-cover" />
             </div>
             <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-background/60 via-background/80 to-background" />
           </>

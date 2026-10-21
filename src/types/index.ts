@@ -227,6 +227,7 @@ export interface Chat {
   textingMode?: boolean; // this chat's texting mode (#6); unset = the app setting
   sceneTracker?: boolean; // track location, time, outfit and two meters (#9)
   worldId?: number; // a World whose setting and lore this chat uses (#28)
+  backdrop?: string; // a picture behind this chat's bubbles (#13)
   // Relationship that evolves (#30): off when false; the message count at
   // the last check; and a suggestion waiting for the user.
   relationshipSuggestions?: boolean;

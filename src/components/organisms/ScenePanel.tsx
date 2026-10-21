@@ -18,6 +18,11 @@ import { ChatSidePanelShell } from "src/components/molecules/ChatSidePanelShell"
 import { MAX_MEMORY_ENTRIES, DIARY_INTERVAL } from "src/utils/constants";
 import { cn } from "src/utils/cn";
 import { AUTHOR_NOTE_PRESETS, hasPreset, togglePreset } from "src/features/ai/utils/narrativeTools";
+import { DisplayImage } from "src/components/molecules/DisplayImage";
+import { generateBackdropImage } from "src/features/aiSlice";
+import { describeSetting } from "src/features/chat/backdrop";
+import { readPhoto } from "src/features/chat/photoAttachments";
+import { dataUrlToBlob, savePortraitBlob } from "src/features/ai/utils/portraitUtils";
 
 const CATEGORY_LABELS: Record<MemoryCategory, string> = { user: "About you", relationship: "Relationship", story: "Story" };
 
@@ -105,6 +110,35 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
   const chat = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId));
   const appTextingMode = useAppSelector((state) => state.settings.textingMode);
   const worlds = useAppSelector((state) => state.world.worlds);
+  // Backdrop (#13): generated from where the story is set, or uploaded.
+  const backdropInputRef = useRef<HTMLInputElement>(null);
+  const [backdropBusy, setBackdropBusy] = useState(false);
+  const [backdropError, setBackdropError] = useState<string | null>(null);
+  const handleGenerateBackdrop = async () => {
+    const world = chat?.worldId != null ? worlds.find((w) => w.id === chat.worldId) : undefined;
+    const setting = describeSetting({
+      location: chat?.sceneState?.location,
+      scenario: isRoom ? chatScenario : character?.scenario,
+      worldName: world?.name,
+      worldPremise: world?.premise,
+      tags: worldTags,
+    });
+    if (!setting) {
+      setBackdropError("Add a scenario, a world or setting tags first, so there's a place to picture.");
+      return;
+    }
+    setBackdropBusy(true);
+    setBackdropError(null);
+    try {
+      const image = await dispatch(generateBackdropImage({ setting, artStyle: character?.artStyle })).unwrap();
+      const saved = await savePortraitBlob(await dataUrlToBlob(image), "chat_bg").catch(() => image);
+      await dispatch(updateChatOptions({ chatId, patch: { backdrop: saved } }));
+    } catch (err: any) {
+      setBackdropError(typeof err === "string" ? err : err?.message || "Couldn't make a backdrop.");
+    } finally {
+      setBackdropBusy(false);
+    }
+  };
   // The panel's sections are split into tabs so it stays short; the last
   // one opened is remembered on this device.
   const [tab, setTab] = useState<SceneTab>(readSceneTab);
@@ -478,6 +512,49 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
               </Button>
             </div>
           )}
+
+          {/* Backdrop (#13): a picture behind the bubbles */}
+          <div>
+            <div data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold mb-2">Backdrop</div>
+            <div className="flex items-start gap-3">
+              <div className="h-14 w-24 flex-shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
+                {chat?.backdrop ? <DisplayImage srcContext={chat.backdrop} alt="This chat's backdrop" className="h-full w-full object-cover" /> : null}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <Button type="button" variant="outline" size="sm" onClick={handleGenerateBackdrop} disabled={backdropBusy}>
+                  {backdropBusy ? "Making..." : chat?.backdrop ? "Make another" : "Generate"}
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => backdropInputRef.current?.click()} disabled={backdropBusy}>
+                  Upload
+                </Button>
+                {chat?.backdrop && (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => dispatch(updateChatOptions({ chatId, patch: { backdrop: undefined } }))}>
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </div>
+            <input
+              ref={backdropInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              aria-hidden
+              tabIndex={-1}
+              data-testid="backdrop-input"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (!file) return;
+                try {
+                  dispatch(updateChatOptions({ chatId, patch: { backdrop: await readPhoto(file) } }));
+                } catch (err: any) {
+                  setBackdropError(err?.message || "Couldn't read that picture.");
+                }
+              }}
+            />
+            {backdropError && <p role="alert" className="mt-1.5 text-[11.5px] text-destructive">{backdropError}</p>}
+          </div>
 
           {/* An attached World (#28): its premise and lore apply to this chat */}
           <div>

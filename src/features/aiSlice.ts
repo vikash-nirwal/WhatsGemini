@@ -11,6 +11,7 @@ import { buildRecapPrompt, cleanRecap, latestStorySummary, recentForRecap } from
 import { extractBeatTag } from "./chat/storyScript";
 import { extractGameOverTag, GameOutcome } from "./chat/miniGames";
 import { extractStateBlock } from "./chat/sceneState";
+import { buildBackdropPrompt } from "./chat/backdrop";
 import { modelSeesImages } from "./ai/vision";
 import { appendCharacterImages } from "./ai/utils/imageProcessing";
 import type { NormalizedImage } from "./ai/types";
@@ -533,6 +534,32 @@ export const generateAssistText = createAsyncThunk(
 // image provider (Gemini Imagen / OpenAI DALL-E / SD WebUI) with a simple
 // portrait-optimized prompt rather than the full deriveImagePrompt pipeline
 // (which expects chat history and a conversational context).
+// A chat backdrop (#13): a wide, empty scene of where the story is set, in
+// the character's art style, on whatever image provider is set up.
+export const generateBackdropImage = createAsyncThunk(
+  "ai/generateBackdropImage",
+  async ({ setting, artStyle }: { setting: string; artStyle?: ArtStyle }, { getState, rejectWithValue }) => {
+    try {
+      const settings = (getState() as RootState).settings;
+      const imageProviderId = settings.imageProvider;
+      const useSdWebui = imageProviderId === "sdwebui";
+      const imageConfig = useSdWebui
+        ? { apiKey: null }
+        : await resolveProviderConfig(imageProviderId, IMAGE_PROVIDERS[imageProviderId]?.capabilities.requiresBaseUrl || false);
+      const result = await generateImage(
+        imageProviderId, imageConfig, useSdWebui, settings.imageModel,
+        buildBackdropPrompt(setting, ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE]),
+        useSdWebui ? { width: 1024, height: 576 } : {},
+        undefined, undefined, settings.safetySettings, undefined, settings.geminiImageSize, "16:9"
+      );
+      if (!result.images || result.images.length === 0) throw new Error(result.warning?.replace(/^\s*\[Warning:\s*|\]\s*$/g, "") || "No image was generated. Check your image provider in Settings.");
+      return result.images[0];
+    } catch (error: any) {
+      return rejectWithValue(error.message || "Failed to make a backdrop.");
+    }
+  }
+);
+
 export const generateAvatarImage = createAsyncThunk(
   "ai/generateAvatarImage",
   async (
