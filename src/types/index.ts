@@ -548,6 +548,7 @@ export interface AdventureRules {
   startingGold?: number;
   startingItems?: string[];
   skillChecks?: boolean; // risky choices carry a check the app rolls (#26)
+  memoryOff?: boolean; // long-term story memory is on unless this is set
 }
 
 // A roleplay adventure/story session - deliberately its own entity rather
@@ -570,4 +571,7 @@ export interface Adventure {
   activeLeafId?: string | null;
   totalTokensUsed?: number;
   totalCostEstimate?: number;
+  // Facts established in the story, pulled out every few turns like a
+  // chat's memory, so a long adventure stays consistent.
+  memory?: string[];
 }

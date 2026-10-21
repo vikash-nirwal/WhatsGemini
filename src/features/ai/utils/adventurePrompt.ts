@@ -6,6 +6,7 @@ import { effectiveContentRating } from "../../character/contentRating";
 import { NSFW_CONTENT_RULE, SFW_CONTENT_RULE } from "./promptComposition";
 import { buildGameStateDirective, currentGameState, startingGameState, STATS_START } from "../../adventure/gameState";
 import { buildSkillCheckDirective } from "../../adventure/skillChecks";
+import { selectRelevantFacts } from "./memoryRelevance";
 import type { ImagePromptTarget } from "./imagePromptGuide";
 
 // Delimiters the narrator is instructed to wrap its suggested next actions
@@ -74,6 +75,12 @@ export const buildAdventureSystemInstruction = (
 
   if (adventure.premise) {
     sections.push(`Opening premise: ${adventure.premise}`);
+  }
+
+  // Long-term memory: what the story has established, most relevant first.
+  const facts = adventure.rules?.memoryOff ? [] : selectRelevantFacts(adventure.memory || [], recentMessages);
+  if (facts.length > 0) {
+    sections.push(`What has been established in this story so far (keep it consistent):\n- ${facts.join("\n- ")}`);
   }
 
   if (cast.length > 0) {

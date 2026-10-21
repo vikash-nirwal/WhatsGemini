@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo, FaImage, FaSyncAlt, FaTimes, FaPalette, FaBookOpen, FaComments, FaFont, FaShieldAlt, FaCompressArrowsAlt, FaDiceD20, FaListUl } from "react-icons/fa";
+import { FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo, FaImage, FaSyncAlt, FaTimes, FaPalette, FaBookOpen, FaComments, FaFont, FaShieldAlt, FaCompressArrowsAlt, FaDiceD20, FaListUl, FaBrain, FaBookmark } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { deleteAdventure, addAdventureMessage, updateAdventureStatus, incrementAdventureUsage, updateAdventureMessage, updateAdventureRules, removeAdventureCompressionSummary } from "../features/adventureSlice";
-import { generateAIResponse, generateAdventureSceneImage, autoCompressAdventure } from "../features/aiSlice";
+import { deleteAdventure, addAdventureMessage, updateAdventureStatus, incrementAdventureUsage, updateAdventureMessage, updateAdventureRules, removeAdventureCompressionSummary, updateAdventureMemory, insertAdventureCompressionSummary } from "../features/adventureSlice";
+import { generateAIResponse, generateAdventureSceneImage, autoCompressAdventure, extractCharacterMemory, summarizeChapter } from "../features/aiSlice";
+import { applyMemoryChanges } from "../features/ai/utils/memoryExtraction";
 import { buildChatHistory, buildPostHistoryNote } from "../features/ai/utils/promptComposition";
-import { trimToLatestSummary, countProtectedPrefix, latestSummaryIndex } from "../features/ai/utils/transcript";
+import { trimToLatestSummary, countProtectedPrefix, latestSummaryIndex, buildSummaryMessages } from "../features/ai/utils/transcript";
 import { TagInput } from "src/components/molecules/form-controls/TagInput";
 import { buildAdventureSystemInstruction, parseAdventureChoices, extractAdventureEmotions, streamingNarrationForDisplay, ADVENTURE_OPENING_PROMPT } from "../features/ai/utils/adventurePrompt";
 import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
@@ -14,7 +15,7 @@ import EmotionSpritePanel from "src/components/molecules/EmotionSpritePanel";
 import EmotionPopup, { EmotionPopupTrigger } from "src/components/molecules/EmotionPopup";
 import { useModal } from "../contexts/ModalContext";
 import { Message } from "../types";
-import { YOU, AI, ART_STYLES, DEFAULT_ART_STYLE } from "../utils/constants";
+import { YOU, AI, ART_STYLES, DEFAULT_ART_STYLE, MEMORY_EXTRACTION_INTERVAL } from "../utils/constants";
 import { cn } from "../utils/cn";
 import { Button } from "src/components/atoms/button";
 import { Badge } from "src/components/atoms/badge";
@@ -26,6 +27,7 @@ import { DisplayImage } from "src/components/molecules/DisplayImage";
 import { Dialog, DialogContent, DialogTitle, DialogClose } from "src/components/molecules/dialog";
 import { NovelMessageItem } from "src/components/molecules/NovelMessageItem";
 import { NovelChoicesView } from "src/components/molecules/NovelChoicesView";
+import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { AdventureStatsPanel, CheckChip, GameChanges, SkillCheckBadge, statsSummary } from "src/components/molecules/AdventureStatsPanel";
 import { applyStatChanges, currentGameState, extractStatsBlock, startingGameState } from "../features/adventure/gameState";
 import { buildTypedCheckNote, extractCheckTag, parseChoiceCheck, resolveCheck, rollCheck, rollD20, withCheckNote } from "../features/adventure/skillChecks";
@@ -127,6 +129,8 @@ const AdventurePage = () => {
   const [imageRequested, setImageRequested] = useState(false);
   const [boundariesOpen, setBoundariesOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
+  const [memoryOpen, setMemoryOpen] = useState(false);
+  const [endingChapter, setEndingChapter] = useState(false);
   const roleplayStyle = useAppSelector((state) => state.settings.roleplayStyle);
   // Streams the narrator's reply in, tagged so only this adventure shows it.
   const streamKey = adventure ? `adventure-${adventure.id}` : undefined;
@@ -174,6 +178,39 @@ const AdventurePage = () => {
     [adventure, world, cast, persona, dispatch]
   );
 
+  // Long-term story memory: every MEMORY_EXTRACTION_INTERVAL messages the
+  // helper model pulls durable facts out of the recent turns, the way a
+  // chat's memory works. Counted from the last extraction this session, like
+  // ChatPage's maybeExtractMemory. Best-effort: a failure never interrupts play.
+  const memoryBaselineRef = useRef<number | null>(null);
+  const maybeExtractMemory = useCallback(
+    async (content: Message[]) => {
+      if (!adventure || adventure.rules?.memoryOff) return;
+      const count = content.length;
+      let baseline = memoryBaselineRef.current ?? Math.floor((count - 1) / MEMORY_EXTRACTION_INTERVAL) * MEMORY_EXTRACTION_INTERVAL;
+      if (count < baseline) baseline = count;
+      memoryBaselineRef.current = baseline;
+      if (count - baseline < MEMORY_EXTRACTION_INTERVAL) return;
+      memoryBaselineRef.current = count;
+      try {
+        const existing = adventure.memory || [];
+        const recent = trimToLatestSummary(content).slice(-Math.min(count - baseline, MEMORY_EXTRACTION_INTERVAL * 2));
+        const changes = await dispatch(extractCharacterMemory({
+          recentMessages: recent,
+          memory: existing,
+          pinnedMemory: [],
+          names: { userName: persona?.name?.trim() || undefined, charName: "Narrator" },
+        })).unwrap();
+        if (changes.added.length + changes.updated.length + changes.forgotten.length + changes.reinforced.length > 0) {
+          await dispatch(updateAdventureMemory({ adventureId: adventure.id, memory: applyMemoryChanges(existing, changes, []) }));
+        }
+      } catch (err) {
+        console.warn("Adventure memory extraction failed (non-fatal):", err);
+      }
+    },
+    [adventure, dispatch, persona]
+  );
+
   const generateNarratorReply = useCallback(
     async (prompt: string, contextMessages: Message[], imageRequestFocus?: string): Promise<{ check?: { skill?: string; dc: number } }> => {
       if (!adventure) return {};
@@ -203,6 +240,7 @@ const AdventurePage = () => {
       const { text, choices: rawChoices } = parseAdventureChoices(withoutStats);
       const choices = rawChoices.map(parseChoiceCheck);
       const content = await dispatch(addAdventureMessage({ adventureId: adventure.id, message: { role: AI, txt: text, choices, castEmotions, gameState: changed?.state, gameChanges: changed?.changes } })).unwrap();
+      maybeExtractMemory(content);
       if (result.tokenCount || result.costEstimate) {
         dispatch(incrementAdventureUsage({ adventureId: adventure.id, tokens: result.tokenCount, cost: result.costEstimate }));
       }
@@ -216,7 +254,7 @@ const AdventurePage = () => {
       }
       return { check };
     },
-    [adventure, world, cast, persona, dispatch, illustrateMessage, roleplayStyle, streamKey]
+    [adventure, world, cast, persona, dispatch, illustrateMessage, roleplayStyle, streamKey, maybeExtractMemory]
   );
 
   const runOpeningTurn = useCallback(async () => {
@@ -361,6 +399,35 @@ const AdventurePage = () => {
     }
   };
 
+  const memoryOn = !adventure.rules?.memoryOff;
+
+  // "End chapter": the turns since the last summary become a titled chapter
+  // with a recap, like a chat's. Nothing is deleted, and it can be undone.
+  const chapterStart = latestSummaryIndex(adventure.content) >= 0 ? latestSummaryIndex(adventure.content) + 2 : 0;
+  const canEndChapter = adventure.content.length - chapterStart >= 2;
+  const handleEndChapter = async () => {
+    if (!canEndChapter || endingChapter) return;
+    setError(null);
+    setEndingChapter(true);
+    try {
+      const covered = adventure.content.slice(chapterStart);
+      const last = adventure.content[adventure.content.length - 1];
+      const chapterNumber = adventure.content.filter((m) => m.chapterTitle).length + 1;
+      const chapter = await dispatch(summarizeChapter({ messages: covered, names: { userName: persona?.name?.trim() || undefined, charName: "Narrator" } })).unwrap();
+      if (chapter.tokens || chapter.cost) dispatch(incrementAdventureUsage({ adventureId: adventure.id, tokens: chapter.tokens, cost: chapter.cost }));
+      await dispatch(insertAdventureCompressionSummary({
+        adventureId: adventure.id,
+        afterMessageId: last.id,
+        afterIndex: adventure.content.length - 1,
+        summaryMessages: buildSummaryMessages(chapter.summary, last.timestamp, { title: chapter.title || `Chapter ${chapterNumber}`, recap: chapter.recap }),
+      })).unwrap();
+    } catch (err: any) {
+      setError(typeof err === "string" ? err : "Couldn't end the chapter. Check your model settings and try again.");
+    } finally {
+      setEndingChapter(false);
+    }
+  };
+
   const isCompleted = adventure.status === "completed";
   const lastMessage = adventure.content[adventure.content.length - 1];
   const activeChoices = !generating && !isCompleted && lastMessage?.role === AI ? lastMessage.choices : undefined;
@@ -401,6 +468,13 @@ const AdventurePage = () => {
       active: skillChecks,
       onClick: () => dispatch(updateAdventureRules({ adventureId: adventure.id, rules: { ...adventure.rules, skillChecks: !skillChecks || undefined } })),
     },
+    {
+      icon: FaBrain,
+      label: memoryOn ? `Story memory: on (${(adventure.memory || []).length} facts)` : "Story memory: off",
+      active: memoryOn,
+      onClick: () => setMemoryOpen(true),
+    },
+    ...(canEndChapter ? [{ icon: FaBookmark, label: endingChapter ? "Ending chapter..." : "End chapter", onClick: handleEndChapter, disabled: endingChapter || generating }] : []),
     {
       icon: isCompleted ? FaUndo : FaCheckCircle,
       label: isCompleted ? "Reopen adventure" : "Mark completed",
@@ -511,13 +585,18 @@ const AdventurePage = () => {
                 return (
                   <details key={msg.id || i} className="rounded-xl border border-border/50 bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
                     <summary className="cursor-pointer select-none font-semibold flex items-center gap-2">
-                      <FaCompressArrowsAlt size={11} /> Story so far (summarized - earlier turns above are no longer sent to the narrator)
+                      {msg.chapterTitle ? (
+                        <><FaBookmark size={10} /> Chapter {adventure.content.slice(0, i + 1).filter((m) => m.chapterTitle).length}: {msg.chapterTitle}</>
+                      ) : (
+                        <><FaCompressArrowsAlt size={11} /> Story so far (summarized - earlier turns above are no longer sent to the narrator)</>
+                      )}
                     </summary>
+                    {msg.chapterRecap && <p className="mt-2 text-left text-foreground/90">{msg.chapterRecap}</p>}
                     <div className="mt-2 text-left">
                       <MarkdownRenderer msgText={msg.txt || ""} isUser={false} />
                     </div>
                     <button type="button" onClick={() => handleUndoSummary(msg)} className="mt-2 font-medium text-subtle hover:text-foreground hover:underline">
-                      Undo compression
+                      {msg.chapterTitle ? "Undo this chapter" : "Undo compression"}
                     </button>
                   </details>
                 );
@@ -644,6 +723,47 @@ const AdventurePage = () => {
         )}
       </div>
       <EmotionPopup trigger={popupTrigger} durationMs={emotionPopupDuration} />
+      <Dialog open={memoryOpen} onOpenChange={setMemoryOpen}>
+        <DialogContent className="max-w-md">
+          <DialogTitle>Story memory</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Every few turns, facts the story has established are saved here, and the narrator is reminded of the relevant ones so a long adventure stays consistent.
+          </p>
+          <label className="flex items-center justify-between gap-3 text-sm text-foreground">
+            Remember story facts
+            <ToggleSwitch
+              checked={memoryOn}
+              onChange={(on) => dispatch(updateAdventureRules({ adventureId: adventure.id, rules: { ...adventure.rules, memoryOff: on ? undefined : true } }))}
+              label={<span className="sr-only">Remember story facts</span>}
+            />
+          </label>
+          {(adventure.memory || []).length === 0 ? (
+            <p className="text-sm text-subtle">Nothing remembered yet.</p>
+          ) : (
+            <ul aria-label="Remembered facts" className="flex flex-col gap-1.5 max-h-[50vh] overflow-y-auto">
+              {(adventure.memory || []).map((fact, i) => (
+                <li key={i} className="flex items-start gap-2 text-[13px] text-foreground">
+                  <span className="flex-1">{fact}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 flex-shrink-0 text-subtle hover:text-destructive"
+                    aria-label={`Forget: ${fact}`}
+                    onClick={() => dispatch(updateAdventureMemory({ adventureId: adventure.id, memory: (adventure.memory || []).filter((_, j) => j !== i) }))}
+                  >
+                    <FaTimes size={10} />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="flex justify-end">
+            <DialogClose asChild>
+              <Button variant="outline" size="sm">Done</Button>
+            </DialogClose>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={statsOpen} onOpenChange={setStatsOpen}>
         <DialogContent className="max-w-sm">
           <DialogTitle>Stats</DialogTitle>

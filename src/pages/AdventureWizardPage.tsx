@@ -50,6 +50,7 @@ const AdventureWizardPage = () => {
   const [startingGold, setStartingGold] = useState(0);
   const [startingItems, setStartingItems] = useState<string[]>([]);
   const [skillChecks, setSkillChecks] = useState(false);
+  const [hardLimits, setHardLimits] = useState<string[]>([]);
 
   useEffect(() => {
     if (!personaId && activePersona) setPersonaId(activePersona.id);
@@ -192,6 +193,7 @@ const AdventureWizardPage = () => {
               }
             : {}),
           skillChecks: skillChecks || undefined,
+          hardLimits: hardLimits.length > 0 ? hardLimits : undefined,
         },
       })
     ).unwrap();
@@ -402,6 +404,10 @@ const AdventureWizardPage = () => {
                   )}
                 </div>
                 <div>
+                  <FieldLabel hint="Things this story must never include, whatever the cast's content rating. Sent to the narrator before every reply; you can change them later from Boundaries.">Hard limits</FieldLabel>
+                  <TagInput value={hardLimits} onChange={setHardLimits} placeholder="Add a limit and press Enter" />
+                </div>
+                <div>
                   <FieldLabel hint="Risky actions get a difficulty, and the app rolls a d20 plus your persona's skill (its character sheet in Settings) to decide whether they work.">Skill checks</FieldLabel>
                   <ToggleSwitch checked={skillChecks} onChange={setSkillChecks} label="Roll for risky actions" />
                 </div>
@@ -426,6 +432,7 @@ const AdventureWizardPage = () => {
                   </div>
                   {premise.trim() && <div><span className="text-subtle">Premise: </span><span className="text-foreground">{premise}</span></div>}
                   <div><span className="text-subtle">Choices per turn: </span><span className="text-foreground font-medium">{choiceCount}</span></div>
+                  {hardLimits.length > 0 && <div><span className="text-subtle">Hard limits: </span><span className="text-foreground">{hardLimits.join(", ")}</span></div>}
                   <div>
                     <span className="text-subtle">Game: </span>
                     <span className="text-foreground font-medium">

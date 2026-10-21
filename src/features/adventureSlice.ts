@@ -243,6 +243,21 @@ export const updateAdventureRules = createAsyncThunk(
   }
 );
 
+// The story's long-term memory: replaces the whole list.
+export const updateAdventureMemory = createAsyncThunk(
+  "adventure/updateMemory",
+  async ({ adventureId, memory }: { adventureId: number; memory: string[] }, { rejectWithValue }) => {
+    try {
+      const adventure = await dbService.getAdventureById(adventureId);
+      adventure.memory = memory.length > 0 ? memory : undefined;
+      await dbService.updateAdventure(adventure);
+      return { adventureId, memory: adventure.memory };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
 // Adds to (never replaces) an adventure's running usage totals - mirrors
 // chatSlice's incrementChatUsage.
 export const incrementAdventureUsage = createAsyncThunk(
@@ -374,6 +389,10 @@ const adventureSlice = createSlice({
       .addCase(updateAdventureRules.fulfilled, (state, action) => {
         const adventure = state.adventures.find((a) => a.id === action.payload.adventureId);
         if (adventure) adventure.rules = action.payload.rules;
+      })
+      .addCase(updateAdventureMemory.fulfilled, (state, action) => {
+        const adventure = state.adventures.find((a) => a.id === action.payload.adventureId);
+        if (adventure) adventure.memory = action.payload.memory;
       })
       .addCase(updateAdventureRules.rejected, (state, action) => {
         state.error = action.payload as string;

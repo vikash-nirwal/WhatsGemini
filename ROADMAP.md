@@ -11,9 +11,8 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 Leftovers noted while building the finished items. Pick them up alongside related work.
 
 - **Memory:** show fact groups in the character editor's memory card (only the Scene panel groups them today).
-- **Chapters and diary:** "End chapter" in adventures; diary entries from group chats.
+- **Chapters and diary:** diary entries from group chats.
 - **Lorebook:** SillyTavern fields not mapped yet: cooldown, delay, regex keys, case-sensitive matching, insertion position, groups. Sticky only applies to direct keyword hits, not recursive ones.
-- **Adventures:** long-term memory; hard limits in the creation wizard.
 - **Photos:** editing or regenerating keeps the photo off the edited message; real vision APIs weren't tried (mocked only).
 - **Status updates:** an optional picture with a status (the roadmap's original idea); the status row on phones and in the collapsed sidebar.
 - **Story script:** use it in adventures too (the narrator following the user's beats); show which beat a message belongs to.

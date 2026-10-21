@@ -133,3 +133,79 @@ test.describe("set up in the wizard", () => {
     await expect(page.getByText("[Check:")).toHaveCount(0);
   });
 });
+
+// Writes fields straight onto the seeded adventure.
+const patchAdventure = (page: Page, fields: Record<string, unknown>) =>
+  page.evaluate(async (fields) => {
+    const db: IDBDatabase = await new Promise((resolve, reject) => {
+      const req = indexedDB.open("ChatAppDB");
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    await new Promise<void>((resolve) => {
+      const tx = db.transaction("adventures", "readwrite");
+      const store = tx.objectStore("adventures");
+      const get = store.get(1);
+      get.onsuccess = () => store.put({ ...get.result, ...fields });
+      tx.oncomplete = () => resolve();
+    });
+    db.close();
+  }, fields);
+
+test.describe("story memory and chapters", () => {
+  // Turns after the opening scene; with nine of them the next exchange
+  // brings the story to 12 messages, when a memory pass is due.
+  const turns = Array.from({ length: 10 }, (_, i) => ({
+    id: `turn-${i}`,
+    timestamp: Date.UTC(2026, 0, 15, 12, i + 1),
+    role: i % 2 === 0 ? "you" : "ai",
+    txt: i % 2 === 0 ? `I search shelf ${i}.` : `Shelf ${i - 1} holds only damp scrolls.`,
+  }));
+
+  test("facts are pulled out every few turns, reach the narrator and can be forgotten", async ({ page, mockAI }) => {
+    await openAdventure(page);
+    await patchAdventure(page, {
+      content: [{ id: "seed-adv-0", timestamp: Date.UTC(2026, 0, 15, 12), role: "ai", txt: ADVENTURE_OPENING, choices: ADVENTURE_CHOICES }, ...turns.slice(0, 9)],
+      memory: ["The archive's door only opens at low tide."],
+    });
+    await page.reload();
+    await expect(page.getByText(ADVENTURE_OPENING)).toBeVisible({ timeout: 30_000 });
+
+    mockAI.reply((req) =>
+      req.prompt.startsWith("You are maintaining long-term memory")
+        ? "- [story] The player found a brass key in the archive."
+        : adventureReply("You find a brass key.", ["Take it"])
+    );
+    await page.getByPlaceholder(/What do you do\?/).fill("I search the last shelf");
+    await page.getByRole("button", { name: "Send action" }).click();
+    await expect(page.getByText("You find a brass key.")).toBeVisible();
+    const narrator = mockAI.requests.find((r) => r.prompt.includes("I search the last shelf"))!;
+    expect(systemOf(narrator.messages)).toContain("What has been established in this story so far (keep it consistent):\n- The archive's door only opens at low tide.");
+
+    await expect.poll(() => mockAI.requests.some((r) => r.prompt.startsWith("You are maintaining long-term memory"))).toBe(true);
+    await headerAction(page, "Story memory: on (2 facts)");
+    const facts = page.getByRole("list", { name: "Remembered facts" });
+    await expect(facts).toContainText("The player found a brass key in the archive.");
+    await page.getByRole("button", { name: "Forget: The archive's door only opens at low tide." }).click();
+    await expect(facts).not.toContainText("low tide");
+    await page.getByRole("switch", { name: "Remember story facts" }).click();
+    await page.getByRole("button", { name: "Done" }).click();
+    await expect(page.locator("header").first().getByRole("button", { name: "Story memory: off" }).or(page.locator("header").first().getByRole("button", { name: "More options" }))).toBeVisible();
+  });
+
+  test("ending a chapter titles it, and it can be undone", async ({ page, mockAI }) => {
+    await openAdventure(page);
+    await patchAdventure(page, { content: [{ id: "seed-adv-0", timestamp: Date.UTC(2026, 0, 15, 12), role: "ai", txt: ADVENTURE_OPENING, choices: ADVENTURE_CHOICES }, ...turns.slice(0, 4)] });
+    await page.reload();
+    await expect(page.getByText(ADVENTURE_OPENING)).toBeVisible({ timeout: 30_000 });
+
+    mockAI.reply("TITLE: Damp Scrolls\nRECAP: You searched the flooded shelves.\nSUMMARY:\nStory so far: the player searched the shelves.");
+    await headerAction(page, "End chapter");
+    await expect(page.getByText("Chapter 1: Damp Scrolls")).toBeVisible();
+    await page.getByText("Chapter 1: Damp Scrolls").click();
+    await expect(page.getByText("You searched the flooded shelves.")).toBeVisible();
+    await page.getByRole("button", { name: "Undo this chapter" }).click();
+    await page.getByRole("button", { name: "Confirm" }).click();
+    await expect(page.getByText("Chapter 1: Damp Scrolls")).toHaveCount(0);
+  });
+});
