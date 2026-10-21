@@ -24,7 +24,6 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | 25 | Stats, inventory and quest log | todo | |
 | 26 | Skill checks | todo | After #25. |
 | 27 | Persona character sheet | todo | With #26. |
-| 28 | Attach a World to normal chats | todo | |
 | 30 | Relationship that evolves | todo | |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
@@ -73,6 +72,7 @@ One line per area. Pointers for when you need to work on it again.
 - **Scene & chat panel:** four tabs (`ScenePanel.tsx`, last one remembered in localStorage `scene_panel_tab`): Scene (author's note, scenario, story script, world, boundaries), Story (chapters, bookmarks, mood over time), Memory, Chat (texting mode, reply suggestions, inner thoughts, diary, wardrobe, mood display). Texting mode can be set per chat (`Chat.textingMode`; unset follows Settings › Chat). UI tests pick the tab before using a section.
 - **Scene state HUD (#9):** per-chat switch "Track the scene" (Scene tab; `Chat.sceneTracker`). `buildStateDirective` (`src/features/chat/sceneState.ts`) asks each reply to end with `<state>location; time; outfit; affection; trust</state>` and feeds the current `Chat.sceneState` back; the block is parsed and merged (missing fields keep their value) by `saveSceneState` in ChatPage on every reply path, hidden while streaming, and shown by `SceneStateStrip.tsx` under the header. The fields can be corrected by hand in the Scene tab.
 - **Anti-repetition guard (#19):** `src/features/ai/utils/antiRepetition.ts` finds 4-to-7-word runs (joined when longer) reused in at least two of the speaker's last five replies, and repeated openings; `buildTurnContext` puts the avoid note in the post-history note for that reply only. On by default; `roleplayStyle.antiRepetition: false` (Settings › Text › Roleplay style › Avoid repetition) turns it off. There's no on-screen indicator yet; the prompt inspector shows the note.
+- **World in a normal chat (#28):** `Chat.worldId`, picked in the Scene tab ("World for this chat"). `buildSystemInstruction` adds the world's premise, details and tone (`PromptOptions.world`) and matches its lorebook with the character's (and a room's other members'). The old "World" tag section is now "Setting tags".
 - **Known gaps:** character drafts were only tested with a mocked model, not a real one's JSON; none of the image providers was tried with a real key or a real ComfyUI; chats whose seed messages were never flagged `isSystem` (very old ones) aren't detected as seeded; mood-portrait generation from inside a chat wasn't checked with a real image provider; `h-dvh` wasn't checked on a real iPhone; notifications weren't tried on a real device or in the installed app.
 
 ## Decisions
@@ -106,7 +106,7 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
-- 2026-10-21: Pushed and deployed #42–#57. Made texting mode a per-chat switch and split the Scene & chat panel into four tabs. Started the 13 earlier items: #9 Scene state HUD, #19 Anti-repetition guard.
+- 2026-10-21: Pushed and deployed #42–#57. Made texting mode a per-chat switch and split the Scene & chat panel into four tabs. Started the 13 earlier items: #9 Scene state HUD, #19 Anti-repetition guard, #28 World in normal chats.
 - 2026-10-20 (overnight): Built #46 "Previously on…", #57 Story script, #47 Dates that matter, #48 Send them a photo, #49 Event deck, #50 Wardrobe, #51 Relationship timeline, #52 Mini-games, #53 Branch map, #54 Google Drive backup, #55 Free in-browser model and #56 Phone calls in the coordinating session (new sessions can't be started over Remote Control).
 - 2026-10-20: Built character from one line (#45): idea dialog with rating and art-style hints, one JSON draft filling the editor, Try another, optional portrait. Fixed `addCharacter` dropping newer fields (alternate greetings, content rating, locked look, voice, model) when creating or importing a character.
 - 2026-10-20: Built voice (#12) and voice notes (#44) together: per-character browser voices with a picker and preview, Read aloud, dictation, character voice notes decided by the app, and hold-to-record. The terminal theme's Pixel chat screenshot changed on purpose (the new `[say]` action wraps each reply's action row, plus the `[●]` record link) and its baseline was updated; the other chat screenshots gained the mic buttons within their 1% tolerance and were left as they were.

@@ -204,6 +204,7 @@ export interface Chat {
   replySuggestions?: boolean; // show 3 tappable reply ideas after each reply (#16)
   textingMode?: boolean; // this chat's texting mode (#6); unset = the app setting
   sceneTracker?: boolean; // track location, time, outfit and two meters (#9)
+  worldId?: number; // a World whose setting and lore this chat uses (#28)
   sceneState?: SceneState;
   recap?: ChatRecap; // the cached "Previously on..." card (#46), never sent to the model
   storyScript?: StoryScript; // the story this chat follows (#57)

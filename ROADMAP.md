@@ -25,7 +25,6 @@ The app is called WhatsGemini, so lean into the messaging-app fantasy.
 25. **Stats, inventory and quest log** (L). The narrator keeps a structured state block (HP, gold, items, active quests), parsed like the choices block and shown in a side panel. The player can't type items into existence because the state is authoritative.
 26. **Skill checks** (M). Choices can carry a difficulty ("Pick the lock (DC 14)"). The app rolls the dice (reuse `rollDice` from `slashCommands.ts`), shows the result, and tells the narrator success or failure before it writes.
 27. **Persona character sheet** (M). Optional stats and skills on a persona, used by checks.
-28. **Attach a World to normal chats** (S). Worlds are adventure-only today. Let a 1:1 chat or room attach a World so its lore and premise apply there too.
 
 ## Characters
 

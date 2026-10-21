@@ -1,7 +1,7 @@
 import { buildChatHistory, buildSystemInstruction, buildTurnContext, buildPostHistoryNote, buildTimeSection, NSFW_CONTENT_RULE, SFW_CONTENT_RULE } from "./promptComposition";
 import { DEFAULT_ROLEPLAY_STYLE } from "../../../utils/constants";
 import { YOU, AI } from "../../../utils/constants";
-import { Character, Message, UserProfile } from "../../../types";
+import { Character, Message, UserProfile, World } from "../../../types";
 
 const msg = (role: string, txt: string, speakerId?: number): Message => ({ role, txt, speakerId });
 
@@ -359,5 +359,28 @@ describe("anti-repetition (#19)", () => {
   it("can be switched off", () => {
     const { postHistoryNote } = buildTurnContext(repeating, makeCharacter(), undefined, undefined, undefined, undefined, { roleplayStyle: { ...DEFAULT_ROLEPLAY_STYLE, antiRepetition: false } });
     expect(postHistoryNote || "").not.toContain("keep reusing");
+  });
+});
+
+describe("an attached World (#28)", () => {
+  const world: World = {
+    id: 7,
+    name: "Eldoria",
+    premise: "A floating archipelago where storms carry magic.",
+    settingDetails: "The Sky Council rules from the capital, Vey.",
+    tone: "Hopeful high fantasy",
+    loreEntries: [{ id: "l1", keywords: ["sky council"], content: "The Sky Council has nine seats, one per island." }],
+  };
+
+  it("adds the world's setting to the prompt", () => {
+    const { text } = buildSystemInstruction(makeCharacter(), undefined, undefined, undefined, [msg(YOU, "hi")], undefined, undefined, undefined, { world });
+    expect(text).toContain("This story takes place in the world of Eldoria. A floating archipelago where storms carry magic.");
+    expect(text).toContain("The Sky Council rules from the capital, Vey.");
+    expect(text).toContain("Tone: Hopeful high fantasy.");
+  });
+
+  it("matches the world's lorebook alongside the character's", () => {
+    const { text } = buildSystemInstruction(makeCharacter(), undefined, undefined, undefined, [msg(YOU, "Who sits on the Sky Council?")], undefined, undefined, undefined, { world });
+    expect(text).toContain("The Sky Council has nine seats, one per island.");
   });
 });

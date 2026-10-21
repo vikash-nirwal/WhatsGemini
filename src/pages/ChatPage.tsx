@@ -155,6 +155,7 @@ const ChatPage = () => {
     [characters, currentChat]
   );
   const isRoom = roomCharacters.length > 1;
+  const worlds = useAppSelector((state) => state.world.worlds);
   // A phone call (#56): replies are spoken, and what you say is sent as voice messages.
   const [inCall, setInCall] = useState(false);
   // Tells the user about a new message from this chat if they're away (#43).
@@ -233,6 +234,7 @@ const ChatPage = () => {
     onCall: inCall,
     sceneTracker: currentChat?.sceneTracker,
     sceneState: currentChat?.sceneState,
+    world: currentChat?.worldId != null ? worlds.find((w) => w.id === currentChat.worldId) : undefined,
   };
 
   // Which persona this chat actually speaks as: its own override if set,

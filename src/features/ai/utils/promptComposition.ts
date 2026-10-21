@@ -1,4 +1,4 @@
-import { Character, ChatGame, Intensity, LoreEntry, Message, RoleplayStyle, SceneState, StoryScript, UserProfile } from "../../../types";
+import { Character, ChatGame, Intensity, LoreEntry, Message, RoleplayStyle, SceneState, StoryScript, UserProfile, World } from "../../../types";
 import { YOU } from "../../../utils/constants";
 import { stripLeakedBase64 } from "./apiUtils";
 import { buildEmotionDirective } from "./emotionUtils";
@@ -163,6 +163,7 @@ export interface PromptOptions {
   // A 1:1 chat that keeps its own memory (Chat.memoryScope "chat"): these
   // facts replace the character's own in the prompt.
   memoryOverride?: { memory: string[]; pinned: string[] };
+  world?: World; // a World attached to this chat (#28)
 }
 
 const describeDuration = (ms: number): string => {
@@ -304,6 +305,17 @@ export const buildSystemInstruction = (
     sections.push(`Current scenario / setting: ${m(effectiveScenario)}`);
   }
 
+  // A World attached to this chat (#28): the same setting an adventure in it
+  // would use, so the character lives in that world too.
+  if (options.world) {
+    const w = options.world;
+    const parts = [`This story takes place in the world of ${w.name}. ${trimEnd(w.premise)}.`];
+    if (w.settingDetails?.trim()) parts.push(m(w.settingDetails.trim()));
+    if (w.tone?.trim()) parts.push(`Tone: ${trimEnd(w.tone)}.`);
+    parts.push("Stay consistent with this world's places, history and rules.");
+    sections.push(parts.join("\n"));
+  }
+
   const tags = (options.worldTags || []).map((t) => t.trim()).filter(Boolean);
   if (tags.length > 0) {
     sections.push(`Setting / genre tags for this chat: ${tags.join(", ")}. Keep the story consistent with them.`);
@@ -311,7 +323,7 @@ export const buildSystemInstruction = (
 
   // A room pools every member's lorebook, so a keyword tied to another
   // character's lore still triggers it when this character is the one replying.
-  const loreEntries = [...(character.loreEntries || []), ...(isRoomTurn ? options.roomLoreEntries || [] : [])];
+  const loreEntries = [...(character.loreEntries || []), ...(isRoomTurn ? options.roomLoreEntries || [] : []), ...(options.world?.loreEntries || [])];
   if (loreEntries.length > 0 && recentMessages) {
     const matched = matchLoreEntries(loreEntries, recentMessages);
     if (matched.length > 0) {
@@ -480,6 +492,7 @@ export interface SceneContext {
   game?: ChatGame; // the mini-game being played (#52)
   onCall?: boolean; // a phone call is on (#56): replies are spoken aloud
   sceneTracker?: boolean; // track the scene's state (#9)
+  world?: World; // a World attached to this chat (#28)
   sceneState?: SceneState;
 }
 
@@ -520,6 +533,7 @@ export const buildTurnContext = (
       groupPinnedMemory: roomContext?.groupPinnedMemory,
       roomAllowsNsfw: roomContext?.othersAllowNsfw,
       memoryOverride: scene?.memoryOverride,
+      world: scene?.world,
     }
   );
   // The active persona's own reference photos (UserProfile.appearanceImages),

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { FaTimes, FaPlus, FaPencilAlt, FaThumbtack, FaTag } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { updateChatAuthorNote, updateChatWorldTags, updateChatMemory, updateChatScenario, updateChatBoundaries, updateChatMemoryScope, updateChatMessage, updateChatOptions } from "src/features/chatSlice";
@@ -103,6 +104,7 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
   // threaded through ChatWindow.
   const chat = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId));
   const appTextingMode = useAppSelector((state) => state.settings.textingMode);
+  const worlds = useAppSelector((state) => state.world.worlds);
   // The panel's sections are split into tabs so it stays short; the last
   // one opened is remembered on this device.
   const [tab, setTab] = useState<SceneTab>(readSceneTab);
@@ -477,9 +479,35 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
             </div>
           )}
 
-          {/* World tags */}
+          {/* An attached World (#28): its premise and lore apply to this chat */}
           <div>
             <div data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold mb-2">World</div>
+            {worlds.length > 0 ? (
+              <div className="flex flex-col gap-1.5">
+                <Select
+                  aria-label="World for this chat"
+                  value={chat?.worldId != null ? String(chat.worldId) : ""}
+                  onChange={(e) => dispatch(updateChatOptions({ chatId, patch: { worldId: e.target.value ? Number(e.target.value) : undefined } }))}
+                >
+                  <option value="">No world</option>
+                  {worlds.map((w) => (
+                    <option key={w.id} value={String(w.id)}>
+                      {w.name}
+                    </option>
+                  ))}
+                </Select>
+                <span className="text-[11px] text-subtle">The world's premise, details and lorebook apply to every reply here, like in an adventure.</span>
+              </div>
+            ) : (
+              <p className="text-[12.5px] text-subtle">
+                No worlds yet. <Link to="/worlds/new" className="text-primary hover:underline">Create one</Link> to give this chat a shared setting and lore.
+              </p>
+            )}
+          </div>
+
+          {/* World tags */}
+          <div>
+            <div data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold mb-2">Setting tags</div>
             <div className="flex flex-wrap gap-1.5">
               {tags.map((tag, idx) => (
                 <span
