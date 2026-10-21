@@ -3,6 +3,7 @@ import { FaDownload, FaUpload, FaFileArchive, FaCog } from 'react-icons/fa';
 import { Button } from 'src/components/atoms/button';
 import { formatRelativeTime } from '../../utils/formatRelativeTime';
 import { SettingsCard } from 'src/components/molecules/settings-card';
+import DriveBackupSection from './DriveBackupSection';
 
 interface DataBackupSettingsProps {
   lastBackupAt: number;
@@ -14,11 +15,15 @@ interface DataBackupSettingsProps {
   onImportSettingsClick: () => void;
   settingsFileInputRef: React.RefObject<HTMLInputElement | null>;
   onSettingsFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  // Backup to Google Drive (#54) reuses the full backup and its restore.
+  buildBackup: () => Promise<Blob>;
+  restoreBackup: (file: File) => Promise<void>;
+  onBackedUp: () => void;
 }
 
 const DataBackupSettings: React.FC<DataBackupSettingsProps> = ({
   lastBackupAt, onExportFullBackup, onImportBackupClick, backupFileInputRef, onBackupFileChange,
-  onExportSettings, onImportSettingsClick, settingsFileInputRef, onSettingsFileChange,
+  onExportSettings, onImportSettingsClick, settingsFileInputRef, onSettingsFileChange, buildBackup, restoreBackup, onBackedUp,
 }) => {
   return (
     <div className="flex flex-col gap-5">
@@ -54,6 +59,10 @@ const DataBackupSettings: React.FC<DataBackupSettingsProps> = ({
             style={{ display: "none" }}
           />
         </div>
+      </SettingsCard>
+
+      <SettingsCard>
+        <DriveBackupSection buildBackup={buildBackup} restoreBackup={restoreBackup} onBackedUp={onBackedUp} />
       </SettingsCard>
 
       <SettingsCard>

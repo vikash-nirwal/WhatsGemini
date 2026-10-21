@@ -8,7 +8,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 - **State:** image consistency (#34–#41) is merged, pushed and deployed. Texting mode (#6), inner thoughts (#10) and reactions (#11) are pushed and deployed too. The spending dashboard (#42), notifications (#43), voice (#12), voice notes (#44) and character from one line (#45) are committed to local `main`, not pushed. The last full local run passed: type-check, 624 unit tests, 417 UI tests and 16 screenshot tests.
 - **Next up:** the new ideas #46–#56 (#42–#45 and #12 are done), one per fresh session in table order, then the other 12 items. The image providers were only tested against mocked servers; checking them with real keys and a real ComfyUI is a follow-up in ROADMAP.md.
-- **Open questions for the user:** none.
+- **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
 - **How this run works:** each item gets its own fresh session in this checkout (no worktree), committing to local `main` when its tests pass; nothing is pushed or deployed until the user says so.
 
 ## Remaining items
@@ -28,7 +28,6 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | 27 | Persona character sheet | todo | With #26. |
 | 28 | Attach a World to normal chats | todo | |
 | 30 | Relationship that evolves | todo | |
-| 54 | Backup to Google Drive | todo | Needs the user's Google OAuth client ID to test. |
 | 55 | Free local model in the browser | todo | Adds the WebLLM dependency. |
 | 56 | Phone calls | todo | Builds on #12 and #44 (`src/features/voice/`). |
 
@@ -72,6 +71,7 @@ One line per area. Pointers for when you need to work on it again.
 - **Relationship timeline (#51):** `src/features/chat/moodTimeline.ts` scores each reply's emotion tag from -3 to +3 (`MOOD_SCORES`; unknown custom moods count as 0) and summarizes the top mood and the recent trend; `MoodTimeline.tsx` draws it in a 1:1 chat's Scene panel as one line against a neutral baseline, with a crosshair tooltip (pointer or arrow keys) and a list view. Needs emotion portraits on, since that's what adds the tags.
 - **Mini-games (#52):** "Play a game" in a 1:1 chat's actions (`GameDialog.tsx`): 20 Questions (either side guesses), Would You Rather, Truth or Dare. `Chat.game` (kind, guesser, turns) puts the rules in the system prompt via `SceneContext.game` (`buildGameSection` in `src/features/chat/miniGames.ts`); the opening reply carries them as its direction. Each reply to a user message adds a turn; `[Game over: user wins|character wins]` ends it and updates `Chat.gameScore`. `GameProgress.tsx` shows it at the end of the chat.
 - **Branch map (#53):** `src/features/chat/branchMap.ts` folds the conversation tree into segments (runs with no fork) and counts storylines; `BranchMapDialog.tsx` shows them nested, marks "You're here", and jumping opens a branch at its latest point (`findDefaultLeafFrom`). "Branch map" appears in the chat actions once any message has variants.
+- **Google Drive backup (#54):** `src/services/driveBackup.ts` encrypts the full backup zip (AES-GCM, PBKDF2 from a passphrase that's never stored; "WGBK1" header), signs in with Google Identity Services (token client, `drive.appdata` scope, client ID in localStorage `google_drive_client_id`) and keeps the newest 5 in the Drive's app-data folder. `DriveBackupSection.tsx` in Settings › Data; restore goes through the same confirm and merge as a file restore (`restoreBackupFile` in SettingsPage). Only tested with a faked Google.
 - **Known gaps:** character drafts were only tested with a mocked model, not a real one's JSON; none of the image providers was tried with a real key or a real ComfyUI; chats whose seed messages were never flagged `isSystem` (very old ones) aren't detected as seeded; mood-portrait generation from inside a chat wasn't checked with a real image provider; `h-dvh` wasn't checked on a real iPhone; notifications weren't tried on a real device or in the installed app.
 
 ## Decisions
@@ -105,7 +105,7 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
-- 2026-10-20 (overnight): Built #46 "Previously on…", #57 Story script, #47 Dates that matter, #48 Send them a photo, #49 Event deck, #50 Wardrobe, #51 Relationship timeline, #52 Mini-games and #53 Branch map in the coordinating session (new sessions can't be started over Remote Control).
+- 2026-10-20 (overnight): Built #46 "Previously on…", #57 Story script, #47 Dates that matter, #48 Send them a photo, #49 Event deck, #50 Wardrobe, #51 Relationship timeline, #52 Mini-games, #53 Branch map and #54 Google Drive backup in the coordinating session (new sessions can't be started over Remote Control).
 - 2026-10-20: Built character from one line (#45): idea dialog with rating and art-style hints, one JSON draft filling the editor, Try another, optional portrait. Fixed `addCharacter` dropping newer fields (alternate greetings, content rating, locked look, voice, model) when creating or importing a character.
 - 2026-10-20: Built voice (#12) and voice notes (#44) together: per-character browser voices with a picker and preview, Read aloud, dictation, character voice notes decided by the app, and hold-to-record. The terminal theme's Pixel chat screenshot changed on purpose (the new `[say]` action wraps each reply's action row, plus the `[●]` record link) and its baseline was updated; the other chat screenshots gained the mic buttons within their 1% tolerance and were left as they were.
 

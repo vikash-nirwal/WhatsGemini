@@ -723,11 +723,27 @@ const SettingsPage = () => {
     backupFileInputRef.current?.click();
   };
 
+  // The full backup zip, for "Download full backup" and Google Drive (#54).
+  const buildBackupBlob = async (): Promise<Blob> => {
+    const { getFullBackupZip } = await import("../services/backupService");
+    return (await getFullBackupZip(buildSettingsExport())).blob;
+  };
+
+  const markBackedUp = () => {
+    const now = Date.now();
+    localStorage.setItem(LS_LAST_BACKUP_AT, String(now));
+    setLastBackupAt(now);
+  };
+
   const handleBackupFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
+    await restoreBackupFile(file);
+  };
 
+  // Restores a backup zip after a confirm: from a file, or from Drive (#54).
+  const restoreBackupFile = async (file: File) => {
     try {
       const { parseBackupFile, applyParsedBackup } = await import("../services/backupService");
       const parsed = await parseBackupFile(file);
@@ -1014,6 +1030,9 @@ const SettingsPage = () => {
                     onImportSettingsClick={handleImportSettingsClick}
                     settingsFileInputRef={settingsFileInputRef}
                     onSettingsFileChange={handleSettingsFileChange}
+                    buildBackup={buildBackupBlob}
+                    restoreBackup={restoreBackupFile}
+                    onBackedUp={markBackedUp}
                   />
                 )}
             </>
