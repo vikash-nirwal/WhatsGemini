@@ -44,6 +44,7 @@ interface ChatWindowProps {
   storyScript?: StoryScript; // the story this chat follows (#57)
   game?: ChatGame; // the mini-game being played (#52)
   relationshipSuggestion?: { from: string; to: string }; // waiting for the user's OK (#30)
+  awayNote?: string | null; // a realistic schedule (#7) is holding the reply back
   onAcceptRelationship?: () => void;
   onDismissRelationship?: () => void;
   gameScore?: { user: number; character: number };
@@ -136,7 +137,7 @@ const StreamingBubble = ({ text, charInitials, accent, imageSrc }: { text: strin
 // Shown while an autonomous follow-up's random delay is still counting down
 // - distinct from TypingIndicator (which means a reply is actually
 // generating) so the two are never shown at once.
-const FollowupIndicator = ({ charInitials, accent, imageSrc }: { charInitials: string; accent?: [string, string]; imageSrc?: string }) => (
+const FollowupIndicator = ({ charInitials, accent, imageSrc, note }: { charInitials: string; accent?: [string, string]; imageSrc?: string; note?: string }) => (
   <div className="flex items-end gap-3 mb-6">
     <CharacterAvatar name={charInitials} accent={accent} imageSrc={imageSrc} size={32} className="mt-1" />
     <div className="flex items-center gap-1.5 px-4 py-3.5 bg-card/[0.88] border border-border/40 shadow-soft rounded-2xl rounded-tl-[5px]">
@@ -147,12 +148,12 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc }: { charInitials: s
       >
         <FaClock size={11} />
       </motion.span>
-      <span className="text-xs text-subtle">thinking of reaching out...</span>
+      <span className="text-xs text-subtle">{note || "thinking of reaching out..."}</span>
     </div>
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, recap, onToggleBookmark, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, recap, onToggleBookmark, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -729,15 +730,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ relationshipSuggestion, onAccep
             {terminal ? (
               aiLoading ? (
                 <TerminalCursorLine name={characterName} note={recordingVoiceNote ? "recording audio..." : undefined} />
-              ) : isFollowupPending ? (
-                <TerminalCursorLine name={characterName} note="thinking of reaching out..." />
+              ) : awayNote || isFollowupPending ? (
+                <TerminalCursorLine name={characterName} note={awayNote || "thinking of reaching out..."} />
               ) : null
             ) : aiLoading && streamingText && !textingMode && !recordingVoiceNote ? (
               <StreamingBubble text={streamingText} charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} />
             ) : aiLoading || reveal ? (
               <TypingIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} recording={aiLoading && recordingVoiceNote} />
-            ) : isFollowupPending ? (
-              <FollowupIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} />
+            ) : awayNote || isFollowupPending ? (
+              <FollowupIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} note={awayNote || undefined} />
             ) : null}
             <div ref={chatEndRef} />
           </div>

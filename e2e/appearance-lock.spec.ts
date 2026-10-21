@@ -1,4 +1,4 @@
-import { test, expect, openRoute, openChat } from "./fixtures";
+import { test, expect, openRoute, openChat, openDetails } from "./fixtures";
 import { viewportWidth } from "./layout";
 import type { Page } from "@playwright/test";
 
@@ -98,7 +98,7 @@ test("local image settings are saved with the character", async ({ page }) => {
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
   for (let i = 0; i < 5; i++) await page.getByRole("button", { name: "Next" }).click();
   const section = page.locator("details").filter({ has: page.locator("summary", { hasText: "Local image settings" }) });
-  await section.locator("summary").first().click();
+  await openDetails(section);
   await section.getByLabel("Seed").fill("1234");
   await section.getByLabel("LoRA file name").fill("aria_v1");
   await section.getByLabel("LoRA trigger word").fill("aria_char");

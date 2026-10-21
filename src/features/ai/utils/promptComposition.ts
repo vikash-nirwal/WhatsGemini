@@ -10,6 +10,7 @@ import { buildStateDirective } from "../../chat/sceneState";
 import { buildAvoidNote, findRepeatedOpening, findRepeatedPhrases } from "./antiRepetition";
 
 import { buildDatesSection } from "../../character/importantDates";
+import { buildScheduleSection } from "../../character/schedule";
 import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
 import { applyMacros } from "./macros";
 import { countProtectedPrefix, trimToLatestSummary } from "./transcript";
@@ -383,6 +384,9 @@ export const buildSystemInstruction = (
   if (options.roleplayStyle?.timeAwareness && recentMessages) {
     sections.push(buildTimeSection(recentMessages, options.now ?? Date.now()));
   }
+  // The character's routine (#7): what they're doing right now.
+  const routine = buildScheduleSection(character.schedule, options.now ?? Date.now());
+  if (routine) sections.push(m(routine));
   if (character.importantDates && character.importantDates.length > 0) {
     const dates = buildDatesSection(character.importantDates, options.now ?? Date.now());
     if (dates) sections.push(m(dates));

@@ -37,6 +37,9 @@ export interface HeaderAction {
 interface HeaderProps {
   title: React.ReactNode;
   subtitle?: React.ReactNode;
+  // The dot before the subtitle: green when online (the default), grey when
+  // the character's schedule (#7) says they're away.
+  online?: boolean;
   avatar?: React.ReactNode;
   onBack?: () => void;
   // Page-specific action groups (e.g. Chat's Export/Compress/Follow-up),
@@ -59,7 +62,7 @@ export const iconBtnClass = "flex items-center justify-center w-9 h-9 rounded-fu
 const iconBtnActiveClass = "flex items-center justify-center w-9 h-9 rounded-full border-0 shadow-none bg-primary/[0.14] text-primary hover:bg-primary/[0.2] transition flex-shrink-0";
 const iconBtnDangerClass = "flex items-center justify-center w-9 h-9 rounded-full border-0 shadow-none surface-raised bg-transparent text-subtle hover:bg-destructive/10 hover:text-destructive transition flex-shrink-0";
 
-const Header: React.FC<HeaderProps> = ({ title, subtitle, avatar, onBack, actionGroups = [] }) => {
+const Header: React.FC<HeaderProps> = ({ title, subtitle, online = true, avatar, onBack, actionGroups = [] }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { open } = useSidebar();
@@ -210,7 +213,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, avatar, onBack, action
           <div className={cn("text-[15px] font-semibold truncate text-foreground", avatar ? "font-serif" : "font-sans")}>{title}</div>
           {subtitle && (
             <div className="text-[11.5px] text-muted-foreground truncate flex items-center gap-1.5">
-              {avatar && <span className="w-[6px] h-[6px] rounded-full bg-success flex-shrink-0" />}
+              {avatar && <span aria-hidden className={cn("w-[6px] h-[6px] rounded-full flex-shrink-0", online ? "bg-success" : "bg-subtle")} />}
               {subtitle}
             </div>
           )}

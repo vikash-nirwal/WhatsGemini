@@ -1,4 +1,4 @@
-import { test as base, expect, Page, Route } from "@playwright/test";
+import { test as base, expect, Locator, Page, Route } from "@playwright/test";
 
 // Shared e2e fixtures: every test starts past the 18+ gate and the login
 // screen, with a known set of characters and chats in IndexedDB, and with AI
@@ -348,3 +348,12 @@ export const messageBubble = (page: Page, text: string) =>
 // skip phones for now: both are being redesigned there (a "+" tool menu and
 // a long-press message menu), so selectors written today would only break.
 export const PHONE_REDESIGN_SKIP = "phone composer/message actions are being redesigned (U3/U7)";
+
+// Opens a collapsed <details> section, retrying until it's really open: a
+// click on its summary while the step is still settling can be lost.
+export const openDetails = async (section: Locator) => {
+  await expect(async () => {
+    if ((await section.getAttribute("open")) === null) await section.locator("summary").first().click();
+    await expect(section).toHaveAttribute("open", "", { timeout: 1000 });
+  }).toPass();
+};

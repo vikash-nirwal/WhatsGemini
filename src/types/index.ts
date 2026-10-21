@@ -111,6 +111,15 @@ export interface CharacterSchedule {
   realistic?: boolean; // replies wait a little while they're busy or asleep
 }
 
+// A status a character posted (#8), shown for a day.
+export interface CharacterStatus {
+  id: string;
+  text: string;
+  image?: string;
+  createdAt: number;
+  seen?: boolean;
+}
+
 // One of a character's outfits (#50).
 export interface Outfit {
   id: string;
@@ -323,6 +332,8 @@ export interface Character {
   innerThoughts?: boolean; // #10: also write hidden thoughts with each reply
   importantDates?: ImportantDate[]; // #47
   schedule?: CharacterSchedule; // #7
+  postsStatuses?: boolean; // #8: posts a status now and then
+  statuses?: CharacterStatus[];
   wardrobe?: Outfit[]; // #50
   currentOutfitId?: string; // the outfit being worn now (#50); none = the locked look's own
   voice?: CharacterVoice; // #12/#44: how they sound when read aloud, and how often they send voice notes

@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openChat, openRoute, headerAction, sendMessage, ARIA } from "./fixtures";
+import { test, expect, openChat, openRoute, headerAction, sendMessage, ARIA, openDetails } from "./fixtures";
 
 // Wardrobe (#50): named outfits; the one being worn goes into pictures after
 // the locked look, and the character knows what they have on.
@@ -51,7 +51,7 @@ test("outfits are added in the editor, and one is worn", async ({ page }) => {
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
   for (let i = 0; i < 5; i++) await page.getByRole("button", { name: "Next" }).click();
   const section = page.locator("details").filter({ has: page.locator("summary", { hasText: "Wardrobe" }) });
-  await section.locator("summary").first().click();
+  await openDetails(section);
   await section.getByRole("button", { name: "Add an outfit" }).click();
   await section.getByLabel("Outfit name").fill("Work clothes");
   await section.getByLabel("What it looks like").fill("charcoal blazer, white shirt");

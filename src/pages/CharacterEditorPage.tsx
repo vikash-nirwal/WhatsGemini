@@ -4,7 +4,7 @@ import { addCharacter, updateCharacter } from "../features/characterSlice";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { FaUpload, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaCrop } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { Character, CharacterVoice, LoreEntry, ArtStyle, ContentRating, LocalImageSettings, ImportantDate, Outfit } from "../types";
+import { Character, CharacterSchedule, CharacterVoice, LoreEntry, ArtStyle, ContentRating, LocalImageSettings, ImportantDate, Outfit } from "../types";
 import { dbService } from "../services/dbService";
 import { generateAssistText, generateAvatarImage } from "../features/aiSlice";
 import { buildVisualTagsDraftPrompt, cleanVisualTags } from "../features/ai/utils/appearanceLock";
@@ -29,6 +29,8 @@ import ModelOverrideSection from "./CharacterEditorPage/ModelOverrideSection";
 import LocalImageSettingsSection from "./CharacterEditorPage/LocalImageSettingsSection";
 import ImportantDatesSection from "./CharacterEditorPage/ImportantDatesSection";
 import WardrobeSection from "./CharacterEditorPage/WardrobeSection";
+import ScheduleSection from "./CharacterEditorPage/ScheduleSection";
+import { cleanSchedule } from "../features/character/schedule";
 import { isValidDate } from "../features/character/importantDates";
 import VoiceSection, { cleanVoice } from "./CharacterEditorPage/VoiceSection";
 import IdeaDraftSection from "./CharacterEditorPage/IdeaDraftSection";
@@ -161,6 +163,7 @@ const CharacterEditorPage = () => {
   const [localImageSettings, setLocalImageSettings] = useState<LocalImageSettings | undefined>(undefined);
   const [importantDates, setImportantDates] = useState<ImportantDate[]>([]);
   const [wardrobe, setWardrobe] = useState<Outfit[]>([]);
+  const [schedule, setSchedule] = useState<CharacterSchedule | undefined>(undefined);
   const [currentOutfitId, setCurrentOutfitId] = useState<string | undefined>(undefined);
   const [voice, setVoice] = useState<CharacterVoice | undefined>(undefined);
   // Character from one line (#45).
@@ -215,6 +218,7 @@ const CharacterEditorPage = () => {
       setLocalImageSettings(source.localImageSettings);
       setImportantDates(source.importantDates || []);
       setWardrobe(source.wardrobe || []);
+      setSchedule(source.schedule);
       setCurrentOutfitId(source.currentOutfitId);
       setVoice(source.voice);
     } else {
@@ -246,6 +250,7 @@ const CharacterEditorPage = () => {
       setLocalImageSettings(undefined);
       setImportantDates([]);
       setWardrobe([]);
+      setSchedule(undefined);
       setCurrentOutfitId(undefined);
       setVoice(undefined);
     }
@@ -446,7 +451,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
       return;
     }
     if (!checkContentRating()) return;
-    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), importantDates: cleanDates(importantDates), ...cleanWardrobe(wardrobe, currentOutfitId) }));
+    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), importantDates: cleanDates(importantDates), ...cleanWardrobe(wardrobe, currentOutfitId), schedule: cleanSchedule(schedule) }));
     navigate("/characters");
   };
 
@@ -464,7 +469,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     // Spread the stored record first: db.put replaces the whole row, so any
     // field this form doesn't own (memory, pinnedMemory, avatar, creatorNotes)
     // was being wiped on every save.
-    dispatch(updateCharacter({ ...editCharacter, id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), importantDates: cleanDates(importantDates), ...cleanWardrobe(wardrobe, currentOutfitId) }));
+    dispatch(updateCharacter({ ...editCharacter, id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), importantDates: cleanDates(importantDates), ...cleanWardrobe(wardrobe, currentOutfitId), schedule: cleanSchedule(schedule) }));
     if (options?.stay) {
       toast.success("Character saved");
     } else {
@@ -1237,6 +1242,9 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                 </div>
                 <div className="mt-4 border-t border-border pt-4">
                   <WardrobeSection outfits={wardrobe} currentId={currentOutfitId} onChange={(outfits, id) => { setWardrobe(outfits); setCurrentOutfitId(id); }} />
+                </div>
+                <div className="mt-4 border-t border-border pt-4">
+                  <ScheduleSection value={schedule} onChange={setSchedule} />
                 </div>
               </Card>
             )}

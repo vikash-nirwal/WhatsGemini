@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openChat, openRoute, messageBubble, ARIA } from "./fixtures";
+import { test, expect, openChat, openRoute, messageBubble, ARIA, openDetails } from "./fixtures";
 
 // Dates that matter (#47): set in the character editor (or found in memory),
 // and on the day the character messages first, once.
@@ -45,7 +45,7 @@ const openDates = async (page: Page) => {
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
   for (let i = 0; i < 5; i++) await page.getByRole("button", { name: "Next" }).click();
   const section = page.locator("details").filter({ has: page.locator("summary", { hasText: "Dates that matter" }) });
-  await section.locator("summary").first().click();
+  await openDetails(section);
   return section;
 };
 

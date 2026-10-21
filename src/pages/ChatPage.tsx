@@ -11,6 +11,7 @@ import { useChatRecap } from "../features/chat/useChatRecap";
 import { moveBeat } from "../features/chat/storyScript";
 import { mergeState } from "../features/chat/sceneState";
 import { buildRelationshipPrompt, parseRelationshipReply, relationshipCheckDue } from "../features/character/relationshipEvolution";
+import { currentBlock, presenceFor, replyDelayMs } from "../features/character/schedule";
 import { latestStorySummary } from "../features/chat/recap";
 import { buildCelebrationDirective, datesToCelebrate } from "../features/character/importantDates";
 import { buildEventDirective, drawEvent } from "../features/chat/eventDeck";
@@ -160,6 +161,8 @@ const ChatPage = () => {
   const worlds = useAppSelector((state) => state.world.worlds);
   // A phone call (#56): replies are spoken, and what you say is sent as voice messages.
   const [inCall, setInCall] = useState(false);
+  // Shown while a realistic schedule (#7) holds a reply back.
+  const [awayNote, setAwayNote] = useState<string | null>(null);
   // Tells the user about a new message from this chat if they're away (#43).
   const notifyIfAway = useChatNotifier(chatIdNum, roomCharacters);
 
@@ -1037,6 +1040,14 @@ const ChatPage = () => {
       const shouldAutoSelfie = !isImageRequest && !isVideoRequest && !!autoSelfieCfg?.enabled &&
         Math.random() * 100 < (autoSelfieCfg.frequency ?? DEFAULT_AUTO_SELFIE_FREQUENCY);
 
+      // A realistic routine (#7): busy or asleep, they take a while to see it.
+      const wait = replyDelayMs(speaker.schedule, Date.now());
+      if (wait > 0) {
+        setAwayNote(`${speaker.name} is ${currentBlock(speaker.schedule, Date.now())?.activity || "busy"} and will reply in a bit`);
+        await new Promise((resolve) => window.setTimeout(resolve, wait));
+        setAwayNote(null);
+      }
+
       const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = buildTurnContext(contextMessages, speaker, undefined, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
       const sendVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest || shouldAutoSelfie));
       // Matches the "(voice note)" mark buildChatHistory puts on the same
@@ -1669,6 +1680,16 @@ const ChatPage = () => {
     if (call.seconds > 0) toast.info(`Call ended · ${formatCallTime(call.seconds)}`);
   };
 
+  // Schedule and presence (#7): "online", or what they're doing and when
+  // they last wrote; refreshed every minute so it changes with the clock.
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    if (!characterData?.schedule) return;
+    const timer = window.setInterval(() => setClock(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, [characterData?.schedule]);
+  const presence = !isRoom ? presenceFor(characterData?.schedule, clock, lastCharacterMessage?.timestamp) : undefined;
+
   const chatActions: HeaderAction[] = [
     { icon: FaBookOpen, label: "Export as story (Markdown)", onClick: handleExportStory },
     { icon: FaDownload, label: "Export chat (backup file)", onClick: handleExport },
@@ -1713,7 +1734,8 @@ const ChatPage = () => {
     <div className="flex flex-col w-full h-dvh relative">
       <Header
         title={character || "Chat"}
-        subtitle={isRoom ? `With ${roomCharacters.map((c) => c.name).join(", ")}` : (characterData?.relationship || characterData?.description)}
+        subtitle={isRoom ? `With ${roomCharacters.map((c) => c.name).join(", ")}` : (presence?.label || characterData?.relationship || characterData?.description)}
+        online={presence ? presence.online : true}
         avatar={
           <button
             type="button"
@@ -1799,7 +1821,7 @@ const ChatPage = () => {
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden relative">
-        <ChatWindow relationshipSuggestion={currentChat?.relationshipSuggestion} onAcceptRelationship={acceptRelationship} onDismissRelationship={dismissRelationship} game={currentChat?.game} gameScore={currentChat?.gameScore} onEndGame={() => chatIdNum && dispatch(updateChatOptions({ chatId: chatIdNum, patch: { game: undefined } }))} storyScript={currentChat?.storyScript} onEditStory={() => setStoryOpen(true)} onMoveBeat={moveStoryBeat} recap={recap} onToggleBookmark={handleToggleBookmark} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} />
+        <ChatWindow awayNote={awayNote} relationshipSuggestion={currentChat?.relationshipSuggestion} onAcceptRelationship={acceptRelationship} onDismissRelationship={dismissRelationship} game={currentChat?.game} gameScore={currentChat?.gameScore} onEndGame={() => chatIdNum && dispatch(updateChatOptions({ chatId: chatIdNum, patch: { game: undefined } }))} storyScript={currentChat?.storyScript} onEditStory={() => setStoryOpen(true)} onMoveBeat={moveStoryBeat} recap={recap} onToggleBookmark={handleToggleBookmark} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} />
         {inCall && characterData && (
           <CallScreen
             name={characterData.name}
@@ -1842,7 +1864,7 @@ const ChatPage = () => {
         <MessageInput
           userName={activePersona?.name}
           onSend={handleSend}
-          disabled={aiLoading}
+          disabled={aiLoading || Boolean(awayNote)}
           onStop={handleStopGenerating}
           onDraftActivity={handleDraftActivity}
           tokenCount={aiTokenCount}

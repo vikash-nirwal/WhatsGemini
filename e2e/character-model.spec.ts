@@ -1,4 +1,4 @@
-import { test, expect, openRoute } from "./fixtures";
+import { test, expect, openRoute, openDetails } from "./fixtures";
 
 // #32: a character can pin its own provider and model. The section sits on
 // the editor's last step, collapsed by default, and is saved with the character.
@@ -19,7 +19,7 @@ test("pin a provider and model for one character, then reset it", async ({ page 
   await expect(section.locator("summary")).toContainText("same as app");
   await expect(section.getByRole("button", { name: "Anthropic (Claude)" })).toBeHidden();
 
-  await section.locator("summary").click();
+  await openDetails(section);
   await section.getByRole("button", { name: "Anthropic (Claude)" }).click();
   // No Anthropic key is saved in the test profile.
   await expect(section.getByText(/No API key saved for Anthropic/)).toBeVisible();
@@ -33,7 +33,7 @@ test("pin a provider and model for one character, then reset it", async ({ page 
   section = await openEditor(page, { reload: true });
   await expect(section.locator("summary")).toContainText("Anthropic (Claude) / claude-haiku-4-5");
 
-  await section.locator("summary").click();
+  await openDetails(section);
   await section.getByRole("button", { name: "Reset to app settings" }).click();
   await expect(section.locator("summary")).toContainText("same as app");
   await page.getByRole("button", { name: "Save", exact: true }).click();
