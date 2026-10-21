@@ -209,3 +209,29 @@ test.describe("story memory and chapters", () => {
     await expect(page.getByText("Chapter 1: Damp Scrolls")).toHaveCount(0);
   });
 });
+
+test("an adventure can follow a story script, beat by beat", async ({ page, mockAI }) => {
+  await openAdventure(page);
+  await headerAction(page, "Story script");
+  const dialog = page.getByRole("dialog", { name: "Story script" });
+  await dialog.getByLabel("Premise").fill("A thief hunts a map in a flooded library.");
+  await dialog.getByLabel("Beat 1", { exact: true }).fill("Find the reading room.");
+  await dialog.getByRole("button", { name: "Add beat" }).click();
+  await dialog.getByLabel("Beat 2", { exact: true }).fill("The guardian wakes.");
+  await dialog.getByRole("button", { name: "Save script" }).click();
+  await expect(dialog).toBeHidden();
+
+  mockAI.replyOnce(adventureReply("You push into the old reading room.\n[Beat done]", ["Look around"]));
+  await page.getByRole("button", { name: ADVENTURE_CHOICES[0].label }).click();
+  await expect(page.getByText("You push into the old reading room.")).toBeVisible();
+  await expect(page.getByText("[Beat done]")).toHaveCount(0);
+  await expect(page.getByRole("separator", { name: "Beat 1" })).toContainText("Find the reading room.");
+  const system = systemOf(mockAI.requests[0].messages);
+  expect(system).toContain("Current beat: Find the reading room.");
+  expect(system).toContain("put the tag [Beat done] on its own line just before the choices block");
+
+  mockAI.replyOnce(adventureReply("Stone grinds somewhere above you.", ["Hide"]));
+  await page.getByRole("button", { name: "Look around" }).click();
+  await expect(page.getByText("Stone grinds somewhere above you.")).toBeVisible();
+  expect(systemOf(mockAI.requests[1].messages)).toContain("Current beat: The guardian wakes.");
+});

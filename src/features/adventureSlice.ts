@@ -243,6 +243,21 @@ export const updateAdventureRules = createAsyncThunk(
   }
 );
 
+// The story script (#57) an adventure follows; undefined removes it.
+export const updateAdventureStoryScript = createAsyncThunk(
+  "adventure/updateStoryScript",
+  async ({ adventureId, storyScript }: { adventureId: number; storyScript: Adventure["storyScript"] }, { rejectWithValue }) => {
+    try {
+      const adventure = await dbService.getAdventureById(adventureId);
+      adventure.storyScript = storyScript;
+      await dbService.updateAdventure(adventure);
+      return { adventureId, storyScript };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
 // The story's long-term memory: replaces the whole list.
 export const updateAdventureMemory = createAsyncThunk(
   "adventure/updateMemory",
@@ -389,6 +404,10 @@ const adventureSlice = createSlice({
       .addCase(updateAdventureRules.fulfilled, (state, action) => {
         const adventure = state.adventures.find((a) => a.id === action.payload.adventureId);
         if (adventure) adventure.rules = action.payload.rules;
+      })
+      .addCase(updateAdventureStoryScript.fulfilled, (state, action) => {
+        const adventure = state.adventures.find((a) => a.id === action.payload.adventureId);
+        if (adventure) adventure.storyScript = action.payload.storyScript;
       })
       .addCase(updateAdventureMemory.fulfilled, (state, action) => {
         const adventure = state.adventures.find((a) => a.id === action.payload.adventureId);

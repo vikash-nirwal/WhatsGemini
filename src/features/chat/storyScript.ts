@@ -28,6 +28,24 @@ export const cleanScript = (script: StoryScript): StoryScript | undefined => {
 
 export const isFinished = (script: StoryScript) => script.beats.length > 0 && script.currentBeat >= script.beats.length;
 
+// The beat a new reply belongs to, stamped on it so the chat can show where
+// each beat starts. Nothing once the beats are done, or with no beats.
+export const beatStamp = (script: StoryScript | undefined): { beat?: number } =>
+  script && script.beats.length > 0 && !isFinished(script) ? { beat: script.currentBeat + 1 } : {};
+
+// Indexes of the messages where a new beat starts: the first reply stamped
+// with each beat after a different one.
+export const beatStarts = (messages: { beat?: number }[]): Set<number> => {
+  const starts = new Set<number>();
+  let last: number | undefined;
+  messages.forEach((m, i) => {
+    if (m.beat == null) return;
+    if (m.beat !== last) starts.add(i);
+    last = m.beat;
+  });
+  return starts;
+};
+
 // Moves to another beat: +1 when the current one is done (or skipped), -1
 // to go back. Past the last beat means the story has reached its end.
 export const moveBeat = (script: StoryScript, step: number): StoryScript => ({
@@ -44,7 +62,9 @@ const MODE_RULES: Record<StoryScript["mode"], string> = {
 
 // The system-prompt section. It sits in the system instruction, which is
 // never compressed, so the story survives however long the chat gets.
-export const buildStoryScriptSection = (script: StoryScript): string => {
+// `beforeChoices`: in an adventure the reply must end with its choices
+// block, so the beat tag goes just before it instead.
+export const buildStoryScriptSection = (script: StoryScript, { beforeChoices = false }: { beforeChoices?: boolean } = {}): string => {
   const parts = ["This roleplay follows a story the user wrote. You must work inside it."];
   if (script.premise) parts.push(`Premise: ${script.premise}`);
   if (script.directions) parts.push(`The user's directions (always follow them): ${script.directions}`);
@@ -55,7 +75,7 @@ export const buildStoryScriptSection = (script: StoryScript): string => {
       const n = script.currentBeat + 1;
       parts.push(
         `The story is told in ${script.beats.length} beats; you're on beat ${n}. Current beat: ${script.beats[script.currentBeat].text}`,
-        "Work toward the current beat over the next replies, at a natural pace; don't jump ahead to later beats, and don't rush it into one reply unless the user does. When the current beat has fully happened in the story, end that reply with the tag [Beat done] on its own line. Never explain or mention the tag."
+        `Work toward the current beat over the next replies, at a natural pace; don't jump ahead to later beats, and don't rush it into one reply unless the user does. When the current beat has fully happened in the story, ${beforeChoices ? "put the tag [Beat done] on its own line just before the choices block" : "end that reply with the tag [Beat done] on its own line"}. Never explain or mention the tag.`
       );
       if (script.ending) parts.push(`Where it's all heading (don't reveal it early): ${script.ending}`);
     }

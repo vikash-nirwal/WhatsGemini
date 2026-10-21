@@ -37,6 +37,8 @@ test("replies follow the current beat and move on when it's done", async ({ page
   await waitForReplyDone(page);
   await expect(messageBubble(page, "Is this taken?")).not.toContainText("[Beat");
   await expect(progress).toContainText(`Beat 2 of 2: ${BEAT_2}`);
+  // The reply that finished beat 1 sits under a divider for it.
+  await expect(page.getByRole("separator", { name: "Beat 1" })).toContainText(BEAT_1);
 
   const first = systemPrompt(mockAI.requests[0].messages);
   expect(first).toContain(`Premise: ${PREMISE}`);
@@ -48,6 +50,7 @@ test("replies follow the current beat and move on when it's done", async ({ page
   await sendMessage(page, "What was that?");
   await expect.poll(() => mockAI.requests.length).toBe(2);
   expect(systemPrompt(mockAI.requests[1].messages)).toContain(`Current beat: ${BEAT_2}`);
+  await expect(page.getByRole("separator", { name: "Beat 2" })).toContainText(BEAT_2);
 
   // Beats can also be moved by hand.
   await waitForReplyDone(page);

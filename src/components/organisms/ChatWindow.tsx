@@ -36,6 +36,7 @@ import { Card } from "src/components/atoms/card";
 import { Badge } from "src/components/atoms/badge";
 import { useColorTheme } from "../../hooks/useColorTheme";
 import { cn } from "../../utils/cn";
+import { beatStarts } from "../../features/chat/storyScript";
 
 interface ChatWindowProps {
   onToggleBookmark?: (msg: Message) => void; // star / unstar a message (#21)
@@ -361,6 +362,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, relationshipSuggestio
     () => filteredMessages.map((m) => Boolean(m.isCompressionSummary)).lastIndexOf(true),
     [filteredMessages]
   );
+  // Where each story-script beat starts (#57), for a divider above it.
+  const beatStartIndexes = useMemo(() => (storyScript ? beatStarts(filteredMessages) : new Set<number>()), [storyScript, filteredMessages]);
 
   useEffect(() => {
     setEditingIndex(null);
@@ -650,9 +653,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, relationshipSuggestio
               filteredMessages.map((msg, i) => {
                 const siblingInfo = tree && msg.id ? getSiblingInfo(tree, msg.id) : undefined;
                 const speaker = resolveSpeaker(msg);
+                const beatText = beatStartIndexes.has(i) && storyScript ? storyScript.beats[(msg.beat || 1) - 1]?.text : undefined;
                 const message = (
+                  <React.Fragment key={msg.id || i}>
+                  {beatText !== undefined && (
+                    <div role="separator" aria-label={`Beat ${msg.beat}`} className="flex items-center gap-3 my-4 text-[11px] text-subtle">
+                      <span className="h-px flex-1 bg-border/60" />
+                      <span className="max-w-[70%] truncate"><span className="font-semibold uppercase tracking-[0.08em]">Beat {msg.beat}</span> · {beatText}</span>
+                      <span className="h-px flex-1 bg-border/60" />
+                    </div>
+                  )}
                   <ChatMessage
-                    key={msg.id || i}
                     msg={msg}
                     charInitials={speaker === character ? charInitials : getInitials(speaker?.name)}
                     speakerName={speaker?.name || characterName}
@@ -682,6 +693,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, relationshipSuggestio
                     reactorName={msg.characterReaction ? resolveReactor(msg.characterReaction.speakerId) : undefined}
                     voice={msg.role === YOU ? undefined : speaker?.voice}
                   />
+                  </React.Fragment>
                 );
                 const suggestions = !aiLoading && i === filteredMessages.length - 1 && replySuggestions && replySuggestions.forMessageId === msg.id ? replySuggestions.items : undefined;
                 if (suggestions && onPickSuggestion) {

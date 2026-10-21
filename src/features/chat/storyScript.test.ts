@@ -1,4 +1,4 @@
-import { buildStoryScriptSection, cleanScript, emptyScript, extractBeatTag, makeBeat, moveBeat, parseScriptDraft, stripStreamingBeatTag } from "./storyScript";
+import { beatStamp, beatStarts, buildStoryScriptSection, cleanScript, emptyScript, extractBeatTag, makeBeat, moveBeat, parseScriptDraft, stripStreamingBeatTag } from "./storyScript";
 import { StoryScript } from "../../types";
 
 const script = (overrides: Partial<StoryScript> = {}): StoryScript => ({
@@ -69,5 +69,23 @@ describe("parseScriptDraft", () => {
   it("returns nothing for a reply that isn't a plan", () => {
     expect(parseScriptDraft("Sure! Here's your story.")).toBeUndefined();
     expect(parseScriptDraft('{"premise": "", "beats": []}')).toBeUndefined();
+  });
+});
+
+describe("beats on messages", () => {
+  const script: StoryScript = { ...emptyScript(), beats: [makeBeat("Meet"), makeBeat("Storm")], currentBeat: 1 };
+
+  it("stamps a reply with the current beat, and nothing once all are done", () => {
+    expect(beatStamp(script)).toEqual({ beat: 2 });
+    expect(beatStamp({ ...script, currentBeat: 2 })).toEqual({});
+    expect(beatStamp(undefined)).toEqual({});
+  });
+
+  it("finds where each beat starts", () => {
+    expect([...beatStarts([{}, { beat: 1 }, {}, { beat: 1 }, { beat: 2 }, { beat: 2 }])]).toEqual([1, 4]);
+  });
+
+  it("puts the beat tag before an adventure's choices block", () => {
+    expect(buildStoryScriptSection({ ...script, currentBeat: 0 }, { beforeChoices: true })).toContain("put the tag [Beat done] on its own line just before the choices block");
   });
 });

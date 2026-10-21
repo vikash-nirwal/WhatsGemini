@@ -2,7 +2,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom";
 import { FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo, FaImage, FaSyncAlt, FaTimes, FaPalette, FaBookOpen, FaComments, FaFont, FaShieldAlt, FaCompressArrowsAlt, FaDiceD20, FaListUl, FaBrain, FaBookmark } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { deleteAdventure, addAdventureMessage, updateAdventureStatus, incrementAdventureUsage, updateAdventureMessage, updateAdventureRules, removeAdventureCompressionSummary, updateAdventureMemory, insertAdventureCompressionSummary } from "../features/adventureSlice";
+import { deleteAdventure, addAdventureMessage, updateAdventureStatus, incrementAdventureUsage, updateAdventureMessage, updateAdventureRules, removeAdventureCompressionSummary, updateAdventureMemory, insertAdventureCompressionSummary, updateAdventureStoryScript } from "../features/adventureSlice";
+import { beatStamp, beatStarts, extractBeatTag, isFinished, moveBeat } from "../features/chat/storyScript";
+import StoryScriptDialog from "src/components/organisms/StoryScriptDialog";
 import { generateAIResponse, generateAdventureSceneImage, autoCompressAdventure, extractCharacterMemory, summarizeChapter } from "../features/aiSlice";
 import { applyMemoryChanges } from "../features/ai/utils/memoryExtraction";
 import { buildChatHistory, buildPostHistoryNote } from "../features/ai/utils/promptComposition";
@@ -130,6 +132,7 @@ const AdventurePage = () => {
   const [boundariesOpen, setBoundariesOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
+  const [storyOpen, setStoryOpen] = useState(false);
   const [endingChapter, setEndingChapter] = useState(false);
   const roleplayStyle = useAppSelector((state) => state.settings.roleplayStyle);
   // Streams the narrator's reply in, tagged so only this adventure shows it.
@@ -237,9 +240,12 @@ const AdventurePage = () => {
       const { text: withoutStats, lines } = extractStatsBlock(withoutCheck);
       const applied = adventure.rules?.trackStats && lines ? applyStatChanges(currentGameState(contextMessages, startingGameState(adventure.rules)), lines) : undefined;
       const changed = applied && applied.changes.length > 0 ? applied : undefined;
-      const { text, choices: rawChoices } = parseAdventureChoices(withoutStats);
+      const { text: withBeatTag, choices: rawChoices } = parseAdventureChoices(withoutStats);
+      // The story script (#57): the narrator marks a finished beat.
+      const { text, beatDone } = extractBeatTag(withBeatTag);
       const choices = rawChoices.map(parseChoiceCheck);
-      const content = await dispatch(addAdventureMessage({ adventureId: adventure.id, message: { role: AI, txt: text, choices, castEmotions, gameState: changed?.state, gameChanges: changed?.changes } })).unwrap();
+      const content = await dispatch(addAdventureMessage({ adventureId: adventure.id, message: { role: AI, txt: text, choices, castEmotions, gameState: changed?.state, gameChanges: changed?.changes, ...beatStamp(adventure.storyScript) } })).unwrap();
+      if (beatDone && adventure.storyScript) dispatch(updateAdventureStoryScript({ adventureId: adventure.id, storyScript: moveBeat(adventure.storyScript, 1) }));
       maybeExtractMemory(content);
       if (result.tokenCount || result.costEstimate) {
         dispatch(incrementAdventureUsage({ adventureId: adventure.id, tokens: result.tokenCount, cost: result.costEstimate }));
@@ -400,6 +406,8 @@ const AdventurePage = () => {
   };
 
   const memoryOn = !adventure.rules?.memoryOff;
+  const script = adventure.storyScript;
+  const beatStartIndexes = script ? beatStarts(adventure.content) : new Set<number>();
 
   // "End chapter": the turns since the last summary become a titled chapter
   // with a recap, like a chat's. Nothing is deleted, and it can be undone.
@@ -467,6 +475,12 @@ const AdventurePage = () => {
       label: skillChecks ? "Skill checks: on" : "Skill checks: off",
       active: skillChecks,
       onClick: () => dispatch(updateAdventureRules({ adventureId: adventure.id, rules: { ...adventure.rules, skillChecks: !skillChecks || undefined } })),
+    },
+    {
+      icon: FaBookOpen,
+      label: !script ? "Story script" : script.beats.length === 0 ? "Story script: on" : isFinished(script) ? "Story script: all beats done" : `Story script: beat ${script.currentBeat + 1} of ${script.beats.length}`,
+      active: Boolean(script),
+      onClick: () => setStoryOpen(true),
     },
     {
       icon: FaBrain,
@@ -602,10 +616,19 @@ const AdventurePage = () => {
                 );
               }
               const summarized = i < latestSummaryAt;
+              // Where a story-script beat starts (#57).
+              const beatDivider = beatStartIndexes.has(i) && script ? (
+                <div role="separator" aria-label={`Beat ${msg.beat}`} className="flex items-center gap-3 text-[11px] text-subtle">
+                  <span className="h-px flex-1 bg-border/60" />
+                  <span className="max-w-[70%] truncate"><span className="font-semibold uppercase tracking-[0.08em]">Beat {msg.beat}</span> · {script.beats[(msg.beat || 1) - 1]?.text}</span>
+                  <span className="h-px flex-1 bg-border/60" />
+                </div>
+              ) : null;
               if (viewMode === "novel") {
                 const isFirstAi = msg.role === AI && adventure.content.findIndex((m) => m.role === AI) === i;
                 return (
                   <div key={msg.id || i} className={cn(summarized && "opacity-60")}>
+                  {beatDivider}
                   <NovelMessageItem
                     msg={msg}
                     index={i}
@@ -630,7 +653,9 @@ const AdventurePage = () => {
               }
 
               return (
-                <div key={msg.id || i} className={cn("flex", msg.role === YOU ? "justify-end" : "justify-start", summarized && "opacity-60")}>
+                <React.Fragment key={msg.id || i}>
+                {beatDivider}
+                <div className={cn("flex", msg.role === YOU ? "justify-end" : "justify-start", summarized && "opacity-60")}>
                   {msg.role === YOU ? (
                     <div className="max-w-[80%] flex flex-col items-end gap-1">
                       <div className="rounded-2xl bg-primary text-primary-foreground px-4 py-2.5">
@@ -693,6 +718,7 @@ const AdventurePage = () => {
                     </div>
                   )}
                 </div>
+                </React.Fragment>
               );
             })}
             {generating && streamingText && (
@@ -723,6 +749,7 @@ const AdventurePage = () => {
         )}
       </div>
       <EmotionPopup trigger={popupTrigger} durationMs={emotionPopupDuration} />
+      <StoryScriptDialog open={storyOpen} onOpenChange={setStoryOpen} script={adventure.storyScript} onSave={(next) => dispatch(updateAdventureStoryScript({ adventureId: adventure.id, storyScript: next }))} />
       <Dialog open={memoryOpen} onOpenChange={setMemoryOpen}>
         <DialogContent className="max-w-md">
           <DialogTitle>Story memory</DialogTitle>

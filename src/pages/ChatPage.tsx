@@ -8,7 +8,7 @@ import { buildStoryMarkdown, storyFileName } from "../features/chat/storyExport"
 import { resolveTurnModel } from "../features/ai/modelResolution";
 import { appearanceLocksFor, lockedLookFor } from "../features/ai/utils/appearanceLock";
 import { useChatRecap } from "../features/chat/useChatRecap";
-import { moveBeat } from "../features/chat/storyScript";
+import { beatStamp, moveBeat } from "../features/chat/storyScript";
 import { mergeState } from "../features/chat/sceneState";
 import { buildRelationshipPrompt, parseRelationshipReply, relationshipCheckDue } from "../features/character/relationshipEvolution";
 import { currentBlock, presenceFor, replyDelayMs } from "../features/character/schedule";
@@ -796,6 +796,7 @@ const ChatPage = () => {
       imagePrompt: payloadObj?.imagePrompt,
       imageParams: payloadObj?.imageParams,
       speakerId: speaker.id,
+      ...beatStamp(currentChat?.storyScript),
       isVoiceNote: followupIsVoiceNote,
     }));
     // Manual follow-ups go through here too, but they start from a click in
@@ -1147,6 +1148,7 @@ const ChatPage = () => {
           imagePrompt: payloadObj?.imagePrompt,
           imageParams: payloadObj?.imageParams,
           speakerId: speaker.id,
+          ...beatStamp(currentChat?.storyScript),
           isVoiceNote: replyVoiceNote,
         }));
         notifyIfAway(speaker, notificationText(replyText, replyVoiceNote), generatedImages);
@@ -1249,6 +1251,7 @@ const ChatPage = () => {
             imagePrompt: payloadObj?.imagePrompt,
             imageParams: payloadObj?.imageParams,
             speakerId: speaker.id,
+            ...beatStamp(currentChat?.storyScript),
             timestamp: Date.now(),
           };
           // The character's reaction (#11) goes on the edited message itself.
@@ -1357,6 +1360,7 @@ const ChatPage = () => {
           imagePrompt: payloadObj?.imagePrompt,
           imageParams: payloadObj?.imageParams,
           speakerId: speaker.id,
+          ...beatStamp(currentChat?.storyScript),
           timestamp: Date.now(),
         };
         // A new answer brings its own reaction (#11), or none.

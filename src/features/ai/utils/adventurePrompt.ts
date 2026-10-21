@@ -7,6 +7,7 @@ import { NSFW_CONTENT_RULE, SFW_CONTENT_RULE } from "./promptComposition";
 import { buildGameStateDirective, currentGameState, startingGameState, STATS_START } from "../../adventure/gameState";
 import { buildSkillCheckDirective } from "../../adventure/skillChecks";
 import { selectRelevantFacts } from "./memoryRelevance";
+import { buildStoryScriptSection } from "../../chat/storyScript";
 import type { ImagePromptTarget } from "./imagePromptGuide";
 
 // Delimiters the narrator is instructed to wrap its suggested next actions
@@ -76,6 +77,9 @@ export const buildAdventureSystemInstruction = (
   if (adventure.premise) {
     sections.push(`Opening premise: ${adventure.premise}`);
   }
+
+  // The user's own story (#57), which the narrator works through beat by beat.
+  if (adventure.storyScript) sections.push(buildStoryScriptSection(adventure.storyScript, { beforeChoices: true }));
 
   // Long-term memory: what the story has established, most relevant first.
   const facts = adventure.rules?.memoryOff ? [] : selectRelevantFacts(adventure.memory || [], recentMessages);
@@ -223,7 +227,7 @@ export const streamingNarrationForDisplay = (text: string): string => {
     const at = shown.indexOf(marker);
     if (at >= 0) shown = shown.slice(0, at);
   }
-  const tag = shown.search(/\[\s*(emotions?|check)\s*:/i);
+  const tag = shown.search(/\[\s*(emotions?\s*:|check\s*:|beat\b)/i);
   if (tag >= 0) shown = shown.slice(0, tag);
   return shown.replace(/(\[[^\]\n]{0,12}|<{1,2})$/, "").trimEnd();
 };

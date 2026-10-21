@@ -80,6 +80,7 @@ export interface Message {
   gameState?: AdventureGameState;
   gameChanges?: string[];
   skillCheck?: SkillCheck;
+  beat?: number; // the story-script beat (1-based) this reply was written in (#57)
 }
 
 // One tappable option offered at the end of an adventure narrator turn.
@@ -575,4 +576,5 @@ export interface Adventure {
   // Facts established in the story, pulled out every few turns like a
   // chat's memory, so a long adventure stays consistent.
   memory?: string[];
+  storyScript?: StoryScript; // the user's own story for the narrator to follow (#57)
 }
