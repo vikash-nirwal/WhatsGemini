@@ -77,8 +77,16 @@ export const loadComfySettings = (): ComfyUISettings => {
   };
 };
 
+// Fired after either save, so things that read these settings (the image
+// prompt style shown in Settings) can refresh.
+export const COMFYUI_SETTINGS_EVENT = "comfyui-settings-changed";
+const announce = () => {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(COMFYUI_SETTINGS_EVENT));
+};
+
 export const saveComfySettings = (settings: ComfyUISettings): void => {
   localStorage.setItem(LS_COMFYUI_SETTINGS, JSON.stringify(settings));
+  announce();
 };
 
 export const loadCustomWorkflows = (): CustomWorkflow[] => {
@@ -88,6 +96,7 @@ export const loadCustomWorkflows = (): CustomWorkflow[] => {
 
 export const saveCustomWorkflows = (workflows: CustomWorkflow[]): void => {
   localStorage.setItem(LS_COMFYUI_CUSTOM_WORKFLOWS, JSON.stringify(workflows));
+  announce();
 };
 
 export const newCustomWorkflowId = (): string =>

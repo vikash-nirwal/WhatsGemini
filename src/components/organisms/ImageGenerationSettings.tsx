@@ -11,6 +11,7 @@ import { ProviderPicker } from 'src/components/molecules/ProviderPicker';
 import { SegmentedControl } from 'src/components/molecules/SegmentedControl';
 import { NumberStepper } from 'src/components/molecules/NumberStepper';
 import ComfyUISettings from './ComfyUISettings';
+import { PromptStyleRow } from 'src/components/molecules/PromptStyleRow';
 import { CONTROLNET_FACE_PRESETS } from '../../features/ai/utils/sdWebuiUtils';
 
 interface ImageGenerationSettingsProps {
@@ -381,6 +382,8 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
             </Select>
           </SettingsRow>
         )}
+
+        <PromptStyleRow providerId={imageProvider} imageModel={imageModel} sdWebuiModel={sdWebuiModel} />
       </SettingsCard>
 
       <SettingsCard>

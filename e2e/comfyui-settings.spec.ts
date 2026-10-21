@@ -62,6 +62,14 @@ test.describe("ComfyUI settings", () => {
     expect(comfy.sequence()).toEqual(["POST /prompt", "GET /history/e2e-prompt-1", "GET /history/e2e-prompt-1", "GET /view"]);
   });
 
+  test("shows how picture prompts are worded, following the checkpoint", async ({ page }) => {
+    const style = page.getByTestId("prompt-style");
+    await expect(style).toContainText('Without a photo: SDXL phrases, for ComfyUI running the "SDXL text to image" workflow');
+    await expect(style).toContainText("With a reference photo: SDXL phrases");
+    await page.getByRole("combobox", { name: "Checkpoint for SDXL text to image" }).fill("ponyDiffusionV6XL.safetensors");
+    await expect(style).toContainText("Without a photo: Pony score tags");
+  });
+
   test("keeps its choices after a reload", async ({ page }) => {
     await page.getByRole("textbox", { name: "ComfyUI seed" }).fill("777");
     await page.reload();

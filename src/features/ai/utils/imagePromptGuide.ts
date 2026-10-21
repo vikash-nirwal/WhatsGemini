@@ -21,6 +21,16 @@ export interface ImagePromptTarget {
   wantsParams: boolean;
 }
 
+// How Settings names each style.
+export const DIALECT_LABELS: Record<PromptDialect, string> = {
+  sd15: "Stable Diffusion 1.5 tags",
+  sdxl: "SDXL phrases",
+  pony: "Pony score tags",
+  illustrious: "Illustrious / NoobAI tags",
+  flux: "FLUX prose",
+  prose: "A prose paragraph",
+};
+
 const GUIDES: Record<PromptDialect, string> = {
   sd15: "Write comma-separated tags, most important first, never sentences. Start with quality tags (masterpiece, best quality, highly detailed), then who is in it (1girl, 1boy, 2girls, solo), then their appearance (hair colour and style, eye colour, build), outfit, expression, pose and action, the setting, lighting and framing (close-up, upper body, full body, from above). 25 to 50 tags. Weight only the one or two things that must show, like (red scarf:1.2).",
   sdxl: "Write short comma-separated phrases, most important first, never full sentences: who is in it, their appearance, outfit, expression, pose and action, the setting, lighting, framing and camera, then the style. Short descriptive phrases (\"soft window light\", \"sitting on a windowsill\") work better than single words. A couple of quality words (high quality, detailed) are enough. Under 60 words.",
