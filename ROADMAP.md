@@ -10,7 +10,6 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 The app is called WhatsGemini, so lean into the messaging-app fantasy.
 
-8. **Status updates** (M). Like WhatsApp Status: now and then a character posts a short status with an optional generated picture, based on their schedule and recent events. It shows as a ring on their avatar in the sidebar, and replying to a status opens the chat quoting it.
 13. **Chat backdrops** (S). Generate or upload a background image for a chat from its setting tags or scenario, shown subtly behind the bubbles.
 
 ## Group chats
@@ -36,6 +35,7 @@ Leftovers noted while building the finished items. Pick them up alongside relate
 - **Compression:** an "Undo compression" action (cheap, since nothing is deleted any more).
 - **Adventures:** long-term memory; hard limits in the creation wizard.
 - **Photos:** editing or regenerating keeps the photo off the edited message; real vision APIs weren't tried (mocked only).
+- **Status updates:** an optional picture with a status (the roadmap's original idea); the status row on phones and in the collapsed sidebar.
 - **Story script:** use it in adventures too (the narrator following the user's beats); show which beat a message belongs to.
 - **Messaging feel:** texting mode isn't used by the terminal theme or the novel view; the terminal theme only offers ❤️ as a reaction; the inner-thoughts switch is only in a 1:1 chat's Scene panel (rooms have none yet).
 - **Image providers:** try each with a real key: Wan from a Singapore workspace, fal.ai uploads and its safety flags, OpenAI's `input_fidelity` and `image[]` fields, and the ComfyUI templates' node names against a real server. An InstantID preset for the SD WebUI ControlNet (it needs two units). ComfyUI prompts could use tag style for SDXL templates.

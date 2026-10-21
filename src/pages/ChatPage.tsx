@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, insertCompressionSummary, updateChatMessage, updateChatOptions, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatMemory, updateChatGreeting, setPendingFollowupAt } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
 import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage, summarizeChapter, writeDiaryEntry, generateAssistText } from "../features/aiSlice";
@@ -535,6 +535,15 @@ const ChatPage = () => {
   // memory only; they're for this moment, not the story.
   const [replySuggestions, setReplySuggestions] = useState<{ forMessageId: string; items: string[] } | null>(null);
   const [draftInjection, setDraftInjection] = useState<{ text: string; nonce: number } | undefined>(undefined);
+  // A status reply (#8) arrives with its draft in the route state.
+  const routeLocation = useLocation();
+  const routeNavigate = useNavigate();
+  useEffect(() => {
+    const draft = (routeLocation.state as { draft?: string } | null)?.draft;
+    if (!draft) return;
+    setDraftInjection({ text: draft, nonce: Date.now() });
+    routeNavigate(routeLocation.pathname, { replace: true, state: null });
+  }, [routeLocation, routeNavigate]);
   const maybeSuggestReplies = async (allMessages: Message[], speaker = characterData) => {
     const last = allMessages[allMessages.length - 1];
     if (!currentChat?.replySuggestions || !speaker || !last?.id || last.role !== AI) return;

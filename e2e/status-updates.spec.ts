@@ -1,0 +1,56 @@
+import type { Page } from "@playwright/test";
+import { test, expect, openChat, ARIA } from "./fixtures";
+
+// Status updates (#8): a character with statuses on posts one now and then;
+// the sidebar shows it with a ring until seen, and replying quotes it.
+
+test.use({ seed: { messages: 4 } });
+test.skip(({ viewport }) => (viewport?.width ?? 0) < 1024, "the sidebar is always shown on wide screens; phones open it from the menu");
+
+const patchAria = (page: Page, fields: Record<string, unknown>) =>
+  page.evaluate(
+    async ({ id, fields }) => {
+      const db: IDBDatabase = await new Promise((resolve, reject) => {
+        const req = indexedDB.open("ChatAppDB");
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      await new Promise<void>((resolve) => {
+        const tx = db.transaction("characters", "readwrite");
+        const store = tx.objectStore("characters");
+        const get = store.get(id);
+        get.onsuccess = () => store.put({ ...get.result, ...fields });
+        tx.oncomplete = () => resolve();
+      });
+      db.close();
+    },
+    { id: ARIA.id, fields }
+  );
+
+test("a character with statuses on posts one, shown in the sidebar", async ({ page, mockAI }) => {
+  await page.clock.install();
+  mockAI.reply("Long shift, but the rain made the cafe cozy ☔");
+  await openChat(page);
+  await patchAria(page, { postsStatuses: true });
+  await page.reload();
+  await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
+  await page.clock.fastForward(20_000);
+
+  await expect(page.getByRole("button", { name: "Aria's status, new" })).toBeVisible({ timeout: 15_000 });
+  expect(mockAI.requests[0].prompt).toContain("Write one short status update that Aria posts");
+});
+
+test("a status is seen once opened, and replying quotes it in the chat", async ({ page }) => {
+  await openChat(page);
+  await patchAria(page, { statuses: [{ id: "s1", text: "Pottery class tonight!", createdAt: Date.now() - 60_000 }] });
+  await page.reload();
+  await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
+
+  await page.getByRole("button", { name: "Aria's status, new" }).click();
+  const viewer = page.getByRole("dialog", { name: "Aria's status" });
+  await expect(viewer).toContainText("Pottery class tonight!");
+  await viewer.getByRole("button", { name: "Reply" }).click();
+  await expect(viewer).toBeHidden();
+  await expect(page.getByLabel("Message input")).toHaveValue('(Replying to your status: "Pottery class tonight!") ');
+  await expect(page.getByRole("button", { name: "Aria's status", exact: true })).toBeVisible();
+});

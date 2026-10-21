@@ -21,6 +21,8 @@ import Logo from "src/components/atoms/Logo";
 import { useColorTheme } from "../../hooks/useColorTheme";
 import { stripLeakedBase64 } from "../../features/ai/utils/apiUtils";
 import { isNsfwCharacter } from "../../features/character/contentRating";
+import { StatusStrip } from "./StatusStrip";
+import { hasUnseenStatus, statusReplyDraft } from "../../features/character/statusUpdates";
 
 const formatChatTime = (timestamp?: number) => {
   if (!timestamp) return "";
@@ -140,6 +142,18 @@ const Sidebar = () => {
       close();
     }
   }, [dispatch, navigate, showConfirm, close]);
+
+  // Replying to a status (#8): the character's 1:1 chat, with the status
+  // quoted in the composer.
+  const handleStatusReply = useCallback(async (character: Character, status: { text: string; id: string; createdAt: number }) => {
+    const draft = statusReplyDraft(status);
+    const existingChat = chats.find((chat: Chat) => chat.characterIds?.length === 1 && chat.characterIds[0] === character.id);
+    const id = existingChat?.id ?? ((await dispatch(addChat({ title: character.name, characterIds: [character.id] }))).payload as Chat | undefined)?.id;
+    if (id != null) {
+      navigate(`/chat/${id}`, { state: { draft } });
+      close();
+    }
+  }, [chats, dispatch, navigate, close]);
 
   const handleTogglePin = useCallback((chatId: number, pinned: boolean) => {
     dispatch(updateChatPinned({ chatId, pinned: !pinned }));
@@ -379,6 +393,9 @@ const Sidebar = () => {
 
         {/* Chat list */}
         <div className={cn("flex-1 overflow-y-auto px-2 pb-2.5", collapsed && "lg:px-1.5")}>
+          {!collapsed && !terminal && !search.trim() && (
+            <StatusStrip characters={showNsfwCharacters ? characters : characters.filter((c: Character) => !isNsfwCharacter(c))} onReply={handleStatusReply} />
+          )}
           {search.trim() && filteredChats.length === 0 ? (
             <p className={cn("text-center text-subtle text-[12.5px] px-3 py-6", collapsed && "lg:hidden")}>No chats or messages match "{search.trim()}".</p>
           ) : (
@@ -679,7 +696,9 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, qu
             {terminal ? (
               <span className="w-[26px] flex-none font-extrabold text-[11px]">{getInitials(character?.name || chat.title)}</span>
             ) : (
-              <CharacterAvatar name={character?.name || chat.title} accent={character?.accent} imageSrc={avatarSrc} size={34} />
+              <span className={cn("rounded-full flex-shrink-0", character && hasUnseenStatus(character, Date.now()) && "ring-2 ring-primary ring-offset-2 ring-offset-card")}>
+                <CharacterAvatar name={character?.name || chat.title} accent={character?.accent} imageSrc={avatarSrc} size={34} />
+              </span>
             )}
             <div className={cn("flex-1 flex flex-col overflow-hidden min-w-0", collapsed && "lg:hidden")}>
               <div className="flex items-center gap-1.5">

@@ -810,7 +810,22 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
             />
           </div>
 
-          {/* Relationship that evolves (#30) */}
+          {/* Status updates (#8) - per character */}
+        {!isRoom && character && (
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[12.5px] font-medium text-foreground">{character.name} posts statuses</div>
+              <div className="text-[11px] text-subtle">Now and then, a short status about their day, shown in the sidebar for a day. At most one every ten hours.</div>
+            </div>
+            <ToggleSwitch
+              checked={Boolean(character.postsStatuses)}
+              onChange={(val) => dispatch(updateCharacter({ ...character, postsStatuses: val || undefined }))}
+              label={<span className="sr-only">{character.name} posts statuses</span>}
+            />
+          </div>
+        )}
+
+        {/* Relationship that evolves (#30) */}
         {!isRoom && character && (
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
