@@ -13,7 +13,6 @@ Leftovers noted while building the finished items. Pick them up alongside relate
 - **Memory:** show fact groups in the character editor's memory card (only the Scene panel groups them today).
 - **Chapters and diary:** "End chapter" in adventures; diary entries from group chats.
 - **Lorebook:** SillyTavern fields not mapped yet: cooldown, delay, regex keys, case-sensitive matching, insertion position, groups. Sticky only applies to direct keyword hits, not recursive ones.
-- **Compression:** an "Undo compression" action (cheap, since nothing is deleted any more).
 - **Adventures:** long-term memory; hard limits in the creation wizard. Stats and skill-check switches in the creation wizard (only in the header today); starting HP and items per adventure; checks on typed actions, not just choices.
 - **Photos:** editing or regenerating keeps the photo off the edited message; real vision APIs weren't tried (mocked only).
 - **Status updates:** an optional picture with a status (the roadmap's original idea); the status row on phones and in the collapsed sidebar.

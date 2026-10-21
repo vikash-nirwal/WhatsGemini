@@ -45,3 +45,25 @@ test("ending a chapter titles it, recaps it, and the next reply starts from it",
   expect(history).toContain("Story so far: they talked about their day.");
   expect(history).not.toContain("Aria message 1: how was your day?");
 });
+
+test("a chapter or compression can be undone, and the AI reads the old messages again", async ({ page, mockAI }) => {
+  mockAI.reply((req) =>
+    req.stream
+      ? "Back to where we were."
+      : "TITLE: The Long Day\nRECAP: Aria and the user talked through a long, ordinary day.\nSUMMARY:\nStory so far: they talked about their day."
+  );
+  await openChat(page, 1);
+  await chatAction(page, /End chapter/);
+  await expect(page.getByText("Chapter 1: The Long Day")).toBeVisible();
+
+  await page.getByRole("button", { name: "Undo this chapter" }).click();
+  await page.getByRole("button", { name: "Confirm" }).click();
+  await expect(page.getByText("Chapter 1: The Long Day")).toHaveCount(0);
+  await expect(page.getByText("Aria message 1: how was your day?")).toBeVisible();
+
+  await sendMessage(page, "Where were we?");
+  await expect(page.getByText("Back to where we were.")).toBeVisible();
+  const history = mockAI.requests.filter((r) => r.stream).pop()!.messages.map((m) => String(m.content)).join("\n");
+  expect(history).toContain("Aria message 1: how was your day?");
+  expect(history).not.toContain("Story so far");
+});

@@ -2,7 +2,7 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { dbService } from "../services/dbService";
 import { LS_INITIAL_MESSAGES, YOU, AI } from "../utils/constants";
 import { Chat, Message, ConversationTree } from "../types";
-import { addChildNode, flattenPath, generateNodeId, spliceSummaryIntoConversation } from "./chat/messageTree";
+import { addChildNode, flattenPath, generateNodeId, removeSummaryFromConversation, spliceSummaryIntoConversation } from "./chat/messageTree";
 import { applyMacros, getGreetings } from "./ai/utils/macros";
 
 // The persona name a chat speaks as (its own override, else the global active
@@ -162,6 +162,25 @@ export const updateChatTree = createAsyncThunk(
       chat.activeLeafId = activeLeafId;
       await dbService.updateChat(chat);
       return { chatId, content, tree, activeLeafId };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
+// "Undo compression": takes a summary pair back out (removeSummaryFromConversation).
+export const removeCompressionSummary = createAsyncThunk(
+  "chat/removeCompressionSummary",
+  async ({ chatId, summaryId }: { chatId: number; summaryId: string }, { rejectWithValue }) => {
+    try {
+      const chat = await dbService.getChatById(chatId);
+      const result = removeSummaryFromConversation(chat, summaryId);
+      if (!result) throw new Error("That summary isn't in this chat any more.");
+      chat.tree = result.tree;
+      chat.activeLeafId = result.activeLeafId;
+      chat.content = result.content;
+      await dbService.updateChat(chat);
+      return { chatId, ...result };
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
@@ -706,6 +725,14 @@ const chatSlice = createSlice({
         if (chat) {
           chat.content = action.payload.content;
           chat.tree = action.payload.tree;
+        }
+      })
+      .addCase(removeCompressionSummary.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c.id === action.payload.chatId);
+        if (chat) {
+          chat.content = action.payload.content;
+          chat.tree = action.payload.tree;
+          chat.activeLeafId = action.payload.activeLeafId;
         }
       })
       .addCase(insertCompressionSummary.fulfilled, (state, action) => {

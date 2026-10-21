@@ -9,7 +9,7 @@ import {
   findDefaultLeafFrom,
   deleteBranch,
   insertAfterNode,
-  spliceSummaryIntoConversation,
+  spliceSummaryIntoConversation, removeSummaryFromConversation,
 } from "./messageTree";
 import { Message, ConversationTree } from "../../types";
 
@@ -316,5 +316,35 @@ describe("spliceSummaryIntoConversation at the end", () => {
     const result = spliceSummaryIntoConversation({ content, tree, activeLeafId }, content[1].id, 1, [{ role: "you", txt: "chapter" }, { role: "ai", txt: "ok" }]);
     expect(result!.content.map((m) => m.txt)).toEqual(["a", "b", "chapter", "ok"]);
     expect(result!.activeLeafId).toBe(result!.content[3].id);
+  });
+});
+
+describe("removeSummaryFromConversation", () => {
+  const msg = (txt: string): Message => ({ role: "you", txt });
+  const pair = (): Message[] => [
+    { role: "you", txt: "summary", isCompressionSummary: true },
+    { role: "ai", txt: "ack", isSystem: true },
+  ];
+
+  it("takes the pair back out and keeps everything after it", () => {
+    const spliced = spliceSummaryIntoConversation({ content: [msg("a"), msg("b"), msg("c")] }, undefined, 1, pair())!;
+    const summaryId = spliced.content[2].id!;
+    const result = removeSummaryFromConversation(spliced, summaryId)!;
+    expect(result.content.map((m) => m.txt)).toEqual(["a", "b", "c"]);
+    expect(Object.keys(result.tree.nodes)).toHaveLength(3);
+    expect(result.activeLeafId).toBe(spliced.activeLeafId);
+  });
+
+  it("keeps every branch that followed, and steps back when the pair was the end", () => {
+    const { tree, activeLeafId, content } = migrateToTree([msg("a"), msg("b")]);
+    const spliced = spliceSummaryIntoConversation({ content, tree, activeLeafId }, content[1].id, 1, pair())!;
+    const result = removeSummaryFromConversation(spliced, spliced.content[2].id!)!;
+    expect(result.content.map((m) => m.txt)).toEqual(["a", "b"]);
+    expect(result.activeLeafId).toBe(content[1].id);
+  });
+
+  it("only removes summaries", () => {
+    const { tree, activeLeafId, content } = migrateToTree([msg("a"), msg("b")]);
+    expect(removeSummaryFromConversation({ content, tree, activeLeafId }, content[0].id!)).toBeNull();
   });
 });

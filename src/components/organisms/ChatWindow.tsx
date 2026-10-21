@@ -39,6 +39,7 @@ import { cn } from "../../utils/cn";
 
 interface ChatWindowProps {
   onToggleBookmark?: (msg: Message) => void; // star / unstar a message (#21)
+  onUndoSummary?: (msg: Message) => void; // take a compression or chapter back out
   onReact?: (msg: Message, emoji: string) => void; // your emoji reaction to a reply (#11)
   recap?: RecapView; // "Previously on..." after a few days away (#46)
   storyScript?: StoryScript; // the story this chat follows (#57)
@@ -153,7 +154,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc, note }: { charIniti
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, recap, onToggleBookmark, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -672,6 +673,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, relationshipSuggestio
                     blurMedia={blurMedia}
                     chapterNumber={msg.chapterTitle ? chapterNumbers.get(msg.id || "") : undefined}
                     onToggleBookmark={onToggleBookmark}
+                    onUndoSummary={onUndoSummary}
                     onInspect={handleInspect}
                     onReact={onReact}
                     texting={textingMode}

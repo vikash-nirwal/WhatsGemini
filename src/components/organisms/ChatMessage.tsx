@@ -50,6 +50,7 @@ interface ChatMessageProps {
   blurMedia?: boolean; // Privacy > Blur NSFW images, for a chat with an NSFW character
   chapterNumber?: number; // for a summary made by "End chapter": its position among the chapters
   onToggleBookmark?: (msg: Message) => void; // star / unstar (#21)
+  onUndoSummary?: (msg: Message) => void; // take a compression or chapter back out
   onInspect?: (msg: Message) => void; // "Show what was sent" for an AI reply (#31)
   onReact?: (msg: Message, emoji: string) => void; // your emoji reaction to a reply (#11)
   reactorName?: string; // who left msg.characterReaction, for its label
@@ -106,6 +107,7 @@ const ChatMessage = React.memo(({
   blurMedia = false,
   chapterNumber,
   onToggleBookmark,
+  onUndoSummary,
   onInspect,
   onReact,
   reactorName,
@@ -259,6 +261,7 @@ const ChatMessage = React.memo(({
             aria-expanded={isSummaryExpanded}
             className="mt-2"
           />
+          {onUndoSummary && <TermLink label="undo" onClick={() => onUndoSummary(msg)} className="mt-2 ml-3" />}
         </div>
       );
     }
@@ -417,6 +420,15 @@ const ChatMessage = React.memo(({
                 {isSummaryExpanded ? "Show less" : msg.chapterRecap ? "Show the full summary" : "Show more"}
               </span>
             </div>
+            {onUndoSummary && (
+              <button
+                type="button"
+                onClick={() => onUndoSummary(msg)}
+                className="mt-1.5 text-[11px] font-medium text-subtle hover:text-foreground hover:underline"
+              >
+                {msg.chapterTitle ? "Undo this chapter" : "Undo compression"}
+              </button>
+            )}
           </CardContent>
         </Card>
       </motion.div>

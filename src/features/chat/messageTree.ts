@@ -120,6 +120,48 @@ export const spliceSummaryIntoConversation = (
   return { tree, activeLeafId, content: flattenPath(tree, activeLeafId) };
 };
 
+// Undoes a compression or chapter: takes the summary and its hidden
+// acknowledgement back out of the tree, the reverse of
+// spliceSummaryIntoConversation. Whatever followed the pair (every branch)
+// moves back under the message before it, so nothing else changes, and the
+// prompt goes back to including the messages it covered. Returns null when
+// `summaryId` isn't a summary in this conversation.
+export const removeSummaryFromConversation = (
+  conversation: { content: Message[]; tree?: ConversationTree; activeLeafId?: string | null },
+  summaryId: string
+): { tree: ConversationTree; activeLeafId: string | null; content: Message[] } | null => {
+  const base = conversation.tree
+    ? { tree: conversation.tree, activeLeafId: conversation.activeLeafId ?? null }
+    : migrateToTree(conversation.content);
+  const first = base.tree.nodes[summaryId];
+  if (!first?.message.isCompressionSummary) return null;
+
+  // The pair: the summary, then its acknowledgement when that's its only child.
+  const removed = [first.id];
+  let last = first;
+  const ack = first.childIds.length === 1 ? base.tree.nodes[first.childIds[0]] : undefined;
+  if (ack?.message.isSystem && !ack.message.isCompressionSummary) {
+    removed.push(ack.id);
+    last = ack;
+  }
+
+  const nodes: Record<string, MessageNode> = { ...base.tree.nodes };
+  const parentId = first.parentId;
+  for (const childId of last.childIds) {
+    if (nodes[childId]) nodes[childId] = { ...nodes[childId], parentId };
+  }
+  if (parentId && nodes[parentId]) {
+    const siblings = nodes[parentId].childIds;
+    const at = siblings.indexOf(first.id);
+    nodes[parentId] = { ...nodes[parentId], childIds: [...siblings.slice(0, at), ...last.childIds, ...siblings.slice(at + 1)] };
+  }
+  for (const id of removed) delete nodes[id];
+
+  const tree = { nodes };
+  const activeLeafId = base.activeLeafId && removed.includes(base.activeLeafId) ? parentId : base.activeLeafId;
+  return { tree, activeLeafId, content: flattenPath(tree, activeLeafId) };
+};
+
 // Replaces a node's message content in place (used for non-branching text
 // edits of an earlier message) without touching its position in the tree.
 export const updateNodeMessage = (tree: ConversationTree, nodeId: string, message: Message): ConversationTree => {

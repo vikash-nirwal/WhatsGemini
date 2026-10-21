@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { dbService } from "../services/dbService";
 import { Adventure, AdventureRules, AdventureStatus, ConversationTree, Message } from "../types";
-import { addChildNode, flattenPath, generateNodeId, updateNodeMessage, spliceSummaryIntoConversation } from "./chat/messageTree";
+import { addChildNode, flattenPath, generateNodeId, updateNodeMessage, spliceSummaryIntoConversation, removeSummaryFromConversation } from "./chat/messageTree";
 
 // Helper function for error handling
 const handleDbError = (error: unknown, rejectWithValue: any) => {
@@ -135,6 +135,25 @@ export const insertAdventureCompressionSummary = createAsyncThunk(
       adventure.content = spliced.content;
       await dbService.updateAdventure(adventure);
       return { adventureId, ...spliced };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
+// Undoes a compression in an adventure, like chatSlice's removeCompressionSummary.
+export const removeAdventureCompressionSummary = createAsyncThunk(
+  "adventure/removeCompressionSummary",
+  async ({ adventureId, summaryId }: { adventureId: number; summaryId: string }, { rejectWithValue }) => {
+    try {
+      const adventure = await dbService.getAdventureById(adventureId);
+      const result = removeSummaryFromConversation(adventure, summaryId);
+      if (!result) throw new Error("That summary isn't in this adventure any more.");
+      adventure.tree = result.tree;
+      adventure.activeLeafId = result.activeLeafId;
+      adventure.content = result.content;
+      await dbService.updateAdventure(adventure);
+      return { adventureId, ...result };
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
@@ -295,6 +314,14 @@ const adventureSlice = createSlice({
         state.error = action.payload as string;
       })
       .addCase(updateAdventureTree.fulfilled, (state, action) => {
+        const adventure = state.adventures.find((a) => a.id === action.payload.adventureId);
+        if (adventure) {
+          adventure.content = action.payload.content;
+          adventure.tree = action.payload.tree;
+          adventure.activeLeafId = action.payload.activeLeafId;
+        }
+      })
+      .addCase(removeAdventureCompressionSummary.fulfilled, (state, action) => {
         const adventure = state.adventures.find((a) => a.id === action.payload.adventureId);
         if (adventure) {
           adventure.content = action.payload.content;

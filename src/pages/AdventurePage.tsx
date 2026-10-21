@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom";
 import { FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo, FaImage, FaSyncAlt, FaTimes, FaPalette, FaBookOpen, FaComments, FaFont, FaShieldAlt, FaCompressArrowsAlt, FaDiceD20, FaListUl } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { deleteAdventure, addAdventureMessage, updateAdventureStatus, incrementAdventureUsage, updateAdventureMessage, updateAdventureRules } from "../features/adventureSlice";
+import { deleteAdventure, addAdventureMessage, updateAdventureStatus, incrementAdventureUsage, updateAdventureMessage, updateAdventureRules, removeAdventureCompressionSummary } from "../features/adventureSlice";
 import { generateAIResponse, generateAdventureSceneImage, autoCompressAdventure } from "../features/aiSlice";
 import { buildChatHistory, buildPostHistoryNote } from "../features/ai/utils/promptComposition";
 import { trimToLatestSummary, countProtectedPrefix, latestSummaryIndex } from "../features/ai/utils/transcript";
@@ -334,6 +334,18 @@ const AdventurePage = () => {
     }
   };
 
+  // Undo compression: the narrator reads the summarized turns again.
+  const handleUndoSummary = async (msg: Message) => {
+    if (!msg.id) return;
+    const confirmed = await showConfirm("Undo compression", "Remove this summary? The turns it covered go back into what the narrator reads. Your story stays as it is.");
+    if (!confirmed) return;
+    try {
+      await dispatch(removeAdventureCompressionSummary({ adventureId: adventure.id, summaryId: msg.id })).unwrap();
+    } catch (err: any) {
+      setError(typeof err === "string" ? err : "Couldn't undo the summary.");
+    }
+  };
+
   const isCompleted = adventure.status === "completed";
   const lastMessage = adventure.content[adventure.content.length - 1];
   const activeChoices = !generating && !isCompleted && lastMessage?.role === AI ? lastMessage.choices : undefined;
@@ -489,6 +501,9 @@ const AdventurePage = () => {
                     <div className="mt-2 text-left">
                       <MarkdownRenderer msgText={msg.txt || ""} isUser={false} />
                     </div>
+                    <button type="button" onClick={() => handleUndoSummary(msg)} className="mt-2 font-medium text-subtle hover:text-foreground hover:underline">
+                      Undo compression
+                    </button>
                   </details>
                 );
               }
