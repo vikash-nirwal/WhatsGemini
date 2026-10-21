@@ -149,6 +149,9 @@ export const BASE_LOCAL_STORAGE: Record<string, string> = {
   // Seeded chats are dated January 2026, so "Previously on..." (#46) would
   // otherwise show (and call the AI) in every test. Its own spec turns it on.
   recap_after_days: "0",
+  // Same for the relationship check (#30), which would otherwise add a
+  // helper call to every test that sends in the 30-message seed.
+  roleplay_style: JSON.stringify({ relationshipSuggestions: false }),
 };
 
 // Writes straight into the app's Dexie database with the raw IndexedDB API.

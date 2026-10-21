@@ -351,6 +351,9 @@ const TextModelSettings: React.FC<TextModelSettingsProps> = ({
         <SettingsRow label="Avoid repetition" hint="When recent replies keep reusing the same phrases or openings, the next reply is asked to say it differently." align="start">
           <ToggleSwitch checked={roleplayStyle.antiRepetition !== false} onChange={(v) => updateStyle({ antiRepetition: v })} />
         </SettingsRow>
+        <SettingsRow label="Suggest relationship updates" hint="Every 20 messages, a cheap check whether you and the character have grown closer or apart. You approve each change; a chat can switch it off too." align="start">
+          <ToggleSwitch checked={roleplayStyle.relationshipSuggestions !== false} onChange={(v) => updateStyle({ relationshipSuggestions: v })} />
+        </SettingsRow>
         <SettingsRow label="Extra rules" hint="Anything else every character should follow." align="start">
           <TextArea
             value={roleplayStyle.customInstructions}

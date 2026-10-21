@@ -26,10 +26,6 @@ The app is called WhatsGemini, so lean into the messaging-app fantasy.
 26. **Skill checks** (M). Choices can carry a difficulty ("Pick the lock (DC 14)"). The app rolls the dice (reuse `rollDice` from `slashCommands.ts`), shows the result, and tells the narrator success or failure before it writes.
 27. **Persona character sheet** (M). Optional stats and skills on a persona, used by checks.
 
-## Characters
-
-30. **Relationship that evolves** (S). Periodically suggest an update to the character's "relationship" field from what's happened ("strangers" → "reluctant allies"). You approve each change; nothing is rewritten automatically.
-
 
 ## Smaller follow-ups
 

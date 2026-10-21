@@ -98,6 +98,19 @@ export interface ConversationTree {
   nodes: Record<string, MessageNode>;
 }
 
+// A character's daily routine (#7), in hour blocks (0-24; a block can wrap
+// past midnight).
+export interface ScheduleBlock {
+  start: number;
+  end: number;
+  activity: string; // "at work", "asleep"
+  status: "free" | "busy" | "asleep";
+}
+export interface CharacterSchedule {
+  blocks: ScheduleBlock[];
+  realistic?: boolean; // replies wait a little while they're busy or asleep
+}
+
 // One of a character's outfits (#50).
 export interface Outfit {
   id: string;
@@ -205,6 +218,11 @@ export interface Chat {
   textingMode?: boolean; // this chat's texting mode (#6); unset = the app setting
   sceneTracker?: boolean; // track location, time, outfit and two meters (#9)
   worldId?: number; // a World whose setting and lore this chat uses (#28)
+  // Relationship that evolves (#30): off when false; the message count at
+  // the last check; and a suggestion waiting for the user.
+  relationshipSuggestions?: boolean;
+  relationshipCheckedAt?: number;
+  relationshipSuggestion?: { from: string; to: string };
   sceneState?: SceneState;
   recap?: ChatRecap; // the cached "Previously on..." card (#46), never sent to the model
   storyScript?: StoryScript; // the story this chat follows (#57)
@@ -304,6 +322,7 @@ export interface Character {
   localImageSettings?: LocalImageSettings; // #40, local generation only
   innerThoughts?: boolean; // #10: also write hidden thoughts with each reply
   importantDates?: ImportantDate[]; // #47
+  schedule?: CharacterSchedule; // #7
   wardrobe?: Outfit[]; // #50
   currentOutfitId?: string; // the outfit being worn now (#50); none = the locked look's own
   voice?: CharacterVoice; // #12/#44: how they sound when read aloud, and how often they send voice notes
@@ -419,6 +438,9 @@ export interface RoleplayStyle {
   // Warn the model off phrases its recent replies keep reusing (#19); on
   // unless set to false.
   antiRepetition?: boolean;
+  // Every 20 messages, suggest an updated relationship label (#30); on
+  // unless set to false.
+  relationshipSuggestions?: boolean;
   customInstructions: string;
 }
 

@@ -22,6 +22,7 @@ export const DEFAULT_ROLEPLAY_STYLE: RoleplayStyle = {
   timeAwareness: true,
   characterReactions: true,
   antiRepetition: true,
+  relationshipSuggestions: true,
   customInstructions: "",
 };
 export const DEFAULT_OUTPUT_TOKENS = 1000;

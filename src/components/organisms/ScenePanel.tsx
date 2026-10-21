@@ -810,7 +810,22 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
             />
           </div>
 
-          {/* Inner thoughts (#10) - also per character */}
+          {/* Relationship that evolves (#30) */}
+        {!isRoom && character && (
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[12.5px] font-medium text-foreground">Suggest relationship updates</div>
+              <div className="text-[11px] text-subtle">Every 20 messages, a cheap check whether you and {character.name} have grown closer or apart. You approve each change.</div>
+            </div>
+            <ToggleSwitch
+              checked={chat?.relationshipSuggestions !== false}
+              onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { relationshipSuggestions: val ? undefined : false } }))}
+              label={<span className="sr-only">Suggest relationship updates</span>}
+            />
+          </div>
+        )}
+
+        {/* Inner thoughts (#10) - also per character */}
           {!isRoom && character && (
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">

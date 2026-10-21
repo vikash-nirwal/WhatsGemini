@@ -35,6 +35,7 @@ import { Button } from "src/components/atoms/button";
 import { Card } from "src/components/atoms/card";
 import { Badge } from "src/components/atoms/badge";
 import { useColorTheme } from "../../hooks/useColorTheme";
+import { cn } from "../../utils/cn";
 
 interface ChatWindowProps {
   onToggleBookmark?: (msg: Message) => void; // star / unstar a message (#21)
@@ -42,6 +43,9 @@ interface ChatWindowProps {
   recap?: RecapView; // "Previously on..." after a few days away (#46)
   storyScript?: StoryScript; // the story this chat follows (#57)
   game?: ChatGame; // the mini-game being played (#52)
+  relationshipSuggestion?: { from: string; to: string }; // waiting for the user's OK (#30)
+  onAcceptRelationship?: () => void;
+  onDismissRelationship?: () => void;
   gameScore?: { user: number; character: number };
   onEndGame?: () => void;
   onEditStory?: () => void;
@@ -148,7 +152,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc }: { charInitials: s
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, recap, onToggleBookmark, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, recap, onToggleBookmark, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -703,6 +707,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ game, gameScore, onEndGame, sto
               })
             )}
             {recap && !aiLoading && <RecapCard recap={recap} terminal={terminal} />}
+            {relationshipSuggestion && !aiLoading && onAcceptRelationship && onDismissRelationship && (
+              <section aria-label="Relationship update" className={cn("mb-6 mx-auto max-w-xl px-4 py-3 font-sans text-sm", terminal ? "border border-border" : "rounded-2xl border border-border/60 bg-card/[0.88] shadow-soft")}>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-subtle mb-1">Your relationship has changed?</div>
+                <p className="text-foreground">
+                  {relationshipSuggestion.from ? <><span className="text-muted-foreground line-through">{relationshipSuggestion.from}</span>{" → "}</> : null}
+                  <span className="font-medium">{relationshipSuggestion.to}</span>
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <Button type="button" size="sm" onClick={onAcceptRelationship}>Update</Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={onDismissRelationship}>Keep as is</Button>
+                </div>
+              </section>
+            )}
             {game && onEndGame && (
               <GameProgress game={game} score={gameScore} characterName={characterName || "them"} onEnd={onEndGame} terminal={terminal} />
             )}
