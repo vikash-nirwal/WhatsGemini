@@ -6,7 +6,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **State:** the new-ideas queue (#42–#57) is built and pushed and deployed (CI green). The last full local run passed: type-check, 760 unit tests, 689 UI tests and 16 screenshot tests.
+- **State:** the new-ideas queue (#42–#57) is built and pushed and deployed (CI green). The last full local run passed: type-check, 760 unit tests, 697 UI tests and 16 screenshot tests.
 - **Next up:** push and deploy (with the user's OK), then the smaller follow-ups. All 13 earlier items (#7–#9, #13, #19, #22–#28, #30) are done and committed locally, not pushed yet.
 - **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
 - **How the new-ideas run went:** #42, #43, #12+#44 and #45 ran in fresh sessions; from #46 on they were built in the coordinating session, because new sessions can't be started over Remote Control. Each item was committed only after every suite passed.
@@ -84,6 +84,7 @@ Choices a later session shouldn't revisit. Add the date.
 - 2026-10-20: Image providers are limited to ones the user can sign up for from India, or local: Wan, OpenAI, fal.ai (Seedream 4, FLUX Kontext), BFL, SD WebUI, ComfyUI. Not Gemini image models (cost) and not Qwen's own API (rejects Indian phone numbers).
 - 2026-10-20: Compression is non-destructive (summaries are inserted, never replace messages).
 - 2026-10-20: Screenshot tests are macOS-local (`@visual`); CI leaves them out because Linux fonts differ.
+- 2026-10-21: chat rows keep showing the character's description rather than the last message; "🎤 Voice message" marks voice notes in search snippets, where message text appears.
 - 2026-10-21 (user): adventure story memory is on by default, with a switch per adventure. Group chats write diary entries: each member with the diary on writes their own. For overnight runs, push and deploy once all suites and CI pass, and decide small open questions, noting them here.
 
 ## Working notes
@@ -111,6 +112,7 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
+- 2026-10-22 (overnight): six more follow-ups, each committed after the full suites: adventure story memory, End chapter and hard limits in the wizard; photos kept on edit and regenerate; group diaries, room-wide inner thoughts and the status row in the collapsed sidebar and phone menu; story script in adventures and beat dividers; grouped facts in the character editor; all six reactions in the terminal theme and "🎤 Voice message" in search.
 - 2026-10-21: Pushed and deployed #42–#57. Made texting mode a per-chat switch and split the Scene & chat panel into four tabs. Started the 13 earlier items: #9 Scene state HUD, #19 Anti-repetition guard, #28 World in normal chats, #30 Relationship that evolves, #7 Schedule and presence, #8 Status updates, #13 Chat backdrops, #22–#24 Group chats (turn modes, narrator, relationships), #25–#27 Adventures as games (stats, inventory and quests; skill checks; persona character sheet). Pushed and deployed. Then rewrote image prompts per image model: a ComfyUI picture was being sent the user's own message as its prompt. Follow-ups after that: the image prompt style in Settings, accessibility fixes on Settings › Image, Undo compression, room rounds after a member speaks up, adventure game setup in the wizard with typed-action rolls, and CI actions on Node 24 (checkout v7, setup-node v7, cache v6, upload-artifact v7).
 - 2026-10-20 (overnight): Built #46 "Previously on…", #57 Story script, #47 Dates that matter, #48 Send them a photo, #49 Event deck, #50 Wardrobe, #51 Relationship timeline, #52 Mini-games, #53 Branch map, #54 Google Drive backup, #55 Free in-browser model and #56 Phone calls in the coordinating session (new sessions can't be started over Remote Control).
 - 2026-10-20: Built character from one line (#45): idea dialog with rating and art-style hints, one JSON draft filling the editor, Try another, optional portrait. Fixed `addCharacter` dropping newer fields (alternate greetings, content rating, locked look, voice, model) when creating or importing a character.

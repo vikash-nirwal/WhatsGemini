@@ -192,3 +192,12 @@ test.describe("without speech APIs (like Firefox)", () => {
     }
   });
 });
+
+test("a voice note found by search says it's a voice message", async ({ page }) => {
+  await openChat(page);
+  await patchDb(page, { voiceNoteMessage: { index: 1 } });
+  const menu = page.getByRole("button", { name: "Open menu" });
+  if (await menu.isVisible()) await menu.click();
+  await page.getByLabel("Search chats and messages").fill("fine, thanks");
+  await expect(page.getByText("🎤 Voice message:", { exact: false }).first()).toBeVisible();
+});

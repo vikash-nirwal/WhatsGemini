@@ -17,6 +17,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "src/components/atoms/to
 import { TermLink } from "src/components/atoms/TermLink";
 import { NsfwBlur } from "src/components/molecules/NsfwBlur";
 import { InnerThoughts, ReactionBadge, ReactionPicker, ReactionRow } from "src/components/molecules/MessageExtras";
+import { REACTION_EMOJIS } from "src/features/ai/utils/messageTags";
 import { splitIntoTexts } from "../../features/ai/utils/textingMode";
 import { VoiceNote } from "src/components/molecules/VoiceNote";
 import { isSpeechSupported, speak, stopSpeaking, toSpokenText } from "../../features/voice/speech";
@@ -120,6 +121,7 @@ const ChatMessage = React.memo(({
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
+  const [termReactOpen, setTermReactOpen] = useState(false);
 
   const handleCopy = useCallback(() => onCopy(stripImageContextTag(msg.txt || "")), [onCopy, msg.txt]);
   const handleRegenerate = useCallback(() => onRegenerate(msg), [onRegenerate, msg]);
@@ -298,7 +300,7 @@ const ChatMessage = React.memo(({
           <span className="flex items-center gap-2.5 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
             <TermLink label="copy" onClick={handleCopy} />
             {canReadAloud && <TermLink label={speaking ? "hush" : "say"} onClick={handleReadAloud} aria-label={readAloudLabel} />}
-            {canReact && <TermLink label={msg.reaction === "❤️" ? "unlike" : "like"} onClick={() => handleReact("❤️")} />}
+            {canReact && <TermLink label="react" onClick={() => setTermReactOpen((v) => !v)} aria-expanded={termReactOpen} />}
             {!isUser && !msg.isImpersonated && <TermLink label="regen" onClick={handleRegenerate} />}
             {!isUser && !msg.isImpersonated && isLastMessage && onContinue && (
               <TermLink label="continue" onClick={handleContinue} disabled={aiLoading} title="Ask the model to keep writing from where this reply left off" />
@@ -315,6 +317,24 @@ const ChatMessage = React.memo(({
             )}
           </span>
         </div>
+        {/* The terminal theme's reactions: the same six as elsewhere (#11), inline. */}
+        {canReact && termReactOpen && (
+          <div role="group" aria-label="React" className="mt-1 flex flex-wrap items-center gap-2 text-[12px]">
+            <span className="text-muted-foreground">react:</span>
+            {REACTION_EMOJIS.map((emoji) => (
+              <TermLink
+                key={emoji}
+                label={emoji}
+                active={msg.reaction === emoji}
+                aria-label={msg.reaction === emoji ? `Remove ${emoji} reaction` : `React with ${emoji}`}
+                onClick={() => {
+                  handleReact(emoji);
+                  setTermReactOpen(false);
+                }}
+              />
+            ))}
+          </div>
+        )}
         <div
           className={cn("mt-1 pl-2 border-l-2 leading-relaxed", isUser ? "border-ring/55 text-foreground" : "border-border text-primary")}
           style={{ fontSize: "var(--chat-font-size, 16px)" }}

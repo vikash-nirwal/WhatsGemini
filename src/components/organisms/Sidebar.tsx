@@ -70,7 +70,8 @@ const findMessageSnippet = (chat: Chat, query: string): string | undefined => {
     if (idx === -1) continue;
     const start = Math.max(0, idx - SNIPPET_BEFORE);
     const end = Math.min(text.length, idx + q.length + SNIPPET_AFTER);
-    return `${start > 0 ? "…" : ""}${text.slice(start, end)}${end < text.length ? "…" : ""}`;
+    // A voice note (#44) says so, like WhatsApp's "🎤 Voice message".
+    return `${msg.isVoiceNote ? "🎤 Voice message: " : ""}${start > 0 ? "…" : ""}${text.slice(start, end)}${end < text.length ? "…" : ""}`;
   }
   return undefined;
 };

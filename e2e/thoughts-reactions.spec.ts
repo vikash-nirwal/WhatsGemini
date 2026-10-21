@@ -85,3 +85,20 @@ test("your reaction shows on the reply and the character is told about it", asyn
   }
   await expect(reply.getByRole("img", { name: "You reacted 😂" })).toHaveCount(0);
 });
+
+test.describe("in the terminal theme", () => {
+  test.use({ localStorageOverrides: { color_theme: "terminal" } });
+
+  test("every reaction is offered, not just a like", async ({ page, mockAI }) => {
+    mockAI.reply("Ha, fair enough.");
+    await openChat(page);
+    await sendMessage(page, "I tripped on the stairs again");
+    await waitForReplyDone(page);
+    // The newest reply is the last one with a "[react]" link.
+    await page.getByRole("button", { name: "[react]", exact: true }).last().click();
+    const picker = page.getByRole("group", { name: "React" });
+    for (const emoji of ["❤️", "😂", "😮", "😢", "😡", "👍"]) await expect(picker.getByRole("button", { name: `React with ${emoji}` })).toBeVisible();
+    await picker.getByRole("button", { name: "React with 😂" }).click();
+    await expect(page.getByText("# you reacted 😂")).toBeVisible();
+  });
+});
