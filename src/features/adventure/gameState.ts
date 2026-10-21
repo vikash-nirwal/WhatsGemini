@@ -1,4 +1,4 @@
-import { AdventureGameState, Message } from "../../types";
+import { AdventureGameState, AdventureRules, Message } from "../../types";
 import { AI } from "../../utils/constants";
 
 // Adventures as games (#25): the app, not the narrator, keeps the player's
@@ -12,14 +12,21 @@ export const STATS_END = "STATS>>>";
 
 export const STARTING_GAME_STATE: AdventureGameState = { hp: 10, maxHp: 10, gold: 0, items: [], quests: [] };
 
+// What an adventure starts with, from its rules (set in the wizard).
+export const startingGameState = (rules: AdventureRules | undefined): AdventureGameState => {
+  if (!rules?.startingHp && !rules?.startingGold && !rules?.startingItems?.length) return STARTING_GAME_STATE;
+  const hp = Math.max(1, Math.round(rules.startingHp || STARTING_GAME_STATE.hp));
+  return { hp, maxHp: hp, gold: Math.max(0, Math.round(rules.startingGold || 0)), items: (rules.startingItems || []).filter((i) => i.trim()), quests: [] };
+};
+
 // The state after the latest narrator turn on the active path. Regenerating
 // or going back a turn rewinds it with the story, since it lives on messages.
-export const currentGameState = (content: Message[]): AdventureGameState => {
+export const currentGameState = (content: Message[], start: AdventureGameState = STARTING_GAME_STATE): AdventureGameState => {
   for (let i = content.length - 1; i >= 0; i--) {
     const state = content[i].role === AI ? content[i].gameState : undefined;
     if (state) return state;
   }
-  return STARTING_GAME_STATE;
+  return start;
 };
 
 export const describeGameState = (state: AdventureGameState): string => {

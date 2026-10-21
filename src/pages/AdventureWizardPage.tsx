@@ -20,7 +20,8 @@ import { WizardSteps } from "src/components/molecules/WizardSteps";
 import Modal from "src/components/molecules/Modal";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { NumberStepper } from "src/components/molecules/NumberStepper";
-import { TextInput, TextArea, FieldLabel, Select } from "src/components/molecules/form-controls";
+import { TextInput, TextArea, FieldLabel, Select, TagInput } from "src/components/molecules/form-controls";
+import { STARTING_GAME_STATE } from "../features/adventure/gameState";
 
 const STEPS = ["World", "Cast", "Premise & Player", "Tone & Rules", "Review"];
 
@@ -43,6 +44,12 @@ const AdventureWizardPage = () => {
   const [replyLengthLimit, setReplyLengthLimit] = useState(0);
   const [autoIllustrate, setAutoIllustrate] = useState(true);
   const [artStyle, setArtStyle] = useState<ArtStyle>(DEFAULT_ART_STYLE);
+  // Adventures as games (#25, #26): both can also be switched mid-story.
+  const [trackStats, setTrackStats] = useState(false);
+  const [startingHp, setStartingHp] = useState(STARTING_GAME_STATE.hp);
+  const [startingGold, setStartingGold] = useState(0);
+  const [startingItems, setStartingItems] = useState<string[]>([]);
+  const [skillChecks, setSkillChecks] = useState(false);
 
   useEffect(() => {
     if (!personaId && activePersona) setPersonaId(activePersona.id);
@@ -171,7 +178,21 @@ const AdventureWizardPage = () => {
         characterIds,
         personaId: personaId || undefined,
         premise: premise.trim() || undefined,
-        rules: { choiceCount, replyLengthLimit: replyLengthLimit || undefined, autoIllustrate, artStyle },
+        rules: {
+          choiceCount,
+          replyLengthLimit: replyLengthLimit || undefined,
+          autoIllustrate,
+          artStyle,
+          ...(trackStats
+            ? {
+                trackStats: true,
+                startingHp: startingHp !== STARTING_GAME_STATE.hp ? startingHp : undefined,
+                startingGold: startingGold || undefined,
+                startingItems: startingItems.length > 0 ? startingItems : undefined,
+              }
+            : {}),
+          skillChecks: skillChecks || undefined,
+        },
       })
     ).unwrap();
     navigate(`/adventures/${result.id}`);
@@ -360,6 +381,30 @@ const AdventureWizardPage = () => {
                   <FieldLabel hint="The look of scene illustrations.">Art style</FieldLabel>
                   <SegmentedControl value={artStyle} onChange={(v) => setArtStyle(v as ArtStyle)} options={ART_STYLES} />
                 </div>
+                <div className="flex flex-col gap-3">
+                  <FieldLabel hint="The app keeps your HP, gold, items and quests, shown beside the story. The narrator can only change them by what happens, so you can't type items into existence.">Stats, inventory and quests</FieldLabel>
+                  <ToggleSwitch checked={trackStats} onChange={setTrackStats} label="Play it as a game with stats" />
+                  {trackStats && (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <FieldLabel>Starting HP</FieldLabel>
+                        <NumberStepper value={startingHp} min={1} max={100} onChange={setStartingHp} />
+                      </div>
+                      <div>
+                        <FieldLabel>Starting gold</FieldLabel>
+                        <TextInput type="number" min={0} aria-label="Starting gold" value={startingGold || ""} onChange={(e) => setStartingGold(Math.max(0, Math.round(Number(e.target.value) || 0)))} placeholder="0" className="max-w-[160px]" />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <FieldLabel hint="Press Enter after each one.">Starting items</FieldLabel>
+                        <TagInput value={startingItems} onChange={setStartingItems} placeholder="e.g. lantern" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <FieldLabel hint="Risky actions get a difficulty, and the app rolls a d20 plus your persona's skill (its character sheet in Settings) to decide whether they work.">Skill checks</FieldLabel>
+                  <ToggleSwitch checked={skillChecks} onChange={setSkillChecks} label="Roll for risky actions" />
+                </div>
               </Card>
             )}
 
@@ -381,6 +426,12 @@ const AdventureWizardPage = () => {
                   </div>
                   {premise.trim() && <div><span className="text-subtle">Premise: </span><span className="text-foreground">{premise}</span></div>}
                   <div><span className="text-subtle">Choices per turn: </span><span className="text-foreground font-medium">{choiceCount}</span></div>
+                  <div>
+                    <span className="text-subtle">Game: </span>
+                    <span className="text-foreground font-medium">
+                      {[trackStats ? `stats from ${startingHp} HP${startingGold ? `, ${startingGold} gold` : ""}${startingItems.length ? `, ${startingItems.join(", ")}` : ""}` : "", skillChecks ? "skill checks" : ""].filter(Boolean).join("; ") || "Story only"}
+                    </span>
+                  </div>
                   <div>
                     <span className="text-subtle">Scene illustrations: </span>
                     <span className="text-foreground font-medium">

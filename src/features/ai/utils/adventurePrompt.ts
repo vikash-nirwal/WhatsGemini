@@ -4,7 +4,7 @@ import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
 import { getEmotionVocabulary } from "./emotionUtils";
 import { effectiveContentRating } from "../../character/contentRating";
 import { NSFW_CONTENT_RULE, SFW_CONTENT_RULE } from "./promptComposition";
-import { buildGameStateDirective, currentGameState, STATS_START } from "../../adventure/gameState";
+import { buildGameStateDirective, currentGameState, startingGameState, STATS_START } from "../../adventure/gameState";
 import { buildSkillCheckDirective } from "../../adventure/skillChecks";
 import type { ImagePromptTarget } from "./imagePromptGuide";
 
@@ -101,7 +101,7 @@ export const buildAdventureSystemInstruction = (
   sections.push(buildAdventureStyleSection(options.roleplayStyle, activePersona?.name?.trim() || "the player"));
 
   if (cast.length > 0) sections.push(buildAdventureEmotionDirective(cast));
-  if (adventure.rules?.trackStats) sections.push(buildGameStateDirective(currentGameState(adventure.content)));
+  if (adventure.rules?.trackStats) sections.push(buildGameStateDirective(currentGameState(adventure.content, startingGameState(adventure.rules))));
   if (adventure.rules?.skillChecks) sections.push(buildSkillCheckDirective(activePersona));
 
   const choiceCount = adventure.rules?.choiceCount || DEFAULT_ADVENTURE_CHOICE_COUNT;
@@ -216,7 +216,7 @@ export const streamingNarrationForDisplay = (text: string): string => {
     const at = shown.indexOf(marker);
     if (at >= 0) shown = shown.slice(0, at);
   }
-  const tag = shown.search(/\[\s*emotions?\s*:/i);
+  const tag = shown.search(/\[\s*(emotions?|check)\s*:/i);
   if (tag >= 0) shown = shown.slice(0, tag);
   return shown.replace(/(\[[^\]\n]{0,12}|<{1,2})$/, "").trimEnd();
 };

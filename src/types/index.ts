@@ -544,6 +544,9 @@ export interface AdventureRules {
   autoIllustrate?: boolean;
   artStyle?: ArtStyle; // look for scene illustrations; DEFAULT_ART_STYLE applies when unset
   trackStats?: boolean; // HP, gold, items and quests kept by the app (#25)
+  startingHp?: number; // max and starting HP; 10 when unset
+  startingGold?: number;
+  startingItems?: string[];
   skillChecks?: boolean; // risky choices carry a check the app rolls (#26)
 }
 

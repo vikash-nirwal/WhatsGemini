@@ -1,4 +1,4 @@
-import { applyStatChanges, buildGameStateDirective, currentGameState, extractStatsBlock, STARTING_GAME_STATE } from "./gameState";
+import { applyStatChanges, buildGameStateDirective, currentGameState, extractStatsBlock, STARTING_GAME_STATE, startingGameState } from "./gameState";
 import { Message } from "../../types";
 
 describe("extractStatsBlock", () => {
@@ -36,6 +36,13 @@ describe("state over the story", () => {
     ];
     expect(currentGameState(content)).toBe(later);
     expect(currentGameState([])).toBe(STARTING_GAME_STATE);
+  });
+
+  it("starts from the adventure's own HP, gold and items", () => {
+    const start = startingGameState({ startingHp: 20, startingGold: 15, startingItems: ["lantern", " "] });
+    expect(start).toEqual({ hp: 20, maxHp: 20, gold: 15, items: ["lantern"], quests: [] });
+    expect(currentGameState([], start)).toBe(start);
+    expect(startingGameState(undefined)).toBe(STARTING_GAME_STATE);
   });
 
   it("tells the narrator the state and the 0 HP rule", () => {

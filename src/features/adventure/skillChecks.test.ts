@@ -1,4 +1,4 @@
-import { buildSkillCheckDirective, describeCheck, parseChoiceCheck, rollCheck, withCheckNote } from "./skillChecks";
+import { buildSkillCheckDirective, buildTypedCheckNote, describeCheck, extractCheckTag, parseChoiceCheck, resolveCheck, rollCheck, withCheckNote } from "./skillChecks";
 
 const persona = { skills: [{ name: "Dexterity", modifier: 2 }, { name: "Charisma", modifier: -1 }] };
 // rollDice maps random() onto 1-20: 0.5 rolls an 11.
@@ -36,5 +36,22 @@ describe("telling the player and the narrator", () => {
   it("asks for checks with the persona's skills", () => {
     expect(buildSkillCheckDirective(persona)).toContain("Use the player's own skills where they fit: Dexterity, Charisma.");
     expect(buildSkillCheckDirective(undefined)).not.toContain("own skills");
+  });
+});
+
+describe("typed actions", () => {
+  it("sends the pre-rolled d20 with the persona's skills", () => {
+    const note = buildTypedCheckNote(14, persona);
+    expect(note).toContain("the d20 came up 14");
+    expect(note).toContain("Dexterity +2, Charisma -1; any other skill is +0.");
+    expect(note).toContain("[Check: <Skill> DC <n>]");
+  });
+
+  it("reads the narrator's check tag and resolves the roll", () => {
+    const { text, check } = extractCheckTag("You leap the gap and land hard.\n[Check: Dexterity DC 12]\n<<<CHOICES\n1. Go\nCHOICES>>>");
+    expect(text).toBe("You leap the gap and land hard.\n\n<<<CHOICES\n1. Go\nCHOICES>>>");
+    expect(check).toEqual({ skill: "Dexterity", dc: 12 });
+    expect(resolveCheck(10, check!, persona)).toEqual({ skill: "Dexterity", dc: 12, roll: 10, modifier: 2, total: 12, success: true });
+    expect(extractCheckTag("Nothing risky.")).toEqual({ text: "Nothing risky." });
   });
 });

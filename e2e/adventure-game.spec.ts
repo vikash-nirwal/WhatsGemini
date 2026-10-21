@@ -91,3 +91,45 @@ test("a persona gets a character sheet in Settings", async ({ page }) => {
   await dex.getByLabel("Modifier").fill("4");
   await expect.poll(() => page.evaluate(() => localStorage.getItem("whatsgemini_user_personas"))).toContain('{"name":"Dexterity","modifier":4}');
 });
+
+test.describe("set up in the wizard", () => {
+  test.use({ seed: {} });
+
+  test("stats, starting items and skill checks are chosen up front, and typed actions get rolled", async ({ page, mockAI }) => {
+    // Every d20 comes up 11.
+    await page.addInitScript(() => {
+      Math.random = () => 0.5;
+    });
+    await openRoute(page, "/adventures/new");
+    const next = page.getByRole("button", { name: "Next", exact: true });
+    await next.click();
+    await next.click();
+    await page.locator("#adv-title").fill("Map Run");
+    await next.click();
+    // No automatic illustrations, so no image request takes a queued reply.
+    await page.getByText("Illustrate every scene automatically").click();
+    await page.getByText("Play it as a game with stats").click();
+    await page.getByLabel("Starting gold").fill("7");
+    await page.getByPlaceholder("e.g. lantern").fill("lantern");
+    await page.getByPlaceholder("e.g. lantern").press("Enter");
+    await page.getByText("Roll for risky actions").click();
+    await next.click();
+    await expect(page.getByText("stats from 10 HP, 7 gold, lantern; skill checks")).toBeVisible();
+
+    mockAI.replyOnce(adventureReply("A rope bridge sways over a gorge.", ["Cross carefully", "Look for another way"]));
+    await page.getByRole("button", { name: "Start Adventure" }).click();
+    await expect(page.getByText("A rope bridge sways over a gorge.")).toBeVisible({ timeout: 30_000 });
+    const system = systemOf(mockAI.requests.find((r) => r.messages.some((m) => m.role === "system"))!.messages);
+    expect(system).toContain("HP 10/10\ngold 7\nitems: lantern");
+    expect(system).toContain("end its line with a skill check in square brackets");
+
+    mockAI.replyOnce(adventureReply("You leap the gap and land on the far side.\n[Check: Dexterity DC 10]", ["Keep going"]));
+    await page.getByPlaceholder(/What do you do\?/).fill("I jump the gap");
+    await page.getByRole("button", { name: "Send action" }).click();
+    await expect(page.getByText("You leap the gap and land on the far side.")).toBeVisible();
+    const turn = mockAI.requests.find((r) => r.prompt.startsWith("I jump the gap"));
+    expect(turn?.prompt).toContain("I jump the gap\n\n(Dice for this action, if it needs them: the d20 came up 11.");
+    await expect(page.getByText("Dexterity 11 vs DC 10: success")).toBeVisible();
+    await expect(page.getByText("[Check:")).toHaveCount(0);
+  });
+});

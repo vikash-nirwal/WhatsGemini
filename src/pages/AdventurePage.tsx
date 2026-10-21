@@ -27,8 +27,8 @@ import { Dialog, DialogContent, DialogTitle, DialogClose } from "src/components/
 import { NovelMessageItem } from "src/components/molecules/NovelMessageItem";
 import { NovelChoicesView } from "src/components/molecules/NovelChoicesView";
 import { AdventureStatsPanel, CheckChip, GameChanges, SkillCheckBadge, statsSummary } from "src/components/molecules/AdventureStatsPanel";
-import { applyStatChanges, currentGameState, extractStatsBlock } from "../features/adventure/gameState";
-import { parseChoiceCheck, rollCheck, withCheckNote } from "../features/adventure/skillChecks";
+import { applyStatChanges, currentGameState, extractStatsBlock, startingGameState } from "../features/adventure/gameState";
+import { buildTypedCheckNote, extractCheckTag, parseChoiceCheck, resolveCheck, rollCheck, rollD20, withCheckNote } from "../features/adventure/skillChecks";
 
 const AdventurePage = () => {
   const dispatch = useAppDispatch();
@@ -175,13 +175,18 @@ const AdventurePage = () => {
   );
 
   const generateNarratorReply = useCallback(
-    async (prompt: string, contextMessages: Message[], imageRequestFocus?: string) => {
-      if (!adventure) return;
+    async (prompt: string, contextMessages: Message[], imageRequestFocus?: string): Promise<{ check?: { skill?: string; dc: number } }> => {
+      if (!adventure) return {};
       // Turns an earlier compression already summarized stay in the story but
       // aren't sent: the narrator sees the newest summary onward.
       const sentMessages = trimToLatestSummary(contextMessages);
-      // A rolled check (#26) is part of the player's turn as the narrator reads it.
-      const history = buildChatHistory(sentMessages.map((m) => (m.skillCheck ? { ...m, txt: withCheckNote(m.txt || "", m.skillCheck) } : m)));
+      // A rolled check (#26) is part of the player's turn as the narrator
+      // reads it; this turn's own action goes in exactly as the prompt has
+      // it (with its roll or dice note), so it isn't sent twice.
+      const lastIndex = sentMessages.length - 1;
+      const history = buildChatHistory(sentMessages.map((m, i) =>
+        i === lastIndex && m.role === YOU ? { ...m, txt: prompt } : m.skillCheck ? { ...m, txt: withCheckNote(m.txt || "", m.skillCheck) } : m
+      ));
       const systemInstruction = buildAdventureSystemInstruction(adventure, world, cast, persona, sentMessages, { roleplayStyle });
       // Hard limits go after the history, where models weigh them most -
       // same as a chat's boundaries.
@@ -189,9 +194,11 @@ const AdventurePage = () => {
       const result = await dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, protectedCount: countProtectedPrefix(sentMessages) })).unwrap();
       // Emotions first: the tag can land on either side of the choices block.
       const { text: withoutEmotions, castEmotions } = extractAdventureEmotions(result.text, cast);
+      // A typed action's check, when the narrator decided it needed one.
+      const { text: withoutCheck, check } = extractCheckTag(withoutEmotions);
       // Stats (#25): the app applies what the narrator says changed.
-      const { text: withoutStats, lines } = extractStatsBlock(withoutEmotions);
-      const applied = adventure.rules?.trackStats && lines ? applyStatChanges(currentGameState(contextMessages), lines) : undefined;
+      const { text: withoutStats, lines } = extractStatsBlock(withoutCheck);
+      const applied = adventure.rules?.trackStats && lines ? applyStatChanges(currentGameState(contextMessages, startingGameState(adventure.rules)), lines) : undefined;
       const changed = applied && applied.changes.length > 0 ? applied : undefined;
       const { text, choices: rawChoices } = parseAdventureChoices(withoutStats);
       const choices = rawChoices.map(parseChoiceCheck);
@@ -207,6 +214,7 @@ const AdventurePage = () => {
         const narratorMessage = content[content.length - 1];
         if (narratorMessage) illustrateMessage(narratorMessage, { requestedFocus: imageRequestFocus, includeFullCast: !!imageRequestFocus });
       }
+      return { check };
     },
     [adventure, world, cast, persona, dispatch, illustrateMessage, roleplayStyle, streamKey]
   );
@@ -237,6 +245,8 @@ const AdventurePage = () => {
       const last = adventure.content[adventure.content.length - 1];
       const choice = chosenChoiceId && last?.role === AI ? last.choices?.find((c) => c.id === chosenChoiceId) : undefined;
       const skillCheck = adventure.rules?.skillChecks && choice?.check ? rollCheck(choice.check, persona) : undefined;
+      // A typed action: the d20 is rolled now and the narrator says whether it counts.
+      const typedRoll = adventure.rules?.skillChecks && !chosenChoiceId ? rollD20() : undefined;
       try {
         const added = await dispatch(addAdventureMessage({ adventureId: adventure.id, message: { role: YOU, txt: text, chosenChoiceId, isImageRequest: isImageRequest || undefined, skillCheck } })).unwrap();
         // Same automatic compression chats get, so a long adventure keeps its
@@ -250,7 +260,12 @@ const AdventurePage = () => {
         if (compressed.tokens || compressed.cost) {
           dispatch(incrementAdventureUsage({ adventureId: adventure.id, tokens: compressed.tokens, cost: compressed.cost }));
         }
-        await generateNarratorReply(withCheckNote(text, skillCheck), compressed.messages, isImageRequest ? text : undefined);
+        const prompt = typedRoll !== undefined ? `${text}\n\n${buildTypedCheckNote(typedRoll, persona)}` : withCheckNote(text, skillCheck);
+        const { check } = await generateNarratorReply(prompt, compressed.messages, isImageRequest ? text : undefined);
+        const playerTurn = added[added.length - 1];
+        if (typedRoll !== undefined && check && playerTurn?.id) {
+          await dispatch(updateAdventureMessage({ adventureId: adventure.id, messageId: playerTurn.id, patch: { skillCheck: resolveCheck(typedRoll, check, persona) } }));
+        }
       } catch (err: any) {
         setError(typeof err === "string" ? err : "Failed to continue the adventure. Check your API key in Settings.");
       } finally {
@@ -353,7 +368,7 @@ const AdventurePage = () => {
   const autoIllustrate = !!adventure.rules?.autoIllustrate;
   const trackStats = !!adventure.rules?.trackStats;
   const skillChecks = !!adventure.rules?.skillChecks;
-  const gameState = currentGameState(adventure.content);
+  const gameState = currentGameState(adventure.content, startingGameState(adventure.rules));
   const latestSummaryAt = latestSummaryIndex(adventure.content);
   const hardLimits = adventure.rules?.hardLimits || [];
 
