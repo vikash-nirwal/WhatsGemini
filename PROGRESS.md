@@ -6,8 +6,8 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **State:** the new-ideas queue (#42–#57) is built and committed on local `main` (not pushed or deployed since #11). The last full local run passed: type-check, 688 unit tests, 534 UI tests and 16 screenshot tests; `CI=true npm run build` compiles.
-- **Next up:** the user's review, push and deploy; then the 13 remaining earlier items below (#7–#9, #13, #19, #22–#28, #30).
+- **State:** the new-ideas queue (#42–#57) is built and pushed and deployed (CI green). The last full local run passed: type-check, 688 unit tests, 534 UI tests and 16 screenshot tests; `CI=true npm run build` compiles.
+- **Next up:** the 13 remaining earlier items below (#7–#9, #13, #19, #22–#28, #30).
 - **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
 - **How the new-ideas run went:** #42, #43, #12+#44 and #45 ran in fresh sessions; from #46 on they were built in the coordinating session, because new sessions can't be started over Remote Control. Each item was committed only after every suite passed.
 
