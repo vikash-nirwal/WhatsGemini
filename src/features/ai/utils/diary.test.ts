@@ -10,6 +10,12 @@ describe("diary", () => {
     expect(prompt).toContain("Arin: hi");
   });
 
+  it("in a group chat, writes about the group as this member saw it", () => {
+    const prompt = buildDiaryPrompt("Mira", "Arin", "Kai: hey", undefined, ["Kai", "Lin"]);
+    expect(prompt).toContain("about the group conversation below with Arin and Kai, Lin");
+    expect(prompt).toContain("how you feel about Arin and the others");
+  });
+
   it("cleans headings, salutations and wrapping quotes", () => {
     expect(cleanDiaryEntry("# Entry\n\nDear diary,\nToday he smiled.")).toBe("Today he smiled.");
     expect(cleanDiaryEntry('"Today he smiled."')).toBe("Today he smiled.");

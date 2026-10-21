@@ -12,7 +12,8 @@ import { Character, CharacterStatus } from "src/types";
 // The sidebar's "Status" row (#8): characters who posted in the last day,
 // with a ring around the ones you haven't seen. Opening one marks it seen;
 // "Reply" opens their chat with the status quoted.
-export const StatusStrip = ({ characters, onReply }: { characters: Character[]; onReply: (character: Character, status: CharacterStatus) => void }) => {
+// `compact`: the collapsed sidebar's narrow column, avatars only, stacked.
+export const StatusStrip = ({ characters, onReply, compact = false }: { characters: Character[]; onReply: (character: Character, status: CharacterStatus) => void; compact?: boolean }) => {
   const dispatch = useAppDispatch();
   const [viewing, setViewing] = useState<Character | null>(null);
   const now = Date.now();
@@ -26,9 +27,9 @@ export const StatusStrip = ({ characters, onReply }: { characters: Character[]; 
   const shown = viewing ? liveStatuses(characters.find((c) => c.id === viewing.id) || viewing, now) : [];
 
   return (
-    <div className="px-3 pt-2 pb-1">
-      <div className="text-[10.5px] font-semibold tracking-[0.09em] uppercase text-subtle pb-1.5">Status</div>
-      <div role="list" aria-label="Status updates" className="flex gap-3 overflow-x-auto px-1 pt-1 pb-1">
+    <div className={compact ? "pt-2 pb-2 border-b border-border/40 mb-1.5" : "px-3 pt-2 pb-1"}>
+      <div className={compact ? "sr-only" : "text-[10.5px] font-semibold tracking-[0.09em] uppercase text-subtle pb-1.5"}>Status</div>
+      <div role="list" aria-label="Status updates" className={compact ? "flex flex-col items-center gap-2.5 pt-1" : "flex gap-3 overflow-x-auto px-1 pt-1 pb-1"}>
         {posting.map((c) => {
           const unseen = hasUnseenStatus(c, now);
           return (
@@ -37,12 +38,13 @@ export const StatusStrip = ({ characters, onReply }: { characters: Character[]; 
               type="button"
               onClick={() => open(c)}
               aria-label={`${c.name}'s status${unseen ? ", new" : ""}`}
-              className="flex w-14 flex-col items-center gap-1"
+              title={compact ? `${c.name}'s status` : undefined}
+              className={cn("flex flex-col items-center gap-1", !compact && "w-14")}
             >
               <span className={cn("rounded-full p-[2px] ring-2 ring-offset-2 ring-offset-card", unseen ? "ring-primary" : "ring-border")}>
-                <CharacterAvatar name={c.name} accent={c.accent} imageSrc={c.appearanceImages?.[0]} size={40} />
+                <CharacterAvatar name={c.name} accent={c.accent} imageSrc={c.appearanceImages?.[0]} size={compact ? 34 : 40} />
               </span>
-              <span className={cn("w-full truncate text-center text-[11px]", unseen ? "font-semibold text-foreground" : "text-muted-foreground")}>{c.name}</span>
+              {!compact && <span className={cn("w-full truncate text-center text-[11px]", unseen ? "font-semibold text-foreground" : "text-muted-foreground")}>{c.name}</span>}
             </button>
             </div>
           );

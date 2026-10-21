@@ -277,6 +277,7 @@ export interface Chat {
   turnMode?: "round-robin" | "natural" | "everyone";
   narrator?: boolean;
   roomRelationships?: RoomRelationship[];
+  innerThoughts?: boolean; // every member writes a hidden thought with each reply (#10)
   // Relationship that evolves (#30): off when false; the message count at
   // the last check; and a suggestion waiting for the user.
   relationshipSuggestions?: boolean;

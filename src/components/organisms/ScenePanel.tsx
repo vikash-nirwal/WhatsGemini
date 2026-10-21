@@ -934,6 +934,39 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
             />
           </div>
 
+          {/* Group chats: inner thoughts for everyone (#10), and who keeps a diary (#5) */}
+          {isRoom && (
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-medium text-foreground">Show everyone's inner thoughts</div>
+                <div className="text-[11px] text-subtle">Each reply also carries the speaker's private thought, hidden until you tap it. Nobody here hears it.</div>
+              </div>
+              <ToggleSwitch
+                checked={Boolean(chat?.innerThoughts)}
+                onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { innerThoughts: val || undefined } }))}
+                label={<span className="sr-only">Show everyone's inner thoughts</span>}
+              />
+            </div>
+          )}
+          {isRoom && members.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-medium text-foreground">Diaries</div>
+                <div className="text-[11px] text-subtle">Every {DIARY_INTERVAL} messages, each member who keeps a diary writes an entry about the group, as they saw it. One small call per member.</div>
+              </div>
+              {members.map((m) => (
+                <div key={m.id} className="flex items-center justify-between gap-3">
+                  <span className="text-[12.5px] text-foreground">{m.name} keeps a diary</span>
+                  <ToggleSwitch
+                    checked={Boolean(m.diaryEnabled)}
+                    onChange={(val) => dispatch(updateCharacter({ ...m, diaryEnabled: val || undefined }))}
+                    label={<span className="sr-only">{m.name} keeps a diary</span>}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Group chats (#22, #23): who answers, and an optional narrator */}
           {isRoom && (
             <div className="flex flex-col gap-2">

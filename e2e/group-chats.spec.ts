@@ -120,3 +120,16 @@ test("natural turns after a member spoke up ask about the others only", async ({
   await waitForReplyDone(page);
   expect(mockAI.requests.filter((r) => speakerOf(r.messages)).length).toBe(1);
 });
+
+test("room-wide inner thoughts and member diaries are switched on in the Chat tab", async ({ page, mockAI }) => {
+  replyByRequest(mockAI, "");
+  await openChat(page, 2);
+  await openRoomPanel(page, "Chat");
+  await page.getByRole("switch", { name: "Show everyone's inner thoughts" }).click();
+  await page.getByRole("switch", { name: "Kai keeps a diary" }).click();
+  await expect(page.getByRole("switch", { name: "Kai keeps a diary" })).toBeChecked();
+  await page.getByRole("button", { name: "Close scene panel" }).click();
+
+  await sendMessage(page, "What's everyone thinking?");
+  await expect.poll(() => systemOf(mockAI.requests.find((r) => speakerOf(r.messages))?.messages || [])).toContain("add your private inner thoughts in exactly this format: <thoughts>");
+});

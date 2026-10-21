@@ -489,12 +489,12 @@ export const summarizeChapter = createAsyncThunk(
 export const writeDiaryEntry = createAsyncThunk(
   "ai/writeDiaryEntry",
   async (
-    { charName, userName, recentMessages, names, previousEntry }: { charName: string; userName: string; recentMessages: Message[]; names?: TranscriptNames; previousEntry?: DiaryEntry },
+    { charName, userName, recentMessages, names, previousEntry, others }: { charName: string; userName: string; recentMessages: Message[]; names?: TranscriptNames; previousEntry?: DiaryEntry; others?: string[] },
     { getState, rejectWithValue }
   ) => {
     try {
       const helper = await resolveHelperCall((getState() as RootState).settings);
-      const prompt = buildDiaryPrompt(charName, userName, formatTranscript(recentMessages, names), previousEntry);
+      const prompt = buildDiaryPrompt(charName, userName, formatTranscript(recentMessages, names), previousEntry, others);
       const result = await helper.adapter.generateOnce(prompt, helper.model, helper.config);
       return cleanDiaryEntry(result.text);
     } catch (error: any) {

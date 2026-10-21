@@ -189,6 +189,7 @@ const ChatPage = () => {
       groupPinnedMemory: currentChat?.pinnedMemory,
       otherAppearanceLocks: appearanceLocksFor(others),
       relationshipNotes: buildRelationshipNotes(speaker.id, currentChat?.roomRelationships, Object.fromEntries(roomCharacters.map((c) => [c.id, c.name]))),
+      thoughts: currentChat?.innerThoughts,
     };
   };
 
@@ -497,13 +498,19 @@ const ChatPage = () => {
   };
 
   // Diary (#5): every DIARY_INTERVAL messages a character with the diary on
-  // writes a private first-person entry about the recent conversation. Only
-  // in 1:1 chats that share the character's memory, so a "this chat only"
-  // what-if never reaches the diary. Same per-chat baseline counting as
-  // memory extraction above.
+  // writes a private first-person entry about the recent conversation: in a
+  // 1:1 chat only when it shares the character's memory, so a "this chat
+  // only" what-if never reaches the diary, and in a group chat for each
+  // member who keeps one. Same per-chat baseline counting as memory
+  // extraction above.
   const diaryBaselineRef = useRef<Record<number, number>>({});
   const maybeWriteDiary = async (allMessages: Message[], speaker = characterData) => {
-    if (!speaker?.diaryEnabled || !chatIdNum || isRoom || chatScopedMemory || allMessages.length === 0) return;
+    // A group chat writes one entry per member with the diary on, each from
+    // their own point of view; a 1:1 chat only when it shares the character's memory.
+    const writers = isRoom
+      ? roomCharacters.filter((c) => c.diaryEnabled)
+      : speaker?.diaryEnabled && !chatScopedMemory ? [speaker] : [];
+    if (writers.length === 0 || !chatIdNum || allMessages.length === 0) return;
     const count = allMessages.length;
     let baseline = diaryBaselineRef.current[chatIdNum];
     if (baseline == null) baseline = Math.floor((count - 1) / DIARY_INTERVAL) * DIARY_INTERVAL;
@@ -512,23 +519,26 @@ const ChatPage = () => {
     if (count - baseline < DIARY_INTERVAL) return;
     diaryBaselineRef.current[chatIdNum] = count;
 
-    try {
-      const recent = trimToLatestSummary(allMessages).slice(-DIARY_INTERVAL);
-      const text = await dispatch(writeDiaryEntry({
-        charName: speaker.name,
-        userName: activePersona?.name?.trim() || "the user",
-        recentMessages: recent,
-        names: transcriptNames(),
-        previousEntry: speaker.diary?.[speaker.diary.length - 1],
-      })).unwrap();
-      if (!text) return;
-      const fresh = (await dispatch(fetchCharacterById(speaker.id)).unwrap().catch(() => speaker)) || speaker;
-      await dispatch(updateCharacter({
-        ...fresh,
-        diary: appendDiaryEntry(fresh.diary, { id: generateNodeId(), timestamp: Date.now(), chatId: chatIdNum, text }),
-      }));
-    } catch (err) {
-      console.warn("Diary entry failed (non-fatal):", err);
+    const recent = trimToLatestSummary(allMessages).slice(-DIARY_INTERVAL);
+    for (const writer of writers) {
+      try {
+        const text = await dispatch(writeDiaryEntry({
+          charName: writer.name,
+          userName: activePersona?.name?.trim() || "the user",
+          recentMessages: recent,
+          names: transcriptNames(),
+          previousEntry: writer.diary?.[writer.diary.length - 1],
+          others: isRoom ? roomCharacters.filter((c) => c.id !== writer.id).map((c) => c.name) : undefined,
+        })).unwrap();
+        if (!text) continue;
+        const fresh = (await dispatch(fetchCharacterById(writer.id)).unwrap().catch(() => writer)) || writer;
+        await dispatch(updateCharacter({
+          ...fresh,
+          diary: appendDiaryEntry(fresh.diary, { id: generateNodeId(), timestamp: Date.now(), chatId: chatIdNum, text }),
+        }));
+      } catch (err) {
+        console.warn("Diary entry failed (non-fatal):", err);
+      }
     }
   };
 

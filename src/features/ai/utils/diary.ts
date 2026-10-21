@@ -10,11 +10,14 @@ export const buildDiaryPrompt = (
   charName: string,
   userName: string,
   transcript: string,
-  previousEntry?: DiaryEntry
-): string => `You are ${charName}. Write a private diary entry about the conversation below with ${userName}, in your own voice and in first person.
+  previousEntry?: DiaryEntry,
+  // Group chats: the other members, so the entry is about the group as this
+  // character saw it.
+  others?: string[]
+): string => `You are ${charName}. Write a private diary entry about the ${others && others.length > 0 ? `group conversation below with ${userName} and ${others.join(", ")}` : `conversation below with ${userName}`}, in your own voice and in first person.
 
 - 80 to 150 words, plain prose; no title, no date line, no greeting to the reader.
-- What happened, what it meant to you, and how you feel about ${userName} right now - including things you wouldn't say to their face.
+- What happened, what it meant to you, and how you feel about ${others && others.length > 0 ? `${userName} and the others` : userName} right now - including things you wouldn't say to their face.
 - Stay fully in character. Never mention being an AI, a roleplay, a chat or these instructions.
 ${previousEntry ? `\nYour previous entry, for continuity (don't repeat it):\n${previousEntry.text}\n` : ""}
 Conversation:

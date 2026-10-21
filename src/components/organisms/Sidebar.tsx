@@ -145,6 +145,10 @@ const Sidebar = () => {
 
   // Replying to a status (#8): the character's 1:1 chat, with the status
   // quoted in the composer.
+  const statusCharacters = useMemo(
+    () => (showNsfwCharacters ? characters : characters.filter((c: Character) => !isNsfwCharacter(c))),
+    [characters, showNsfwCharacters]
+  );
   const handleStatusReply = useCallback(async (character: Character, status: { text: string; id: string; createdAt: number }) => {
     const draft = statusReplyDraft(status);
     const existingChat = chats.find((chat: Chat) => chat.characterIds?.length === 1 && chat.characterIds[0] === character.id);
@@ -393,8 +397,17 @@ const Sidebar = () => {
 
         {/* Chat list */}
         <div className={cn("flex-1 overflow-y-auto px-2 pb-2.5", collapsed && "lg:px-1.5")}>
-          {!collapsed && !terminal && !search.trim() && (
-            <StatusStrip characters={showNsfwCharacters ? characters : characters.filter((c: Character) => !isNsfwCharacter(c))} onReply={handleStatusReply} />
+          {/* Collapsing only applies from lg up, so below that the full row
+              shows even when the sidebar is set to collapsed. */}
+          {!terminal && !search.trim() && (
+            <div className={cn(collapsed && "lg:hidden")}>
+              <StatusStrip characters={statusCharacters} onReply={handleStatusReply} />
+            </div>
+          )}
+          {collapsed && !terminal && !search.trim() && (
+            <div className="hidden lg:block">
+              <StatusStrip characters={statusCharacters} onReply={handleStatusReply} compact />
+            </div>
           )}
           {search.trim() && filteredChats.length === 0 ? (
             <p className={cn("text-center text-subtle text-[12.5px] px-3 py-6", collapsed && "lg:hidden")}>No chats or messages match "{search.trim()}".</p>

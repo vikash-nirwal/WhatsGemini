@@ -166,6 +166,7 @@ export interface PromptOptions {
   memoryOverride?: { memory: string[]; pinned: string[] };
   world?: World; // a World attached to this chat (#28)
   roomRelationshipNotes?: string; // the speaker's feelings about the others (#24)
+  roomThoughts?: boolean; // inner thoughts switched on for the whole room (#10)
 }
 
 const describeDuration = (ms: number): string => {
@@ -398,7 +399,7 @@ export const buildSystemInstruction = (
     sections.push(buildEmotionDirective(character.emotionPortraits.customEmotions));
   }
   if (options.roleplayStyle?.characterReactions) sections.push(buildReactionDirective());
-  if (character.innerThoughts) sections.push(buildThoughtsDirective());
+  if (character.innerThoughts || options.roomThoughts) sections.push(buildThoughtsDirective());
   if (extraDirectives && extraDirectives.length > 0) {
     sections.push(...extraDirectives);
   }
@@ -486,6 +487,7 @@ export interface RoomContext {
   groupPinnedMemory?: string[]; // the room's own Chat.pinnedMemory
   otherAppearanceLocks?: AppearanceLock[]; // every OTHER member's locked look (#34)
   relationshipNotes?: string; // what this speaker feels about the others (#24)
+  thoughts?: boolean; // the room shows every member's inner thoughts (#10)
 }
 
 // Per-chat scene settings and app-wide style, shared by 1:1 chats and rooms.
@@ -543,6 +545,7 @@ export const buildTurnContext = (
       memoryOverride: scene?.memoryOverride,
       world: scene?.world,
       roomRelationshipNotes: roomContext?.relationshipNotes,
+      roomThoughts: roomContext?.thoughts,
     }
   );
   // The active persona's own reference photos (UserProfile.appearanceImages),
