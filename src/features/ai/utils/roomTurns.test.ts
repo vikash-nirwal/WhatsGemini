@@ -27,6 +27,9 @@ describe("who replies naturally", () => {
 
   it("asks with every name and the cap", () => {
     expect(buildWhoRepliesPrompt(["Aria", "Kai"], "Vik", "Vik: hey all")).toContain("between Vik and Aria, Kai");
+    // After a member spoke up on their own, the others are asked about.
+    const after = buildWhoRepliesPrompt(["Kai"], "Vik", "Aria: anyone up?", 3, "Aria");
+    expect(after).toContain("between Vik and Aria, Kai. Aria just sent the last message. Only these others can answer it: Kai.");
   });
 });
 

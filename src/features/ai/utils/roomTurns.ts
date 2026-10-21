@@ -13,9 +13,11 @@ export const everyoneAfter = (active: Character[], firstId: number, cap = MAX_CH
   active.filter((c) => c.id !== firstId).slice(0, Math.max(0, cap - 1));
 
 // "Natural": a cheap helper call reads the exchange and picks who would
-// actually answer, in order. It may be two of them, or nobody.
-export const buildWhoRepliesPrompt = (names: string[], userName: string, transcript: string, cap = MAX_CHAIN): string =>
-  `This is a group chat between ${userName} and ${names.join(", ")}. ${userName} just sent the last message.
+// actually answer, in order. It may be two of them, or nobody. The last
+// message is the user's, or a member's when they spoke up on their own
+// (`lastSpeaker`, who isn't among `names` then).
+export const buildWhoRepliesPrompt = (names: string[], userName: string, transcript: string, cap = MAX_CHAIN, lastSpeaker?: string): string =>
+  `This is a group chat between ${userName} and ${[...(lastSpeaker ? [lastSpeaker] : []), ...names].join(", ")}. ${lastSpeaker || userName} just sent the last message.${lastSpeaker ? ` Only these others can answer it: ${names.join(", ")}.` : ""}
 
 ${transcript}
 

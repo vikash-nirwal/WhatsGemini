@@ -45,7 +45,7 @@ import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
 import { applyMemoryChanges, carryMemoryCategories } from "../features/ai/utils/memoryExtraction";
 import { effectiveContentRating } from "../features/character/contentRating";
 import { resolveNextSpeaker, parseMention, stripSpeakerPrefix, getActiveParticipants } from "../features/ai/utils/roomRouting";
-import { buildNarrationPrompt, buildRelationshipNotes, buildWhoRepliesPrompt, CHAIN_DIRECTIVE, cleanNarration, everyoneAfter, parseWhoReplies } from "../features/ai/utils/roomTurns";
+import { buildNarrationPrompt, buildRelationshipNotes, buildWhoRepliesPrompt, CHAIN_DIRECTIVE, cleanNarration, everyoneAfter, MAX_CHAIN, parseWhoReplies } from "../features/ai/utils/roomTurns";
 import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo, generateNodeId } from "../features/chat/messageTree";
 import { estimateTokens, estimateHistoryTokens } from "../features/ai/utils/tokenEstimator";
 import { truncateHistory, trimToLatestSummary, latestSummaryIndex, countSeedMessages, buildSummaryMessages, formatTranscript, TranscriptNames } from "../features/ai/utils/chatHistoryUtils";
@@ -690,7 +690,8 @@ const ChatPage = () => {
   // path; omitted, it round-robins like a normal turn would.
   // `extraDirective`: a one-turn instruction riding along with this reply
   // ("Surprise me" uses it for a plot twist).
-  const sendCharacterFollowup = async (forcedSpeakerId?: number, extraDirective?: string): Promise<boolean> => {
+  // Resolves to the character who spoke, or false when nothing was sent.
+  const sendCharacterFollowup = async (forcedSpeakerId?: number, extraDirective?: string): Promise<Character | false> => {
     if (!chatIdNum || !currentChat || roomCharacters.length === 0) return false;
 
     // Read the chat fresh from the DB rather than trusting the component's local
@@ -806,7 +807,29 @@ const ChatPage = () => {
     saveSceneState(payloadObj);
     advanceGame(payloadObj, false);
     runBackgroundUpdates((aiAddResult.payload as Message[]) || [], speaker);
-    return true;
+    return speaker;
+  };
+
+  // A room message a character started on their own gets the same round a
+  // message of yours does (#22, #23): the others answer by the turn mode,
+  // then the narrator. `chain` is off when you picked who replies.
+  const finishRoomRound = async (starter: Character | false, chain = true) => {
+    if (!isRoom || !starter) return;
+    if (chain && chatIdNum) {
+      const active = getActiveParticipants(roomCharacters, currentChat?.mutedParticipantIds);
+      const others = active.filter((c) => c.id !== starter.id);
+      let followers: Character[] = [];
+      if (currentChat?.turnMode === "everyone") {
+        followers = everyoneAfter(active, starter.id);
+      } else if (currentChat?.turnMode === "natural" && others.length > 0) {
+        const fresh = await dispatch(fetchChatById(chatIdNum)).unwrap();
+        followers = ((await pickNaturalSpeakers(getOrBuildTree(fresh).content, others, starter)) || []).slice(0, MAX_CHAIN - 1);
+      }
+      for (const follower of followers) {
+        if (!(await sendCharacterFollowup(follower.id, CHAIN_DIRECTIVE))) break;
+      }
+    }
+    await maybeNarrate();
   };
 
   const triggerAutoFollowup = async () => {
@@ -819,6 +842,7 @@ const ChatPage = () => {
           autoReply: { ...autoReplySettings, followupCount: autoReplySettings.followupCount + 1 },
         }));
       }
+      await finishRoomRound(sent);
     } catch (err) {
       console.error("Auto follow-up failed (non-fatal):", err);
     }
@@ -828,7 +852,7 @@ const ChatPage = () => {
     if (autoReplyInFlightRef.current || aiLoading) return;
     autoReplyInFlightRef.current = true;
     try {
-      await sendCharacterFollowup();
+      await finishRoomRound(await sendCharacterFollowup());
     } catch (err) {
       console.error("Manual follow-up failed:", err);
     } finally {
@@ -842,7 +866,7 @@ const ChatPage = () => {
     if (autoReplyInFlightRef.current || aiLoading) return;
     autoReplyInFlightRef.current = true;
     try {
-      await sendCharacterFollowup(undefined, SURPRISE_DIRECTIVE);
+      await finishRoomRound(await sendCharacterFollowup(undefined, SURPRISE_DIRECTIVE));
     } catch (err) {
       console.error("Surprise reply failed:", err);
     } finally {
@@ -881,7 +905,7 @@ const ChatPage = () => {
     toast.info(`You drew: ${event}`);
     autoReplyInFlightRef.current = true;
     try {
-      await sendCharacterFollowup(undefined, buildEventDirective(event));
+      await finishRoomRound(await sendCharacterFollowup(undefined, buildEventDirective(event)));
     } catch (err) {
       console.error("Event reply failed:", err);
     } finally {
@@ -919,7 +943,8 @@ const ChatPage = () => {
     if (autoReplyInFlightRef.current || aiLoading) return;
     autoReplyInFlightRef.current = true;
     try {
-      await sendCharacterFollowup(characterId);
+      // You picked who replies, so nobody else chimes in; the narrator still does.
+      await finishRoomRound(await sendCharacterFollowup(characterId), false);
     } catch (err) {
       console.error("Forced reply failed:", err);
     } finally {
@@ -1637,11 +1662,11 @@ const ChatPage = () => {
 
   // "Natural" turns (#22): who would answer, by a cheap helper call. Null
   // when the call fails, so the turn falls back to round-robin.
-  const pickNaturalSpeakers = async (contextMessages: Message[], active: Character[]): Promise<Character[] | null> => {
+  const pickNaturalSpeakers = async (contextMessages: Message[], active: Character[], starter?: Character): Promise<Character[] | null> => {
     try {
       const recent = trimToLatestSummary(contextMessages).slice(-NARRATIVE_CONTEXT_MESSAGES);
       const reply = await dispatch(generateAssistText({
-        instruction: buildWhoRepliesPrompt(active.map((c) => c.name), activePersona?.name?.trim() || "User", formatTranscript(recent, transcriptNames())),
+        instruction: buildWhoRepliesPrompt(active.map((c) => c.name), activePersona?.name?.trim() || "User", formatTranscript(recent, transcriptNames()), MAX_CHAIN, starter?.name),
         background: true,
       })).unwrap();
       return parseWhoReplies(reply, active);

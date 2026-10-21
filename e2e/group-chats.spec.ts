@@ -92,3 +92,31 @@ test("a member's feelings about another go only into their own prompt", async ({
   expect(systemOf(byName("Kai")!.messages)).toContain("How you feel about the others here (keep it in mind; don't announce it):\n- Aria: Secretly admires her driving");
   expect(systemOf(byName("Aria")!.messages)).not.toContain("Secretly admires");
 });
+
+test("a member speaking up on their own gets the rest of the round too", async ({ page, mockAI }) => {
+  replyByRequest(mockAI, "");
+  await openChat(page, 2);
+  await openRoomPanel(page, "Chat");
+  await page.getByRole("button", { name: "Everyone", exact: true }).click();
+  await page.getByRole("switch", { name: "Narrator" }).click();
+  await page.getByRole("button", { name: "Close scene panel" }).click();
+
+  await headerAction(page, "Make the next bot send a follow-up now");
+  await expect(messageBubble(page, "Aria says hello back.")).toBeVisible();
+  await expect(messageBubble(page, "Kai says hello back.")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Rain drums on the garage roof.")).toBeVisible({ timeout: 15_000 });
+});
+
+test("natural turns after a member spoke up ask about the others only", async ({ page, mockAI }) => {
+  replyByRequest(mockAI, "NONE");
+  await openChat(page, 2);
+  await openRoomPanel(page, "Chat");
+  await page.getByRole("button", { name: "Natural", exact: true }).click();
+  await page.getByRole("button", { name: "Close scene panel" }).click();
+
+  await headerAction(page, "Make the next bot send a follow-up now");
+  await expect(messageBubble(page, "Aria says hello back.")).toBeVisible();
+  await expect.poll(() => mockAI.requests.find((r) => r.prompt.includes("Who would naturally reply"))?.prompt || "").toContain("Aria just sent the last message. Only these others can answer it: Kai.");
+  await waitForReplyDone(page);
+  expect(mockAI.requests.filter((r) => speakerOf(r.messages)).length).toBe(1);
+});
