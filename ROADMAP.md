@@ -40,7 +40,6 @@ The app is called WhatsGemini, so lean into the messaging-app fantasy.
 
 Built one at a time, in this order.
 
-53. **Branch map** (M). A visual tree of the conversation's branches and variants, to see and jump between storylines.
 54. **Backup to Google Drive** (M). An encrypted backup to your own Drive (app-data folder), restorable on another device. Needs a Google OAuth client ID that you create once; the app still has no server.
 55. **Free local model in the browser** (M). A small model run on your GPU with WebLLM: no key, no cost, as a fallback chat provider. Adds a large dependency, downloaded on first use only.
 56. **Phone calls** (L). A call screen with a timer: you talk, the character answers out loud, hands-free. Builds on #12 and #44.

@@ -13,6 +13,8 @@ import { buildCelebrationDirective, datesToCelebrate } from "../features/charact
 import { buildEventDirective, drawEvent } from "../features/chat/eventDeck";
 import { buildGameStartDirective, gameLabel, GameOutcome } from "../features/chat/miniGames";
 import GameDialog from "../components/organisms/GameDialog";
+import BranchMapDialog from "../components/organisms/BranchMapDialog";
+import { hasBranches } from "../features/chat/branchMap";
 import StoryScriptDialog from "../components/organisms/StoryScriptDialog";
 import { buildDraftReplyPrompt, cleanDraftReply, buildReplySuggestionsPrompt, parseReplySuggestions, NARRATIVE_CONTEXT_MESSAGES, SURPRISE_DIRECTIVE } from "../features/ai/utils/narrativeTools";
 import { appendDiaryEntry } from "../features/ai/utils/diary";
@@ -23,7 +25,7 @@ import Header, { HeaderAction } from "src/components/organisms/Header";
 import PortraitPreviewModal from "src/components/organisms/PortraitPreviewModal";
 import AutoReplyModal from "src/components/organisms/AutoReplyModal";
 import PersonaModal from "src/components/organisms/PersonaModal";
-import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20, FaLayerGroup, FaGamepad, FaBookOpen } from "react-icons/fa";
+import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20, FaLayerGroup, FaGamepad, FaCodeBranch, FaBookOpen } from "react-icons/fa";
 import { Button } from "src/components/atoms/button";
 import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DIARY_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
@@ -589,6 +591,7 @@ const ChatPage = () => {
   const [sceneOpen, setSceneOpen] = useState(false);
   const [storyOpen, setStoryOpen] = useState(false);
   const [gameOpen, setGameOpen] = useState(false);
+  const [branchMapOpen, setBranchMapOpen] = useState(false);
   const [participantsOpen, setParticipantsOpen] = useState(false);
   const autoReplySettings = normalizeAutoReply(currentChat?.autoReply);
   const autoReplyInFlightRef = useRef(false);
@@ -1610,6 +1613,9 @@ const ChatPage = () => {
     ...(messages.length > 0
       ? [{ icon: FaLayerGroup, label: "Draw an event card (a random event happens)", onClick: handleDrawEvent, disabled: aiLoading }]
       : []),
+    ...(hasBranches(currentChat?.tree)
+      ? [{ icon: FaCodeBranch, label: "Branch map (every storyline in this chat)", onClick: () => setBranchMapOpen(true) }]
+      : []),
     ...(!isRoom && characterData
       ? [{ icon: FaGamepad, label: "Play a game", onClick: () => setGameOpen(true), disabled: aiLoading || Boolean(currentChat?.game) }]
       : []),
@@ -1714,6 +1720,16 @@ const ChatPage = () => {
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden relative">
         <ChatWindow game={currentChat?.game} gameScore={currentChat?.gameScore} onEndGame={() => chatIdNum && dispatch(updateChatOptions({ chatId: chatIdNum, patch: { game: undefined } }))} storyScript={currentChat?.storyScript} onEditStory={() => setStoryOpen(true)} onMoveBeat={moveStoryBeat} recap={recap} onToggleBookmark={handleToggleBookmark} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} />
+        <BranchMapDialog
+          open={branchMapOpen}
+          onOpenChange={setBranchMapOpen}
+          tree={currentChat?.tree}
+          activeLeafId={currentChat?.activeLeafId}
+          onJump={(leafId) => {
+            if (!chatIdNum || !currentChat?.tree) return;
+            dispatch(updateChatTree({ chatId: chatIdNum, content: flattenPath(currentChat.tree, leafId), tree: currentChat.tree, activeLeafId: leafId }));
+          }}
+        />
         <GameDialog open={gameOpen} onOpenChange={setGameOpen} characterName={characterData?.name || "them"} onStart={startGame} />
         <StoryScriptDialog open={storyOpen} onOpenChange={setStoryOpen} script={currentChat?.storyScript} onSave={saveStoryScript} />
       </div>
