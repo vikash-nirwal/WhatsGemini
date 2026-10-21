@@ -21,10 +21,11 @@ import { AUTHOR_NOTE_PRESETS, hasPreset, togglePreset } from "src/features/ai/ut
 import { DisplayImage } from "src/components/molecules/DisplayImage";
 import { generateBackdropImage } from "src/features/aiSlice";
 import { describeSetting } from "src/features/chat/backdrop";
+import { groupMemoryFacts, MEMORY_CATEGORY_LABELS, nextMemoryCategory } from "src/features/ai/utils/memoryExtraction";
 import { readPhoto } from "src/features/chat/photoAttachments";
 import { dataUrlToBlob, savePortraitBlob } from "src/features/ai/utils/portraitUtils";
 
-const CATEGORY_LABELS: Record<MemoryCategory, string> = { user: "About you", relationship: "Relationship", story: "Story" };
+const CATEGORY_LABELS = MEMORY_CATEGORY_LABELS;
 
 interface ScenePanelProps {
   chatId: number;
@@ -204,9 +205,7 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
 
   // Cycles a fact through About you -> Relationship -> Story -> unsorted.
   const handleCycleCategory = (fact: string) => {
-    const order: (MemoryCategory | undefined)[] = ["user", "relationship", "story", undefined];
-    const next = order[(order.indexOf(categories[fact]) + 1) % order.length];
-    commitMemory(memory, pinned, undefined, { [fact]: next });
+    commitMemory(memory, pinned, undefined, { [fact]: nextMemoryCategory(categories[fact]) });
   };
 
   const handlePinFact = (index: number) => {
@@ -315,17 +314,7 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
   // Memory grouped by what it's about, once any fact has a category; a
   // memory nobody has sorted yet stays one plain list, as before.
   const groupMemory = memory.some((fact) => categories[fact]);
-  const memoryGroups: { key: string; label: string; category?: MemoryCategory; items: { fact: string; idx: number }[] }[] = [
-    { key: "user", label: CATEGORY_LABELS.user, category: "user" as MemoryCategory },
-    { key: "relationship", label: CATEGORY_LABELS.relationship, category: "relationship" as MemoryCategory },
-    { key: "story", label: CATEGORY_LABELS.story, category: "story" as MemoryCategory },
-    { key: "other", label: "Other", category: undefined },
-  ].map((g) => ({
-    ...g,
-    items: memory
-      .map((fact, idx) => ({ fact, idx }))
-      .filter(({ fact }) => (groupMemory ? (categories[fact] ?? undefined) === g.category : g.key === "other")),
-  }));
+  const memoryGroups = groupMemoryFacts(memory, categories);
 
   const renderFact = (fact: string, idx: number) =>
                 editingFactIndex === idx ? (

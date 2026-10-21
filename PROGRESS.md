@@ -6,7 +6,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **State:** the new-ideas queue (#42–#57) is built and pushed and deployed (CI green). The last full local run passed: type-check, 758 unit tests, 685 UI tests and 16 screenshot tests.
+- **State:** the new-ideas queue (#42–#57) is built and pushed and deployed (CI green). The last full local run passed: type-check, 760 unit tests, 689 UI tests and 16 screenshot tests.
 - **Next up:** push and deploy (with the user's OK), then the smaller follow-ups. All 13 earlier items (#7–#9, #13, #19, #22–#28, #30) are done and committed locally, not pushed yet.
 - **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
 - **How the new-ideas run went:** #42, #43, #12+#44 and #45 ran in fresh sessions; from #46 on they were built in the coordinating session, because new sessions can't be started over Remote Control. Each item was committed only after every suite passed.
@@ -31,7 +31,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 One line per area. Pointers for when you need to work on it again.
 
 - **Compression** never deletes: the summary pair is spliced into the conversation tree after the last covered message (`spliceSummaryIntoConversation`), and prompts send the seed plus the newest summary onward (`trimToLatestSummary` in `buildTurnContext`). The seed and summary are protected from truncation (`countProtectedPrefix`). "Undo compression" / "Undo this chapter" on a summary takes the pair back out (`removeSummaryFromConversation`; `removeCompressionSummary` and `removeAdventureCompressionSummary`).
-- **Memory:** extraction can add, update (`UPDATE n:`), forget and reconfirm facts. The list is kept in recency order with a cap of 200, and each prompt gets pinned facts plus the 30 most relevant (`memoryRelevance.ts`). Facts are categorized (`memoryCategories`, keyed by fact text). A chat can keep its own memory (`Chat.memoryScope`).
+- **Memory:** extraction can add, update (`UPDATE n:`), forget and reconfirm facts. The list is kept in recency order with a cap of 200, and each prompt gets pinned facts plus the 30 most relevant (`memoryRelevance.ts`). Facts are categorized (`memoryCategories`, keyed by fact text). The Scene panel and the character editor's memory card both group them (`groupMemoryFacts`, `nextMemoryCategory` in memoryExtraction.ts); the editor keeps a fact's group through an edit. A chat can keep its own memory (`Chat.memoryScope`).
 - **Chapters** ("End chapter") are titled summaries with a recap (`Message.chapterTitle`/`chapterRecap`). **Diary:** per-character switch, an entry every 30 messages from memory-sharing 1:1 chats only, latest entry in the prompt.
 - **Narrative tools:** Write my reply, Surprise me, author's note presets, reply suggestions (`narrativeTools.ts`); slash commands including real dice and narration lines (`slashCommands.ts`, `Message.isNarration`); story export to Markdown (`storyExport.ts`); bookmarks (`Message.bookmarked`).
 - **Lorebook:** priority, secondary keywords with any/all/none/not-all logic, sticky, scan depth and a deterministic trigger chance, mapped to SillyTavern card fields. Scan depth above 10 and sticky need `buildTurnContext` to pass the full history since the last summary, so don't cut it to the last 10 messages.

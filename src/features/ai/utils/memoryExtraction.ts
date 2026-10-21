@@ -196,3 +196,37 @@ export const carryMemoryCategories = (
   }
   return Object.keys(result).length > 0 ? result : undefined;
 };
+
+// How a fact's group is named on screen.
+export const MEMORY_CATEGORY_LABELS: Record<MemoryCategory, string> = { user: "About you", relationship: "Relationship", story: "Story" };
+
+// Clicking a fact's tag moves it About you -> Relationship -> Story -> unsorted.
+export const nextMemoryCategory = (current: MemoryCategory | undefined): MemoryCategory | undefined => {
+  const order: (MemoryCategory | undefined)[] = ["user", "relationship", "story", undefined];
+  return order[(order.indexOf(current) + 1) % order.length];
+};
+
+export interface MemoryGroup {
+  key: string;
+  label: string;
+  category?: MemoryCategory;
+  items: { fact: string; idx: number }[];
+}
+
+// Facts grouped by what they're about, once any fact has a group; a memory
+// nobody has sorted yet is one "Other" list. `idx` is the fact's position
+// in `memory`, which the edit and remove handlers work by.
+export const groupMemoryFacts = (memory: string[], categories: Record<string, MemoryCategory> = {}): MemoryGroup[] => {
+  const grouped = memory.some((fact) => categories[fact]);
+  return [
+    { key: "user", label: MEMORY_CATEGORY_LABELS.user, category: "user" as MemoryCategory },
+    { key: "relationship", label: MEMORY_CATEGORY_LABELS.relationship, category: "relationship" as MemoryCategory },
+    { key: "story", label: MEMORY_CATEGORY_LABELS.story, category: "story" as MemoryCategory },
+    { key: "other", label: "Other", category: undefined },
+  ].map((g) => ({
+    ...g,
+    items: memory
+      .map((fact, idx) => ({ fact, idx }))
+      .filter(({ fact }) => (grouped ? (categories[fact] ?? undefined) === g.category : g.key === "other")),
+  }));
+};

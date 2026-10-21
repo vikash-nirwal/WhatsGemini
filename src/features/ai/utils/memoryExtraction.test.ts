@@ -1,4 +1,4 @@
-import { applyMemoryChanges, buildMemoryExtractionPrompt, parseMemoryChanges, carryMemoryCategories, NO_MEMORY_CHANGES, MemoryChanges } from "./memoryExtraction";
+import { applyMemoryChanges, buildMemoryExtractionPrompt, parseMemoryChanges, carryMemoryCategories, NO_MEMORY_CHANGES, MemoryChanges, groupMemoryFacts, nextMemoryCategory } from "./memoryExtraction";
 import { MAX_MEMORY_ENTRIES } from "../../../utils/constants";
 
 const changes = (patch: Partial<MemoryChanges>): MemoryChanges => ({ ...NO_MEMORY_CHANGES, ...patch });
@@ -118,5 +118,18 @@ describe("memory categories", () => {
 
   it("asks the model to tag each fact", () => {
     expect(buildMemoryExtractionPrompt("x", [], [], { userName: "Arin" })).toContain("[user] (about Arin)");
+  });
+});
+
+describe("memory groups", () => {
+  it("groups facts once any has a group, and keeps their positions", () => {
+    const groups = groupMemoryFacts(["a", "b", "c"], { a: "user", c: "story" });
+    expect(groups.map((g) => [g.key, g.items.map((i) => `${i.fact}${i.idx}`)])).toEqual([["user", ["a0"]], ["relationship", []], ["story", ["c2"]], ["other", ["b1"]]]);
+    expect(groupMemoryFacts(["a", "b"], {}).find((g) => g.key === "other")!.items).toHaveLength(2);
+  });
+
+  it("cycles a fact's group and back to unsorted", () => {
+    expect(nextMemoryCategory(undefined)).toBe("user");
+    expect(nextMemoryCategory("story")).toBeUndefined();
   });
 });

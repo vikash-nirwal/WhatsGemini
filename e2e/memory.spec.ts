@@ -1,4 +1,4 @@
-import { test, expect, openChat } from "./fixtures";
+import { test, expect, openChat, openRoute } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // Long-term memory in the Scene panel: facts grouped by what they're about
@@ -111,4 +111,26 @@ test("a chat can keep its own memory without touching the character's", async ({
   await page.getByRole("button", { name: "Shared with Aria" }).click();
   await expect(page.getByText("In this timeline, Arin is a pirate.")).toBeHidden();
   await expect(page.getByText("Arin hates rain.")).toBeVisible();
+});
+
+test("the character editor's memory card groups facts the same way", async ({ page }) => {
+  // Opening a route seeds the database again, so the editor opens first.
+  await openRoute(page, `/characters/1/edit`);
+  await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
+  await writeMemory(page, ["Arin hates rain.", "The inn burned down.", "Arin collects maps."], {
+    "Arin hates rain.": "user",
+    "The inn burned down.": "story",
+  });
+  await page.reload();
+  await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
+  for (let i = 0; i < 5; i++) await page.getByRole("button", { name: "Next" }).click();
+
+  await expect(page.getByRole("group", { name: "About you" })).toContainText("Arin hates rain.");
+  await expect(page.getByRole("group", { name: "Story" })).toContainText("The inn burned down.");
+  const other = page.getByRole("group", { name: "Other" });
+  await expect(other).toContainText("Arin collects maps.");
+  // Its tag moves it into the first group.
+  await other.getByRole("button", { name: "Change group (now Unsorted)" }).click();
+  await expect(page.getByRole("group", { name: "About you" })).toContainText("Arin collects maps.");
+  await expect(page.getByRole("group", { name: "Other" })).toHaveCount(0);
 });

@@ -10,7 +10,6 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 Leftovers noted while building the finished items. Pick them up alongside related work.
 
-- **Memory:** show fact groups in the character editor's memory card (only the Scene panel groups them today).
 - **Lorebook:** SillyTavern fields not mapped yet: cooldown, delay, regex keys, case-sensitive matching, insertion position, groups. Sticky only applies to direct keyword hits, not recursive ones.
 - **Photos:** real vision APIs weren't tried (mocked only).
 - **Status updates:** an optional picture with a status (the roadmap's original idea).

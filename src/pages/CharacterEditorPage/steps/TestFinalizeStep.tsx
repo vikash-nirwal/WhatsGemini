@@ -1,11 +1,13 @@
 import React from "react";
-import { FaTimes, FaEdit, FaPlus } from "react-icons/fa";
+import { FaTimes, FaEdit, FaPlus, FaTag } from "react-icons/fa";
 import { Character, LoreEntry, ContentRating } from "../../../types";
 import { Button } from "src/components/atoms/button";
 import { Card } from "src/components/atoms/card";
 import { Input } from "src/components/atoms/input";
+import { cn } from "src/utils/cn";
 import TestChatPane from "src/components/organisms/TestChatPane";
 import { MEMORY_EXTRACTION_INTERVAL } from "../../../utils/constants";
+import { groupMemoryFacts, MEMORY_CATEGORY_LABELS } from "../../../features/ai/utils/memoryExtraction";
 
 interface TestFinalizeStepProps {
   name: string;
@@ -32,6 +34,7 @@ interface TestFinalizeStepProps {
   commitFactEdit: () => void;
   setEditingFactIndex: (index: number | null) => void;
   handleRemoveMemoryFact: (index: number) => void;
+  cycleFactCategory: (index: number) => void;
   addingFact: boolean;
   setAddingFact: (v: boolean) => void;
   commitNewFact: () => void;
@@ -66,6 +69,7 @@ const TestFinalizeStep: React.FC<TestFinalizeStepProps> = ({
   commitFactEdit,
   setEditingFactIndex,
   handleRemoveMemoryFact,
+  cycleFactCategory,
   addingFact,
   setAddingFact,
   commitNewFact,
@@ -115,7 +119,10 @@ const TestFinalizeStep: React.FC<TestFinalizeStepProps> = ({
         )}
       </Card>
 
-      {editCharacter && (
+      {editCharacter && (() => {
+        const categories = editCharacter.memoryCategories || {};
+        const grouped = (editCharacter.memory || []).some((fact) => categories[fact]);
+        return (
         <Card className="p-6 flex flex-col gap-5">
           <div className="flex items-baseline justify-between gap-4">
             <h3 data-slot="section-title" className="font-semibold text-[15px] text-foreground">
@@ -125,9 +132,14 @@ const TestFinalizeStep: React.FC<TestFinalizeStepProps> = ({
             </h3>
           </div>
           {editCharacter.memory && editCharacter.memory.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {editCharacter.memory.map((fact, idx) =>
-                editingFactIndex === idx ? (
+            <div className="flex flex-col gap-4">
+              {/* Grouped like the Scene panel's memory (#3), once any fact has a group. */}
+              {groupMemoryFacts(editCharacter.memory, categories).filter((g) => g.items.length > 0).map((group) => (
+                <div key={group.key} role="group" aria-label={grouped ? group.label : "Facts"} className="flex flex-col gap-2">
+                  {grouped && <div className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">{group.label}</div>}
+                  <div className="flex flex-wrap gap-2">
+                    {group.items.map(({ fact, idx }) =>
+                      editingFactIndex === idx ? (
                   <Input
                     key={idx}
                     autoFocus
@@ -148,6 +160,16 @@ const TestFinalizeStep: React.FC<TestFinalizeStepProps> = ({
                 ) : (
                   <span key={idx} className="inline-flex items-center gap-2 pl-3 pr-1 py-1 rounded-full bg-background border border-input text-xs">
                     {fact}
+                    <Button
+                      onClick={() => cycleFactCategory(idx)}
+                      variant="ghost"
+                      size="icon"
+                      className={cn("h-5 w-5 rounded-full hover:bg-primary/10 hover:text-primary flex-shrink-0", categories[fact] ? "text-primary/70" : "text-subtle")}
+                      title={`Group: ${categories[fact] ? MEMORY_CATEGORY_LABELS[categories[fact]] : "Unsorted"} - click to change`}
+                      aria-label={`Change group (now ${categories[fact] ? MEMORY_CATEGORY_LABELS[categories[fact]] : "Unsorted"})`}
+                    >
+                      <FaTag size={9} />
+                    </Button>
                     <Button
                       onClick={() => startEditFact(idx)}
                       variant="ghost"
@@ -170,7 +192,10 @@ const TestFinalizeStep: React.FC<TestFinalizeStepProps> = ({
                     </Button>
                   </span>
                 )
-              )}
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             !addingFact && <p className="text-xs text-subtle">No facts remembered yet.</p>
@@ -205,7 +230,8 @@ const TestFinalizeStep: React.FC<TestFinalizeStepProps> = ({
           )}
           <p className="text-xs text-subtle">Automatically learned from your conversations, every {MEMORY_EXTRACTION_INTERVAL} messages or so.</p>
         </Card>
-      )}
+        );
+      })()}
     </div>
 
     {/* Right: Test Chat */}

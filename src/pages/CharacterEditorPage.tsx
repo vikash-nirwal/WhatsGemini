@@ -25,6 +25,7 @@ import { parseCharacterCardText } from "../features/character/characterCard";
 import { detectMinorIndicators, characterTextFields } from "../features/character/contentRating";
 import { useModal } from "../contexts/ModalContext";
 import { CharacterModelOverride, cleanModelOverride } from "../features/ai/modelResolution";
+import { nextMemoryCategory } from "../features/ai/utils/memoryExtraction";
 import ModelOverrideSection from "./CharacterEditorPage/ModelOverrideSection";
 import LocalImageSettingsSection from "./CharacterEditorPage/LocalImageSettingsSection";
 import ImportantDatesSection from "./CharacterEditorPage/ImportantDatesSection";
@@ -810,10 +811,33 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     setLoreEntries((prev) => prev.filter((e) => e.id !== id));
   };
 
+  // Facts' groups are keyed by their text, so they follow a fact through
+  // edits and go when it does.
+  const withCategories = (memory: string[], renamed?: { from: string; to: string }) => {
+    const old = editCharacter?.memoryCategories || {};
+    const next: NonNullable<Character["memoryCategories"]> = {};
+    for (const fact of memory) {
+      const category = renamed && fact === renamed.to ? old[renamed.from] ?? old[fact] : old[fact];
+      if (category) next[fact] = category;
+    }
+    return Object.keys(next).length > 0 ? next : undefined;
+  };
+
   const handleRemoveMemoryFact = (index: number) => {
     if (!editCharacter) return;
     const newMemory = (editCharacter.memory || []).filter((_, i) => i !== index);
-    dispatch(updateCharacter({ ...editCharacter, memory: newMemory }));
+    dispatch(updateCharacter({ ...editCharacter, memory: newMemory, memoryCategories: withCategories(newMemory) }));
+  };
+
+  const cycleFactCategory = (index: number) => {
+    if (!editCharacter) return;
+    const fact = (editCharacter.memory || [])[index];
+    if (fact == null) return;
+    const next = nextMemoryCategory(editCharacter.memoryCategories?.[fact]);
+    const categories = { ...(editCharacter.memoryCategories || {}) };
+    if (next) categories[fact] = next;
+    else delete categories[fact];
+    dispatch(updateCharacter({ ...editCharacter, memoryCategories: Object.keys(categories).length > 0 ? categories : undefined }));
   };
 
   const [editingFactIndex, setEditingFactIndex] = useState<number | null>(null);
@@ -832,7 +856,8 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     const newMemory = trimmed
       ? memory.map((fact, i) => (i === editingFactIndex ? trimmed : fact))
       : memory.filter((_, i) => i !== editingFactIndex);
-    dispatch(updateCharacter({ ...editCharacter, memory: newMemory }));
+    const renamed = trimmed ? { from: memory[editingFactIndex], to: trimmed } : undefined;
+    dispatch(updateCharacter({ ...editCharacter, memory: newMemory, memoryCategories: withCategories(newMemory, renamed) }));
     setEditingFactIndex(null);
     setFactDraft("");
   };
@@ -842,7 +867,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     if (trimmed && editCharacter) {
       const withNewFact = [...(editCharacter.memory || []), trimmed];
       const capped = withNewFact.length > MAX_MEMORY_ENTRIES ? withNewFact.slice(withNewFact.length - MAX_MEMORY_ENTRIES) : withNewFact;
-      dispatch(updateCharacter({ ...editCharacter, memory: capped }));
+      dispatch(updateCharacter({ ...editCharacter, memory: capped, memoryCategories: withCategories(capped) }));
     }
     setFactDraft("");
     setAddingFact(false);
@@ -1222,6 +1247,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   commitFactEdit={commitFactEdit}
                   setEditingFactIndex={setEditingFactIndex}
                   handleRemoveMemoryFact={handleRemoveMemoryFact}
+                  cycleFactCategory={cycleFactCategory}
                   addingFact={addingFact}
                   setAddingFact={setAddingFact}
                   commitNewFact={commitNewFact}
