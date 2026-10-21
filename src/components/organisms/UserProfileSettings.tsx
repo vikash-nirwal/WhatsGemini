@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { FaUser, FaPlus, FaTrash, FaCheckCircle, FaCamera, FaUpload, FaTimes } from 'react-icons/fa';
+import { FaUser, FaPlus, FaTrash, FaCheckCircle, FaCamera, FaUpload, FaTimes, FaChevronRight } from 'react-icons/fa';
 import { UserProfile } from '../../types';
 import { TextInput, TextArea } from "src/components/molecules/form-controls";
 import { Button } from 'src/components/atoms/button';
@@ -10,6 +10,57 @@ import AvatarCropDialog from './AvatarCropDialog';
 import { dbService } from '../../services/dbService';
 import { cn } from '../../utils/cn';
 import { useColorTheme } from '../../hooks/useColorTheme';
+import { BASIC_SKILLS } from '../../features/adventure/skillChecks';
+
+// Character sheet (#27): skills with a modifier, added to the d20 when an
+// adventure's skill check names that skill.
+const PersonaSheet: React.FC<{ persona: UserProfile; onUpdatePersona: (persona: UserProfile) => void }> = ({ persona, onUpdatePersona }) => {
+  const skills = persona.skills || [];
+  const set = (next: UserProfile['skills']) => onUpdatePersona({ ...persona, skills: next && next.length > 0 ? next : undefined });
+  return (
+    <details className="group">
+      <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-medium text-foreground [&::-webkit-details-marker]:hidden">
+        <FaChevronRight aria-hidden size={9} className="text-muted-foreground transition-transform group-open:rotate-90" />
+        Character sheet
+        <span className="font-normal text-subtle">{skills.length > 0 ? `${skills.length} skill${skills.length === 1 ? '' : 's'}` : 'for adventure skill checks'}</span>
+      </summary>
+      <div className="mt-3 flex flex-col gap-2">
+        <p className="text-xs text-subtle">In an adventure with skill checks on, a check for one of these skills adds its modifier to the d20 roll.</p>
+        {skills.length === 0 && (
+          <div>
+            <Button type="button" variant="outline" size="sm" onClick={() => set(BASIC_SKILLS.map((sk) => ({ ...sk })))}>
+              Start from the basics
+            </Button>
+          </div>
+        )}
+        {skills.map((sk, i) => (
+          <div key={i} role="group" aria-label={sk.name || `Skill ${i + 1}`} className="flex items-center gap-2">
+            <TextInput aria-label="Skill" value={sk.name} onChange={(e) => set(skills.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} placeholder="e.g. Lockpicking" className="flex-1" />
+            <TextInput
+              aria-label="Modifier"
+              type="number"
+              min={-5}
+              max={10}
+              value={String(sk.modifier)}
+              onChange={(e) => set(skills.map((x, j) => (j === i ? { ...x, modifier: Math.max(-5, Math.min(10, Math.round(Number(e.target.value) || 0))) } : x)))}
+              className="w-20"
+            />
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-subtle hover:text-destructive" onClick={() => set(skills.filter((_, j) => j !== i))} aria-label={`Remove ${sk.name || 'this skill'}`}>
+              <FaTimes size={10} />
+            </Button>
+          </div>
+        ))}
+        {skills.length > 0 && (
+          <div>
+            <Button type="button" variant="outline" size="sm" onClick={() => set([...skills, { name: '', modifier: 0 }])}>
+              <FaPlus size={10} /> Add a skill
+            </Button>
+          </div>
+        )}
+      </div>
+    </details>
+  );
+};
 
 interface UserProfileSettingsProps {
   personas: UserProfile[];
@@ -271,6 +322,8 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
                 onChange={(e) => onUpdatePersona({ ...persona, backstory: e.target.value })}
                 className="resize-none"
               />
+
+              <PersonaSheet persona={persona} onUpdatePersona={onUpdatePersona} />
             </div>
           </SettingsCard>
         );

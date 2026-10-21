@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo, FaImage, FaSyncAlt, FaTimes, FaPalette, FaBookOpen, FaComments, FaFont, FaShieldAlt, FaCompressArrowsAlt } from "react-icons/fa";
+import { FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo, FaImage, FaSyncAlt, FaTimes, FaPalette, FaBookOpen, FaComments, FaFont, FaShieldAlt, FaCompressArrowsAlt, FaDiceD20, FaListUl } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { deleteAdventure, addAdventureMessage, updateAdventureStatus, incrementAdventureUsage, updateAdventureMessage, updateAdventureRules } from "../features/adventureSlice";
 import { generateAIResponse, generateAdventureSceneImage, autoCompressAdventure } from "../features/aiSlice";
@@ -26,6 +26,9 @@ import { DisplayImage } from "src/components/molecules/DisplayImage";
 import { Dialog, DialogContent, DialogTitle, DialogClose } from "src/components/molecules/dialog";
 import { NovelMessageItem } from "src/components/molecules/NovelMessageItem";
 import { NovelChoicesView } from "src/components/molecules/NovelChoicesView";
+import { AdventureStatsPanel, CheckChip, GameChanges, SkillCheckBadge, statsSummary } from "src/components/molecules/AdventureStatsPanel";
+import { applyStatChanges, currentGameState, extractStatsBlock } from "../features/adventure/gameState";
+import { parseChoiceCheck, rollCheck, withCheckNote } from "../features/adventure/skillChecks";
 
 const AdventurePage = () => {
   const dispatch = useAppDispatch();
@@ -123,6 +126,7 @@ const AdventurePage = () => {
   // focused on what the player asked to see.
   const [imageRequested, setImageRequested] = useState(false);
   const [boundariesOpen, setBoundariesOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
   const roleplayStyle = useAppSelector((state) => state.settings.roleplayStyle);
   // Streams the narrator's reply in, tagged so only this adventure shows it.
   const streamKey = adventure ? `adventure-${adventure.id}` : undefined;
@@ -176,7 +180,8 @@ const AdventurePage = () => {
       // Turns an earlier compression already summarized stay in the story but
       // aren't sent: the narrator sees the newest summary onward.
       const sentMessages = trimToLatestSummary(contextMessages);
-      const history = buildChatHistory(sentMessages);
+      // A rolled check (#26) is part of the player's turn as the narrator reads it.
+      const history = buildChatHistory(sentMessages.map((m) => (m.skillCheck ? { ...m, txt: withCheckNote(m.txt || "", m.skillCheck) } : m)));
       const systemInstruction = buildAdventureSystemInstruction(adventure, world, cast, persona, sentMessages, { roleplayStyle });
       // Hard limits go after the history, where models weigh them most -
       // same as a chat's boundaries.
@@ -184,8 +189,13 @@ const AdventurePage = () => {
       const result = await dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, protectedCount: countProtectedPrefix(sentMessages) })).unwrap();
       // Emotions first: the tag can land on either side of the choices block.
       const { text: withoutEmotions, castEmotions } = extractAdventureEmotions(result.text, cast);
-      const { text, choices } = parseAdventureChoices(withoutEmotions);
-      const content = await dispatch(addAdventureMessage({ adventureId: adventure.id, message: { role: AI, txt: text, choices, castEmotions } })).unwrap();
+      // Stats (#25): the app applies what the narrator says changed.
+      const { text: withoutStats, lines } = extractStatsBlock(withoutEmotions);
+      const applied = adventure.rules?.trackStats && lines ? applyStatChanges(currentGameState(contextMessages), lines) : undefined;
+      const changed = applied && applied.changes.length > 0 ? applied : undefined;
+      const { text, choices: rawChoices } = parseAdventureChoices(withoutStats);
+      const choices = rawChoices.map(parseChoiceCheck);
+      const content = await dispatch(addAdventureMessage({ adventureId: adventure.id, message: { role: AI, txt: text, choices, castEmotions, gameState: changed?.state, gameChanges: changed?.changes } })).unwrap();
       if (result.tokenCount || result.costEstimate) {
         dispatch(incrementAdventureUsage({ adventureId: adventure.id, tokens: result.tokenCount, cost: result.costEstimate }));
       }
@@ -223,8 +233,12 @@ const AdventurePage = () => {
       setError(null);
       setGenerating(true);
       setInputText("");
+      // A choice with a skill check (#26) is rolled here, before the narrator writes.
+      const last = adventure.content[adventure.content.length - 1];
+      const choice = chosenChoiceId && last?.role === AI ? last.choices?.find((c) => c.id === chosenChoiceId) : undefined;
+      const skillCheck = adventure.rules?.skillChecks && choice?.check ? rollCheck(choice.check, persona) : undefined;
       try {
-        const added = await dispatch(addAdventureMessage({ adventureId: adventure.id, message: { role: YOU, txt: text, chosenChoiceId, isImageRequest: isImageRequest || undefined } })).unwrap();
+        const added = await dispatch(addAdventureMessage({ adventureId: adventure.id, message: { role: YOU, txt: text, chosenChoiceId, isImageRequest: isImageRequest || undefined, skillCheck } })).unwrap();
         // Same automatic compression chats get, so a long adventure keeps its
         // plot instead of the history cap silently trimming the start.
         const compressed = await dispatch(autoCompressAdventure({
@@ -236,7 +250,7 @@ const AdventurePage = () => {
         if (compressed.tokens || compressed.cost) {
           dispatch(incrementAdventureUsage({ adventureId: adventure.id, tokens: compressed.tokens, cost: compressed.cost }));
         }
-        await generateNarratorReply(text, compressed.messages, isImageRequest ? text : undefined);
+        await generateNarratorReply(withCheckNote(text, skillCheck), compressed.messages, isImageRequest ? text : undefined);
       } catch (err: any) {
         setError(typeof err === "string" ? err : "Failed to continue the adventure. Check your API key in Settings.");
       } finally {
@@ -325,6 +339,9 @@ const AdventurePage = () => {
   const activeChoices = !generating && !isCompleted && lastMessage?.role === AI ? lastMessage.choices : undefined;
 
   const autoIllustrate = !!adventure.rules?.autoIllustrate;
+  const trackStats = !!adventure.rules?.trackStats;
+  const skillChecks = !!adventure.rules?.skillChecks;
+  const gameState = currentGameState(adventure.content);
   const latestSummaryAt = latestSummaryIndex(adventure.content);
   const hardLimits = adventure.rules?.hardLimits || [];
 
@@ -344,6 +361,18 @@ const AdventurePage = () => {
       active: autoIllustrate,
       primary: true,
       onClick: () => dispatch(updateAdventureRules({ adventureId: adventure.id, rules: { ...adventure.rules, autoIllustrate: !autoIllustrate } })),
+    },
+    {
+      icon: FaListUl,
+      label: trackStats ? "Stats, inventory and quests: on" : "Stats, inventory and quests: off",
+      active: trackStats,
+      onClick: () => dispatch(updateAdventureRules({ adventureId: adventure.id, rules: { ...adventure.rules, trackStats: !trackStats || undefined } })),
+    },
+    {
+      icon: FaDiceD20,
+      label: skillChecks ? "Skill checks: on" : "Skill checks: off",
+      active: skillChecks,
+      onClick: () => dispatch(updateAdventureRules({ adventureId: adventure.id, rules: { ...adventure.rules, skillChecks: !skillChecks || undefined } })),
     },
     {
       icon: isCompleted ? FaUndo : FaCheckCircle,
@@ -397,7 +426,7 @@ const AdventurePage = () => {
         ]}
       />
 
-      {(world || cast.length > 0) && (
+      {(world || cast.length > 0 || trackStats) && (
         <div className="flex items-center gap-3 px-4 md:px-8 py-2.5 border-b border-border/40 flex-wrap flex-shrink-0">
           {world && (
             <Badge variant="outline" className="border-primary/20 bg-primary/10 font-medium text-primary text-[11px]">
@@ -421,6 +450,16 @@ const AdventurePage = () => {
                 ))}
               </span>
             </div>
+          )}
+          {trackStats && (
+            <button
+              type="button"
+              onClick={() => setStatsOpen(true)}
+              className="md:hidden ml-auto inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2.5 py-0.5 text-[11px] text-foreground"
+              aria-label="Show stats, inventory and quests"
+            >
+              <FaListUl size={9} /> {statsSummary(gameState)}
+            </button>
           )}
           {isCompleted && <Badge variant="secondary" className="text-[10px] ml-auto">Completed</Badge>}
         </div>
@@ -484,8 +523,11 @@ const AdventurePage = () => {
               return (
                 <div key={msg.id || i} className={cn("flex", msg.role === YOU ? "justify-end" : "justify-start", summarized && "opacity-60")}>
                   {msg.role === YOU ? (
-                    <div className="max-w-[80%] rounded-2xl bg-primary text-primary-foreground px-4 py-2.5">
-                      <MarkdownRenderer msgText={msg.txt || ""} isUser={true} />
+                    <div className="max-w-[80%] flex flex-col items-end gap-1">
+                      <div className="rounded-2xl bg-primary text-primary-foreground px-4 py-2.5">
+                        <MarkdownRenderer msgText={msg.txt || ""} isUser={true} />
+                      </div>
+                      {msg.skillCheck && <SkillCheckBadge check={msg.skillCheck} />}
                     </div>
                   ) : (
                     <div className="w-full flex flex-col gap-3">
@@ -505,6 +547,7 @@ const AdventurePage = () => {
                         ))
                       )}
                       <MarkdownRenderer msgText={msg.txt || ""} isUser={false} />
+                      {msg.gameChanges && <GameChanges changes={msg.gameChanges} />}
                       {msg.castEmotions && (
                         <div className="flex flex-wrap items-center gap-2">
                           {cast
@@ -561,11 +604,22 @@ const AdventurePage = () => {
             <div ref={endRef} />
           </div>
         </div>
+        {trackStats && (
+          <aside className="hidden md:block w-60 flex-shrink-0 border-l border-border/40 overflow-y-auto px-4 py-5">
+            <AdventureStatsPanel state={gameState} />
+          </aside>
+        )}
         {emotionPanelEnabled && dockedSprites.length > 0 && (
           <EmotionSpritePanel sprites={dockedSprites} onClose={() => dispatch(setEmotionPanelEnabled(false))} />
         )}
       </div>
       <EmotionPopup trigger={popupTrigger} durationMs={emotionPopupDuration} />
+      <Dialog open={statsOpen} onOpenChange={setStatsOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogTitle>Stats</DialogTitle>
+          <AdventureStatsPanel state={gameState} />
+        </DialogContent>
+      </Dialog>
       <Dialog open={boundariesOpen} onOpenChange={setBoundariesOpen}>
         <DialogContent className="max-w-md">
           <DialogTitle>Boundaries</DialogTitle>
@@ -595,6 +649,7 @@ const AdventurePage = () => {
       ) : viewMode === "novel" ? (
         <NovelChoicesView
           choices={activeChoices}
+          showChecks={skillChecks}
           onSelectChoice={(label, choiceId) => handleSend(label, choiceId)}
           inputText={inputText}
           setInputText={setInputText}
@@ -612,6 +667,7 @@ const AdventurePage = () => {
               {activeChoices.map((choice) => (
                 <Button key={choice.id} onClick={() => handleSend(choice.label, choice.id)} disabled={generating} variant="outline" className="h-auto py-2 px-3.5 text-left text-xs font-medium whitespace-normal">
                   {choice.label}
+                  {choice.check && skillChecks && <CheckChip check={choice.check} />}
                 </Button>
               ))}
             </div>

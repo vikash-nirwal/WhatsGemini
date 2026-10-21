@@ -7,6 +7,7 @@ import { resolveEmotionPortrait } from "../../features/ai/utils/emotionUtils";
 import MarkdownRenderer from "./MarkdownRenderer";
 import { DisplayImage } from "./DisplayImage";
 import { CharacterAvatar } from "./CharacterAvatar";
+import { GameChanges, SkillCheckBadge } from "./AdventureStatsPanel";
 
 interface NovelMessageItemProps {
   msg: Message;
@@ -59,6 +60,7 @@ export const NovelMessageItem: React.FC<NovelMessageItemProps> = ({
         <div className={cn("text-foreground/95 leading-relaxed", sizeClass, fontClass)}>
           <MarkdownRenderer msgText={msg.txt || ""} isUser={true} />
         </div>
+        {msg.skillCheck && <div className="mt-2"><SkillCheckBadge check={msg.skillCheck} /></div>}
       </div>
     );
   }
@@ -97,6 +99,8 @@ export const NovelMessageItem: React.FC<NovelMessageItemProps> = ({
       </div>
 
       {/* Cast mood reactions */}
+      {msg.gameChanges && <GameChanges changes={msg.gameChanges} />}
+
       {msg.castEmotions && Object.keys(msg.castEmotions).length > 0 && (
         <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/20 text-xs text-muted-foreground">
           <span className="font-serif italic text-[11px] text-subtle">Reactions:</span>

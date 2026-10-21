@@ -4,9 +4,11 @@ import { AdventureChoice } from "../../types";
 import { cn } from "../../utils/cn";
 import { Button } from "../atoms/button";
 import { Textarea } from "../atoms/textarea";
+import { CheckChip } from "./AdventureStatsPanel";
 
 interface NovelChoicesViewProps {
   choices?: AdventureChoice[];
+  showChecks?: boolean; // show each choice's skill check (#26)
   onSelectChoice: (label: string, choiceId?: string) => void;
   inputText: string;
   setInputText: (val: string) => void;
@@ -22,6 +24,7 @@ const ROMAN_NUMERALS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", 
 
 export const NovelChoicesView: React.FC<NovelChoicesViewProps> = ({
   choices,
+  showChecks,
   onSelectChoice,
   inputText,
   setInputText,
@@ -65,6 +68,7 @@ export const NovelChoicesView: React.FC<NovelChoicesViewProps> = ({
                   </span>
                   <span className="flex-1 text-[13.5px] text-foreground group-hover:text-primary transition-colors leading-snug">
                     {choice.label}
+                    {showChecks && choice.check && <CheckChip check={choice.check} />}
                   </span>
                 </button>
               );

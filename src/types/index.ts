@@ -75,12 +75,49 @@ export interface Message {
   // the previous message's `choices` rather than typed free text - lets the
   // UI show which option was picked without guessing from text alone.
   chosenChoiceId?: string;
+  // Adventures as games (#25, #26): the player's state after a narrator
+  // turn, what changed in it, and a skill check rolled for a player's turn.
+  gameState?: AdventureGameState;
+  gameChanges?: string[];
+  skillCheck?: SkillCheck;
 }
 
 // One tappable option offered at the end of an adventure narrator turn.
 export interface AdventureChoice {
   id: string;
   label: string;
+  check?: { skill?: string; dc: number }; // a skill check this action needs (#26)
+}
+
+// The player's stats, inventory and quests in an adventure (#25), kept by
+// the app; the narrator only reports changes.
+export interface AdventureQuest {
+  title: string;
+  done?: boolean;
+}
+
+export interface AdventureGameState {
+  hp: number;
+  maxHp: number;
+  gold: number;
+  items: string[];
+  quests: AdventureQuest[];
+}
+
+// A d20 roll for a choice's skill check (#26).
+export interface SkillCheck {
+  skill?: string;
+  dc: number;
+  roll: number;
+  modifier: number;
+  total: number;
+  success: boolean;
+}
+
+// One line of a persona's character sheet (#27), added to skill checks.
+export interface PersonaSkill {
+  name: string;
+  modifier: number;
 }
 
 // A single node in a chat's conversation tree - one specific message plus its
@@ -433,6 +470,7 @@ export interface UserProfile {
   // given to image-capable models as named reference photos so a scene depicting
   // the user (e.g. "a selfie of us together") keeps their face consistent too.
   appearanceImages?: string[];
+  skills?: PersonaSkill[]; // character sheet for adventure skill checks (#27)
 }
 
 // Optional sampling knobs beyond temperature. Unset means "don't send it" -
@@ -505,6 +543,8 @@ export interface AdventureRules {
   // picture of the scene (players can still illustrate any turn by hand when off).
   autoIllustrate?: boolean;
   artStyle?: ArtStyle; // look for scene illustrations; DEFAULT_ART_STYLE applies when unset
+  trackStats?: boolean; // HP, gold, items and quests kept by the app (#25)
+  skillChecks?: boolean; // risky choices carry a check the app rolls (#26)
 }
 
 // A roleplay adventure/story session - deliberately its own entity rather

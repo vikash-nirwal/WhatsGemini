@@ -4,6 +4,8 @@ import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
 import { getEmotionVocabulary } from "./emotionUtils";
 import { effectiveContentRating } from "../../character/contentRating";
 import { NSFW_CONTENT_RULE, SFW_CONTENT_RULE } from "./promptComposition";
+import { buildGameStateDirective, currentGameState, STATS_START } from "../../adventure/gameState";
+import { buildSkillCheckDirective } from "../../adventure/skillChecks";
 
 // Delimiters the narrator is instructed to wrap its suggested next actions
 // in, at the end of every reply - parsed back out by parseAdventureChoices
@@ -86,6 +88,8 @@ export const buildAdventureSystemInstruction = (
     if (activePersona.bio) parts.push(`Bio: ${activePersona.bio}.`);
     if (activePersona.appearance) parts.push(`Appearance: ${activePersona.appearance}.`);
     if (activePersona.backstory) parts.push(`Backstory: ${activePersona.backstory}.`);
+    const skills = (activePersona.skills || []).filter((sk) => sk.name.trim());
+    if (adventure.rules?.skillChecks && skills.length > 0) parts.push(`Skills: ${skills.map((sk) => `${sk.name.trim()} ${sk.modifier >= 0 ? "+" : ""}${sk.modifier}`).join(", ")}.`);
     if (parts.length > 0) sections.push(`About the player you are addressing as "you":\n${parts.join(" ")}`);
   }
 
@@ -96,6 +100,8 @@ export const buildAdventureSystemInstruction = (
   sections.push(buildAdventureStyleSection(options.roleplayStyle, activePersona?.name?.trim() || "the player"));
 
   if (cast.length > 0) sections.push(buildAdventureEmotionDirective(cast));
+  if (adventure.rules?.trackStats) sections.push(buildGameStateDirective(currentGameState(adventure.content)));
+  if (adventure.rules?.skillChecks) sections.push(buildSkillCheckDirective(activePersona));
 
   const choiceCount = adventure.rules?.choiceCount || DEFAULT_ADVENTURE_CHOICE_COUNT;
   sections.push(
@@ -203,12 +209,15 @@ export const buildAdventureEmotionDirective = (cast: Character[]): string => {
 };
 
 // Display-only cleanup for narration that's still streaming in: hides the
-// trailing emotions tag and choices block (shown properly once the reply is
-// parsed), including either one that has only partly arrived ("[Emo", "<<").
+// trailing emotions tag, stats block (#25) and choices block (shown properly
+// once the reply is parsed), including one that has only partly arrived
+// ("[Emo", "<<").
 export const streamingNarrationForDisplay = (text: string): string => {
   let shown = text;
-  const choices = shown.indexOf(ADVENTURE_CHOICES_START);
-  if (choices >= 0) shown = shown.slice(0, choices);
+  for (const marker of [ADVENTURE_CHOICES_START, STATS_START]) {
+    const at = shown.indexOf(marker);
+    if (at >= 0) shown = shown.slice(0, at);
+  }
   const tag = shown.search(/\[\s*emotions?\s*:/i);
   if (tag >= 0) shown = shown.slice(0, tag);
   return shown.replace(/(\[[^\]\n]{0,12}|<{1,2})$/, "").trimEnd();
