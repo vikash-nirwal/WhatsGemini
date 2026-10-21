@@ -31,6 +31,7 @@ test("the Scene panel charts the character's mood and lists it", async ({ page }
   await page.reload();
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
   await headerAction(page, "Scene & chat settings");
+  await page.getByRole("tab", { name: "Story", exact: true }).click();
 
   await expect(page.getByText("Mostly happy (33%), warming up lately.")).toBeVisible();
   const chart = page.getByRole("img", { name: /Aria's mood over the last 6 replies/ });

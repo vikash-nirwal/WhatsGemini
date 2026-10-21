@@ -31,6 +31,7 @@ const openScene = async (page: Page) => {
     await page.getByRole("button", { name: /more/i }).last().click();
     await page.getByRole("menuitem", { name: "Scene & chat settings" }).click();
   }
+  await page.getByRole("tab", { name: "Memory", exact: true }).click();
 };
 
 test("memory is grouped by category and a fact's group can be changed", async ({ page }) => {
@@ -45,18 +46,18 @@ test("memory is grouped by category and a fact's group can be changed", async ({
   await openScene(page);
 
   for (const heading of ["About you", "Relationship", "Story", "Other"]) {
-    await expect(page.getByText(heading, { exact: true })).toBeVisible();
+    await expect(page.getByRole("tabpanel").getByText(heading, { exact: true })).toBeVisible();
   }
 
   // "Arin collects maps." is unsorted; one click moves it to About you.
   await page.getByText("Arin collects maps.").locator("..").getByRole("button", { name: /Change group/ }).click();
-  await expect(page.getByText("Other", { exact: true })).toBeHidden();
+  await expect(page.getByRole("tabpanel").getByText("Other", { exact: true })).toBeHidden();
 
   await page.reload();
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
   await openScene(page);
   await expect(page.getByText("Arin collects maps.")).toBeVisible();
-  await expect(page.getByText("Other", { exact: true })).toBeHidden();
+  await expect(page.getByRole("tabpanel").getByText("Other", { exact: true })).toBeHidden();
 });
 
 test("an unsorted memory stays one plain list", async ({ page }) => {
@@ -67,7 +68,7 @@ test("an unsorted memory stays one plain list", async ({ page }) => {
   await openScene(page);
   await expect(page.getByText("Arin hates rain.")).toBeVisible();
   await expect(page.getByText("About you", { exact: true })).toBeHidden();
-  await expect(page.getByText("Other", { exact: true })).toBeHidden();
+  await expect(page.getByRole("tabpanel").getByText("Other", { exact: true })).toBeHidden();
 });
 
 const readCharacterMemory = (page: Page) =>

@@ -69,6 +69,7 @@ test("reply suggestions appear after a reply and fill the box when tapped", asyn
   mockAI.reply((req) => (req.stream ? "Shall we go to the market?" : req.prompt.includes("Suggest 3") ? "1. Yes, let's go!\n2. Only if you're buying.\n3. What's at the market?" : "NONE"));
   await openChat(page, 1);
   await chatAction(page, "Scene & chat settings");
+  await page.getByRole("tab", { name: "Chat", exact: true }).click();
   await page.getByRole("switch", { name: "Suggest replies" }).click();
   await page.getByRole("button", { name: "Close scene panel" }).click();
 

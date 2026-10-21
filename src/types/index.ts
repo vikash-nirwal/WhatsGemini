@@ -192,6 +192,7 @@ export interface Chat {
   // keep their own.
   memoryScope?: "character" | "chat";
   replySuggestions?: boolean; // show 3 tappable reply ideas after each reply (#16)
+  textingMode?: boolean; // this chat's texting mode (#6); unset = the app setting
   recap?: ChatRecap; // the cached "Previously on..." card (#46), never sent to the model
   storyScript?: StoryScript; // the story this chat follows (#57)
   game?: ChatGame; // the mini-game being played (#52)

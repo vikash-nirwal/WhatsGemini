@@ -297,7 +297,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ game, gameScore, onEndGame, sto
   // Texting mode (#6): a reply that arrives while the chat is open is shown
   // one text at a time, with the typing dots in between. Messages already
   // there when the chat opens (or reached by switching branches) show whole.
-  const textingMode = useAppSelector((state) => state.settings.textingMode) && !terminal;
+  // A chat's own choice wins over the app setting (Scene panel > Chat).
+  const appTextingMode = useAppSelector((state) => state.settings.textingMode);
+  const chatTextingMode = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.textingMode);
+  const textingMode = (chatTextingMode ?? appTextingMode) && !terminal;
   const [reveal, setReveal] = useState<{ id: string; shown: number; parts: string[] } | null>(null);
   const lastSeenRef = useRef<{ chatId?: number; id?: string } | null>(null);
   useEffect(() => {

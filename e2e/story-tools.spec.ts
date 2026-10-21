@@ -42,6 +42,7 @@ test("a bookmarked message is starred, listed in the Scene panel and can be jump
   // Scroll away, then jump back from the Scene panel.
   await page.getByText("Aria message 1: how was your day?").scrollIntoViewIfNeeded();
   await chatAction(page, "Scene & chat settings");
+  await page.getByRole("tab", { name: "Story", exact: true }).click();
   await page.getByRole("button", { name: /^Jump to: User message 28/ }).click();
   await expect(bubble).toBeInViewport();
 });

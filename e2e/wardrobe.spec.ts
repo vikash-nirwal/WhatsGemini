@@ -78,6 +78,7 @@ test("the worn outfit reaches the prompt and pictures, and is switched in the Sc
   expect(sent).toContain("silver hair, violet eyes; outfit: charcoal blazer, white shirt");
 
   await headerAction(page, "Scene & chat settings");
+  await page.getByRole("tab", { name: "Chat", exact: true }).click();
   const outfit = page.getByRole("combobox", { name: "Aria's outfit" });
   await expect(outfit).toHaveText(/Work clothes/);
   await outfit.click();

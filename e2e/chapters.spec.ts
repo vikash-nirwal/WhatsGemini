@@ -28,6 +28,7 @@ test("ending a chapter titles it, recaps it, and the next reply starts from it",
 
   // The chapter is listed in the Scene panel and can be renamed.
   await chatAction(page, "Scene & chat settings");
+  await page.getByRole("tab", { name: "Story", exact: true }).click();
   await expect(page.getByText("1. The Long Day")).toBeVisible();
   await page.getByRole("button", { name: "Rename chapter 1" }).click();
   const title = page.getByLabel("Chapter title");

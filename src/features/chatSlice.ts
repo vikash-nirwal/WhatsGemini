@@ -216,7 +216,7 @@ export const updateChatMessage = createAsyncThunk(
 // Updates simple per-chat switches, leaving content and tree untouched.
 export const updateChatOptions = createAsyncThunk(
   "chat/updateChatOptions",
-  async ({ chatId, patch }: { chatId: number; patch: Partial<Pick<Chat, "replySuggestions" | "recap" | "storyScript" | "game" | "gameScore">> }, { rejectWithValue }) => {
+  async ({ chatId, patch }: { chatId: number; patch: Partial<Pick<Chat, "replySuggestions" | "textingMode" | "recap" | "storyScript" | "game" | "gameScore">> }, { rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
       Object.assign(chat, patch);

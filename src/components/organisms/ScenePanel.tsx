@@ -42,6 +42,23 @@ interface ScenePanelProps {
   hasStoryScript?: boolean;
 }
 
+type SceneTab = "scene" | "story" | "memory" | "chat";
+const SCENE_TABS: { id: SceneTab; label: string }[] = [
+  { id: "scene", label: "Scene" },
+  { id: "story", label: "Story" },
+  { id: "memory", label: "Memory" },
+  { id: "chat", label: "Chat" },
+];
+const LS_SCENE_TAB = "scene_panel_tab";
+const readSceneTab = (): SceneTab => {
+  try {
+    const saved = localStorage.getItem(LS_SCENE_TAB);
+    return SCENE_TABS.some((t) => t.id === saved) ? (saved as SceneTab) : "scene";
+  } catch {
+    return "scene";
+  }
+};
+
 const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chatMemory, chatPinnedMemory, chatScenario, authorNote, worldTags, hardLimits, intensity, isNsfwChat, onClose, onEditStory, hasStoryScript }) => {
   const dispatch = useAppDispatch();
 
@@ -85,6 +102,18 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
   // Read straight from the store, so new chat fields don't have to be
   // threaded through ChatWindow.
   const chat = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId));
+  const appTextingMode = useAppSelector((state) => state.settings.textingMode);
+  // The panel's sections are split into tabs so it stays short; the last
+  // one opened is remembered on this device.
+  const [tab, setTab] = useState<SceneTab>(readSceneTab);
+  const selectTab = (next: SceneTab) => {
+    setTab(next);
+    try {
+      localStorage.setItem(LS_SCENE_TAB, next);
+    } catch {
+      // Only a convenience.
+    }
+  };
   // A 1:1 chat can keep its own memory too (Chat.memoryScope), like a room.
   const chatScoped = Boolean(isRoom || chat?.memoryScope === "chat");
   const memory = chatScoped ? (chat?.memory || chatMemory || []) : (character?.memory || []);
@@ -310,450 +339,499 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
                 )
 
   return (
-    <ChatSidePanelShell title="Scene" onClose={onClose} closeLabel="Close scene panel">
+    <ChatSidePanelShell title="Scene & chat" onClose={onClose} closeLabel="Close scene panel">
+      <div role="tablist" aria-label="Scene panel sections" className="flex flex-shrink-0 gap-1 border-b border-border/40 px-[18px] pt-1.5">
+        {SCENE_TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            id={`scene-tab-${t.id}`}
+            aria-selected={tab === t.id}
+            aria-controls={`scene-tabpanel-${t.id}`}
+            onClick={() => selectTab(t.id)}
+            className={cn(
+              "flex-1 -mb-px border-b-2 px-1 pb-2 pt-1 text-[12.5px] font-medium transition-colors",
+              tab === t.id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
       <div className="flex-1 overflow-y-auto px-[18px] py-[18px] flex flex-col gap-[22px]">
-        {/* Author's Note */}
-        <div>
-          <div className="flex items-baseline justify-between mb-2">
-            <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">Author's Note</span>
-            <span className="text-[11px] text-subtle">every reply</span>
-          </div>
-          <Textarea
-            value={noteValue}
-            onChange={(e) => setNoteValue(e.target.value)}
-            onBlur={handleNoteBlur}
-            placeholder="Keep it slow and sensory…"
-            className="min-h-[72px] font-serif text-[13.5px] leading-[1.55] bg-background rounded-lg"
-          />
-          {/* One-tap presets (#17): each adds or removes its own line. */}
-          <div className="flex flex-wrap gap-1.5 mt-2" role="group" aria-label="Author's note presets">
-            {AUTHOR_NOTE_PRESETS.map((preset) => {
-              const on = hasPreset(noteValue, preset);
-              return (
-                <button
-                  key={preset.id}
-                  type="button"
-                  aria-pressed={on}
-                  title={preset.text}
-                  onClick={() => {
-                    const next = togglePreset(noteValue, preset);
-                    setNoteValue(next);
-                    dispatch(updateChatAuthorNote({ chatId, authorNote: next || undefined }));
-                  }}
-                  className={cn(
-                    "min-h-6 px-2.5 py-1 rounded-full border text-[11.5px] transition",
-                    on ? "border-primary bg-primary/15 text-primary font-medium" : "border-border/50 text-subtle hover:border-primary hover:text-primary"
-                  )}
-                >
-                  {preset.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Scenario - room-only; a 1:1 chat's scenario lives on the character itself */}
-        {isRoom && (
+        {tab === "scene" && (
+          <div role="tabpanel" id="scene-tabpanel-scene" aria-labelledby="scene-tab-scene" className="flex flex-col gap-[22px]">
+          {/* Author's Note */}
           <div>
             <div className="flex items-baseline justify-between mb-2">
-              <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">Scenario</span>
-              <span className="text-[11px] text-subtle">shared by everyone here</span>
+              <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">Author's Note</span>
+              <span className="text-[11px] text-subtle">every reply</span>
             </div>
             <Textarea
-              value={scenarioValue}
-              onChange={(e) => setScenarioValue(e.target.value)}
-              onBlur={handleScenarioBlur}
-              placeholder="The current setting/plot for this group…"
+              value={noteValue}
+              onChange={(e) => setNoteValue(e.target.value)}
+              onBlur={handleNoteBlur}
+              placeholder="Keep it slow and sensory…"
               className="min-h-[72px] font-serif text-[13.5px] leading-[1.55] bg-background rounded-lg"
             />
+            {/* One-tap presets (#17): each adds or removes its own line. */}
+            <div className="flex flex-wrap gap-1.5 mt-2" role="group" aria-label="Author's note presets">
+              {AUTHOR_NOTE_PRESETS.map((preset) => {
+                const on = hasPreset(noteValue, preset);
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    aria-pressed={on}
+                    title={preset.text}
+                    onClick={() => {
+                      const next = togglePreset(noteValue, preset);
+                      setNoteValue(next);
+                      dispatch(updateChatAuthorNote({ chatId, authorNote: next || undefined }));
+                    }}
+                    className={cn(
+                      "min-h-6 px-2.5 py-1 rounded-full border text-[11.5px] transition",
+                      on ? "border-primary bg-primary/15 text-primary font-medium" : "border-border/50 text-subtle hover:border-primary hover:text-primary"
+                    )}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        )}
 
-        {/* Memory */}
-        <div>
-          <div className="flex items-baseline justify-between mb-2">
-            <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">{isRoom ? "Group Memory" : "Memory"}</span>
-            <span className="text-[11px] text-primary">{memory.length + pinned.length} facts</span>
-          </div>
-          {!isRoom && character && (
-            <div className="mb-2.5">
-              <SegmentedControl
-                value={chatScoped ? "chat" : "character"}
-                onChange={(v) => handleScopeChange(v as "character" | "chat")}
-                options={[
-                  { value: "character", label: `Shared with ${character.name}` },
-                  { value: "chat", label: "This chat only" },
-                ]}
+          {/* Scenario - room-only; a 1:1 chat's scenario lives on the character itself */}
+          {isRoom && (
+            <div>
+              <div className="flex items-baseline justify-between mb-2">
+                <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">Scenario</span>
+                <span className="text-[11px] text-subtle">shared by everyone here</span>
+              </div>
+              <Textarea
+                value={scenarioValue}
+                onChange={(e) => setScenarioValue(e.target.value)}
+                onBlur={handleScenarioBlur}
+                placeholder="The current setting/plot for this group…"
+                className="min-h-[72px] font-serif text-[13.5px] leading-[1.55] bg-background rounded-lg"
               />
-              <p className="text-[11px] text-subtle mt-1.5">
-                {chatScoped
-                  ? `New facts stay in this chat and won't change ${character.name}'s other chats.`
-                  : `Facts are shared by every chat with ${character.name}.`}
-              </p>
             </div>
           )}
-          <div className="flex flex-col gap-1.5">
-            {pinned.map((fact, idx) => (
-              <div
-                key={`pinned-${idx}`}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/30 text-[12.5px] text-foreground"
-              >
-                <span className="flex-1">{fact}</span>
-                <Button
-                  onClick={() => handleUnpinFact(idx)}
-                  variant="ghost"
-                  size="icon"
-                  className="h-auto w-auto p-0.5 text-primary hover:text-subtle hover:bg-transparent flex-shrink-0"
-                  title="Unpin"
-                  aria-label="Unpin this fact"
-                >
-                  <FaThumbtack size={10} />
-                </Button>
-                <Button
-                  onClick={() => handleForgetPinnedFact(idx)}
-                  variant="ghost"
-                  size="icon"
-                  className="h-auto w-auto p-0.5 text-subtle hover:text-destructive hover:bg-transparent flex-shrink-0"
-                  title="Forget"
-                  aria-label="Forget this pinned fact"
-                >
-                  <FaTimes size={11} />
-                </Button>
+
+          {/* Story script (#57) */}
+          {onEditStory && (
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-medium text-foreground">Story script</div>
+                <div className="text-[11px] text-subtle">{hasStoryScript ? "This chat follows your story, beat by beat." : "Give the AI a story, beats and directions to stay inside."}</div>
               </div>
-            ))}
-            {memory.length === 0 && pinned.length === 0 && !addingFact ? (
-              <p className="text-[12.5px] text-subtle">{isRoom ? "No shared facts remembered yet." : "No facts remembered yet."}</p>
-            ) : (
-              memoryGroups.map((group) => (
-                <React.Fragment key={group.key}>
-                  {groupMemory && group.items.length > 0 && (
-                    <div className="flex items-center justify-between mt-1.5 first:mt-0">
-                      <span className="text-[10.5px] tracking-[0.08em] uppercase text-subtle font-semibold">{group.label}</span>
-                      <button
-                        type="button"
-                        onClick={() => { setAddingCategory(group.category); setAddingFact(true); }}
-                        className="text-[10.5px] text-subtle hover:text-primary"
-                        aria-label={`Add a fact to ${group.label}`}
-                      >
-                        + add
-                      </button>
-                    </div>
-                  )}
-                  {group.items.map(({ fact, idx }) => renderFact(fact, idx))}
-                </React.Fragment>
-              ))
-            )}
-            {addingFact ? (
-              <Input
-                autoFocus
-                value={factDraft}
-                onChange={(e) => setFactDraft(e.target.value)}
-                onBlur={commitNewFact}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    commitNewFact();
-                  } else if (e.key === "Escape") {
-                    setFactDraft("");
-                    setAddingFact(false);
-                  }
-                }}
-                placeholder="A fact to remember…"
-                className="h-auto py-2 px-3 text-[12.5px] rounded-lg bg-background"
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={() => { setAddingCategory(undefined); setAddingFact(true); }}
-                aria-label="Add a memory fact"
-                className="inline-flex items-center gap-1.5 self-start px-2.5 py-1 mt-0.5 rounded-full border border-dashed border-border/40 text-subtle text-xs hover:border-primary hover:text-primary transition"
-              >
-                <FaPlus size={9} /> Add
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Reply suggestions (#16) - per chat */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-[12.5px] font-medium text-foreground">Suggest replies</div>
-            <div className="text-[11px] text-subtle">After each reply, three short ideas for what you could say. Tap one to edit it in the box.</div>
-          </div>
-          <ToggleSwitch
-            checked={Boolean(chat?.replySuggestions)}
-            onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { replySuggestions: val || undefined } }))}
-            label={<span className="sr-only">Suggest replies</span>}
-          />
-        </div>
-
-        {/* Diary (#5) - a per-character switch, so it's set here in context */}
-        {!isRoom && character && (
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-[12.5px] font-medium text-foreground">{character.name} keeps a diary</div>
-              <div className="text-[11px] text-subtle">
-                {chatScoped
-                  ? `Paused in this chat: entries only come from chats that share ${character.name}'s memory.`
-                  : `Every ${DIARY_INTERVAL} messages, a short private entry about you. The latest one shapes how ${character.name} acts. Read it from the Characters page.`}
-              </div>
+              <Button type="button" variant="outline" size="sm" onClick={onEditStory}>
+                {hasStoryScript ? "Edit" : "Write"}
+              </Button>
             </div>
-            <ToggleSwitch
-              checked={Boolean(character.diaryEnabled)}
-              onChange={(val) => dispatch(updateCharacter({ ...character, diaryEnabled: val }))}
-              label={<span className="sr-only">{character.name} keeps a diary</span>}
-            />
-          </div>
-        )}
+          )}
 
-        {/* Story script (#57) */}
-        {onEditStory && (
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-[12.5px] font-medium text-foreground">Story script</div>
-              <div className="text-[11px] text-subtle">{hasStoryScript ? "This chat follows your story, beat by beat." : "Give the AI a story, beats and directions to stay inside."}</div>
-            </div>
-            <Button type="button" variant="outline" size="sm" onClick={onEditStory}>
-              {hasStoryScript ? "Edit" : "Write"}
-            </Button>
-          </div>
-        )}
-
-        {/* Wardrobe (#50): what the character is wearing in this story */}
-        {!isRoom && character && character.wardrobe && character.wardrobe.length > 0 && (
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-[12.5px] font-medium text-foreground">{character.name} is wearing</div>
-              <div className="text-[11px] text-subtle">Used in pictures and in how they describe themselves.</div>
-            </div>
-            <div className="w-40 flex-shrink-0">
-              <Select
-                aria-label={`${character.name}'s outfit`}
-                value={character.currentOutfitId || ""}
-                onChange={(e) => dispatch(updateCharacter({ ...character, currentOutfitId: e.target.value || undefined }))}
-              >
-                <option value="">Their usual look</option>
-                {character.wardrobe.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name || "Unnamed outfit"}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          </div>
-        )}
-
-        {/* Inner thoughts (#10) - also per character */}
-        {!isRoom && character && (
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-[12.5px] font-medium text-foreground">Show {character.name}'s inner thoughts</div>
-              <div className="text-[11px] text-subtle">
-                Each reply also carries a private thought, hidden until you tap it. {character.name} never hears it back.
-              </div>
-            </div>
-            <ToggleSwitch
-              checked={Boolean(character.innerThoughts)}
-              onChange={(val) => dispatch(updateCharacter({ ...character, innerThoughts: val || undefined }))}
-              label={<span className="sr-only">Show {character.name}'s inner thoughts</span>}
-            />
-          </div>
-        )}
-
-        {/* Relationship timeline (#51): mood over the chat, 1:1 only */}
-        {!isRoom && character && (
+          {/* World tags */}
           <div>
-            <div className="mb-2">
-              <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">{character.name}'s mood over time</span>
-            </div>
-            <MoodTimeline points={moodPoints(chat?.content || [], character.id)} name={character.name} />
-          </div>
-        )}
-
-        {/* Bookmarks (#21) - starred messages on the current branch */}
-        <div>
-          <div className="flex items-baseline justify-between mb-2">
-            <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">Bookmarks</span>
-            {bookmarks.length > 0 && <span className="text-[11px] text-primary">{bookmarks.length}</span>}
-          </div>
-          {bookmarks.length === 0 ? (
-            <p className="text-[12.5px] text-subtle">Star a message (its ★ button, or long-press on a phone) to find it again here.</p>
-          ) : (
-            <ul className="flex flex-col gap-1.5">
-              {bookmarks.map((m) => (
-                <li key={m.id}>
+            <div data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold mb-2">World</div>
+            <div className="flex flex-wrap gap-1.5">
+              {tags.map((tag, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium whitespace-nowrap"
+                  style={{ background: tagBg, color: tagFg }}
+                >
+                  {tag}
                   <button
                     type="button"
-                    onClick={() => jumpToMessage(m.id!)}
-                    className="w-full text-left px-3 py-2 rounded-lg bg-background border border-border/30 text-[12.5px] hover:border-primary/50"
-                    aria-label={`Jump to: ${(m.txt || "").slice(0, 60)}`}
+                    onClick={() => handleRemoveTag(idx)}
+                    className="hover:text-destructive"
+                    title="Remove tag"
+                    aria-label={`Remove tag ${tag}`}
                   >
-                    <span className="block text-[11px] text-subtle mb-0.5">{m.role === "you" ? "You" : (character?.name || "Character")}</span>
-                    <span className="line-clamp-2 text-foreground">{m.txt}</span>
+                    <FaTimes size={9} />
                   </button>
-                </li>
+                </span>
               ))}
-            </ul>
-          )}
-        </div>
-
-        {/* Chapters - the story so far, one titled recap per "End chapter" */}
-        <div>
-          <div className="flex items-baseline justify-between mb-2">
-            <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">Chapters</span>
-            {chapters.length > 0 && <span className="text-[11px] text-primary">{chapters.length}</span>}
-          </div>
-          {chapters.length === 0 ? (
-            <p className="text-[12.5px] text-subtle">No chapters yet. Use "End chapter" in the chat menu to close one with a title and recap; the next reply starts fresh from it.</p>
-          ) : (
-            <ol className="flex flex-col gap-1.5">
-              {chapters.map((chapter, i) => (
-                <li key={chapter.id} className="px-3 py-2 rounded-lg bg-background border border-border/30 text-[12.5px]">
-                  {renamingChapterId === chapter.id ? (
-                    <Input
-                      autoFocus
-                      aria-label="Chapter title"
-                      value={chapterDraft}
-                      onChange={(e) => setChapterDraft(e.target.value)}
-                      onBlur={commitChapterRename}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") { e.preventDefault(); commitChapterRename(); }
-                        else if (e.key === "Escape") { setRenamingChapterId(null); setChapterDraft(""); }
-                      }}
-                      className="h-auto py-1 px-2 text-[12.5px] rounded-md"
-                    />
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="flex-1 font-semibold text-foreground">{i + 1}. {chapter.chapterTitle}</span>
-                      <Button
-                        onClick={() => { setRenamingChapterId(chapter.id!); setChapterDraft(chapter.chapterTitle || ""); }}
-                        variant="ghost"
-                        size="icon"
-                        className="h-auto w-auto p-0.5 text-subtle hover:text-primary hover:bg-transparent flex-shrink-0"
-                        title="Rename"
-                        aria-label={`Rename chapter ${i + 1}`}
-                      >
-                        <FaPencilAlt size={10} />
-                      </Button>
-                    </div>
-                  )}
-                  {chapter.chapterRecap && <p className="mt-1 text-subtle leading-snug">{chapter.chapterRecap}</p>}
-                </li>
-              ))}
-            </ol>
-          )}
-        </div>
-
-        {/* Boundaries */}
-        <div>
-          <div data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold mb-2">Boundaries</div>
-          <p className="text-[11.5px] text-subtle mb-2">Hard limits are sent right before every reply, so the story never goes there.</p>
-          <TagInput
-            value={hardLimits || []}
-            onChange={(limits) => dispatch(updateChatBoundaries({ chatId, hardLimits: limits, intensity }))}
-            placeholder="Add a hard limit…"
-          />
-          {isNsfwChat && (
-            <div className="mt-3 flex flex-col gap-1.5">
-              <span className="text-[11.5px] text-subtle">Intensity of intimate scenes</span>
-              <SegmentedControl
-                value={intensity || ""}
-                onChange={(v) => dispatch(updateChatBoundaries({ chatId, hardLimits, intensity: (v || undefined) as Intensity | undefined }))}
-                options={[
-                  { value: "", label: "Default" },
-                  { value: "fade", label: "Fade out" },
-                  { value: "suggestive", label: "Suggestive" },
-                  { value: "explicit", label: "Explicit" },
-                ]}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* World tags */}
-        <div>
-          <div data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold mb-2">World</div>
-          <div className="flex flex-wrap gap-1.5">
-            {tags.map((tag, idx) => (
-              <span
-                key={idx}
-                className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium whitespace-nowrap"
-                style={{ background: tagBg, color: tagFg }}
-              >
-                {tag}
+              {addingTag ? (
+                <Input
+                  ref={tagInputRef}
+                  value={tagDraft}
+                  onChange={(e) => setTagDraft(e.target.value)}
+                  onBlur={commitTag}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      commitTag();
+                    } else if (e.key === "Escape") {
+                      setTagDraft("");
+                      setAddingTag(false);
+                    }
+                  }}
+                  className="h-7 w-28 text-xs px-2.5 py-0 rounded-full"
+                />
+              ) : (
                 <button
                   type="button"
-                  onClick={() => handleRemoveTag(idx)}
-                  className="hover:text-destructive"
-                  title="Remove tag"
-                  aria-label={`Remove tag ${tag}`}
+                  onClick={() => setAddingTag(true)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-dashed border-border/40 text-subtle text-xs hover:border-primary hover:text-primary transition"
                 >
-                  <FaTimes size={9} />
+                  <FaPlus size={9} /> Add
                 </button>
-              </span>
-            ))}
-            {addingTag ? (
-              <Input
-                ref={tagInputRef}
-                value={tagDraft}
-                onChange={(e) => setTagDraft(e.target.value)}
-                onBlur={commitTag}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    commitTag();
-                  } else if (e.key === "Escape") {
-                    setTagDraft("");
-                    setAddingTag(false);
-                  }
-                }}
-                className="h-7 w-28 text-xs px-2.5 py-0 rounded-full"
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={() => setAddingTag(true)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-dashed border-border/40 text-subtle text-xs hover:border-primary hover:text-primary transition"
-              >
-                <FaPlus size={9} /> Add
-              </button>
-            )}
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Display - app-wide preferences for the docked mood panel/popup, see note above */}
-        <div>
-          <div data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold mb-2">Display</div>
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-[12.5px] font-medium text-foreground">Mood panel</div>
-                <div className="text-[11px] text-subtle">Docks each character's current mood portrait beside the chat</div>
-              </div>
-              <ToggleSwitch checked={emotionPanelEnabled} onChange={(val) => dispatch(setEmotionPanelEnabled(val))} />
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-[12.5px] font-medium text-foreground">Pop up on mood change</div>
-                <div className="text-[11px] text-subtle">Briefly shows a portrait centered on screen when a mood changes</div>
-              </div>
-              <ToggleSwitch checked={emotionPopupEnabled} onChange={(val) => dispatch(setEmotionPopupEnabled(val))} />
-            </div>
-            {emotionPopupEnabled && (
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-[12.5px] font-medium text-foreground">Popup duration (ms)</div>
-                <Input
-                  type="number"
-                  value={emotionPopupDuration}
-                  onChange={(e) => dispatch(setEmotionPopupDuration(Math.max(300, Number(e.target.value))))}
-                  min="300"
-                  step="100"
-                  className="h-8 w-24 text-[12.5px] px-2.5 rounded-lg"
+          {/* Boundaries */}
+          <div>
+            <div data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold mb-2">Boundaries</div>
+            <p className="text-[11.5px] text-subtle mb-2">Hard limits are sent right before every reply, so the story never goes there.</p>
+            <TagInput
+              value={hardLimits || []}
+              onChange={(limits) => dispatch(updateChatBoundaries({ chatId, hardLimits: limits, intensity }))}
+              placeholder="Add a hard limit…"
+            />
+            {isNsfwChat && (
+              <div className="mt-3 flex flex-col gap-1.5">
+                <span className="text-[11.5px] text-subtle">Intensity of intimate scenes</span>
+                <SegmentedControl
+                  value={intensity || ""}
+                  onChange={(v) => dispatch(updateChatBoundaries({ chatId, hardLimits, intensity: (v || undefined) as Intensity | undefined }))}
+                  options={[
+                    { value: "", label: "Default" },
+                    { value: "fade", label: "Fade out" },
+                    { value: "suggestive", label: "Suggestive" },
+                    { value: "explicit", label: "Explicit" },
+                  ]}
                 />
               </div>
             )}
           </div>
-        </div>
+          </div>
+        )}
+        {tab === "story" && (
+          <div role="tabpanel" id="scene-tabpanel-story" aria-labelledby="scene-tab-story" className="flex flex-col gap-[22px]">
+          {/* Chapters - the story so far, one titled recap per "End chapter" */}
+          <div>
+            <div className="flex items-baseline justify-between mb-2">
+              <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">Chapters</span>
+              {chapters.length > 0 && <span className="text-[11px] text-primary">{chapters.length}</span>}
+            </div>
+            {chapters.length === 0 ? (
+              <p className="text-[12.5px] text-subtle">No chapters yet. Use "End chapter" in the chat menu to close one with a title and recap; the next reply starts fresh from it.</p>
+            ) : (
+              <ol className="flex flex-col gap-1.5">
+                {chapters.map((chapter, i) => (
+                  <li key={chapter.id} className="px-3 py-2 rounded-lg bg-background border border-border/30 text-[12.5px]">
+                    {renamingChapterId === chapter.id ? (
+                      <Input
+                        autoFocus
+                        aria-label="Chapter title"
+                        value={chapterDraft}
+                        onChange={(e) => setChapterDraft(e.target.value)}
+                        onBlur={commitChapterRename}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") { e.preventDefault(); commitChapterRename(); }
+                          else if (e.key === "Escape") { setRenamingChapterId(null); setChapterDraft(""); }
+                        }}
+                        className="h-auto py-1 px-2 text-[12.5px] rounded-md"
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="flex-1 font-semibold text-foreground">{i + 1}. {chapter.chapterTitle}</span>
+                        <Button
+                          onClick={() => { setRenamingChapterId(chapter.id!); setChapterDraft(chapter.chapterTitle || ""); }}
+                          variant="ghost"
+                          size="icon"
+                          className="h-auto w-auto p-0.5 text-subtle hover:text-primary hover:bg-transparent flex-shrink-0"
+                          title="Rename"
+                          aria-label={`Rename chapter ${i + 1}`}
+                        >
+                          <FaPencilAlt size={10} />
+                        </Button>
+                      </div>
+                    )}
+                    {chapter.chapterRecap && <p className="mt-1 text-subtle leading-snug">{chapter.chapterRecap}</p>}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+
+          {/* Bookmarks (#21) - starred messages on the current branch */}
+          <div>
+            <div className="flex items-baseline justify-between mb-2">
+              <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">Bookmarks</span>
+              {bookmarks.length > 0 && <span className="text-[11px] text-primary">{bookmarks.length}</span>}
+            </div>
+            {bookmarks.length === 0 ? (
+              <p className="text-[12.5px] text-subtle">Star a message (its ★ button, or long-press on a phone) to find it again here.</p>
+            ) : (
+              <ul className="flex flex-col gap-1.5">
+                {bookmarks.map((m) => (
+                  <li key={m.id}>
+                    <button
+                      type="button"
+                      onClick={() => jumpToMessage(m.id!)}
+                      className="w-full text-left px-3 py-2 rounded-lg bg-background border border-border/30 text-[12.5px] hover:border-primary/50"
+                      aria-label={`Jump to: ${(m.txt || "").slice(0, 60)}`}
+                    >
+                      <span className="block text-[11px] text-subtle mb-0.5">{m.role === "you" ? "You" : (character?.name || "Character")}</span>
+                      <span className="line-clamp-2 text-foreground">{m.txt}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Relationship timeline (#51): mood over the chat, 1:1 only */}
+          {!isRoom && character && (
+            <div>
+              <div className="mb-2">
+                <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">{character.name}'s mood over time</span>
+              </div>
+              <MoodTimeline points={moodPoints(chat?.content || [], character.id)} name={character.name} />
+            </div>
+          )}
+          </div>
+        )}
+        {tab === "memory" && (
+          <div role="tabpanel" id="scene-tabpanel-memory" aria-labelledby="scene-tab-memory" className="flex flex-col gap-[22px]">
+          {/* Memory */}
+          <div>
+            <div className="flex items-baseline justify-between mb-2">
+              <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">{isRoom ? "Group Memory" : "Memory"}</span>
+              <span className="text-[11px] text-primary">{memory.length + pinned.length} facts</span>
+            </div>
+            {!isRoom && character && (
+              <div className="mb-2.5">
+                <SegmentedControl
+                  value={chatScoped ? "chat" : "character"}
+                  onChange={(v) => handleScopeChange(v as "character" | "chat")}
+                  options={[
+                    { value: "character", label: `Shared with ${character.name}` },
+                    { value: "chat", label: "This chat only" },
+                  ]}
+                />
+                <p className="text-[11px] text-subtle mt-1.5">
+                  {chatScoped
+                    ? `New facts stay in this chat and won't change ${character.name}'s other chats.`
+                    : `Facts are shared by every chat with ${character.name}.`}
+                </p>
+              </div>
+            )}
+            <div className="flex flex-col gap-1.5">
+              {pinned.map((fact, idx) => (
+                <div
+                  key={`pinned-${idx}`}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/30 text-[12.5px] text-foreground"
+                >
+                  <span className="flex-1">{fact}</span>
+                  <Button
+                    onClick={() => handleUnpinFact(idx)}
+                    variant="ghost"
+                    size="icon"
+                    className="h-auto w-auto p-0.5 text-primary hover:text-subtle hover:bg-transparent flex-shrink-0"
+                    title="Unpin"
+                    aria-label="Unpin this fact"
+                  >
+                    <FaThumbtack size={10} />
+                  </Button>
+                  <Button
+                    onClick={() => handleForgetPinnedFact(idx)}
+                    variant="ghost"
+                    size="icon"
+                    className="h-auto w-auto p-0.5 text-subtle hover:text-destructive hover:bg-transparent flex-shrink-0"
+                    title="Forget"
+                    aria-label="Forget this pinned fact"
+                  >
+                    <FaTimes size={11} />
+                  </Button>
+                </div>
+              ))}
+              {memory.length === 0 && pinned.length === 0 && !addingFact ? (
+                <p className="text-[12.5px] text-subtle">{isRoom ? "No shared facts remembered yet." : "No facts remembered yet."}</p>
+              ) : (
+                memoryGroups.map((group) => (
+                  <React.Fragment key={group.key}>
+                    {groupMemory && group.items.length > 0 && (
+                      <div className="flex items-center justify-between mt-1.5 first:mt-0">
+                        <span className="text-[10.5px] tracking-[0.08em] uppercase text-subtle font-semibold">{group.label}</span>
+                        <button
+                          type="button"
+                          onClick={() => { setAddingCategory(group.category); setAddingFact(true); }}
+                          className="text-[10.5px] text-subtle hover:text-primary"
+                          aria-label={`Add a fact to ${group.label}`}
+                        >
+                          + add
+                        </button>
+                      </div>
+                    )}
+                    {group.items.map(({ fact, idx }) => renderFact(fact, idx))}
+                  </React.Fragment>
+                ))
+              )}
+              {addingFact ? (
+                <Input
+                  autoFocus
+                  value={factDraft}
+                  onChange={(e) => setFactDraft(e.target.value)}
+                  onBlur={commitNewFact}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      commitNewFact();
+                    } else if (e.key === "Escape") {
+                      setFactDraft("");
+                      setAddingFact(false);
+                    }
+                  }}
+                  placeholder="A fact to remember…"
+                  className="h-auto py-2 px-3 text-[12.5px] rounded-lg bg-background"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { setAddingCategory(undefined); setAddingFact(true); }}
+                  aria-label="Add a memory fact"
+                  className="inline-flex items-center gap-1.5 self-start px-2.5 py-1 mt-0.5 rounded-full border border-dashed border-border/40 text-subtle text-xs hover:border-primary hover:text-primary transition"
+                >
+                  <FaPlus size={9} /> Add
+                </button>
+              )}
+            </div>
+          </div>
+          </div>
+        )}
+        {tab === "chat" && (
+          <div role="tabpanel" id="scene-tabpanel-chat" aria-labelledby="scene-tab-chat" className="flex flex-col gap-[22px]">
+          {/* Texting mode (#6), per chat: this chat's own choice or the app's */}
+          <div className="flex flex-col gap-2">
+            <div className="min-w-0">
+              <div className="text-[12.5px] font-medium text-foreground">Texting mode</div>
+              <div className="text-[11px] text-subtle">Replies as separate texts with typing pauses, and read ticks on yours.</div>
+            </div>
+            <SegmentedControl
+              value={chat?.textingMode === undefined ? "app" : chat.textingMode ? "on" : "off"}
+              onChange={(v) => dispatch(updateChatOptions({ chatId, patch: { textingMode: v === "app" ? undefined : v === "on" } }))}
+              options={[
+                { value: "app", label: `App setting (${appTextingMode ? "on" : "off"})` },
+                { value: "on", label: "On" },
+                { value: "off", label: "Off" },
+              ]}
+            />
+          </div>
+
+          {/* Reply suggestions (#16) - per chat */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[12.5px] font-medium text-foreground">Suggest replies</div>
+              <div className="text-[11px] text-subtle">After each reply, three short ideas for what you could say. Tap one to edit it in the box.</div>
+            </div>
+            <ToggleSwitch
+              checked={Boolean(chat?.replySuggestions)}
+              onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { replySuggestions: val || undefined } }))}
+              label={<span className="sr-only">Suggest replies</span>}
+            />
+          </div>
+
+          {/* Inner thoughts (#10) - also per character */}
+          {!isRoom && character && (
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-medium text-foreground">Show {character.name}'s inner thoughts</div>
+                <div className="text-[11px] text-subtle">
+                  Each reply also carries a private thought, hidden until you tap it. {character.name} never hears it back.
+                </div>
+              </div>
+              <ToggleSwitch
+                checked={Boolean(character.innerThoughts)}
+                onChange={(val) => dispatch(updateCharacter({ ...character, innerThoughts: val || undefined }))}
+                label={<span className="sr-only">Show {character.name}'s inner thoughts</span>}
+              />
+            </div>
+          )}
+
+          {/* Diary (#5) - a per-character switch, so it's set here in context */}
+          {!isRoom && character && (
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-medium text-foreground">{character.name} keeps a diary</div>
+                <div className="text-[11px] text-subtle">
+                  {chatScoped
+                    ? `Paused in this chat: entries only come from chats that share ${character.name}'s memory.`
+                    : `Every ${DIARY_INTERVAL} messages, a short private entry about you. The latest one shapes how ${character.name} acts. Read it from the Characters page.`}
+                </div>
+              </div>
+              <ToggleSwitch
+                checked={Boolean(character.diaryEnabled)}
+                onChange={(val) => dispatch(updateCharacter({ ...character, diaryEnabled: val }))}
+                label={<span className="sr-only">{character.name} keeps a diary</span>}
+              />
+            </div>
+          )}
+
+          {/* Wardrobe (#50): what the character is wearing in this story */}
+          {!isRoom && character && character.wardrobe && character.wardrobe.length > 0 && (
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-medium text-foreground">{character.name} is wearing</div>
+                <div className="text-[11px] text-subtle">Used in pictures and in how they describe themselves.</div>
+              </div>
+              <div className="w-40 flex-shrink-0">
+                <Select
+                  aria-label={`${character.name}'s outfit`}
+                  value={character.currentOutfitId || ""}
+                  onChange={(e) => dispatch(updateCharacter({ ...character, currentOutfitId: e.target.value || undefined }))}
+                >
+                  <option value="">Their usual look</option>
+                  {character.wardrobe.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name || "Unnamed outfit"}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+          )}
+
+          {/* Display - app-wide preferences for the docked mood panel/popup, see note above */}
+          <div>
+            <div data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold mb-2">Display</div>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[12.5px] font-medium text-foreground">Mood panel</div>
+                  <div className="text-[11px] text-subtle">Docks each character's current mood portrait beside the chat</div>
+                </div>
+                <ToggleSwitch checked={emotionPanelEnabled} onChange={(val) => dispatch(setEmotionPanelEnabled(val))} />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[12.5px] font-medium text-foreground">Pop up on mood change</div>
+                  <div className="text-[11px] text-subtle">Briefly shows a portrait centered on screen when a mood changes</div>
+                </div>
+                <ToggleSwitch checked={emotionPopupEnabled} onChange={(val) => dispatch(setEmotionPopupEnabled(val))} />
+              </div>
+              {emotionPopupEnabled && (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-[12.5px] font-medium text-foreground">Popup duration (ms)</div>
+                  <Input
+                    type="number"
+                    value={emotionPopupDuration}
+                    onChange={(e) => dispatch(setEmotionPopupDuration(Math.max(300, Number(e.target.value))))}
+                    min="300"
+                    step="100"
+                    className="h-8 w-24 text-[12.5px] px-2.5 rounded-lg"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+          </div>
+        )}
       </div>
     </ChatSidePanelShell>
   );

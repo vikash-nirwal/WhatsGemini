@@ -21,6 +21,7 @@ test("the character writes a diary entry you can read, and remembers it", async 
   await openChat(page, 1);
 
   await chatAction(page, "Scene & chat settings");
+  await page.getByRole("tab", { name: "Chat", exact: true }).click();
   await page.getByRole("switch", { name: "Aria keeps a diary" }).click();
   await expect(page.getByRole("switch", { name: "Aria keeps a diary" })).toBeChecked();
   await page.getByRole("button", { name: "Close scene panel" }).click();
