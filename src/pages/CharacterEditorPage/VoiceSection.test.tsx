@@ -11,6 +11,18 @@ jest.mock("src/components/molecules/form-controls", () => ({
   Select: (props: React.SelectHTMLAttributes<HTMLSelectElement>) => <select {...props} />,
 }));
 
+// Jest can't load Radix's switch (its packages use subpath exports); a
+// checkbox stands in for the "Match the mood" switch (#76).
+jest.mock("src/components/atoms/ToggleSwitch", () => ({
+  __esModule: true,
+  default: ({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label?: React.ReactNode }) => (
+    <label>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      {label}
+    </label>
+  ),
+}));
+
 afterEach(() => {
   act(() => stopSpeaking());
   uninstallFakeSynth();

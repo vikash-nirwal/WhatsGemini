@@ -8,7 +8,7 @@ interface UseCallOptions {
   active: boolean;
   onSend: (text: string) => void; // sends what the user said, as a voice message
   aiLoading: boolean;
-  lastReply?: { id?: string; txt?: string }; // the newest character message
+  lastReply?: { id?: string; txt?: string; emotion?: string }; // the newest character message (its mood shapes the voice, #76)
   voice?: CharacterVoice;
 }
 
@@ -119,7 +119,7 @@ export const useCall = ({ active, onSend, aiLoading, lastReply, voice }: UseCall
     const reply = lastReplyRef.current;
     if (reply?.id && reply.id !== replyBeforeRef.current) {
       const key = `call-${reply.id}`;
-      if (speak(key, toSpokenText(reply.txt || ""), voice)) setPhase("speaking");
+      if (speak(key, toSpokenText(reply.txt || ""), voice, undefined, reply.emotion)) setPhase("speaking");
       else listen();
     } else if (sawLoadingRef.current) {
       // Loading can end a moment before the new message reaches the list,

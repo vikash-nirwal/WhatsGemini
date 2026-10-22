@@ -32,6 +32,8 @@ import { isRecognitionSupported } from "../features/voice/recognition";
 import { isSpeechSupported } from "../features/voice/speech";
 import { hasBranches } from "../features/chat/branchMap";
 import StoryScriptDialog from "../components/organisms/StoryScriptDialog";
+import { AlbumDialog } from "../components/organisms/AlbumDialog";
+import { occasionPhotoDirective, photoForOccasion } from "../features/character/album";
 import { buildDraftReplyPrompt, cleanDraftReply, buildReplySuggestionsPrompt, parseReplySuggestions, NARRATIVE_CONTEXT_MESSAGES, SURPRISE_DIRECTIVE } from "../features/ai/utils/narrativeTools";
 import { appendDiaryEntry } from "../features/ai/utils/diary";
 import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
@@ -41,7 +43,7 @@ import Header, { HeaderAction } from "src/components/organisms/Header";
 import PortraitPreviewModal from "src/components/organisms/PortraitPreviewModal";
 import AutoReplyModal from "src/components/organisms/AutoReplyModal";
 import PersonaModal from "src/components/organisms/PersonaModal";
-import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20, FaLayerGroup, FaGamepad, FaCodeBranch, FaPhoneAlt, FaBookOpen } from "react-icons/fa";
+import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20, FaLayerGroup, FaGamepad, FaCodeBranch, FaPhoneAlt, FaBookOpen, FaImages } from "react-icons/fa";
 import { Button } from "src/components/atoms/button";
 import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DIARY_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
@@ -791,6 +793,7 @@ const ChatPage = () => {
   const [isAutoReplyModalOpen, setIsAutoReplyModalOpen] = useState(false);
   const [sceneOpen, setSceneOpen] = useState(false);
   const [storyOpen, setStoryOpen] = useState(false);
+  const [albumOpen, setAlbumOpen] = useState(false);
   const [gameOpen, setGameOpen] = useState(false);
   const [branchMapOpen, setBranchMapOpen] = useState(false);
   const [participantsOpen, setParticipantsOpen] = useState(false);
@@ -1031,7 +1034,18 @@ const ChatPage = () => {
       importantDates: (characterData.importantDates || []).map((d) => (due.some((x) => x.id === d.id) ? { ...d, lastCelebratedYear: year } : d)),
     }));
     autoReplyInFlightRef.current = true;
-    sendCharacterFollowup(undefined, buildCelebrationDirective(due))
+    // A private album photo (#75) comes along as a gift, if one is ready.
+    const gift = photoForOccasion(characterData.album, currentChat?.stage);
+    const directive = gift ? `${buildCelebrationDirective(due)}\n${occasionPhotoDirective(gift)}` : buildCelebrationDirective(due);
+    sendCharacterFollowup(undefined, directive)
+      .then(async (sent) => {
+        if (!sent || !gift || !chatIdNum) return;
+        const fresh = await dispatch(fetchChatById(chatIdNum)).unwrap();
+        const reply = [...getOrBuildTree(fresh).content].reverse().find((m) => m.role === AI);
+        if (reply?.id) await dispatch(updateChatMessage({ chatId: chatIdNum, messageId: reply.id, patch: { images: [...(reply.images || []), gift.image] } }));
+        const latest: Character = (await dispatch(fetchCharacterById(characterData.id)).unwrap().catch(() => characterData)) || characterData;
+        await dispatch(updateCharacter({ ...latest, album: (latest.album || []).map((p) => (p.id === gift.id ? { ...p, sentAt: Date.now() } : p)) }));
+      })
       .catch((err) => console.error("Special-date message failed:", err))
       .finally(() => { autoReplyInFlightRef.current = false; });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1992,6 +2006,7 @@ const ChatPage = () => {
 
   const chatActions: HeaderAction[] = [
     { icon: FaBookOpen, label: "Export as story (Markdown)", onClick: handleExportStory },
+    ...(!isRoom && characterData ? [{ icon: FaImages, label: `${characterData.name}'s album`, onClick: () => setAlbumOpen(true) }] : []),
     { icon: FaDownload, label: "Export chat (backup file)", onClick: handleExport },
     ...(messages.length > 0
       ? [{ icon: FaHistory, label: "Rewind last turn", onClick: handleRewindLastTurn, disabled: aiLoading, danger: true }]
@@ -2144,6 +2159,7 @@ const ChatPage = () => {
         />
         <GameDialog open={gameOpen} onOpenChange={setGameOpen} characterName={characterData?.name || "them"} onStart={startGame} />
         <StoryScriptDialog open={storyOpen} onOpenChange={setStoryOpen} script={currentChat?.storyScript} onSave={saveStoryScript} />
+        {!isRoom && characterData && <AlbumDialog open={albumOpen} onOpenChange={setAlbumOpen} character={characterData} stage={currentChat?.stage} />}
       </div>
 
       {/* Message Input - floats over the chat, except under terminal where it

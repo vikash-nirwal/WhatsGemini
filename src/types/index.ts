@@ -190,6 +190,15 @@ export interface SceneState {
   updatedAt?: number;
 }
 
+// A photo in a character's private album (#75).
+export interface AlbumPhoto {
+  id: string;
+  image: string; // local:/data: ref
+  caption?: string;
+  unlockAt?: RelationshipStage; // locked until the chat reaches this stage
+  sentAt?: number; // sent to you on a special date
+}
+
 // Romance details for a character or persona (#73); every field optional.
 export interface IntimacyProfile {
   loveLanguage?: string;
@@ -397,6 +406,7 @@ export interface CharacterVoice {
   rate?: number; // 0.5-2, 1 when unset
   pitch?: number; // 0-2, 1 when unset
   voiceNotes?: VoiceNoteFrequency; // "off" when unset
+  flatTone?: boolean; // #76: don't change rate and pitch with the reply's mood
 }
 
 // What a long-term memory fact is about.
@@ -438,6 +448,7 @@ export interface Character {
   writesLetters?: boolean; // writes you a letter after a few days away (#61)
   intimacy?: IntimacyProfile; // romance details, sent only when the scene is romantic (#73)
   knowsAbout?: number[]; // other characters whose bond with you this one knows of (#74)
+  album?: AlbumPhoto[]; // private album (#75)
   letters?: CharacterLetter[];
   importantDates?: ImportantDate[]; // #47
   schedule?: CharacterSchedule; // #7

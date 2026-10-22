@@ -3,6 +3,7 @@ import { FaChevronRight, FaPlay, FaStop } from "react-icons/fa";
 import { Select } from "src/components/molecules/form-controls";
 import { SegmentedControl } from "src/components/molecules/SegmentedControl";
 import { Button } from "src/components/atoms/button";
+import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { CharacterVoice, VoiceNoteFrequency } from "src/types";
 import { DEFAULT_PITCH, DEFAULT_RATE, isSpeechSupported, speak, stopSpeaking } from "src/features/voice/speech";
 import { useSpeakingFor, useVoices } from "src/features/voice/useSpeech";
@@ -34,6 +35,7 @@ export const cleanVoice = (voice: CharacterVoice | undefined): CharacterVoice | 
   if (voice.rate != null && voice.rate !== DEFAULT_RATE) cleaned.rate = voice.rate;
   if (voice.pitch != null && voice.pitch !== DEFAULT_PITCH) cleaned.pitch = voice.pitch;
   if (voice.voiceNotes && voice.voiceNotes !== "off") cleaned.voiceNotes = voice.voiceNotes;
+  if (voice.flatTone) cleaned.flatTone = true;
   return Object.keys(cleaned).length > 0 ? cleaned : undefined;
 };
 
@@ -130,6 +132,12 @@ const VoiceSection: React.FC<VoiceSectionProps> = ({ name, value, onChange }) =>
           </span>
           <input type="range" aria-label="Pitch" min={0} max={2} step={0.1} value={pitch} onChange={(e) => update({ pitch: Number(e.target.value) })} className="w-full accent-primary" />
         </label>
+
+        <ToggleSwitch
+          checked={!voice.flatTone}
+          onChange={(on) => update({ flatTone: on ? undefined : true })}
+          label={<span className="text-[11.5px] text-muted-foreground">Match the mood: slower and softer when sad, quicker when excited</span>}
+        />
 
         <div>
           <Button type="button" variant="outline" size="sm" onClick={preview} disabled={!supported}>

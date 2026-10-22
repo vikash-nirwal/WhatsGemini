@@ -156,9 +156,9 @@ const ChatMessage = React.memo(({
   const handleReadAloud = useCallback(() => {
     if (!msg.id) return;
     if (speaking) stopSpeaking();
-    else speak(msg.id, toSpokenText(msg.txt || ""), voice);
-  }, [speaking, msg.id, msg.txt, voice]);
-  const voiceNote = msg.isVoiceNote && msg.id ? <VoiceNote id={msg.id} text={stripImageContextTag(msg.txt || "")} voice={voice} isUser={isUser} terminal={is("terminal")} /> : null;
+    else speak(msg.id, toSpokenText(msg.txt || ""), voice, undefined, msg.emotion);
+  }, [speaking, msg.id, msg.txt, msg.emotion, voice]);
+  const voiceNote = msg.isVoiceNote && msg.id ? <VoiceNote id={msg.id} text={stripImageContextTag(msg.txt || "")} voice={voice} isUser={isUser} terminal={is("terminal")} emotion={isUser ? undefined : msg.emotion} /> : null;
   // Texting mode splits a reply into its texts; one text stays a normal
   // bubble, and so does a voice note.
   const splitParts = texting && !isUser && !msg.isVoiceNote && !msg.isImpersonated && !msg.isCompressionSummary && !msg.isRoomEvent && !msg.isNarration

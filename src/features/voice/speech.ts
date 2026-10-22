@@ -145,18 +145,44 @@ export const stopSpeaking = () => {
   if (state) setState(null);
 };
 
+// Mood-aware voice (#76): a reply's emotion nudges the voice's own rate and
+// pitch: slower and softer when sad or shy, quicker and brighter when
+// excited. Multipliers on the character's settings, so a deep, slow voice
+// stays deep and slow.
+const MOOD_TONE: Record<string, { rate: number; pitch: number }> = {
+  happy: { rate: 1.05, pitch: 1.08 },
+  excited: { rate: 1.15, pitch: 1.12 },
+  surprised: { rate: 1.08, pitch: 1.15 },
+  flirty: { rate: 0.92, pitch: 1.04 },
+  smug: { rate: 0.95, pitch: 0.97 },
+  sad: { rate: 0.85, pitch: 0.9 },
+  shy: { rate: 0.9, pitch: 1.05 },
+  embarrassed: { rate: 0.95, pitch: 1.08 },
+  scared: { rate: 1.12, pitch: 1.1 },
+  angry: { rate: 1.08, pitch: 0.9 },
+  annoyed: { rate: 1.03, pitch: 0.94 },
+  thinking: { rate: 0.9, pitch: 0.98 },
+};
+
+export const moodTone = (voice: CharacterVoice | undefined, emotion?: string): { rate: number; pitch: number } => {
+  const base = { rate: voice?.rate ?? DEFAULT_RATE, pitch: voice?.pitch ?? DEFAULT_PITCH };
+  const tone = !voice?.flatTone && emotion ? MOOD_TONE[emotion.toLowerCase()] : undefined;
+  if (!tone) return base;
+  const round = (n: number) => Math.round(n * 100) / 100;
+  return { rate: round(Math.max(0.5, Math.min(2, base.rate * tone.rate))), pitch: round(Math.max(0, Math.min(2, base.pitch * tone.pitch))) };
+};
+
 // Speaks `text` (already cleaned with toSpokenText) as `key`, stopping
 // whatever was playing. Returns false when there's nothing to say or no
-// speech in this browser.
-export const speak = (key: string, spokenText: string, voice?: CharacterVoice, voices?: SpeechSynthesisVoice[]): boolean => {
+// speech in this browser. `emotion` is the reply's mood, for #76.
+export const speak = (key: string, spokenText: string, voice?: CharacterVoice, voices?: SpeechSynthesisVoice[], emotion?: string): boolean => {
   const synth = getSynth();
   stopSpeaking();
   const chunks = splitForSpeech(spokenText);
   if (!synth || chunks.length === 0) return false;
 
   const mine = ++generation;
-  const rate = voice?.rate ?? DEFAULT_RATE;
-  const pitch = voice?.pitch ?? DEFAULT_PITCH;
+  const { rate, pitch } = moodTone(voice, emotion);
   const chosen = pickVoice(voices ?? synth.getVoices(), voice);
   const totalChars = chunks.reduce((n, c) => n + c.length + 1, 0);
   setState({ key, startedAt: Date.now(), durationMs: estimateSpeechSeconds(spokenText, rate) * 1000, spokenChars: 0, totalChars });

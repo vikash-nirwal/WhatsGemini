@@ -14,12 +14,13 @@ interface VoiceNoteProps {
   voice?: CharacterVoice;
   isUser?: boolean;
   terminal?: boolean;
+  emotion?: string; // the reply's mood, which shapes how it sounds (#76)
 }
 
 // A voice note (#44): a play button, a waveform that fills as it plays, its
 // length, and the transcript behind a toggle. It's spoken with the voice at
 // play time; where the browser can't speak, the transcript shows instead.
-export const VoiceNote: React.FC<VoiceNoteProps> = ({ id, text, voice, isUser = false, terminal = false }) => {
+export const VoiceNote: React.FC<VoiceNoteProps> = ({ id, text, voice, isUser = false, terminal = false, emotion }) => {
   const supported = isSpeechSupported();
   const spoken = useMemo(() => toSpokenText(text), [text]);
   const seconds = estimateSpeechSeconds(spoken, voice?.rate);
@@ -40,7 +41,7 @@ export const VoiceNote: React.FC<VoiceNoteProps> = ({ id, text, voice, isUser = 
 
   const toggle = () => {
     if (playing) stopSpeaking();
-    else speak(id, spoken, voice);
+    else speak(id, spoken, voice, undefined, emotion);
   };
   const transcriptLabel = showTranscript ? "Hide transcript" : "Show transcript";
   const duration = formatDuration(playing ? elapsed : seconds);
