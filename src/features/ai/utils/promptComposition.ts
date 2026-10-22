@@ -526,6 +526,7 @@ export interface SceneContext {
   onThisDayNote?: string; // a month, 100 days or a year since your first chat or a chapter (#83)
   giftsNote?: string; // gifts given both ways (#82)
   plansNote?: string; // plans made together (#84)
+  secretsNote?: string; // the character's secrets, hinted or ready to tell (#81)
   choiceMoments?: boolean; // offer options at turning points (#87)
 }
 
@@ -563,6 +564,7 @@ export const buildTurnContext = (
     ...(scene?.onThisDayNote ? [scene.onThisDayNote] : []),
     ...(scene?.giftsNote ? [scene.giftsNote] : []),
     ...(scene?.plansNote ? [scene.plansNote] : []),
+    ...(scene?.secretsNote ? [scene.secretsNote] : []),
     ...(scene?.language ? [buildLanguageDirective(scene.language, activePersona?.name?.trim() || "The user")] : []),
     ...(scene?.coWriting && character ? [buildCoWritingDirective(character.name, activePersona?.name?.trim() || "the user")] : []),
     ...(scene?.stage ? [buildStageSection(scene.stage, activePersona?.name?.trim() || "the user")] : []),

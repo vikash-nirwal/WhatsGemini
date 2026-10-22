@@ -71,6 +71,7 @@ export interface Message {
   // trailing <<<CHOICES block on this message (and stripped from `txt`
   // before display) - undefined for every ordinary chat message.
   choices?: AdventureChoice[];
+  secretRevealed?: boolean; // this reply told one of the character's secrets (#81)
   // Set on the user's own next message when it was sent by tapping one of
   // the previous message's `choices` rather than typed free text - lets the
   // UI show which option was picked without guessing from text alone.
@@ -199,6 +200,15 @@ export interface SharedPlan {
   date?: string;
   createdAt: number;
   doneAt?: number;
+}
+
+// A secret a character keeps (#81), and when it can come out.
+export interface CharacterSecret {
+  id: string;
+  text: string;
+  reveal: "stage" | "trust" | "asked";
+  stage?: RelationshipStage; // reveal "stage": from this stage on
+  trust?: number; // reveal "trust": from this trust (0-100) on
 }
 
 // A gift between you and a character (#82).
@@ -358,6 +368,7 @@ export interface Chat {
   moodTint?: boolean; // the background takes a soft colour from the character's mood (#90)
   plans?: SharedPlan[]; // plans made together (#84)
   planTracking?: boolean; // a helper check notices plans in the chat (#84)
+  revealedSecrets?: string[]; // ids of the character's secrets told in this chat (#81)
   stage?: RelationshipStage; // relationship stage (#70); unset = off
   stageCheckedAt?: number; // message count at the last stage check
   stageSuggestion?: RelationshipStage; // a stage change waiting for the user's OK
@@ -474,6 +485,7 @@ export interface Character {
   knowsAbout?: number[]; // other characters whose bond with you this one knows of (#74)
   album?: AlbumPhoto[]; // private album (#75)
   gifts?: Gift[]; // given both ways, oldest first (#82)
+  secrets?: CharacterSecret[]; // #81
   letters?: CharacterLetter[];
   importantDates?: ImportantDate[]; // #47
   schedule?: CharacterSchedule; // #7

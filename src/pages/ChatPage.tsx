@@ -39,6 +39,7 @@ import { buildGiftBackPrompt, buildGiftReactionDirective, buildGiftsSection, gif
 import { factsAboutUser } from "../features/character/intimacy";
 import { GiftDialog } from "../components/organisms/GiftDialog";
 import { buildPlansSection } from "../features/chat/sharedPlans";
+import { buildSecretsSection, secretsInPlay } from "../features/character/secrets";
 import MessageInput from "src/components/organisms/MessageInput";
 import Header, { HeaderAction } from "src/components/organisms/Header";
 import PortraitPreviewModal from "src/components/organisms/PortraitPreviewModal";
@@ -281,6 +282,7 @@ const ChatPage = () => {
   scene.letterNote = !isRoom ? recentLetterNote(characterData, currentChat, chatIdNum, activePersona?.name?.trim() || "the user") : undefined;
   scene.knowsNote = !isRoom ? knowsNoteFor(characterData, characters, chats, activePersona?.name?.trim() || "the user") : undefined;
   scene.giftsNote = !isRoom && characterData ? buildGiftsSection(characterData.gifts, characterData.name, activePersona?.name?.trim() || "the user") : undefined;
+  scene.secretsNote = !isRoom && characterData ? buildSecretsSection(characterData.name, activePersona?.name?.trim() || "the user", secretsInPlay(characterData, currentChat)) : undefined;
   scene.plansNote = !isRoom ? buildPlansSection(currentChat?.plans, activePersona?.name?.trim() || "the user", Date.now()) : undefined;
   scene.onThisDayNote = !isRoom ? buildOnThisDayNote(currentChat?.content || [], activePersona?.name?.trim() || "the user", Date.now()) : undefined;
   const globalActivePersona = useMemo(
@@ -506,6 +508,8 @@ const ChatPage = () => {
     saveStoryScript,
     moveStoryBeat,
     advanceStoryIfDone,
+    revealedSecretFor,
+    noteSecretRevealed,
     saveSceneState,
     pickNaturalSpeakers,
     maybeNarrate,
@@ -665,6 +669,7 @@ const ChatPage = () => {
       speakerId: speaker.id,
       ...beatStamp(currentChat?.storyScript),
       choices: payloadObj?.choices,
+      secretRevealed: revealedSecretFor(payloadObj) ? true : undefined,
       isVoiceNote: followupIsVoiceNote,
     }));
     // Manual follow-ups go through here too, but they start from a click in
@@ -683,6 +688,7 @@ const ChatPage = () => {
 
     await saveCharacterReaction(payloadObj?.reaction, compressedFreshMessages, speaker.id);
     advanceStoryIfDone(payloadObj);
+    noteSecretRevealed(payloadObj);
     saveSceneState(payloadObj);
     advanceGame(payloadObj, false);
     runBackgroundUpdates((aiAddResult.payload as Message[]) || [], speaker);
@@ -1114,6 +1120,7 @@ const ChatPage = () => {
           speakerId: speaker.id,
           ...beatStamp(currentChat?.storyScript),
           choices: payloadObj?.choices,
+          secretRevealed: revealedSecretFor(payloadObj) ? true : undefined,
           isVoiceNote: replyVoiceNote,
         }));
         notifyIfAway(speaker, notificationText(replyText, replyVoiceNote), generatedImages);
@@ -1125,6 +1132,7 @@ const ChatPage = () => {
         await saveCharacterReaction(payloadObj?.reaction, contextMessages, speaker.id);
         await saveCorrection(payloadObj?.correction, contextMessages);
         advanceStoryIfDone(payloadObj);
+        noteSecretRevealed(payloadObj);
         saveSceneState(payloadObj);
         advanceGame(payloadObj, true);
         runBackgroundUpdates((aiAddResult.payload as Message[]) || [], speaker);
@@ -1219,6 +1227,7 @@ const ChatPage = () => {
             speakerId: speaker.id,
             ...beatStamp(currentChat?.storyScript),
             choices: payloadObj?.choices,
+            secretRevealed: revealedSecretFor(payloadObj) ? true : undefined,
             timestamp: Date.now(),
           };
           // The character's reaction (#11) and a language correction (#67)
@@ -1239,6 +1248,8 @@ const ChatPage = () => {
           }
 
           advanceStoryIfDone(payloadObj);
+
+          noteSecretRevealed(payloadObj);
           saveSceneState(payloadObj);
           advanceGame(payloadObj, false);
           runBackgroundUpdates(finalContent, speaker);
@@ -1334,6 +1345,7 @@ const ChatPage = () => {
           speakerId: speaker.id,
           ...beatStamp(currentChat?.storyScript),
           choices: payloadObj?.choices,
+          secretRevealed: revealedSecretFor(payloadObj) ? true : undefined,
           timestamp: Date.now(),
         };
         // A new answer brings its own reaction (#11), or none.
@@ -1349,6 +1361,8 @@ const ChatPage = () => {
         }
 
         advanceStoryIfDone(payloadObj);
+
+        noteSecretRevealed(payloadObj);
         saveSceneState(payloadObj);
         advanceGame(payloadObj, false);
         runBackgroundUpdates(newContent, speaker);
@@ -1528,6 +1542,8 @@ const ChatPage = () => {
         await dispatch(updateChatTree({ chatId: chatIdNum, content: updatedContent, tree: updatedTree, activeLeafId: currentActiveLeafId }));
 
         advanceStoryIfDone(payloadObj);
+
+        noteSecretRevealed(payloadObj);
         saveSceneState(payloadObj);
         runBackgroundUpdates(updatedContent, speaker);
       }

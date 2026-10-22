@@ -201,6 +201,13 @@ const ChatMessage = React.memo(({
     </div>
   ) : null;
 
+  // Secrets (#81): marks the reply where one came out.
+  const secretNote = !isUser && msg.secretRevealed ? (
+    <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-sans text-[11.5px] text-foreground" data-slot="secret-note">
+      <span aria-hidden>🤫</span> A secret came out
+    </div>
+  ) : null;
+
   // Long-press (touch) or the browser's own long-press/context-menu gesture
   // opens the action sheet. Moving the finger cancels it, so scrolling past a
   // message never opens it.
@@ -407,6 +414,7 @@ const ChatMessage = React.memo(({
           {refusalNotice}
           {thoughtsBlock}
           {languageBlock}
+          {secretNote}
           {canTranslate && <TermLink label="translate" onClick={handleTranslate} disabled={translating} className="mt-1" />}
           {(msg.reaction || msg.characterReaction) && (
             <div className="mt-1 text-[12px] text-muted-foreground">
@@ -594,6 +602,7 @@ const ChatMessage = React.memo(({
           </div>
           {thoughtsBlock}
           {languageBlock}
+          {secretNote}
           {receipt && (
             <div className="mt-1 flex items-center justify-end gap-1 font-sans text-[11px] text-subtle" aria-label={receipt === "read" ? "Read" : "Sent"}>
               {msg.timestamp && <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>}

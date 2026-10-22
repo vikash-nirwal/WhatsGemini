@@ -7,6 +7,7 @@ import { trimToLatestSummary } from "../../features/ai/utils/transcript";
 import { NARRATIVE_CONTEXT_MESSAGES, parseReplySuggestions } from "../../features/ai/utils/narrativeTools";
 import { buildNarrationPrompt, buildWhoRepliesPrompt, cleanNarration, MAX_CHAIN, parseWhoReplies } from "../../features/ai/utils/roomTurns";
 import { moveBeat } from "../../features/chat/storyScript";
+import { secretsInPlay } from "../../features/character/secrets";
 import { mergeState } from "../../features/chat/sceneState";
 import { gameLabel, GameOutcome } from "../../features/chat/miniGames";
 import { buildNextIdeasPrompt } from "../../features/chat/coWriting";
@@ -54,6 +55,17 @@ export const useReplyEffects = ({
   };
   const advanceStoryIfDone = (payload: { beatDone?: boolean } | undefined) => {
     if (payload?.beatDone) moveStoryBeat(1);
+  };
+
+  // Secrets (#81): the tag's number points into the secrets the prompt
+  // offered (secretsInPlay, worked out the same way); the one told is kept
+  // on the chat so it isn't offered again.
+  const revealedSecretFor = (payload: { secretRevealed?: number } | undefined) =>
+    !isRoom && payload?.secretRevealed ? secretsInPlay(characterData, currentChat).revealable[payload.secretRevealed - 1] : undefined;
+  const noteSecretRevealed = (payload: { secretRevealed?: number } | undefined) => {
+    const secret = revealedSecretFor(payload);
+    if (!chatIdNum || !secret) return;
+    dispatch(updateChatOptions({ chatId: chatIdNum, patch: { revealedSecrets: [...(currentChat?.revealedSecrets || []), secret.id] } }));
   };
 
   // Scene state (#9): what a reply reports is merged into the chat's state.
@@ -180,6 +192,8 @@ export const useReplyEffects = ({
     saveStoryScript,
     moveStoryBeat,
     advanceStoryIfDone,
+    revealedSecretFor,
+    noteSecretRevealed,
     saveSceneState,
     pickNaturalSpeakers,
     maybeNarrate,

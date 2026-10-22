@@ -8,7 +8,6 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 ## Deeper characters
 
-81. **Secrets** (M). In the editor, a character gets a few secrets, each with when it can come out: a relationship stage (#70), a trust level (#9/#71) or only if asked. The character hints at them and reveals one once its condition is met; a small "A secret came out" note marks the moment.
 
 ## Group life
 
