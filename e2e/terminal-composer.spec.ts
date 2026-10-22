@@ -28,13 +28,15 @@ test.describe("terminal composer", () => {
     await expectNoHorizontalScroll(page);
   });
 
-  test("wider screens: the tools are inline bracketed links", async ({ page }) => {
+  test("wider screens: the everyday tools are inline bracketed links, the rest behind [+]", async ({ page }) => {
     test.skip(viewportWidth(page) < PHONE_MAX_WIDTH, "wider than phone only");
     await openChat(page);
-    await expect(page.getByRole("button", { name: "Composer options" })).toBeHidden();
-    const impersonate = page.getByRole("button", { name: "Toggle impersonation mode" });
-    await expect(impersonate).toHaveText("[mask]");
-    await impersonate.click();
-    await expect(impersonate).toHaveAttribute("aria-pressed", "true");
+    const image = page.getByRole("button", { name: "Request an image with this message" });
+    await expect(image).toHaveText("[img]");
+    await image.click();
+    await expect(image).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Toggle impersonation mode" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Composer options" }).click();
+    await expect(page.getByRole("menuitemcheckbox", { name: "Toggle impersonation mode" })).toBeVisible();
   });
 });

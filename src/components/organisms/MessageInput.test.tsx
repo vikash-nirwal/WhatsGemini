@@ -23,7 +23,8 @@ const recordButton = () => screen.getByRole("button", { name: "Hold to record a 
 describe("MessageInput voice", () => {
   it("shows no dictation or record button without speech recognition", () => {
     render(<MessageInput onSend={jest.fn()} />);
-    expect(screen.queryByRole("button", { name: "Dictate" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "Composer options" })[0]);
+    expect(screen.queryByRole("menuitemcheckbox", { name: "Dictate" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Hold to record a voice note" })).not.toBeInTheDocument();
   });
 
@@ -32,7 +33,9 @@ describe("MessageInput voice", () => {
     render(<MessageInput onSend={jest.fn()} />);
     const input = screen.getByLabelText("Message input");
     fireEvent.change(input, { target: { value: "Hey," } });
-    fireEvent.click(screen.getAllByRole("button", { name: "Dictate" })[0]);
+    // Dictate sits in the "+" menu.
+    fireEvent.click(screen.getAllByRole("button", { name: "Composer options" })[0]);
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Dictate" }));
     expect(screen.getByText("Listening — speak and your words appear in the box.")).toBeInTheDocument();
     act(() => latest().hear(["how are you"], false));
     expect(input).toHaveValue("Hey, how are you");

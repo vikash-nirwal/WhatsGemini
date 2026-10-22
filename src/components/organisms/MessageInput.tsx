@@ -620,23 +620,28 @@ const MessageInput: React.FC<MessageInputProps> = ({
     },
   ];
 
-  // The tools fold into the "+" menu whenever the composer itself is too
-  // narrow for them and a usable text box, not only on phones: next to an
-  // open side panel the chat column is narrow on a desktop too.
-  const toolCountRef = useRef(composerTools.length);
-  toolCountRef.current = composerTools.length;
+  // Only the two everyday tools sit next to the box; the rest live in the
+  // "+" menu, so the text box keeps most of the row. When the composer is
+  // too narrow even for those two and a usable text box (phones, or next to
+  // an open side panel), everything folds into "+".
+  const INLINE_TOOLS = ["image", "photo"];
+  const inlineCount = composerTools.filter((t) => INLINE_TOOLS.includes(t.key)).length;
+  const toolCountRef = useRef(inlineCount);
+  toolCountRef.current = inlineCount;
   const [collapseTools, setCollapseTools] = useState(() => typeof window !== "undefined" && window.innerWidth < 640);
   useEffect(() => {
     const row = toolsRef.current?.parentElement;
     if (!row || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(([entry]) => {
-      // Measured: inline, each tool takes ~44px and Send, padding and gaps
-      // ~160px; the rest, at least ~220px, is the text box.
-      setCollapseTools(entry.contentRect.width < toolCountRef.current * 44 + 380);
+      // Measured: inline, each tool takes ~44px, and "+", Send, padding and
+      // gaps ~200px; the rest, at least ~220px, is the text box.
+      setCollapseTools(entry.contentRect.width < toolCountRef.current * 44 + 420);
     });
     observer.observe(row);
     return () => observer.disconnect();
   }, [terminal]);
+  const menuTools = collapseTools ? composerTools : composerTools.filter((t) => !INLINE_TOOLS.includes(t.key));
+  const inlineTools = collapseTools ? [] : composerTools.filter((t) => INLINE_TOOLS.includes(t.key));
 
   const composerTextarea = (
   <textarea
@@ -1026,13 +1031,13 @@ const MessageInput: React.FC<MessageInputProps> = ({
               {pickerOpen && participantPicker}
             </div>
           )}
-          {/* Phones: one [+] opens the tools as a labeled menu (U3's list),
-              so the text box isn't squeezed by five bracketed links. */}
-          <div className={cn("relative flex-shrink-0", !collapseTools && "hidden")} ref={toolsRef}>
+          {/* One [+] opens the tools as a labeled menu (U3's list), so the
+              text box isn't squeezed by a row of bracketed links. */}
+          <div className="relative flex-shrink-0" ref={toolsRef}>
             <TermLink
               label="+"
               onClick={() => setToolsOpen((v) => !v)}
-              active={composerTools.some((t) => t.active)}
+              active={menuTools.some((t) => t.active)}
               title="More options"
               aria-label="Composer options"
               aria-expanded={toolsOpen}
@@ -1040,7 +1045,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
             />
             {toolsOpen && (
               <div role="menu" className="absolute bottom-full left-0 mb-2 w-60 p-1 bg-card border border-border-bright z-30 flex flex-col">
-                {composerTools.map((tool) => (
+                {menuTools.map((tool) => (
                   <button
                     key={tool.key}
                     type="button"
@@ -1061,8 +1066,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
               </div>
             )}
           </div>
-          {/* Wider screens: the same tools as inline bracketed links. */}
-          {composerTools.map((tool) => (
+          {/* Wider screens: the everyday tools as inline bracketed links. */}
+          {inlineTools.map((tool) => (
             <TermLink
               key={tool.key}
               label={TERMINAL_TOOL_LABELS[tool.key] ?? tool.key}
@@ -1071,7 +1076,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
               aria-pressed={tool.toggle ? tool.active : undefined}
               title={tool.title}
               aria-label={tool.ariaLabel}
-              className={cn(collapseTools ? "hidden" : "inline-flex", tool.active && "bg-primary text-primary-foreground no-underline")}
+              className={cn("inline-flex", tool.active && "bg-primary text-primary-foreground no-underline")}
             />
           ))}
           <span className="hidden sm:inline flex-none font-bold text-[13px] text-ring">{promptName}:~$</span>
@@ -1152,8 +1157,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
           </div>
         )}
 
-        {/* Phones: one "+" button opens the tools as a labeled menu. */}
-        <div className={cn("relative flex-shrink-0", !collapseTools && "hidden")} ref={toolsRef}>
+        {/* One "+" button opens the rest of the tools as a labeled menu. */}
+        <div className="relative flex-shrink-0" ref={toolsRef}>
           <Button
             type="button"
             onClick={() => setToolsOpen((v) => !v)}
@@ -1163,7 +1168,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
             aria-expanded={toolsOpen}
             className={cn(
               "h-10 w-10 flex-shrink-0 rounded-lg",
-              composerTools.some((t) => t.active)
+              menuTools.some((t) => t.active)
                 ? "bg-primary/[0.14] text-primary hover:bg-primary/[0.2]"
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             )}
@@ -1172,7 +1177,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
           </Button>
           {toolsOpen && (
             <div role="menu" className="absolute bottom-full left-0 mb-2 w-60 p-1.5 rounded-xl bg-card border border-border shadow-soft z-30 flex flex-col">
-              {composerTools.map((tool) => (
+              {menuTools.map((tool) => (
                 <button
                   key={tool.key}
                   type="button"
@@ -1195,8 +1200,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
           )}
         </div>
 
-        {/* Wider screens: the same tools as inline icon buttons. */}
-        {composerTools.map((tool) => (
+        {/* Wider screens: the everyday tools as inline icon buttons. */}
+        {inlineTools.map((tool) => (
           <Button
             key={tool.key}
             onClick={tool.onClick}
@@ -1206,8 +1211,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
             aria-label={tool.ariaLabel}
             aria-pressed={tool.toggle ? tool.active : undefined}
             className={cn(
-              collapseTools ? "hidden" : "inline-flex",
-              "h-10 w-10 flex-shrink-0 rounded-lg",
+              "inline-flex h-10 w-10 flex-shrink-0 rounded-lg",
               tool.active ? tool.activeButtonClass : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             )}
           >

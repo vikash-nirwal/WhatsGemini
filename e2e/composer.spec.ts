@@ -70,12 +70,20 @@ test.describe("chat composer", () => {
     await expectNoHorizontalScroll(page);
   });
 
-  test("wider screens: the tools are inline buttons", async ({ page }) => {
+  test("wider screens: the everyday tools are inline, the rest behind one button", async ({ page }) => {
     test.skip(viewportWidth(page) < PHONE_MAX_WIDTH, "wider than phone only");
     await openChat(page);
-    await expect(page.getByRole("button", { name: "Composer options" })).toBeHidden();
-    const impersonate = page.getByRole("button", { name: "Toggle impersonation mode" });
-    await impersonate.click();
-    await expect(impersonate).toHaveAttribute("aria-pressed", "true");
+    // The text box keeps most of the bar.
+    const bar = await box(composer(page));
+    const text = await box(page.getByLabel("Message input"));
+    expect(text.width).toBeGreaterThan(bar.width * 0.55);
+    const image = page.getByRole("button", { name: "Request an image with this message" });
+    await image.click();
+    await expect(image).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Send a photo" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Toggle impersonation mode" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Composer options" }).click();
+    await page.getByRole("menuitemcheckbox", { name: "Toggle impersonation mode" }).click();
+    await expect(page.getByText(/Impersonation on/)).toBeVisible();
   });
 });

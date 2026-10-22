@@ -1,5 +1,4 @@
 import { test, expect, openChat } from "./fixtures";
-import { viewportWidth } from "./layout";
 import type { Page } from "@playwright/test";
 
 // Narrative tools: "Write my reply" (#15) and "Surprise me" (#18).
@@ -13,14 +12,10 @@ const chatAction = async (page: Page, name: string | RegExp) => {
   await page.getByRole("menuitem", { name }).click();
 };
 
-// The composer tool is inline from 640px, behind "Composer options" below.
+// "Write my reply" sits in the composer's "+" menu on every screen size.
 const composerTool = async (page: Page, name: string) => {
-  if (viewportWidth(page) < 640) {
-    await page.getByRole("button", { name: "Composer options" }).click();
-    await page.getByRole("menuitemcheckbox", { name }).click();
-  } else {
-    await page.getByRole("button", { name }).click();
-  }
+  await page.getByRole("button", { name: "Composer options" }).click();
+  await page.getByRole("menuitemcheckbox", { name }).click();
 };
 
 test("Write my reply puts an editable draft in the box", async ({ page, mockAI }) => {
