@@ -6,6 +6,22 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 ---
 
+## Living characters
+
+58. **Characters talk while you're away** (M). Two characters who share a room (or who know each other) have a short conversation between your visits, shaped by their room relationships (#24). You can read it later ("Aria and Kai talked while you were gone"), and they may bring it up with you. Runs on the helper model, at most once per pair per day, with a switch per room.
+60. **Character arc suggestions** (S). Every so often the helper model reads what has happened and suggests a small update to the character's personality or description ("Aria has become more open about her past"). You accept or dismiss it, like the relationship suggestion (#30). Nothing changes without your OK.
+61. **Letters** (S–M). After you've been away a few days, a character can write a longer letter instead of a chat bubble. Letters collect in their own inbox (per character, readable from the chat), and you can reply to one. A per-character switch, off by default.
+
+## Worlds and stories
+
+66. **World map** (M). Generate a map picture for a World with the image provider (or upload one), and pin its places on it. The scene tracker's location (#9) and an adventure's current place show as a "you are here" marker.
+68. **Co-writing mode** (M). Write a story together instead of roleplaying: you and the character take turns adding paragraphs to one shared text, shown as a document rather than bubbles. The character can suggest what happens next, and the text exports like a story (#20).
+69. **Group chat locations** (S). The scene tracker for rooms: where the group is, who's present, and members leaving or arriving as the story moves. Members who aren't present don't reply until they come back.
+
+## Practical
+
+67. **Language practice mode** (S). Per chat: the character replies in the language you're learning, and gently corrects mistakes in your messages in a small note under each one. Tap any reply to translate it. The language and level are set in the Scene panel.
+
 ## Smaller follow-ups
 
 Leftovers noted while building the finished items. Pick them up alongside related work.

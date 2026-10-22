@@ -7,7 +7,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 ## Where we stand
 
 - **State:** the new-ideas queue (#42–#57) is built and pushed and deployed (CI green). The last full local run passed: type-check, 760 unit tests, 697 UI tests and 16 screenshot tests.
-- **Next up:** push and deploy (with the user's OK), then the smaller follow-ups. All 13 earlier items (#7–#9, #13, #19, #22–#28, #30) are done and committed locally, not pushed yet.
+- **Next up:** the new ideas #58, #60, #61, #66–#69 (picked by the user on 2026-10-22; #59 and #62–#65 were dropped). Everything before them is built, pushed and deployed.
 - **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
 - **How the new-ideas run went:** #42, #43, #12+#44 and #45 ran in fresh sessions; from #46 on they were built in the coordinating session, because new sessions can't be started over Remote Control. Each item was committed only after every suite passed.
 
@@ -15,7 +15,13 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| – | All roadmap items are built | – | Only the smaller follow-ups at the end of ROADMAP.md are left. |
+| 58 | Characters talk while you're away | todo | |
+| 60 | Character arc suggestions | todo | |
+| 61 | Letters | todo | |
+| 66 | World map | todo | |
+| 67 | Language practice mode | todo | |
+| 68 | Co-writing mode | todo | |
+| 69 | Group chat locations | todo | Pairs well with #58. |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
 
