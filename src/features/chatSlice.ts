@@ -1,7 +1,8 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { dbService } from "../services/dbService";
 import { LS_INITIAL_MESSAGES, YOU, AI } from "../utils/constants";
-import { Chat, Message, ConversationTree } from "../types";
+import { Character, Chat, Message, ConversationTree } from "../types";
+import { buildFork } from "./chat/forkChat";
 import { addChildNode, flattenPath, generateNodeId, removeSummaryFromConversation, spliceSummaryIntoConversation } from "./chat/messageTree";
 import { applyMacros, getGreetings } from "./ai/utils/macros";
 
@@ -49,6 +50,22 @@ export const addChat = createAsyncThunk(
       const newChat = { title, timestamp, content: [], characterIds: characterIds || [], authorNote };
       const id = await dbService.addChat(newChat);
       return { id, ...newChat };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
+// Fork into a new chat (#86): see buildFork. Resolves to the new chat.
+export const forkChat = createAsyncThunk(
+  "chat/fork",
+  async ({ chatId, upToMessageId, character }: { chatId: number; upToMessageId: string; character?: Character }, { rejectWithValue }) => {
+    try {
+      const chat = await dbService.getChatById(chatId);
+      const fork = buildFork(chat, upToMessageId, character);
+      if (!fork) throw new Error("That message isn't in this chat any more.");
+      const id = await dbService.addChat(fork);
+      return { id, ...fork } as Chat;
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
@@ -690,6 +707,9 @@ const chatSlice = createSlice({
       })
       .addCase(addChat.fulfilled, (state, action) => {
         state.chats.push(action.payload as Chat);
+      })
+      .addCase(forkChat.fulfilled, (state, action) => {
+        state.chats.push(action.payload);
       })
       .addCase(addChat.rejected, (state, action) => {
         state.error = action.payload as string;

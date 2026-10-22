@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from "react";
 import { useColorTheme } from "../../hooks/useColorTheme";
-import { FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask, FaBookmark, FaStar, FaCode, FaVolumeUp, FaStop, FaLanguage } from "react-icons/fa";
+import { FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask, FaBookmark, FaStar, FaCode, FaVolumeUp, FaStop, FaLanguage, FaCodeBranch } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { cn } from "../../utils/cn";
 import { CharacterVoice, Message } from "../../types";
@@ -54,6 +54,7 @@ interface ChatMessageProps {
   onUndoSummary?: (msg: Message) => void; // take a compression or chapter back out
   onTranslate?: (msg: Message) => void; // language practice (#67)
   documentView?: boolean; // co-writing mode (#68): a paragraph of the shared story
+  onFork?: (msg: Message) => void; // start a new chat from this message (#86)
   onInspect?: (msg: Message) => void; // "Show what was sent" for an AI reply (#31)
   onReact?: (msg: Message, emoji: string) => void; // your emoji reaction to a reply (#11)
   reactorName?: string; // who left msg.characterReaction, for its label
@@ -113,6 +114,7 @@ const ChatMessage = React.memo(({
   onUndoSummary,
   onTranslate,
   documentView = false,
+  onFork,
   onInspect,
   onReact,
   reactorName,
@@ -147,6 +149,9 @@ const ChatMessage = React.memo(({
   const canInspect = Boolean(onInspect && !isUser && !msg.isImpersonated);
   const bookmarkLabel = msg.bookmarked ? "Remove bookmark" : "Bookmark";
   const handleReact = useCallback((emoji: string) => onReact?.(msg, emoji), [onReact, msg]);
+  // Fork into a new chat (#86): from any real message.
+  const canFork = Boolean(onFork && msg.id && !msg.isSystem);
+  const handleFork = useCallback(() => onFork?.(msg), [onFork, msg]);
   const canReact = Boolean(onReact && !isUser && msg.id);
   // "Read aloud" (#12) on a character's reply; a voice note has its own
   // play button instead. It's a stop button while that reply is speaking.
@@ -236,6 +241,7 @@ const ChatMessage = React.memo(({
     ...(onToggleBookmark ? [{ label: bookmarkLabel, icon: FaStar, onSelect: handleToggleBookmark }] : []),
     ...(canInspect ? [{ label: "Show what was sent", icon: FaCode, onSelect: handleInspect }] : []),
     ...(canTranslate ? [{ label: "Translate", icon: FaLanguage, onSelect: handleTranslate, disabled: translating }] : []),
+    ...(canFork ? [{ label: "Start a new chat from here", icon: FaCodeBranch, onSelect: handleFork, disabled: aiLoading }] : []),
     ...(onDeleteBranch ? [{ label: siblingInfo ? "Delete this variant" : "Delete message", icon: FaTrash, onSelect: handleDeleteBranch, disabled: aiLoading, danger: true }] : []),
   ];
   const actionSheet = (
@@ -355,6 +361,7 @@ const ChatMessage = React.memo(({
               <TermLink label="continue" onClick={handleContinue} disabled={aiLoading} title="Ask the model to keep writing from where this reply left off" />
             )}
             <TermLink label="edit" onClick={handleEdit} disabled={isUser && aiLoading} />
+            {canFork && <TermLink label="fork" onClick={handleFork} disabled={aiLoading} aria-label="Start a new chat from here" />}
             {onDeleteBranch && (
               <TermLink
                 label="rm"
@@ -730,6 +737,16 @@ const ChatMessage = React.memo(({
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>{bookmarkLabel}</TooltipContent>
+                  </Tooltip>
+                )}
+                {canFork && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" onClick={handleFork} disabled={aiLoading} aria-label="Start a new chat from here" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
+                        <FaCodeBranch size={11} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Start a new chat from here (a "what if")</TooltipContent>
                   </Tooltip>
                 )}
                 {canTranslate && (
