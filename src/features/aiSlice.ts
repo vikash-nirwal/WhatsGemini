@@ -13,6 +13,7 @@ import { extractBeatTag } from "./chat/storyScript";
 import { extractGameOverTag, GameOutcome } from "./chat/miniGames";
 import { extractStateBlock } from "./chat/sceneState";
 import { buildBackdropPrompt } from "./chat/backdrop";
+import { buildMapPrompt } from "./world/worldMap";
 import { modelSeesImages } from "./ai/vision";
 import { appendCharacterImages } from "./ai/utils/imageProcessing";
 import type { NormalizedImage } from "./ai/types";
@@ -581,6 +582,32 @@ export const generateBackdropImage = createAsyncThunk(
       return result.images[0];
     } catch (error: any) {
       return rejectWithValue(error.message || "Failed to make a backdrop.");
+    }
+  }
+);
+
+// A World's map (#66): a wide illustrated map with its places as landmarks.
+export const generateWorldMapImage = createAsyncThunk(
+  "ai/generateWorldMapImage",
+  async ({ world, places, artStyle }: { world: Pick<World, "name" | "premise" | "tone">; places: string[]; artStyle?: ArtStyle }, { getState, rejectWithValue }) => {
+    try {
+      const settings = (getState() as RootState).settings;
+      const imageProviderId = settings.imageProvider;
+      const useSdWebui = imageProviderId === "sdwebui";
+      const imageConfig = useSdWebui
+        ? { apiKey: null }
+        : await resolveProviderConfig(imageProviderId, IMAGE_PROVIDERS[imageProviderId]?.capabilities.requiresBaseUrl || false);
+      const target = resolveImagePromptTarget({ providerId: imageProviderId, imageModel: settings.imageModel, sdWebuiModel: settings.sdWebuiModel });
+      const result = await generateImage(
+        imageProviderId, imageConfig, useSdWebui, settings.imageModel,
+        await rewordForTagModel(settings, target, buildMapPrompt(world, places, ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE])),
+        useSdWebui ? { width: 1024, height: 768 } : {},
+        undefined, undefined, settings.safetySettings, undefined, settings.geminiImageSize, "4:3"
+      );
+      if (!result.images || result.images.length === 0) throw new Error(result.warning?.replace(/^\s*\[Warning:\s*|\]\s*$/g, "") || "No image was generated. Check your image provider in Settings.");
+      return result.images[0];
+    } catch (error: any) {
+      return rejectWithValue(error.message || "Failed to draw the map.");
     }
   }
 );

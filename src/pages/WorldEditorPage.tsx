@@ -1,10 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FaMagic, FaCheck, FaPlus, FaGlobe } from "react-icons/fa";
+import { FaMagic, FaCheck, FaPlus, FaGlobe, FaMap } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { addWorld, updateWorld } from "../features/worldSlice";
-import { generateAssistText } from "../features/aiSlice";
-import { LoreEntry } from "../types";
+import { generateAssistText, generateWorldMapImage } from "../features/aiSlice";
+import { LoreEntry, WorldMap } from "../types";
+import { WorldMapView } from "src/components/molecules/WorldMapView";
+import { readPhoto } from "../features/chat/photoAttachments";
+import { dataUrlToBlob, savePortraitBlob } from "../features/ai/utils/portraitUtils";
 import { useColorTheme } from "../hooks/useColorTheme";
 import { Button } from "src/components/atoms/button";
 import { Card } from "src/components/atoms/card";
@@ -32,6 +35,7 @@ const WorldEditorPage = () => {
   const [tone, setTone] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [loreEntries, setLoreEntries] = useState<LoreEntry[]>([]);
+  const [map, setMap] = useState<WorldMap | undefined>(undefined);
 
   useEffect(() => {
     if (editWorld) {
@@ -41,6 +45,7 @@ const WorldEditorPage = () => {
       setTone(editWorld.tone || "");
       setTags(editWorld.tags || []);
       setLoreEntries(editWorld.loreEntries || []);
+      setMap(editWorld.map);
     } else {
       setName("");
       setPremise("");
@@ -48,8 +53,33 @@ const WorldEditorPage = () => {
       setTone("");
       setTags([]);
       setLoreEntries([]);
+      setMap(undefined);
     }
   }, [editWorld]);
+
+  // World map (#66): generated from the premise and the lorebook's place
+  // names, or uploaded.
+  const mapInputRef = useRef<HTMLInputElement>(null);
+  const [mapBusy, setMapBusy] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
+  const handleGenerateMap = async () => {
+    if (!name.trim() || !premise.trim()) {
+      setMapError("Give the world a name and premise first.");
+      return;
+    }
+    setMapError(null);
+    setMapBusy(true);
+    try {
+      const places = [...new Set([...(map?.pins || []).map((p) => p.name), ...loreEntries.flatMap((e) => e.keywords.slice(0, 1))])].filter(Boolean);
+      const image = await dispatch(generateWorldMapImage({ world: { name: name.trim(), premise: premise.trim(), tone: tone.trim() || undefined }, places })).unwrap();
+      const saved = await savePortraitBlob(await dataUrlToBlob(image), "world_map").catch(() => image);
+      setMap({ image: saved, pins: map?.pins || [] });
+    } catch (err: any) {
+      setMapError(typeof err === "string" ? err : "Couldn't draw the map. Check your image provider in Settings.");
+    } finally {
+      setMapBusy(false);
+    }
+  };
 
   const [expanding, setExpanding] = useState(false);
   const [assistError, setAssistError] = useState<string | null>(null);
@@ -103,7 +133,7 @@ const WorldEditorPage = () => {
       return;
     }
     setSaveError(null);
-    const payload = { name: name.trim(), premise: premise.trim(), settingDetails: settingDetails.trim() || undefined, tone: tone.trim() || undefined, tags, loreEntries };
+    const payload = { name: name.trim(), premise: premise.trim(), settingDetails: settingDetails.trim() || undefined, tone: tone.trim() || undefined, tags, loreEntries, map };
     if (editWorld) {
       await dispatch(updateWorld({ ...editWorld, ...payload }));
     } else {
@@ -176,6 +206,39 @@ const WorldEditorPage = () => {
             <PresetSelectField label="Tone" value={tone} onChange={setTone} presets={WORLD_TONE_PRESETS} customPlaceholder="e.g. Whimsical fairy-tale horror" />
             <ChipSelectField label="Tags" value={tags} onChange={setTags} presets={TAG_PRESETS} placeholder="Add a tag..." />
             {assistError && <p className="text-xs text-destructive">{assistError}</p>}
+          </Card>
+
+          <Card className="p-6 flex flex-col gap-4">
+            <h3 className="font-semibold text-[15px] text-foreground flex items-center gap-2">
+              <FaMap size={13} className="text-subtle" /> Map
+            </h3>
+            <p className="text-xs text-subtle">A map of the world with its places pinned. In a chat set in this world (with the scene tracked) or an adventure, the place the story is at shows as "you are here".</p>
+            {map && <WorldMapView map={map} onChange={setMap} />}
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={handleGenerateMap} disabled={mapBusy}>
+                {mapBusy ? "Drawing..." : map ? "Redraw" : "Generate"}
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => mapInputRef.current?.click()}>Upload</Button>
+              {map && <Button type="button" variant="ghost" size="sm" onClick={() => setMap(undefined)}>Remove</Button>}
+              <input
+                ref={mapInputRef}
+                type="file"
+                accept="image/*"
+                data-testid="world-map-input"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (!file) return;
+                  try {
+                    setMap({ image: await readPhoto(file), pins: map?.pins || [] });
+                  } catch (err: any) {
+                    setMapError(err?.message || "Couldn't read that image.");
+                  }
+                }}
+              />
+            </div>
+            {mapError && <p className="text-xs text-destructive">{mapError}</p>}
           </Card>
 
           <LorebookStep

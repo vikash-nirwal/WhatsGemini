@@ -37,12 +37,12 @@ export const fetchWorldById = createAsyncThunk(
 
 export const addWorld = createAsyncThunk(
   "world/add",
-  async ({ name, premise, settingDetails, tone, loreEntries, coverImage, tags }: Omit<World, "id">, { rejectWithValue }) => {
+  async ({ name, premise, settingDetails, tone, loreEntries, coverImage, tags, map }: Omit<World, "id">, { rejectWithValue }) => {
     try {
       if (!name.trim() || !premise.trim()) {
         throw new Error("World name and premise are required.");
       }
-      const newWorld = { name, premise, settingDetails, tone, loreEntries, coverImage, tags };
+      const newWorld = { name, premise, settingDetails, tone, loreEntries, coverImage, tags, map };
       const id = await dbService.addWorld(newWorld);
       return { id, ...newWorld } as World;
     } catch (error) {

@@ -8,7 +8,6 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 ## Worlds and stories
 
-66. **World map** (M). Generate a map picture for a World with the image provider (or upload one), and pin its places on it. The scene tracker's location (#9) and an adventure's current place show as a "you are here" marker.
 68. **Co-writing mode** (M). Write a story together instead of roleplaying: you and the character take turns adding paragraphs to one shared text, shown as a document rather than bubbles. The character can suggest what happens next, and the text exports like a story (#20).
 
 ## Practical

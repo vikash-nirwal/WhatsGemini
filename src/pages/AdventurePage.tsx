@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo, FaImage, FaSyncAlt, FaTimes, FaPalette, FaBookOpen, FaComments, FaFont, FaShieldAlt, FaCompressArrowsAlt, FaDiceD20, FaListUl, FaBrain, FaBookmark } from "react-icons/fa";
+import { FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo, FaImage, FaSyncAlt, FaTimes, FaPalette, FaBookOpen, FaComments, FaFont, FaShieldAlt, FaCompressArrowsAlt, FaDiceD20, FaListUl, FaBrain, FaBookmark, FaMap } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { deleteAdventure, addAdventureMessage, updateAdventureStatus, incrementAdventureUsage, updateAdventureMessage, updateAdventureRules, removeAdventureCompressionSummary, updateAdventureMemory, insertAdventureCompressionSummary, updateAdventureStoryScript } from "../features/adventureSlice";
 import { beatStamp, beatStarts, extractBeatTag, isFinished, moveBeat } from "../features/chat/storyScript";
 import StoryScriptDialog from "src/components/organisms/StoryScriptDialog";
+import { WorldMapView } from "src/components/molecules/WorldMapView";
+import { latestPinIn } from "../features/world/worldMap";
 import { generateAIResponse, generateAdventureSceneImage, autoCompressAdventure, extractCharacterMemory, summarizeChapter } from "../features/aiSlice";
 import { applyMemoryChanges } from "../features/ai/utils/memoryExtraction";
 import { buildChatHistory, buildPostHistoryNote } from "../features/ai/utils/promptComposition";
@@ -133,6 +135,7 @@ const AdventurePage = () => {
   const [statsOpen, setStatsOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [storyOpen, setStoryOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const [endingChapter, setEndingChapter] = useState(false);
   const roleplayStyle = useAppSelector((state) => state.settings.roleplayStyle);
   // Streams the narrator's reply in, tagged so only this adventure shows it.
@@ -476,6 +479,7 @@ const AdventurePage = () => {
       active: skillChecks,
       onClick: () => dispatch(updateAdventureRules({ adventureId: adventure.id, rules: { ...adventure.rules, skillChecks: !skillChecks || undefined } })),
     },
+    ...(world?.map ? [{ icon: FaMap, label: "World map", onClick: () => setMapOpen(true) }] : []),
     {
       icon: FaBookOpen,
       label: !script ? "Story script" : script.beats.length === 0 ? "Story script: on" : isFinished(script) ? "Story script: all beats done" : `Story script: beat ${script.currentBeat + 1} of ${script.beats.length}`,
@@ -749,6 +753,14 @@ const AdventurePage = () => {
         )}
       </div>
       <EmotionPopup trigger={popupTrigger} durationMs={emotionPopupDuration} />
+      {world?.map && (
+        <Dialog open={mapOpen} onOpenChange={setMapOpen}>
+          <DialogContent className="max-w-3xl">
+            <DialogTitle>{world.name}</DialogTitle>
+            <WorldMapView map={world.map} hereId={latestPinIn(adventure.content.filter((m) => m.role === AI).map((m) => m.txt || ""), world.map.pins)?.id} />
+          </DialogContent>
+        </Dialog>
+      )}
       <StoryScriptDialog open={storyOpen} onOpenChange={setStoryOpen} script={adventure.storyScript} onSave={(next) => dispatch(updateAdventureStoryScript({ adventureId: adventure.id, storyScript: next }))} />
       <Dialog open={memoryOpen} onOpenChange={setMemoryOpen}>
         <DialogContent className="max-w-md">

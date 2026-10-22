@@ -556,6 +556,20 @@ export interface World {
   loreEntries?: LoreEntry[]; // reuses the same keyword-triggered world info mechanism as Character.loreEntries
   coverImage?: string; // local:/data: ref, same shape as Character.avatar
   tags?: string[]; // discoverability tags, mirrors Character.tags
+  map?: WorldMap; // a picture of the world with its places pinned (#66)
+}
+
+// A place pinned on a World's map; x and y are percent of the picture.
+export interface MapPin {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+}
+
+export interface WorldMap {
+  image: string; // local:/data: ref, like coverImage
+  pins: MapPin[];
 }
 
 export type AdventureStatus = "active" | "completed";

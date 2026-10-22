@@ -22,6 +22,8 @@ import { DisplayImage } from "src/components/molecules/DisplayImage";
 import { generateBackdropImage } from "src/features/aiSlice";
 import { describeSetting } from "src/features/chat/backdrop";
 import { groupMemoryFacts, MEMORY_CATEGORY_LABELS, nextMemoryCategory } from "src/features/ai/utils/memoryExtraction";
+import { WorldMapView } from "src/components/molecules/WorldMapView";
+import { pinForLocation } from "src/features/world/worldMap";
 import { readPhoto } from "src/features/chat/photoAttachments";
 import { dataUrlToBlob, savePortraitBlob } from "src/features/ai/utils/portraitUtils";
 
@@ -127,6 +129,7 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
   const chat = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId));
   const appTextingMode = useAppSelector((state) => state.settings.textingMode);
   const worlds = useAppSelector((state) => state.world.worlds);
+  const chatWorld = chat?.worldId != null ? worlds.find((w) => w.id === chat.worldId) : undefined;
   // Room members (#24), for the relationships editor.
   const allCharacters = useAppSelector((state) => state.character.characters);
   const members = (chat?.characterIds || []).map((id) => allCharacters.find((c) => c.id === id)).filter((c): c is Character => Boolean(c));
@@ -652,6 +655,14 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
                   ))}
                 </Select>
                 <span className="text-[11px] text-subtle">The world's premise, details and lorebook apply to every reply here, like in an adventure.</span>
+                {/* The world's map (#66), with where the scene is */}
+                {chatWorld?.map && (
+                  <WorldMapView
+                    map={chatWorld.map}
+                    hereId={pinForLocation(chat?.sceneState?.location, chatWorld.map.pins)?.id}
+                    className="mt-2"
+                  />
+                )}
               </div>
             ) : (
               <p className="text-[12.5px] text-subtle">
