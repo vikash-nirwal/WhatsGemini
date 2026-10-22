@@ -1,28 +1,20 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, insertCompressionSummary, removeCompressionSummary, updateChatMessage, updateChatOptions, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatMemory, updateChatGreeting, setPendingFollowupAt } from "../features/chatSlice";
+import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, insertCompressionSummary, removeCompressionSummary, updateChatMessage, updateChatOptions, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatGreeting, setPendingFollowupAt } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
-import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage, summarizeChapter, writeDiaryEntry, generateAssistText, generateBackdropImage } from "../features/aiSlice";
+import { generateAIResponse, compressChatHistory, autoCompressChat, generateAvatarImage, summarizeChapter, generateAssistText, generateBackdropImage } from "../features/aiSlice";
 import { parseSlashCommand, SLASH_COMMANDS } from "../features/chat/slashCommands";
 import { buildStoryMarkdown, storyFileName } from "../features/chat/storyExport";
 import { resolveTurnModel } from "../features/ai/modelResolution";
-import { appearanceLocksFor, lockedLookFor } from "../features/ai/utils/appearanceLock";
+import { lockedLookFor } from "../features/ai/utils/appearanceLock";
 import { useChatRecap } from "../features/chat/useChatRecap";
-import { beatStamp, moveBeat } from "../features/chat/storyScript";
+import { beatStamp } from "../features/chat/storyScript";
 import { absentMemberIds, mergeState } from "../features/chat/sceneState";
-import { buildOffscreenTalkSection } from "../features/chat/offscreenTalk";
-import { buildLetterSection, letterReplyDraft } from "../features/character/letters";
-import { browserLanguageName, buildTranslatePrompt } from "../features/chat/languagePractice";
-import { buildNextIdeasPrompt } from "../features/chat/coWriting";
-import { buildRelationshipPrompt, parseRelationshipReply, relationshipCheckDue } from "../features/character/relationshipEvolution";
-import { addGrowth, arcCheckDue, buildArcPrompt, parseArcReply } from "../features/character/characterArc";
-import { buildStagePrompt, parseStageReply, stageCheckDue } from "../features/character/relationshipStages";
-import { buildKnowsSection, factsAboutUser } from "../features/character/intimacy";
+import { letterReplyDraft } from "../features/character/letters";
 import { currentBlock, presenceFor, replyDelayMs } from "../features/character/schedule";
-import { latestStorySummary } from "../features/chat/recap";
 import { buildCelebrationDirective, datesToCelebrate } from "../features/character/importantDates";
 import { buildEventDirective, drawEvent } from "../features/chat/eventDeck";
-import { buildGameStartDirective, gameLabel, GameOutcome } from "../features/chat/miniGames";
+import { buildGameStartDirective } from "../features/chat/miniGames";
 import GameDialog from "../components/organisms/GameDialog";
 import BranchMapDialog from "../components/organisms/BranchMapDialog";
 import CallScreen from "../components/organisms/CallScreen";
@@ -36,10 +28,12 @@ import { AlbumDialog } from "../components/organisms/AlbumDialog";
 import { ScenarioCardsDialog, TimeSkipDialog } from "../components/organisms/ScenarioCardsDialog";
 import { buildOpeningDirective, buildTimeSkipPrompt, parseTimeSkip, ScenarioCard } from "../features/chat/scenarioCards";
 import { occasionPhotoDirective, photoForOccasion } from "../features/character/album";
-import { buildDraftReplyPrompt, cleanDraftReply, buildReplySuggestionsPrompt, parseReplySuggestions, NARRATIVE_CONTEXT_MESSAGES, SURPRISE_DIRECTIVE } from "../features/ai/utils/narrativeTools";
-import { appendDiaryEntry } from "../features/ai/utils/diary";
+import { buildDraftReplyPrompt, cleanDraftReply, NARRATIVE_CONTEXT_MESSAGES, SURPRISE_DIRECTIVE } from "../features/ai/utils/narrativeTools";
 import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl, dataUrlToBlob } from "../features/ai/utils/portraitUtils";
 import ChatWindow from "src/components/organisms/ChatWindow";
+import { useBackgroundUpdates } from "./chat/useBackgroundUpdates";
+import { useReplyEffects } from "./chat/useReplyEffects";
+import { knowsNoteFor, recentLetterNote, roomContextFor } from "./chat/promptNotes";
 import MessageInput from "src/components/organisms/MessageInput";
 import Header, { HeaderAction } from "src/components/organisms/Header";
 import PortraitPreviewModal from "src/components/organisms/PortraitPreviewModal";
@@ -47,17 +41,16 @@ import AutoReplyModal from "src/components/organisms/AutoReplyModal";
 import PersonaModal from "src/components/organisms/PersonaModal";
 import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20, FaLayerGroup, FaGamepad, FaCodeBranch, FaPhoneAlt, FaBookOpen, FaImages, FaTheaterMasks, FaForward } from "react-icons/fa";
 import { Button } from "src/components/atoms/button";
-import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DIARY_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
+import { AI, YOU, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { Message, Chat, Character, SceneState } from "../types";
+import { Message, Chat, Character } from "../types";
 import { stripLeakedBase64 } from "../features/ai/utils/apiUtils";
 import { buildSystemInstruction, buildTurnContext, AUTO_REPLY_DIRECTIVE, FOLLOWUP_CONTINUATION_PROMPT, RoomContext, SceneContext } from "../features/ai/utils/promptComposition";
 import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
-import { applyMemoryChanges, carryMemoryCategories } from "../features/ai/utils/memoryExtraction";
 import { effectiveContentRating } from "../features/character/contentRating";
 import { resolveNextSpeaker, parseMention, stripSpeakerPrefix, getActiveParticipants } from "../features/ai/utils/roomRouting";
-import { buildNarrationPrompt, buildRelationshipNotes, buildWhoRepliesPrompt, CHAIN_DIRECTIVE, cleanNarration, everyoneAfter, MAX_CHAIN, parseWhoReplies } from "../features/ai/utils/roomTurns";
-import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo, generateNodeId } from "../features/chat/messageTree";
+import { CHAIN_DIRECTIVE, everyoneAfter, MAX_CHAIN } from "../features/ai/utils/roomTurns";
+import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo } from "../features/chat/messageTree";
 import { estimateTokens, estimateHistoryTokens } from "../features/ai/utils/tokenEstimator";
 import { truncateHistory, trimToLatestSummary, latestSummaryIndex, countSeedMessages, buildSummaryMessages, formatTranscript, TranscriptNames } from "../features/ai/utils/chatHistoryUtils";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
@@ -186,73 +179,9 @@ const ChatPage = () => {
 
   // Only built for a real room - a 1:1 chat's buildTurnContext call gets
   // `undefined` here and its prompt/history come out exactly as before
-  // Phase 12. `speaker` is whoever is about to reply; every OTHER room
-  // member's name goes in `otherParticipants` (that speaker's own "who else
-  // is here" context), and `speakerNames` labels every participant's lines
-  // in history so a reply can tell who said what.
-  // Characters know about each other (#74): a short summary of each other
-  // relationship this character knows of, from that 1:1 chat and memory.
-  const knowsNoteFor = () => {
-    if (!characterData?.knowsAbout?.length) return undefined;
-    const now = Date.now();
-    const others = characterData.knowsAbout
-      .map((id) => characters.find((c) => c.id === id))
-      .filter((c): c is Character => Boolean(c) && c!.id !== characterData.id)
-      .map((other) => {
-        const chat = chats.find((c) => c.characterIds?.length === 1 && c.characterIds[0] === other.id);
-        const content = chat?.content || [];
-        return {
-          name: other.name,
-          relationship: other.relationship,
-          lastAt: content[content.length - 1]?.timestamp,
-          recentCount: content.filter((m) => (m.timestamp || 0) > now - 7 * 86_400_000).length,
-          facts: factsAboutUser(other.memory, other.memoryCategories),
-        };
-      });
-    return buildKnowsSection(characterData.name, activePersona?.name?.trim() || "the user", others, now);
-  };
-
-  // The latest letter this character wrote you (#61), while it's still
-  // fresh: within the last ten messages of this chat.
-  const recentLetterNote = () => {
-    const letter = [...(characterData?.letters || [])].reverse().find((l) => l.text && l.chatId === chatIdNum);
-    if (!letter) return undefined;
-    const content = currentChat?.content || [];
-    const windowStart = content.length > 10 ? content[content.length - 10].timestamp || 0 : 0;
-    return letter.at >= windowStart ? buildLetterSection(letter, activePersona?.name?.trim() || "the user") : undefined;
-  };
-
-  // The latest conversation members had while you were away (#58), while
-  // it's still recent: within the last ten messages.
-  const recentOffscreenTalk = () => {
-    const talk = currentChat?.offscreenTalks?.[currentChat.offscreenTalks.length - 1];
-    if (!talk || talk.lines.length === 0) return undefined;
-    const content = currentChat?.content || [];
-    const windowStart = content.length > 10 ? content[content.length - 10].timestamp || 0 : 0;
-    if (talk.at < windowStart) return undefined;
-    return buildOffscreenTalkSection(talk, Object.fromEntries(roomCharacters.map((c) => [c.id, c.name])));
-  };
-
-  const buildRoomContext = (speaker: Character): RoomContext | undefined => {
-    if (!isRoom) return undefined;
-    const others = roomCharacters.filter((c) => c.id !== speaker.id);
-    return {
-      speakerNames: Object.fromEntries(roomCharacters.map((c) => [c.id, c.name])),
-      otherParticipants: others.map((c) => c.name),
-      otherParticipantImages: others
-        .filter((c) => c.appearanceImages && c.appearanceImages.length > 0)
-        .map((c) => ({ name: c.name, images: c.appearanceImages! })),
-      otherLoreEntries: others.flatMap((c) => c.loreEntries || []),
-      othersAllowNsfw: others.every((c) => effectiveContentRating(c) === "nsfw"),
-      groupScenario: currentChat?.scenario,
-      groupMemory: currentChat?.memory,
-      groupPinnedMemory: currentChat?.pinnedMemory,
-      otherAppearanceLocks: appearanceLocksFor(others),
-      relationshipNotes: buildRelationshipNotes(speaker.id, currentChat?.roomRelationships, Object.fromEntries(roomCharacters.map((c) => [c.id, c.name]))),
-      thoughts: currentChat?.innerThoughts,
-      offscreenTalk: recentOffscreenTalk(),
-    };
-  };
+  // Phase 12. See roomContextFor.
+  const buildRoomContext = (speaker: Character): RoomContext | undefined =>
+    isRoom ? roomContextFor(speaker, roomCharacters, currentChat) : undefined;
 
   // Real names for summarization/memory-extraction transcripts.
   const transcriptNames = (): TranscriptNames => ({
@@ -343,8 +272,8 @@ const ChatPage = () => {
     [personas, currentChat?.personaId, globalActivePersonaId]
   );
   // Set here rather than in `scene` above: they need the persona's name.
-  scene.letterNote = !isRoom ? recentLetterNote() : undefined;
-  scene.knowsNote = !isRoom ? knowsNoteFor() : undefined;
+  scene.letterNote = !isRoom ? recentLetterNote(characterData, currentChat, chatIdNum, activePersona?.name?.trim() || "the user") : undefined;
+  scene.knowsNote = !isRoom ? knowsNoteFor(characterData, characters, chats, activePersona?.name?.trim() || "the user") : undefined;
   const globalActivePersona = useMemo(
     () => personas.find((p) => p.id === globalActivePersonaId) || personas[0],
     [personas, globalActivePersonaId]
@@ -500,122 +429,6 @@ const ChatPage = () => {
     }
   }, [dispatch, messages, currentChat]);
 
-  // Every MEMORY_EXTRACTION_INTERVAL messages, distill new durable facts from
-  // the recent conversation into long-term memory. Independent of the
-  // compression threshold (which defaults to off) so it works for every
-  // character. Best-effort/silent: a failure here shouldn't interrupt the
-  // conversation. `speaker` defaults to the chat's primary character
-  // (unchanged behavior for a 1:1 chat) but a room passes whichever bot
-  // actually just replied - only to gate/label the extraction call, though:
-  // in a room the extracted facts merge into the room's own Chat.memory, not
-  // that (or any) participant's personal Character.memory, so a group
-  // conversation never writes back onto a character used outside this room.
-  //
-  // Counted from the message count at the last extraction (per chat, this
-  // session) rather than `length % interval === 0`: impersonated/silent sends,
-  // follow-ups and compression all shift the count, and the modulo check
-  // could step over its multiple and go quiet for dozens of messages (or
-  // re-fire on every regenerate that landed on one).
-  const memoryBaselineRef = useRef<Record<number, number>>({});
-  const maybeExtractMemory = async (allMessages: Message[], speaker = characterData) => {
-    if (!speaker || !chatIdNum || allMessages.length === 0) return;
-    const count = allMessages.length;
-    let baseline = memoryBaselineRef.current[chatIdNum];
-    // First call this session: assume the last multiple of the interval
-    // strictly below `count` was already handled, so a chat reaching exactly
-    // 12, 24, ... messages still extracts right away, as it used to.
-    if (baseline == null) baseline = Math.floor((count - 1) / MEMORY_EXTRACTION_INTERVAL) * MEMORY_EXTRACTION_INTERVAL;
-    if (count < baseline) baseline = count; // compressed, rewound or switched to a shorter branch
-    memoryBaselineRef.current[chatIdNum] = baseline;
-    if (count - baseline < MEMORY_EXTRACTION_INTERVAL) return;
-    memoryBaselineRef.current[chatIdNum] = count;
-
-    try {
-      const recentMessages = allMessages.slice(-Math.min(count - baseline, MEMORY_EXTRACTION_INTERVAL * 2));
-      const existingMemory = chatScopedMemory ? (currentChat?.memory || []) : (speaker.memory || []);
-      const pinned = chatScopedMemory ? (currentChat?.pinnedMemory || []) : (speaker.pinnedMemory || []);
-      const names = transcriptNames();
-      const changes = await dispatch(
-        extractCharacterMemory({
-          recentMessages,
-          memory: existingMemory,
-          pinnedMemory: pinned,
-          names: { ...names, charName: isRoom ? undefined : speaker.name },
-        })
-      ).unwrap();
-
-      const hasChanges = changes.added.length + changes.updated.length + changes.forgotten.length + changes.reinforced.length > 0;
-      if (hasChanges) {
-        // Applied to the same snapshot the model was shown, since the
-        // changes refer to its facts by position.
-        const merged = applyMemoryChanges(existingMemory, changes, pinned);
-        if (chatScopedMemory && chatIdNum) {
-          const memoryCategories = carryMemoryCategories(merged, pinned, currentChat?.memoryCategories, existingMemory, changes);
-          await dispatch(updateChatMemory({ chatId: chatIdNum, memory: merged, memoryCategories: memoryCategories ?? null }));
-        } else {
-          // Re-read the character before writing: `speaker` was captured
-          // before the extraction call, and saving it whole would undo
-          // anything written meanwhile (e.g. this turn's selfie in gallery).
-          const fresh = (await dispatch(fetchCharacterById(speaker.id)).unwrap().catch(() => speaker)) || speaker;
-          const memoryCategories = carryMemoryCategories(merged, pinned, fresh.memoryCategories, existingMemory, changes);
-          await dispatch(updateCharacter({ ...fresh, memory: merged, memoryCategories }));
-        }
-      }
-    } catch (err) {
-      console.warn("Memory extraction failed (non-fatal):", err);
-      warnBackgroundFailure("memory", typeof err === "string" ? err : (err as Error)?.message);
-    }
-  };
-
-  // Diary (#5): every DIARY_INTERVAL messages a character with the diary on
-  // writes a private first-person entry about the recent conversation: in a
-  // 1:1 chat only when it shares the character's memory, so a "this chat
-  // only" what-if never reaches the diary, and in a group chat for each
-  // member who keeps one. Same per-chat baseline counting as memory
-  // extraction above.
-  const diaryBaselineRef = useRef<Record<number, number>>({});
-  const maybeWriteDiary = async (allMessages: Message[], speaker = characterData) => {
-    // A group chat writes one entry per member with the diary on, each from
-    // their own point of view; a 1:1 chat only when it shares the character's memory.
-    const writers = isRoom
-      ? roomCharacters.filter((c) => c.diaryEnabled)
-      : speaker?.diaryEnabled && !chatScopedMemory ? [speaker] : [];
-    if (writers.length === 0 || !chatIdNum || allMessages.length === 0) return;
-    const count = allMessages.length;
-    let baseline = diaryBaselineRef.current[chatIdNum];
-    if (baseline == null) baseline = Math.floor((count - 1) / DIARY_INTERVAL) * DIARY_INTERVAL;
-    if (count < baseline) baseline = count;
-    diaryBaselineRef.current[chatIdNum] = baseline;
-    if (count - baseline < DIARY_INTERVAL) return;
-    diaryBaselineRef.current[chatIdNum] = count;
-
-    const recent = trimToLatestSummary(allMessages).slice(-DIARY_INTERVAL);
-    for (const writer of writers) {
-      try {
-        const text = await dispatch(writeDiaryEntry({
-          charName: writer.name,
-          userName: activePersona?.name?.trim() || "the user",
-          recentMessages: recent,
-          names: transcriptNames(),
-          previousEntry: writer.diary?.[writer.diary.length - 1],
-          others: isRoom ? roomCharacters.filter((c) => c.id !== writer.id).map((c) => c.name) : undefined,
-        })).unwrap();
-        if (!text) continue;
-        const fresh = (await dispatch(fetchCharacterById(writer.id)).unwrap().catch(() => writer)) || writer;
-        await dispatch(updateCharacter({
-          ...fresh,
-          diary: appendDiaryEntry(fresh.diary, { id: generateNodeId(), timestamp: Date.now(), chatId: chatIdNum, text }),
-        }));
-      } catch (err) {
-        console.warn("Diary entry failed (non-fatal):", err);
-      }
-    }
-  };
-
-  // Reply suggestions (#16): three short ideas for your next message, shown
-  // under the newest reply when the chat has them switched on. Kept in
-  // memory only; they're for this moment, not the story.
-  const [replySuggestions, setReplySuggestions] = useState<{ forMessageId: string; items: string[] } | null>(null);
   const [draftInjection, setDraftInjection] = useState<{ text: string; nonce: number } | undefined>(undefined);
   // A status reply (#8) arrives with its draft in the route state.
   const routeLocation = useLocation();
@@ -626,128 +439,8 @@ const ChatPage = () => {
     setDraftInjection({ text: draft, nonce: Date.now() });
     routeNavigate(routeLocation.pathname, { replace: true, state: null });
   }, [routeLocation, routeNavigate]);
-  const maybeSuggestReplies = async (allMessages: Message[], speaker = characterData) => {
-    const last = allMessages[allMessages.length - 1];
-    if (!currentChat?.replySuggestions || !speaker || !last?.id || last.role !== AI) return;
-    const userName = activePersona?.name?.trim() || "User";
-    const recent = trimToLatestSummary(allMessages).slice(-NARRATIVE_CONTEXT_MESSAGES);
-    try {
-      const reply = await dispatch(generateAssistText({
-        instruction: buildReplySuggestionsPrompt(userName, speaker.name, formatTranscript(recent, transcriptNames())),
-        background: true,
-      })).unwrap();
-      const items = parseReplySuggestions(reply);
-      if (items.length > 0) setReplySuggestions({ forMessageId: last.id, items });
-    } catch (err) {
-      console.warn("Reply suggestions failed (non-fatal):", err);
-    }
-  };
   const handlePickSuggestion = (text: string) => setDraftInjection({ text, nonce: Date.now() });
 
-  // After each reply: suggestions in parallel (they write nothing), then
-  // memory and the diary one after the other, so their two character saves
-  // can't overwrite each other.
-  // Relationship that evolves (#30): every RELATIONSHIP_INTERVAL messages in
-  // a 1:1 chat, the helper model may suggest a new relationship label for
-  // the user to approve. The check is recorded first, so a failure or a slow
-  // reply never asks twice for the same stretch.
-  const maybeSuggestRelationship = async (allMessages: Message[], speaker = characterData) => {
-    if (!chatIdNum || isRoom || !speaker || roleplayStyle.relationshipSuggestions === false || currentChat?.relationshipSuggestions === false || currentChat?.relationshipSuggestion) return;
-    const count = allMessages.filter((m) => !m.isSystem).length;
-    if (!relationshipCheckDue(count, currentChat?.relationshipCheckedAt)) return;
-    await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { relationshipCheckedAt: count } }));
-    try {
-      const recent = trimToLatestSummary(allMessages).slice(-NARRATIVE_CONTEXT_MESSAGES);
-      const reply = await dispatch(generateAssistText({
-        instruction: buildRelationshipPrompt(speaker.name, activePersona?.name?.trim() || "the user", speaker.relationship || "", formatTranscript(recent, transcriptNames()), latestStorySummary(allMessages)),
-        background: true,
-      })).unwrap();
-      const to = parseRelationshipReply(reply, speaker.relationship || "");
-      if (to) await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { relationshipSuggestion: { from: speaker.relationship || "", to } } }));
-    } catch (err) {
-      console.warn("Relationship check failed (non-fatal):", err);
-    }
-  };
-  const acceptRelationship = () => {
-    const suggestion = currentChat?.relationshipSuggestion;
-    if (!chatIdNum || !suggestion || !characterData) return;
-    dispatch(updateCharacter({ ...characterData, relationship: suggestion.to }));
-    dispatch(updateChatOptions({ chatId: chatIdNum, patch: { relationshipSuggestion: undefined } }));
-    toast.success(`${characterData.name} and you: ${suggestion.to}`);
-  };
-  const dismissRelationship = () => {
-    if (chatIdNum) dispatch(updateChatOptions({ chatId: chatIdNum, patch: { relationshipSuggestion: undefined } }));
-  };
-
-  // Character arc (#60): every ARC_INTERVAL messages in a 1:1 chat that
-  // shares the character's memory, the helper may suggest a note on how
-  // they've grown, for the user to approve. Recorded first, like the
-  // relationship check, so a stretch is never asked about twice.
-  const maybeSuggestArc = async (allMessages: Message[], speaker = characterData) => {
-    if (!chatIdNum || isRoom || chatScopedMemory || !speaker || roleplayStyle.arcSuggestions === false || currentChat?.arcSuggestion) return;
-    const count = allMessages.filter((m) => !m.isSystem).length;
-    if (!arcCheckDue(count, currentChat?.arcCheckedAt)) return;
-    await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { arcCheckedAt: count } }));
-    try {
-      const recent = trimToLatestSummary(allMessages).slice(-NARRATIVE_CONTEXT_MESSAGES);
-      const reply = await dispatch(generateAssistText({
-        instruction: buildArcPrompt(speaker.name, activePersona?.name?.trim() || "the user", [speaker.description, speaker.prompt].filter(Boolean).join(" "), speaker.growth || [], speaker.memory || [], formatTranscript(recent, transcriptNames()), latestStorySummary(allMessages)),
-        background: true,
-      })).unwrap();
-      const note = parseArcReply(reply, speaker.growth || []);
-      if (note) await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { arcSuggestion: note } }));
-    } catch (err) {
-      console.warn("Character arc check failed (non-fatal):", err);
-    }
-  };
-  const acceptArc = async () => {
-    const note = currentChat?.arcSuggestion;
-    if (!chatIdNum || !note || !characterData) return;
-    const fresh = (await dispatch(fetchCharacterById(characterData.id)).unwrap().catch(() => characterData)) || characterData;
-    dispatch(updateCharacter({ ...fresh, growth: addGrowth(fresh.growth, note) }));
-    dispatch(updateChatOptions({ chatId: chatIdNum, patch: { arcSuggestion: undefined } }));
-    toast.success(`Added to how ${characterData.name} has grown`);
-  };
-  const dismissArc = () => {
-    if (chatIdNum) dispatch(updateChatOptions({ chatId: chatIdNum, patch: { arcSuggestion: undefined } }));
-  };
-
-  // Relationship stages (#70): with a stage set, every STAGE_INTERVAL
-  // messages a cheap check may suggest moving a step up or down.
-  const maybeSuggestStage = async (allMessages: Message[], speaker = characterData) => {
-    const stage = currentChat?.stage;
-    if (!chatIdNum || isRoom || !speaker || !stage || currentChat?.stageSuggestion) return;
-    const count = allMessages.filter((m) => !m.isSystem).length;
-    if (!stageCheckDue(count, currentChat?.stageCheckedAt)) return;
-    await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { stageCheckedAt: count } }));
-    try {
-      const recent = trimToLatestSummary(allMessages).slice(-NARRATIVE_CONTEXT_MESSAGES);
-      const reply = await dispatch(generateAssistText({
-        instruction: buildStagePrompt(speaker.name, activePersona?.name?.trim() || "the user", stage, formatTranscript(recent, transcriptNames())),
-        background: true,
-      })).unwrap();
-      const next = parseStageReply(reply, stage);
-      if (next) await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { stageSuggestion: next } }));
-    } catch (err) {
-      console.warn("Relationship stage check failed (non-fatal):", err);
-    }
-  };
-  const acceptStage = () => {
-    if (!chatIdNum || !currentChat?.stageSuggestion) return;
-    dispatch(updateChatOptions({ chatId: chatIdNum, patch: { stage: currentChat.stageSuggestion, stageSuggestion: undefined } }));
-  };
-  const dismissStage = () => {
-    if (chatIdNum) dispatch(updateChatOptions({ chatId: chatIdNum, patch: { stageSuggestion: undefined } }));
-  };
-
-  const runBackgroundUpdates = async (allMessages: Message[], speaker = characterData) => {
-    void maybeSuggestReplies(allMessages, speaker);
-    await maybeExtractMemory(allMessages, speaker);
-    await maybeWriteDiary(allMessages, speaker);
-    await maybeSuggestRelationship(allMessages, speaker);
-    await maybeSuggestArc(allMessages, speaker);
-    await maybeSuggestStage(allMessages, speaker);
-  };
 
   // Adds a call's real usage/cost to this chat's running total - persisted,
   // never reset by compression (compression's own summarization call goes
@@ -788,6 +481,34 @@ const ChatPage = () => {
     if (message && /abort/i.test(message)) return;
     setError(message || "The AI didn't return a reply. Please try again.");
   };
+
+  const {
+    runBackgroundUpdates,
+    replySuggestions,
+    setReplySuggestions,
+    acceptRelationship,
+    dismissRelationship,
+    acceptArc,
+    dismissArc,
+    acceptStage,
+    dismissStage,
+  } = useBackgroundUpdates({ chatIdNum, currentChat, characterData, roomCharacters, isRoom, chatScopedMemory, activePersona, roleplayStyle, transcriptNames, warnBackgroundFailure });
+  const {
+    saveStoryScript,
+    moveStoryBeat,
+    advanceStoryIfDone,
+    saveSceneState,
+    pickNaturalSpeakers,
+    maybeNarrate,
+    advanceGame,
+    saveCharacterReaction,
+    saveCorrection,
+    handleSuggestNext,
+    handleTranslate,
+    savePhotoOutcome,
+    handleReact,
+    handleToggleBookmark,
+  } = useReplyEffects({ chatIdNum, currentChat, characterData, roomCharacters, isRoom, activePersona, messages, transcriptNames, setReplySuggestions });
 
   // --- Auto follow-up: the character can message first after the user goes quiet.
   // Only runs for the chat currently open in this tab - no cross-chat background
@@ -1866,70 +1587,6 @@ const ChatPage = () => {
     URL.revokeObjectURL(url);
   };
 
-  // Story script (#57): saved on the chat; a reply that reports reaching the
-  // current beat moves the story on to the next one.
-  const saveStoryScript = (script: Chat["storyScript"]) => {
-    if (chatIdNum) dispatch(updateChatOptions({ chatId: chatIdNum, patch: { storyScript: script } }));
-  };
-  const moveStoryBeat = (step: number) => {
-    if (currentChat?.storyScript) saveStoryScript(moveBeat(currentChat.storyScript, step));
-  };
-  const advanceStoryIfDone = (payload: { beatDone?: boolean } | undefined) => {
-    if (payload?.beatDone) moveStoryBeat(1);
-  };
-
-  // Scene state (#9): what a reply reports is merged into the chat's state.
-  const saveSceneState = (payload: { sceneState?: Partial<SceneState> } | undefined) => {
-    if (!chatIdNum || !currentChat?.sceneTracker || !payload?.sceneState) return;
-    dispatch(updateChatOptions({ chatId: chatIdNum, patch: { sceneState: mergeState(currentChat.sceneState, payload.sceneState) } }));
-  };
-
-  // "Natural" turns (#22): who would answer, by a cheap helper call. Null
-  // when the call fails, so the turn falls back to round-robin.
-  const pickNaturalSpeakers = async (contextMessages: Message[], active: Character[], starter?: Character): Promise<Character[] | null> => {
-    try {
-      const recent = trimToLatestSummary(contextMessages).slice(-NARRATIVE_CONTEXT_MESSAGES);
-      const reply = await dispatch(generateAssistText({
-        instruction: buildWhoRepliesPrompt(active.map((c) => c.name), activePersona?.name?.trim() || "User", formatTranscript(recent, transcriptNames()), MAX_CHAIN, starter?.name),
-        background: true,
-      })).unwrap();
-      return parseWhoReplies(reply, active);
-    } catch (err) {
-      console.warn("Picking who replies failed (non-fatal):", err);
-      return null;
-    }
-  };
-
-  // The room's narrator (#23): a short line of narration after each round.
-  const maybeNarrate = async () => {
-    if (!isRoom || !chatIdNum || !currentChat?.narrator) return;
-    try {
-      const fresh = await dispatch(fetchChatById(chatIdNum)).unwrap();
-      const recent = trimToLatestSummary(fresh.content).slice(-NARRATIVE_CONTEXT_MESSAGES);
-      const reply = await dispatch(generateAssistText({ instruction: buildNarrationPrompt(roomCharacters.map((c) => c.name), formatTranscript(recent, transcriptNames())) })).unwrap();
-      const text = cleanNarration(reply);
-      if (text) await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, isNarration: true }));
-    } catch (err) {
-      console.warn("Narration failed (non-fatal):", err);
-    }
-  };
-
-  // Mini-games (#52): each reply to the user's message moves the game on a
-  // turn; a reply that ends it updates the score.
-  const advanceGame = (payload: { gameOver?: GameOutcome } | undefined, countTurn: boolean) => {
-    const game = currentChat?.game;
-    if (!chatIdNum || !game) return;
-    if (payload?.gameOver) {
-      const score = { user: 0, character: 0, ...currentChat?.gameScore };
-      if (payload.gameOver === "user") score.user += 1;
-      if (payload.gameOver === "character") score.character += 1;
-      dispatch(updateChatOptions({ chatId: chatIdNum, patch: { game: undefined, gameScore: score } }));
-      const label = gameLabel(game.kind);
-      toast.success(payload.gameOver === "user" ? `You won ${label}!` : payload.gameOver === "character" ? `${characterData?.name || "They"} won ${label}.` : `${label} is over.`);
-      return;
-    }
-    if (countTurn) dispatch(updateChatOptions({ chatId: chatIdNum, patch: { game: { ...game, turns: game.turns + 1 } } }));
-  };
   const startGame = async (kind: NonNullable<Chat["game"]>["kind"], guesser: "user" | "character") => {
     if (!chatIdNum || autoReplyInFlightRef.current || aiLoading) return;
     const game = { kind, guesser: kind === "twenty-questions" ? guesser : undefined, turns: 0, startedAt: Date.now() };
@@ -1944,73 +1601,6 @@ const ChatPage = () => {
     } finally {
       autoReplyInFlightRef.current = false;
     }
-  };
-
-  // A character's emoji reaction (#11) goes on the user message its reply
-  // answered: the latest real user line in the context it was given.
-  const saveCharacterReaction = async (reaction: string | undefined, answered: Message[], speakerId?: number) => {
-    if (!reaction || !chatIdNum) return;
-    const target = [...answered].reverse().find((m) => m.role === YOU && !m.isNarration && !m.isSystem && !m.isCompressionSummary);
-    if (!target?.id) return;
-    await dispatch(updateChatMessage({ chatId: chatIdNum, messageId: target.id, patch: { characterReaction: { emoji: reaction, speakerId } } }));
-  };
-
-  // Language practice (#67): the fix for your last message sits under it.
-  const saveCorrection = async (correction: string | undefined, answered: Message[]) => {
-    if (!correction || !chatIdNum || !currentChat?.language) return;
-    const target = [...answered].reverse().find((m) => m.role === YOU && !m.isNarration && !m.isSystem && !m.isCompressionSummary);
-    if (target?.id) await dispatch(updateChatMessage({ chatId: chatIdNum, messageId: target.id, patch: { correction } }));
-  };
-
-  // Co-writing mode (#68): a few ideas for what happens next, shown like
-  // reply suggestions; tapping one puts it in the box to write from.
-  const handleSuggestNext = async () => {
-    const last = messages[messages.length - 1];
-    if (!characterData || !last?.id) return;
-    const story = trimToLatestSummary(messages).slice(-NARRATIVE_CONTEXT_MESSAGES).filter((m) => !m.isSystem).map((m) => m.txt || "").join("\n\n");
-    try {
-      const reply = await dispatch(generateAssistText({ instruction: buildNextIdeasPrompt(activePersona?.name?.trim() || "The user", characterData.name, story), background: true })).unwrap();
-      const items = parseReplySuggestions(reply);
-      if (items.length > 0) setReplySuggestions({ forMessageId: last.id, items });
-    } catch (err) {
-      toast.error(typeof err === "string" ? err : "Couldn't think of what happens next. Check your model settings.");
-    }
-  };
-
-  // ...and any reply can be translated into your own language.
-  const handleTranslate = async (msg: Message) => {
-    if (!chatIdNum || !msg.id || !msg.txt) return;
-    try {
-      const into = currentChat?.language?.translateInto?.trim() || browserLanguageName();
-      const translation = (await dispatch(generateAssistText({ instruction: buildTranslatePrompt(msg.txt, into), background: true })).unwrap()).trim();
-      if (translation) await dispatch(updateChatMessage({ chatId: chatIdNum, messageId: msg.id, patch: { translation } }));
-    } catch (err) {
-      toast.error(typeof err === "string" ? err : "Couldn't translate that. Check your model settings.");
-    }
-  };
-
-  // A photo the user sent (#48): what a helper saw in it is kept on their
-  // message for later turns, and a photo nobody could see gets a hint.
-  const savePhotoOutcome = async (payload: { photoDescription?: string; photoUnseen?: boolean } | undefined, answered: Message[]) => {
-    if (payload?.photoUnseen) {
-      toast.info("This model can't see photos, so the character was told there's one it can't see. Pick a vision model, or a vision-capable helper model in Settings > Text.");
-    }
-    if (!payload?.photoDescription || !chatIdNum) return;
-    const target = [...answered].reverse().find((m) => m.role === YOU && m.images && m.images.length > 0);
-    if (target?.id) await dispatch(updateChatMessage({ chatId: chatIdNum, messageId: target.id, patch: { photoDescription: payload.photoDescription } }));
-  };
-
-  // Your own reaction to a message (#11); picking the same emoji again
-  // removes it.
-  const handleReact = (msg: Message, emoji: string) => {
-    if (!chatIdNum || !msg.id) return;
-    dispatch(updateChatMessage({ chatId: chatIdNum, messageId: msg.id, patch: { reaction: msg.reaction === emoji ? undefined : emoji } }));
-  };
-
-  // Bookmarks (#21): a star on any message, listed in the Scene panel.
-  const handleToggleBookmark = (msg: Message) => {
-    if (!chatIdNum || !msg.id) return;
-    dispatch(updateChatMessage({ chatId: chatIdNum, messageId: msg.id, patch: { bookmarked: msg.bookmarked ? undefined : true } }));
   };
 
   const handleExport = () => {
