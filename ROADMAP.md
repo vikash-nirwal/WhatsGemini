@@ -6,6 +6,33 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 ---
 
+## Deeper characters
+
+81. **Secrets** (M). In the editor, a character gets a few secrets, each with when it can come out: a relationship stage (#70), a trust level (#9/#71) or only if asked. The character hints at them and reveals one once its condition is met; a small "A secret came out" note marks the moment.
+82. **Gifts** (S–M). Give the character something (a few ideas, or your own words). They react, remember it and may mention it later; gifts collect in a "Given" list on the character, and they may give you something back on a special date (#47).
+83. **"On this day"** (S). A year, a month or 100 days after your first chat or a big moment (a chapter), the character remembers it unprompted.
+84. **Shared plans** (S–M). Things you and the character agree to do become a short list in the Scene panel; the character remembers them, brings them up when the day comes, and ticks them off when they happen.
+
+## Group life
+
+85. **Character feed** (M). Statuses (#8) grow into a small feed: characters post, the others react and comment in character (shaped by #24), and you can like and reply.
+
+## More control over the story
+
+86. **Fork into a new chat** (S). From any message, start a new chat that begins at that moment, for a "what if" without cluttering the original's branches.
+87. **Choice moments in chats** (S). Now and then, at a turning point, the character offers 2–3 tappable directions, like an adventure. A per-chat switch.
+88. **Compare two models** (S–M). Generate the next reply with two models side by side and keep the one you like.
+
+## Atmosphere and comfort
+
+89. **Ambient sound** (M). Soft background sound matching the scene (rain, café, fireplace, sea, city at night), picked from the tracked location or backdrop, with a volume control. Generated in the browser: no downloads, no cost.
+90. **Mood-tinted chat** (S). The chat's colours shift gently with the character's mood or a scene meter. Optional.
+91. **Reading comfort** (S). A dyslexia-friendly font, a high-contrast option and line spacing, next to the font size.
+
+## Creating characters
+
+92. **Character from a photo** (S). Upload a picture; a vision model drafts the appearance, the locked look and a starting personality to edit. Joins "character from one line" (#45).
+
 ## Smaller follow-ups
 
 Leftovers noted while building the finished items. Pick them up alongside related work.

@@ -7,7 +7,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 ## Where we stand
 
 - **State:** the new-ideas queue (#42–#57) is built and pushed and deployed (CI green). The last full local run passed: type-check, 802 unit tests, 753 UI tests and 16 screenshot tests.
-- **Next up:** only the smaller follow-ups at the end of ROADMAP.md. #58–#80 are built, pushed and deployed (CI green on c857079); #59, #62–#65, #77 and #78 were dropped by the user. CI's two UI shards took about 19 and 22 minutes, so a third shard may be needed as the suite grows.
+- **Next up:** #81–#92 (picked by the user on 2026-10-22), built in the order of the table below, each committed after the full suites. Push and deploy only with the user's OK.
 - **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
 - **How the new-ideas run went:** #42, #43, #12+#44 and #45 ran in fresh sessions; from #46 on they were built in the coordinating session, because new sessions can't be started over Remote Control. Each item was committed only after every suite passed.
 
@@ -15,7 +15,18 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| – | All roadmap items are built | – | Only the smaller follow-ups at the end of ROADMAP.md are left. |
+| 86 | Fork into a new chat | todo | |
+| 87 | Choice moments in chats | todo | |
+| 90 | Mood-tinted chat | todo | |
+| 91 | Reading comfort | todo | |
+| 83 | On this day | todo | |
+| 92 | Character from a photo | todo | |
+| 82 | Gifts | todo | |
+| 84 | Shared plans | todo | |
+| 81 | Secrets | todo | |
+| 85 | Character feed | todo | |
+| 88 | Compare two models | todo | |
+| 89 | Ambient sound | todo | |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
 
