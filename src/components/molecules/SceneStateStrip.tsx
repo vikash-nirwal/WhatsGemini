@@ -1,5 +1,5 @@
 import React from "react";
-import { FaClock, FaHeart, FaHandshake, FaMapMarkerAlt, FaTshirt, FaUsers } from "react-icons/fa";
+import { FaChartBar, FaClock, FaHeart, FaHandshake, FaMapMarkerAlt, FaTshirt, FaUsers } from "react-icons/fa";
 import { cn } from "src/utils/cn";
 import { SceneState } from "src/types";
 
@@ -17,7 +17,9 @@ const Meter = ({ label, icon: Icon, value }: { label: string; icon: React.Compon
   </span>
 );
 
-export const SceneStateStrip = ({ state, terminal = false }: { state?: SceneState; terminal?: boolean }) => {
+// `meters`: a chat's own meters (#71), shown in place of affection and trust.
+export const SceneStateStrip = ({ state, terminal = false, meters }: { state?: SceneState; terminal?: boolean; meters?: string[] }) => {
+  const custom = meters && meters.length > 0;
   const items = [
     state?.location && { icon: FaMapMarkerAlt, label: "Location", text: state.location },
     state?.time && { icon: FaClock, label: "Time", text: state.time },
@@ -34,7 +36,7 @@ export const SceneStateStrip = ({ state, terminal = false }: { state?: SceneStat
         terminal ? "border-b border-border" : "border-b border-border/40 bg-card/80 backdrop-blur"
       )}
     >
-      {items.length === 0 && state?.affection == null && state?.trust == null ? (
+      {items.length === 0 && (custom ? !meters!.some((m) => state?.meters?.[m.toLowerCase()] != null) : state?.affection == null && state?.trust == null) ? (
         <span>The scene's state shows here after the next reply.</span>
       ) : (
         <>
@@ -45,8 +47,17 @@ export const SceneStateStrip = ({ state, terminal = false }: { state?: SceneStat
               <span className="max-w-[11rem] truncate text-foreground">{item.text}</span>
             </span>
           ))}
-          {state?.affection != null && <Meter label="Affection" icon={FaHeart} value={state.affection} />}
-          {state?.trust != null && <Meter label="Trust" icon={FaHandshake} value={state.trust} />}
+          {custom
+            ? meters!.map((m) => {
+                const v = state?.meters?.[m.toLowerCase()];
+                return v != null ? <Meter key={m} label={m.charAt(0).toUpperCase() + m.slice(1)} icon={FaChartBar} value={v} /> : null;
+              })
+            : (
+              <>
+                {state?.affection != null && <Meter label="Affection" icon={FaHeart} value={state.affection} />}
+                {state?.trust != null && <Meter label="Trust" icon={FaHandshake} value={state.trust} />}
+              </>
+            )}
         </>
       )}
     </div>

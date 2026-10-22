@@ -67,3 +67,18 @@ describe("who's present in a group chat (#69)", () => {
     expect(absentMemberIds({}, members)).toEqual([]);
   });
 });
+
+describe("custom meters (#71)", () => {
+  it("asks for the chat's own meters and reads them back", () => {
+    const d = buildStateDirective(undefined, "Aria", undefined, ["tension", "desire"]);
+    expect(d).toContain("affection: N".replace("affection", "tension"));
+    expect(d).toContain('"tension", "desire" are measures of the scene from Aria\'s side');
+    expect(parseState("location: the bar; tension: 72; desire: 40/100").meters).toEqual({ tension: 72, desire: 40 });
+  });
+
+  it("merges meters and formats them for the next turn", () => {
+    const merged = mergeState({ meters: { tension: 70, desire: 30 } }, { meters: { desire: 45 } });
+    expect(merged.meters).toEqual({ tension: 70, desire: 45 });
+    expect(formatState(merged, ["tension", "desire"])).toBe("tension: 70; desire: 45");
+  });
+});

@@ -9,7 +9,7 @@ import { buildCallSection } from "../../voice/callSession";
 import { buildStateDirective } from "../../chat/sceneState";
 import { buildLanguageDirective } from "../../chat/languagePractice";
 import { buildCoWritingDirective } from "../../chat/coWriting";
-import { buildStageSection } from "../../character/relationshipStages";
+import { buildBoldnessSection, buildStageSection } from "../../character/relationshipStages";
 import { buildGrowthSection } from "../../character/characterArc";
 import { buildAvoidNote, findRepeatedOpening, findRepeatedPhrases } from "./antiRepetition";
 
@@ -518,6 +518,8 @@ export interface SceneContext {
   language?: ChatLanguage; // language practice (#67)
   coWriting?: boolean; // co-writing mode (#68)
   stage?: RelationshipStage; // relationship stage (#70)
+  meters?: string[]; // the scene tracker's own meters (#71)
+  boldness?: 1 | 2 | 3 | 4 | 5; // how forward the character is (#72)
 }
 
 // The single function replacing the copy-pasted "build history + build system
@@ -544,7 +546,8 @@ export const buildTurnContext = (
     ...(scene?.storyScript ? [buildStoryScriptSection(scene.storyScript)] : []),
     ...(scene?.game && character ? [buildGameSection(scene.game, character.name)] : []),
     ...(scene?.onCall && character ? [buildCallSection(character.name)] : []),
-    ...(scene?.sceneTracker && character ? [buildStateDirective(scene.sceneState, character.name, scene.roomNames)] : []),
+    ...(scene?.sceneTracker && character ? [buildStateDirective(scene.sceneState, character.name, scene.roomNames, scene.meters)] : []),
+    ...(scene?.boldness && character ? [buildBoldnessSection(scene.boldness, character.name)] : []),
     ...(scene?.letterNote ? [scene.letterNote] : []),
     ...(scene?.language ? [buildLanguageDirective(scene.language, activePersona?.name?.trim() || "The user")] : []),
     ...(scene?.coWriting && character ? [buildCoWritingDirective(character.name, activePersona?.name?.trim() || "the user")] : []),

@@ -24,7 +24,8 @@ import { describeSetting } from "src/features/chat/backdrop";
 import { groupMemoryFacts, MEMORY_CATEGORY_LABELS, nextMemoryCategory } from "src/features/ai/utils/memoryExtraction";
 import { WorldMapView } from "src/components/molecules/WorldMapView";
 import { browserLanguageName, PRACTICE_LANGUAGES } from "src/features/chat/languagePractice";
-import { STAGE_LABELS, STAGES } from "src/features/character/relationshipStages";
+import { BOLDNESS_LABELS, STAGE_LABELS, STAGES } from "src/features/character/relationshipStages";
+import { METER_PRESETS } from "src/features/chat/sceneState";
 import { pinForLocation } from "src/features/world/worldMap";
 import { readPhoto } from "src/features/chat/photoAttachments";
 import { dataUrlToBlob, savePortraitBlob } from "src/features/ai/utils/portraitUtils";
@@ -534,7 +535,35 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
                   />
                 </label>
               ))}
-              {(["affection", "trust"] as const).map((field) => (
+              {/* The chat's own meters (#71), or affection and trust */}
+              <div className="col-span-2 flex flex-col gap-1">
+                <span className="text-[11px] text-subtle">Meters (up to 4; empty = affection and trust)</span>
+                <TagInput
+                  value={chat.meters || []}
+                  onChange={(next) => dispatch(updateChatOptions({ chatId, patch: { meters: next.length > 0 ? next.slice(0, 4).map((m) => m.trim().toLowerCase()).filter(Boolean) : undefined } }))}
+                  placeholder={`e.g. ${METER_PRESETS.slice(0, 3).join(", ")}`}
+                />
+              </div>
+              {(chat.meters || []).map((name) => (
+                <label key={name} className="flex flex-col gap-1 text-[11px] text-subtle capitalize">
+                  {name} (0-100)
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={chat.sceneState?.meters?.[name] ?? ""}
+                    onChange={(e) => {
+                      const n = e.target.value === "" ? undefined : Math.max(0, Math.min(100, Number(e.target.value)));
+                      const meters = { ...chat.sceneState?.meters };
+                      if (n == null) delete meters[name];
+                      else meters[name] = n;
+                      dispatch(updateChatOptions({ chatId, patch: { sceneState: { ...chat.sceneState, meters } } }));
+                    }}
+                    className="h-8 text-[12.5px] px-2.5 rounded-lg"
+                  />
+                </label>
+              ))}
+              {!(chat.meters && chat.meters.length > 0) && (["affection", "trust"] as const).map((field) => (
                 <label key={field} className="flex flex-col gap-1 text-[11px] text-subtle capitalize">
                   {field} (0-100)
                   <Input
@@ -1114,6 +1143,24 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
                   })}
                 </ol>
               )}
+            </div>
+          )}
+
+          {/* Boldness (#72) - 1:1 chats */}
+          {!isRoom && character && (
+            <div className="flex flex-col gap-2">
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-medium text-foreground">How forward {character.name} is</div>
+                <div className="text-[11px] text-subtle">From shy and needing to be coaxed to bold and making the first move. Separate from intensity, which is how much gets described.</div>
+              </div>
+              <Select
+                aria-label="Boldness"
+                value={chat?.boldness ? String(chat.boldness) : ""}
+                onChange={(e) => dispatch(updateChatOptions({ chatId, patch: { boldness: e.target.value ? (Number(e.target.value) as 1 | 2 | 3 | 4 | 5) : undefined } }))}
+              >
+                <option value="">As written</option>
+                {([1, 2, 3, 4, 5] as const).map((n) => <option key={n} value={String(n)}>{BOLDNESS_LABELS[n]}</option>)}
+              </Select>
             </div>
           )}
 

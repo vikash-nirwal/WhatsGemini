@@ -1,4 +1,4 @@
-import { buildStagePrompt, buildStageSection, parseStageReply, stageCheckDue, STAGE_INTERVAL } from "./relationshipStages";
+import { buildBoldnessSection, buildStagePrompt, buildStageSection, parseStageReply, stageCheckDue, STAGE_INTERVAL } from "./relationshipStages";
 
 describe("relationship stages", () => {
   it("tells the character how forward to be at each stage", () => {
@@ -18,5 +18,12 @@ describe("relationship stages", () => {
   it("offers only the moves that exist", () => {
     expect(buildStagePrompt("Aria", "Vik", "strangers", "Vik: hi")).toContain("Reply with only one word: NEXT, SAME.");
     expect(buildStagePrompt("Aria", "Vik", "committed", "Vik: hi")).toContain("Reply with only one word: BACK, SAME.");
+  });
+});
+
+describe("boldness (#72)", () => {
+  it("describes how forward the character is", () => {
+    expect(buildBoldnessSection(1, "Aria")).toBe("How forward Aria is: Aria is very shy: blushes, hesitates and needs to be coaxed, and almost never makes the first move.");
+    expect(buildBoldnessSection(5, "Aria")).toContain("takes the lead");
   });
 });

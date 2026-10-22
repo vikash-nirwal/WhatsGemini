@@ -323,6 +323,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, stageSuggestion, onAc
   const chatBackdrop = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.backdrop);
   // The scene state HUD (#9), when this chat tracks it.
   const sceneTracker = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.sceneTracker);
+  const chatMeters = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.meters);
   // Conversations members had while you were away (#58), each shown after
   // the last message before it.
   const offscreenTalks = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.offscreenTalks);
@@ -616,7 +617,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, stageSuggestion, onAc
             <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-background/60 via-background/80 to-background" />
           </>
         )}
-        {sceneTracker && <SceneStateStrip state={sceneState} terminal={terminal} />}
+        {sceneTracker && <SceneStateStrip state={sceneState} terminal={terminal} meters={chatMeters} />}
         <div
           className="relative z-[1] flex-1 overflow-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           ref={scrollContainerRef}

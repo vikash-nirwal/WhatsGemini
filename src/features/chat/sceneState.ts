@@ -11,25 +11,30 @@ type Meter = (typeof METERS)[number];
 
 // `roomNames`: in a group chat (#69) the block also says who is in the scene,
 // so members can leave and arrive.
-export const buildStateDirective = (state: SceneState | undefined, charName: string, roomNames?: string[]): string => {
-  const current = state && formatState(state);
+// `meters`: a chat's own meters (#71), in place of affection and trust.
+export const buildStateDirective = (state: SceneState | undefined, charName: string, roomNames?: string[], meters?: string[]): string => {
+  const current = state && formatState(state, meters);
   const room = roomNames && roomNames.length > 1;
+  const names = meters && meters.length > 0 ? meters.map((m) => m.toLowerCase()) : ["affection", "trust"];
   return [
     "Keep track of the scene's state and keep it consistent from reply to reply.",
     current ? `The state right now: ${current}. Change only what the story actually changes.` : "",
-    `At the very end of every reply, on its own line, add exactly: <state>location: ...; time: ...; outfit: ...; affection: N; trust: N${room ? "; present: ..." : ""}</state>`,
-    `"outfit" is what ${charName} is wearing. "affection" and "trust" are how ${charName} feels about the user, 0 to 100, and move only a few points at a time unless something big happens. Keep each value short (a few words). Never mention or explain the block.`,
+    `At the very end of every reply, on its own line, add exactly: <state>location: ...; time: ...; outfit: ...; ${names.map((n) => `${n}: N`).join("; ")}${room ? "; present: ..." : ""}</state>`,
+    meters && meters.length > 0
+      ? `"outfit" is what ${charName} is wearing. ${names.map((n) => `"${n}"`).join(", ")} ${names.length === 1 ? "is a measure" : "are measures"} of the scene from ${charName}'s side, 0 to 100, that move only a few points at a time unless something big happens; let them show in how ${charName} acts. Keep each value short (a few words). Never mention or explain the block.`
+      : `"outfit" is what ${charName} is wearing. "affection" and "trust" are how ${charName} feels about the user, 0 to 100, and move only a few points at a time unless something big happens. Keep each value short (a few words). Never mention or explain the block.`,
     room ? `"present" lists which of ${roomNames!.join(", ")} are in the scene right now, comma separated. Someone who leaves is taken off it, someone who arrives is added; only those present take part.` : "",
   ].filter(Boolean).join("\n");
 };
 
-export const formatState = (state: SceneState): string =>
+export const formatState = (state: SceneState, meters?: string[]): string =>
   [
     state.location && `location: ${state.location}`,
     state.time && `time: ${state.time}`,
     state.outfit && `outfit: ${state.outfit}`,
-    state.affection != null && `affection: ${state.affection}`,
-    state.trust != null && `trust: ${state.trust}`,
+    ...(meters && meters.length > 0
+      ? meters.map((m) => state.meters?.[m.toLowerCase()] != null && `${m.toLowerCase()}: ${state.meters[m.toLowerCase()]}`)
+      : [state.affection != null && `affection: ${state.affection}`, state.trust != null && `trust: ${state.trust}`]),
     state.present && `present: ${state.present.length > 0 ? state.present.join(", ") : "nobody"}`,
   ].filter(Boolean).join("; ");
 
@@ -46,7 +51,13 @@ export const parseState = (inner: string): Partial<SceneState> => {
   const state: Partial<SceneState> = {};
   for (const part of inner.split(/[;\n]|,(?=\s*(?:location|time|outfit|affection|trust|present|here)\s*[:=])/i)) {
     const m = part.match(/^\s*(location|place|time|outfit|clothes|affection|trust|present|here)\s*[:=]\s*(.+?)\s*$/i);
-    if (!m) continue;
+    if (!m) {
+      // Any other "name: N" is a custom meter (#71).
+      const meter = part.match(/^\s*([a-z][a-z -]{1,24}?)\s*[:=]\s*(-?\d+(?:\.\d+)?)\s*(?:\/\s*100)?\s*$/i);
+      const n = meter && clampMeter(meter[2]);
+      if (meter && n != null) state.meters = { ...state.meters, [meter[1].trim().toLowerCase()]: n };
+      continue;
+    }
     const key = m[1].toLowerCase();
     const value = m[2].replace(/^["']|["']$/g, "").trim();
     if (!value) continue;
@@ -85,8 +96,12 @@ export const stripStreamingState = (text: string): string =>
 export const mergeState = (current: SceneState | undefined, update: Partial<SceneState>): SceneState => ({
   ...current,
   ...update,
+  ...(update.meters || current?.meters ? { meters: { ...current?.meters, ...update.meters } } : {}),
   updatedAt: Date.now(),
 });
+
+// Ideas offered when choosing a chat's own meters (#71).
+export const METER_PRESETS = ["tension", "desire", "jealousy", "comfort", "suspicion", "fear", "playfulness", "loyalty"];
 
 // Group chats (#69): the members who aren't in the scene, by the state's
 // "present" list. Names match by full or first name; nobody is away while

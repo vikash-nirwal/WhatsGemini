@@ -186,6 +186,7 @@ export interface SceneState {
   affection?: number; // 0-100
   trust?: number; // 0-100
   present?: string[]; // group chats (#69): which members are in the scene; unset = everyone
+  meters?: Record<string, number>; // custom meters (#71), by lower-case name, 0-100
   updatedAt?: number;
 }
 
@@ -317,6 +318,8 @@ export interface Chat {
   stage?: RelationshipStage; // relationship stage (#70); unset = off
   stageCheckedAt?: number; // message count at the last stage check
   stageSuggestion?: RelationshipStage; // a stage change waiting for the user's OK
+  meters?: string[]; // the scene tracker's own meters (#71), in place of affection and trust
+  boldness?: 1 | 2 | 3 | 4 | 5; // how forward the character is (#72); unset = as written
   offscreenTalks?: OffscreenTalk[]; // the last few of those conversations
   // Relationship that evolves (#30): off when false; the message count at
   // the last check; and a suggestion waiting for the user.

@@ -279,6 +279,8 @@ const ChatPage = () => {
     language: currentChat?.language,
     coWriting: !isRoom && currentChat?.coWriting,
     stage: !isRoom ? currentChat?.stage : undefined,
+    meters: currentChat?.meters,
+    boldness: !isRoom ? currentChat?.boldness : undefined,
     sceneState: currentChat?.sceneState,
     world: currentChat?.worldId != null ? worlds.find((w) => w.id === currentChat.worldId) : undefined,
   };

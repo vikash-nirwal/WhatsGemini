@@ -35,3 +35,26 @@ test("the tracker shows the scene's state and keeps the model consistent", async
   await expect(strip).toContainText("green sweater");
   await expect(strip.getByTitle("Affection: 61 of 100")).toBeVisible();
 });
+
+test("a chat's own meters replace affection and trust, and boldness reaches the prompt", async ({ page, mockAI }) => {
+  await openChat(page);
+  await headerAction(page, "Scene & chat settings");
+  await page.getByRole("switch", { name: "Track the scene" }).click();
+  const meters = page.getByPlaceholder(/e\.g\. tension/);
+  await meters.fill("tension");
+  await meters.press("Enter");
+  await page.getByRole("tab", { name: "Chat", exact: true }).click();
+  await page.getByRole("combobox", { name: "Boldness" }).click();
+  await page.getByRole("option", { name: "Very shy" }).click();
+  await page.getByRole("button", { name: "Close scene panel" }).click();
+
+  mockAI.reply("*She looks away, cheeks warm.*\n<state>location: the balcony; tension: 64</state>");
+  await sendMessage(page, "Hey you.");
+  await waitForReplyDone(page);
+  const strip = page.getByRole("group", { name: "Scene state" });
+  await expect(strip.getByTitle("Tension: 64 of 100")).toBeVisible();
+  const system = systemOf(mockAI.requests[0].messages);
+  expect(system).toContain("tension: N");
+  expect(system).not.toContain("affection: N");
+  expect(system).toContain("How forward Aria is: Aria is very shy");
+});

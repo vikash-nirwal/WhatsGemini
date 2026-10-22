@@ -52,3 +52,17 @@ export const parseStageReply = (reply: string, stage: RelationshipStage): Relati
   if (word === "BACK") return STAGES[i - 1];
   return undefined;
 };
+
+// Boldness (#72): how forward the character is, separate from intensity
+// (how much gets described). 3 is balanced.
+export const BOLDNESS_LABELS: Record<1 | 2 | 3 | 4 | 5, string> = { 1: "Very shy", 2: "Shy", 3: "Balanced", 4: "Forward", 5: "Bold" };
+
+const BOLDNESS_RULES: Record<1 | 2 | 3 | 4 | 5, string> = {
+  1: "is very shy: blushes, hesitates and needs to be coaxed, and almost never makes the first move.",
+  2: "is shy: warm but reserved, lets the user lead and only takes small steps of their own.",
+  3: "is balanced: responds in kind, and sometimes takes the lead when the moment feels right.",
+  4: "is forward: says what they want, flirts openly and often makes the first move.",
+  5: "is bold: confident and direct, takes the lead and pushes things forward, while still reading the user's signals.",
+};
+
+export const buildBoldnessSection = (level: 1 | 2 | 3 | 4 | 5, charName: string): string => `How forward ${charName} is: ${charName} ${BOLDNESS_RULES[level]}`;
