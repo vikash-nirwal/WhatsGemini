@@ -135,6 +135,9 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
   const chatWorld = chat?.worldId != null ? worlds.find((w) => w.id === chat.worldId) : undefined;
   // Room members (#24), for the relationships editor.
   const allCharacters = useAppSelector((state) => state.character.characters);
+  // Other characters you have a 1:1 chat with, for #74.
+  const allChats = useAppSelector((state) => state.chat.chats);
+  const otherBonds = allCharacters.filter((c) => c.id !== character?.id && allChats.some((x) => x.characterIds?.length === 1 && x.characterIds[0] === c.id));
   const members = (chat?.characterIds || []).map((id) => allCharacters.find((c) => c.id === id)).filter((c): c is Character => Boolean(c));
   const relationships = chat?.roomRelationships || [];
   const setRelationships = (next: typeof relationships) => dispatch(updateChatOptions({ chatId, patch: { roomRelationships: next.length > 0 ? next : undefined } }));
@@ -1143,6 +1146,32 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
                   })}
                 </ol>
               )}
+            </div>
+          )}
+
+          {/* Characters know about each other (#74) - 1:1 chats */}
+          {!isRoom && character && otherBonds.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-medium text-foreground">Who {character.name} knows about</div>
+                <div className="text-[11px] text-subtle">{character.name} can know you're also close to these characters: how you are with them and how much you've talked lately, never your actual chats.</div>
+              </div>
+              {otherBonds.map((other) => {
+                const knows = (character.knowsAbout || []).includes(other.id);
+                return (
+                  <div key={other.id} className="flex items-center justify-between gap-3">
+                    <span className="text-[12.5px] text-foreground">Knows about {other.name}</span>
+                    <ToggleSwitch
+                      checked={knows}
+                      onChange={(val) => {
+                        const next = val ? [...(character.knowsAbout || []), other.id] : (character.knowsAbout || []).filter((id) => id !== other.id);
+                        dispatch(updateCharacter({ ...character, knowsAbout: next.length > 0 ? next : undefined }));
+                      }}
+                      label={<span className="sr-only">{character.name} knows about {other.name}</span>}
+                    />
+                  </div>
+                );
+              })}
             </div>
           )}
 

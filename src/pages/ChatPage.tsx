@@ -17,6 +17,7 @@ import { buildNextIdeasPrompt } from "../features/chat/coWriting";
 import { buildRelationshipPrompt, parseRelationshipReply, relationshipCheckDue } from "../features/character/relationshipEvolution";
 import { addGrowth, arcCheckDue, buildArcPrompt, parseArcReply } from "../features/character/characterArc";
 import { buildStagePrompt, parseStageReply, stageCheckDue } from "../features/character/relationshipStages";
+import { buildKnowsSection, factsAboutUser } from "../features/character/intimacy";
 import { currentBlock, presenceFor, replyDelayMs } from "../features/character/schedule";
 import { latestStorySummary } from "../features/chat/recap";
 import { buildCelebrationDirective, datesToCelebrate } from "../features/character/importantDates";
@@ -185,6 +186,28 @@ const ChatPage = () => {
   // member's name goes in `otherParticipants` (that speaker's own "who else
   // is here" context), and `speakerNames` labels every participant's lines
   // in history so a reply can tell who said what.
+  // Characters know about each other (#74): a short summary of each other
+  // relationship this character knows of, from that 1:1 chat and memory.
+  const knowsNoteFor = () => {
+    if (!characterData?.knowsAbout?.length) return undefined;
+    const now = Date.now();
+    const others = characterData.knowsAbout
+      .map((id) => characters.find((c) => c.id === id))
+      .filter((c): c is Character => Boolean(c) && c!.id !== characterData.id)
+      .map((other) => {
+        const chat = chats.find((c) => c.characterIds?.length === 1 && c.characterIds[0] === other.id);
+        const content = chat?.content || [];
+        return {
+          name: other.name,
+          relationship: other.relationship,
+          lastAt: content[content.length - 1]?.timestamp,
+          recentCount: content.filter((m) => (m.timestamp || 0) > now - 7 * 86_400_000).length,
+          facts: factsAboutUser(other.memory, other.memoryCategories),
+        };
+      });
+    return buildKnowsSection(characterData.name, activePersona?.name?.trim() || "the user", others, now);
+  };
+
   // The latest letter this character wrote you (#61), while it's still
   // fresh: within the last ten messages of this chat.
   const recentLetterNote = () => {
@@ -315,8 +338,9 @@ const ChatPage = () => {
     () => personas.find((p) => p.id === (currentChat?.personaId || globalActivePersonaId)) || personas[0],
     [personas, currentChat?.personaId, globalActivePersonaId]
   );
-  // Set here rather than in `scene` above: it needs the persona's name.
+  // Set here rather than in `scene` above: they need the persona's name.
   scene.letterNote = !isRoom ? recentLetterNote() : undefined;
+  scene.knowsNote = !isRoom ? knowsNoteFor() : undefined;
   const globalActivePersona = useMemo(
     () => personas.find((p) => p.id === globalActivePersonaId) || personas[0],
     [personas, globalActivePersonaId]

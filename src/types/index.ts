@@ -190,6 +190,16 @@ export interface SceneState {
   updatedAt?: number;
 }
 
+// Romance details for a character or persona (#73); every field optional.
+export interface IntimacyProfile {
+  loveLanguage?: string;
+  likes?: string;
+  dislikes?: string;
+  flirting?: string;
+  jealousy?: string;
+  experience?: string;
+}
+
 // Relationship stages (#70), lowest first.
 export type RelationshipStage = "strangers" | "flirting" | "dating" | "intimate" | "committed";
 
@@ -426,6 +436,8 @@ export interface Character {
   innerThoughts?: boolean; // #10: also write hidden thoughts with each reply
   growth?: string[]; // accepted notes on how they've changed (#60)
   writesLetters?: boolean; // writes you a letter after a few days away (#61)
+  intimacy?: IntimacyProfile; // romance details, sent only when the scene is romantic (#73)
+  knowsAbout?: number[]; // other characters whose bond with you this one knows of (#74)
   letters?: CharacterLetter[];
   importantDates?: ImportantDate[]; // #47
   schedule?: CharacterSchedule; // #7
@@ -518,6 +530,7 @@ export interface UserProfile {
   // the user (e.g. "a selfie of us together") keeps their face consistent too.
   appearanceImages?: string[];
   skills?: PersonaSkill[]; // character sheet for adventure skill checks (#27)
+  intimacy?: IntimacyProfile; // what you like in romance (#73)
 }
 
 // Optional sampling knobs beyond temperature. Unset means "don't send it" -

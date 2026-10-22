@@ -8,8 +8,6 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 ## Romance and immersion
 
-73. **Intimacy profile** (S–M). A structured part of the character editor: love language, likes and dislikes, how they flirt, how they act when jealous, their experience; and the same on a persona. Only sent to the model when the scene heads that way (by relationship stage, #70, or the scene's mood), so it doesn't bloat every prompt.
-74. **Characters know about each other** (M). When you're seeing more than one character, they can know: Aria notices you've been talking to Kai a lot, gets jealous or curious, and brings it up. A per-character switch picks who knows about whom; what they know comes from the other chats' memory and recent activity, not their full transcripts.
 75. **Private albums** (S–M). Each character's album of the pictures they've sent you, blurred until tapped. Some unlock only at a higher relationship stage (#70), and a character can send you something from their album on a special occasion (#47).
 76. **Mood-aware voice** (S). Read-aloud and calls change rate, pitch and pauses with the reply's emotion: slower and softer when tender, quicker when excited. Browser voices only; no paid TTS needed.
 79. **Scenario cards** (S). Ready-made starters (date night, a weekend away, a reunion after months apart, a rainy night in) that set the scene, outfit, backdrop and opening line in one tap. You can save your own.

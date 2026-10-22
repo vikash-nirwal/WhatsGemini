@@ -11,6 +11,7 @@ import { dbService } from '../../services/dbService';
 import { cn } from '../../utils/cn';
 import { useColorTheme } from '../../hooks/useColorTheme';
 import { BASIC_SKILLS } from '../../features/adventure/skillChecks';
+import IntimacySection from 'src/components/molecules/IntimacySection';
 
 // Character sheet (#27): skills with a modifier, added to the d20 when an
 // adventure's skill check names that skill.
@@ -324,6 +325,11 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
               />
 
               <PersonaSheet persona={persona} onUpdatePersona={onUpdatePersona} />
+              <IntimacySection
+                value={persona.intimacy}
+                onChange={(intimacy) => onUpdatePersona({ ...persona, intimacy })}
+                hint="What you like in romance, so characters can honor it. Only sent when a scene turns romantic."
+              />
             </div>
           </SettingsCard>
         );
