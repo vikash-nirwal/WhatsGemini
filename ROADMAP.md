@@ -6,11 +6,6 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 ---
 
-## Romance and immersion
-
-79. **Scenario cards** (S). Ready-made starters (date night, a weekend away, a reunion after months apart, a rainy night in) that set the scene, outfit, backdrop and opening line in one tap. You can save your own.
-80. **Time skips** (S). A "Later that night..." / "The next morning..." button: the app writes a short transition, moves the scene tracker's time and place on, and the story continues from there.
-
 ## Smaller follow-ups
 
 Leftovers noted while building the finished items. Pick them up alongside related work.

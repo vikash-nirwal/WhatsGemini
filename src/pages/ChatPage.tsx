@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, insertCompressionSummary, removeCompressionSummary, updateChatMessage, updateChatOptions, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatMemory, updateChatGreeting, setPendingFollowupAt } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
-import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage, summarizeChapter, writeDiaryEntry, generateAssistText } from "../features/aiSlice";
+import { generateAIResponse, compressChatHistory, extractCharacterMemory, autoCompressChat, generateAvatarImage, summarizeChapter, writeDiaryEntry, generateAssistText, generateBackdropImage } from "../features/aiSlice";
 import { parseSlashCommand, SLASH_COMMANDS } from "../features/chat/slashCommands";
 import { buildStoryMarkdown, storyFileName } from "../features/chat/storyExport";
 import { resolveTurnModel } from "../features/ai/modelResolution";
@@ -33,17 +33,19 @@ import { isSpeechSupported } from "../features/voice/speech";
 import { hasBranches } from "../features/chat/branchMap";
 import StoryScriptDialog from "../components/organisms/StoryScriptDialog";
 import { AlbumDialog } from "../components/organisms/AlbumDialog";
+import { ScenarioCardsDialog, TimeSkipDialog } from "../components/organisms/ScenarioCardsDialog";
+import { buildOpeningDirective, buildTimeSkipPrompt, parseTimeSkip, ScenarioCard } from "../features/chat/scenarioCards";
 import { occasionPhotoDirective, photoForOccasion } from "../features/character/album";
 import { buildDraftReplyPrompt, cleanDraftReply, buildReplySuggestionsPrompt, parseReplySuggestions, NARRATIVE_CONTEXT_MESSAGES, SURPRISE_DIRECTIVE } from "../features/ai/utils/narrativeTools";
 import { appendDiaryEntry } from "../features/ai/utils/diary";
-import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl } from "../features/ai/utils/portraitUtils";
+import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackground, blobToDataUrl, dataUrlToBlob } from "../features/ai/utils/portraitUtils";
 import ChatWindow from "src/components/organisms/ChatWindow";
 import MessageInput from "src/components/organisms/MessageInput";
 import Header, { HeaderAction } from "src/components/organisms/Header";
 import PortraitPreviewModal from "src/components/organisms/PortraitPreviewModal";
 import AutoReplyModal from "src/components/organisms/AutoReplyModal";
 import PersonaModal from "src/components/organisms/PersonaModal";
-import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20, FaLayerGroup, FaGamepad, FaCodeBranch, FaPhoneAlt, FaBookOpen, FaImages } from "react-icons/fa";
+import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20, FaLayerGroup, FaGamepad, FaCodeBranch, FaPhoneAlt, FaBookOpen, FaImages, FaTheaterMasks, FaForward } from "react-icons/fa";
 import { Button } from "src/components/atoms/button";
 import { AI, YOU, MEMORY_EXTRACTION_INTERVAL, DIARY_INTERVAL, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
@@ -794,6 +796,8 @@ const ChatPage = () => {
   const [sceneOpen, setSceneOpen] = useState(false);
   const [storyOpen, setStoryOpen] = useState(false);
   const [albumOpen, setAlbumOpen] = useState(false);
+  const [scenarioOpen, setScenarioOpen] = useState(false);
+  const [timeSkipOpen, setTimeSkipOpen] = useState(false);
   const [gameOpen, setGameOpen] = useState(false);
   const [branchMapOpen, setBranchMapOpen] = useState(false);
   const [participantsOpen, setParticipantsOpen] = useState(false);
@@ -1005,6 +1009,57 @@ const ChatPage = () => {
 
   // "Surprise me" (#18): the next character reply brings in an unexpected but
   // fitting development, so you don't have to write the twist yourself.
+  // Scenario cards (#79): a narration line sets the scene, the tracker's
+  // place, time and outfit follow, a backdrop is drawn if asked, and the
+  // character opens it.
+  const handleStartScenario = async (card: ScenarioCard, drawBackdrop: boolean) => {
+    if (!chatIdNum || autoReplyInFlightRef.current || aiLoading) return;
+    setScenarioOpen(false);
+    autoReplyInFlightRef.current = true;
+    try {
+      await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text: card.setting, isNarration: true }));
+      if (currentChat?.sceneTracker) {
+        await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { sceneState: mergeState(currentChat.sceneState, { location: card.place, time: card.time, outfit: card.outfit }) } }));
+      }
+      if (drawBackdrop) {
+        dispatch(generateBackdropImage({ setting: card.setting, artStyle: characterData?.artStyle }))
+          .unwrap()
+          .then(async (image) => {
+            const saved = await savePortraitBlob(await dataUrlToBlob(image), "chat_bg").catch(() => image);
+            await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { backdrop: saved } }));
+          })
+          .catch((err) => toast.error(typeof err === "string" ? err : "Couldn't draw the backdrop."));
+      }
+      await finishRoomRound(await sendCharacterFollowup(undefined, buildOpeningDirective(card)));
+    } catch (err) {
+      console.error("Scenario card failed:", err);
+    } finally {
+      autoReplyInFlightRef.current = false;
+    }
+  };
+
+  // Time skips (#80): a helper writes the transition, the tracker moves on,
+  // and the story carries on from there.
+  const handleTimeSkip = async (skip: string) => {
+    if (!chatIdNum || autoReplyInFlightRef.current || aiLoading) return;
+    setTimeSkipOpen(false);
+    autoReplyInFlightRef.current = true;
+    try {
+      const recent = trimToLatestSummary(messages).slice(-NARRATIVE_CONTEXT_MESSAGES);
+      const reply = await dispatch(generateAssistText({ instruction: buildTimeSkipPrompt(skip, formatTranscript(recent, transcriptNames()), { time: currentChat?.sceneState?.time, location: currentChat?.sceneState?.location }) })).unwrap();
+      const { narration, time, place } = parseTimeSkip(reply, skip);
+      await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text: narration, isNarration: true }));
+      if (currentChat?.sceneTracker && (time || place)) {
+        await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { sceneState: mergeState(currentChat.sceneState, { ...(time ? { time } : {}), ...(place ? { location: place } : {}) }) } }));
+      }
+      await finishRoomRound(await sendCharacterFollowup(undefined, `${skip}: the story has moved on (see the narration). Pick it up from there, naturally.`));
+    } catch (err) {
+      toast.error(typeof err === "string" ? err : "Couldn't skip ahead. Check your model settings.");
+    } finally {
+      autoReplyInFlightRef.current = false;
+    }
+  };
+
   const handleSurprise = async () => {
     if (autoReplyInFlightRef.current || aiLoading) return;
     autoReplyInFlightRef.current = true;
@@ -2021,7 +2076,11 @@ const ChatPage = () => {
       ? [{ icon: FaBolt, label: isRoom ? "Make the next bot send a follow-up now" : `Make ${characterData?.name || "them"} send a follow-up now`, onClick: handleManualFollowup, disabled: aiLoading, primary: true, shortLabel: "follow-up" }]
       : []),
     ...(messages.length > 0
-      ? [{ icon: FaDiceD20, label: "Surprise me (the next reply brings a twist)", onClick: handleSurprise, disabled: aiLoading }]
+      ? [
+          { icon: FaDiceD20, label: "Surprise me (the next reply brings a twist)", onClick: handleSurprise, disabled: aiLoading },
+          { icon: FaTheaterMasks, label: "Scenario cards", onClick: () => setScenarioOpen(true), disabled: aiLoading },
+          { icon: FaForward, label: "Time skip", onClick: () => setTimeSkipOpen(true), disabled: aiLoading },
+        ]
       : []),
     ...(messages.length > 0
       ? [{ icon: FaLayerGroup, label: "Draw an event card (a random event happens)", onClick: handleDrawEvent, disabled: aiLoading }]
@@ -2159,6 +2218,8 @@ const ChatPage = () => {
         />
         <GameDialog open={gameOpen} onOpenChange={setGameOpen} characterName={characterData?.name || "them"} onStart={startGame} />
         <StoryScriptDialog open={storyOpen} onOpenChange={setStoryOpen} script={currentChat?.storyScript} onSave={saveStoryScript} />
+        <ScenarioCardsDialog open={scenarioOpen} onOpenChange={setScenarioOpen} onStart={handleStartScenario} />
+        <TimeSkipDialog open={timeSkipOpen} onOpenChange={setTimeSkipOpen} onSkip={handleTimeSkip} />
         {!isRoom && characterData && <AlbumDialog open={albumOpen} onOpenChange={setAlbumOpen} character={characterData} stage={currentChat?.stage} />}
       </div>
 
