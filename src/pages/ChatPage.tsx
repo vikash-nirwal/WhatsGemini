@@ -234,6 +234,7 @@ const ChatPage = () => {
     roomNames: isRoom ? roomCharacters.map((c) => c.name) : undefined,
     language: currentChat?.language,
     coWriting: !isRoom && currentChat?.coWriting,
+    choiceMoments: currentChat?.choiceMoments,
     stage: !isRoom ? currentChat?.stage : undefined,
     meters: currentChat?.meters,
     boldness: !isRoom ? currentChat?.boldness : undefined,
@@ -654,6 +655,7 @@ const ChatPage = () => {
       imageParams: payloadObj?.imageParams,
       speakerId: speaker.id,
       ...beatStamp(currentChat?.storyScript),
+      choices: payloadObj?.choices,
       isVoiceNote: followupIsVoiceNote,
     }));
     // Manual follow-ups go through here too, but they start from a click in
@@ -1068,6 +1070,7 @@ const ChatPage = () => {
           imageParams: payloadObj?.imageParams,
           speakerId: speaker.id,
           ...beatStamp(currentChat?.storyScript),
+          choices: payloadObj?.choices,
           isVoiceNote: replyVoiceNote,
         }));
         notifyIfAway(speaker, notificationText(replyText, replyVoiceNote), generatedImages);
@@ -1172,6 +1175,7 @@ const ChatPage = () => {
             imageParams: payloadObj?.imageParams,
             speakerId: speaker.id,
             ...beatStamp(currentChat?.storyScript),
+            choices: payloadObj?.choices,
             timestamp: Date.now(),
           };
           // The character's reaction (#11) and a language correction (#67)
@@ -1286,6 +1290,7 @@ const ChatPage = () => {
           imageParams: payloadObj?.imageParams,
           speakerId: speaker.id,
           ...beatStamp(currentChat?.storyScript),
+          choices: payloadObj?.choices,
           timestamp: Date.now(),
         };
         // A new answer brings its own reaction (#11), or none.

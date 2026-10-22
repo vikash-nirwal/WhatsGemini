@@ -19,7 +19,6 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 ## More control over the story
 
-87. **Choice moments in chats** (S). Now and then, at a turning point, the character offers 2–3 tappable directions, like an adventure. A per-chat switch.
 88. **Compare two models** (S–M). Generate the next reply with two models side by side and keep the one you like.
 
 ## Atmosphere and comfort

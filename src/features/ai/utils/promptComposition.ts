@@ -11,6 +11,7 @@ import { buildLanguageDirective } from "../../chat/languagePractice";
 import { buildCoWritingDirective } from "../../chat/coWriting";
 import { buildBoldnessSection, buildStageSection } from "../../character/relationshipStages";
 import { buildIntimacySection, intimacyInScope } from "../../character/intimacy";
+import { CHOICE_MOMENT_DIRECTIVE } from "../../chat/choiceMoments";
 import { buildGrowthSection } from "../../character/characterArc";
 import { buildAvoidNote, findRepeatedOpening, findRepeatedPhrases } from "./antiRepetition";
 
@@ -522,6 +523,7 @@ export interface SceneContext {
   meters?: string[]; // the scene tracker's own meters (#71)
   boldness?: 1 | 2 | 3 | 4 | 5; // how forward the character is (#72)
   knowsNote?: string; // what this character knows of the user's other relationships (#74)
+  choiceMoments?: boolean; // offer options at turning points (#87)
 }
 
 // The single function replacing the copy-pasted "build history + build system
@@ -553,6 +555,7 @@ export const buildTurnContext = (
     // The intimacy profile (#73) only once the scene turns romantic.
     ...(character && intimacyInScope(scene?.stage, fullMessages) ? [buildIntimacySection(character, activePersona)].filter((x): x is string => Boolean(x)) : []),
     ...(scene?.knowsNote ? [scene.knowsNote] : []),
+    ...(scene?.choiceMoments ? [CHOICE_MOMENT_DIRECTIVE] : []),
     ...(scene?.letterNote ? [scene.letterNote] : []),
     ...(scene?.language ? [buildLanguageDirective(scene.language, activePersona?.name?.trim() || "The user")] : []),
     ...(scene?.coWriting && character ? [buildCoWritingDirective(character.name, activePersona?.name?.trim() || "the user")] : []),

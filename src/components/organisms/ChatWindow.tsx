@@ -798,6 +798,25 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
               })
             )}
             {recap && !aiLoading && <RecapCard recap={recap} terminal={terminal} />}
+            {/* Choice moments (#87): the newest reply's options; tap one to send it. */}
+            {!aiLoading && onSend && (() => {
+              const last = filteredMessages[filteredMessages.length - 1];
+              if (!last || last.role === YOU || !last.choices?.length) return null;
+              return (
+                <div role="group" aria-label="Choices" className="flex flex-wrap justify-center gap-2 mb-6">
+                  {last.choices.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => onSend(c.label)}
+                      className="min-h-9 px-3.5 py-1.5 rounded-xl border border-primary/50 bg-primary/[0.08] text-[13px] text-foreground hover:bg-primary/[0.16] text-left"
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
             {coWriting && onSuggestNext && !aiLoading && filteredMessages.length > 0 && !replySuggestions && (
               <div className="mb-6 flex justify-center">
                 <Button type="button" variant="outline" size="sm" onClick={onSuggestNext}>What happens next?</Button>

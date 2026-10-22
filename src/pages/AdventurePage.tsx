@@ -234,7 +234,7 @@ const AdventurePage = () => {
       // Hard limits go after the history, where models weigh them most -
       // same as a chat's boundaries.
       const postHistoryNote = buildPostHistoryNote(undefined, undefined, persona, { hardLimits: adventure.rules?.hardLimits });
-      const result = await dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, protectedCount: countProtectedPrefix(sentMessages) })).unwrap();
+      const result = await dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, protectedCount: countProtectedPrefix(sentMessages), keepChoices: true })).unwrap();
       // Emotions first: the tag can land on either side of the choices block.
       const { text: withoutEmotions, castEmotions } = extractAdventureEmotions(result.text, cast);
       // A typed action's check, when the narrator decided it needed one.

@@ -290,6 +290,19 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
             )}
           </div>
 
+          {/* Choice moments (#87) - per chat */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[12.5px] font-medium text-foreground">Choice moments</div>
+              <div className="text-[11px] text-subtle">At a real turning point, a reply now and then offers two or three directions to tap, like an adventure. You can always write your own.</div>
+            </div>
+            <ToggleSwitch
+              checked={Boolean(chat?.choiceMoments)}
+              onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { choiceMoments: val || undefined } }))}
+              label={<span className="sr-only">Choice moments</span>}
+            />
+          </div>
+
           {/* Reply suggestions (#16) - per chat */}
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">

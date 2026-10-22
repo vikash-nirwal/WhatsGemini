@@ -334,6 +334,7 @@ export interface Chat {
   offscreenTalk?: boolean; // members talk among themselves while you're away (#58)
   language?: ChatLanguage; // language practice mode (#67)
   coWriting?: boolean; // write one shared story instead of chatting (#68)
+  choiceMoments?: boolean; // turning points come with tappable options (#87)
   stage?: RelationshipStage; // relationship stage (#70); unset = off
   stageCheckedAt?: number; // message count at the last stage check
   stageSuggestion?: RelationshipStage; // a stage change waiting for the user's OK

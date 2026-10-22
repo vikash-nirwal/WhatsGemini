@@ -8,6 +8,7 @@ import { ImagePromptTarget, resolveImagePromptTarget } from "./ai/utils/imagePro
 import { generateVideo } from "./ai/utils/videoGeneration";
 import { extractEmotionTag } from "./ai/utils/emotionUtils";
 import { extractCorrection, extractReactionTag, extractThoughts } from "./ai/utils/messageTags";
+import { splitChoiceMoment } from "./chat/choiceMoments";
 import { buildRecapPrompt, cleanRecap, latestStorySummary, recentForRecap } from "./chat/recap";
 import { extractBeatTag } from "./chat/storyScript";
 import { extractGameOverTag, GameOutcome } from "./chat/miniGames";
@@ -24,7 +25,7 @@ import { CHAT_PROVIDERS, IMAGE_PROVIDERS, VIDEO_PROVIDERS } from "./ai/providers
 import { ProviderRuntimeConfig } from "./ai/providers/types";
 import { ChatMessage, UsageInfo } from "./ai/types";
 import { RootState } from "../store/store";
-import { SDImageParams, Message, ArtStyle, Character, UserProfile, World, DiaryEntry, LocalImageSettings, SceneState } from "../types";
+import { SDImageParams, Message, ArtStyle, AdventureChoice, Character, UserProfile, World, DiaryEntry, LocalImageSettings, SceneState } from "../types";
 import { buildDiaryPrompt, cleanDiaryEntry } from "./ai/utils/diary";
 import { buildAdventureSceneImageInstruction, findCastInNarration } from "./ai/utils/adventurePrompt";
 import { insertCompressionSummary, fetchChats } from "./chatSlice";
@@ -48,6 +49,7 @@ export interface GenerateAIResponseResult {
   emotion?: string;
   thoughts?: string;
   correction?: string; // language practice (#67): the fix for the user's last message
+  choices?: AdventureChoice[]; // choice moments (#87): options offered at a turning point
   reaction?: string; // the character's reaction to the message it answered (#11)
   beatDone?: boolean; // the story script's current beat was reached (#57)
   gameOver?: GameOutcome; // the mini-game ended, and who won (#52)
@@ -100,7 +102,7 @@ const rewordForTagModel = async (settings: RootState["settings"], target: ImageP
 
 export const generateAIResponse = createAsyncThunk(
   "ai/generateResponse",
-  async ({ prompt, history = [], systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters, protectedCount, modelOverride, appearanceLocks, localImageSettings, promptImages }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, postHistoryNote?: string, streamKey?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[], protectedCount?: number, modelOverride?: Character["modelOverride"], appearanceLocks?: AppearanceLock[], localImageSettings?: LocalImageSettings, promptImages?: string[] }, { getState, dispatch, rejectWithValue, signal }) => {
+  async ({ prompt, history = [], systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters, protectedCount, modelOverride, appearanceLocks, localImageSettings, promptImages, keepChoices }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, postHistoryNote?: string, streamKey?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[], protectedCount?: number, modelOverride?: Character["modelOverride"], appearanceLocks?: AppearanceLock[], localImageSettings?: LocalImageSettings, promptImages?: string[], keepChoices?: boolean }, { getState, dispatch, rejectWithValue, signal }) => {
     try {
       const state = getState() as RootState;
       const settings = state.settings;
@@ -305,7 +307,11 @@ export const generateAIResponse = createAsyncThunk(
       const { text: withoutState, state: sceneState } = extractStateBlock(reactionAfter.text);
       const { text: withoutThoughtsTag, thoughts } = extractThoughts(withoutState);
       // Language practice (#67): the fix for the user's last message.
-      const { text: withoutThoughts, correction } = extractCorrection(withoutThoughtsTag);
+      const { text: withoutCorrection, correction } = extractCorrection(withoutThoughtsTag);
+      // Choice moments (#87): a turning point's tappable options. An
+      // adventure keeps its block in the text and parses it itself, with its
+      // stats and beat tags around it (`keepChoices`).
+      const { text: withoutThoughts, choices: momentChoices } = keepChoices ? { text: withoutCorrection, choices: undefined } : splitChoiceMoment(withoutCorrection);
       // A story script's [Beat done] tag (#57) closes the reply, if present.
       const { text: withoutBeat, beatDone } = extractBeatTag(withoutThoughts);
       // A mini-game's [Game over] tag (#52), in either order with the beat tag.
@@ -326,6 +332,7 @@ export const generateAIResponse = createAsyncThunk(
         thoughts,
         reaction,
         correction,
+        choices: momentChoices,
         photoDescription,
         photoUnseen: photoUnseen || undefined,
         beatDone: beatAfter.beatDone || undefined,

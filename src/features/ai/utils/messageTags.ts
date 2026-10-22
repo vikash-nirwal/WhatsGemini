@@ -83,7 +83,7 @@ export const stripStreamingTags = (text: string): string => {
   const unclosed = out.match(THOUGHTS_UNCLOSED);
   if (unclosed) out = out.slice(0, unclosed.index);
   // A tag still being typed at the very end, including a story beat tag (#57).
-  return stripStreamingCorrection(stripStreamingGameTag(stripStreamingBeatTag(stripStreamingState(out.replace(/<\s*t?h?o?u?g?h?t?s?\s*$/i, "").trimEnd()))));
+  return stripStreamingChoices(stripStreamingCorrection(stripStreamingGameTag(stripStreamingBeatTag(stripStreamingState(out.replace(/<\s*t?h?o?u?g?h?t?s?\s*$/i, "").trimEnd())))));
 };
 
 // Language practice (#67): the correction of the user's last message.
@@ -99,3 +99,9 @@ export const extractCorrection = (text: string): { text: string; correction?: st
 };
 
 export const stripStreamingCorrection = (text: string): string => text.replace(FIX_BLOCK, "").replace(FIX_UNCLOSED, "").replace(/<\s*f?i?x?\s*$/i, "").trimEnd();
+
+// Choice moments (#87): the options block, shown as chips once the reply is in.
+export const stripStreamingChoices = (text: string): string => {
+  const at = text.indexOf("<<<CHOICES");
+  return (at >= 0 ? text.slice(0, at) : text.replace(/<{1,3}C?H?O?I?C?E?S?$/, "")).trimEnd();
+};
