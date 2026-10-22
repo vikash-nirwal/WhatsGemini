@@ -354,6 +354,9 @@ const TextModelSettings: React.FC<TextModelSettingsProps> = ({
         <SettingsRow label="Suggest relationship updates" hint="Every 20 messages, a cheap check whether you and the character have grown closer or apart. You approve each change; a chat can switch it off too." align="start">
           <ToggleSwitch checked={roleplayStyle.relationshipSuggestions !== false} onChange={(v) => updateStyle({ relationshipSuggestions: v })} />
         </SettingsRow>
+        <SettingsRow label="Suggest character growth" hint="Every 40 messages, a cheap check whether the story has changed the character (more open, more confident...). You approve each note; it's added to how they act, and the personality you wrote stays as it is." align="start">
+          <ToggleSwitch checked={roleplayStyle.arcSuggestions !== false} onChange={(v) => updateStyle({ arcSuggestions: v })} label={<span className="sr-only">Suggest character growth</span>} />
+        </SettingsRow>
         <SettingsRow label="Extra rules" hint="Anything else every character should follow." align="start">
           <TextArea
             value={roleplayStyle.customInstructions}

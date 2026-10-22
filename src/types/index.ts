@@ -187,6 +187,15 @@ export interface SceneState {
   updatedAt?: number;
 }
 
+// A letter a character wrote while you were away (#61).
+export interface CharacterLetter {
+  id: string;
+  at: number;
+  text: string;
+  chatId?: number;
+  read?: boolean;
+}
+
 // A conversation two room members had while you were away (#58).
 export interface OffscreenTalk {
   id: string;
@@ -288,6 +297,8 @@ export interface Chat {
   narrator?: boolean;
   roomRelationships?: RoomRelationship[];
   innerThoughts?: boolean; // every member writes a hidden thought with each reply (#10)
+  arcCheckedAt?: number; // message count at the last character-growth check (#60)
+  arcSuggestion?: string; // a growth note waiting for the user's OK
   offscreenTalk?: boolean; // members talk among themselves while you're away (#58)
   offscreenTalks?: OffscreenTalk[]; // the last few of those conversations
   // Relationship that evolves (#30): off when false; the message count at
@@ -393,6 +404,9 @@ export interface Character {
   visualTags?: string;
   localImageSettings?: LocalImageSettings; // #40, local generation only
   innerThoughts?: boolean; // #10: also write hidden thoughts with each reply
+  growth?: string[]; // accepted notes on how they've changed (#60)
+  writesLetters?: boolean; // writes you a letter after a few days away (#61)
+  letters?: CharacterLetter[];
   importantDates?: ImportantDate[]; // #47
   schedule?: CharacterSchedule; // #7
   postsStatuses?: boolean; // #8: posts a status now and then
@@ -516,6 +530,9 @@ export interface RoleplayStyle {
   // Every 20 messages, suggest an updated relationship label (#30); on
   // unless set to false.
   relationshipSuggestions?: boolean;
+  // Every 40 messages, suggest a note on how the character has grown (#60);
+  // on unless set to false.
+  arcSuggestions?: boolean;
   customInstructions: string;
 }
 

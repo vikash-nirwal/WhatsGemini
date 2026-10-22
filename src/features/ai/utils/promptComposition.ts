@@ -7,6 +7,7 @@ import { buildStoryScriptSection } from "../../chat/storyScript";
 import { buildGameSection } from "../../chat/miniGames";
 import { buildCallSection } from "../../voice/callSession";
 import { buildStateDirective } from "../../chat/sceneState";
+import { buildGrowthSection } from "../../character/characterArc";
 import { buildAvoidNote, findRepeatedOpening, findRepeatedPhrases } from "./antiRepetition";
 
 import { buildDatesSection } from "../../character/importantDates";
@@ -273,6 +274,8 @@ export const buildSystemInstruction = (
   if (character.personalityTraits && character.personalityTraits.length > 0) {
     sections.push(`Key personality traits: ${character.personalityTraits.join(", ")}.`);
   }
+  const growth = buildGrowthSection(character.name, character.growth);
+  if (growth) sections.push(m(growth));
 
   // Only set for a multi-character room (Phase 12) - a normal 1:1 chat never
   // passes this, so its prompt is unchanged. Other speakers' lines arrive
@@ -508,6 +511,7 @@ export interface SceneContext {
   world?: World; // a World attached to this chat (#28)
   sceneState?: SceneState;
   roomNames?: string[]; // group chats: every member, for who's present (#69)
+  letterNote?: string; // a letter the character wrote while the user was away (#61)
 }
 
 // The single function replacing the copy-pasted "build history + build system
@@ -535,6 +539,7 @@ export const buildTurnContext = (
     ...(scene?.game && character ? [buildGameSection(scene.game, character.name)] : []),
     ...(scene?.onCall && character ? [buildCallSection(character.name)] : []),
     ...(scene?.sceneTracker && character ? [buildStateDirective(scene.sceneState, character.name, scene.roomNames)] : []),
+    ...(scene?.letterNote ? [scene.letterNote] : []),
   ];
   const directives = sceneDirectives.length > 0 ? [...sceneDirectives, ...(extraDirectives || [])] : extraDirectives;
   const { text, images, characterName } = buildSystemInstruction(

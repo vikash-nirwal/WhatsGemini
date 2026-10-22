@@ -15,7 +15,7 @@ test("a phrase recent replies keep reusing is flagged for the next reply", async
 });
 
 test.describe("switched off", () => {
-  test.use({ localStorageOverrides: { roleplay_style: JSON.stringify({ antiRepetition: false }) } });
+  test.use({ localStorageOverrides: { roleplay_style: JSON.stringify({ antiRepetition: false, arcSuggestions: false }) } });
 
   test("no note is sent", async ({ page, mockAI }) => {
     mockAI.reply("Fine.");

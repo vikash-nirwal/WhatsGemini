@@ -3,7 +3,7 @@ import { test, expect, openChat, sendMessage, ARIA } from "./fixtures";
 // Relationship that evolves (#30): past 20 messages a helper call may
 // suggest a new label, which the user approves or keeps as is.
 
-test.use({ seed: { messages: 30 }, localStorageOverrides: { roleplay_style: JSON.stringify({ relationshipSuggestions: true }) } });
+test.use({ seed: { messages: 30 }, localStorageOverrides: { roleplay_style: JSON.stringify({ relationshipSuggestions: true, arcSuggestions: false }) } });
 
 const SUGGESTED = "Close friends who tease each other";
 

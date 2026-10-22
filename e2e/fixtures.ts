@@ -151,7 +151,7 @@ export const BASE_LOCAL_STORAGE: Record<string, string> = {
   recap_after_days: "0",
   // Same for the relationship check (#30), which would otherwise add a
   // helper call to every test that sends in the 30-message seed.
-  roleplay_style: JSON.stringify({ relationshipSuggestions: false }),
+  roleplay_style: JSON.stringify({ relationshipSuggestions: false, arcSuggestions: false }),
 };
 
 // Writes straight into the app's Dexie database with the raw IndexedDB API.

@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useCallback, useMemo, useState } from "react"
 import { FaCheck, FaTimes, FaArrowDown, FaClock, FaMicrophone } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { YOU, LS_INITIAL_MESSAGES } from "../../utils/constants";
-import { Message, Character, ConversationTree, Intensity, StoryScript, ChatGame, OffscreenTalk } from "../../types";
+import { Message, Character, ConversationTree, Intensity, StoryScript, ChatGame, OffscreenTalk, CharacterLetter } from "../../types";
 import { getSiblingInfo } from "../../features/chat/messageTree";
 import { resolveEmotionPortrait } from "../../features/ai/utils/emotionUtils";
 import { stripStreamingTags } from "../../features/ai/utils/messageTags";
@@ -28,6 +28,8 @@ import EmotionPopup, { EmotionPopupTrigger } from "src/components/molecules/Emot
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { updateChatOptions } from "../../features/chatSlice";
 import { OffscreenTalkCard } from "src/components/molecules/OffscreenTalkCard";
+import { LetterCard } from "src/components/molecules/LetterCard";
+import { updateCharacter } from "../../features/characterSlice";
 import { setEmotionPanelEnabled } from "../../features/settingsSlice";
 import { VIDEO_PROVIDERS } from "../../features/ai/providers/registry";
 import { getProviderApiKey, getWanBaseUrl } from "../../features/ai/utils/settings";
@@ -48,6 +50,10 @@ interface ChatWindowProps {
   storyScript?: StoryScript; // the story this chat follows (#57)
   game?: ChatGame; // the mini-game being played (#52)
   relationshipSuggestion?: { from: string; to: string }; // waiting for the user's OK (#30)
+  arcSuggestion?: string; // a note on how the character has grown, waiting for the user's OK (#60)
+  onReplyToLetter?: (letter: CharacterLetter) => void; // starts a reply to a letter (#61)
+  onAcceptArc?: () => void;
+  onDismissArc?: () => void;
   awayNote?: string | null; // a realistic schedule (#7) is holding the reply back
   onAcceptRelationship?: () => void;
   onDismissRelationship?: () => void;
@@ -157,7 +163,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc, note }: { charIniti
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onReplyToLetter, arcSuggestion, onAcceptArc, onDismissArc, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -367,6 +373,21 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, relationshipSuggestio
     () => filteredMessages.map((m) => Boolean(m.isCompressionSummary)).lastIndexOf(true),
     [filteredMessages]
   );
+  // Letters this character wrote you in this chat (#61), placed the same way.
+  const lettersAfter = useMemo(() => {
+    const byIndex = new Map<number, CharacterLetter[]>();
+    if (isRoom || !character) return byIndex;
+    for (const letter of character.letters || []) {
+      if (!letter.text || letter.chatId !== chatId) continue;
+      let at = -1;
+      filteredMessages.forEach((m, i) => {
+        if ((m.timestamp || 0) <= letter.at) at = i;
+      });
+      if (at >= 0) byIndex.set(at, [...(byIndex.get(at) || []), letter]);
+    }
+    return byIndex;
+  }, [character, chatId, isRoom, filteredMessages]);
+
   const talksAfter = useMemo(() => {
     const byIndex = new Map<number, OffscreenTalk[]>();
     for (const talk of offscreenTalks || []) {
@@ -721,6 +742,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, relationshipSuggestio
                     reactorName={msg.characterReaction ? resolveReactor(msg.characterReaction.speakerId) : undefined}
                     voice={msg.role === YOU ? undefined : speaker?.voice}
                   />
+                  {character && lettersAfter.get(i)?.map((letter) => (
+                    <LetterCard
+                      key={letter.id}
+                      letter={letter}
+                      from={character.name}
+                      onRead={() => !letter.read && offscreenDispatch(updateCharacter({ ...character, letters: (character.letters || []).map((l) => (l.id === letter.id ? { ...l, read: true } : l)) }))}
+                      onReply={onReplyToLetter ? () => onReplyToLetter(letter) : undefined}
+                    />
+                  ))}
                   {talksAfter.get(i)?.map((talk) => (
                     <OffscreenTalkCard key={talk.id} talk={talk} namesById={namesById} onSeen={() => chatId && markTalkSeen(talk.id)} />
                   ))}
@@ -766,6 +796,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, relationshipSuggestio
                 <div className="mt-2 flex gap-2">
                   <Button type="button" size="sm" onClick={onAcceptRelationship}>Update</Button>
                   <Button type="button" size="sm" variant="ghost" onClick={onDismissRelationship}>Keep as is</Button>
+                </div>
+              </section>
+            )}
+            {arcSuggestion && !aiLoading && onAcceptArc && onDismissArc && (
+              <section aria-label="Character growth" className={cn("mb-6 mx-auto max-w-xl px-4 py-3 font-sans text-sm", terminal ? "border border-border" : "rounded-2xl border border-border/60 bg-card/[0.88] shadow-soft")}>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-subtle mb-1">{characterName || "They"} has changed?</div>
+                <p className="text-foreground">{arcSuggestion}</p>
+                <div className="mt-2 flex gap-2">
+                  <Button type="button" size="sm" onClick={onAcceptArc}>Keep this</Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={onDismissArc}>Not really</Button>
                 </div>
               </section>
             )}

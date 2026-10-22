@@ -827,6 +827,33 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
         )}
         {tab === "memory" && (
           <div role="tabpanel" id="scene-tabpanel-memory" aria-labelledby="scene-tab-memory" className="flex flex-col gap-[22px]">
+          {/* Character growth (#60): accepted notes on how they've changed */}
+          {!isRoom && character && (character.growth || []).length > 0 && (
+            <div>
+              <div className="flex items-baseline justify-between mb-2">
+                <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">How {character.name} has grown</span>
+              </div>
+              <ul aria-label={`How ${character.name} has grown`} className="flex flex-col gap-1.5">
+                {(character.growth || []).map((note, i) => (
+                  <li key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-background border border-border/30 text-[12.5px] text-foreground">
+                    <span className="flex-1">{note}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-auto w-auto p-0.5 text-subtle hover:text-destructive hover:bg-transparent"
+                      aria-label={`Remove: ${note}`}
+                      onClick={() => {
+                        const next = (character.growth || []).filter((_, j) => j !== i);
+                        dispatch(updateCharacter({ ...character, growth: next.length > 0 ? next : undefined }));
+                      }}
+                    >
+                      <FaTimes size={10} />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {/* Memory */}
           <div>
             <div className="flex items-baseline justify-between mb-2">
@@ -1062,6 +1089,21 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
               checked={Boolean(character.postsStatuses)}
               onChange={(val) => dispatch(updateCharacter({ ...character, postsStatuses: val || undefined }))}
               label={<span className="sr-only">{character.name} posts statuses</span>}
+            />
+          </div>
+        )}
+
+        {/* Letters (#61) - per character */}
+        {!isRoom && character && (
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[12.5px] font-medium text-foreground">{character.name} writes letters</div>
+              <div className="text-[11px] text-subtle">When you haven't written for a few days, {character.name} writes you a longer letter, once per absence. It shows here in the chat, and you can reply.</div>
+            </div>
+            <ToggleSwitch
+              checked={Boolean(character.writesLetters)}
+              onChange={(val) => dispatch(updateCharacter({ ...character, writesLetters: val || undefined }))}
+              label={<span className="sr-only">{character.name} writes letters</span>}
             />
           </div>
         )}

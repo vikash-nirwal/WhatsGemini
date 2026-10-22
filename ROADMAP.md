@@ -6,11 +6,6 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 ---
 
-## Living characters
-
-60. **Character arc suggestions** (S). Every so often the helper model reads what has happened and suggests a small update to the character's personality or description ("Aria has become more open about her past"). You accept or dismiss it, like the relationship suggestion (#30). Nothing changes without your OK.
-61. **Letters** (S–M). After you've been away a few days, a character can write a longer letter instead of a chat bubble. Letters collect in their own inbox (per character, readable from the chat), and you can reply to one. A per-character switch, off by default.
-
 ## Worlds and stories
 
 66. **World map** (M). Generate a map picture for a World with the image provider (or upload one), and pin its places on it. The scene tracker's location (#9) and an adventure's current place show as a "you are here" marker.
