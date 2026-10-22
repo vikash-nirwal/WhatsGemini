@@ -159,6 +159,18 @@ export interface CharacterStatus {
   image?: string;
   createdAt: number;
   seen?: boolean;
+  // The feed (#85): which characters liked it, whether you did, and the
+  // comments under it (yours, the poster's answers and the others').
+  likes?: number[];
+  likedByYou?: boolean;
+  comments?: StatusComment[];
+}
+
+export interface StatusComment {
+  id: string;
+  from: number | "you"; // a character id, or you
+  text: string;
+  at: number;
 }
 
 // One of a character's outfits (#50).

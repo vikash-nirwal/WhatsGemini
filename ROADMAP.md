@@ -11,7 +11,6 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 ## Group life
 
-85. **Character feed** (M). Statuses (#8) grow into a small feed: characters post, the others react and comment in character (shaped by #24), and you can like and reply.
 
 ## More control over the story
 

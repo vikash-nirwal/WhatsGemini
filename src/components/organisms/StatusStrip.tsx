@@ -2,20 +2,22 @@ import React, { useState } from "react";
 import { cn } from "src/utils/cn";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "src/components/molecules/dialog";
-import { Button } from "src/components/atoms/button";
 import { useAppDispatch } from "src/store/hooks";
 import { updateCharacter } from "src/features/characterSlice";
 import { hasUnseenStatus, liveStatuses, markSeen } from "src/features/character/statusUpdates";
-import { formatRelativeTime } from "src/utils/formatRelativeTime";
+import { feedItems } from "src/features/character/statusFeed";
+import { StatusFeed } from "src/components/organisms/StatusFeed";
 import { Character, CharacterStatus } from "src/types";
 
 // The sidebar's "Status" row (#8): characters who posted in the last day,
 // with a ring around the ones you haven't seen. Opening one marks it seen;
-// "Reply" opens their chat with the status quoted.
+// "Reply" opens their chat with the status quoted. "Feed" (#85) shows every
+// kept status, newest first, with likes and comments.
 // `compact`: the collapsed sidebar's narrow column, avatars only, stacked.
 export const StatusStrip = ({ characters, onReply, compact = false }: { characters: Character[]; onReply: (character: Character, status: CharacterStatus) => void; compact?: boolean }) => {
   const dispatch = useAppDispatch();
   const [viewing, setViewing] = useState<Character | null>(null);
+  const [feedOpen, setFeedOpen] = useState(false);
   const now = Date.now();
   const posting = characters.filter((c) => liveStatuses(c, now).length > 0);
   if (posting.length === 0) return null;
@@ -24,11 +26,26 @@ export const StatusStrip = ({ characters, onReply, compact = false }: { characte
     setViewing(c);
     if (hasUnseenStatus(c, now)) dispatch(updateCharacter({ ...c, statuses: markSeen(c.statuses) }));
   };
-  const shown = viewing ? liveStatuses(characters.find((c) => c.id === viewing.id) || viewing, now) : [];
+  const viewed = viewing ? characters.find((c) => c.id === viewing.id) || viewing : null;
+  const shown = viewed ? liveStatuses(viewed, now) : [];
+  const reply = (c: Character, s: CharacterStatus) => {
+    setViewing(null);
+    setFeedOpen(false);
+    onReply(c, s);
+  };
 
   return (
     <div className={compact ? "pt-2 pb-2 border-b border-border/40 mb-1.5" : "px-3 pt-2 pb-1"}>
-      <div className={compact ? "sr-only" : "text-[10.5px] font-semibold tracking-[0.09em] uppercase text-subtle pb-1.5"}>Status</div>
+      {compact ? (
+        <div className="sr-only">Status</div>
+      ) : (
+        <div className="flex items-baseline justify-between pb-1.5">
+          <span className="text-[10.5px] font-semibold tracking-[0.09em] uppercase text-subtle">Status</span>
+          <button type="button" onClick={() => setFeedOpen(true)} className="text-[11px] text-muted-foreground hover:text-primary">
+            Feed
+          </button>
+        </div>
+      )}
       <div role="list" aria-label="Status updates" className={compact ? "flex flex-col items-center gap-2.5 pt-1" : "flex gap-3 overflow-x-auto px-1 pt-1 pb-1"}>
         {posting.map((c) => {
           const unseen = hasUnseenStatus(c, now);
@@ -55,21 +72,15 @@ export const StatusStrip = ({ characters, onReply, compact = false }: { characte
         <DialogContent>
           <DialogTitle>{viewing?.name}'s status</DialogTitle>
           <DialogDescription className="sr-only">Statuses from the last day</DialogDescription>
-          <ol className="flex flex-col gap-3" aria-label="Statuses">
-            {shown.map((s) => (
-              <li key={s.id} className="flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3">
-                <p className="text-[15px] text-foreground">{s.text}</p>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-subtle">{formatRelativeTime(s.createdAt)}</span>
-                  {viewing && (
-                    <Button type="button" variant="outline" size="sm" onClick={() => { const c = viewing; setViewing(null); onReply(c, s); }}>
-                      Reply
-                    </Button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ol>
+          {viewed && <StatusFeed items={shown.map((status) => ({ character: viewed, status }))} onReply={reply} />}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={feedOpen} onOpenChange={setFeedOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogTitle>Feed</DialogTitle>
+          <DialogDescription className="sr-only">Every character's recent statuses</DialogDescription>
+          <StatusFeed items={feedItems(characters)} onReply={reply} showPoster />
         </DialogContent>
       </Dialog>
     </div>
