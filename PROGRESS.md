@@ -6,7 +6,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **State:** the new-ideas queue (#42–#57) is built and pushed and deployed (CI green). The last full local run passed: type-check, 838 unit tests, 820 UI tests and 16 screenshot tests.
+- **State:** the new-ideas queue (#42–#57) is built and pushed and deployed (CI green). The last full local run passed: type-check, 841 unit tests, 836 UI tests and 16 screenshot tests.
 - **Next up:** #81–#92 (picked by the user on 2026-10-22), built in the order of the table below, each committed after the full suites. Push and deploy only with the user's OK.
 - **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
 - **How the new-ideas run went:** #42, #43, #12+#44 and #45 ran in fresh sessions; from #46 on they were built in the coordinating session, because new sessions can't be started over Remote Control. Each item was committed only after every suite passed.
@@ -15,7 +15,6 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 88 | Compare two models | todo | |
 | 89 | Ambient sound | todo | |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
@@ -31,6 +30,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **Compare two models (#88):** "Compare two models (the latest reply)" in a 1:1 chat's actions opens `CompareDialog.tsx`: pick a provider and model, `handleRegenerate(index, override)` writes the latest reply again with it as a variant, and the two show side by side; "Keep this one" deletes the other variant (`handleKeepCompared`). Closing without picking keeps both as variants.
 - **Character feed (#85):** `CharacterStatus` has `likes` (character ids), `likedByYou` and `comments` (`StatusComment`, from a character or "you"). After `StatusPoster` posts, the characters who share a room with the poster or know of them (`feedPeersFor`, src/features/character/statusFeed.ts, with room feelings from #24) like and comment in one helper call (`buildFeedReactionsPrompt`). `StatusFeed.tsx` is the status viewer and the sidebar's "Feed" dialog (every kept status, newest first): like, comment (the poster answers via `buildCommentReplyPrompt`) or Reply in private.
 - **Secrets (#81):** `Character.secrets` (editor, last step, `SecretsSection.tsx`), each revealed at a relationship stage, a trust level (scene tracker trust) or only if asked. `secretsInPlay` (src/features/character/secrets.ts) splits them per chat into hidden (hint only) and revealable (at most one whose time has come, plus the ask-only ones, numbered); `buildSecretsSection` goes in the 1:1 prompt. aiSlice strips `[Secret revealed: n]` into `payload.secretRevealed`; ChatPage marks that message `secretRevealed` ("A secret came out" note) and `noteSecretRevealed` adds the id to `Chat.revealedSecrets`.
 - **Shared plans (#84):** `Chat.plans` ("Plans together" at the top of the Story tab, `scene-panel/PlansSection.tsx`: add, tick off, remove). With `Chat.planTracking` ("Notice plans", off by default), `maybeTrackPlans` in useBackgroundUpdates asks the helper (`buildPlansPrompt`, src/features/chat/sharedPlans.ts) only when the last exchange sounds like a plan or mentions an open one; it adds plans (with a date when it can be worked out) and ticks off ones that happened. `buildPlansSection` tells the character about open plans and calls out today's.

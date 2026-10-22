@@ -14,7 +14,6 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 ## More control over the story
 
-88. **Compare two models** (S–M). Generate the next reply with two models side by side and keep the one you like.
 
 ## Atmosphere and comfort
 

@@ -5,7 +5,8 @@ import { fetchCharacterById, updateCharacter } from "../features/characterSlice"
 import { generateAIResponse, compressChatHistory, autoCompressChat, generateAvatarImage, summarizeChapter, generateAssistText, generateBackdropImage } from "../features/aiSlice";
 import { parseSlashCommand, SLASH_COMMANDS } from "../features/chat/slashCommands";
 import { buildStoryMarkdown, storyFileName } from "../features/chat/storyExport";
-import { resolveTurnModel } from "../features/ai/modelResolution";
+import { CharacterModelOverride, resolveTurnModel } from "../features/ai/modelResolution";
+import { CompareDialog, ComparedReply, providerLabel } from "../components/organisms/CompareDialog";
 import { lockedLookFor } from "../features/ai/utils/appearanceLock";
 import { useChatRecap } from "../features/chat/useChatRecap";
 import { beatStamp } from "../features/chat/storyScript";
@@ -45,7 +46,7 @@ import Header, { HeaderAction } from "src/components/organisms/Header";
 import PortraitPreviewModal from "src/components/organisms/PortraitPreviewModal";
 import AutoReplyModal from "src/components/organisms/AutoReplyModal";
 import PersonaModal from "src/components/organisms/PersonaModal";
-import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20, FaLayerGroup, FaGamepad, FaCodeBranch, FaPhoneAlt, FaBookOpen, FaImages, FaTheaterMasks, FaForward, FaGift } from "react-icons/fa";
+import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20, FaLayerGroup, FaGamepad, FaCodeBranch, FaPhoneAlt, FaBookOpen, FaImages, FaTheaterMasks, FaForward, FaGift, FaBalanceScale } from "react-icons/fa";
 import { Button } from "src/components/atoms/button";
 import { AI, YOU, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
@@ -533,6 +534,9 @@ const ChatPage = () => {
   const [scenarioOpen, setScenarioOpen] = useState(false);
   const [timeSkipOpen, setTimeSkipOpen] = useState(false);
   const [giftOpen, setGiftOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [compareBusy, setCompareBusy] = useState(false);
+  const [compareResult, setCompareResult] = useState<{ current: ComparedReply; other: ComparedReply } | null>(null);
   const [gameOpen, setGameOpen] = useState(false);
   const [branchMapOpen, setBranchMapOpen] = useState(false);
   const [participantsOpen, setParticipantsOpen] = useState(false);
@@ -1268,8 +1272,10 @@ const ChatPage = () => {
     }
   };
 
-  const handleRegenerate = async (index: number) => {
-    if (index < 0 || index >= messages.length || !chatIdNum || !currentChat) return;
+  // `override`: another model for this one reply (compare two models, #88).
+  // Resolves to the new variant, when one was made.
+  const handleRegenerate = async (index: number, override?: CharacterModelOverride): Promise<{ id: string; text: string } | undefined> => {
+    if (index < 0 || index >= messages.length || !chatIdNum || !currentChat) return undefined;
 
     setError(null);
 
@@ -1282,7 +1288,7 @@ const ChatPage = () => {
       const targetNodeId = targetMessage?.id;
       if (!targetNodeId || !tree.nodes[targetNodeId]) {
         console.warn("Cannot regenerate: message not found.");
-        return;
+        return undefined;
       }
       const parentId = tree.nodes[targetNodeId].parentId;
       const historyUpToTarget = getPathToNode(tree, targetNodeId);
@@ -1312,11 +1318,11 @@ const ChatPage = () => {
       const speaker = roomCharacters.find((c) => c.id === targetMessage?.speakerId)
         || resolveNextSpeaker(roomCharacters, historyUpToTarget, unavailableIds)
         || characterData;
-      if (!speaker) return;
+      if (!speaker) return undefined;
 
       const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = buildTurnContext(historyUpToTarget, speaker, extraDirectives, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
       const regenVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest));
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings, promptImages: sentPhotos }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: override || speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings, promptImages: sentPhotos }));
       const aiResponse = await aiPromiseRef.current;
       setRecordingVoiceNote(false);
       aiPromiseRef.current = null;
@@ -1366,6 +1372,8 @@ const ChatPage = () => {
         saveSceneState(payloadObj);
         advanceGame(payloadObj, false);
         runBackgroundUpdates(newContent, speaker);
+        dispatch(fetchChats());
+        return { id: newNodeId, text: regenText };
       }
 
       dispatch(fetchChats());
@@ -1373,6 +1381,39 @@ const ChatPage = () => {
       console.error("Error regenerating response:", err);
       setError("Failed to regenerate response. Please try again.");
     }
+    return undefined;
+  };
+
+  // Compare two models (#88): the latest reply again from another model, as
+  // a variant; the one you keep stays and the other is deleted.
+  const handleCompare = async (override: CharacterModelOverride) => {
+    const index = messages.length - 1;
+    const current = messages[index];
+    if (!current?.id || current.role !== AI || !characterData) return;
+    setCompareBusy(true);
+    try {
+      const made = await handleRegenerate(index, override);
+      if (!made) return;
+      const turn = resolveTurnModel({ chatProvider, selectedModel, temperature: 0, samplers: {} }, characterData);
+      setCompareResult({
+        current: { id: current.id, label: `${providerLabel(turn.provider)} / ${turn.model}`, text: current.txt || "" },
+        other: { id: made.id, label: `${providerLabel(override.provider || chatProvider)} / ${override.model}`, text: made.text },
+      });
+    } finally {
+      setCompareBusy(false);
+    }
+  };
+  const handleKeepCompared = async (keepId: string, dropId: string) => {
+    setCompareOpen(false);
+    setCompareResult(null);
+    if (!chatIdNum) return;
+    const fresh = await dispatch(fetchChatById(chatIdNum)).unwrap().catch(() => currentChat);
+    if (!fresh) return;
+    const { tree } = getOrBuildTree(fresh);
+    if (!tree.nodes[keepId] || !tree.nodes[dropId]) return;
+    const { tree: newTree } = deleteBranch(tree, dropId);
+    const leafId = findDefaultLeafFrom(newTree, keepId);
+    await dispatch(updateChatTree({ chatId: chatIdNum, content: flattenPath(newTree, leafId), tree: newTree, activeLeafId: leafId }));
   };
 
   // Switches which sibling variant is displayed for a branched message - pure
@@ -1751,6 +1792,9 @@ const ChatPage = () => {
     ...(!isRoom && characterData && messages.length > 0
       ? [{ icon: FaGift, label: `Give ${characterData.name} a gift`, onClick: () => setGiftOpen(true) }]
       : []),
+    ...(!isRoom && characterData && messages[messages.length - 1]?.role === AI
+      ? [{ icon: FaBalanceScale, label: "Compare two models (the latest reply)", onClick: () => { setCompareResult(null); setCompareOpen(true); }, disabled: aiLoading }]
+      : []),
     ...(messages.length > 0
       ? [{ icon: FaLayerGroup, label: "Draw an event card (a random event happens)", onClick: handleDrawEvent, disabled: aiLoading }]
       : []),
@@ -1889,6 +1933,17 @@ const ChatPage = () => {
         <StoryScriptDialog open={storyOpen} onOpenChange={setStoryOpen} script={currentChat?.storyScript} onSave={saveStoryScript} />
         <ScenarioCardsDialog open={scenarioOpen} onOpenChange={setScenarioOpen} onStart={handleStartScenario} />
         <TimeSkipDialog open={timeSkipOpen} onOpenChange={setTimeSkipOpen} onSkip={handleTimeSkip} />
+        {!isRoom && characterData && (
+          <CompareDialog
+            open={compareOpen}
+            onOpenChange={(o) => { setCompareOpen(o); if (!o) setCompareResult(null); }}
+            currentProvider={characterData.modelOverride?.provider || chatProvider}
+            busy={compareBusy}
+            result={compareResult}
+            onCompare={handleCompare}
+            onKeep={handleKeepCompared}
+          />
+        )}
         {!isRoom && characterData && (
           <GiftDialog open={giftOpen} onOpenChange={setGiftOpen} characterName={characterData.name} gifts={characterData.gifts || []} disabled={aiLoading} onGive={handleGiveGift} />
         )}
