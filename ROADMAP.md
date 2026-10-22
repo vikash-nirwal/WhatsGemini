@@ -10,7 +10,6 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 81. **Secrets** (M). In the editor, a character gets a few secrets, each with when it can come out: a relationship stage (#70), a trust level (#9/#71) or only if asked. The character hints at them and reveals one once its condition is met; a small "A secret came out" note marks the moment.
 82. **Gifts** (S–M). Give the character something (a few ideas, or your own words). They react, remember it and may mention it later; gifts collect in a "Given" list on the character, and they may give you something back on a special date (#47).
-83. **"On this day"** (S). A year, a month or 100 days after your first chat or a big moment (a chapter), the character remembers it unprompted.
 84. **Shared plans** (S–M). Things you and the character agree to do become a short list in the Scene panel; the character remembers them, brings them up when the day comes, and ticks them off when they happen.
 
 ## Group life

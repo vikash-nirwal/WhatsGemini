@@ -34,6 +34,7 @@ import ChatWindow from "src/components/organisms/ChatWindow";
 import { useBackgroundUpdates } from "./chat/useBackgroundUpdates";
 import { useReplyEffects } from "./chat/useReplyEffects";
 import { knowsNoteFor, recentLetterNote, roomContextFor } from "./chat/promptNotes";
+import { buildOnThisDayNote } from "../features/chat/onThisDay";
 import MessageInput from "src/components/organisms/MessageInput";
 import Header, { HeaderAction } from "src/components/organisms/Header";
 import PortraitPreviewModal from "src/components/organisms/PortraitPreviewModal";
@@ -275,6 +276,7 @@ const ChatPage = () => {
   // Set here rather than in `scene` above: they need the persona's name.
   scene.letterNote = !isRoom ? recentLetterNote(characterData, currentChat, chatIdNum, activePersona?.name?.trim() || "the user") : undefined;
   scene.knowsNote = !isRoom ? knowsNoteFor(characterData, characters, chats, activePersona?.name?.trim() || "the user") : undefined;
+  scene.onThisDayNote = !isRoom ? buildOnThisDayNote(currentChat?.content || [], activePersona?.name?.trim() || "the user", Date.now()) : undefined;
   const globalActivePersona = useMemo(
     () => personas.find((p) => p.id === globalActivePersonaId) || personas[0],
     [personas, globalActivePersonaId]

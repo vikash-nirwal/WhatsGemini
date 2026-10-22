@@ -523,6 +523,7 @@ export interface SceneContext {
   meters?: string[]; // the scene tracker's own meters (#71)
   boldness?: 1 | 2 | 3 | 4 | 5; // how forward the character is (#72)
   knowsNote?: string; // what this character knows of the user's other relationships (#74)
+  onThisDayNote?: string; // a month, 100 days or a year since your first chat or a chapter (#83)
   choiceMoments?: boolean; // offer options at turning points (#87)
 }
 
@@ -557,6 +558,7 @@ export const buildTurnContext = (
     ...(scene?.knowsNote ? [scene.knowsNote] : []),
     ...(scene?.choiceMoments ? [CHOICE_MOMENT_DIRECTIVE] : []),
     ...(scene?.letterNote ? [scene.letterNote] : []),
+    ...(scene?.onThisDayNote ? [scene.onThisDayNote] : []),
     ...(scene?.language ? [buildLanguageDirective(scene.language, activePersona?.name?.trim() || "The user")] : []),
     ...(scene?.coWriting && character ? [buildCoWritingDirective(character.name, activePersona?.name?.trim() || "the user")] : []),
     ...(scene?.stage ? [buildStageSection(scene.stage, activePersona?.name?.trim() || "the user")] : []),
