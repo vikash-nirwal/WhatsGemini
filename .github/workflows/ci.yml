@@ -7,7 +7,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
 
@@ -27,6 +27,25 @@ jobs:
         run: npm test
         env:
           CI: true
+
+  # The UI tests run in two halves at once: one job took close to its
+  # 30-minute limit as the suite grew (and a run on 2026-10-22 hit it).
+  ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
 
       # Cached by Playwright version, so a dependency bump re-downloads them.
       - name: Get Playwright version
@@ -49,7 +68,7 @@ jobs:
         run: npx playwright install-deps chromium webkit
 
       - name: UI tests
-        run: npm run test:e2e
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/2
         env:
           CI: true
 
@@ -57,7 +76,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/
