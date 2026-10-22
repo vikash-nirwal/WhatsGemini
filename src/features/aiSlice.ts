@@ -538,6 +538,37 @@ export const writeRecap = createAsyncThunk(
 // Character Editor's "AI assist" buttons (expand a personality idea, draft a
 // greeting from the scenario). Same generateOnce path summarization/memory
 // extraction use, just with a freeform instruction instead of a fixed prompt.
+// Character from a photo (#92): a one-off call with a picture, so it needs a
+// model that can see it - the helper model when it can, else the chat model.
+// Unlike chat photos, there's no describing it in words first: the look is
+// the whole point.
+export const generateAssistTextWithImage = createAsyncThunk(
+  "ai/generateAssistTextWithImage",
+  async ({ instruction, image }: { instruction: string; image: string }, { getState, rejectWithValue }) => {
+    try {
+      const settings = (getState() as RootState).settings;
+      const images = await appendCharacterImages([image]);
+      if (images.length === 0) throw new Error("Couldn't read that photo. Try another one.");
+      const helper = await resolveHelperCall(settings).catch(() => undefined);
+      let call = helper && modelSeesImages(helper.providerId, helper.model) ? helper : undefined;
+      if (!call && modelSeesImages(settings.chatProvider, settings.selectedModel)) {
+        const adapter = CHAT_PROVIDERS[settings.chatProvider] || CHAT_PROVIDERS.gemini;
+        const config = await resolveProviderConfig(settings.chatProvider, adapter.capabilities.requiresBaseUrl);
+        if (!config.apiKey && adapter.capabilities.requiresApiKey) throw new Error("API key is missing. Please log in.");
+        call = { providerId: settings.chatProvider, adapter, config, model: settings.selectedModel };
+      }
+      if (!call) {
+        throw new Error("Your chat model can't see pictures. Pick one that can (a GPT-4o, Claude, Gemini or vision model) in Settings › Text Generation, as the chat or helper model.");
+      }
+      const result = await call.adapter.generateChat({ model: call.model, history: [], prompt: instruction, promptImages: images }, call.config);
+      return result.text.trim();
+    } catch (error: any) {
+      console.error("AI Assist Error:", error);
+      return rejectWithValue(error.message || "Failed to generate text.");
+    }
+  }
+);
+
 export const generateAssistText = createAsyncThunk(
   "ai/generateAssistText",
   // `background`: use the cheaper background model (see resolveHelperCall),

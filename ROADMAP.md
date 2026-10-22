@@ -26,7 +26,6 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 ## Creating characters
 
-92. **Character from a photo** (S). Upload a picture; a vision model drafts the appearance, the locked look and a starting personality to edit. Joins "character from one line" (#45).
 
 ## Smaller follow-ups
 

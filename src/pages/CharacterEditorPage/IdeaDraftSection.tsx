@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { FaLightbulb, FaMagic, FaRedo } from "react-icons/fa";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { FaCamera, FaImage, FaLightbulb, FaMagic, FaRedo, FaTimes } from "react-icons/fa";
 import Modal from "src/components/molecules/Modal";
 import { ContentRatingField } from "src/components/molecules/ContentRatingField";
 import { SegmentedControl } from "src/components/molecules/SegmentedControl";
@@ -12,6 +12,7 @@ import { IMAGE_PROVIDERS } from "src/features/ai/providers/registry";
 import { getProviderApiKey } from "src/features/ai/utils/settings";
 import { detectMinorIndicators } from "src/features/character/contentRating";
 import { CharacterDraftRequest } from "src/features/character/characterDraft";
+import { readPhoto } from "src/features/chat/photoAttachments";
 import { ArtStyle, ContentRating, LocalImageSettings } from "src/types";
 import { ART_STYLES } from "src/utils/constants";
 
@@ -87,6 +88,10 @@ const IdeaDraftSection: React.FC<IdeaDraftSectionProps> = ({
   const [confirmed, setConfirmed] = useState(adultsConfirmed);
   const [style, setStyle] = useState<ArtStyle>(artStyle);
   const [ideaError, setIdeaError] = useState<string | null>(null);
+  // Character from a photo (#92): optional, and enough on its own.
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const photoInput = useRef<HTMLInputElement>(null);
   const [generatingPortrait, setGeneratingPortrait] = useState(false);
   const [portraitError, setPortraitError] = useState<string | null>(null);
 
@@ -95,6 +100,8 @@ const IdeaDraftSection: React.FC<IdeaDraftSectionProps> = ({
   useEffect(() => {
     if (!dialogOpen) return;
     setIdea(lastRequest?.idea ?? "");
+    setPhoto(lastRequest?.photo ?? null);
+    setPhotoError(null);
     setRating(contentRating);
     setConfirmed(adultsConfirmed);
     setStyle(artStyle);
@@ -107,12 +114,24 @@ const IdeaDraftSection: React.FC<IdeaDraftSectionProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (drafting) return;
-    if (!idea.trim()) {
-      setIdeaError("Describe the character in a few words first.");
+    if (!idea.trim() && !photo) {
+      setIdeaError("Describe the character in a few words, or add a photo.");
       return;
     }
     setIdeaError(null);
-    onDraft({ idea: idea.trim(), contentRating: rating, adultsConfirmed: rating === "nsfw" && confirmed, artStyle: style });
+    onDraft({ idea: idea.trim(), contentRating: rating, adultsConfirmed: rating === "nsfw" && confirmed, artStyle: style, photo: photo || undefined });
+  };
+
+  const handlePhotoPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setPhotoError(null);
+    try {
+      setPhoto(await readPhoto(file));
+    } catch (err: any) {
+      setPhotoError(err?.message || "Couldn't read that photo.");
+    }
   };
 
   const handleGeneratePortrait = async () => {
@@ -138,7 +157,13 @@ const IdeaDraftSection: React.FC<IdeaDraftSectionProps> = ({
         {lastRequest ? (
           <>
             <p className="text-sm text-foreground">
-              Drafted from your idea: <span className="italic">“{lastRequest.idea}”</span>
+              {lastRequest.idea ? (
+                <>
+                  Drafted from your {lastRequest.photo ? "photo and idea" : "idea"}: <span className="italic">“{lastRequest.idea}”</span>
+                </>
+              ) : (
+                "Drafted from your photo"
+              )}
             </p>
             <p className="text-xs text-muted-foreground">
               Check every step and change anything you like. Nothing is saved until you create the character.
@@ -150,6 +175,11 @@ const IdeaDraftSection: React.FC<IdeaDraftSectionProps> = ({
               <Button type="button" variant="panel" onClick={() => onDialogOpenChange(true)} disabled={drafting} className={smallButton}>
                 <FaLightbulb size={11} /> Change idea
               </Button>
+              {lastRequest.photo && (
+                <Button type="button" variant="panel" onClick={() => onPortraitGenerated(lastRequest.photo!)} disabled={drafting} className={smallButton}>
+                  <FaImage size={11} /> Use the photo as the portrait
+                </Button>
+              )}
               {imageReady && (
                 <Button type="button" variant="panel" onClick={handleGeneratePortrait} disabled={drafting || generatingPortrait} className={smallButton}>
                   <FaMagic size={11} /> {generatingPortrait ? "Generating..." : "Generate portrait"}
@@ -160,7 +190,7 @@ const IdeaDraftSection: React.FC<IdeaDraftSectionProps> = ({
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground flex-1 basis-[220px]">
-              Have an idea? Describe a character in one line and the AI drafts the rest for you to review.
+              Have an idea or a photo? Describe a character in one line, or start from a picture, and the AI drafts the rest for you to review.
             </p>
             <Button type="button" variant="default" onClick={() => onDialogOpenChange(true)} className="h-auto px-4 py-2 text-sm font-semibold">
               <FaLightbulb size={12} /> Create from an idea
@@ -175,7 +205,7 @@ const IdeaDraftSection: React.FC<IdeaDraftSectionProps> = ({
         isOpen={dialogOpen}
         onClose={() => !drafting && onDialogOpenChange(false)}
         title="Create from an idea"
-        subtitle="The AI drafts every field from one line. You review and edit it all before anything is saved."
+        subtitle="The AI drafts every field from one line or a photo. You review and edit it all before anything is saved."
       >
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <div>
@@ -189,6 +219,23 @@ const IdeaDraftSection: React.FC<IdeaDraftSectionProps> = ({
               placeholder="e.g. grumpy pirate cook who secretly writes poetry"
             />
             {ideaError && <p className="text-xs text-destructive mt-1">{ideaError}</p>}
+          </div>
+          <div>
+            <FieldLabel hint="Optional. A model that can see pictures drafts their look from it, and the rest to suit.">Start from a photo</FieldLabel>
+            <input ref={photoInput} type="file" accept="image/*" className="hidden" data-testid="idea-photo-input" onChange={handlePhotoPicked} />
+            {photo ? (
+              <div className="flex items-center gap-3">
+                <img src={photo} alt="What the draft starts from" className="h-16 w-16 rounded-md object-cover border border-border" />
+                <Button type="button" variant="panel" onClick={() => setPhoto(null)} aria-label="Remove photo" className="h-auto px-3 py-1.5 text-xs border border-border hover:border-primary">
+                  <FaTimes size={11} /> Remove
+                </Button>
+              </div>
+            ) : (
+              <Button type="button" variant="panel" onClick={() => photoInput.current?.click()} className="h-auto px-3 py-1.5 text-xs font-medium border border-border hover:border-primary hover:text-primary">
+                <FaCamera size={11} /> Add a photo
+              </Button>
+            )}
+            {photoError && <p className="text-xs text-destructive mt-1">{photoError}</p>}
           </div>
           <ContentRatingField
             rating={rating}

@@ -6,7 +6,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **State:** the new-ideas queue (#42–#57) is built and pushed and deployed (CI green). The last full local run passed: type-check, 819 unit tests, 765 UI tests and 16 screenshot tests.
+- **State:** the new-ideas queue (#42–#57) is built and pushed and deployed (CI green). The last full local run passed: type-check, 820 unit tests, 781 UI tests and 16 screenshot tests.
 - **Next up:** #81–#92 (picked by the user on 2026-10-22), built in the order of the table below, each committed after the full suites. Push and deploy only with the user's OK.
 - **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
 - **How the new-ideas run went:** #42, #43, #12+#44 and #45 ran in fresh sessions; from #46 on they were built in the coordinating session, because new sessions can't be started over Remote Control. Each item was committed only after every suite passed.
@@ -15,7 +15,6 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 92 | Character from a photo | todo | |
 | 82 | Gifts | todo | |
 | 84 | Shared plans | todo | |
 | 81 | Secrets | todo | |
@@ -36,6 +35,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **Character from a photo (#92):** the "Create from an idea" dialog takes an optional photo (`readPhoto`, shrunk like chat photos); with one, `buildCharacterDraftPrompt` asks for the look from the picture and an invented person (never a real one; SFW if anyone could be under 18), and the editor sends it through `generateAssistTextWithImage` (aiSlice: the helper model if it can see pictures, else the chat model, else a clear error). After the draft, "Use the photo as the portrait" opens the crop dialog.
 - **On this day (#83):** a month, 100 days or each year after a 1:1 chat's first message or a chapter's end, `buildOnThisDayNote` (src/features/chat/onThisDay.ts) adds a note until the character's first reply of that day (`SceneContext.onThisDayNote`). Nothing stored and no switch: it is worked out from timestamps.
 - **Reading comfort (#91):** Settings › Chat › Reading: a reading font (theme, Atkinson Hyperlegible, Lexend; Google Fonts loaded on demand), line spacing and high contrast, kept in localStorage `reading_comfort` and applied on <html> by `applyReadingComfort` (src/features/settings/readingComfort.ts). A chosen font or spacing overrides the theme only on `data-chat-text` elements (tokens.css); high contrast (`data-contrast="high"`) lifts muted and subtle text to the main colour everywhere.
 - **Mood-tinted chat (#90):** `Chat.moodTint` (Chat tab switch). ChatWindow draws a `data-slot="mood-tint"` layer behind the bubbles at 10% of `tintFor(latestMood(messages))` (src/features/chat/moodTint.ts), fading over 1.5 s (no fade with reduced motion); neutral moods and the terminal theme get none.

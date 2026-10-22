@@ -46,6 +46,18 @@ describe("buildCharacterDraftPrompt", () => {
     expect(prompt).toContain("different from the previous draft, Barnaby Salt");
     expect(buildCharacterDraftPrompt({ idea: "a bard" })).not.toContain("previous draft");
   });
+
+  it("drafts from a photo, with or without an idea, as an invented character", () => {
+    const alone = buildCharacterDraftPrompt({ idea: "", photo: "data:image/png;base64,AAAA" });
+    expect(alone).toContain("from the attached photo, filling in");
+    expect(alone).not.toContain("Idea:");
+    expect(alone).toContain("never identify or name a real person");
+    expect(alone).toContain("could be under 18, keep the whole draft safe for work");
+    const both = buildCharacterDraftPrompt({ idea: "a lighthouse keeper", photo: "data:image/png;base64,AAAA" });
+    expect(both).toContain("and this idea, staying true to both");
+    expect(both).toContain("Idea: a lighthouse keeper");
+    expect(buildCharacterDraftPrompt({ idea: "a bard" })).not.toContain("attached photo");
+  });
 });
 
 describe("parseCharacterDraft", () => {

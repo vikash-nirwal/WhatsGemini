@@ -6,7 +6,7 @@ import { FaUpload, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaCrop } 
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Character, CharacterSchedule, CharacterVoice, LoreEntry, ArtStyle, ContentRating, LocalImageSettings, ImportantDate, Outfit, IntimacyProfile } from "../types";
 import { dbService } from "../services/dbService";
-import { generateAssistText, generateAvatarImage } from "../features/aiSlice";
+import { generateAssistText, generateAssistTextWithImage, generateAvatarImage } from "../features/aiSlice";
 import { buildVisualTagsDraftPrompt, cleanVisualTags } from "../features/ai/utils/appearanceLock";
 import { DisplayImage } from "src/components/molecules/DisplayImage";
 import { Slider } from "src/components/molecules/form-controls";
@@ -398,7 +398,9 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     setDraftingFromIdea(true);
     try {
       const instruction = buildCharacterDraftPrompt(another ? { ...request, avoidName: ideaDraftName } : request);
-      const text = await dispatch(generateAssistText({ instruction, background: true })).unwrap();
+      const text = request.photo
+        ? await dispatch(generateAssistTextWithImage({ instruction, image: request.photo })).unwrap()
+        : await dispatch(generateAssistText({ instruction, background: true })).unwrap();
       const draft = parseCharacterDraft(text);
       setName(draft.name);
       setDescription(draft.description);

@@ -16,6 +16,8 @@ export interface CharacterDraftRequest {
   // The previous draft's name, so "Try another" gets a different character
   // instead of the same one reworded.
   avoidName?: string;
+  // A photo to draft from (#92), as a data: URL; the idea is optional then.
+  photo?: string;
 }
 
 // Named like the Character fields they fill.
@@ -63,6 +65,12 @@ const DRAFT_SHAPE = `{
   "visualTags": "comma-separated fixed visual traits for an image generator, 15 to 45 words: apparent age, build, skin tone, face, eye colour, hair, facial hair, marks, usual outfit; no mood, pose or setting"
 }`;
 
+// Character from a photo (#92): the look comes from the picture, the rest is
+// invented. A photo is often of a real person, so the draft is a fictional
+// character who only looks like them, and anyone who might be under 18 keeps
+// the whole draft safe for work, whatever rating was picked.
+const PHOTO_RULES = `Base their appearance and visualTags on what the photo shows (apparent age, build, face, hair, clothes), and let its mood and setting suggest their personality and the opening scene. Invent a fictional name and life: never identify or name a real person, even one who looks famous. If anyone in the photo could be under 18, keep the whole draft safe for work.`;
+
 export const buildCharacterDraftPrompt = (request: CharacterDraftRequest): string => {
   const idea = request.idea.trim();
   const rating = draftAllowsNsfw(request)
@@ -73,9 +81,14 @@ export const buildCharacterDraftPrompt = (request: CharacterDraftRequest): strin
   const another = request.avoidName?.trim()
     ? `\nThis is a second take: make it clearly different from the previous draft, ${request.avoidName.trim()}, with a new name and fresh details.`
     : "";
-  return `Create an original roleplay AI character from this one-line idea, staying true to it and filling in vivid, specific details.
+  const opening = request.photo
+    ? `Create an original roleplay AI character from the attached photo${idea ? " and this idea, staying true to both" : ""}, filling in vivid, specific details.${idea ? `\n\nIdea: ${idea}` : ""}
 
-Idea: ${idea}
+${PHOTO_RULES}`
+    : `Create an original roleplay AI character from this one-line idea, staying true to it and filling in vivid, specific details.
+
+Idea: ${idea}`;
+  return `${opening}
 
 ${rating}${style}${another}
 
