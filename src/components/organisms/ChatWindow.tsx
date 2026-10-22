@@ -2,7 +2,8 @@ import React, { useRef, useEffect, useCallback, useMemo, useState } from "react"
 import { FaCheck, FaTimes, FaArrowDown, FaClock, FaMicrophone } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { YOU, LS_INITIAL_MESSAGES } from "../../utils/constants";
-import { Message, Character, ConversationTree, Intensity, StoryScript, ChatGame, OffscreenTalk, CharacterLetter } from "../../types";
+import { Message, Character, ConversationTree, Intensity, StoryScript, ChatGame, OffscreenTalk, CharacterLetter, RelationshipStage } from "../../types";
+import { STAGE_LABELS } from "../../features/character/relationshipStages";
 import { getSiblingInfo } from "../../features/chat/messageTree";
 import { resolveEmotionPortrait } from "../../features/ai/utils/emotionUtils";
 import { stripStreamingTags } from "../../features/ai/utils/messageTags";
@@ -54,6 +55,9 @@ interface ChatWindowProps {
   onReplyToLetter?: (letter: CharacterLetter) => void; // starts a reply to a letter (#61)
   onTranslate?: (msg: Message) => void; // language practice (#67): translate a reply
   coWriting?: boolean; // co-writing mode (#68): the chat shows as one document
+  stageSuggestion?: { from: RelationshipStage; to: RelationshipStage }; // a stage change waiting for the user's OK (#70)
+  onAcceptStage?: () => void;
+  onDismissStage?: () => void;
   onSuggestNext?: () => void; // "What happens next?" ideas, shown as suggestions
   onAcceptArc?: () => void;
   onDismissArc?: () => void;
@@ -166,7 +170,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc, note }: { charIniti
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, coWriting = false, onSuggestNext, onTranslate, onReplyToLetter, arcSuggestion, onAcceptArc, onDismissArc, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, stageSuggestion, onAcceptStage, onDismissStage, coWriting = false, onSuggestNext, onTranslate, onReplyToLetter, arcSuggestion, onAcceptArc, onDismissArc, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -806,6 +810,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, coWriting = false, on
                 <div className="mt-2 flex gap-2">
                   <Button type="button" size="sm" onClick={onAcceptRelationship}>Update</Button>
                   <Button type="button" size="sm" variant="ghost" onClick={onDismissRelationship}>Keep as is</Button>
+                </div>
+              </section>
+            )}
+            {stageSuggestion && !aiLoading && onAcceptStage && onDismissStage && (
+              <section aria-label="Relationship stage" className={cn("mb-6 mx-auto max-w-xl px-4 py-3 font-sans text-sm", terminal ? "border border-border" : "rounded-2xl border border-border/60 bg-card/[0.88] shadow-soft")}>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-subtle mb-1">Move to the next stage?</div>
+                <p className="text-foreground">
+                  <span className="text-muted-foreground line-through">{STAGE_LABELS[stageSuggestion.from]}</span>{" → "}<span className="font-medium">{STAGE_LABELS[stageSuggestion.to]}</span>
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <Button type="button" size="sm" onClick={onAcceptStage}>Move on</Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={onDismissStage}>Not yet</Button>
                 </div>
               </section>
             )}

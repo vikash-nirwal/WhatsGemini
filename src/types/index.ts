@@ -189,6 +189,9 @@ export interface SceneState {
   updatedAt?: number;
 }
 
+// Relationship stages (#70), lowest first.
+export type RelationshipStage = "strangers" | "flirting" | "dating" | "intimate" | "committed";
+
 // Language practice (#67): what you're learning in a chat, and how well.
 export interface ChatLanguage {
   target: string;
@@ -311,6 +314,9 @@ export interface Chat {
   offscreenTalk?: boolean; // members talk among themselves while you're away (#58)
   language?: ChatLanguage; // language practice mode (#67)
   coWriting?: boolean; // write one shared story instead of chatting (#68)
+  stage?: RelationshipStage; // relationship stage (#70); unset = off
+  stageCheckedAt?: number; // message count at the last stage check
+  stageSuggestion?: RelationshipStage; // a stage change waiting for the user's OK
   offscreenTalks?: OffscreenTalk[]; // the last few of those conversations
   // Relationship that evolves (#30): off when false; the message count at
   // the last check; and a suggestion waiting for the user.

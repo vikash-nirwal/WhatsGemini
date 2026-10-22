@@ -8,7 +8,6 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 ## Romance and immersion
 
-70. **Relationship stages** (M). A visible ladder per chat: strangers, flirting, dating, intimate, committed. The stage is in the prompt and shapes how forward the character is willing to be, so a relationship builds instead of jumping ahead. The story moves it up or down (suggested like #30, accepted by you), and it can be set by hand.
 71. **Custom meters** (S). The scene HUD's affection and trust (#9) become meters you choose per chat (tension, desire, jealousy, comfort, ...). Each reply updates them in the state block, and the character acts on them.
 72. **Boldness** (S). A per-chat slider for how forward the character is, from shy and needing to be coaxed to bold and making the first move. Separate from intensity, which is how much gets described.
 73. **Intimacy profile** (S–M). A structured part of the character editor: love language, likes and dislikes, how they flirt, how they act when jealous, their experience; and the same on a persona. Only sent to the model when the scene heads that way (by relationship stage, #70, or the scene's mood), so it doesn't bloat every prompt.

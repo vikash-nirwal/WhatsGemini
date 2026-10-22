@@ -24,6 +24,7 @@ import { describeSetting } from "src/features/chat/backdrop";
 import { groupMemoryFacts, MEMORY_CATEGORY_LABELS, nextMemoryCategory } from "src/features/ai/utils/memoryExtraction";
 import { WorldMapView } from "src/components/molecules/WorldMapView";
 import { browserLanguageName, PRACTICE_LANGUAGES } from "src/features/chat/languagePractice";
+import { STAGE_LABELS, STAGES } from "src/features/character/relationshipStages";
 import { pinForLocation } from "src/features/world/worldMap";
 import { readPhoto } from "src/features/chat/photoAttachments";
 import { dataUrlToBlob, savePortraitBlob } from "src/features/ai/utils/portraitUtils";
@@ -1074,6 +1075,45 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
                 onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { narrator: val || undefined } }))}
                 label={<span className="sr-only">Narrator</span>}
               />
+            </div>
+          )}
+
+          {/* Relationship stages (#70) - 1:1 chats, opt-in */}
+          {!isRoom && character && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[12.5px] font-medium text-foreground">Relationship stage</div>
+                  <div className="text-[11px] text-subtle">A ladder that sets how forward {character.name} is, so things build up. Every 20 messages a quick check may suggest the next step; you decide.</div>
+                </div>
+                <ToggleSwitch
+                  checked={Boolean(chat?.stage)}
+                  onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { stage: val ? "strangers" : undefined, stageSuggestion: undefined } }))}
+                  label={<span className="sr-only">Relationship stage</span>}
+                />
+              </div>
+              {chat?.stage && (
+                <ol aria-label="Relationship stages" className="flex flex-wrap items-center gap-1.5">
+                  {STAGES.map((s, i) => {
+                    const current = STAGES.indexOf(chat.stage!);
+                    return (
+                      <li key={s}>
+                        <button
+                          type="button"
+                          aria-current={i === current ? "step" : undefined}
+                          onClick={() => dispatch(updateChatOptions({ chatId, patch: { stage: s, stageSuggestion: undefined } }))}
+                          className={cn(
+                            "h-7 px-2.5 rounded-full border text-[12px]",
+                            i === current ? "border-primary bg-primary text-primary-foreground" : i < current ? "border-primary/40 bg-primary/[0.12] text-foreground" : "border-input text-muted-foreground"
+                          )}
+                        >
+                          {STAGE_LABELS[s]}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
             </div>
           )}
 

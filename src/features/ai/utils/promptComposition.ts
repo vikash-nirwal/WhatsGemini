@@ -1,4 +1,4 @@
-import { Character, ChatGame, ChatLanguage, Intensity, LoreEntry, Message, RoleplayStyle, SceneState, StoryScript, UserProfile, World } from "../../../types";
+import { Character, ChatGame, ChatLanguage, Intensity, RelationshipStage, LoreEntry, Message, RoleplayStyle, SceneState, StoryScript, UserProfile, World } from "../../../types";
 import { YOU } from "../../../utils/constants";
 import { stripLeakedBase64 } from "./apiUtils";
 import { buildEmotionDirective } from "./emotionUtils";
@@ -9,6 +9,7 @@ import { buildCallSection } from "../../voice/callSession";
 import { buildStateDirective } from "../../chat/sceneState";
 import { buildLanguageDirective } from "../../chat/languagePractice";
 import { buildCoWritingDirective } from "../../chat/coWriting";
+import { buildStageSection } from "../../character/relationshipStages";
 import { buildGrowthSection } from "../../character/characterArc";
 import { buildAvoidNote, findRepeatedOpening, findRepeatedPhrases } from "./antiRepetition";
 
@@ -516,6 +517,7 @@ export interface SceneContext {
   letterNote?: string; // a letter the character wrote while the user was away (#61)
   language?: ChatLanguage; // language practice (#67)
   coWriting?: boolean; // co-writing mode (#68)
+  stage?: RelationshipStage; // relationship stage (#70)
 }
 
 // The single function replacing the copy-pasted "build history + build system
@@ -546,6 +548,7 @@ export const buildTurnContext = (
     ...(scene?.letterNote ? [scene.letterNote] : []),
     ...(scene?.language ? [buildLanguageDirective(scene.language, activePersona?.name?.trim() || "The user")] : []),
     ...(scene?.coWriting && character ? [buildCoWritingDirective(character.name, activePersona?.name?.trim() || "the user")] : []),
+    ...(scene?.stage ? [buildStageSection(scene.stage, activePersona?.name?.trim() || "the user")] : []),
   ];
   const directives = sceneDirectives.length > 0 ? [...sceneDirectives, ...(extraDirectives || [])] : extraDirectives;
   const { text, images, characterName } = buildSystemInstruction(
