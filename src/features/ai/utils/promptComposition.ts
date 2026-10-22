@@ -167,6 +167,7 @@ export interface PromptOptions {
   world?: World; // a World attached to this chat (#28)
   roomRelationshipNotes?: string; // the speaker's feelings about the others (#24)
   roomThoughts?: boolean; // inner thoughts switched on for the whole room (#10)
+  roomOffscreenTalk?: string; // a recent conversation members had without the user (#58)
 }
 
 const describeDuration = (ms: number): string => {
@@ -300,6 +301,7 @@ export const buildSystemInstruction = (
   }
 
   if (isRoomTurn && options.roomRelationshipNotes) sections.push(options.roomRelationshipNotes);
+  if (isRoomTurn && options.roomOffscreenTalk) sections.push(options.roomOffscreenTalk);
 
   // In a room, the shared group scenario (set on the chat itself) replaces
   // this character's own personal scenario - several characters could have
@@ -488,6 +490,7 @@ export interface RoomContext {
   otherAppearanceLocks?: AppearanceLock[]; // every OTHER member's locked look (#34)
   relationshipNotes?: string; // what this speaker feels about the others (#24)
   thoughts?: boolean; // the room shows every member's inner thoughts (#10)
+  offscreenTalk?: string; // what two members said while the user was away (#58)
 }
 
 // Per-chat scene settings and app-wide style, shared by 1:1 chats and rooms.
@@ -547,6 +550,7 @@ export const buildTurnContext = (
       world: scene?.world,
       roomRelationshipNotes: roomContext?.relationshipNotes,
       roomThoughts: roomContext?.thoughts,
+      roomOffscreenTalk: roomContext?.offscreenTalk,
     }
   );
   // The active persona's own reference photos (UserProfile.appearanceImages),

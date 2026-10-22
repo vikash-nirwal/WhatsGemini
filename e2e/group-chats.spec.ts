@@ -164,3 +164,26 @@ test("with the scene tracked, members who leave stop taking turns until they're 
   await here.getByRole("button", { name: "Kai" }).click();
   await expect(here.getByRole("button", { name: "Kai" })).toHaveAttribute("aria-pressed", "true");
 });
+
+test("members talk while you're away, and the next replies know it", async ({ page, mockAI }) => {
+  await page.clock.install();
+  mockAI.reply((req) => {
+    if (req.prompt.startsWith("Write a short private conversation")) return "Aria: Do you think they'll come back tonight?\nKai: They always do. Hand me that wrench.";
+    const speaker = speakerOf(req.messages);
+    return speaker ? `${speaker} says hello back.` : "OK";
+  });
+  await openChat(page, 2);
+  await openRoomPanel(page, "Chat");
+  await page.getByRole("switch", { name: "Members talk while you're away" }).click();
+  await page.getByRole("button", { name: "Close scene panel" }).click();
+  // The seeded room was last used months ago, so a talk is due at the first check.
+  await page.clock.fastForward(25_000);
+
+  const card = page.getByText("Aria and Kai talked while you were gone");
+  await expect(card).toBeVisible({ timeout: 15_000 });
+  await card.click();
+  await expect(page.getByText("Do you think they'll come back tonight?")).toBeVisible();
+
+  await sendMessage(page, "I'm back!");
+  await expect.poll(() => systemOf(mockAI.requests.find((r) => speakerOf(r.messages))?.messages || [])).toContain("While the user was away, Aria and Kai talked privately:");
+});

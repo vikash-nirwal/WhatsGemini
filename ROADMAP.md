@@ -8,7 +8,6 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 ## Living characters
 
-58. **Characters talk while you're away** (M). Two characters who share a room (or who know each other) have a short conversation between your visits, shaped by their room relationships (#24). You can read it later ("Aria and Kai talked while you were gone"), and they may bring it up with you. Runs on the helper model, at most once per pair per day, with a switch per room.
 60. **Character arc suggestions** (S). Every so often the helper model reads what has happened and suggests a small update to the character's personality or description ("Aria has become more open about her past"). You accept or dismiss it, like the relationship suggestion (#30). Nothing changes without your OK.
 61. **Letters** (S–M). After you've been away a few days, a character can write a longer letter instead of a chat bubble. Letters collect in their own inbox (per character, readable from the chat), and you can reply to one. A per-character switch, off by default.
 

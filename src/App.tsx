@@ -20,6 +20,7 @@ import BackupReminderBanner from "src/components/molecules/BackupReminderBanner"
 import SpendingAlerts from "src/components/molecules/SpendingAlerts";
 import WebLLMProgress from "src/components/molecules/WebLLMProgress";
 import StatusPoster from "src/components/molecules/StatusPoster";
+import OffscreenTalker from "src/components/molecules/OffscreenTalker";
 import Logo from "src/components/atoms/Logo";
 import { TooltipProvider } from "src/components/atoms/tooltip";
 import { Toaster } from "src/components/atoms/sonner";
@@ -203,6 +204,7 @@ const AppContent = () => {
         <SpendingAlerts />
         <WebLLMProgress />
         <StatusPoster />
+        <OffscreenTalker />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar />
           <main className="app-main flex-1 bg-background relative z-1 min-w-0">

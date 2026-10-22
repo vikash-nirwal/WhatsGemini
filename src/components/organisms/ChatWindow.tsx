@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useCallback, useMemo, useState } from "react"
 import { FaCheck, FaTimes, FaArrowDown, FaClock, FaMicrophone } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { YOU, LS_INITIAL_MESSAGES } from "../../utils/constants";
-import { Message, Character, ConversationTree, Intensity, StoryScript, ChatGame } from "../../types";
+import { Message, Character, ConversationTree, Intensity, StoryScript, ChatGame, OffscreenTalk } from "../../types";
 import { getSiblingInfo } from "../../features/chat/messageTree";
 import { resolveEmotionPortrait } from "../../features/ai/utils/emotionUtils";
 import { stripStreamingTags } from "../../features/ai/utils/messageTags";
@@ -26,6 +26,8 @@ import ParticipantsPanel from "src/components/molecules/ParticipantsPanel";
 import EmotionSpritePanel from "src/components/molecules/EmotionSpritePanel";
 import EmotionPopup, { EmotionPopupTrigger } from "src/components/molecules/EmotionPopup";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { updateChatOptions } from "../../features/chatSlice";
+import { OffscreenTalkCard } from "src/components/molecules/OffscreenTalkCard";
 import { setEmotionPanelEnabled } from "../../features/settingsSlice";
 import { VIDEO_PROVIDERS } from "../../features/ai/providers/registry";
 import { getProviderApiKey, getWanBaseUrl } from "../../features/ai/utils/settings";
@@ -308,6 +310,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, relationshipSuggestio
   const chatBackdrop = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.backdrop);
   // The scene state HUD (#9), when this chat tracks it.
   const sceneTracker = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.sceneTracker);
+  // Conversations members had while you were away (#58), each shown after
+  // the last message before it.
+  const offscreenTalks = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.offscreenTalks);
   const sceneState = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.sceneState);
   // A chat's own choice wins over the app setting (Scene panel > Chat).
   const appTextingMode = useAppSelector((state) => state.settings.textingMode);
@@ -362,6 +367,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, relationshipSuggestio
     () => filteredMessages.map((m) => Boolean(m.isCompressionSummary)).lastIndexOf(true),
     [filteredMessages]
   );
+  const talksAfter = useMemo(() => {
+    const byIndex = new Map<number, OffscreenTalk[]>();
+    for (const talk of offscreenTalks || []) {
+      if (talk.lines.length === 0) continue;
+      let at = -1;
+      filteredMessages.forEach((m, i) => {
+        if ((m.timestamp || 0) <= talk.at) at = i;
+      });
+      if (at >= 0) byIndex.set(at, [...(byIndex.get(at) || []), talk]);
+    }
+    return byIndex;
+  }, [offscreenTalks, filteredMessages]);
+
   // Where each story-script beat starts (#57), for a divider above it.
   const beatStartIndexes = useMemo(() => (storyScript ? beatStarts(filteredMessages) : new Set<number>()), [storyScript, filteredMessages]);
 
@@ -456,6 +474,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, relationshipSuggestio
     (msg: Message): Character | undefined => (msg.speakerId != null && characters?.find((c) => c.id === msg.speakerId)) || character,
     [characters, character]
   );
+
+  const namesById = useMemo(
+    () => Object.fromEntries((characters && characters.length > 0 ? characters : character ? [character] : []).map((c) => [c.id, c.name])) as Record<number, string>,
+    [characters, character]
+  );
+  const offscreenDispatch = useAppDispatch();
+  const markTalkSeen = (id: string) => {
+    if (!chatId || !offscreenTalks?.some((t) => t.id === id && !t.seen)) return;
+    offscreenDispatch(updateChatOptions({ chatId, patch: { offscreenTalks: offscreenTalks.map((t) => (t.id === id ? { ...t, seen: true } : t)) } }));
+  };
 
   // Who left a character reaction (#11) on one of your messages.
   const resolveReactor = (speakerId?: number) =>
@@ -693,6 +721,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, relationshipSuggestio
                     reactorName={msg.characterReaction ? resolveReactor(msg.characterReaction.speakerId) : undefined}
                     voice={msg.role === YOU ? undefined : speaker?.voice}
                   />
+                  {talksAfter.get(i)?.map((talk) => (
+                    <OffscreenTalkCard key={talk.id} talk={talk} namesById={namesById} onSeen={() => chatId && markTalkSeen(talk.id)} />
+                  ))}
                   </React.Fragment>
                 );
                 const suggestions = !aiLoading && i === filteredMessages.length - 1 && replySuggestions && replySuggestions.forMessageId === msg.id ? replySuggestions.items : undefined;

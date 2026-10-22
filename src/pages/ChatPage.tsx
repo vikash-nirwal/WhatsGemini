@@ -10,6 +10,7 @@ import { appearanceLocksFor, lockedLookFor } from "../features/ai/utils/appearan
 import { useChatRecap } from "../features/chat/useChatRecap";
 import { beatStamp, moveBeat } from "../features/chat/storyScript";
 import { absentMemberIds, mergeState } from "../features/chat/sceneState";
+import { buildOffscreenTalkSection } from "../features/chat/offscreenTalk";
 import { buildRelationshipPrompt, parseRelationshipReply, relationshipCheckDue } from "../features/character/relationshipEvolution";
 import { currentBlock, presenceFor, replyDelayMs } from "../features/character/schedule";
 import { latestStorySummary } from "../features/chat/recap";
@@ -179,6 +180,17 @@ const ChatPage = () => {
   // member's name goes in `otherParticipants` (that speaker's own "who else
   // is here" context), and `speakerNames` labels every participant's lines
   // in history so a reply can tell who said what.
+  // The latest conversation members had while you were away (#58), while
+  // it's still recent: within the last ten messages.
+  const recentOffscreenTalk = () => {
+    const talk = currentChat?.offscreenTalks?.[currentChat.offscreenTalks.length - 1];
+    if (!talk || talk.lines.length === 0) return undefined;
+    const content = currentChat?.content || [];
+    const windowStart = content.length > 10 ? content[content.length - 10].timestamp || 0 : 0;
+    if (talk.at < windowStart) return undefined;
+    return buildOffscreenTalkSection(talk, Object.fromEntries(roomCharacters.map((c) => [c.id, c.name])));
+  };
+
   const buildRoomContext = (speaker: Character): RoomContext | undefined => {
     if (!isRoom) return undefined;
     const others = roomCharacters.filter((c) => c.id !== speaker.id);
@@ -196,6 +208,7 @@ const ChatPage = () => {
       otherAppearanceLocks: appearanceLocksFor(others),
       relationshipNotes: buildRelationshipNotes(speaker.id, currentChat?.roomRelationships, Object.fromEntries(roomCharacters.map((c) => [c.id, c.name]))),
       thoughts: currentChat?.innerThoughts,
+      offscreenTalk: recentOffscreenTalk(),
     };
   };
 

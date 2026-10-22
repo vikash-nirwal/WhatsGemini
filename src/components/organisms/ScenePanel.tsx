@@ -952,6 +952,21 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
             />
           </div>
 
+          {/* Members talk among themselves while you're away (#58) */}
+          {isRoom && (
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-medium text-foreground">Members talk while you're away</div>
+                <div className="text-[11px] text-subtle">After you've been gone a few hours, two of them have a short chat of their own, shaped by how they feel about each other. You can read it, and they may bring it up. About one a day, on the helper model.</div>
+              </div>
+              <ToggleSwitch
+                checked={Boolean(chat?.offscreenTalk)}
+                onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { offscreenTalk: val || undefined } }))}
+                label={<span className="sr-only">Members talk while you're away</span>}
+              />
+            </div>
+          )}
+
           {/* Group chats: inner thoughts for everyone (#10), and who keeps a diary (#5) */}
           {isRoom && (
             <div className="flex items-center justify-between gap-3">

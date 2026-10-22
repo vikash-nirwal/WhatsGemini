@@ -187,6 +187,14 @@ export interface SceneState {
   updatedAt?: number;
 }
 
+// A conversation two room members had while you were away (#58).
+export interface OffscreenTalk {
+  id: string;
+  at: number;
+  lines: { speakerId: number; text: string }[];
+  seen?: boolean;
+}
+
 // How one room member feels about another (#24); only `fromId` sees it.
 export interface RoomRelationship {
   fromId: number;
@@ -280,6 +288,8 @@ export interface Chat {
   narrator?: boolean;
   roomRelationships?: RoomRelationship[];
   innerThoughts?: boolean; // every member writes a hidden thought with each reply (#10)
+  offscreenTalk?: boolean; // members talk among themselves while you're away (#58)
+  offscreenTalks?: OffscreenTalk[]; // the last few of those conversations
   // Relationship that evolves (#30): off when false; the message count at
   // the last check; and a suggestion waiting for the user.
   relationshipSuggestions?: boolean;
