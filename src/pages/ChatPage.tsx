@@ -38,6 +38,7 @@ import { buildOnThisDayNote } from "../features/chat/onThisDay";
 import { buildGiftBackPrompt, buildGiftReactionDirective, buildGiftsSection, giftBackDirective, giftMessage, newGiftId, parseGiftBack } from "../features/character/gifts";
 import { factsAboutUser } from "../features/character/intimacy";
 import { GiftDialog } from "../components/organisms/GiftDialog";
+import { buildPlansSection } from "../features/chat/sharedPlans";
 import MessageInput from "src/components/organisms/MessageInput";
 import Header, { HeaderAction } from "src/components/organisms/Header";
 import PortraitPreviewModal from "src/components/organisms/PortraitPreviewModal";
@@ -280,6 +281,7 @@ const ChatPage = () => {
   scene.letterNote = !isRoom ? recentLetterNote(characterData, currentChat, chatIdNum, activePersona?.name?.trim() || "the user") : undefined;
   scene.knowsNote = !isRoom ? knowsNoteFor(characterData, characters, chats, activePersona?.name?.trim() || "the user") : undefined;
   scene.giftsNote = !isRoom && characterData ? buildGiftsSection(characterData.gifts, characterData.name, activePersona?.name?.trim() || "the user") : undefined;
+  scene.plansNote = !isRoom ? buildPlansSection(currentChat?.plans, activePersona?.name?.trim() || "the user", Date.now()) : undefined;
   scene.onThisDayNote = !isRoom ? buildOnThisDayNote(currentChat?.content || [], activePersona?.name?.trim() || "the user", Date.now()) : undefined;
   const globalActivePersona = useMemo(
     () => personas.find((p) => p.id === globalActivePersonaId) || personas[0],

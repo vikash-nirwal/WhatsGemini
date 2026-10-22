@@ -7,8 +7,9 @@ import { moodPoints } from "src/features/chat/moodTimeline";
 import { Input } from "src/components/atoms/input";
 import { Button } from "src/components/atoms/button";
 import { ScenePanelTabProps } from "./types";
+import { PlansSection } from "./PlansSection";
 
-// The Story tab: chapters, bookmarks and the mood timeline.
+// The Story tab: plans together, chapters, bookmarks and the mood timeline.
 const StoryTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, onClose }) => {
   const dispatch = useAppDispatch();
 
@@ -43,6 +44,8 @@ const StoryTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, onC
 
   return (
           <div role="tabpanel" id="scene-tabpanel-story" aria-labelledby="scene-tab-story" className="flex flex-col gap-[22px]">
+          {!isRoom && character && chat && <PlansSection chat={chat} characterName={character.name} />}
+
           {/* Chapters - the story so far, one titled recap per "End chapter" */}
           <div>
             <div className="flex items-baseline justify-between mb-2">

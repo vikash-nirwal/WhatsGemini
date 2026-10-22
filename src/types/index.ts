@@ -190,6 +190,17 @@ export interface SceneState {
   updatedAt?: number;
 }
 
+// A plan you and the character agreed on (#84). `date` is YYYY-MM-DD when
+// it could be worked out; `when` is how it was said ("Saturday afternoon").
+export interface SharedPlan {
+  id: string;
+  what: string;
+  when?: string;
+  date?: string;
+  createdAt: number;
+  doneAt?: number;
+}
+
 // A gift between you and a character (#82).
 export interface Gift {
   id: string;
@@ -345,6 +356,8 @@ export interface Chat {
   coWriting?: boolean; // write one shared story instead of chatting (#68)
   choiceMoments?: boolean; // turning points come with tappable options (#87)
   moodTint?: boolean; // the background takes a soft colour from the character's mood (#90)
+  plans?: SharedPlan[]; // plans made together (#84)
+  planTracking?: boolean; // a helper check notices plans in the chat (#84)
   stage?: RelationshipStage; // relationship stage (#70); unset = off
   stageCheckedAt?: number; // message count at the last stage check
   stageSuggestion?: RelationshipStage; // a stage change waiting for the user's OK

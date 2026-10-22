@@ -6,7 +6,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **State:** the new-ideas queue (#42–#57) is built and pushed and deployed (CI green). The last full local run passed: type-check, 824 unit tests, 793 UI tests and 16 screenshot tests.
+- **State:** the new-ideas queue (#42–#57) is built and pushed and deployed (CI green). The last full local run passed: type-check, 830 unit tests, 805 UI tests and 16 screenshot tests.
 - **Next up:** #81–#92 (picked by the user on 2026-10-22), built in the order of the table below, each committed after the full suites. Push and deploy only with the user's OK.
 - **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
 - **How the new-ideas run went:** #42, #43, #12+#44 and #45 ran in fresh sessions; from #46 on they were built in the coordinating session, because new sessions can't be started over Remote Control. Each item was committed only after every suite passed.
@@ -15,7 +15,6 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 84 | Shared plans | todo | |
 | 81 | Secrets | todo | |
 | 85 | Character feed | todo | |
 | 88 | Compare two models | todo | |
@@ -34,6 +33,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **Shared plans (#84):** `Chat.plans` ("Plans together" at the top of the Story tab, `scene-panel/PlansSection.tsx`: add, tick off, remove). With `Chat.planTracking` ("Notice plans", off by default), `maybeTrackPlans` in useBackgroundUpdates asks the helper (`buildPlansPrompt`, src/features/chat/sharedPlans.ts) only when the last exchange sounds like a plan or mentions an open one; it adds plans (with a date when it can be worked out) and ticks off ones that happened. `buildPlansSection` tells the character about open plans and calls out today's.
 - **Gifts (#82):** "Give <name> a gift" in a 1:1 chat's actions opens `GiftDialog.tsx` (ideas, your own words, and the "Given" list both ways). A gift is kept in `Character.gifts`, goes in the chat as your action (`giftMessage`) and the next reply reacts (`buildGiftReactionDirective`); `buildGiftsSection` (src/features/character/gifts.ts) keeps the latest eight in the prompt. On a special date (#47) without an album photo, once you've given something, the helper picks a gift back (`buildGiftBackPrompt`), the celebration message gives it and it is recorded `from: "character"`.
 - **Character from a photo (#92):** the "Create from an idea" dialog takes an optional photo (`readPhoto`, shrunk like chat photos); with one, `buildCharacterDraftPrompt` asks for the look from the picture and an invented person (never a real one; SFW if anyone could be under 18), and the editor sends it through `generateAssistTextWithImage` (aiSlice: the helper model if it can see pictures, else the chat model, else a clear error). After the draft, "Use the photo as the portrait" opens the crop dialog.
 - **On this day (#83):** a month, 100 days or each year after a 1:1 chat's first message or a chapter's end, `buildOnThisDayNote` (src/features/chat/onThisDay.ts) adds a note until the character's first reply of that day (`SceneContext.onThisDayNote`). Nothing stored and no switch: it is worked out from timestamps.

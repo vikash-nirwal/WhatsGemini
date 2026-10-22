@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { useAppDispatch } from "../../store/hooks";
 import { extractCharacterMemory, generateAssistText, writeDiaryEntry } from "../../features/aiSlice";
-import { updateChatMemory, updateChatOptions } from "../../features/chatSlice";
+import { fetchChatById, updateChatMemory, updateChatOptions } from "../../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../../features/characterSlice";
 import { applyMemoryChanges, carryMemoryCategories } from "../../features/ai/utils/memoryExtraction";
 import { appendDiaryEntry } from "../../features/ai/utils/diary";
@@ -13,6 +13,7 @@ import { buildRelationshipPrompt, parseRelationshipReply, relationshipCheckDue }
 import { addGrowth, arcCheckDue, buildArcPrompt, parseArcReply } from "../../features/character/characterArc";
 import { buildStagePrompt, parseStageReply, stageCheckDue } from "../../features/character/relationshipStages";
 import { latestStorySummary } from "../../features/chat/recap";
+import { applyPlanChanges, buildPlansPrompt, mentionsOpenPlan, mentionsPlan, openPlans, parsePlansReply } from "../../features/chat/sharedPlans";
 import { generateNodeId } from "../../features/chat/messageTree";
 import { AI, DIARY_INTERVAL, MEMORY_EXTRACTION_INTERVAL } from "../../utils/constants";
 import { Character, Chat, Message, RoleplayStyle, UserProfile } from "../../types";
@@ -274,6 +275,34 @@ export const useBackgroundUpdates = ({
     if (chatIdNum) dispatch(updateChatOptions({ chatId: chatIdNum, patch: { stageSuggestion: undefined } }));
   };
 
+  // Shared plans (#84): with "Notice plans" on, a 1:1 exchange that sounds
+  // like a plan (or mentions an open one) gets a helper check, which may add
+  // plans and tick off the ones that just happened.
+  const maybeTrackPlans = async (allMessages: Message[], speaker = characterData) => {
+    if (!chatIdNum || isRoom || !speaker || !currentChat?.planTracking) return;
+    const exchange = allMessages.filter((m) => !m.isSystem).slice(-2);
+    const text = exchange.map((m) => m.txt || "").join("\n");
+    const open = openPlans(currentChat.plans);
+    if (!mentionsPlan(text) && !mentionsOpenPlan(text, open)) return;
+    try {
+      const now = Date.now();
+      const reply = await dispatch(generateAssistText({
+        instruction: buildPlansPrompt(speaker.name, activePersona?.name?.trim() || "the user", open, formatTranscript(exchange, transcriptNames()), now),
+        background: true,
+      })).unwrap();
+      const changes = parsePlansReply(reply, open.length);
+      if (changes.added.length === 0 && changes.doneIndexes.length === 0) return;
+      // Fresh plans, in case they were edited while the check ran.
+      const fresh = await dispatch(fetchChatById(chatIdNum)).unwrap().catch(() => currentChat);
+      const latest = fresh?.plans || currentChat.plans;
+      // Done numbers point into the open plans the prompt listed.
+      const doneIndexes = changes.doneIndexes.map((i) => openPlans(latest).findIndex((p) => p.id === open[i]?.id)).filter((i) => i >= 0);
+      await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { plans: applyPlanChanges(latest, { ...changes, doneIndexes }, now) } }));
+    } catch (err) {
+      console.warn("Plan check failed (non-fatal):", err);
+    }
+  };
+
   // After each reply: suggestions in parallel (they write nothing), then
   // memory and the diary one after the other, so their two character saves
   // can't overwrite each other.
@@ -284,6 +313,7 @@ export const useBackgroundUpdates = ({
     await maybeSuggestRelationship(allMessages, speaker);
     await maybeSuggestArc(allMessages, speaker);
     await maybeSuggestStage(allMessages, speaker);
+    await maybeTrackPlans(allMessages, speaker);
   };
 
   return {
