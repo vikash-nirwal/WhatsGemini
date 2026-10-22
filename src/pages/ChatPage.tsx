@@ -41,6 +41,8 @@ import { factsAboutUser } from "../features/character/intimacy";
 import { GiftDialog } from "../components/organisms/GiftDialog";
 import { buildPlansSection } from "../features/chat/sharedPlans";
 import { buildSecretsSection, secretsInPlay } from "../features/character/secrets";
+import { ambientFor, ambientSceneTexts } from "../features/chat/ambientSound";
+import { useAmbientSound } from "./chat/useAmbientSound";
 import MessageInput from "src/components/organisms/MessageInput";
 import Header, { HeaderAction } from "src/components/organisms/Header";
 import PortraitPreviewModal from "src/components/organisms/PortraitPreviewModal";
@@ -534,6 +536,8 @@ const ChatPage = () => {
   const [scenarioOpen, setScenarioOpen] = useState(false);
   const [timeSkipOpen, setTimeSkipOpen] = useState(false);
   const [giftOpen, setGiftOpen] = useState(false);
+  // Ambient sound (#89), while this chat is open.
+  useAmbientSound(ambientFor(currentChat?.ambient, ...ambientSceneTexts(currentChat, isRoom ? undefined : characterData)), currentChat?.ambient?.volume);
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareBusy, setCompareBusy] = useState(false);
   const [compareResult, setCompareResult] = useState<{ current: ComparedReply; other: ComparedReply } | null>(null);

@@ -203,6 +203,9 @@ export interface SceneState {
   updatedAt?: number;
 }
 
+// Ambient sound (#89): what can play behind a chat.
+export type AmbientSound = "rain" | "cafe" | "fireplace" | "sea" | "city";
+
 // A plan you and the character agreed on (#84). `date` is YYYY-MM-DD when
 // it could be worked out; `when` is how it was said ("Saturday afternoon").
 export interface SharedPlan {
@@ -381,6 +384,7 @@ export interface Chat {
   plans?: SharedPlan[]; // plans made together (#84)
   planTracking?: boolean; // a helper check notices plans in the chat (#84)
   revealedSecrets?: string[]; // ids of the character's secrets told in this chat (#81)
+  ambient?: { on?: boolean; sound?: AmbientSound | "auto"; volume?: number }; // ambient sound (#89); volume 0-1
   stage?: RelationshipStage; // relationship stage (#70); unset = off
   stageCheckedAt?: number; // message count at the last stage check
   stageSuggestion?: RelationshipStage; // a stage change waiting for the user's OK

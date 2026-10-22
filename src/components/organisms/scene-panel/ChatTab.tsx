@@ -13,6 +13,7 @@ import { cn } from "src/utils/cn";
 import { browserLanguageName, PRACTICE_LANGUAGES } from "src/features/chat/languagePractice";
 import { BOLDNESS_LABELS, STAGE_LABELS, STAGES } from "src/features/character/relationshipStages";
 import { ScenePanelTabProps } from "./types";
+import { AmbientSection } from "./AmbientSection";
 
 // The Chat tab: per-chat switches (texting, room turns, stages, co-writing,
 // language practice, suggestions...), per-character ones (statuses,
@@ -433,6 +434,9 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
               label={<span className="sr-only">Tint the chat with the mood</span>}
             />
           </div>
+
+          {/* Ambient sound (#89) - per chat */}
+          {chat && <AmbientSection chat={chat} character={character} />}
 
           {/* Display - app-wide preferences for the docked mood panel/popup, see note above */}
           <div>

@@ -6,8 +6,8 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **State:** the new-ideas queue (#42–#57) is built and pushed and deployed (CI green). The last full local run passed: type-check, 841 unit tests, 836 UI tests and 16 screenshot tests.
-- **Next up:** #81–#92 (picked by the user on 2026-10-22), built in the order of the table below, each committed after the full suites. Push and deploy only with the user's OK.
+- **State:** every roadmap item is built. #81–#92 were built on 2026-10-22, each committed after the full suites passed. The last full local run passed: type-check, 841 unit tests, 836 UI tests and 16 screenshot tests.
+- **Next up:** nothing queued. Ask the user for new ideas, or pick up the smaller follow-ups at the end of ROADMAP.md.
 - **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
 - **How the new-ideas run went:** #42, #43, #12+#44 and #45 ran in fresh sessions; from #46 on they were built in the coordinating session, because new sessions can't be started over Remote Control. Each item was committed only after every suite passed.
 
@@ -15,7 +15,6 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 89 | Ambient sound | todo | |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
 
@@ -30,6 +29,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **Ambient sound (#89):** `Chat.ambient` (Chat tab, `scene-panel/AmbientSection.tsx`: on/off, "From the scene" or a pick, volume). `ambientFor` picks the sound from the tracked place, time, scenario and setting tags (`soundForScene`, first text that matches wins), and `useAmbientSound` (src/pages/chat) plays it with `AmbientPlayer` (src/features/chat/ambientSound.ts): Web Audio noise beds plus scheduled drops, crackles, clinks and passing cars, fading between sounds; `<html data-ambient>` says what plays.
 - **Compare two models (#88):** "Compare two models (the latest reply)" in a 1:1 chat's actions opens `CompareDialog.tsx`: pick a provider and model, `handleRegenerate(index, override)` writes the latest reply again with it as a variant, and the two show side by side; "Keep this one" deletes the other variant (`handleKeepCompared`). Closing without picking keeps both as variants.
 - **Character feed (#85):** `CharacterStatus` has `likes` (character ids), `likedByYou` and `comments` (`StatusComment`, from a character or "you"). After `StatusPoster` posts, the characters who share a room with the poster or know of them (`feedPeersFor`, src/features/character/statusFeed.ts, with room feelings from #24) like and comment in one helper call (`buildFeedReactionsPrompt`). `StatusFeed.tsx` is the status viewer and the sidebar's "Feed" dialog (every kept status, newest first): like, comment (the poster answers via `buildCommentReplyPrompt`) or Reply in private.
 - **Secrets (#81):** `Character.secrets` (editor, last step, `SecretsSection.tsx`), each revealed at a relationship stage, a trust level (scene tracker trust) or only if asked. `secretsInPlay` (src/features/character/secrets.ts) splits them per chat into hidden (hint only) and revealable (at most one whose time has come, plus the ask-only ones, numbered); `buildSecretsSection` goes in the 1:1 prompt. aiSlice strips `[Secret revealed: n]` into `payload.secretRevealed`; ChatPage marks that message `secretRevealed` ("A secret came out" note) and `noteSecretRevealed` adds the id to `Chat.revealedSecrets`.
@@ -140,6 +140,7 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
+- 2026-10-22: Built #81–#92 one by one, each committed after the full suites: fork into a new chat, choice moments, mood tint, reading comfort, On this day, character from a photo, gifts, shared plans, secrets, character feed, compare two models and ambient sound. Then pushed, checked CI and deployed.
 - 2026-10-22 (overnight): six more follow-ups, each committed after the full suites: adventure story memory, End chapter and hard limits in the wizard; photos kept on edit and regenerate; group diaries, room-wide inner thoughts and the status row in the collapsed sidebar and phone menu; story script in adventures and beat dividers; grouped facts in the character editor; all six reactions in the terminal theme and "🎤 Voice message" in search.
 - 2026-10-22: built the 16 picked ideas, each committed after the full suites: #69 group chat locations, #58 off-screen talks, #60 character growth, #61 letters, #66 world map, #67 language practice, #68 co-writing, #70 relationship stages, #71 custom meters, #72 boldness, #73 intimacy profile, #74 who knows whom, #75 private albums, #76 mood-aware voice, #79 scenario cards, #80 time skips. CI now runs the UI tests in two shards (a run hit the 30-minute limit).
 - 2026-10-22: the composer's tools took half the row on desktop; now only image and photo stay inline and the rest are in the "+" menu.
