@@ -81,6 +81,8 @@ export interface Message {
   gameChanges?: string[];
   skillCheck?: SkillCheck;
   beat?: number; // the story-script beat (1-based) this reply was written in (#57)
+  correction?: string; // language practice (#67): the fix for this message of yours
+  translation?: string; // language practice (#67): this reply in your language
 }
 
 // One tappable option offered at the end of an adventure narrator turn.
@@ -185,6 +187,13 @@ export interface SceneState {
   trust?: number; // 0-100
   present?: string[]; // group chats (#69): which members are in the scene; unset = everyone
   updatedAt?: number;
+}
+
+// Language practice (#67): what you're learning in a chat, and how well.
+export interface ChatLanguage {
+  target: string;
+  level: "beginner" | "intermediate" | "advanced";
+  translateInto?: string; // your own language; the browser's when unset
 }
 
 // A letter a character wrote while you were away (#61).
@@ -300,6 +309,7 @@ export interface Chat {
   arcCheckedAt?: number; // message count at the last character-growth check (#60)
   arcSuggestion?: string; // a growth note waiting for the user's OK
   offscreenTalk?: boolean; // members talk among themselves while you're away (#58)
+  language?: ChatLanguage; // language practice mode (#67)
   offscreenTalks?: OffscreenTalk[]; // the last few of those conversations
   // Relationship that evolves (#30): off when false; the message count at
   // the last check; and a suggestion waiting for the user.

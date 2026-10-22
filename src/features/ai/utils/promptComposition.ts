@@ -1,4 +1,4 @@
-import { Character, ChatGame, Intensity, LoreEntry, Message, RoleplayStyle, SceneState, StoryScript, UserProfile, World } from "../../../types";
+import { Character, ChatGame, ChatLanguage, Intensity, LoreEntry, Message, RoleplayStyle, SceneState, StoryScript, UserProfile, World } from "../../../types";
 import { YOU } from "../../../utils/constants";
 import { stripLeakedBase64 } from "./apiUtils";
 import { buildEmotionDirective } from "./emotionUtils";
@@ -7,6 +7,7 @@ import { buildStoryScriptSection } from "../../chat/storyScript";
 import { buildGameSection } from "../../chat/miniGames";
 import { buildCallSection } from "../../voice/callSession";
 import { buildStateDirective } from "../../chat/sceneState";
+import { buildLanguageDirective } from "../../chat/languagePractice";
 import { buildGrowthSection } from "../../character/characterArc";
 import { buildAvoidNote, findRepeatedOpening, findRepeatedPhrases } from "./antiRepetition";
 
@@ -512,6 +513,7 @@ export interface SceneContext {
   sceneState?: SceneState;
   roomNames?: string[]; // group chats: every member, for who's present (#69)
   letterNote?: string; // a letter the character wrote while the user was away (#61)
+  language?: ChatLanguage; // language practice (#67)
 }
 
 // The single function replacing the copy-pasted "build history + build system
@@ -540,6 +542,7 @@ export const buildTurnContext = (
     ...(scene?.onCall && character ? [buildCallSection(character.name)] : []),
     ...(scene?.sceneTracker && character ? [buildStateDirective(scene.sceneState, character.name, scene.roomNames)] : []),
     ...(scene?.letterNote ? [scene.letterNote] : []),
+    ...(scene?.language ? [buildLanguageDirective(scene.language, activePersona?.name?.trim() || "The user")] : []),
   ];
   const directives = sceneDirectives.length > 0 ? [...sceneDirectives, ...(extraDirectives || [])] : extraDirectives;
   const { text, images, characterName } = buildSystemInstruction(

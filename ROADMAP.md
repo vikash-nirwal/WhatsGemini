@@ -10,10 +10,6 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 68. **Co-writing mode** (M). Write a story together instead of roleplaying: you and the character take turns adding paragraphs to one shared text, shown as a document rather than bubbles. The character can suggest what happens next, and the text exports like a story (#20).
 
-## Practical
-
-67. **Language practice mode** (S). Per chat: the character replies in the language you're learning, and gently corrects mistakes in your messages in a small note under each one. Tap any reply to translate it. The language and level are set in the Scene panel.
-
 ## Romance and immersion
 
 70. **Relationship stages** (M). A visible ladder per chat: strangers, flirting, dating, intimate, committed. The stage is in the prompt and shapes how forward the character is willing to be, so a relationship builds instead of jumping ahead. The story moves it up or down (suggested like #30, accepted by you), and it can be set by hand.

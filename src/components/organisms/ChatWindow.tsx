@@ -52,6 +52,7 @@ interface ChatWindowProps {
   relationshipSuggestion?: { from: string; to: string }; // waiting for the user's OK (#30)
   arcSuggestion?: string; // a note on how the character has grown, waiting for the user's OK (#60)
   onReplyToLetter?: (letter: CharacterLetter) => void; // starts a reply to a letter (#61)
+  onTranslate?: (msg: Message) => void; // language practice (#67): translate a reply
   onAcceptArc?: () => void;
   onDismissArc?: () => void;
   awayNote?: string | null; // a realistic schedule (#7) is holding the reply back
@@ -163,7 +164,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc, note }: { charIniti
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onReplyToLetter, arcSuggestion, onAcceptArc, onDismissArc, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onTranslate, onReplyToLetter, arcSuggestion, onAcceptArc, onDismissArc, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -734,6 +735,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onReplyToLetter, arcS
                     chapterNumber={msg.chapterTitle ? chapterNumbers.get(msg.id || "") : undefined}
                     onToggleBookmark={onToggleBookmark}
                     onUndoSummary={onUndoSummary}
+                    onTranslate={onTranslate}
                     onInspect={handleInspect}
                     onReact={onReact}
                     texting={textingMode}

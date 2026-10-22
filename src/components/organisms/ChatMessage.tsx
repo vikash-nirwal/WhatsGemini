@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from "react";
 import { useColorTheme } from "../../hooks/useColorTheme";
-import { FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask, FaBookmark, FaStar, FaCode, FaVolumeUp, FaStop } from "react-icons/fa";
+import { FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask, FaBookmark, FaStar, FaCode, FaVolumeUp, FaStop, FaLanguage } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { cn } from "../../utils/cn";
 import { CharacterVoice, Message } from "../../types";
@@ -52,6 +52,7 @@ interface ChatMessageProps {
   chapterNumber?: number; // for a summary made by "End chapter": its position among the chapters
   onToggleBookmark?: (msg: Message) => void; // star / unstar (#21)
   onUndoSummary?: (msg: Message) => void; // take a compression or chapter back out
+  onTranslate?: (msg: Message) => void; // language practice (#67)
   onInspect?: (msg: Message) => void; // "Show what was sent" for an AI reply (#31)
   onReact?: (msg: Message, emoji: string) => void; // your emoji reaction to a reply (#11)
   reactorName?: string; // who left msg.characterReaction, for its label
@@ -109,6 +110,7 @@ const ChatMessage = React.memo(({
   chapterNumber,
   onToggleBookmark,
   onUndoSummary,
+  onTranslate,
   onInspect,
   onReact,
   reactorName,
@@ -164,6 +166,28 @@ const ChatMessage = React.memo(({
   const shownParts = textParts ? Math.min(visibleParts ?? textParts.length, textParts.length) : 0;
   const showMainBubble = !textParts || shownParts === textParts.length;
   const thoughtsBlock = !isUser && msg.thoughts ? <InnerThoughts thoughts={msg.thoughts} terminal={is("terminal")} /> : null;
+  // Language practice (#67): a correction under your message, a translation
+  // under a reply once asked for.
+  const [translating, setTranslating] = useState(false);
+  const canTranslate = Boolean(onTranslate && !isUser && msg.id && msg.txt && !msg.isCompressionSummary);
+  const handleTranslate = useCallback(async () => {
+    if (!onTranslate) return;
+    setTranslating(true);
+    try {
+      await onTranslate(msg);
+    } finally {
+      setTranslating(false);
+    }
+  }, [onTranslate, msg]);
+  const languageBlock = isUser && msg.correction ? (
+    <div className="mt-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 font-sans text-[12px] text-foreground" aria-label="Correction">
+      <span aria-hidden>✏️ </span>{msg.correction}
+    </div>
+  ) : !isUser && (msg.translation || translating) ? (
+    <div className="mt-1.5 border-t border-border/50 pt-1.5 font-sans text-[12.5px] text-muted-foreground" aria-label="Translation">
+      {translating && !msg.translation ? "Translating..." : msg.translation}
+    </div>
+  ) : null;
 
   // Long-press (touch) or the browser's own long-press/context-menu gesture
   // opens the action sheet. Moving the finger cancels it, so scrolling past a
@@ -209,6 +233,7 @@ const ChatMessage = React.memo(({
     { label: "Edit", icon: FaEdit, onSelect: handleEdit, disabled: isUser && aiLoading },
     ...(onToggleBookmark ? [{ label: bookmarkLabel, icon: FaStar, onSelect: handleToggleBookmark }] : []),
     ...(canInspect ? [{ label: "Show what was sent", icon: FaCode, onSelect: handleInspect }] : []),
+    ...(canTranslate ? [{ label: "Translate", icon: FaLanguage, onSelect: handleTranslate, disabled: translating }] : []),
     ...(onDeleteBranch ? [{ label: siblingInfo ? "Delete this variant" : "Delete message", icon: FaTrash, onSelect: handleDeleteBranch, disabled: aiLoading, danger: true }] : []),
   ];
   const actionSheet = (
@@ -343,6 +368,8 @@ const ChatMessage = React.memo(({
           {voiceNote || <MarkdownRenderer msgText={stripImageContextTag(msg.txt || "")} isUser={isUser} />}
           {refusalNotice}
           {thoughtsBlock}
+          {languageBlock}
+          {canTranslate && <TermLink label="translate" onClick={handleTranslate} disabled={translating} className="mt-1" />}
           {(msg.reaction || msg.characterReaction) && (
             <div className="mt-1 text-[12px] text-muted-foreground">
               # {isUser ? `${reactorName || "they"} reacted ${msg.characterReaction?.emoji}` : `you reacted ${msg.reaction}`}
@@ -527,6 +554,7 @@ const ChatMessage = React.memo(({
             {refusalNotice}
           </div>
           {thoughtsBlock}
+          {languageBlock}
           {receipt && (
             <div className="mt-1 flex items-center justify-end gap-1 font-sans text-[11px] text-subtle" aria-label={receipt === "read" ? "Read" : "Sent"}>
               {msg.timestamp && <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>}
@@ -678,6 +706,16 @@ const ChatMessage = React.memo(({
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>{bookmarkLabel}</TooltipContent>
+                  </Tooltip>
+                )}
+                {canTranslate && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" onClick={handleTranslate} disabled={translating} aria-label="Translate" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
+                        <FaLanguage size={12} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Translate this reply</TooltipContent>
                   </Tooltip>
                 )}
                 {canInspect && (

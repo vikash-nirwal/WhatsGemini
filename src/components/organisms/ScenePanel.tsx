@@ -23,6 +23,7 @@ import { generateBackdropImage } from "src/features/aiSlice";
 import { describeSetting } from "src/features/chat/backdrop";
 import { groupMemoryFacts, MEMORY_CATEGORY_LABELS, nextMemoryCategory } from "src/features/ai/utils/memoryExtraction";
 import { WorldMapView } from "src/components/molecules/WorldMapView";
+import { browserLanguageName, PRACTICE_LANGUAGES } from "src/features/chat/languagePractice";
 import { pinForLocation } from "src/features/world/worldMap";
 import { readPhoto } from "src/features/chat/photoAttachments";
 import { dataUrlToBlob, savePortraitBlob } from "src/features/ai/utils/portraitUtils";
@@ -1075,6 +1076,44 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
               />
             </div>
           )}
+
+          {/* Language practice (#67) - per chat */}
+          <div className="flex flex-col gap-2">
+            <div className="min-w-0">
+              <div className="text-[12.5px] font-medium text-foreground">Language practice</div>
+              <div className="text-[11px] text-subtle">Replies come in the language you're learning, mistakes in your messages get a gentle correction under them, and any reply can be translated.</div>
+            </div>
+            <Select
+              aria-label="Practice language"
+              value={chat?.language?.target || ""}
+              onChange={(e) => dispatch(updateChatOptions({ chatId, patch: { language: e.target.value ? { level: "beginner", ...chat?.language, target: e.target.value } : undefined } }))}
+            >
+              <option value="">Off</option>
+              {PRACTICE_LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
+            </Select>
+            {chat?.language && (
+              <>
+                <SegmentedControl
+                  value={chat.language.level}
+                  onChange={(v) => dispatch(updateChatOptions({ chatId, patch: { language: { ...chat.language!, level: v as "beginner" | "intermediate" | "advanced" } } }))}
+                  options={[
+                    { value: "beginner", label: "Beginner" },
+                    { value: "intermediate", label: "Intermediate" },
+                    { value: "advanced", label: "Advanced" },
+                  ]}
+                />
+                <label className="flex flex-col gap-1 text-[11px] text-subtle">
+                  Translate replies into
+                  <Input
+                    value={chat.language.translateInto || ""}
+                    placeholder={browserLanguageName()}
+                    onChange={(e) => dispatch(updateChatOptions({ chatId, patch: { language: { ...chat.language!, translateInto: e.target.value || undefined } } }))}
+                    className="h-8 text-[12.5px] px-2.5 rounded-lg"
+                  />
+                </label>
+              </>
+            )}
+          </div>
 
           {/* Reply suggestions (#16) - per chat */}
           <div className="flex items-center justify-between gap-3">

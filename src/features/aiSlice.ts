@@ -7,7 +7,7 @@ import { composeImagePrompt, deriveImagePrompt, generateImage, RoomReferenceChar
 import { ImagePromptTarget, resolveImagePromptTarget } from "./ai/utils/imagePromptGuide";
 import { generateVideo } from "./ai/utils/videoGeneration";
 import { extractEmotionTag } from "./ai/utils/emotionUtils";
-import { extractReactionTag, extractThoughts } from "./ai/utils/messageTags";
+import { extractCorrection, extractReactionTag, extractThoughts } from "./ai/utils/messageTags";
 import { buildRecapPrompt, cleanRecap, latestStorySummary, recentForRecap } from "./chat/recap";
 import { extractBeatTag } from "./chat/storyScript";
 import { extractGameOverTag, GameOutcome } from "./chat/miniGames";
@@ -47,6 +47,7 @@ export interface GenerateAIResponseResult {
   videos?: string[];
   emotion?: string;
   thoughts?: string;
+  correction?: string; // language practice (#67): the fix for the user's last message
   reaction?: string; // the character's reaction to the message it answered (#11)
   beatDone?: boolean; // the story script's current beat was reached (#57)
   gameOver?: GameOutcome; // the mini-game ended, and who won (#52)
@@ -302,7 +303,9 @@ export const generateAIResponse = createAsyncThunk(
       const reactionAfter = reactionFirst.reaction ? { text: emotionResult.text, reaction: undefined } : extractReactionTag(emotionResult.text);
       const reaction = reactionFirst.reaction || reactionAfter.reaction;
       const { text: withoutState, state: sceneState } = extractStateBlock(reactionAfter.text);
-      const { text: withoutThoughts, thoughts } = extractThoughts(withoutState);
+      const { text: withoutThoughtsTag, thoughts } = extractThoughts(withoutState);
+      // Language practice (#67): the fix for the user's last message.
+      const { text: withoutThoughts, correction } = extractCorrection(withoutThoughtsTag);
       // A story script's [Beat done] tag (#57) closes the reply, if present.
       const { text: withoutBeat, beatDone } = extractBeatTag(withoutThoughts);
       // A mini-game's [Game over] tag (#52), in either order with the beat tag.
@@ -322,6 +325,7 @@ export const generateAIResponse = createAsyncThunk(
         emotion,
         thoughts,
         reaction,
+        correction,
         photoDescription,
         photoUnseen: photoUnseen || undefined,
         beatDone: beatAfter.beatDone || undefined,

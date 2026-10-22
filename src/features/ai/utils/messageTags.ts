@@ -83,5 +83,19 @@ export const stripStreamingTags = (text: string): string => {
   const unclosed = out.match(THOUGHTS_UNCLOSED);
   if (unclosed) out = out.slice(0, unclosed.index);
   // A tag still being typed at the very end, including a story beat tag (#57).
-  return stripStreamingGameTag(stripStreamingBeatTag(stripStreamingState(out.replace(/<\s*t?h?o?u?g?h?t?s?\s*$/i, "").trimEnd())));
+  return stripStreamingCorrection(stripStreamingGameTag(stripStreamingBeatTag(stripStreamingState(out.replace(/<\s*t?h?o?u?g?h?t?s?\s*$/i, "").trimEnd()))));
 };
+
+// Language practice (#67): the correction of the user's last message.
+const FIX_BLOCK = /<\s*fix\s*>([\s\S]*?)<\s*\/\s*fix\s*>/i;
+const FIX_UNCLOSED = /<\s*fix\s*>[\s\S]*$/i;
+
+export const extractCorrection = (text: string): { text: string; correction?: string } => {
+  const match = text.match(FIX_BLOCK);
+  if (!match || match.index === undefined) return { text };
+  const correction = match[1].trim();
+  const rest = (text.slice(0, match.index) + text.slice(match.index + match[0].length)).replace(/\n{3,}/g, "\n\n").trim();
+  return { text: rest, correction: correction || undefined };
+};
+
+export const stripStreamingCorrection = (text: string): string => text.replace(FIX_BLOCK, "").replace(FIX_UNCLOSED, "").replace(/<\s*f?i?x?\s*$/i, "").trimEnd();
