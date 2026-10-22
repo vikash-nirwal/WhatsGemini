@@ -53,6 +53,7 @@ interface ChatMessageProps {
   onToggleBookmark?: (msg: Message) => void; // star / unstar (#21)
   onUndoSummary?: (msg: Message) => void; // take a compression or chapter back out
   onTranslate?: (msg: Message) => void; // language practice (#67)
+  documentView?: boolean; // co-writing mode (#68): a paragraph of the shared story
   onInspect?: (msg: Message) => void; // "Show what was sent" for an AI reply (#31)
   onReact?: (msg: Message, emoji: string) => void; // your emoji reaction to a reply (#11)
   reactorName?: string; // who left msg.characterReaction, for its label
@@ -111,6 +112,7 @@ const ChatMessage = React.memo(({
   onToggleBookmark,
   onUndoSummary,
   onTranslate,
+  documentView = false,
   onInspect,
   onReact,
   reactorName,
@@ -265,6 +267,28 @@ const ChatMessage = React.memo(({
       </DialogContent>
     </Dialog>
   );
+
+  // Co-writing mode (#68): one paragraph of the shared story, with its
+  // author and a few small actions under it.
+  if (documentView && !msg.isCompressionSummary && !msg.isRoomEvent) {
+    const linkClass = "hover:text-foreground hover:underline disabled:opacity-50";
+    return (
+      <div className="group relative mb-5" data-slot="story-paragraph">
+        <div
+          className={cn("font-serif leading-[1.75] text-foreground", isUser && "border-l-2 border-primary/50 pl-3")}
+          style={{ fontSize: "var(--chat-font-size, 16px)" }}
+        >
+          <MarkdownRenderer msgText={stripImageContextTag(msg.txt || "")} isUser={false} />
+        </div>
+        <div className="mt-1 flex items-center gap-3 font-sans text-[11px] text-subtle md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          <span>{isUser ? userName?.trim() || "You" : speakerName || charInitials}</span>
+          <button type="button" className={linkClass} onClick={handleEdit} disabled={isUser && aiLoading}>Edit</button>
+          {!isUser && !msg.isImpersonated && <button type="button" className={linkClass} onClick={handleRegenerate} disabled={aiLoading}>Rewrite</button>}
+          {onDeleteBranch && <button type="button" className={cn(linkClass, "hover:text-destructive")} onClick={handleDeleteBranch} disabled={aiLoading}>Delete</button>}
+        </div>
+      </div>
+    );
+  }
 
   if (is("terminal")) {
     if (msg.isRoomEvent) {

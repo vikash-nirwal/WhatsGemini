@@ -310,6 +310,7 @@ export interface Chat {
   arcSuggestion?: string; // a growth note waiting for the user's OK
   offscreenTalk?: boolean; // members talk among themselves while you're away (#58)
   language?: ChatLanguage; // language practice mode (#67)
+  coWriting?: boolean; // write one shared story instead of chatting (#68)
   offscreenTalks?: OffscreenTalk[]; // the last few of those conversations
   // Relationship that evolves (#30): off when false; the message count at
   // the last check; and a suggestion waiting for the user.

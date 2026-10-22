@@ -53,6 +53,8 @@ interface ChatWindowProps {
   arcSuggestion?: string; // a note on how the character has grown, waiting for the user's OK (#60)
   onReplyToLetter?: (letter: CharacterLetter) => void; // starts a reply to a letter (#61)
   onTranslate?: (msg: Message) => void; // language practice (#67): translate a reply
+  coWriting?: boolean; // co-writing mode (#68): the chat shows as one document
+  onSuggestNext?: () => void; // "What happens next?" ideas, shown as suggestions
   onAcceptArc?: () => void;
   onDismissArc?: () => void;
   awayNote?: string | null; // a realistic schedule (#7) is holding the reply back
@@ -164,7 +166,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc, note }: { charIniti
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onTranslate, onReplyToLetter, arcSuggestion, onAcceptArc, onDismissArc, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, coWriting = false, onSuggestNext, onTranslate, onReplyToLetter, arcSuggestion, onAcceptArc, onDismissArc, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -625,7 +627,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onTranslate, onReplyT
         >
           <div
             ref={contentRef}
-            className={terminal ? "max-w-[760px] px-4 md:px-[26px] py-5" : "max-w-4xl mx-auto p-4 pb-32"}
+            className={terminal ? "max-w-[760px] px-4 md:px-[26px] py-5" : coWriting ? "max-w-2xl mx-auto px-5 md:px-8 pt-8 pb-32" : "max-w-4xl mx-auto p-4 pb-32"}
             // Room for the floating composer, sized to it rather than a fixed
             // pb-32 that a multi-line draft or the mode banners outgrew.
             style={!terminal && bottomInset > 0 ? { paddingBottom: bottomInset + 16 } : undefined}
@@ -736,6 +738,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onTranslate, onReplyT
                     onToggleBookmark={onToggleBookmark}
                     onUndoSummary={onUndoSummary}
                     onTranslate={onTranslate}
+                    documentView={coWriting}
                     onInspect={handleInspect}
                     onReact={onReact}
                     texting={textingMode}
@@ -788,6 +791,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onTranslate, onReplyT
               })
             )}
             {recap && !aiLoading && <RecapCard recap={recap} terminal={terminal} />}
+            {coWriting && onSuggestNext && !aiLoading && filteredMessages.length > 0 && !replySuggestions && (
+              <div className="mb-6 flex justify-center">
+                <Button type="button" variant="outline" size="sm" onClick={onSuggestNext}>What happens next?</Button>
+              </div>
+            )}
             {relationshipSuggestion && !aiLoading && onAcceptRelationship && onDismissRelationship && (
               <section aria-label="Relationship update" className={cn("mb-6 mx-auto max-w-xl px-4 py-3 font-sans text-sm", terminal ? "border border-border" : "rounded-2xl border border-border/60 bg-card/[0.88] shadow-soft")}>
                 <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-subtle mb-1">Your relationship has changed?</div>

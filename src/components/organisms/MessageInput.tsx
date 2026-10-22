@@ -22,6 +22,8 @@ interface MessageInputProps {
   // "Write my reply" (#15): asks the AI for a draft of your next message and
   // puts it in the box to edit; resolves to null when it couldn't.
   onDraftReply?: () => Promise<string | null>;
+  // Replaces the usual "Message ..." placeholder (co-writing mode, #68).
+  placeholderText?: string;
   // Text pushed into the box from outside (a tapped reply suggestion); a new
   // nonce replaces the draft even when the text repeats.
   draftInjection?: { text: string; nonce: number };
@@ -78,6 +80,7 @@ const formatTokenCount = (n: number): string => {
 };
 
 const MessageInput: React.FC<MessageInputProps> = ({
+  placeholderText,
   onSend,
   disabled = false,
   onStop,
@@ -663,6 +666,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
     placeholder={
       disabled
         ? "Waiting for response..."
+        : placeholderText && !isImpersonated
+        ? placeholderText
         : isImpersonated
         ? `Write as ${impersonatedName || "the character"}…`
         : selectedSpeaker

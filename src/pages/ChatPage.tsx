@@ -13,6 +13,7 @@ import { absentMemberIds, mergeState } from "../features/chat/sceneState";
 import { buildOffscreenTalkSection } from "../features/chat/offscreenTalk";
 import { buildLetterSection, letterReplyDraft } from "../features/character/letters";
 import { browserLanguageName, buildTranslatePrompt } from "../features/chat/languagePractice";
+import { buildNextIdeasPrompt } from "../features/chat/coWriting";
 import { buildRelationshipPrompt, parseRelationshipReply, relationshipCheckDue } from "../features/character/relationshipEvolution";
 import { addGrowth, arcCheckDue, buildArcPrompt, parseArcReply } from "../features/character/characterArc";
 import { currentBlock, presenceFor, replyDelayMs } from "../features/character/schedule";
@@ -275,6 +276,7 @@ const ChatPage = () => {
     sceneTracker: currentChat?.sceneTracker,
     roomNames: isRoom ? roomCharacters.map((c) => c.name) : undefined,
     language: currentChat?.language,
+    coWriting: !isRoom && currentChat?.coWriting,
     sceneState: currentChat?.sceneState,
     world: currentChat?.worldId != null ? worlds.find((w) => w.id === currentChat.worldId) : undefined,
   };
@@ -1834,6 +1836,21 @@ const ChatPage = () => {
     if (target?.id) await dispatch(updateChatMessage({ chatId: chatIdNum, messageId: target.id, patch: { correction } }));
   };
 
+  // Co-writing mode (#68): a few ideas for what happens next, shown like
+  // reply suggestions; tapping one puts it in the box to write from.
+  const handleSuggestNext = async () => {
+    const last = messages[messages.length - 1];
+    if (!characterData || !last?.id) return;
+    const story = trimToLatestSummary(messages).slice(-NARRATIVE_CONTEXT_MESSAGES).filter((m) => !m.isSystem).map((m) => m.txt || "").join("\n\n");
+    try {
+      const reply = await dispatch(generateAssistText({ instruction: buildNextIdeasPrompt(activePersona?.name?.trim() || "The user", characterData.name, story), background: true })).unwrap();
+      const items = parseReplySuggestions(reply);
+      if (items.length > 0) setReplySuggestions({ forMessageId: last.id, items });
+    } catch (err) {
+      toast.error(typeof err === "string" ? err : "Couldn't think of what happens next. Check your model settings.");
+    }
+  };
+
   // ...and any reply can be translated into your own language.
   const handleTranslate = async (msg: Message) => {
     if (!chatIdNum || !msg.id || !msg.txt) return;
@@ -2047,7 +2064,7 @@ const ChatPage = () => {
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden relative">
-        <ChatWindow awayNote={awayNote} onTranslate={currentChat?.language ? handleTranslate : undefined} onReplyToLetter={(letter) => setDraftInjection({ text: letterReplyDraft(letter), nonce: Date.now() })} arcSuggestion={currentChat?.arcSuggestion} onAcceptArc={acceptArc} onDismissArc={dismissArc} relationshipSuggestion={currentChat?.relationshipSuggestion} onAcceptRelationship={acceptRelationship} onDismissRelationship={dismissRelationship} game={currentChat?.game} gameScore={currentChat?.gameScore} onEndGame={() => chatIdNum && dispatch(updateChatOptions({ chatId: chatIdNum, patch: { game: undefined } }))} storyScript={currentChat?.storyScript} onEditStory={() => setStoryOpen(true)} onMoveBeat={moveStoryBeat} recap={recap} onToggleBookmark={handleToggleBookmark} onUndoSummary={handleUndoSummary} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} />
+        <ChatWindow awayNote={awayNote} coWriting={!isRoom && Boolean(currentChat?.coWriting)} onSuggestNext={handleSuggestNext} onTranslate={currentChat?.language ? handleTranslate : undefined} onReplyToLetter={(letter) => setDraftInjection({ text: letterReplyDraft(letter), nonce: Date.now() })} arcSuggestion={currentChat?.arcSuggestion} onAcceptArc={acceptArc} onDismissArc={dismissArc} relationshipSuggestion={currentChat?.relationshipSuggestion} onAcceptRelationship={acceptRelationship} onDismissRelationship={dismissRelationship} game={currentChat?.game} gameScore={currentChat?.gameScore} onEndGame={() => chatIdNum && dispatch(updateChatOptions({ chatId: chatIdNum, patch: { game: undefined } }))} storyScript={currentChat?.storyScript} onEditStory={() => setStoryOpen(true)} onMoveBeat={moveStoryBeat} recap={recap} onToggleBookmark={handleToggleBookmark} onUndoSummary={handleUndoSummary} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} />
         {inCall && characterData && (
           <CallScreen
             name={characterData.name}
@@ -2088,6 +2105,7 @@ const ChatPage = () => {
         }
       >
         <MessageInput
+          placeholderText={!isRoom && currentChat?.coWriting ? "Write the next part of the story…" : undefined}
           userName={activePersona?.name}
           onSend={handleSend}
           disabled={aiLoading || Boolean(awayNote)}

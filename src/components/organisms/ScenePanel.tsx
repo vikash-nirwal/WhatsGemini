@@ -1077,6 +1077,21 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
             </div>
           )}
 
+          {/* Co-writing mode (#68) - 1:1 chats */}
+          {!isRoom && character && (
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-medium text-foreground">Co-writing mode</div>
+                <div className="text-[11px] text-subtle">Write one story together instead of chatting: the chat shows as a document, and {character.name} adds the next paragraphs as a co-author. "What happens next?" offers ideas.</div>
+              </div>
+              <ToggleSwitch
+                checked={Boolean(chat?.coWriting)}
+                onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { coWriting: val || undefined } }))}
+                label={<span className="sr-only">Co-writing mode</span>}
+              />
+            </div>
+          )}
+
           {/* Language practice (#67) - per chat */}
           <div className="flex flex-col gap-2">
             <div className="min-w-0">
