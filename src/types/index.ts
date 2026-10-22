@@ -335,6 +335,7 @@ export interface Chat {
   language?: ChatLanguage; // language practice mode (#67)
   coWriting?: boolean; // write one shared story instead of chatting (#68)
   choiceMoments?: boolean; // turning points come with tappable options (#87)
+  moodTint?: boolean; // the background takes a soft colour from the character's mood (#90)
   stage?: RelationshipStage; // relationship stage (#70); unset = off
   stageCheckedAt?: number; // message count at the last stage check
   stageSuggestion?: RelationshipStage; // a stage change waiting for the user's OK

@@ -421,6 +421,19 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
             </div>
           )}
 
+          {/* Mood-tinted chat (#90) - per chat */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[12.5px] font-medium text-foreground">Tint the chat with the mood</div>
+              <div className="text-[11px] text-subtle">The background takes a soft colour from the character's latest mood: warmer when happy, blue when sad, red when angry. Text stays as it is.</div>
+            </div>
+            <ToggleSwitch
+              checked={Boolean(chat?.moodTint)}
+              onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { moodTint: val || undefined } }))}
+              label={<span className="sr-only">Tint the chat with the mood</span>}
+            />
+          </div>
+
           {/* Display - app-wide preferences for the docked mood panel/popup, see note above */}
           <div>
             <div data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold mb-2">Display</div>

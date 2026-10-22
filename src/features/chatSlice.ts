@@ -252,7 +252,7 @@ export const updateChatMessage = createAsyncThunk(
 // Updates simple per-chat switches, leaving content and tree untouched.
 export const updateChatOptions = createAsyncThunk(
   "chat/updateChatOptions",
-  async ({ chatId, patch }: { chatId: number; patch: Partial<Pick<Chat, "replySuggestions" | "textingMode" | "worldId" | "backdrop" | "relationshipSuggestions" | "relationshipCheckedAt" | "relationshipSuggestion" | "sceneTracker" | "sceneState" | "recap" | "storyScript" | "game" | "gameScore" | "turnMode" | "narrator" | "roomRelationships" | "innerThoughts" | "offscreenTalk" | "offscreenTalks" | "arcCheckedAt" | "arcSuggestion" | "language" | "coWriting" | "stage" | "stageCheckedAt" | "stageSuggestion" | "meters" | "boldness" | "choiceMoments">> }, { rejectWithValue }) => {
+  async ({ chatId, patch }: { chatId: number; patch: Partial<Pick<Chat, "replySuggestions" | "textingMode" | "worldId" | "backdrop" | "relationshipSuggestions" | "relationshipCheckedAt" | "relationshipSuggestion" | "sceneTracker" | "sceneState" | "recap" | "storyScript" | "game" | "gameScore" | "turnMode" | "narrator" | "roomRelationships" | "innerThoughts" | "offscreenTalk" | "offscreenTalks" | "arcCheckedAt" | "arcSuggestion" | "language" | "coWriting" | "stage" | "stageCheckedAt" | "stageSuggestion" | "meters" | "boldness" | "choiceMoments" | "moodTint">> }, { rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
       Object.assign(chat, patch);

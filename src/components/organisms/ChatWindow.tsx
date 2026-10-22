@@ -42,6 +42,7 @@ import { Badge } from "src/components/atoms/badge";
 import { useColorTheme } from "../../hooks/useColorTheme";
 import { cn } from "../../utils/cn";
 import { beatStarts } from "../../features/chat/storyScript";
+import { latestMood, tintFor } from "../../features/chat/moodTint";
 
 interface ChatWindowProps {
   onToggleBookmark?: (msg: Message) => void; // star / unstar a message (#21)
@@ -325,6 +326,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
   // The scene state HUD (#9), when this chat tracks it.
   const sceneTracker = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.sceneTracker);
   const chatMeters = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.meters);
+  const moodTintOn = useAppSelector((state) => Boolean(state.chat.chats.find((c) => c.id === chatId)?.moodTint));
+  const currentMood = moodTintOn ? latestMood(messages) : undefined;
+  const moodTint = tintFor(currentMood);
   // Conversations members had while you were away (#58), each shown after
   // the last message before it.
   const offscreenTalks = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.offscreenTalks);
@@ -617,6 +621,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
             </div>
             <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-background/60 via-background/80 to-background" />
           </>
+        )}
+        {/* Mood-tinted chat (#90): a soft colour from the latest mood. */}
+        {moodTintOn && !terminal && (
+          <div
+            aria-hidden
+            data-slot="mood-tint"
+            data-mood={currentMood || "neutral"}
+            className="absolute inset-0 pointer-events-none transition-[background-color] duration-[1500ms] motion-reduce:transition-none"
+            style={{ backgroundColor: moodTint ? `rgb(${moodTint} / 0.10)` : "transparent" }}
+          />
         )}
         {sceneTracker && <SceneStateStrip state={sceneState} terminal={terminal} meters={chatMeters} />}
         <div

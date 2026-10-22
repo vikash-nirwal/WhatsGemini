@@ -6,7 +6,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **State:** the new-ideas queue (#42–#57) is built and pushed and deployed (CI green). The last full local run passed: type-check, 808 unit tests, 761 UI tests and 16 screenshot tests.
+- **State:** the new-ideas queue (#42–#57) is built and pushed and deployed (CI green). The last full local run passed: type-check, 810 unit tests, 765 UI tests and 16 screenshot tests.
 - **Next up:** #81–#92 (picked by the user on 2026-10-22), built in the order of the table below, each committed after the full suites. Push and deploy only with the user's OK.
 - **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
 - **How the new-ideas run went:** #42, #43, #12+#44 and #45 ran in fresh sessions; from #46 on they were built in the coordinating session, because new sessions can't be started over Remote Control. Each item was committed only after every suite passed.
@@ -15,7 +15,6 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 90 | Mood-tinted chat | todo | |
 | 91 | Reading comfort | todo | |
 | 83 | On this day | todo | |
 | 92 | Character from a photo | todo | |
@@ -39,6 +38,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **Mood-tinted chat (#90):** `Chat.moodTint` (Chat tab switch). ChatWindow draws a `data-slot="mood-tint"` layer behind the bubbles at 10% of `tintFor(latestMood(messages))` (src/features/chat/moodTint.ts), fading over 1.5 s (no fade with reduced motion); neutral moods and the terminal theme get none.
 - **Choice moments (#87):** `Chat.choiceMoments` (Chat tab switch) adds `CHOICE_MOMENT_DIRECTIVE` (src/features/chat/choiceMoments.ts); `generateAIResponse` splits the `<<<CHOICES` block off (`splitChoiceMoment`) into `payload.choices`, saved as `Message.choices` and shown as tappable chips under the newest reply (ChatWindow, group "Choices"), which send the option. Adventures pass `keepChoices: true`, since they parse that block themselves.
 - **Fork into a new chat (#86):** `forkChat` in chatSlice (with `buildFork`, src/features/chat/forkChat.ts) copies the active path up to a message into a new chat titled "<title> (what if)", with the chat's own settings (not games, recaps or pending checks). A 1:1 fork gets its own copy of the character's memory (`memoryScope: "chat"`). The message action "Start a new chat from here" is in the hover toolbar, the phone sheet and the terminal theme ("fork").
 - **Code layout (2026-10-22 split):** `ScenePanel.tsx` is the tab shell; each tab is `src/components/organisms/scene-panel/<Name>Tab.tsx` with its own state (props in `scene-panel/types.ts`). `ChatPage.tsx` keeps sending and turn handling; after-reply work is in `src/pages/chat/useBackgroundUpdates.ts` (memory, diary, suggestions and the relationship/growth/stage checks) and `useReplyEffects.ts` (beats, scene state, games, reactions, corrections, photos, narrator, translate), and prompt notes are plain functions in `promptNotes.ts`. New per-tab settings go in that tab's file; new after-reply work goes in one of the hooks.
