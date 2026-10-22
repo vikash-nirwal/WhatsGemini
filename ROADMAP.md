@@ -22,6 +22,18 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 67. **Language practice mode** (S). Per chat: the character replies in the language you're learning, and gently corrects mistakes in your messages in a small note under each one. Tap any reply to translate it. The language and level are set in the Scene panel.
 
+## Romance and immersion
+
+70. **Relationship stages** (M). A visible ladder per chat: strangers, flirting, dating, intimate, committed. The stage is in the prompt and shapes how forward the character is willing to be, so a relationship builds instead of jumping ahead. The story moves it up or down (suggested like #30, accepted by you), and it can be set by hand.
+71. **Custom meters** (S). The scene HUD's affection and trust (#9) become meters you choose per chat (tension, desire, jealousy, comfort, ...). Each reply updates them in the state block, and the character acts on them.
+72. **Boldness** (S). A per-chat slider for how forward the character is, from shy and needing to be coaxed to bold and making the first move. Separate from intensity, which is how much gets described.
+73. **Intimacy profile** (S–M). A structured part of the character editor: love language, likes and dislikes, how they flirt, how they act when jealous, their experience; and the same on a persona. Only sent to the model when the scene heads that way (by relationship stage, #70, or the scene's mood), so it doesn't bloat every prompt.
+74. **Characters know about each other** (M). When you're seeing more than one character, they can know: Aria notices you've been talking to Kai a lot, gets jealous or curious, and brings it up. A per-character switch picks who knows about whom; what they know comes from the other chats' memory and recent activity, not their full transcripts.
+75. **Private albums** (S–M). Each character's album of the pictures they've sent you, blurred until tapped. Some unlock only at a higher relationship stage (#70), and a character can send you something from their album on a special occasion (#47).
+76. **Mood-aware voice** (S). Read-aloud and calls change rate, pitch and pauses with the reply's emotion: slower and softer when tender, quicker when excited. Browser voices only; no paid TTS needed.
+79. **Scenario cards** (S). Ready-made starters (date night, a weekend away, a reunion after months apart, a rainy night in) that set the scene, outfit, backdrop and opening line in one tap. You can save your own.
+80. **Time skips** (S). A "Later that night..." / "The next morning..." button: the app writes a short transition, moves the scene tracker's time and place on, and the story continues from there.
+
 ## Smaller follow-ups
 
 Leftovers noted while building the finished items. Pick them up alongside related work.

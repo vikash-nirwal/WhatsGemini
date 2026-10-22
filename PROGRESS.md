@@ -7,7 +7,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 ## Where we stand
 
 - **State:** the new-ideas queue (#42–#57) is built and pushed and deployed (CI green). The last full local run passed: type-check, 760 unit tests, 697 UI tests and 16 screenshot tests.
-- **Next up:** the new ideas #58, #60, #61, #66–#69 (picked by the user on 2026-10-22; #59 and #62–#65 were dropped). Everything before them is built, pushed and deployed.
+- **Next up:** the new ideas #58, #60, #61, #66–#76, #79 and #80 (picked by the user on 2026-10-22; #59, #62–#65, #77 and #78 were dropped). Not started; the user will say when. Everything before them is built, pushed and deployed.
 - **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
 - **How the new-ideas run went:** #42, #43, #12+#44 and #45 ran in fresh sessions; from #46 on they were built in the coordinating session, because new sessions can't be started over Remote Control. Each item was committed only after every suite passed.
 
@@ -22,6 +22,15 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | 67 | Language practice mode | todo | |
 | 68 | Co-writing mode | todo | |
 | 69 | Group chat locations | todo | Pairs well with #58. |
+| 70 | Relationship stages | todo | #73 and #75 build on it. |
+| 71 | Custom meters | todo | |
+| 72 | Boldness | todo | |
+| 73 | Intimacy profile | todo | After #70. |
+| 74 | Characters know about each other | todo | |
+| 75 | Private albums | todo | After #70. |
+| 76 | Mood-aware voice | todo | |
+| 79 | Scenario cards | todo | |
+| 80 | Time skips | todo | |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
 
