@@ -1,4 +1,4 @@
-import { buildStateDirective, extractStateBlock, formatState, mergeState, parseState, stripStreamingState } from "./sceneState";
+import { absentMemberIds, buildStateDirective, extractStateBlock, formatState, mergeState, parseState, stripStreamingState } from "./sceneState";
 
 describe("parseState", () => {
   it("reads every field and clamps the meters", () => {
@@ -47,5 +47,23 @@ describe("streaming and prompts", () => {
   it("merges updates and formats them", () => {
     const merged = mergeState({ location: "park", affection: 60 }, { affection: 64, time: "dusk" });
     expect(formatState(merged)).toBe("location: park; time: dusk; affection: 64");
+  });
+});
+
+describe("who's present in a group chat (#69)", () => {
+  it("reads the present list, nobody included", () => {
+    expect(parseState("location: the garage; present: Aria, Kai and Lin").present).toEqual(["Aria", "Kai", "Lin"]);
+    expect(parseState("present: nobody").present).toEqual([]);
+  });
+
+  it("asks for it only in a group chat", () => {
+    expect(buildStateDirective(undefined, "Aria", ["Aria", "Kai"])).toContain('"present" lists which of Aria, Kai are in the scene');
+    expect(buildStateDirective(undefined, "Aria")).not.toContain("present");
+  });
+
+  it("finds who's away, by full or first name", () => {
+    const members = [{ id: 1, name: "Aria" }, { id: 2, name: "Kai Moreno" }, { id: 3, name: "Lin" }];
+    expect(absentMemberIds({ present: ["aria", "Kai"] }, members)).toEqual([3]);
+    expect(absentMemberIds({}, members)).toEqual([]);
   });
 });

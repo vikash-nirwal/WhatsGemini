@@ -504,6 +504,7 @@ export interface SceneContext {
   sceneTracker?: boolean; // track the scene's state (#9)
   world?: World; // a World attached to this chat (#28)
   sceneState?: SceneState;
+  roomNames?: string[]; // group chats: every member, for who's present (#69)
 }
 
 // The single function replacing the copy-pasted "build history + build system
@@ -530,7 +531,7 @@ export const buildTurnContext = (
     ...(scene?.storyScript ? [buildStoryScriptSection(scene.storyScript)] : []),
     ...(scene?.game && character ? [buildGameSection(scene.game, character.name)] : []),
     ...(scene?.onCall && character ? [buildCallSection(character.name)] : []),
-    ...(scene?.sceneTracker && character ? [buildStateDirective(scene.sceneState, character.name)] : []),
+    ...(scene?.sceneTracker && character ? [buildStateDirective(scene.sceneState, character.name, scene.roomNames)] : []),
   ];
   const directives = sceneDirectives.length > 0 ? [...sceneDirectives, ...(extraDirectives || [])] : extraDirectives;
   const { text, images, characterName } = buildSystemInstruction(

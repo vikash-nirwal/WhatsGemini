@@ -9,13 +9,17 @@ import { SceneState } from "../../types";
 export const METERS = ["affection", "trust"] as const;
 type Meter = (typeof METERS)[number];
 
-export const buildStateDirective = (state: SceneState | undefined, charName: string): string => {
+// `roomNames`: in a group chat (#69) the block also says who is in the scene,
+// so members can leave and arrive.
+export const buildStateDirective = (state: SceneState | undefined, charName: string, roomNames?: string[]): string => {
   const current = state && formatState(state);
+  const room = roomNames && roomNames.length > 1;
   return [
     "Keep track of the scene's state and keep it consistent from reply to reply.",
     current ? `The state right now: ${current}. Change only what the story actually changes.` : "",
-    `At the very end of every reply, on its own line, add exactly: <state>location: ...; time: ...; outfit: ...; affection: N; trust: N</state>`,
+    `At the very end of every reply, on its own line, add exactly: <state>location: ...; time: ...; outfit: ...; affection: N; trust: N${room ? "; present: ..." : ""}</state>`,
     `"outfit" is what ${charName} is wearing. "affection" and "trust" are how ${charName} feels about the user, 0 to 100, and move only a few points at a time unless something big happens. Keep each value short (a few words). Never mention or explain the block.`,
+    room ? `"present" lists which of ${roomNames!.join(", ")} are in the scene right now, comma separated. Someone who leaves is taken off it, someone who arrives is added; only those present take part.` : "",
   ].filter(Boolean).join("\n");
 };
 
@@ -26,6 +30,7 @@ export const formatState = (state: SceneState): string =>
     state.outfit && `outfit: ${state.outfit}`,
     state.affection != null && `affection: ${state.affection}`,
     state.trust != null && `trust: ${state.trust}`,
+    state.present && `present: ${state.present.length > 0 ? state.present.join(", ") : "nobody"}`,
   ].filter(Boolean).join("; ");
 
 const STATE_BLOCK = /<\s*state\s*>([\s\S]*?)<\s*\/\s*state\s*>/gi;
@@ -39,13 +44,15 @@ const clampMeter = (raw: string): number | undefined => {
 // Reads "key: value; key: value" (newlines or commas between pairs work too).
 export const parseState = (inner: string): Partial<SceneState> => {
   const state: Partial<SceneState> = {};
-  for (const part of inner.split(/[;\n]|,(?=\s*(?:location|time|outfit|affection|trust)\s*[:=])/i)) {
-    const m = part.match(/^\s*(location|place|time|outfit|clothes|affection|trust)\s*[:=]\s*(.+?)\s*$/i);
+  for (const part of inner.split(/[;\n]|,(?=\s*(?:location|time|outfit|affection|trust|present|here)\s*[:=])/i)) {
+    const m = part.match(/^\s*(location|place|time|outfit|clothes|affection|trust|present|here)\s*[:=]\s*(.+?)\s*$/i);
     if (!m) continue;
     const key = m[1].toLowerCase();
     const value = m[2].replace(/^["']|["']$/g, "").trim();
     if (!value) continue;
-    if (key === "affection" || key === "trust") {
+    if (key === "present" || key === "here") {
+      state.present = /^(nobody|no one|none)$/i.test(value) ? [] : value.split(/,|\band\b/i).map((n) => n.trim()).filter(Boolean).slice(0, 12);
+    } else if (key === "affection" || key === "trust") {
       const n = clampMeter(value);
       if (n != null) state[key as Meter] = n;
     } else {
@@ -80,3 +87,17 @@ export const mergeState = (current: SceneState | undefined, update: Partial<Scen
   ...update,
   updatedAt: Date.now(),
 });
+
+// Group chats (#69): the members who aren't in the scene, by the state's
+// "present" list. Names match by full or first name; nobody is away while
+// the list is unset.
+export const absentMemberIds = (state: SceneState | undefined, members: { id: number; name: string }[]): number[] => {
+  if (!state?.present) return [];
+  const here = state.present.map((n) => n.toLowerCase());
+  return members
+    .filter((m) => {
+      const name = m.name.toLowerCase();
+      return !here.some((h) => h === name || h === name.split(" ")[0]);
+    })
+    .map((m) => m.id);
+};

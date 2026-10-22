@@ -133,3 +133,34 @@ test("room-wide inner thoughts and member diaries are switched on in the Chat ta
   await sendMessage(page, "What's everyone thinking?");
   await expect.poll(() => systemOf(mockAI.requests.find((r) => speakerOf(r.messages))?.messages || [])).toContain("add your private inner thoughts in exactly this format: <thoughts>");
 });
+
+test("with the scene tracked, members who leave stop taking turns until they're back", async ({ page, mockAI }) => {
+  await openChat(page, 2);
+  await openRoomPanel(page, "Scene");
+  await page.getByRole("switch", { name: "Track the scene" }).click();
+  await page.getByRole("button", { name: "Close scene panel" }).click();
+
+  // Aria answers first (round-robin), and the state says Kai has gone.
+  mockAI.reply((req) => {
+    const speaker = speakerOf(req.messages);
+    return speaker === "Aria" ? "Kai just stepped out for parts.\n<state>location: the garage; present: Aria</state>" : `${speaker} says hello back.`;
+  });
+  await sendMessage(page, "Where's Kai?");
+  await expect(messageBubble(page, "Kai just stepped out for parts.")).toBeVisible();
+  await waitForReplyDone(page);
+  await expect(page.getByRole("group", { name: "Scene state" })).toContainText("Aria");
+  expect(systemOf(mockAI.requests[0].messages)).toContain('"present" lists which of Aria, Kai are in the scene');
+
+  // Kai would be next, but he's away, so Aria answers again.
+  await sendMessage(page, "Okay, just us then.");
+  await expect.poll(() => mockAI.requests.length).toBe(2);
+  expect(speakerOf(mockAI.requests[1].messages)).toBe("Aria");
+  await waitForReplyDone(page);
+
+  // Back in by hand.
+  await openRoomPanel(page, "Scene");
+  const here = page.getByRole("group", { name: "Who's here" });
+  await expect(here.getByRole("button", { name: "Kai" })).toHaveAttribute("aria-pressed", "false");
+  await here.getByRole("button", { name: "Kai" }).click();
+  await expect(here.getByRole("button", { name: "Kai" })).toHaveAttribute("aria-pressed", "true");
+});

@@ -545,6 +545,35 @@ const ScenePanel: React.FC<ScenePanelProps> = ({ chatId, character, isRoom, chat
                   />
                 </label>
               ))}
+              {/* Group chats (#69): who's in the scene. Away members don't take turns. */}
+              {isRoom && members.length > 1 && (
+                <div role="group" aria-label="Who's here" className="col-span-2 flex flex-col gap-1.5">
+                  <span className="text-[11px] text-subtle">Who's here</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {members.map((m) => {
+                      const here = !chat.sceneState?.present || chat.sceneState.present.some((n) => n.toLowerCase() === m.name.toLowerCase() || n.toLowerCase() === m.name.toLowerCase().split(" ")[0]);
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          aria-pressed={here}
+                          onClick={() => {
+                            const current = chat.sceneState?.present ?? members.map((x) => x.name);
+                            const next = here ? current.filter((n) => n.toLowerCase() !== m.name.toLowerCase() && n.toLowerCase() !== m.name.toLowerCase().split(" ")[0]) : [...current, m.name];
+                            dispatch(updateChatOptions({ chatId, patch: { sceneState: { ...chat.sceneState, present: next.length === members.length ? undefined : next } } }));
+                          }}
+                          className={cn(
+                            "h-7 px-2.5 rounded-full border text-[12px]",
+                            here ? "border-primary/60 bg-primary/[0.14] text-foreground" : "border-input text-muted-foreground line-through"
+                          )}
+                        >
+                          {m.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

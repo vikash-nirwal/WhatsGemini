@@ -183,6 +183,7 @@ export interface SceneState {
   outfit?: string;
   affection?: number; // 0-100
   trust?: number; // 0-100
+  present?: string[]; // group chats (#69): which members are in the scene; unset = everyone
   updatedAt?: number;
 }
 

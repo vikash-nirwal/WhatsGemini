@@ -1,5 +1,5 @@
 import React from "react";
-import { FaClock, FaHeart, FaHandshake, FaMapMarkerAlt, FaTshirt } from "react-icons/fa";
+import { FaClock, FaHeart, FaHandshake, FaMapMarkerAlt, FaTshirt, FaUsers } from "react-icons/fa";
 import { cn } from "src/utils/cn";
 import { SceneState } from "src/types";
 
@@ -22,6 +22,8 @@ export const SceneStateStrip = ({ state, terminal = false }: { state?: SceneStat
     state?.location && { icon: FaMapMarkerAlt, label: "Location", text: state.location },
     state?.time && { icon: FaClock, label: "Time", text: state.time },
     state?.outfit && { icon: FaTshirt, label: "Outfit", text: state.outfit },
+    // Group chats (#69): who's in the scene.
+    state?.present && { icon: FaUsers, label: "Here", text: state.present.length > 0 ? state.present.join(", ") : "nobody" },
   ].filter(Boolean) as { icon: React.ComponentType<{ size?: number; className?: string }>; label: string; text: string }[];
   return (
     <div

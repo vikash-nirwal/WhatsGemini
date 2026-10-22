@@ -9,7 +9,7 @@ import { resolveTurnModel } from "../features/ai/modelResolution";
 import { appearanceLocksFor, lockedLookFor } from "../features/ai/utils/appearanceLock";
 import { useChatRecap } from "../features/chat/useChatRecap";
 import { beatStamp, moveBeat } from "../features/chat/storyScript";
-import { mergeState } from "../features/chat/sceneState";
+import { absentMemberIds, mergeState } from "../features/chat/sceneState";
 import { buildRelationshipPrompt, parseRelationshipReply, relationshipCheckDue } from "../features/character/relationshipEvolution";
 import { currentBlock, presenceFor, replyDelayMs } from "../features/character/schedule";
 import { latestStorySummary } from "../features/chat/recap";
@@ -159,6 +159,12 @@ const ChatPage = () => {
     [characters, currentChat]
   );
   const isRoom = roomCharacters.length > 1;
+  // Who can't take a turn: muted members, and (#69) members the scene
+  // tracker says have left. An @mention can still call on either.
+  const unavailableIds = useMemo(
+    () => [...(currentChat?.mutedParticipantIds || []), ...(isRoom && currentChat?.sceneTracker ? absentMemberIds(currentChat?.sceneState, roomCharacters) : [])],
+    [currentChat?.mutedParticipantIds, currentChat?.sceneTracker, currentChat?.sceneState, isRoom, roomCharacters]
+  );
   const worlds = useAppSelector((state) => state.world.worlds);
   // A phone call (#56): replies are spoken, and what you say is sent as voice messages.
   const [inCall, setInCall] = useState(false);
@@ -241,6 +247,7 @@ const ChatPage = () => {
     game: currentChat?.game,
     onCall: inCall,
     sceneTracker: currentChat?.sceneTracker,
+    roomNames: isRoom ? roomCharacters.map((c) => c.name) : undefined,
     sceneState: currentChat?.sceneState,
     world: currentChat?.worldId != null ? worlds.find((w) => w.id === currentChat.worldId) : undefined,
   };
@@ -372,12 +379,12 @@ const ChatPage = () => {
   // messages generateAIResponse applies - it used to skip the room parts and
   // under-count group chats.
   const contextTokenEstimate = useMemo(() => {
-    const speaker = resolveNextSpeaker(roomCharacters, messages, currentChat?.mutedParticipantIds) || characterData;
+    const speaker = resolveNextSpeaker(roomCharacters, messages, unavailableIds) || characterData;
     const turn = buildTurnContext(messages, speaker, undefined, replyLengthLimit, activePersona, speaker ? buildRoomContext(speaker) : undefined, scene);
     const effectiveHistory = truncateHistory([...turn.history], maxChatLength, turn.protectedCount);
     return estimateTokens(turn.systemInstruction) + estimateTokens(turn.postHistoryNote) + estimateHistoryTokens(effectiveHistory.map((m) => m.text));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [characterData, roomCharacters, replyLengthLimit, messages, maxChatLength, activePersona, currentChat?.authorNote, currentChat?.worldTags, currentChat?.hardLimits, currentChat?.intensity, currentChat?.memory, currentChat?.pinnedMemory, currentChat?.memoryScope, currentChat?.scenario, currentChat?.mutedParticipantIds, roleplayStyle]);
+  }, [characterData, roomCharacters, replyLengthLimit, messages, maxChatLength, activePersona, currentChat?.authorNote, currentChat?.worldTags, currentChat?.hardLimits, currentChat?.intensity, currentChat?.memory, currentChat?.pinnedMemory, currentChat?.memoryScope, currentChat?.scenario, unavailableIds, roleplayStyle]);
   // The window of the model this chat's character actually replies with (#32).
   const maxContextTokens = useMemo(() => {
     const turn = resolveTurnModel({ chatProvider, selectedModel, temperature: 0, samplers: {} }, characterData);
@@ -714,7 +721,7 @@ const ChatPage = () => {
     const { content: freshMessages } = getOrBuildTree(freshChat);
 
     const speaker = (forcedSpeakerId != null ? roomCharacters.find((c) => c.id === forcedSpeakerId) : undefined)
-      || resolveNextSpeaker(roomCharacters, freshMessages, currentChat.mutedParticipantIds)
+      || resolveNextSpeaker(roomCharacters, freshMessages, unavailableIds)
       || characterData;
     if (!speaker) return false;
 
@@ -827,7 +834,7 @@ const ChatPage = () => {
   const finishRoomRound = async (starter: Character | false, chain = true) => {
     if (!isRoom || !starter) return;
     if (chain && chatIdNum) {
-      const active = getActiveParticipants(roomCharacters, currentChat?.mutedParticipantIds);
+      const active = getActiveParticipants(roomCharacters, unavailableIds);
       const others = active.filter((c) => c.id !== starter.id);
       let followers: Character[] = [];
       if (currentChat?.turnMode === "everyone") {
@@ -1080,7 +1087,7 @@ const ChatPage = () => {
       const mentioned = isRoom ? parseMention(text, roomCharacters) : undefined;
       let speaker = (forcedSpeakerId != null ? roomCharacters.find((c) => c.id === forcedSpeakerId) : undefined)
         || mentioned
-        || resolveNextSpeaker(roomCharacters, contextMessages, currentChat?.mutedParticipantIds)
+        || resolveNextSpeaker(roomCharacters, contextMessages, unavailableIds)
         || characterData;
       if (!speaker) return;
 
@@ -1089,7 +1096,7 @@ const ChatPage = () => {
       // member answer in turn. A picked speaker or an @mention stays as is.
       let followers: Character[] = [];
       const turnMode = isRoom ? currentChat?.turnMode || "round-robin" : "round-robin";
-      const active = isRoom ? getActiveParticipants(roomCharacters, currentChat?.mutedParticipantIds) : [];
+      const active = isRoom ? getActiveParticipants(roomCharacters, unavailableIds) : [];
       if (forcedSpeakerId == null && !mentioned && turnMode === "natural" && active.length > 1) {
         const picked = await pickNaturalSpeakers(contextMessages, active);
         if (picked && picked.length === 0) {
@@ -1218,7 +1225,7 @@ const ChatPage = () => {
           : (await dispatch(fetchChatById(chatIdNum)).unwrap()).tree || treeWithEdit;
 
         const speaker = (isRoom ? parseMention(newText, roomCharacters) : undefined)
-          || resolveNextSpeaker(roomCharacters, contextUpToEdit, currentChat?.mutedParticipantIds)
+          || resolveNextSpeaker(roomCharacters, contextUpToEdit, unavailableIds)
           || characterData;
         if (!speaker) return;
 
@@ -1327,7 +1334,7 @@ const ChatPage = () => {
       // Falls back to round-robin only for a message with no recorded
       // speaker (predates this field).
       const speaker = roomCharacters.find((c) => c.id === targetMessage?.speakerId)
-        || resolveNextSpeaker(roomCharacters, historyUpToTarget, currentChat?.mutedParticipantIds)
+        || resolveNextSpeaker(roomCharacters, historyUpToTarget, unavailableIds)
         || characterData;
       if (!speaker) return;
 
