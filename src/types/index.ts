@@ -190,6 +190,15 @@ export interface SceneState {
   updatedAt?: number;
 }
 
+// A gift between you and a character (#82).
+export interface Gift {
+  id: string;
+  what: string;
+  at: number;
+  from: "you" | "character";
+  chatId?: number;
+}
+
 // A photo in a character's private album (#75).
 export interface AlbumPhoto {
   id: string;
@@ -451,6 +460,7 @@ export interface Character {
   intimacy?: IntimacyProfile; // romance details, sent only when the scene is romantic (#73)
   knowsAbout?: number[]; // other characters whose bond with you this one knows of (#74)
   album?: AlbumPhoto[]; // private album (#75)
+  gifts?: Gift[]; // given both ways, oldest first (#82)
   letters?: CharacterLetter[];
   importantDates?: ImportantDate[]; // #47
   schedule?: CharacterSchedule; // #7

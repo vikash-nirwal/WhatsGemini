@@ -35,12 +35,15 @@ import { useBackgroundUpdates } from "./chat/useBackgroundUpdates";
 import { useReplyEffects } from "./chat/useReplyEffects";
 import { knowsNoteFor, recentLetterNote, roomContextFor } from "./chat/promptNotes";
 import { buildOnThisDayNote } from "../features/chat/onThisDay";
+import { buildGiftBackPrompt, buildGiftReactionDirective, buildGiftsSection, giftBackDirective, giftMessage, newGiftId, parseGiftBack } from "../features/character/gifts";
+import { factsAboutUser } from "../features/character/intimacy";
+import { GiftDialog } from "../components/organisms/GiftDialog";
 import MessageInput from "src/components/organisms/MessageInput";
 import Header, { HeaderAction } from "src/components/organisms/Header";
 import PortraitPreviewModal from "src/components/organisms/PortraitPreviewModal";
 import AutoReplyModal from "src/components/organisms/AutoReplyModal";
 import PersonaModal from "src/components/organisms/PersonaModal";
-import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20, FaLayerGroup, FaGamepad, FaCodeBranch, FaPhoneAlt, FaBookOpen, FaImages, FaTheaterMasks, FaForward } from "react-icons/fa";
+import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20, FaLayerGroup, FaGamepad, FaCodeBranch, FaPhoneAlt, FaBookOpen, FaImages, FaTheaterMasks, FaForward, FaGift } from "react-icons/fa";
 import { Button } from "src/components/atoms/button";
 import { AI, YOU, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
@@ -276,6 +279,7 @@ const ChatPage = () => {
   // Set here rather than in `scene` above: they need the persona's name.
   scene.letterNote = !isRoom ? recentLetterNote(characterData, currentChat, chatIdNum, activePersona?.name?.trim() || "the user") : undefined;
   scene.knowsNote = !isRoom ? knowsNoteFor(characterData, characters, chats, activePersona?.name?.trim() || "the user") : undefined;
+  scene.giftsNote = !isRoom && characterData ? buildGiftsSection(characterData.gifts, characterData.name, activePersona?.name?.trim() || "the user") : undefined;
   scene.onThisDayNote = !isRoom ? buildOnThisDayNote(currentChat?.content || [], activePersona?.name?.trim() || "the user", Date.now()) : undefined;
   const globalActivePersona = useMemo(
     () => personas.find((p) => p.id === globalActivePersonaId) || personas[0],
@@ -522,6 +526,7 @@ const ChatPage = () => {
   const [albumOpen, setAlbumOpen] = useState(false);
   const [scenarioOpen, setScenarioOpen] = useState(false);
   const [timeSkipOpen, setTimeSkipOpen] = useState(false);
+  const [giftOpen, setGiftOpen] = useState(false);
   const [gameOpen, setGameOpen] = useState(false);
   const [branchMapOpen, setBranchMapOpen] = useState(false);
   const [participantsOpen, setParticipantsOpen] = useState(false);
@@ -785,6 +790,23 @@ const ChatPage = () => {
     }
   };
 
+  // Gifts (#82): kept on the character, shown in the chat as your action,
+  // and the character's next reply reacts to it.
+  const handleGiveGift = async (what: string) => {
+    if (!chatIdNum || !characterData || autoReplyInFlightRef.current || aiLoading) return;
+    setGiftOpen(false);
+    autoReplyInFlightRef.current = true;
+    try {
+      await dispatch(updateCharacter({ ...characterData, gifts: [...(characterData.gifts || []), { id: newGiftId(), what, at: Date.now(), from: "you", chatId: chatIdNum }] }));
+      await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text: giftMessage(what) }));
+      await sendCharacterFollowup(undefined, buildGiftReactionDirective(what, activePersona?.name?.trim() || "The user"));
+    } catch (err) {
+      toast.error(typeof err === "string" ? err : "Couldn't give the gift. Check your model settings.");
+    } finally {
+      autoReplyInFlightRef.current = false;
+    }
+  };
+
   const handleSurprise = async () => {
     if (autoReplyInFlightRef.current || aiLoading) return;
     autoReplyInFlightRef.current = true;
@@ -816,9 +838,26 @@ const ChatPage = () => {
     autoReplyInFlightRef.current = true;
     // A private album photo (#75) comes along as a gift, if one is ready.
     const gift = photoForOccasion(characterData.album, currentChat?.stage);
-    const directive = gift ? `${buildCelebrationDirective(due)}\n${occasionPhotoDirective(gift)}` : buildCelebrationDirective(due);
-    sendCharacterFollowup(undefined, directive)
-      .then(async (sent) => {
+    // Otherwise, once you've given them something, they may give you a gift
+    // back (#82); the helper picks it, so it can be recorded as given.
+    const userName = activePersona?.name?.trim() || "the user";
+    const fromYou = (characterData.gifts || []).filter((g) => g.from === "you");
+    const pickGiftBack = async (): Promise<string | undefined> => {
+      if (gift || fromYou.length === 0) return undefined;
+      const occasion = due.map((d) => d.label.toLowerCase()).join(" and ");
+      const instruction = buildGiftBackPrompt(characterData.name, userName, occasion, factsAboutUser(characterData.memory, characterData.memoryCategories), fromYou);
+      return parseGiftBack(await dispatch(generateAssistText({ instruction, background: true })).unwrap().catch(() => ""));
+    };
+    pickGiftBack()
+      .then((giftBack) => {
+        const base = gift ? `${buildCelebrationDirective(due)}\n${occasionPhotoDirective(gift)}` : buildCelebrationDirective(due);
+        return sendCharacterFollowup(undefined, giftBack ? `${base}\n${giftBackDirective(giftBack)}` : base).then((sent) => ({ sent, giftBack }));
+      })
+      .then(async ({ sent, giftBack }) => {
+        if (sent && giftBack) {
+          const latest: Character = (await dispatch(fetchCharacterById(characterData.id)).unwrap().catch(() => characterData)) || characterData;
+          await dispatch(updateCharacter({ ...latest, gifts: [...(latest.gifts || []), { id: newGiftId(), what: giftBack, at: Date.now(), from: "character", chatId: chatIdNum || undefined }] }));
+        }
         if (!sent || !gift || !chatIdNum) return;
         const fresh = await dispatch(fetchChatById(chatIdNum)).unwrap();
         const reply = [...getOrBuildTree(fresh).content].reverse().find((m) => m.role === AI);
@@ -1691,6 +1730,9 @@ const ChatPage = () => {
           { icon: FaForward, label: "Time skip", onClick: () => setTimeSkipOpen(true), disabled: aiLoading },
         ]
       : []),
+    ...(!isRoom && characterData && messages.length > 0
+      ? [{ icon: FaGift, label: `Give ${characterData.name} a gift`, onClick: () => setGiftOpen(true) }]
+      : []),
     ...(messages.length > 0
       ? [{ icon: FaLayerGroup, label: "Draw an event card (a random event happens)", onClick: handleDrawEvent, disabled: aiLoading }]
       : []),
@@ -1829,6 +1871,9 @@ const ChatPage = () => {
         <StoryScriptDialog open={storyOpen} onOpenChange={setStoryOpen} script={currentChat?.storyScript} onSave={saveStoryScript} />
         <ScenarioCardsDialog open={scenarioOpen} onOpenChange={setScenarioOpen} onStart={handleStartScenario} />
         <TimeSkipDialog open={timeSkipOpen} onOpenChange={setTimeSkipOpen} onSkip={handleTimeSkip} />
+        {!isRoom && characterData && (
+          <GiftDialog open={giftOpen} onOpenChange={setGiftOpen} characterName={characterData.name} gifts={characterData.gifts || []} disabled={aiLoading} onGive={handleGiveGift} />
+        )}
         {!isRoom && characterData && <AlbumDialog open={albumOpen} onOpenChange={setAlbumOpen} character={characterData} stage={currentChat?.stage} />}
       </div>
 
