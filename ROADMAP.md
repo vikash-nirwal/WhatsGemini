@@ -24,7 +24,6 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 ## Atmosphere and comfort
 
 89. **Ambient sound** (M). Soft background sound matching the scene (rain, café, fireplace, sea, city at night), picked from the tracked location or backdrop, with a volume control. Generated in the browser: no downloads, no cost.
-91. **Reading comfort** (S). A dyslexia-friendly font, a high-contrast option and line spacing, next to the font size.
 
 ## Creating characters
 

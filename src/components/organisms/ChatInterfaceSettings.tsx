@@ -9,6 +9,7 @@ import { SettingsCard, SettingsCardHeader, SettingsRow } from 'src/components/mo
 import { SegmentedControl } from 'src/components/molecules/SegmentedControl';
 import ToggleSwitch from 'src/components/atoms/ToggleSwitch';
 import NotificationSettings from 'src/components/organisms/NotificationSettings';
+import { applyReadingComfort, LineSpacing, loadReadingComfort, ReadingComfort, ReadingFont, saveReadingComfort } from 'src/features/settings/readingComfort';
 
 interface ChatInterfaceSettingsProps {
   maxChatLength: number;
@@ -61,6 +62,46 @@ const EventDeckSetting = () => {
   );
 };
 
+// Reading comfort (#91): saved on this device and applied right away.
+const ReadingComfortRows = () => {
+  const [value, setValue] = useState<ReadingComfort>(() => loadReadingComfort());
+  const update = (patch: Partial<ReadingComfort>) => {
+    const next = { ...value, ...patch };
+    setValue(next);
+    saveReadingComfort(next);
+    applyReadingComfort(next);
+  };
+  return (
+    <>
+      <SettingsRow label="Reading font" hint="Atkinson Hyperlegible is made for easy reading at any size; Lexend is designed for reading fluency and often suggested for dyslexia." align="start">
+        <SegmentedControl
+          value={value.font}
+          onChange={(v) => update({ font: v as ReadingFont })}
+          options={[
+            { value: "theme", label: "Theme's own" },
+            { value: "atkinson", label: "Atkinson" },
+            { value: "lexend", label: "Lexend" },
+          ]}
+        />
+      </SettingsRow>
+      <SettingsRow label="Line spacing" align="start">
+        <SegmentedControl
+          value={value.lineSpacing}
+          onChange={(v) => update({ lineSpacing: v as LineSpacing })}
+          options={[
+            { value: "normal", label: "Normal" },
+            { value: "relaxed", label: "Relaxed" },
+            { value: "loose", label: "Loose" },
+          ]}
+        />
+      </SettingsRow>
+      <SettingsRow label="High contrast" hint="Muted and faint text become full-strength text, everywhere in the app." align="start">
+        <ToggleSwitch checked={value.highContrast} onChange={(on) => update({ highContrast: on })} label={<span className="sr-only">High contrast</span>} />
+      </SettingsRow>
+    </>
+  );
+};
+
 const ChatInterfaceSettings: React.FC<ChatInterfaceSettingsProps> = ({
   maxChatLength, setMaxChatLength, fontSize, setFontSize, initialMessagesKey, onInitialMessagesSave, textingMode, setTextingMode, recapAfterDays, setRecapAfterDays,
 }) => {
@@ -80,6 +121,7 @@ const ChatInterfaceSettings: React.FC<ChatInterfaceSettingsProps> = ({
                 "rounded-lg bg-background border border-input px-3.5 py-3 font-serif leading-relaxed",
                 is("aurora") && "surface-sunken border-none"
               )}
+              data-chat-text
               style={{ fontSize }}
             >
               <span className="italic text-muted-foreground">He checks the time again.</span> "Short messages,
@@ -87,6 +129,8 @@ const ChatInterfaceSettings: React.FC<ChatInterfaceSettingsProps> = ({
             </div>
           </div>
         </SettingsRow>
+
+        <ReadingComfortRows />
 
         <SettingsRow label="Texting mode" hint="Replies arrive as separate texts, one at a time with typing pauses, and your messages show read ticks. Only the display changes." align="start">
           <ToggleSwitch checked={textingMode} onChange={setTextingMode} label={<span className="sr-only">Texting mode</span>} />

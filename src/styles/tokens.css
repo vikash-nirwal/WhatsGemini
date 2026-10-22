@@ -2108,3 +2108,19 @@ html[data-theme="terminal"] :focus-visible {
   box-shadow: none;
   backdrop-filter: none;
 }
+
+/* Reading comfort (#91): high contrast turns muted and faint text into the
+   main text colour, in every theme. */
+:root[data-contrast="high"] {
+  --muted-foreground: var(--foreground) !important;
+  --subtle: var(--foreground) !important;
+}
+
+/* A chosen reading font or line spacing (#91) takes over the chat's text,
+   over each theme's own. */
+:root[data-reading-font] [data-chat-text] {
+  font-family: var(--chat-font-family);
+}
+:root[data-line-spacing] [data-chat-text] {
+  line-height: var(--chat-line-height);
+}

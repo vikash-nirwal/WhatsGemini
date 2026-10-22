@@ -19,6 +19,7 @@ import ServiceWorkerUpdater from "src/components/molecules/ServiceWorkerUpdater"
 import BackupReminderBanner from "src/components/molecules/BackupReminderBanner";
 import SpendingAlerts from "src/components/molecules/SpendingAlerts";
 import WebLLMProgress from "src/components/molecules/WebLLMProgress";
+import { applyReadingComfort, loadReadingComfort } from "src/features/settings/readingComfort";
 import StatusPoster from "src/components/molecules/StatusPoster";
 import OffscreenTalker from "src/components/molecules/OffscreenTalker";
 import LetterWriter from "src/components/molecules/LetterWriter";
@@ -148,9 +149,10 @@ const AppContent = () => {
 
     fetchData();
 
-    // Apply font size
+    // Apply font size, and the reading font, spacing and contrast (#91)
     const fontSize = localStorage.getItem(LS_FONT_SIZE) || "16px";
     document.documentElement.style.setProperty('--chat-font-size', fontSize);
+    applyReadingComfort(loadReadingComfort());
 
     // Marks when this browser first saw an authenticated user - the backup
     // reminder falls back to this when there's no backup yet, so a fresh

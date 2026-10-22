@@ -67,6 +67,11 @@ interface ChatMessageProps {
   voice?: CharacterVoice; // the speaker's voice, for "Read aloud" and voice notes (#12, #44)
 }
 
+// The chat's text size. `data-chat-text` lets a reading font or line
+// spacing (reading comfort, #91) override the theme's in tokens.css, only
+// when one is chosen.
+const CHAT_TEXT_STYLE: React.CSSProperties = { fontSize: "var(--chat-font-size, 16px)" };
+
 // Shown under a reply flagged as an out-of-character refusal (see
 // looksLikeRefusal) - it's kept on screen but left out of the AI's context.
 // A user line written as an out-of-character direction - (OOC: ...) or
@@ -282,7 +287,8 @@ const ChatMessage = React.memo(({
       <div className="group relative mb-5" data-slot="story-paragraph">
         <div
           className={cn("font-serif leading-[1.75] text-foreground", isUser && "border-l-2 border-primary/50 pl-3")}
-          style={{ fontSize: "var(--chat-font-size, 16px)" }}
+          data-chat-text
+          style={CHAT_TEXT_STYLE}
         >
           <MarkdownRenderer msgText={stripImageContextTag(msg.txt || "")} isUser={false} />
         </div>
@@ -393,7 +399,8 @@ const ChatMessage = React.memo(({
         )}
         <div
           className={cn("mt-1 pl-2 border-l-2 leading-relaxed", isUser ? "border-ring/55 text-foreground" : "border-border text-primary")}
-          style={{ fontSize: "var(--chat-font-size, 16px)" }}
+          data-chat-text
+          style={CHAT_TEXT_STYLE}
         >
           {oocLabel}
           {voiceNote || <MarkdownRenderer msgText={stripImageContextTag(msg.txt || "")} isUser={isUser} />}
@@ -533,7 +540,8 @@ const ChatMessage = React.memo(({
                 ? "bg-elevated surface-raised text-foreground rounded-tl-[5px]"
                 : "bg-card/[0.88] shadow-soft text-foreground rounded-tl-[5px]"
           )}
-          style={{ fontSize: "var(--chat-font-size, 16px)" }}
+          data-chat-text
+          style={CHAT_TEXT_STYLE}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={cancelPress}
@@ -821,7 +829,8 @@ const ChatMessage = React.memo(({
               key={i}
               data-slot="text-bubble"
               className={cn("px-4 py-2.5 rounded-2xl max-w-full min-w-0 font-serif text-foreground [@media(hover:none)]:[-webkit-touch-callout:none]", neumorphic ? "bg-elevated surface-raised" : "bg-card/[0.88] shadow-soft", i === 0 && "rounded-tl-[5px]")}
-              style={{ fontSize: "var(--chat-font-size, 16px)" }}
+              data-chat-text
+          style={CHAT_TEXT_STYLE}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.18, ease: "easeOut" }}

@@ -15,7 +15,6 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 91 | Reading comfort | todo | |
 | 83 | On this day | todo | |
 | 92 | Character from a photo | todo | |
 | 82 | Gifts | todo | |
@@ -38,6 +37,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **Reading comfort (#91):** Settings › Chat › Reading: a reading font (theme, Atkinson Hyperlegible, Lexend; Google Fonts loaded on demand), line spacing and high contrast, kept in localStorage `reading_comfort` and applied on <html> by `applyReadingComfort` (src/features/settings/readingComfort.ts). A chosen font or spacing overrides the theme only on `data-chat-text` elements (tokens.css); high contrast (`data-contrast="high"`) lifts muted and subtle text to the main colour everywhere.
 - **Mood-tinted chat (#90):** `Chat.moodTint` (Chat tab switch). ChatWindow draws a `data-slot="mood-tint"` layer behind the bubbles at 10% of `tintFor(latestMood(messages))` (src/features/chat/moodTint.ts), fading over 1.5 s (no fade with reduced motion); neutral moods and the terminal theme get none.
 - **Choice moments (#87):** `Chat.choiceMoments` (Chat tab switch) adds `CHOICE_MOMENT_DIRECTIVE` (src/features/chat/choiceMoments.ts); `generateAIResponse` splits the `<<<CHOICES` block off (`splitChoiceMoment`) into `payload.choices`, saved as `Message.choices` and shown as tappable chips under the newest reply (ChatWindow, group "Choices"), which send the option. Adventures pass `keepChoices: true`, since they parse that block themselves.
 - **Fork into a new chat (#86):** `forkChat` in chatSlice (with `buildFork`, src/features/chat/forkChat.ts) copies the active path up to a message into a new chat titled "<title> (what if)", with the chat's own settings (not games, recaps or pending checks). A 1:1 fork gets its own copy of the character's memory (`memoryScope: "chat"`). The message action "Start a new chat from here" is in the hover toolbar, the phone sheet and the terminal theme ("fork").
