@@ -5,6 +5,7 @@ import { extractCharacterMemory, generateAssistText, writeDiaryEntry } from "../
 import { fetchChatById, updateChatMemory, updateChatOptions } from "../../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../../features/characterSlice";
 import { applyMemoryChanges, carryMemoryCategories } from "../../features/ai/utils/memoryExtraction";
+import { carryMemoryDates } from "../../features/ai/utils/memoryTime";
 import { appendDiaryEntry } from "../../features/ai/utils/diary";
 import { formatTranscript, TranscriptNames } from "../../features/ai/utils/chatHistoryUtils";
 import { trimToLatestSummary } from "../../features/ai/utils/transcript";
@@ -101,14 +102,16 @@ export const useBackgroundUpdates = ({
         const merged = applyMemoryChanges(existingMemory, changes, pinned);
         if (chatScopedMemory && chatIdNum) {
           const memoryCategories = carryMemoryCategories(merged, pinned, currentChat?.memoryCategories, existingMemory, changes);
-          await dispatch(updateChatMemory({ chatId: chatIdNum, memory: merged, memoryCategories: memoryCategories ?? null }));
+          const memoryDates = carryMemoryDates(merged, pinned, currentChat?.memoryDates, existingMemory, changes, Date.now());
+          await dispatch(updateChatMemory({ chatId: chatIdNum, memory: merged, memoryCategories: memoryCategories ?? null, memoryDates: memoryDates ?? null }));
         } else {
           // Re-read the character before writing: `speaker` was captured
           // before the extraction call, and saving it whole would undo
           // anything written meanwhile (e.g. this turn's selfie in gallery).
           const fresh = (await dispatch(fetchCharacterById(speaker.id)).unwrap().catch(() => speaker)) || speaker;
           const memoryCategories = carryMemoryCategories(merged, pinned, fresh.memoryCategories, existingMemory, changes);
-          await dispatch(updateCharacter({ ...fresh, memory: merged, memoryCategories }));
+          const memoryDates = carryMemoryDates(merged, pinned, fresh.memoryDates, existingMemory, changes, Date.now());
+          await dispatch(updateCharacter({ ...fresh, memory: merged, memoryCategories, memoryDates }));
         }
       }
     } catch (err) {

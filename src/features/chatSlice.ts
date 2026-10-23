@@ -263,7 +263,7 @@ export const updateChatMessage = createAsyncThunk(
 // Updates simple per-chat switches, leaving content and tree untouched.
 export const updateChatOptions = createAsyncThunk(
   "chat/updateChatOptions",
-  async ({ chatId, patch }: { chatId: number; patch: Partial<Pick<Chat, "replySuggestions" | "textingMode" | "worldId" | "backdrop" | "relationshipSuggestions" | "relationshipCheckedAt" | "relationshipSuggestion" | "sceneTracker" | "sceneState" | "recap" | "storyScript" | "game" | "gameScore" | "turnMode" | "narrator" | "roomRelationships" | "innerThoughts" | "offscreenTalk" | "offscreenTalks" | "arcCheckedAt" | "arcSuggestion" | "language" | "coWriting" | "stage" | "stageCheckedAt" | "stageSuggestion" | "meters" | "boldness" | "choiceMoments" | "moodTint" | "plans" | "planTracking" | "revealedSecrets" | "ambient" | "insideJokes" | "jokeTracking" | "jokesCheckedAt" | "conflicts" | "conflict" | "jealousy" | "lies" | "toldLies" | "whatIf" | "pendingHook" | "roleSwap" | "moodCarry" | "mood">> }, { rejectWithValue }) => {
+  async ({ chatId, patch }: { chatId: number; patch: Partial<Pick<Chat, "replySuggestions" | "textingMode" | "worldId" | "backdrop" | "relationshipSuggestions" | "relationshipCheckedAt" | "relationshipSuggestion" | "sceneTracker" | "sceneState" | "recap" | "storyScript" | "game" | "gameScore" | "turnMode" | "narrator" | "roomRelationships" | "innerThoughts" | "offscreenTalk" | "offscreenTalks" | "arcCheckedAt" | "arcSuggestion" | "language" | "coWriting" | "stage" | "stageCheckedAt" | "stageSuggestion" | "meters" | "boldness" | "choiceMoments" | "moodTint" | "plans" | "planTracking" | "revealedSecrets" | "ambient" | "insideJokes" | "jokeTracking" | "jokesCheckedAt" | "conflicts" | "conflict" | "jealousy" | "lies" | "toldLies" | "whatIf" | "pendingHook" | "roleSwap" | "moodCarry" | "mood" | "callbackAt">> }, { rejectWithValue }) => {
     try {
       await dbService.patchChat(chatId, patch);
       return { chatId, patch };
@@ -511,7 +511,7 @@ export const updateChatGreeting = createAsyncThunk(
 export const updateChatMemory = createAsyncThunk(
   "chat/updateChatMemory",
   async (
-    { chatId, memory, pinnedMemory, memoryCategories }: { chatId: number; memory: Chat["memory"]; pinnedMemory?: Chat["pinnedMemory"]; memoryCategories?: Chat["memoryCategories"] | null },
+    { chatId, memory, pinnedMemory, memoryCategories, memoryDates }: { chatId: number; memory: Chat["memory"]; pinnedMemory?: Chat["pinnedMemory"]; memoryCategories?: Chat["memoryCategories"] | null; memoryDates?: Chat["memoryDates"] | null },
     { rejectWithValue }
   ) => {
     try {
@@ -520,8 +520,9 @@ export const updateChatMemory = createAsyncThunk(
       if (pinnedMemory !== undefined) chat.pinnedMemory = pinnedMemory;
       // undefined leaves the categories alone; null clears them.
       if (memoryCategories !== undefined) chat.memoryCategories = memoryCategories || undefined;
+      if (memoryDates !== undefined) chat.memoryDates = memoryDates || undefined;
       await dbService.updateChat(chat);
-      return { chatId, memory, pinnedMemory: chat.pinnedMemory, memoryCategories: chat.memoryCategories };
+      return { chatId, memory, pinnedMemory: chat.pinnedMemory, memoryCategories: chat.memoryCategories, memoryDates: chat.memoryDates };
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
@@ -534,7 +535,7 @@ export const updateChatMemory = createAsyncThunk(
 export const updateChatMemoryScope = createAsyncThunk(
   "chat/updateChatMemoryScope",
   async (
-    { chatId, memoryScope, seed }: { chatId: number; memoryScope: "character" | "chat"; seed?: Pick<Chat, "memory" | "pinnedMemory" | "memoryCategories"> },
+    { chatId, memoryScope, seed }: { chatId: number; memoryScope: "character" | "chat"; seed?: Pick<Chat, "memory" | "pinnedMemory" | "memoryCategories" | "memoryDates"> },
     { rejectWithValue }
   ) => {
     try {
@@ -545,9 +546,10 @@ export const updateChatMemoryScope = createAsyncThunk(
         chat.memory = seed.memory ? [...seed.memory] : undefined;
         chat.pinnedMemory = seed.pinnedMemory ? [...seed.pinnedMemory] : undefined;
         chat.memoryCategories = seed.memoryCategories ? { ...seed.memoryCategories } : undefined;
+        chat.memoryDates = seed.memoryDates ? { ...seed.memoryDates } : undefined;
       }
       await dbService.updateChat(chat);
-      return { chatId, memoryScope: chat.memoryScope, memory: chat.memory, pinnedMemory: chat.pinnedMemory, memoryCategories: chat.memoryCategories };
+      return { chatId, memoryScope: chat.memoryScope, memory: chat.memory, pinnedMemory: chat.pinnedMemory, memoryCategories: chat.memoryCategories, memoryDates: chat.memoryDates };
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
@@ -847,6 +849,7 @@ const chatSlice = createSlice({
           chat.memory = action.payload.memory;
           chat.pinnedMemory = action.payload.pinnedMemory;
           chat.memoryCategories = action.payload.memoryCategories;
+          chat.memoryDates = action.payload.memoryDates;
         }
       })
       .addCase(updateChatMemoryScope.fulfilled, (state, action) => {
@@ -856,6 +859,7 @@ const chatSlice = createSlice({
           chat.memory = action.payload.memory;
           chat.pinnedMemory = action.payload.pinnedMemory;
           chat.memoryCategories = action.payload.memoryCategories;
+          chat.memoryDates = action.payload.memoryDates;
         }
       })
       .addCase(updateChatBoundaries.fulfilled, (state, action) => {

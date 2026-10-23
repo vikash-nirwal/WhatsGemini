@@ -10,6 +10,7 @@ import { Button } from "src/components/atoms/button";
 import { MAX_MEMORY_ENTRIES } from "src/utils/constants";
 import { cn } from "src/utils/cn";
 import { groupMemoryFacts, MEMORY_CATEGORY_LABELS, nextMemoryCategory } from "src/features/ai/utils/memoryExtraction";
+import { formatLearned, memoryDatesFor } from "src/features/ai/utils/memoryTime";
 import { ScenePanelTabProps } from "./types";
 
 const CATEGORY_LABELS = MEMORY_CATEGORY_LABELS;
@@ -32,12 +33,14 @@ const MemoryTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, ch
   const memory = chatScoped ? (chat?.memory || chatMemory || []) : (character?.memory || []);
   const pinned = chatScoped ? (chat?.pinnedMemory || chatPinnedMemory || []) : (character?.pinnedMemory || []);
   const categories = (chatScoped ? chat?.memoryCategories : character?.memoryCategories) || {};
+  // When each fact was learned (#109).
+  const dates = chatScoped ? chat?.memoryDates : character?.memoryDates;
 
   const handleScopeChange = (scope: "character" | "chat") => {
     dispatch(updateChatMemoryScope({
       chatId,
       memoryScope: scope,
-      seed: character ? { memory: character.memory, pinnedMemory: character.pinnedMemory, memoryCategories: character.memoryCategories } : undefined,
+      seed: character ? { memory: character.memory, pinnedMemory: character.pinnedMemory, memoryCategories: character.memoryCategories, memoryDates: character.memoryDates } : undefined,
     }));
   };
 
@@ -51,10 +54,12 @@ const MemoryTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, ch
       if (category) nextCategories[fact] = category;
     }
     const memoryCategories = Object.keys(nextCategories).length > 0 ? nextCategories : undefined;
+    // A fact added by hand is learned now; a reworded one keeps its date.
+    const memoryDates = memoryDatesFor([...newPinned, ...newMemory], dates, new Map(renamed ? [[renamed.to, renamed.from]] : []), new Set(), Date.now());
     if (chatScoped) {
-      dispatch(updateChatMemory({ chatId, memory: newMemory, pinnedMemory: newPinned, memoryCategories: memoryCategories ?? null }));
+      dispatch(updateChatMemory({ chatId, memory: newMemory, pinnedMemory: newPinned, memoryCategories: memoryCategories ?? null, memoryDates: memoryDates ?? null }));
     } else if (character) {
-      dispatch(updateCharacter({ ...character, memory: newMemory, pinnedMemory: newPinned, memoryCategories }));
+      dispatch(updateCharacter({ ...character, memory: newMemory, pinnedMemory: newPinned, memoryCategories, memoryDates }));
     }
   };
 
@@ -143,7 +148,12 @@ const MemoryTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, ch
                     key={idx}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg bg-background border border-border/30 text-[12.5px] text-foreground"
                   >
-                    <span className="flex-1">{fact}</span>
+                    <span className="flex-1">
+                      {fact}
+                      {dates?.[fact] && formatLearned(dates[fact].learnedAt, Date.now()) && (
+                        <span className="ml-1.5 text-[11px] text-subtle whitespace-nowrap">learned {formatLearned(dates[fact].learnedAt, Date.now())}</span>
+                      )}
+                    </span>
                     <Button
                       onClick={() => handleCycleCategory(fact)}
                       variant="ghost"

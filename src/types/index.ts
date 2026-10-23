@@ -253,6 +253,13 @@ export interface CharacterDayLog {
   writtenAt: number;
 }
 
+// When a fact was learned and last came up (#109), keyed by the fact's text
+// like memoryCategories.
+export interface MemoryFactDates {
+  learnedAt: number;
+  mentionedAt?: number;
+}
+
 // A mood that carries over between replies (#106): what the character felt,
 // how strongly (3 = fully, 1 = a trace), what set it off, and when it was
 // last felt (it fades from there).
@@ -427,6 +434,8 @@ export interface Chat {
   memory?: string[];
   pinnedMemory?: string[]; // room equivalent of Character.pinnedMemory
   memoryCategories?: Record<string, MemoryCategory>; // see Character.memoryCategories
+  memoryDates?: Record<string, MemoryFactDates>; // see Character.memoryDates (#109)
+  callbackAt?: number; // when a fact from a while back was last offered to a reply (#109)
   // 1:1 chats only: "chat" keeps this chat's facts in its own Chat.memory
   // (like a room), so a what-if chat doesn't leak into the character's main
   // story. Unset or "character" shares the character's memory. Rooms always
@@ -620,6 +629,8 @@ export interface Character {
   // What each fact (memory or pinned, keyed by its text) is about - for
   // grouping in the Scene panel. Facts with no entry show as "Other".
   memoryCategories?: Record<string, MemoryCategory>;
+  memoryDates?: Record<string, MemoryFactDates>; // when each fact was learned and last came up (#109)
+  misremembers?: boolean; // now and then gets a small detail wrong and corrects themselves (#109)
   autoSelfie?: {
     enabled: boolean;
     frequency: number; // 1-100, % chance each of the character's own replies spontaneously includes a selfie

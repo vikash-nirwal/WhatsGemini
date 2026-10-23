@@ -1,5 +1,5 @@
 import { buildPastSection } from "../../chat/whatIf";
-import { Character, ChatGame, ChatLanguage, Intensity, RelationshipStage, LoreEntry, Message, RoleplayStyle, SceneState, StoryScript, UserProfile, World } from "../../../types";
+import { MemoryFactDates, Character, ChatGame, ChatLanguage, Intensity, RelationshipStage, LoreEntry, Message, RoleplayStyle, SceneState, StoryScript, UserProfile, World } from "../../../types";
 import { YOU } from "../../../utils/constants";
 import { stripLeakedBase64 } from "./apiUtils";
 import { buildEmotionDirective } from "./emotionUtils";
@@ -22,6 +22,7 @@ import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
 import { applyMacros } from "./macros";
 import { countProtectedPrefix, trimToLatestSummary } from "./transcript";
 import { selectRelevantFacts } from "./memoryRelevance";
+import { annotateFacts, buildMisrememberDirective, MEMORY_DATES_NOTE } from "./memoryTime";
 import { buildDiarySection } from "./diary";
 import { AppearanceLock, appearanceLocksFor, currentOutfit } from "./appearanceLock";
 import { effectiveContentRating } from "../../character/contentRating";
@@ -176,6 +177,8 @@ export interface PromptOptions {
   roomThoughts?: boolean; // inner thoughts switched on for the whole room (#10)
   roomOffscreenTalk?: string; // a recent conversation members had without the user (#58)
   emotionTag?: boolean; // ask for the emotion tag even without emotion portraits: moods that carry over need it (#106)
+  memoryDates?: Record<string, MemoryFactDates>; // when each fact was learned (#109); the chat's own when it keeps its own memory
+  misremembers?: boolean; // now and then gets a small detail wrong and corrects it (#109)
 }
 
 const describeDuration = (ms: number): string => {
@@ -379,7 +382,11 @@ export const buildSystemInstruction = (
   const ownMemory = options.memoryOverride || { memory: character.memory || [], pinned: character.pinnedMemory || [] };
   const personalFacts = [...ownMemory.pinned, ...selectRelevantFacts(ownMemory.memory, recentMessages)];
   if (personalFacts.length > 0) {
-    sections.push(`Known facts about the user, your relationship and the story so far, remembered from past conversations:\n- ${personalFacts.join("\n- ")}`);
+    // With dates (#109) each fact says when it was learned.
+    const listed = annotateFacts(personalFacts, options.memoryDates, options.now ?? Date.now());
+    const dated = listed.some((line, i) => line !== personalFacts[i]);
+    sections.push(`Known facts about the user, your relationship and the story so far, remembered from past conversations:\n- ${listed.join("\n- ")}${dated ? `\n${MEMORY_DATES_NOTE}` : ""}`);
+    if (options.misremembers) sections.push(buildMisrememberDirective(character.name));
   }
   // Group-room-only: facts learned specifically during this room's own
   // conversation (Chat.memory), on top of - never instead of - the speaker's
@@ -545,6 +552,9 @@ export interface SceneContext {
   moodNote?: string; // the mood still hanging over from earlier (#106)
   dayNote?: string; // what their day has actually been like (#107)
   slipsNote?: string; // texting imperfections (#108): a word or two will do when busy
+  memoryDates?: PromptOptions["memoryDates"]; // #109
+  misremembers?: boolean; // #109
+  callbackNote?: string; // a fact from a while back to bring up, if it fits (#109)
 }
 
 // The single function replacing the copy-pasted "build history + build system
@@ -582,7 +592,7 @@ export const buildTurnContext = (
     ...(scene?.giftsNote ? [scene.giftsNote] : []),
     ...(scene?.plansNote ? [scene.plansNote] : []),
     ...(scene?.secretsNote ? [scene.secretsNote] : []),
-    ...[scene?.whatIfNote, scene?.dayNote, scene?.dayMoodNote, scene?.moodNote, scene?.jokesNote, scene?.conflictNote, scene?.liesNote, scene?.jealousyNote, scene?.dreamNote, scene?.hookNote, scene?.slipsNote].filter((n): n is string => Boolean(n)),
+    ...[scene?.whatIfNote, scene?.dayNote, scene?.dayMoodNote, scene?.moodNote, scene?.jokesNote, scene?.conflictNote, scene?.liesNote, scene?.jealousyNote, scene?.dreamNote, scene?.hookNote, scene?.slipsNote, scene?.callbackNote].filter((n): n is string => Boolean(n)),
     ...(scene?.language ? [buildLanguageDirective(scene.language, activePersona?.name?.trim() || "The user")] : []),
     ...(scene?.coWriting && character ? [buildCoWritingDirective(character.name, activePersona?.name?.trim() || "the user")] : []),
     ...(scene?.stage ? [buildStageSection(scene.stage, activePersona?.name?.trim() || "the user")] : []),
@@ -603,6 +613,8 @@ export const buildTurnContext = (
       roomThoughts: roomContext?.thoughts,
       roomOffscreenTalk: roomContext?.offscreenTalk,
       emotionTag: scene?.moodCarry,
+      memoryDates: scene?.memoryDates,
+      misremembers: scene?.misremembers,
     }
   );
   // The active persona's own reference photos (UserProfile.appearanceImages),

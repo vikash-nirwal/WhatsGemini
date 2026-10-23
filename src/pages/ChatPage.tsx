@@ -50,6 +50,8 @@ import { buildConflictDirective, buildConflictSection, upsetDelayMs } from "../f
 import { buildMoodSection, fadedMood } from "../features/chat/lingeringMood";
 import { buildDayLogSection, dayLogText } from "../features/character/dayLog";
 import { buildSlipsDirective } from "../features/ai/utils/textingSlips";
+import { buildCallbackDirective, callbackDue, pickCallback } from "../features/ai/utils/memoryTime";
+import { dayKey } from "../features/character/badDays";
 import { jealousyNoteFor } from "../features/chat/jealousy";
 import { buildLiesSection } from "../features/chat/lies";
 import { buildRumorSection, pendingRumors } from "../features/character/rumors";
@@ -268,6 +270,9 @@ const ChatPage = () => {
     sceneState: currentChat?.sceneState,
     world: currentChat?.worldId != null ? worlds.find((w) => w.id === currentChat.worldId) : undefined,
     moodCarry: !isRoom && Boolean(currentChat?.moodCarry),
+    // Memory with time (#109): the dates that go with the facts in use.
+    memoryDates: isRoom ? currentChat?.memoryDates : chatScopedMemory ? currentChat?.memoryDates : characterData?.memoryDates,
+    misremembers: !isRoom && Boolean(characterData?.misremembers),
   };
 
   // Which persona this chat actually speaks as: its own override if set,
@@ -313,6 +318,12 @@ const ChatPage = () => {
   scene.plansNote = mainStory ? buildPlansSection(currentChat?.plans, userNameForNotes, noteTime) : undefined;
   scene.onThisDayNote = mainStory ? buildOnThisDayNote(currentChat?.content || [], userNameForNotes, noteTime) : undefined;
   scene.whatIfNote = !isRoom && characterData && currentChat?.whatIf ? buildWhatIfSection(currentChat.whatIf, characterData.name, userNameForNotes) : undefined;
+  // A fact from a while back (#109), offered every couple of days and
+  // steady all day; noted on the chat once a reply has had it.
+  const callback = mainStory && characterData && callbackDue(currentChat, noteTime)
+    ? pickCallback(chatScopedMemory ? currentChat?.memory || [] : characterData.memory || [], scene.memoryDates, noteTime, `${chatIdNum}-${dayKey(noteTime)}`)
+    : undefined;
+  scene.callbackNote = callback && characterData ? buildCallbackDirective(characterData.name, userNameForNotes, callback.fact, callback.learnedAt, noteTime) : undefined;
   // Texting imperfections (#108): the prompt's side, in texting mode only.
   const textingOn = Boolean(currentChat?.textingMode ?? appTextingMode);
   scene.slipsNote = !isRoom && characterData && textingOn ? buildSlipsDirective(characterData.name, characterData.textingSlips, currentBlock(characterData.schedule, noteTime)?.status === "busy") : undefined;
@@ -583,6 +594,7 @@ const ChatPage = () => {
     replyNotes,
     noteStoryTags,
     carryMood,
+    noteCallback,
     saveSceneState,
     pickNaturalSpeakers,
     maybeNarrate,
@@ -768,6 +780,7 @@ const ChatPage = () => {
     void noteStoryTags(payloadObj, speaker, dreamt);
     saveSceneState(payloadObj);
     carryMood(payloadObj, compressedFreshMessages);
+    noteCallback(Boolean(callback));
     advanceGame(payloadObj, false);
     runBackgroundUpdates((aiAddResult.payload as Message[]) || [], speaker);
     return speaker;
@@ -1222,6 +1235,7 @@ const ChatPage = () => {
         void noteStoryTags(payloadObj, speaker, dreamt);
         saveSceneState(payloadObj);
         carryMood(payloadObj, contextMessages);
+        noteCallback(Boolean(callback));
         advanceGame(payloadObj, true);
         runBackgroundUpdates((aiAddResult.payload as Message[]) || [], speaker);
 

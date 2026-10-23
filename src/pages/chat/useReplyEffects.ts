@@ -125,6 +125,13 @@ export const useReplyEffects = ({
     dispatch(updateChatOptions({ chatId: chatIdNum, patch: { mood: next } }));
   };
 
+  // Memory with time (#109): once a reply had a fact from a while back to
+  // bring up, the next offer waits a couple of days.
+  const noteCallback = (offered: boolean) => {
+    if (!chatIdNum || !offered) return;
+    dispatch(updateChatOptions({ chatId: chatIdNum, patch: { callbackAt: Date.now() } }));
+  };
+
   // What else a reply changes (#94, #97, #98, #100, #103): the fight starts
   // or ends, a lie is kept or caught, a rumor is marked raised, the dream
   // is recorded and a cliffhanger, once picked up, is cleared.
@@ -276,6 +283,7 @@ export const useReplyEffects = ({
     replyNotes,
     noteStoryTags,
     carryMood,
+    noteCallback,
     saveSceneState,
     pickNaturalSpeakers,
     maybeNarrate,

@@ -105,3 +105,84 @@ test("a sloppy texter's prompt loosens up in texting mode, and the setting is ke
   await sendAndWait(page, mockAI.requests, "ok");
   expect(lastSystem(mockAI.requests)).not.toContain("fast and loose");
 });
+
+const readRow = (page: Page, store: string, id: number) =>
+  page.evaluate(
+    async ({ store, id }) => {
+      const db: IDBDatabase = await new Promise((resolve, reject) => {
+        const req = indexedDB.open("ChatAppDB");
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      const row = await new Promise<any>((resolve) => {
+        const get = db.transaction(store, "readonly").objectStore(store).get(id);
+        get.onsuccess = () => resolve(get.result);
+      });
+      db.close();
+      return row;
+    },
+    { store, id }
+  );
+
+// Memory with time (#109): facts carry when they were learned.
+const writeMemoryDates = (page: Page, memory: string[], memoryDates: Record<string, { learnedAt: number; mentionedAt?: number }>) =>
+  page.evaluate(async ({ memory, memoryDates }) => {
+    const db: IDBDatabase = await new Promise((resolve, reject) => {
+      const req = indexedDB.open("ChatAppDB");
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction("characters", "readwrite");
+      const store = tx.objectStore("characters");
+      const get = store.get(1);
+      get.onsuccess = () => store.put({ ...get.result, memory, memoryDates });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  }, { memory, memoryDates });
+
+test("facts show when they were learned, reach the prompt dated, and one from a while back is offered (#109)", async ({ page, mockAI }) => {
+  await page.clock.install({ time: MORNING });
+  const march = new Date(2026, 2, 12, 9, 0, 0).getTime();
+  await openChat(page);
+  await writeMemoryDates(page, ["Sam was nervous about the Leeds interview.", "Sam likes jazz."], {
+    "Sam was nervous about the Leeds interview.": { learnedAt: march },
+    "Sam likes jazz.": { learnedAt: MORNING.getTime() - 60_000 },
+  });
+  await page.reload();
+  await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
+
+  await headerAction(page, "Scene & chat settings");
+  await page.getByRole("tab", { name: "Memory", exact: true }).click();
+  await expect(page.getByText("learned 12 Mar")).toBeVisible();
+  await expect(page.getByText("Sam likes jazz.")).toBeVisible();
+  await expect(page.getByText("Sam likes jazz.")).not.toContainText("learned");
+  await closePanel(page);
+
+  await sendAndWait(page, mockAI.requests, "hey");
+  const system = lastSystem(mockAI.requests);
+  expect(system).toContain("- Sam was nervous about the Leeds interview. (learned 12 Mar)");
+  expect(system).toContain("- Sam likes jazz.\n");
+  expect(system).toContain("you told me back in March");
+  // The old fact is the one from a while back; the fresh one isn't offered.
+  expect(system).toContain('"Sam was nervous about the Leeds interview." (Aria learned it 7 months ago)');
+
+  // Offered once: the chat notes it, and the next reply waits a couple of days for another.
+  await expect.poll(() => readRow(page, "chats", 1).then((row) => row?.callbackAt)).toBeTruthy();
+  await sendAndWait(page, mockAI.requests, "and?");
+  expect(lastSystem(mockAI.requests)).not.toContain("Aria learned it");
+});
+
+test("a character who misremembers is told to, in a sentence (#109)", async ({ page, mockAI }) => {
+  await openChat(page);
+  await writeMemoryDates(page, ["Sam likes jazz."], {});
+  await page.reload();
+  await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
+  await openChatTab(page);
+  await page.getByRole("switch", { name: "Aria sometimes misremembers" }).click();
+  await closePanel(page);
+  await sendAndWait(page, mockAI.requests, "hey");
+  expect(lastSystem(mockAI.requests)).toContain("corrects themselves in the same reply");
+});
