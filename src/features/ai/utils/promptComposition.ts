@@ -1,3 +1,4 @@
+import { buildPastSection } from "../../chat/whatIf";
 import { Character, ChatGame, ChatLanguage, Intensity, RelationshipStage, LoreEntry, Message, RoleplayStyle, SceneState, StoryScript, UserProfile, World } from "../../../types";
 import { YOU } from "../../../utils/constants";
 import { stripLeakedBase64 } from "./apiUtils";
@@ -281,6 +282,9 @@ export const buildSystemInstruction = (
   }
   const growth = buildGrowthSection(character.name, character.growth);
   if (growth) sections.push(m(growth));
+  // Their past, from flashbacks (#102).
+  const past = buildPastSection(character.name, character.pastEvents);
+  if (past) sections.push(m(past));
 
   // Only set for a multi-character room (Phase 12) - a normal 1:1 chat never
   // passes this, so its prompt is unchanged. Other speakers' lines arrive
@@ -528,6 +532,14 @@ export interface SceneContext {
   plansNote?: string; // plans made together (#84)
   secretsNote?: string; // the character's secrets, hinted or ready to tell (#81)
   choiceMoments?: boolean; // offer options at turning points (#87)
+  whatIfNote?: string; // a flashback or another world (#102, #104)
+  dayMoodNote?: string; // an off day (#95)
+  dreamNote?: string; // open with last night's dream (#94)
+  jokesNote?: string; // inside jokes (#96)
+  conflictNote?: string; // a fight, or how one starts (#97)
+  jealousyNote?: string; // time you spent in other chats (#99)
+  liesNote?: string; // may lie, and the lies still standing (#100)
+  hookNote?: string; // the cliffhanger to pick up (#103)
 }
 
 // The single function replacing the copy-pasted "build history + build system
@@ -565,6 +577,7 @@ export const buildTurnContext = (
     ...(scene?.giftsNote ? [scene.giftsNote] : []),
     ...(scene?.plansNote ? [scene.plansNote] : []),
     ...(scene?.secretsNote ? [scene.secretsNote] : []),
+    ...[scene?.whatIfNote, scene?.dayMoodNote, scene?.jokesNote, scene?.conflictNote, scene?.liesNote, scene?.jealousyNote, scene?.dreamNote, scene?.hookNote].filter((n): n is string => Boolean(n)),
     ...(scene?.language ? [buildLanguageDirective(scene.language, activePersona?.name?.trim() || "The user")] : []),
     ...(scene?.coWriting && character ? [buildCoWritingDirective(character.name, activePersona?.name?.trim() || "the user")] : []),
     ...(scene?.stage ? [buildStageSection(scene.stage, activePersona?.name?.trim() || "the user")] : []),

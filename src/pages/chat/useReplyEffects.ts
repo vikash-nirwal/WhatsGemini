@@ -8,12 +8,17 @@ import { NARRATIVE_CONTEXT_MESSAGES, parseReplySuggestions } from "../../feature
 import { buildNarrationPrompt, buildWhoRepliesPrompt, cleanNarration, MAX_CHAIN, parseWhoReplies } from "../../features/ai/utils/roomTurns";
 import { moveBeat } from "../../features/chat/storyScript";
 import { secretsInPlay } from "../../features/character/secrets";
+import { StoryTags } from "../../features/chat/storyTags";
+import { trustAfter } from "../../features/chat/conflicts";
+import { addLie, catchLie, standingLies } from "../../features/chat/lies";
+import { markRumorRaised, pendingRumors } from "../../features/character/rumors";
+import { fetchCharacterById, updateCharacter } from "../../features/characterSlice";
 import { mergeState } from "../../features/chat/sceneState";
 import { gameLabel, GameOutcome } from "../../features/chat/miniGames";
 import { buildNextIdeasPrompt } from "../../features/chat/coWriting";
 import { browserLanguageName, buildTranslatePrompt } from "../../features/chat/languagePractice";
 import { YOU } from "../../utils/constants";
-import { Character, Chat, Message, SceneState, UserProfile } from "../../types";
+import { Character, Chat, Message, MessageNote, SceneState, UserProfile } from "../../types";
 
 export interface ReplyEffectDeps {
   chatIdNum: number | null;
@@ -68,10 +73,70 @@ export const useReplyEffects = ({
     dispatch(updateChatOptions({ chatId: chatIdNum, patch: { revealedSecrets: [...(currentChat?.revealedSecrets || []), secret.id] } }));
   };
 
+  // Story tags (#97, #98, #100): which of them this reply's tags really
+  // change, given the chat as it is - a fight starts only when one isn't on,
+  // making up only ends one, a caught lie must be a standing one, a rumor
+  // must be waiting.
+  const tagEffects = (tags: StoryTags | undefined, speaker = characterData) => ({
+    upset: Boolean(!isRoom && tags?.upset && currentChat?.conflicts && !currentChat.conflict),
+    madeUp: Boolean(!isRoom && tags?.madeUp && currentChat?.conflict),
+    lie: !isRoom && currentChat?.lies && tags?.lie ? tags.lie : undefined,
+    lieCaught: !isRoom && tags?.lieCaught && standingLies(currentChat?.toldLies)[tags.lieCaught - 1] ? tags.lieCaught : undefined,
+    rumor: tags?.rumorRaised ? pendingRumors(speaker, Date.now())[0] : undefined,
+  });
+
+  // The notes under a reply (#93-#100): a dream told (`dreamt`), a fight
+  // started or ended, a lie caught, a rumor raised.
+  const replyNotes = (payload: { storyTags?: StoryTags } | undefined, speaker = characterData, dreamt = false): MessageNote[] | undefined => {
+    const effects = tagEffects(payload?.storyTags, speaker);
+    const notes: MessageNote[] = [
+      ...(dreamt ? (["dream"] as const) : []),
+      ...(effects.upset ? (["upset"] as const) : []),
+      ...(effects.madeUp ? (["made-up"] as const) : []),
+      ...(effects.lieCaught ? (["lie-caught"] as const) : []),
+      ...(effects.rumor ? (["rumor"] as const) : []),
+    ];
+    return notes.length > 0 ? notes : undefined;
+  };
+
   // Scene state (#9): what a reply reports is merged into the chat's state.
-  const saveSceneState = (payload: { sceneState?: Partial<SceneState> } | undefined) => {
-    if (!chatIdNum || !currentChat?.sceneTracker || !payload?.sceneState) return;
-    dispatch(updateChatOptions({ chatId: chatIdNum, patch: { sceneState: mergeState(currentChat.sceneState, payload.sceneState) } }));
+  // A fight or making up (#97) moves trust too, after the reply's own report.
+  const saveSceneState = (payload: { sceneState?: Partial<SceneState>; storyTags?: StoryTags } | undefined) => {
+    if (!chatIdNum || !currentChat?.sceneTracker) return;
+    const effects = tagEffects(payload?.storyTags);
+    const change = effects.upset ? "upset" : effects.madeUp ? "made-up" : undefined;
+    if (!payload?.sceneState && !change) return;
+    const reported = mergeState(currentChat.sceneState, payload?.sceneState || {});
+    const moved = change ? trustAfter(reported, change) : undefined;
+    dispatch(updateChatOptions({ chatId: chatIdNum, patch: { sceneState: moved ? mergeState(reported, moved) : reported } }));
+  };
+
+  // What else a reply changes (#94, #97, #98, #100, #103): the fight starts
+  // or ends, a lie is kept or caught, a rumor is marked raised, the dream
+  // is recorded and a cliffhanger, once picked up, is cleared.
+  const noteStoryTags = async (payload: { text?: string; storyTags?: StoryTags } | undefined, speaker = characterData, dreamt = false) => {
+    if (!chatIdNum) return;
+    const effects = tagEffects(payload?.storyTags, speaker);
+    const now = Date.now();
+    const patch: Partial<Chat> = {};
+    if (effects.upset) patch.conflict = { about: payload!.storyTags!.upset!, since: now };
+    if (effects.madeUp) patch.conflict = undefined;
+    let lies = currentChat?.toldLies;
+    if (effects.lieCaught) lies = catchLie(lies, effects.lieCaught, now);
+    if (effects.lie) lies = addLie(lies, payload?.text || "", effects.lie, now);
+    if (lies !== currentChat?.toldLies) patch.toldLies = lies;
+    if (currentChat?.pendingHook) patch.pendingHook = undefined;
+    if (Object.keys(patch).length > 0) await dispatch(updateChatOptions({ chatId: chatIdNum, patch }));
+    if (effects.upset) toast.info(`${speaker?.name || "They"} ${speaker?.name ? "is" : "are"} upset with you`);
+    if (effects.madeUp) toast.success("You made up");
+    if (speaker && (effects.rumor || dreamt)) {
+      const fresh: Character = (await dispatch(fetchCharacterById(speaker.id)).unwrap().catch(() => speaker)) || speaker;
+      await dispatch(updateCharacter({
+        ...fresh,
+        ...(effects.rumor ? { rumors: markRumorRaised(fresh.rumors, effects.rumor.id, now) } : {}),
+        ...(dreamt ? { lastDreamAt: now } : {}),
+      }));
+    }
   };
 
   // "Natural" turns (#22): who would answer, by a cheap helper call. Null
@@ -194,6 +259,8 @@ export const useReplyEffects = ({
     advanceStoryIfDone,
     revealedSecretFor,
     noteSecretRevealed,
+    replyNotes,
+    noteStoryTags,
     saveSceneState,
     pickNaturalSpeakers,
     maybeNarrate,

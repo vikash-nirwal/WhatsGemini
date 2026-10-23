@@ -14,6 +14,7 @@ import { browserLanguageName, PRACTICE_LANGUAGES } from "src/features/chat/langu
 import { BOLDNESS_LABELS, STAGE_LABELS, STAGES } from "src/features/character/relationshipStages";
 import { ScenePanelTabProps } from "./types";
 import { AmbientSection } from "./AmbientSection";
+import { BetweenMessagesSection, DramaSection } from "./BetweenMessagesSection";
 
 // The Chat tab: per-chat switches (texting, room turns, stages, co-writing,
 // language practice, suggestions...), per-character ones (statuses,
@@ -346,6 +347,12 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
             />
           </div>
         )}
+
+        {/* Alive between messages (#93-#95, #98) - per character */}
+        {!isRoom && character && <BetweenMessagesSection character={character} />}
+
+        {/* Drama and conflict (#97, #99, #100) - per chat */}
+        {!isRoom && character && chat && <DramaSection chat={chat} character={character} />}
 
         {/* Relationship that evolves (#30) */}
         {!isRoom && character && (

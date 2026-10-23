@@ -15,6 +15,7 @@ import { buildStagePrompt, parseStageReply, stageCheckDue } from "../../features
 import { latestStorySummary } from "../../features/chat/recap";
 import { applyPlanChanges, buildPlansPrompt, mentionsOpenPlan, mentionsPlan, openPlans, parsePlansReply } from "../../features/chat/sharedPlans";
 import { generateNodeId } from "../../features/chat/messageTree";
+import { addJokes, buildJokesPrompt, jokeCheckDue, parseJokesReply } from "../../features/chat/insideJokes";
 import { AI, DIARY_INTERVAL, MEMORY_EXTRACTION_INTERVAL } from "../../utils/constants";
 import { Character, Chat, Message, RoleplayStyle, UserProfile } from "../../types";
 
@@ -303,6 +304,28 @@ export const useBackgroundUpdates = ({
     }
   };
 
+  // Inside jokes (#96): with "Notice inside jokes" on, every JOKE_INTERVAL
+  // messages of a 1:1 chat a helper check picks out new ones. Recorded
+  // first, like the other checks, so a stretch is never asked about twice.
+  const maybeTrackJokes = async (allMessages: Message[], speaker = characterData) => {
+    if (!chatIdNum || isRoom || !speaker || !currentChat?.jokeTracking) return;
+    const count = allMessages.filter((m) => !m.isSystem).length;
+    if (!jokeCheckDue(count, currentChat.jokesCheckedAt)) return;
+    await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { jokesCheckedAt: count } }));
+    try {
+      const recent = trimToLatestSummary(allMessages).filter((m) => !m.isSystem).slice(-40);
+      const reply = await dispatch(generateAssistText({
+        instruction: buildJokesPrompt(speaker.name, activePersona?.name?.trim() || "the user", currentChat.insideJokes || [], formatTranscript(recent, transcriptNames())),
+        background: true,
+      })).unwrap();
+      const fresh = await dispatch(fetchChatById(chatIdNum)).unwrap().catch(() => currentChat);
+      const texts = parseJokesReply(reply, fresh?.insideJokes || []);
+      if (texts.length > 0) await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { insideJokes: addJokes(fresh?.insideJokes, texts, Date.now()) } }));
+    } catch (err) {
+      console.warn("Inside jokes check failed (non-fatal):", err);
+    }
+  };
+
   // After each reply: suggestions in parallel (they write nothing), then
   // memory and the diary one after the other, so their two character saves
   // can't overwrite each other.
@@ -314,6 +337,7 @@ export const useBackgroundUpdates = ({
     await maybeSuggestArc(allMessages, speaker);
     await maybeSuggestStage(allMessages, speaker);
     await maybeTrackPlans(allMessages, speaker);
+    await maybeTrackJokes(allMessages, speaker);
   };
 
   return {

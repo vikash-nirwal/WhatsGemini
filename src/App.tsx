@@ -23,6 +23,8 @@ import { applyReadingComfort, loadReadingComfort } from "src/features/settings/r
 import StatusPoster from "src/components/molecules/StatusPoster";
 import OffscreenTalker from "src/components/molecules/OffscreenTalker";
 import LetterWriter from "src/components/molecules/LetterWriter";
+import FirstTexter from "src/components/molecules/FirstTexter";
+import RumorMill from "src/components/molecules/RumorMill";
 import Logo from "src/components/atoms/Logo";
 import { TooltipProvider } from "src/components/atoms/tooltip";
 import { Toaster } from "src/components/atoms/sonner";
@@ -209,6 +211,8 @@ const AppContent = () => {
         <StatusPoster />
         <OffscreenTalker />
         <LetterWriter />
+        <FirstTexter />
+        <RumorMill />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar />
           <main className="app-main flex-1 bg-background relative z-1 min-w-0">

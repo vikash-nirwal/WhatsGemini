@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, insertCompressionSummary, removeCompressionSummary, forkChat, updateChatMessage, updateChatOptions, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatGreeting, setPendingFollowupAt } from "../features/chatSlice";
+import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, insertCompressionSummary, removeCompressionSummary, forkChat, updateChatMessage, updateChatOptions, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatGreeting, setPendingFollowupAt, addPreparedChat } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
 import { generateAIResponse, compressChatHistory, autoCompressChat, generateAvatarImage, summarizeChapter, generateAssistText, generateBackdropImage } from "../features/aiSlice";
 import { parseSlashCommand, SLASH_COMMANDS } from "../features/chat/slashCommands";
@@ -43,23 +43,37 @@ import { buildPlansSection } from "../features/chat/sharedPlans";
 import { buildSecretsSection, secretsInPlay } from "../features/character/secrets";
 import { ambientFor, ambientSceneTexts } from "../features/chat/ambientSound";
 import { useAmbientSound } from "./chat/useAmbientSound";
+import { buildDayMoodSection, dayMoodFor } from "../features/character/badDays";
+import { buildDreamDirective, dreamDue, dreamIngredients } from "../features/character/dreams";
+import { buildJokesSection } from "../features/chat/insideJokes";
+import { buildConflictDirective, buildConflictSection, upsetDelayMs } from "../features/chat/conflicts";
+import { jealousyNoteFor } from "../features/chat/jealousy";
+import { buildLiesSection } from "../features/chat/lies";
+import { buildRumorSection, pendingRumors } from "../features/character/rumors";
+import { buildPovPrompt, cleanPov, POV_MESSAGES, thoughtsIn } from "../features/chat/pointOfView";
+import { addPastEvent, buildPastEventPrompt, buildWhatIfChat, buildWhatIfOpening, buildWhatIfSection, cleanPastEvent } from "../features/chat/whatIf";
+import { buildCliffhangerDirective, buildHookSection, buildTeaserPrompt, parseTeaser } from "../features/chat/episodes";
+import { buildSwapDirective, characterAsPersona, personaAsCharacter, swapEndLine, swapStartLine } from "../features/chat/roleSwap";
+import { appendDiaryEntry } from "../features/ai/utils/diary";
+import { PovDialog } from "../components/organisms/PovDialog";
+import { WhatIfDialog } from "../components/organisms/WhatIfDialog";
 import MessageInput from "src/components/organisms/MessageInput";
 import Header, { HeaderAction } from "src/components/organisms/Header";
 import PortraitPreviewModal from "src/components/organisms/PortraitPreviewModal";
 import AutoReplyModal from "src/components/organisms/AutoReplyModal";
 import PersonaModal from "src/components/organisms/PersonaModal";
-import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20, FaLayerGroup, FaGamepad, FaCodeBranch, FaPhoneAlt, FaBookOpen, FaImages, FaTheaterMasks, FaForward, FaGift, FaBalanceScale } from "react-icons/fa";
+import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20, FaLayerGroup, FaGamepad, FaCodeBranch, FaPhoneAlt, FaBookOpen, FaImages, FaTheaterMasks, FaForward, FaGift, FaBalanceScale, FaEye, FaHourglassStart, FaGlobe, FaFilm, FaExchangeAlt } from "react-icons/fa";
 import { Button } from "src/components/atoms/button";
 import { AI, YOU, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { Message, Chat, Character } from "../types";
+import { Message, Chat, Character, WhatIfChat } from "../types";
 import { stripLeakedBase64 } from "../features/ai/utils/apiUtils";
 import { buildSystemInstruction, buildTurnContext, AUTO_REPLY_DIRECTIVE, FOLLOWUP_CONTINUATION_PROMPT, RoomContext, SceneContext } from "../features/ai/utils/promptComposition";
 import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
 import { effectiveContentRating } from "../features/character/contentRating";
 import { resolveNextSpeaker, parseMention, stripSpeakerPrefix, getActiveParticipants } from "../features/ai/utils/roomRouting";
 import { CHAIN_DIRECTIVE, everyoneAfter, MAX_CHAIN } from "../features/ai/utils/roomTurns";
-import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo } from "../features/chat/messageTree";
+import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo, generateNodeId } from "../features/chat/messageTree";
 import { estimateTokens, estimateHistoryTokens } from "../features/ai/utils/tokenEstimator";
 import { truncateHistory, trimToLatestSummary, latestSummaryIndex, countSeedMessages, buildSummaryMessages, formatTranscript, TranscriptNames } from "../features/ai/utils/chatHistoryUtils";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
@@ -282,12 +296,52 @@ const ChatPage = () => {
     [personas, currentChat?.personaId, globalActivePersonaId]
   );
   // Set here rather than in `scene` above: they need the persona's name.
-  scene.letterNote = !isRoom ? recentLetterNote(characterData, currentChat, chatIdNum, activePersona?.name?.trim() || "the user") : undefined;
-  scene.knowsNote = !isRoom ? knowsNoteFor(characterData, characters, chats, activePersona?.name?.trim() || "the user") : undefined;
-  scene.giftsNote = !isRoom && characterData ? buildGiftsSection(characterData.gifts, characterData.name, activePersona?.name?.trim() || "the user") : undefined;
-  scene.secretsNote = !isRoom && characterData ? buildSecretsSection(characterData.name, activePersona?.name?.trim() || "the user", secretsInPlay(characterData, currentChat)) : undefined;
-  scene.plansNote = !isRoom ? buildPlansSection(currentChat?.plans, activePersona?.name?.trim() || "the user", Date.now()) : undefined;
-  scene.onThisDayNote = !isRoom ? buildOnThisDayNote(currentChat?.content || [], activePersona?.name?.trim() || "the user", Date.now()) : undefined;
+  // A flashback or another world (#102, #104) isn't the main story, so the
+  // main story's letters, gifts, secrets, plans and anniversaries stay out.
+  const mainStory = !isRoom && !currentChat?.whatIf;
+  const userNameForNotes = activePersona?.name?.trim() || "the user";
+  const noteTime = Date.now();
+  scene.letterNote = mainStory ? recentLetterNote(characterData, currentChat, chatIdNum, userNameForNotes) : undefined;
+  scene.knowsNote = mainStory ? knowsNoteFor(characterData, characters, chats, userNameForNotes) : undefined;
+  scene.giftsNote = mainStory && characterData ? buildGiftsSection(characterData.gifts, characterData.name, userNameForNotes) : undefined;
+  scene.secretsNote = mainStory && characterData ? buildSecretsSection(characterData.name, userNameForNotes, secretsInPlay(characterData, currentChat)) : undefined;
+  scene.plansNote = mainStory ? buildPlansSection(currentChat?.plans, userNameForNotes, noteTime) : undefined;
+  scene.onThisDayNote = mainStory ? buildOnThisDayNote(currentChat?.content || [], userNameForNotes, noteTime) : undefined;
+  scene.whatIfNote = !isRoom && characterData && currentChat?.whatIf ? buildWhatIfSection(currentChat.whatIf, characterData.name, userNameForNotes) : undefined;
+  const dayMood = mainStory ? dayMoodFor(characterData, noteTime) : undefined;
+  scene.dayMoodNote = dayMood && characterData ? buildDayMoodSection(characterData.name, dayMood, userNameForNotes) : undefined;
+  scene.dreamNote = mainStory && characterData && dreamDue(characterData, currentChat, noteTime) ? buildDreamDirective(characterData.name, userNameForNotes, dreamIngredients(characterData, currentChat)) : undefined;
+  scene.jokesNote = !isRoom && characterData ? buildJokesSection(currentChat?.insideJokes, characterData.name, userNameForNotes) : undefined;
+  scene.conflictNote = !isRoom && characterData && currentChat?.conflicts
+    ? currentChat.conflict ? buildConflictSection(characterData.name, userNameForNotes, currentChat.conflict, noteTime) : buildConflictDirective(characterData.name, userNameForNotes)
+    : undefined;
+  scene.jealousyNote = mainStory ? jealousyNoteFor(characterData, currentChat, chats, characters, userNameForNotes, noteTime) : undefined;
+  scene.liesNote = !isRoom && characterData && currentChat?.lies ? buildLiesSection(characterData.name, userNameForNotes, currentChat.toldLies) : undefined;
+  scene.hookNote = currentChat?.pendingHook ? buildHookSection(currentChat.pendingHook) : undefined;
+
+  // Role reversal (#105): while swapped, a reply is built as if your persona
+  // were the character and the character "the user", with only the chat's
+  // own setting and boundaries from the scene.
+  const swap = !isRoom && characterData && currentChat?.roleSwap ? currentChat.roleSwap : undefined;
+  // Whether this turn's reply opens with a dream (#94), for its note.
+  const dreamt = Boolean(scene.dreamNote) && !swap;
+  // Rumors (#98): the speaker's own, wherever they're speaking.
+  const rumorNoteFor = (speaker: Character): string | undefined => {
+    if (currentChat?.whatIf) return undefined;
+    const rumor = pendingRumors(speaker, noteTime)[0];
+    const source = rumor && characters.find((c) => c.id === rumor.fromId);
+    return rumor && source ? buildRumorSection(speaker.name, userNameForNotes, rumor, source.name) : undefined;
+  };
+  // Every reply's prompt is built here: the speaker's turn with the room's
+  // context and this chat's scene, or the swapped one.
+  const turnContextFor = (msgs: Message[], speaker: Character, extra?: string[], limit?: number) => {
+    if (swap && characterData) {
+      const swapScene: SceneContext = { authorNote: scene.authorNote, worldTags: scene.worldTags, hardLimits: scene.hardLimits, intensity: scene.intensity, roleplayStyle, world: scene.world };
+      return buildTurnContext(msgs, personaAsCharacter(activePersona, characterData), [buildSwapDirective(characterData.name, activePersona?.name?.trim() || "User", swap.bodySwap), ...(extra || [])], limit, characterAsPersona(characterData), undefined, swapScene);
+    }
+    const rumor = rumorNoteFor(speaker);
+    return buildTurnContext(msgs, speaker, rumor ? [...(extra || []), rumor] : extra, limit, activePersona, buildRoomContext(speaker), scene);
+  };
   const globalActivePersona = useMemo(
     () => personas.find((p) => p.id === globalActivePersonaId) || personas[0],
     [personas, globalActivePersonaId]
@@ -386,7 +440,7 @@ const ChatPage = () => {
   // under-count group chats.
   const contextTokenEstimate = useMemo(() => {
     const speaker = resolveNextSpeaker(roomCharacters, messages, unavailableIds) || characterData;
-    const turn = buildTurnContext(messages, speaker, undefined, replyLengthLimit, activePersona, speaker ? buildRoomContext(speaker) : undefined, scene);
+    const turn = speaker ? turnContextFor(messages, speaker, undefined, replyLengthLimit) : buildTurnContext(messages, speaker, undefined, replyLengthLimit, activePersona, undefined, scene);
     const effectiveHistory = truncateHistory([...turn.history], maxChatLength, turn.protectedCount);
     return estimateTokens(turn.systemInstruction) + estimateTokens(turn.postHistoryNote) + estimateHistoryTokens(effectiveHistory.map((m) => m.text));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -513,6 +567,8 @@ const ChatPage = () => {
     advanceStoryIfDone,
     revealedSecretFor,
     noteSecretRevealed,
+    replyNotes,
+    noteStoryTags,
     saveSceneState,
     pickNaturalSpeakers,
     maybeNarrate,
@@ -631,14 +687,10 @@ const ChatPage = () => {
     warnBackgroundFailure("compress", compressError);
     await trackUsage(compressTokens, compressCost);
 
-    const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = buildTurnContext(
+    const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = turnContextFor(
       compressedFreshMessages,
       speaker,
-      extraDirective ? [AUTO_REPLY_DIRECTIVE, extraDirective] : [AUTO_REPLY_DIRECTIVE],
-      undefined,
-      activePersona,
-      buildRoomContext(speaker),
-      scene
+      extraDirective ? [AUTO_REPLY_DIRECTIVE, extraDirective] : [AUTO_REPLY_DIRECTIVE]
     );
     const followupVoiceNote = rollReplyVoiceNote(speaker, includeImage || includeVideo);
     const aiResponse = await dispatch(generateAIResponse({
@@ -678,6 +730,8 @@ const ChatPage = () => {
       ...beatStamp(currentChat?.storyScript),
       choices: payloadObj?.choices,
       secretRevealed: revealedSecretFor(payloadObj) ? true : undefined,
+      notes: replyNotes(payloadObj, speaker, dreamt),
+      swapped: swap ? true : undefined,
       isVoiceNote: followupIsVoiceNote,
     }));
     // Manual follow-ups go through here too, but they start from a click in
@@ -697,6 +751,7 @@ const ChatPage = () => {
     await saveCharacterReaction(payloadObj?.reaction, compressedFreshMessages, speaker.id);
     advanceStoryIfDone(payloadObj);
     noteSecretRevealed(payloadObj);
+    void noteStoryTags(payloadObj, speaker, dreamt);
     saveSceneState(payloadObj);
     advanceGame(payloadObj, false);
     runBackgroundUpdates((aiAddResult.payload as Message[]) || [], speaker);
@@ -1032,7 +1087,7 @@ const ChatPage = () => {
         return;
       }
 
-      const resultAction = await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, images: photos && photos.length > 0 ? photos : undefined, isImageRequest, isVideoRequest, isVoiceNote }));
+      const resultAction = await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, images: photos && photos.length > 0 ? photos : undefined, isImageRequest, isVideoRequest, isVoiceNote, swapped: swap ? true : undefined }));
       const updatedMessages = resultAction.payload as Message[] || [];
 
       if (silentSend) {
@@ -1094,8 +1149,14 @@ const ChatPage = () => {
         await new Promise((resolve) => window.setTimeout(resolve, wait));
         setAwayNote(null);
       }
+      // Upset with you (#97): they take a little longer to answer.
+      if (!isRoom && currentChat?.conflict && !swap) {
+        setAwayNote(`${speaker.name} saw your message`);
+        await new Promise((resolve) => window.setTimeout(resolve, upsetDelayMs()));
+        setAwayNote(null);
+      }
 
-      const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = buildTurnContext(contextMessages, speaker, undefined, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
+      const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = turnContextFor(contextMessages, speaker, undefined, replyLengthLimit);
       const sendVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest || shouldAutoSelfie));
       // Matches the "(voice note)" mark buildChatHistory puts on the same
       // message, so it's recognized as the prompt and not sent twice.
@@ -1129,6 +1190,8 @@ const ChatPage = () => {
           ...beatStamp(currentChat?.storyScript),
           choices: payloadObj?.choices,
           secretRevealed: revealedSecretFor(payloadObj) ? true : undefined,
+          notes: replyNotes(payloadObj, speaker, dreamt),
+          swapped: swap ? true : undefined,
           isVoiceNote: replyVoiceNote,
         }));
         notifyIfAway(speaker, notificationText(replyText, replyVoiceNote), generatedImages);
@@ -1141,6 +1204,7 @@ const ChatPage = () => {
         await saveCorrection(payloadObj?.correction, contextMessages);
         advanceStoryIfDone(payloadObj);
         noteSecretRevealed(payloadObj);
+        void noteStoryTags(payloadObj, speaker, dreamt);
         saveSceneState(payloadObj);
         advanceGame(payloadObj, true);
         runBackgroundUpdates((aiAddResult.payload as Message[]) || [], speaker);
@@ -1204,7 +1268,7 @@ const ChatPage = () => {
           || characterData;
         if (!speaker) return;
 
-        const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = buildTurnContext(contextUpToEdit, speaker, undefined, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
+        const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = turnContextFor(contextUpToEdit, speaker, undefined, replyLengthLimit);
         const editVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest));
         aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings, promptImages: sentPhotos }));
         const aiResponse = await aiPromiseRef.current;
@@ -1236,6 +1300,8 @@ const ChatPage = () => {
             ...beatStamp(currentChat?.storyScript),
             choices: payloadObj?.choices,
             secretRevealed: revealedSecretFor(payloadObj) ? true : undefined,
+            notes: replyNotes(payloadObj, speaker),
+            swapped: swap ? true : undefined,
             timestamp: Date.now(),
           };
           // The character's reaction (#11) and a language correction (#67)
@@ -1258,6 +1324,7 @@ const ChatPage = () => {
           advanceStoryIfDone(payloadObj);
 
           noteSecretRevealed(payloadObj);
+          void noteStoryTags(payloadObj, speaker);
           saveSceneState(payloadObj);
           advanceGame(payloadObj, false);
           runBackgroundUpdates(finalContent, speaker);
@@ -1324,7 +1391,7 @@ const ChatPage = () => {
         || characterData;
       if (!speaker) return undefined;
 
-      const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = buildTurnContext(historyUpToTarget, speaker, extraDirectives, replyLengthLimit, activePersona, buildRoomContext(speaker), scene);
+      const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = turnContextFor(historyUpToTarget, speaker, extraDirectives, replyLengthLimit);
       const regenVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest));
       aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: override || speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings, promptImages: sentPhotos }));
       const aiResponse = await aiPromiseRef.current;
@@ -1356,6 +1423,8 @@ const ChatPage = () => {
           ...beatStamp(currentChat?.storyScript),
           choices: payloadObj?.choices,
           secretRevealed: revealedSecretFor(payloadObj) ? true : undefined,
+          notes: replyNotes(payloadObj, speaker),
+          swapped: swap ? true : undefined,
           timestamp: Date.now(),
         };
         // A new answer brings its own reaction (#11), or none.
@@ -1373,6 +1442,7 @@ const ChatPage = () => {
         advanceStoryIfDone(payloadObj);
 
         noteSecretRevealed(payloadObj);
+        void noteStoryTags(payloadObj, speaker);
         saveSceneState(payloadObj);
         advanceGame(payloadObj, false);
         runBackgroundUpdates(newContent, speaker);
@@ -1449,6 +1519,108 @@ const ChatPage = () => {
     } catch (err) {
       toast.error(typeof err === "string" ? err : "Couldn't start a new chat from there.");
     }
+  };
+
+  // Their point of view (#101): the recent scene as the character's own
+  // account, in a dialog to copy or keep in their diary.
+  const [povOpen, setPovOpen] = useState(false);
+  const [povText, setPovText] = useState<string | null>(null);
+  const handlePov = async () => {
+    if (!characterData) return;
+    setPovText(null);
+    setPovOpen(true);
+    try {
+      const recent = trimToLatestSummary(messages).filter((m) => !m.isSystem).slice(-POV_MESSAGES);
+      const about = [characterData.description, characterData.prompt].filter(Boolean).join(" ");
+      const reply = await dispatch(generateAssistText({ instruction: buildPovPrompt(characterData.name, activePersona?.name?.trim() || "the user", about, formatTranscript(recent, transcriptNames()), thoughtsIn(recent)) })).unwrap();
+      const text = cleanPov(reply);
+      if (!text) throw new Error("Nothing came back. Try again.");
+      setPovText(text);
+    } catch (err) {
+      setPovOpen(false);
+      toast.error(typeof err === "string" ? err : "Couldn't tell their side. Check your model settings.");
+    }
+  };
+  const handleKeepPov = async (text: string) => {
+    if (!characterData) return;
+    const fresh: Character = (await dispatch(fetchCharacterById(characterData.id)).unwrap().catch(() => characterData)) || characterData;
+    await dispatch(updateCharacter({ ...fresh, diary: appendDiaryEntry(fresh.diary, { id: generateNodeId(), timestamp: Date.now(), chatId: chatIdNum || undefined, text }) }));
+    setPovOpen(false);
+    toast.success(`Kept in ${characterData.name}'s diary`);
+  };
+
+  // Flashbacks and what-if universes (#102, #104): a new chat with its own
+  // memory, which opens with the character setting the scene.
+  const [whatIfKind, setWhatIfKind] = useState<WhatIfChat["kind"] | null>(null);
+  const handleStartWhatIf = async (whatIf: WhatIfChat) => {
+    if (!characterData) return;
+    setWhatIfKind(null);
+    try {
+      const chat = await dispatch(addPreparedChat(buildWhatIfChat(whatIf, characterData, currentChat))).unwrap();
+      routeNavigate(`/chat/${chat.id}`, { state: { openScene: true } });
+    } catch (err) {
+      toast.error(typeof err === "string" ? err : "Couldn't start that chat.");
+    }
+  };
+  const openSceneRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!(routeLocation.state as { openScene?: boolean } | null)?.openScene || !chatIdNum) return;
+    openSceneRef.current = chatIdNum;
+    routeNavigate(routeLocation.pathname, { replace: true, state: null });
+  }, [routeLocation, routeNavigate, chatIdNum]);
+  useEffect(() => {
+    const whatIf = currentChat?.whatIf;
+    if (openSceneRef.current !== chatIdNum || !whatIf || !characterData || aiLoading || autoReplyInFlightRef.current) return;
+    openSceneRef.current = null;
+    autoReplyInFlightRef.current = true;
+    sendCharacterFollowup(undefined, buildWhatIfOpening(whatIf, characterData.name))
+      .catch((err) => console.error("Opening the scene failed:", err))
+      .finally(() => { autoReplyInFlightRef.current = false; });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatIdNum, currentChat?.whatIf, characterData, aiLoading]);
+
+  // Ending a flashback (#102): what happened becomes part of their past,
+  // and the chat it started from gets a note.
+  const [endingFlashback, setEndingFlashback] = useState(false);
+  const handleEndFlashback = async () => {
+    const whatIf = currentChat?.whatIf;
+    if (!chatIdNum || !characterData || whatIf?.kind !== "flashback" || whatIf.endedAt || endingFlashback) return;
+    setEndingFlashback(true);
+    try {
+      const recent = trimToLatestSummary(messages).filter((m) => !m.isSystem).slice(-30);
+      const event = cleanPastEvent(await dispatch(generateAssistText({ instruction: buildPastEventPrompt(characterData.name, whatIf, formatTranscript(recent, transcriptNames())) })).unwrap());
+      if (!event) throw new Error("Nothing came back. Try again.");
+      const fresh: Character = (await dispatch(fetchCharacterById(characterData.id)).unwrap().catch(() => characterData)) || characterData;
+      await dispatch(updateCharacter({ ...fresh, pastEvents: addPastEvent(fresh.pastEvents, event) }));
+      await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { whatIf: { ...whatIf, endedAt: Date.now() } } }));
+      await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text: `End of the flashback. ${event}`, isNarration: true }));
+      if (whatIf.parentChatId != null && chats.some((c) => c.id === whatIf.parentChatId)) {
+        await dispatch(addMessage({ chatId: whatIf.parentChatId, role: YOU, text: `Flashback, ${whatIf.title.toLowerCase()}: ${event}`, isNarration: true }));
+      }
+      dispatch(fetchChats());
+      toast.success(`Added to ${characterData.name}'s past`);
+    } catch (err) {
+      toast.error(typeof err === "string" ? err : (err as Error)?.message || "Couldn't end the flashback.");
+    } finally {
+      setEndingFlashback(false);
+    }
+  };
+
+  // Role reversal (#105): narration lines mark each switch.
+  const handleStartSwap = async (bodySwap: boolean) => {
+    if (!chatIdNum || !characterData) return;
+    const userName = activePersona?.name?.trim() || "You";
+    await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { roleSwap: { since: Date.now(), ...(bodySwap ? { bodySwap } : {}) } } }));
+    await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text: swapStartLine(characterData.name, userName, bodySwap), isNarration: true }));
+    dispatch(fetchChats());
+  };
+  const handleEndSwap = async () => {
+    if (!chatIdNum || !characterData || !currentChat?.roleSwap) return;
+    const userName = activePersona?.name?.trim() || "You";
+    const { bodySwap } = currentChat.roleSwap;
+    await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { roleSwap: undefined } }));
+    await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text: swapEndLine(characterData.name, userName, bodySwap), isNarration: true }));
+    dispatch(fetchChats());
   };
 
   const handleUndoSummary = async (msg: Message) => {
@@ -1551,15 +1723,7 @@ const ChatPage = () => {
       if (!speaker) return;
       const continueDirective =
         "The previous assistant message got cut off before finishing. Continue writing directly from exactly where it left off - do not repeat any earlier text, do not restart the sentence, and add no preamble or acknowledgement. Keep going in the same voice, tone, and format.";
-      const { history, systemInstruction, postHistoryNote, characterImages, characterName, protectedCount, appearanceLocks } = buildTurnContext(
-        [...historyUpToTarget, targetMessage],
-        speaker,
-        [continueDirective],
-        replyLengthLimit,
-        activePersona,
-        buildRoomContext(speaker),
-        scene
-      );
+      const { history, systemInstruction, postHistoryNote, characterImages, characterName, protectedCount, appearanceLocks } = turnContextFor([...historyUpToTarget, targetMessage], speaker, [continueDirective], replyLengthLimit);
 
       aiPromiseRef.current = dispatch(generateAIResponse({ prompt: "Continue.", history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker.artStyle, customEmotions: speaker.emotionPortraits?.customEmotions, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings }));
       const aiResponse = await aiPromiseRef.current;
@@ -1589,6 +1753,7 @@ const ChatPage = () => {
         advanceStoryIfDone(payloadObj);
 
         noteSecretRevealed(payloadObj);
+        void noteStoryTags(payloadObj, speaker);
         saveSceneState(payloadObj);
         runBackgroundUpdates(updatedContent, speaker);
       }
@@ -1690,6 +1855,45 @@ const ChatPage = () => {
     }
   };
 
+  // Episodes and cliffhangers (#103): the character ends the scene on a
+  // cliffhanger, then it closes like a chapter with a "Next time on…"
+  // teaser, and the next reply has to pick up the hook.
+  const [endingEpisode, setEndingEpisode] = useState(false);
+  const handleEndEpisode = async () => {
+    if (!chatIdNum || !characterData || endingEpisode || autoReplyInFlightRef.current || aiLoading) return;
+    setError(null);
+    setEndingEpisode(true);
+    autoReplyInFlightRef.current = true;
+    try {
+      if (!(await sendCharacterFollowup(undefined, buildCliffhangerDirective(characterData.name)))) return;
+      const { content } = getOrBuildTree(await dispatch(fetchChatById(chatIdNum)).unwrap());
+      const latest = latestSummaryIndex(content);
+      const covered = content.slice(latest >= 0 ? latest : countSeedMessages(content));
+      const lastCovered = content[content.length - 1];
+      const { text: systemInstructionText } = buildSystemInstruction(characterData, undefined, undefined, activePersona);
+      const chapter = await dispatch(summarizeChapter({ messages: covered, names: transcriptNames(), systemInstruction: systemInstructionText })).unwrap();
+      await trackUsage(chapter.tokens, chapter.cost);
+      const recent = covered.filter((m) => !m.isSystem && !m.isCompressionSummary).slice(-12);
+      const teaserReply = await dispatch(generateAssistText({ instruction: buildTeaserPrompt(characterData.name, activePersona?.name?.trim() || "the user", formatTranscript(recent, transcriptNames())), background: true })).unwrap().catch(() => "");
+      const { teaser, hook } = parseTeaser(teaserReply);
+      const title = chapter.title || `Episode ${chapterCount + 1}`;
+      await dispatch(insertCompressionSummary({
+        chatId: chatIdNum,
+        afterMessageId: lastCovered.id,
+        afterIndex: content.length - 1,
+        summaryMessages: buildSummaryMessages(chapter.summary, lastCovered.timestamp, { title, recap: chapter.recap, teaser }),
+      })).unwrap();
+      if (hook) await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { pendingHook: hook } }));
+      dispatch(fetchChats());
+      toast.success(`Episode ended: ${title}`);
+    } catch (err) {
+      setError(typeof err === "string" ? err : "Couldn't end the episode. Check your model settings and try again.");
+    } finally {
+      autoReplyInFlightRef.current = false;
+      setEndingEpisode(false);
+    }
+  };
+
   // "Export as story" (#20): the active branch as readable Markdown.
   const handleExportStory = () => {
     if (!currentChat) return;
@@ -1779,6 +1983,29 @@ const ChatPage = () => {
       : []),
     ...(canEndChapter
       ? [{ icon: FaBookmark, label: endingChapter ? "Ending the chapter..." : "End chapter (summarize it and start the next)", onClick: handleEndChapter, disabled: aiLoading || endingChapter }]
+      : []),
+    ...(canEndChapter && !isRoom && characterData
+      ? [{ icon: FaFilm, label: endingEpisode ? "Ending the episode..." : "End episode (on a cliffhanger)", onClick: handleEndEpisode, disabled: aiLoading || endingEpisode }]
+      : []),
+    ...(!isRoom && characterData && messages.filter((m) => !m.isSystem).length > 2
+      ? [{ icon: FaEye, label: `${characterData.name}'s side of the story`, onClick: handlePov, disabled: aiLoading || (povOpen && !povText) }]
+      : []),
+    ...(mainStory && characterData
+      ? [
+          { icon: FaHourglassStart, label: "Flashback (a scene from their past)", onClick: () => setWhatIfKind("flashback") },
+          { icon: FaGlobe, label: "What-if universe", onClick: () => setWhatIfKind("universe") },
+        ]
+      : []),
+    ...(currentChat?.whatIf?.kind === "flashback" && !currentChat.whatIf.endedAt && messages.length > 2
+      ? [{ icon: FaHourglassStart, label: endingFlashback ? "Ending the flashback..." : "End flashback (add it to their past)", onClick: handleEndFlashback, disabled: aiLoading || endingFlashback }]
+      : []),
+    ...(!isRoom && characterData && messages.length > 0
+      ? currentChat?.roleSwap
+        ? [{ icon: FaExchangeAlt, label: "Swap back", onClick: handleEndSwap, active: true }]
+        : [
+            { icon: FaExchangeAlt, label: `Swap roles (you write as ${characterData.name})`, onClick: () => handleStartSwap(false), disabled: aiLoading },
+            { icon: FaExchangeAlt, label: "Body swap (in the story)", onClick: () => handleStartSwap(true), disabled: aiLoading },
+          ]
       : []),
     ...(canCompress
       ? [{ icon: FaCompressArrowsAlt, label: "Summarize and compress older messages to save tokens", onClick: handleCompress, disabled: aiCompressing }]
@@ -1912,6 +2139,14 @@ const ChatPage = () => {
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden relative">
+        {/* Upset with you (#97), until you make up. */}
+        {!isRoom && characterData && currentChat?.conflict && (
+          <div className="pointer-events-none absolute top-2 left-1/2 -translate-x-1/2 z-10 max-w-[90%]">
+            <div role="status" className="truncate rounded-full border border-destructive/30 bg-card/95 px-3 py-1 text-[12px] text-foreground shadow-soft" title={currentChat.conflict.about}>
+              <span aria-hidden>😠 </span>{characterData.name} is upset with you · {currentChat.conflict.about}
+            </div>
+          </div>
+        )}
         <ChatWindow awayNote={awayNote} onFork={handleFork} stageSuggestion={currentChat?.stage && currentChat.stageSuggestion ? { from: currentChat.stage, to: currentChat.stageSuggestion } : undefined} onAcceptStage={acceptStage} onDismissStage={dismissStage} coWriting={!isRoom && Boolean(currentChat?.coWriting)} onSuggestNext={handleSuggestNext} onTranslate={currentChat?.language ? handleTranslate : undefined} onReplyToLetter={(letter) => setDraftInjection({ text: letterReplyDraft(letter), nonce: Date.now() })} arcSuggestion={currentChat?.arcSuggestion} onAcceptArc={acceptArc} onDismissArc={dismissArc} relationshipSuggestion={currentChat?.relationshipSuggestion} onAcceptRelationship={acceptRelationship} onDismissRelationship={dismissRelationship} game={currentChat?.game} gameScore={currentChat?.gameScore} onEndGame={() => chatIdNum && dispatch(updateChatOptions({ chatId: chatIdNum, patch: { game: undefined } }))} storyScript={currentChat?.storyScript} onEditStory={() => setStoryOpen(true)} onMoveBeat={moveStoryBeat} recap={recap} onToggleBookmark={handleToggleBookmark} onUndoSummary={handleUndoSummary} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} />
         {inCall && characterData && (
           <CallScreen
@@ -1952,6 +2187,8 @@ const ChatPage = () => {
           <GiftDialog open={giftOpen} onOpenChange={setGiftOpen} characterName={characterData.name} gifts={characterData.gifts || []} disabled={aiLoading} onGive={handleGiveGift} />
         )}
         {!isRoom && characterData && <AlbumDialog open={albumOpen} onOpenChange={setAlbumOpen} character={characterData} stage={currentChat?.stage} />}
+        {!isRoom && characterData && <PovDialog open={povOpen} onOpenChange={setPovOpen} characterName={characterData.name} text={povText} onKeep={handleKeepPov} />}
+        {characterData && <WhatIfDialog kind={whatIfKind} onOpenChange={(o) => !o && setWhatIfKind(null)} characterName={characterData.name} onStart={handleStartWhatIf} />}
       </div>
 
       {/* Message Input - floats over the chat, except under terminal where it
@@ -1970,7 +2207,7 @@ const ChatPage = () => {
         }
       >
         <MessageInput
-          placeholderText={!isRoom && currentChat?.coWriting ? "Write the next part of the story…" : undefined}
+          placeholderText={swap && characterData ? `Write as ${characterData.name}…` : !isRoom && currentChat?.coWriting ? "Write the next part of the story…" : undefined}
           userName={activePersona?.name}
           onSend={handleSend}
           disabled={aiLoading || Boolean(awayNote)}

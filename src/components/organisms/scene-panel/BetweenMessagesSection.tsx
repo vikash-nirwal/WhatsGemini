@@ -1,0 +1,110 @@
+import React from "react";
+import { useAppDispatch } from "src/store/hooks";
+import { updateCharacter } from "src/features/characterSlice";
+import { updateChatOptions } from "src/features/chatSlice";
+import { Select } from "src/components/molecules/form-controls";
+import ToggleSwitch from "src/components/atoms/ToggleSwitch";
+import { DAY_MOODS, dayKey, dayMoodFor } from "src/features/character/badDays";
+import { Character, Chat } from "src/types";
+
+// A labelled switch row, as elsewhere in the Chat tab.
+const SwitchRow: React.FC<{ title: string; hint: string; checked: boolean; onChange: (on: boolean) => void }> = ({ title, hint, checked, onChange }) => (
+  <div className="flex items-center justify-between gap-3">
+    <div className="min-w-0">
+      <div className="text-[12.5px] font-medium text-foreground">{title}</div>
+      <div className="text-[11px] text-subtle">{hint}</div>
+    </div>
+    <ToggleSwitch checked={checked} onChange={onChange} label={<span className="sr-only">{title}</span>} />
+  </div>
+);
+
+// Characters who feel alive between messages (#93-#95, #98): per-character
+// switches, so they hold in every chat with them.
+export const BetweenMessagesSection: React.FC<{ character: Character }> = ({ character }) => {
+  const dispatch = useAppDispatch();
+  const name = character.name;
+  const set = (patch: Partial<Character>) => dispatch(updateCharacter({ ...character, ...patch }));
+  const today = dayKey(Date.now());
+  const mood = dayMoodFor(character, Date.now());
+  const picked = character.dayMood?.date === today ? character.dayMood.mood || "good" : "";
+  return (
+    <>
+      <SwitchRow
+        title={`${name} texts first`}
+        hint={`After a few quiet hours, a short text out of the blue, while the app is open. Never while ${name} is asleep, never two unanswered, at most two a day.`}
+        checked={Boolean(character.textsFirst)}
+        onChange={(on) => set({ textsFirst: on || undefined })}
+      />
+      <SwitchRow
+        title={`${name} has dreams`}
+        hint={`Now and then, the first reply of a morning opens with a dream ${name} had, made of what you've shared. At most every few days.`}
+        checked={Boolean(character.dreams)}
+        onChange={(on) => set({ dreams: on || undefined })}
+      />
+      <div className="flex flex-col gap-2">
+        <SwitchRow
+          title={`${name} has off days`}
+          hint={`Some days ${name} is under the weather, tired, irritable or low, and it shows in replies and statuses all day.`}
+          checked={Boolean(character.badDays)}
+          onChange={(on) => set({ badDays: on || undefined, dayMood: undefined })}
+        />
+        {character.badDays && (
+          <div className="flex flex-col gap-1.5 text-[11px] text-subtle">
+            <span>Today: {mood ? mood.label : "a good day"}</span>
+            <Select
+              aria-label="Today's mood"
+              value={picked}
+              onChange={(e) => set({ dayMood: e.target.value ? { date: today, mood: e.target.value === "good" ? "" : e.target.value } : undefined })}
+            >
+              <option value="">Let the day decide</option>
+              <option value="good">A good day</option>
+              {DAY_MOODS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+            </Select>
+          </div>
+        )}
+      </div>
+      <SwitchRow
+        title={`What you tell ${name} can get around`}
+        hint={`Now and then something from this chat reaches a character who knows ${name} or shares a group with them, a little wrong, and they bring it up.`}
+        checked={Boolean(character.spreadsRumors)}
+        onChange={(on) => set({ spreadsRumors: on || undefined })}
+      />
+    </>
+  );
+};
+
+// Drama and conflict (#97, #99, #100): per-chat switches.
+export const DramaSection: React.FC<{ chat: Chat; character: Character }> = ({ chat, character }) => {
+  const dispatch = useAppDispatch();
+  const name = character.name;
+  const set = (patch: Partial<Chat>) => dispatch(updateChatOptions({ chatId: chat.id, patch }));
+  return (
+    <>
+      <div className="flex flex-col gap-2">
+        <SwitchRow
+          title="Fights that need making up"
+          hint={`If you really hurt ${name}, they stay upset (cooler, slower to answer) until you make it right. A bare "sorry" may not do it.`}
+          checked={Boolean(chat.conflicts)}
+          onChange={(on) => set({ conflicts: on || undefined, ...(on ? {} : { conflict: undefined }) })}
+        />
+        {chat.conflict && (
+          <button type="button" className="self-start text-[11px] text-primary hover:underline" onClick={() => set({ conflict: undefined })}>
+            End the fight now
+          </button>
+        )}
+      </div>
+      <SwitchRow
+        title={`${name} notices other chats`}
+        hint={`Come back after talking a lot with other characters and ${name} may notice, tease or sulk, as they would. Names only the ones ${name} knows about.`}
+        checked={Boolean(chat.jealousy)}
+        onChange={(on) => set({ jealousy: on || undefined })}
+      />
+      <SwitchRow
+        title={`${name} can lie`}
+        hint={`Small lies when ${name} really would. The truth stays hidden (the Story tab can show it), and you can catch them out.`}
+        checked={Boolean(chat.lies)}
+        onChange={(on) => set({ lies: on || undefined })}
+      />
+    </>
+  );
+};

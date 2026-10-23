@@ -9,6 +9,7 @@ import { generateVideo } from "./ai/utils/videoGeneration";
 import { extractEmotionTag } from "./ai/utils/emotionUtils";
 import { extractCorrection, extractReactionTag, extractThoughts } from "./ai/utils/messageTags";
 import { extractSecretTag } from "./character/secrets";
+import { extractStoryTags, hasStoryTags, StoryTags } from "./chat/storyTags";
 import { splitChoiceMoment } from "./chat/choiceMoments";
 import { buildRecapPrompt, cleanRecap, latestStorySummary, recentForRecap } from "./chat/recap";
 import { extractBeatTag } from "./chat/storyScript";
@@ -52,6 +53,7 @@ export interface GenerateAIResponseResult {
   correction?: string; // language practice (#67): the fix for the user's last message
   choices?: AdventureChoice[]; // choice moments (#87): options offered at a turning point
   secretRevealed?: number; // secrets (#81): which revealable secret this reply told, from 1
+  storyTags?: StoryTags; // upset, made up, a lie, a rumor raised (#97, #98, #100)
   reaction?: string; // the character's reaction to the message it answered (#11)
   beatDone?: boolean; // the story script's current beat was reached (#57)
   gameOver?: GameOutcome; // the mini-game ended, and who won (#52)
@@ -315,7 +317,9 @@ export const generateAIResponse = createAsyncThunk(
       // stats and beat tags around it (`keepChoices`).
       const { text: withoutThoughts, choices: momentChoices } = keepChoices ? { text: withoutCorrection, choices: undefined } : splitChoiceMoment(withoutCorrection);
       // Secrets (#81): the [Secret revealed: n] tag, wherever it ended up.
-      const { text: withoutSecret, secretRevealed } = extractSecretTag(withoutThoughts);
+      const { text: withoutSecretTag, secretRevealed } = extractSecretTag(withoutThoughts);
+      // Story tags (#97, #98, #100): a fight, making up, a lie, a rumor.
+      const { text: withoutSecret, tags: storyTags } = extractStoryTags(withoutSecretTag);
       // A story script's [Beat done] tag (#57) closes the reply, if present.
       const { text: withoutBeat, beatDone } = extractBeatTag(withoutSecret);
       // A mini-game's [Game over] tag (#52), in either order with the beat tag.
@@ -338,6 +342,7 @@ export const generateAIResponse = createAsyncThunk(
         correction,
         choices: momentChoices,
         secretRevealed,
+        storyTags: hasStoryTags(storyTags) ? storyTags : undefined,
         photoDescription,
         photoUnseen: photoUnseen || undefined,
         beatDone: beatAfter.beatDone || undefined,

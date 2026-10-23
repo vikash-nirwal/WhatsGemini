@@ -12,6 +12,9 @@ const chatAction = async (page: Page, name: string | RegExp) => {
   if (await direct.first().isVisible()) return direct.first().click();
   await page.getByRole("button", { name: /more/i }).last().click();
   await page.getByRole("menuitem", { name }).click();
+  // The long menu leaves the pointer near the top, where the next toast
+  // appears; a hovered toast never closes, and would cover the header.
+  await page.mouse.move(1, (page.viewportSize()?.height || 800) - 1);
 };
 
 test("ending a chapter titles it, recaps it, and the next reply starts from it", async ({ page, mockAI }) => {

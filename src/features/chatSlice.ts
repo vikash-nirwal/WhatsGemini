@@ -72,9 +72,20 @@ export const forkChat = createAsyncThunk(
   }
 );
 
+// Flashbacks and what-if universes (#102, #104): a chat built elsewhere
+// (see buildWhatIfChat), saved as is. Resolves to the new chat.
+export const addPreparedChat = createAsyncThunk("chat/addPrepared", async (chat: Omit<Chat, "id">, { rejectWithValue }) => {
+  try {
+    const id = await dbService.addChat(chat);
+    return { id, ...chat } as Chat;
+  } catch (error) {
+    return handleDbError(error, rejectWithValue);
+  }
+});
+
 export const addMessage = createAsyncThunk(
   "chat/addMessage",
-  async ({ chatId, role, text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration, thoughts, isVoiceNote, beat, choices, secretRevealed }: { chatId: number; role: string; text: string; images?: string[], isImageRequest?: boolean, videos?: string[], isVideoRequest?: boolean, videoPrompt?: string, isImpersonated?: boolean, emotion?: string, imagePrompt?: string, imageParams?: any, speakerId?: number, isRefusal?: boolean, isNarration?: boolean, thoughts?: string, isVoiceNote?: boolean, beat?: number, choices?: Message["choices"], secretRevealed?: boolean }, { dispatch, getState, rejectWithValue }) => {
+  async ({ chatId, role, text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration, thoughts, isVoiceNote, beat, choices, secretRevealed, notes, swapped }: { chatId: number; role: string; text: string; images?: string[], isImageRequest?: boolean, videos?: string[], isVideoRequest?: boolean, videoPrompt?: string, isImpersonated?: boolean, emotion?: string, imagePrompt?: string, imageParams?: any, speakerId?: number, isRefusal?: boolean, isNarration?: boolean, thoughts?: string, isVoiceNote?: boolean, beat?: number, choices?: Message["choices"], secretRevealed?: boolean, notes?: Message["notes"], swapped?: boolean }, { dispatch, getState, rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
 
@@ -108,7 +119,7 @@ export const addMessage = createAsyncThunk(
         }
       }
 
-      const newMessage: Message = { role, txt: text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration: isNarration || undefined, thoughts, isVoiceNote: isVoiceNote || undefined, beat, choices, secretRevealed: secretRevealed || undefined, id: generateNodeId(), timestamp: Date.now() };
+      const newMessage: Message = { role, txt: text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration: isNarration || undefined, thoughts, isVoiceNote: isVoiceNote || undefined, beat, choices, secretRevealed: secretRevealed || undefined, notes: notes && notes.length > 0 ? notes : undefined, swapped: swapped || undefined, id: generateNodeId(), timestamp: Date.now() };
 
       // A real reply from the user - or the user speaking as the character via
       // Impersonate mode - both mean the user is actively here, so any pending
@@ -252,11 +263,9 @@ export const updateChatMessage = createAsyncThunk(
 // Updates simple per-chat switches, leaving content and tree untouched.
 export const updateChatOptions = createAsyncThunk(
   "chat/updateChatOptions",
-  async ({ chatId, patch }: { chatId: number; patch: Partial<Pick<Chat, "replySuggestions" | "textingMode" | "worldId" | "backdrop" | "relationshipSuggestions" | "relationshipCheckedAt" | "relationshipSuggestion" | "sceneTracker" | "sceneState" | "recap" | "storyScript" | "game" | "gameScore" | "turnMode" | "narrator" | "roomRelationships" | "innerThoughts" | "offscreenTalk" | "offscreenTalks" | "arcCheckedAt" | "arcSuggestion" | "language" | "coWriting" | "stage" | "stageCheckedAt" | "stageSuggestion" | "meters" | "boldness" | "choiceMoments" | "moodTint" | "plans" | "planTracking" | "revealedSecrets" | "ambient">> }, { rejectWithValue }) => {
+  async ({ chatId, patch }: { chatId: number; patch: Partial<Pick<Chat, "replySuggestions" | "textingMode" | "worldId" | "backdrop" | "relationshipSuggestions" | "relationshipCheckedAt" | "relationshipSuggestion" | "sceneTracker" | "sceneState" | "recap" | "storyScript" | "game" | "gameScore" | "turnMode" | "narrator" | "roomRelationships" | "innerThoughts" | "offscreenTalk" | "offscreenTalks" | "arcCheckedAt" | "arcSuggestion" | "language" | "coWriting" | "stage" | "stageCheckedAt" | "stageSuggestion" | "meters" | "boldness" | "choiceMoments" | "moodTint" | "plans" | "planTracking" | "revealedSecrets" | "ambient" | "insideJokes" | "jokeTracking" | "jokesCheckedAt" | "conflicts" | "conflict" | "jealousy" | "lies" | "toldLies" | "whatIf" | "pendingHook" | "roleSwap">> }, { rejectWithValue }) => {
     try {
-      const chat = await dbService.getChatById(chatId);
-      Object.assign(chat, patch);
-      await dbService.updateChat(chat);
+      await dbService.patchChat(chatId, patch);
       return { chatId, patch };
     } catch (error) {
       return handleDbError(error, rejectWithValue);
@@ -709,6 +718,9 @@ const chatSlice = createSlice({
         state.chats.push(action.payload as Chat);
       })
       .addCase(forkChat.fulfilled, (state, action) => {
+        state.chats.push(action.payload);
+      })
+      .addCase(addPreparedChat.fulfilled, (state, action) => {
         state.chats.push(action.payload);
       })
       .addCase(addChat.rejected, (state, action) => {

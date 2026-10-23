@@ -68,12 +68,13 @@ export const trimToLatestSummary = (messages: Message[]): Message[] => {
 // the model as a user turn) plus a hidden acknowledgement, so history still
 // alternates. Stamped with the time of the last message it covers rather
 // than "now", since it sits at that point in the conversation.
-export const buildSummaryMessages = (summary: string, timestamp?: number, chapter?: { title: string; recap?: string }): Message[] => [
+export const buildSummaryMessages = (summary: string, timestamp?: number, chapter?: { title: string; recap?: string; teaser?: string }): Message[] => [
   {
     role: YOU,
     txt: `Earlier conversation summary (treat as established context, continue naturally):\n\n${summary}`,
     isCompressionSummary: true,
     ...(chapter ? { chapterTitle: chapter.title, chapterRecap: chapter.recap } : {}),
+    ...(chapter?.teaser ? { episodeTeaser: chapter.teaser } : {}),
     timestamp: timestamp ?? Date.now(),
   },
   { role: AI, txt: "Understood, continuing from that context.", isSystem: true, timestamp: timestamp ?? Date.now() },

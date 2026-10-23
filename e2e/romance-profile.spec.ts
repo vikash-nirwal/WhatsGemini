@@ -32,6 +32,7 @@ test("the intimacy profile joins the prompt only once the talk turns romantic", 
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
 
   await sendMessage(page, "How was work today?");
+  await expect.poll(() => mockAI.requests.length).toBe(1);
   await waitForReplyDone(page);
   expect(systemOf(mockAI.requests[0].messages)).not.toContain("Aria in romance");
 

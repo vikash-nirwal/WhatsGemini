@@ -19,6 +19,7 @@ import { NsfwBlur } from "src/components/molecules/NsfwBlur";
 import { InnerThoughts, ReactionBadge, ReactionPicker, ReactionRow } from "src/components/molecules/MessageExtras";
 import { REACTION_EMOJIS } from "src/features/ai/utils/messageTags";
 import { splitIntoTexts } from "../../features/ai/utils/textingMode";
+import { NOTE_LABELS } from "../../features/chat/storyTags";
 import { VoiceNote } from "src/components/molecules/VoiceNote";
 import { isSpeechSupported, speak, stopSpeaking, toSpokenText } from "../../features/voice/speech";
 import { useSpeakingFor } from "../../features/voice/useSpeech";
@@ -201,10 +202,19 @@ const ChatMessage = React.memo(({
     </div>
   ) : null;
 
-  // Secrets (#81): marks the reply where one came out.
-  const secretNote = !isUser && msg.secretRevealed ? (
-    <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-sans text-[11.5px] text-foreground" data-slot="secret-note">
-      <span aria-hidden>🤫</span> A secret came out
+  // Secrets (#81) and the other story notes (#93-#100): a pill under the
+  // reply where a secret came out, a dream was told, a fight started...
+  const notePills = [
+    ...(!isUser && msg.secretRevealed ? [{ key: "secret", emoji: "🤫", text: "A secret came out" }] : []),
+    ...(!isUser ? (msg.notes || []).map((n) => ({ key: n, ...NOTE_LABELS[n] })) : []),
+  ];
+  const secretNote = notePills.length > 0 ? (
+    <div className="mt-1.5 flex flex-wrap gap-1.5">
+      {notePills.map((n) => (
+        <span key={n.key} className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-sans text-[11.5px] text-foreground" data-slot={n.key === "secret" ? "secret-note" : "story-note"}>
+          <span aria-hidden>{n.emoji}</span> {n.text}
+        </span>
+      ))}
     </div>
   ) : null;
 
@@ -320,8 +330,9 @@ const ChatMessage = React.memo(({
       return (
         <div className="mb-4 border border-border p-3">
           <div className="text-[10px] font-bold text-ring mb-1.5">
-            {msg.chapterTitle ? `# chapter ${chapterNumber ?? ""}: ${msg.chapterTitle}`.replace("  ", " ") : "# compressed history"}
+            {msg.chapterTitle ? `# ${msg.episodeTeaser ? "episode" : "chapter"} ${chapterNumber ?? ""}: ${msg.chapterTitle}`.replace("  ", " ") : "# compressed history"}
           </div>
+          {msg.episodeTeaser && <div className="mb-1.5 text-xs italic text-foreground">next time on... {msg.episodeTeaser}</div>}
           <div className={cn("text-xs text-muted-foreground", !isSummaryExpanded && "line-clamp-3")}>
             <MarkdownRenderer msgText={!isSummaryExpanded && msg.chapterRecap ? msg.chapterRecap : msg.txt || ""} isUser={false} />
           </div>
@@ -488,8 +499,15 @@ const ChatMessage = React.memo(({
           <CardContent className="px-4 py-3">
             <div className="flex items-center justify-center gap-2 text-xs font-semibold text-muted-foreground mb-1.5">
               {msg.chapterTitle ? <FaBookmark size={10} /> : <FaCompressArrowsAlt size={11} />}
-              {msg.chapterTitle ? `Chapter ${chapterNumber ?? ""}: ${msg.chapterTitle}`.replace("  ", " ") : "Compressed history"}
+              {msg.chapterTitle ? `${msg.episodeTeaser ? "Episode" : "Chapter"} ${chapterNumber ?? ""}: ${msg.chapterTitle}`.replace("  ", " ") : "Compressed history"}
             </div>
+            {/* Episodes (#103): the "Next time on…" teaser under the title. */}
+            {msg.episodeTeaser && (
+              <p className="mb-2 font-serif italic text-[13px] text-foreground" data-slot="episode-teaser">
+                <span className="not-italic font-sans text-[11px] font-semibold uppercase tracking-wide text-subtle">Next time on… </span>
+                {msg.episodeTeaser}
+              </p>
+            )}
             <div
               role="button"
               tabIndex={0}
@@ -592,6 +610,13 @@ const ChatMessage = React.memo(({
             <div className="flex items-center gap-1.5 mb-1.5 text-[11px] font-semibold text-primary/80">
               <FaMask size={10} />
               You, in character
+            </div>
+          )}
+          {/* Role reversal (#105): who's playing whom. */}
+          {msg.swapped && !msg.isImpersonated && (
+            <div className="flex items-center gap-1.5 mb-1.5 text-[11px] font-semibold text-primary/80" data-slot="swap-label">
+              <FaMask size={10} />
+              {isUser ? `You, as ${speakerName || "them"}` : `${speakerName || "They"}, as ${userName?.trim() || "you"}`}
             </div>
           )}
 

@@ -33,6 +33,7 @@ export interface Message {
   // just that chapter (the summary text itself covers the whole story so far).
   chapterTitle?: string;
   chapterRecap?: string;
+  episodeTeaser?: string; // an episode's "Next time on..." (#103), on its summary
   // True for a room-membership notice (e.g. "Aria joined the chat.") added
   // when a character is invited into an existing chat. Rendered as a
   // centered, unattributed notice like isCompressionSummary - unlike
@@ -72,6 +73,8 @@ export interface Message {
   // before display) - undefined for every ordinary chat message.
   choices?: AdventureChoice[];
   secretRevealed?: boolean; // this reply told one of the character's secrets (#81)
+  notes?: MessageNote[]; // small story notes under a reply: a dream, a fight, a lie caught... (#93-#100)
+  swapped?: boolean; // written while you and the character had swapped roles (#105)
   // Set on the user's own next message when it was sent by tapping one of
   // the previous message's `choices` rather than typed free text - lets the
   // UI show which option was picked without guessing from text alone.
@@ -85,6 +88,9 @@ export interface Message {
   correction?: string; // language practice (#67): the fix for this message of yours
   translation?: string; // language practice (#67): this reply in your language
 }
+
+// What a story note under a reply says (#93-#100); see storyNotes.ts.
+export type MessageNote = "texted-first" | "dream" | "upset" | "made-up" | "lie-caught" | "rumor";
 
 // One tappable option offered at the end of an adventure narrator turn.
 export interface AdventureChoice {
@@ -224,6 +230,50 @@ export interface CharacterSecret {
   reveal: "stage" | "trust" | "asked";
   stage?: RelationshipStage; // reveal "stage": from this stage on
   trust?: number; // reveal "trust": from this trust (0-100) on
+}
+
+// A nickname, running joke or ritual you share with a character (#96).
+export interface InsideJoke {
+  id: string;
+  text: string;
+  at: number;
+}
+
+// The character is upset with you (#97) until you make up.
+export interface ChatConflict {
+  about: string;
+  since: number;
+}
+
+// A lie the character told (#100): what they said and the truth, which the
+// user only sees by asking for it.
+export interface ToldLie {
+  id: string;
+  said: string;
+  truth: string;
+  at: number;
+  caught?: number; // when it came out
+}
+
+// A rumor a character heard about you (#98), from another character's chat.
+export interface Rumor {
+  id: string;
+  fromId: number; // whose chat it started in
+  heard: string; // the version that reached them, a little wrong
+  truth: string;
+  at: number;
+  raised?: number; // when they brought it up
+}
+
+// A chat that isn't the main story (#102, #104): a flashback before you met,
+// or the character in another world. It keeps its own memory.
+export interface WhatIfChat {
+  kind: "flashback" | "universe";
+  title: string; // "Childhood", "Noir"
+  setting: string; // what the scene or world is
+  userRole?: string; // flashbacks: who you play in it
+  parentChatId?: number; // the chat it started from
+  endedAt?: number;
 }
 
 // A gift between you and a character (#82).
@@ -384,6 +434,17 @@ export interface Chat {
   plans?: SharedPlan[]; // plans made together (#84)
   planTracking?: boolean; // a helper check notices plans in the chat (#84)
   revealedSecrets?: string[]; // ids of the character's secrets told in this chat (#81)
+  insideJokes?: InsideJoke[]; // #96
+  jokeTracking?: boolean; // a helper check notices inside jokes (#96)
+  jokesCheckedAt?: number; // message count at the last check
+  conflicts?: boolean; // fights that need making up (#97)
+  conflict?: ChatConflict; // the character is upset with you now
+  jealousy?: boolean; // the character notices time you spend in other chats (#99)
+  lies?: boolean; // the character may lie (#100)
+  toldLies?: ToldLie[];
+  whatIf?: WhatIfChat; // a flashback or another world (#102, #104)
+  pendingHook?: string; // the cliffhanger the next reply picks up (#103)
+  roleSwap?: { since: number; bodySwap?: boolean }; // you play the character and the AI plays you (#105)
   ambient?: { on?: boolean; sound?: AmbientSound | "auto"; volume?: number }; // ambient sound (#89); volume 0-1
   stage?: RelationshipStage; // relationship stage (#70); unset = off
   stageCheckedAt?: number; // message count at the last stage check
@@ -503,6 +564,15 @@ export interface Character {
   gifts?: Gift[]; // given both ways, oldest first (#82)
   secrets?: CharacterSecret[]; // #81
   letters?: CharacterLetter[];
+  textsFirst?: boolean; // sends a short text first after a few quiet hours (#93)
+  firstTexts?: number[]; // when they did, the last few
+  dreams?: boolean; // now and then tells you a dream they had (#94)
+  lastDreamAt?: number;
+  badDays?: boolean; // some days they're off (#95)
+  dayMood?: { date: string; mood: string }; // today's mood picked by hand; mood "" = a good day
+  spreadsRumors?: boolean; // what you tell them can get around (#98)
+  rumors?: Rumor[]; // rumors they heard about you
+  pastEvents?: string[]; // their past, from flashbacks (#102)
   importantDates?: ImportantDate[]; // #47
   schedule?: CharacterSchedule; // #7
   postsStatuses?: boolean; // #8: posts a status now and then

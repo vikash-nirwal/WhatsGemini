@@ -80,6 +80,19 @@ export const dbService = {
     return await db.chats.put(chat);
   },
 
+  // Read, patch and write a chat in one transaction, so two patches of
+  // different fields landing at once (say a reply's scene state and its
+  // story tags) can't overwrite each other.
+  async patchChat(id: number, patch: Partial<Chat>): Promise<Chat> {
+    return await db.transaction("rw", db.chats, async () => {
+      const chat = await db.chats.get(id);
+      if (!chat) throw new Error(`Chat with id ${id} not found.`);
+      Object.assign(chat, patch);
+      await db.chats.put(chat);
+      return chat;
+    });
+  },
+
   async deleteChat(id: number): Promise<void> {
     await db.chats.delete(id);
   },
