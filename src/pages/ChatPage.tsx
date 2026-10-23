@@ -49,6 +49,7 @@ import { buildJokesSection } from "../features/chat/insideJokes";
 import { buildConflictDirective, buildConflictSection, upsetDelayMs } from "../features/chat/conflicts";
 import { buildMoodSection, fadedMood } from "../features/chat/lingeringMood";
 import { buildDayLogSection, dayLogText } from "../features/character/dayLog";
+import { buildConcernsSection } from "../features/character/preoccupations";
 import { buildSlipsDirective } from "../features/ai/utils/textingSlips";
 import { buildCallbackDirective, callbackDue, pickCallback } from "../features/ai/utils/memoryTime";
 import { dayKey } from "../features/character/badDays";
@@ -327,6 +328,7 @@ const ChatPage = () => {
   // Texting imperfections (#108): the prompt's side, in texting mode only.
   const textingOn = Boolean(currentChat?.textingMode ?? appTextingMode);
   scene.slipsNote = !isRoom && characterData && textingOn ? buildSlipsDirective(characterData.name, characterData.textingSlips, currentBlock(characterData.schedule, noteTime)?.status === "busy") : undefined;
+  scene.concernsNote = mainStory && characterData ? buildConcernsSection(characterData.name, characterData.concerns, noteTime) : undefined;
   scene.dayNote = mainStory && characterData ? buildDayLogSection(characterData.name, dayLogText(characterData, noteTime)) : undefined;
   const dayMood = mainStory ? dayMoodFor(characterData, noteTime) : undefined;
   scene.dayMoodNote = dayMood && characterData ? buildDayMoodSection(characterData.name, dayMood, userNameForNotes) : undefined;

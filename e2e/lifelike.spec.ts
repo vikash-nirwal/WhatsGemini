@@ -186,3 +186,33 @@ test("a character who misremembers is told to, in a sentence (#109)", async ({ p
   await sendAndWait(page, mockAI.requests, "hey");
   expect(lastSystem(mockAI.requests)).toContain("corrects themselves in the same reply");
 });
+
+test("a character's own preoccupations are written weekly and reach the reply's prompt (#110)", async ({ page, mockAI }) => {
+  await page.clock.install({ time: MORNING });
+  mockAI.reply((req) => (req.prompt.includes("in their own life this week") ? "NEW: Aria's landlord wants to inspect the flat on Friday.\nNEW: Aria wants to try pottery." : "Mock reply"));
+  await openChat(page);
+  await openChatTab(page);
+  await page.getByRole("switch", { name: "Aria has their own preoccupations" }).click();
+  const list = page.getByTestId("preoccupations");
+  await expect(list).toContainText("Nothing written yet this week");
+  await closePanel(page);
+
+  await page.clock.fastForward(14_000);
+  await openChatTab(page);
+  await expect(list).toContainText("inspect the flat on Friday", { timeout: 15_000 });
+  await expect(list).toContainText("try pottery");
+  // One can be dropped by hand.
+  await list.getByRole("button", { name: "Drop: Aria wants to try pottery." }).click();
+  await expect(list).not.toContainText("try pottery");
+  await closePanel(page);
+
+  await sendAndWait(page, mockAI.requests, "hey");
+  const system = lastSystem(mockAI.requests);
+  expect(system).toContain("Things going on in Aria's own life right now");
+  expect(system).toContain("- Aria's landlord wants to inspect the flat on Friday. (since today)");
+  expect(system).not.toContain("pottery");
+
+  // Written once a week: an hour later nothing more is asked.
+  await page.clock.fastForward(61 * 60_000);
+  await expect.poll(() => mockAI.requests.filter((r) => r.prompt.includes("in their own life this week")).length).toBe(1);
+});

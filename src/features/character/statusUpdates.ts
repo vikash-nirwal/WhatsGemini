@@ -21,11 +21,11 @@ export const statusDue = (character: Pick<Character, "postsStatuses" | "statuses
   return now - latest >= STATUS_GAP_MS;
 };
 
-export const buildStatusPrompt = (character: Pick<Character, "name" | "description" | "prompt">, nowDoing: string | undefined, facts: string[], recent: string[], dayMood?: string, dayLog?: string): string =>
+export const buildStatusPrompt = (character: Pick<Character, "name" | "description" | "prompt">, nowDoing: string | undefined, facts: string[], recent: string[], dayMood?: string, dayLog?: string, concerns?: string): string =>
   `Write one short status update that ${character.name} posts for their friends to see, like a WhatsApp Status.
 
 About ${character.name}: ${[character.description, character.prompt].filter(Boolean).join(" ").slice(0, 600)}
-${nowDoing ? `Right now they're ${nowDoing}.\n` : ""}${dayMood ? `Today they're ${dayMood}, and it shows.\n` : ""}${dayLog ? `Their day so far (keep to it): ${dayLog}\n` : ""}${facts.length > 0 ? `Things going on in their life lately:\n- ${facts.slice(0, 8).join("\n- ")}\n` : ""}${recent.length > 0 ? `Their last statuses (don't repeat them):\n- ${recent.join("\n- ")}\n` : ""}
+${nowDoing ? `Right now they're ${nowDoing}.\n` : ""}${dayMood ? `Today they're ${dayMood}, and it shows.\n` : ""}${dayLog ? `Their day so far (keep to it): ${dayLog}\n` : ""}${concerns ? `On their mind lately: ${concerns}\n` : ""}${facts.length > 0 ? `Things going on in their life lately:\n- ${facts.slice(0, 8).join("\n- ")}\n` : ""}${recent.length > 0 ? `Their last statuses (don't repeat them):\n- ${recent.join("\n- ")}\n` : ""}
 - First person, in ${character.name}'s own voice, about their day, a mood, a small moment or something they're looking forward to.
 - At most 140 characters. One emoji is fine. No hashtags, no quotes, no mention of being an AI.
 - Reply with only the status text.`;

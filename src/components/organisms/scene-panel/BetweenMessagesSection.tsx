@@ -8,6 +8,8 @@ import { DAY_MOODS, dayKey, dayMoodFor } from "src/features/character/badDays";
 import { describeMood, fadedMood } from "src/features/chat/lingeringMood";
 import { dayLogFor } from "src/features/character/dayLog";
 import { writeDayLog } from "src/components/molecules/DayLogWriter";
+import { writeConcerns } from "src/components/molecules/ConcernsWriter";
+import { dropConcern, openConcerns } from "src/features/character/preoccupations";
 import { Character, Chat } from "src/types";
 
 // A labelled switch row, as elsewhere in the Chat tab.
@@ -40,8 +42,42 @@ export const BetweenMessagesSection: React.FC<{ character: Character }> = ({ cha
       setWritingDay(false);
     }
   };
+  const concerns = openConcerns(character.concerns);
+  const [writingConcerns, setWritingConcerns] = React.useState(false);
+  const writeThisWeek = async () => {
+    setWritingConcerns(true);
+    try {
+      await writeConcerns(dispatch, character, () => undefined);
+    } finally {
+      setWritingConcerns(false);
+    }
+  };
   return (
     <>
+      <div className="flex flex-col gap-2">
+        <SwitchRow
+          title={`${name} has their own preoccupations`}
+          hint={`Once a week, two or three things going on in ${name}'s own life, brought up when they fit and moved on from over the weeks.`}
+          checked={Boolean(character.preoccupations)}
+          onChange={(on) => set({ preoccupations: on || undefined })}
+        />
+        {character.preoccupations && (
+          <div className="flex flex-col gap-1 text-[11px] text-subtle" data-testid="preoccupations">
+            {concerns.length === 0 && <span>Nothing written yet this week.</span>}
+            {concerns.map((c) => (
+              <div key={c.id} className="flex items-start justify-between gap-2">
+                <span>{c.text}</span>
+                <button type="button" className="shrink-0 text-primary hover:underline" aria-label={`Drop: ${c.text}`} onClick={() => set({ concerns: dropConcern(character.concerns, c.id) })}>
+                  Drop
+                </button>
+              </div>
+            ))}
+            <button type="button" className="self-start text-primary hover:underline disabled:opacity-50" disabled={writingConcerns} onClick={() => void writeThisWeek()}>
+              {writingConcerns ? "Writing..." : concerns.length > 0 ? "Write this week again" : "Write this week now"}
+            </button>
+          </div>
+        )}
+      </div>
       <div className="flex flex-col gap-2">
         <SwitchRow
           title={`${name} has one consistent day`}

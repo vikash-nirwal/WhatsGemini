@@ -8,6 +8,7 @@ import { CharacterStatus } from "src/types";
 import { currentBlock } from "src/features/character/schedule";
 import { dayMoodFor } from "src/features/character/badDays";
 import { dayLogText } from "src/features/character/dayLog";
+import { concernsLine } from "src/features/character/preoccupations";
 
 const CHECK_EVERY_MS = 30 * 60 * 1000;
 const FIRST_CHECK_MS = 15 * 1000;
@@ -34,7 +35,7 @@ const StatusPoster = () => {
       if (!due) return;
       busy.current = true;
       try {
-        const prompt = buildStatusPrompt(due, currentBlock(due.schedule, now)?.activity, (due.memory || []).slice(-8), liveStatuses(due, now).map((s) => s.text), dayMoodFor(due, now)?.label, dayLogText(due, now));
+        const prompt = buildStatusPrompt(due, currentBlock(due.schedule, now)?.activity, (due.memory || []).slice(-8), liveStatuses(due, now).map((s) => s.text), dayMoodFor(due, now)?.label, dayLogText(due, now), concernsLine(due.concerns));
         const text = cleanStatus(await dispatch(generateAssistText({ instruction: prompt, background: true })).unwrap());
         if (text) {
           const latest = charactersRef.current.find((c) => c.id === due.id) || due;

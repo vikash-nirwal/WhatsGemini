@@ -22,6 +22,7 @@ import WebLLMProgress from "src/components/molecules/WebLLMProgress";
 import { applyReadingComfort, loadReadingComfort } from "src/features/settings/readingComfort";
 import StatusPoster from "src/components/molecules/StatusPoster";
 import DayLogWriter from "src/components/molecules/DayLogWriter";
+import ConcernsWriter from "src/components/molecules/ConcernsWriter";
 import OffscreenTalker from "src/components/molecules/OffscreenTalker";
 import LetterWriter from "src/components/molecules/LetterWriter";
 import FirstTexter from "src/components/molecules/FirstTexter";
@@ -210,6 +211,7 @@ const AppContent = () => {
         <SpendingAlerts />
         <WebLLMProgress />
         <DayLogWriter />
+        <ConcernsWriter />
         <StatusPoster />
         <OffscreenTalker />
         <LetterWriter />

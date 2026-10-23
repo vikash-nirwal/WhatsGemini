@@ -10,6 +10,7 @@ import { addFirstText, buildFirstTextPrompt, cleanFirstText, firstTextDue } from
 import { buildDreamDirective, dreamDue, dreamIngredients } from "src/features/character/dreams";
 import { dayMoodFor } from "src/features/character/badDays";
 import { dayLogText } from "src/features/character/dayLog";
+import { concernsLine } from "src/features/character/preoccupations";
 import { currentBlock } from "src/features/character/schedule";
 import { openPlans } from "src/features/chat/sharedPlans";
 import { formatTranscript } from "src/features/ai/utils/chatHistoryUtils";
@@ -64,6 +65,7 @@ const FirstTexter = () => {
             transcript: formatTranscript(trimToLatestSummary(content).slice(-8), { userName, charName: texter.name }),
             dayMood: dayMoodFor(texter, now)?.label,
             dayLog: dayLogText(texter, now),
+            concerns: concernsLine(texter.concerns),
             dream: dreaming ? buildDreamDirective(texter.name, userName, dreamIngredients(texter, chat)) : undefined,
           }),
           background: true,

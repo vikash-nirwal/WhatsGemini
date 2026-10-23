@@ -245,6 +245,15 @@ export interface ChatConflict {
   since: number;
 }
 
+// Something the character is dealing with in their own life (#110).
+export interface Preoccupation {
+  id: string;
+  text: string;
+  since: number;
+  resolvedAt?: number;
+  outcome?: string; // how it ended
+}
+
 // What a character's day has been like (#107), written once a day. Empty text
 // means the model gave nothing usable; it still counts as written for the day.
 export interface CharacterDayLog {
@@ -602,6 +611,9 @@ export interface Character {
   dayLogs?: boolean; // one account of their day, written once a day, for every prompt (#107)
   dayLog?: CharacterDayLog; // today's (or the last one written)
   textingSlips?: 1 | 2; // texting imperfections (#108): a few or plenty; unset = clean
+  preoccupations?: boolean; // has things of their own going on, written weekly (#110)
+  concerns?: Preoccupation[]; // open ones and the last few finished
+  concernsWrittenAt?: number;
   dayMood?: { date: string; mood: string }; // today's mood picked by hand; mood "" = a good day
   spreadsRumors?: boolean; // what you tell them can get around (#98)
   rumors?: Rumor[]; // rumors they heard about you
