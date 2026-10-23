@@ -8,13 +8,14 @@ import { setEmotionPanelEnabled, setEmotionPopupEnabled, setEmotionPopupDuration
 import { Character } from "src/types";
 import { Input } from "src/components/atoms/input";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
+import PanelGroup from "./PanelGroup";
 import { DIARY_INTERVAL } from "src/utils/constants";
 import { cn } from "src/utils/cn";
 import { browserLanguageName, PRACTICE_LANGUAGES } from "src/features/chat/languagePractice";
 import { BOLDNESS_LABELS, STAGE_LABELS, STAGES } from "src/features/character/relationshipStages";
 import { ScenePanelTabProps } from "./types";
 import { AmbientSection } from "./AmbientSection";
-import { BetweenMessagesSection, DramaSection } from "./BetweenMessagesSection";
+import { AliveSection, DramaSection, MisremembersRow, MoodCarryRows, TextingSlipsRow } from "./BetweenMessagesSection";
 
 // The Chat tab: per-chat switches (texting, room turns, stages, co-writing,
 // language practice, suggestions...), per-character ones (statuses,
@@ -53,6 +54,7 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
 
   return (
           <div role="tabpanel" id="scene-tabpanel-chat" aria-labelledby="scene-tab-chat" className="flex flex-col gap-[22px]">
+          <PanelGroup id="messaging" title="Messaging & display">
           {/* Texting mode (#6), per chat: this chat's own choice or the app's */}
           <div className="flex flex-col gap-2">
             <div className="min-w-0">
@@ -69,6 +71,125 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
               ]}
             />
           </div>
+
+          {/* How they text (#108) - per character */}
+        {!isRoom && character && <TextingSlipsRow character={character} />}
+
+          {/* Reply suggestions (#16) - per chat */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[12.5px] font-medium text-foreground">Suggest replies</div>
+              <div className="text-[11px] text-subtle">After each reply, three short ideas for what you could say. Tap one to edit it in the box.</div>
+            </div>
+            <ToggleSwitch
+              checked={Boolean(chat?.replySuggestions)}
+              onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { replySuggestions: val || undefined } }))}
+              label={<span className="sr-only">Suggest replies</span>}
+            />
+          </div>
+
+          {/* Choice moments (#87) - per chat */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[12.5px] font-medium text-foreground">Choice moments</div>
+              <div className="text-[11px] text-subtle">At a real turning point, a reply now and then offers two or three directions to tap, like an adventure. You can always write your own.</div>
+            </div>
+            <ToggleSwitch
+              checked={Boolean(chat?.choiceMoments)}
+              onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { choiceMoments: val || undefined } }))}
+              label={<span className="sr-only">Choice moments</span>}
+            />
+          </div>
+
+          {/* Mood-tinted chat (#90) - per chat */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[12.5px] font-medium text-foreground">Tint the chat with the mood</div>
+              <div className="text-[11px] text-subtle">The background takes a soft colour from the character's latest mood: warmer when happy, blue when sad, red when angry. Text stays as it is.</div>
+            </div>
+            <ToggleSwitch
+              checked={Boolean(chat?.moodTint)}
+              onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { moodTint: val || undefined } }))}
+              label={<span className="sr-only">Tint the chat with the mood</span>}
+            />
+          </div>
+
+          {/* Ambient sound (#89) - per chat */}
+          {chat && <AmbientSection chat={chat} character={character} />}
+
+          {/* Display - app-wide preferences for the docked mood panel/popup, see note above */}
+          <div>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[12.5px] font-medium text-foreground">Mood panel</div>
+                  <div className="text-[11px] text-subtle">Docks each character's current mood portrait beside the chat</div>
+                </div>
+                <ToggleSwitch checked={emotionPanelEnabled} onChange={(val) => dispatch(setEmotionPanelEnabled(val))} />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[12.5px] font-medium text-foreground">Pop up on mood change</div>
+                  <div className="text-[11px] text-subtle">Briefly shows a portrait centered on screen when a mood changes</div>
+                </div>
+                <ToggleSwitch checked={emotionPopupEnabled} onChange={(val) => dispatch(setEmotionPopupEnabled(val))} />
+              </div>
+              {emotionPopupEnabled && (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-[12.5px] font-medium text-foreground">Popup duration (ms)</div>
+                  <Input
+                    type="number"
+                    value={emotionPopupDuration}
+                    onChange={(e) => dispatch(setEmotionPopupDuration(Math.max(300, Number(e.target.value))))}
+                    min="300"
+                    step="100"
+                    className="h-8 w-24 text-[12.5px] px-2.5 rounded-lg"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+          </PanelGroup>
+
+          {isRoom && (
+          <PanelGroup id="room" title="Group chat">
+          {/* Group chats (#22, #23): who answers, and an optional narrator */}
+          {isRoom && (
+            <div className="flex flex-col gap-2">
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-medium text-foreground">Who replies</div>
+                <div className="text-[11px] text-subtle">
+                  {chat?.turnMode === "natural"
+                    ? "Whoever would naturally answer, maybe two of them, maybe nobody."
+                    : chat?.turnMode === "everyone"
+                      ? "Everyone answers each message in turn (up to three)."
+                      : "One member at a time, taking turns."}
+                </div>
+              </div>
+              <SegmentedControl
+                value={chat?.turnMode || "round-robin"}
+                onChange={(v) => dispatch(updateChatOptions({ chatId, patch: { turnMode: v === "round-robin" ? undefined : (v as "natural" | "everyone") } }))}
+                options={[
+                  { value: "round-robin", label: "Taking turns" },
+                  { value: "natural", label: "Natural" },
+                  { value: "everyone", label: "Everyone" },
+                ]}
+              />
+            </div>
+          )}
+          {isRoom && (
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-medium text-foreground">Narrator</div>
+                <div className="text-[11px] text-subtle">After each round, a line of narration about the setting and what's happening around them.</div>
+              </div>
+              <ToggleSwitch
+                checked={Boolean(chat?.narrator)}
+                onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { narrator: val || undefined } }))}
+                label={<span className="sr-only">Narrator</span>}
+              />
+            </div>
+          )}
 
           {/* Members talk among themselves while you're away (#58) */}
           {isRoom && (
@@ -117,45 +238,94 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
               ))}
             </div>
           )}
-
-          {/* Group chats (#22, #23): who answers, and an optional narrator */}
-          {isRoom && (
-            <div className="flex flex-col gap-2">
-              <div className="min-w-0">
-                <div className="text-[12.5px] font-medium text-foreground">Who replies</div>
-                <div className="text-[11px] text-subtle">
-                  {chat?.turnMode === "natural"
-                    ? "Whoever would naturally answer, maybe two of them, maybe nobody."
-                    : chat?.turnMode === "everyone"
-                      ? "Everyone answers each message in turn (up to three)."
-                      : "One member at a time, taking turns."}
-                </div>
-              </div>
-              <SegmentedControl
-                value={chat?.turnMode || "round-robin"}
-                onChange={(v) => dispatch(updateChatOptions({ chatId, patch: { turnMode: v === "round-robin" ? undefined : (v as "natural" | "everyone") } }))}
-                options={[
-                  { value: "round-robin", label: "Taking turns" },
-                  { value: "natural", label: "Natural" },
-                  { value: "everyone", label: "Everyone" },
-                ]}
-              />
-            </div>
+          </PanelGroup>
           )}
-          {isRoom && (
+
+          {!isRoom && character && (
+          <PanelGroup id="alive" title="Alive between messages">
+          {/* Alive between messages (#93-#95, #98, #107, #110) - per character */}
+        {!isRoom && character && <AliveSection character={character} />}
+
+          {/* Status updates (#8) - per character */}
+        {!isRoom && character && (
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[12.5px] font-medium text-foreground">{character.name} posts statuses</div>
+              <div className="text-[11px] text-subtle">Now and then, a short status about their day, shown in the sidebar for a day. At most one every ten hours.</div>
+            </div>
+            <ToggleSwitch
+              checked={Boolean(character.postsStatuses)}
+              onChange={(val) => dispatch(updateCharacter({ ...character, postsStatuses: val || undefined }))}
+              label={<span className="sr-only">{character.name} posts statuses</span>}
+            />
+          </div>
+        )}
+
+          {/* Letters (#61) - per character */}
+        {!isRoom && character && (
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[12.5px] font-medium text-foreground">{character.name} writes letters</div>
+              <div className="text-[11px] text-subtle">When you haven't written for a few days, {character.name} writes you a longer letter, once per absence. It shows here in the chat, and you can reply.</div>
+            </div>
+            <ToggleSwitch
+              checked={Boolean(character.writesLetters)}
+              onChange={(val) => dispatch(updateCharacter({ ...character, writesLetters: val || undefined }))}
+              label={<span className="sr-only">{character.name} writes letters</span>}
+            />
+          </div>
+        )}
+          </PanelGroup>
+          )}
+
+          {!isRoom && character && (
+          <PanelGroup id="inner" title="Inner life">
+          {/* Inner thoughts (#10) - also per character */}
+          {!isRoom && character && (
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-[12.5px] font-medium text-foreground">Narrator</div>
-                <div className="text-[11px] text-subtle">After each round, a line of narration about the setting and what's happening around them.</div>
+                <div className="text-[12.5px] font-medium text-foreground">Show {character.name}'s inner thoughts</div>
+                <div className="text-[11px] text-subtle">
+                  Each reply also carries a private thought, hidden until you tap it. {character.name} never hears it back.
+                </div>
               </div>
               <ToggleSwitch
-                checked={Boolean(chat?.narrator)}
-                onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { narrator: val || undefined } }))}
-                label={<span className="sr-only">Narrator</span>}
+                checked={Boolean(character.innerThoughts)}
+                onChange={(val) => dispatch(updateCharacter({ ...character, innerThoughts: val || undefined }))}
+                label={<span className="sr-only">Show {character.name}'s inner thoughts</span>}
               />
             </div>
           )}
 
+          {/* Diary (#5) - a per-character switch, so it's set here in context */}
+          {!isRoom && character && (
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-medium text-foreground">{character.name} keeps a diary</div>
+                <div className="text-[11px] text-subtle">
+                  {chatScoped
+                    ? `Paused in this chat: entries only come from chats that share ${character.name}'s memory.`
+                    : `Every ${DIARY_INTERVAL} messages, a short private entry about you. The latest one shapes how ${character.name} acts. Read it from the Characters page.`}
+                </div>
+              </div>
+              <ToggleSwitch
+                checked={Boolean(character.diaryEnabled)}
+                onChange={(val) => dispatch(updateCharacter({ ...character, diaryEnabled: val }))}
+                label={<span className="sr-only">{character.name} keeps a diary</span>}
+              />
+            </div>
+          )}
+
+          {/* Moods linger (#106) - per chat */}
+        {!isRoom && character && chat && <MoodCarryRows chat={chat} character={character} />}
+
+          {/* Misremembers (#109) - per character */}
+        {!isRoom && character && <MisremembersRow character={character} />}
+          </PanelGroup>
+          )}
+
+          {!isRoom && character && (
+          <PanelGroup id="relationship" title="Relationship">
           {/* Relationship stages (#70) - 1:1 chats, opt-in */}
           {!isRoom && character && (
             <div className="flex flex-col gap-2">
@@ -195,6 +365,39 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
             </div>
           )}
 
+          {/* Relationship that evolves (#30) */}
+        {!isRoom && character && (
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[12.5px] font-medium text-foreground">Suggest relationship updates</div>
+              <div className="text-[11px] text-subtle">Every 20 messages, a cheap check whether you and {character.name} have grown closer or apart. You approve each change.</div>
+            </div>
+            <ToggleSwitch
+              checked={chat?.relationshipSuggestions !== false}
+              onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { relationshipSuggestions: val ? undefined : false } }))}
+              label={<span className="sr-only">Suggest relationship updates</span>}
+            />
+          </div>
+        )}
+
+          {/* Boldness (#72) - 1:1 chats */}
+          {!isRoom && character && (
+            <div className="flex flex-col gap-2">
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-medium text-foreground">How forward {character.name} is</div>
+                <div className="text-[11px] text-subtle">From shy and needing to be coaxed to bold and making the first move. Separate from intensity, which is how much gets described.</div>
+              </div>
+              <Select
+                aria-label="Boldness"
+                value={chat?.boldness ? String(chat.boldness) : ""}
+                onChange={(e) => dispatch(updateChatOptions({ chatId, patch: { boldness: e.target.value ? (Number(e.target.value) as 1 | 2 | 3 | 4 | 5) : undefined } }))}
+              >
+                <option value="">As written</option>
+                {([1, 2, 3, 4, 5] as const).map((n) => <option key={n} value={String(n)}>{BOLDNESS_LABELS[n]}</option>)}
+              </Select>
+            </div>
+          )}
+
           {/* Characters know about each other (#74) - 1:1 chats */}
           {!isRoom && character && otherBonds.length > 0 && (
             <div className="flex flex-col gap-2">
@@ -220,25 +423,17 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
               })}
             </div>
           )}
-
-          {/* Boldness (#72) - 1:1 chats */}
-          {!isRoom && character && (
-            <div className="flex flex-col gap-2">
-              <div className="min-w-0">
-                <div className="text-[12.5px] font-medium text-foreground">How forward {character.name} is</div>
-                <div className="text-[11px] text-subtle">From shy and needing to be coaxed to bold and making the first move. Separate from intensity, which is how much gets described.</div>
-              </div>
-              <Select
-                aria-label="Boldness"
-                value={chat?.boldness ? String(chat.boldness) : ""}
-                onChange={(e) => dispatch(updateChatOptions({ chatId, patch: { boldness: e.target.value ? (Number(e.target.value) as 1 | 2 | 3 | 4 | 5) : undefined } }))}
-              >
-                <option value="">As written</option>
-                {([1, 2, 3, 4, 5] as const).map((n) => <option key={n} value={String(n)}>{BOLDNESS_LABELS[n]}</option>)}
-              </Select>
-            </div>
+          </PanelGroup>
           )}
 
+          {!isRoom && character && (
+          <PanelGroup id="drama" title="Drama">
+          {/* Drama and conflict (#97, #99, #100) - per chat */}
+        {!isRoom && character && chat && <DramaSection chat={chat} character={character} />}
+          </PanelGroup>
+          )}
+
+          <PanelGroup id="modes" title="This story">
           {/* Co-writing mode (#68) - 1:1 chats */}
           {!isRoom && character && (
             <div className="flex items-center justify-between gap-3">
@@ -292,119 +487,6 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
             )}
           </div>
 
-          {/* Choice moments (#87) - per chat */}
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-[12.5px] font-medium text-foreground">Choice moments</div>
-              <div className="text-[11px] text-subtle">At a real turning point, a reply now and then offers two or three directions to tap, like an adventure. You can always write your own.</div>
-            </div>
-            <ToggleSwitch
-              checked={Boolean(chat?.choiceMoments)}
-              onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { choiceMoments: val || undefined } }))}
-              label={<span className="sr-only">Choice moments</span>}
-            />
-          </div>
-
-          {/* Reply suggestions (#16) - per chat */}
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-[12.5px] font-medium text-foreground">Suggest replies</div>
-              <div className="text-[11px] text-subtle">After each reply, three short ideas for what you could say. Tap one to edit it in the box.</div>
-            </div>
-            <ToggleSwitch
-              checked={Boolean(chat?.replySuggestions)}
-              onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { replySuggestions: val || undefined } }))}
-              label={<span className="sr-only">Suggest replies</span>}
-            />
-          </div>
-
-          {/* Status updates (#8) - per character */}
-        {!isRoom && character && (
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-[12.5px] font-medium text-foreground">{character.name} posts statuses</div>
-              <div className="text-[11px] text-subtle">Now and then, a short status about their day, shown in the sidebar for a day. At most one every ten hours.</div>
-            </div>
-            <ToggleSwitch
-              checked={Boolean(character.postsStatuses)}
-              onChange={(val) => dispatch(updateCharacter({ ...character, postsStatuses: val || undefined }))}
-              label={<span className="sr-only">{character.name} posts statuses</span>}
-            />
-          </div>
-        )}
-
-        {/* Letters (#61) - per character */}
-        {!isRoom && character && (
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-[12.5px] font-medium text-foreground">{character.name} writes letters</div>
-              <div className="text-[11px] text-subtle">When you haven't written for a few days, {character.name} writes you a longer letter, once per absence. It shows here in the chat, and you can reply.</div>
-            </div>
-            <ToggleSwitch
-              checked={Boolean(character.writesLetters)}
-              onChange={(val) => dispatch(updateCharacter({ ...character, writesLetters: val || undefined }))}
-              label={<span className="sr-only">{character.name} writes letters</span>}
-            />
-          </div>
-        )}
-
-        {/* Alive between messages (#93-#95, #98) - per character */}
-        {!isRoom && character && <BetweenMessagesSection character={character} />}
-
-        {/* Drama and conflict (#97, #99, #100) - per chat */}
-        {!isRoom && character && chat && <DramaSection chat={chat} character={character} />}
-
-        {/* Relationship that evolves (#30) */}
-        {!isRoom && character && (
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-[12.5px] font-medium text-foreground">Suggest relationship updates</div>
-              <div className="text-[11px] text-subtle">Every 20 messages, a cheap check whether you and {character.name} have grown closer or apart. You approve each change.</div>
-            </div>
-            <ToggleSwitch
-              checked={chat?.relationshipSuggestions !== false}
-              onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { relationshipSuggestions: val ? undefined : false } }))}
-              label={<span className="sr-only">Suggest relationship updates</span>}
-            />
-          </div>
-        )}
-
-        {/* Inner thoughts (#10) - also per character */}
-          {!isRoom && character && (
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-[12.5px] font-medium text-foreground">Show {character.name}'s inner thoughts</div>
-                <div className="text-[11px] text-subtle">
-                  Each reply also carries a private thought, hidden until you tap it. {character.name} never hears it back.
-                </div>
-              </div>
-              <ToggleSwitch
-                checked={Boolean(character.innerThoughts)}
-                onChange={(val) => dispatch(updateCharacter({ ...character, innerThoughts: val || undefined }))}
-                label={<span className="sr-only">Show {character.name}'s inner thoughts</span>}
-              />
-            </div>
-          )}
-
-          {/* Diary (#5) - a per-character switch, so it's set here in context */}
-          {!isRoom && character && (
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-[12.5px] font-medium text-foreground">{character.name} keeps a diary</div>
-                <div className="text-[11px] text-subtle">
-                  {chatScoped
-                    ? `Paused in this chat: entries only come from chats that share ${character.name}'s memory.`
-                    : `Every ${DIARY_INTERVAL} messages, a short private entry about you. The latest one shapes how ${character.name} acts. Read it from the Characters page.`}
-                </div>
-              </div>
-              <ToggleSwitch
-                checked={Boolean(character.diaryEnabled)}
-                onChange={(val) => dispatch(updateCharacter({ ...character, diaryEnabled: val }))}
-                label={<span className="sr-only">{character.name} keeps a diary</span>}
-              />
-            </div>
-          )}
-
           {/* Wardrobe (#50): what the character is wearing in this story */}
           {!isRoom && character && character.wardrobe && character.wardrobe.length > 0 && (
             <div className="flex items-center justify-between gap-3">
@@ -428,56 +510,8 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
               </div>
             </div>
           )}
+          </PanelGroup>
 
-          {/* Mood-tinted chat (#90) - per chat */}
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-[12.5px] font-medium text-foreground">Tint the chat with the mood</div>
-              <div className="text-[11px] text-subtle">The background takes a soft colour from the character's latest mood: warmer when happy, blue when sad, red when angry. Text stays as it is.</div>
-            </div>
-            <ToggleSwitch
-              checked={Boolean(chat?.moodTint)}
-              onChange={(val) => dispatch(updateChatOptions({ chatId, patch: { moodTint: val || undefined } }))}
-              label={<span className="sr-only">Tint the chat with the mood</span>}
-            />
-          </div>
-
-          {/* Ambient sound (#89) - per chat */}
-          {chat && <AmbientSection chat={chat} character={character} />}
-
-          {/* Display - app-wide preferences for the docked mood panel/popup, see note above */}
-          <div>
-            <div data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold mb-2">Display</div>
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-[12.5px] font-medium text-foreground">Mood panel</div>
-                  <div className="text-[11px] text-subtle">Docks each character's current mood portrait beside the chat</div>
-                </div>
-                <ToggleSwitch checked={emotionPanelEnabled} onChange={(val) => dispatch(setEmotionPanelEnabled(val))} />
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-[12.5px] font-medium text-foreground">Pop up on mood change</div>
-                  <div className="text-[11px] text-subtle">Briefly shows a portrait centered on screen when a mood changes</div>
-                </div>
-                <ToggleSwitch checked={emotionPopupEnabled} onChange={(val) => dispatch(setEmotionPopupEnabled(val))} />
-              </div>
-              {emotionPopupEnabled && (
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-[12.5px] font-medium text-foreground">Popup duration (ms)</div>
-                  <Input
-                    type="number"
-                    value={emotionPopupDuration}
-                    onChange={(e) => dispatch(setEmotionPopupDuration(Math.max(300, Number(e.target.value))))}
-                    min="300"
-                    step="100"
-                    className="h-8 w-24 text-[12.5px] px-2.5 rounded-lg"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
           </div>
   );
 };

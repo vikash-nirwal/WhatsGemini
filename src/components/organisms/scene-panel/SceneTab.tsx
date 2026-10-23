@@ -10,6 +10,7 @@ import { Textarea } from "src/components/atoms/textarea";
 import { Input } from "src/components/atoms/input";
 import { Button } from "src/components/atoms/button";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
+import PanelGroup from "./PanelGroup";
 import { cn } from "src/utils/cn";
 import { AUTHOR_NOTE_PRESETS, hasPreset, togglePreset } from "src/features/ai/utils/narrativeTools";
 import { DisplayImage } from "src/components/molecules/DisplayImage";
@@ -136,6 +137,7 @@ const SceneTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, cha
 
   return (
           <div role="tabpanel" id="scene-tabpanel-scene" aria-labelledby="scene-tab-scene" className="flex flex-col gap-[22px]">
+          <PanelGroup id="scene" title="The scene now">
           {/* Author's Note */}
           <div>
             <div className="flex items-baseline justify-between mb-2">
@@ -333,8 +335,10 @@ const SceneTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, cha
             </div>
           )}
         </div>
+          </PanelGroup>
 
-        {/* Story script (#57) */}
+          <PanelGroup id="script" title="Story script">
+          {/* Story script (#57) */}
           {onEditStory && (
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
@@ -346,7 +350,9 @@ const SceneTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, cha
               </Button>
             </div>
           )}
+          </PanelGroup>
 
+          <PanelGroup id="setting" title="Setting">
           {/* Backdrop (#13): a picture behind the bubbles */}
           <div>
             <div data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold mb-2">Backdrop</div>
@@ -474,10 +480,11 @@ const SceneTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, cha
               )}
             </div>
           </div>
+          </PanelGroup>
 
+          <PanelGroup id="boundaries" title="Boundaries">
           {/* Boundaries */}
           <div>
-            <div data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold mb-2">Boundaries</div>
             <p className="text-[11.5px] text-subtle mb-2">Hard limits are sent right before every reply, so the story never goes there.</p>
             <TagInput
               value={hardLimits || []}
@@ -500,6 +507,8 @@ const SceneTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, cha
               </div>
             )}
           </div>
+          </PanelGroup>
+
           </div>
   );
 };
