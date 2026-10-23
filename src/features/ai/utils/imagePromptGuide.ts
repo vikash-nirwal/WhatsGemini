@@ -1,4 +1,5 @@
-import { chooseTemplate, findTemplate, loadComfySettings, loadCustomWorkflows, REFERENCE_MODE_TEMPLATES, templateOptionsFor } from "../comfyui/settings";
+import type { ArtStyle } from "../../../types";
+import { loadComfySettings, loadCustomWorkflows, templateForCharacter, templateOptionsFor } from "../comfyui/settings";
 
 // Each image model wants its prompt written its own way: Stable Diffusion 1.5
 // reads comma-separated tags, Pony and Illustrious need their own lead-in
@@ -52,6 +53,19 @@ export const dialectForCheckpoint = (name: string | undefined, fallback: PromptD
   return fallback;
 };
 
+const looksRealistic = (name: string) => /realvis|juggernaut|realistic|realism|photon|epicrealism|zavychroma/i.test(name);
+
+// What each art style's checkpoint is likely called, for Settings' first
+// guess from the server's list.
+const STYLE_CHECKPOINT_HINTS: Record<ArtStyle, (name: string) => boolean> = {
+  anime: (n) => !looksRealistic(n) && (["illustrious", "pony"].includes(dialectForCheckpoint(n)) || /animagine|anime/i.test(n)),
+  realistic: looksRealistic,
+  "3d": (n) => /\b3d|pixar|disney|cartoon/i.test(n),
+};
+
+export const guessStyleCheckpoint = (artStyle: ArtStyle, checkpoints: string[]): string | undefined =>
+  checkpoints.find((name) => dialectForCheckpoint(name) !== "flux" && STYLE_CHECKPOINT_HINTS[artStyle](name));
+
 const target = (dialect: PromptDialect, engine: string, wantsParams = false): ImagePromptTarget => ({
   dialect,
   engine,
@@ -66,10 +80,11 @@ export interface TargetInput {
   sdWebuiModel?: string;
   hasReference?: boolean;
   referenceMode?: string; // the character's local reference mode (#40), which picks a ComfyUI template
+  artStyle?: ArtStyle; // picks the ComfyUI checkpoint, when one is set for the style
   isVideo?: boolean;
 }
 
-export const resolveImagePromptTarget = ({ providerId, imageModel, sdWebuiModel, hasReference = false, referenceMode, isVideo }: TargetInput): ImagePromptTarget => {
+export const resolveImagePromptTarget = ({ providerId, imageModel, sdWebuiModel, hasReference = false, referenceMode, artStyle, isVideo }: TargetInput): ImagePromptTarget => {
   if (isVideo) {
     return { ...target("prose", "Wan text-to-video"), guide: `${GUIDES.prose} Also say how things move over the few seconds of the clip, and how the camera moves (a slow push in, a pan, handheld).` };
   }
@@ -83,9 +98,8 @@ export const resolveImagePromptTarget = ({ providerId, imageModel, sdWebuiModel,
       try {
         const settings = loadComfySettings();
         const customs = loadCustomWorkflows();
-        const modeTemplate = hasReference && referenceMode ? REFERENCE_MODE_TEMPLATES[referenceMode] : undefined;
-        const template = (modeTemplate && findTemplate(modeTemplate, customs)) || chooseTemplate(settings, hasReference, customs);
-        const { checkpoint } = templateOptionsFor(settings, template);
+        const template = templateForCharacter(settings, hasReference, referenceMode, customs);
+        const { checkpoint } = templateOptionsFor(settings, template, artStyle);
         const byTemplate: PromptDialect = /flux/i.test(`${template.id} ${template.label}`) ? "flux" : "sdxl";
         const dialect = byTemplate === "flux" ? "flux" : dialectForCheckpoint(checkpoint, settings.baseSize <= 768 ? "sd15" : "sdxl");
         return target(dialect, `ComfyUI running the "${template.label}" workflow${checkpoint ? ` with "${checkpoint}"` : ""}`);

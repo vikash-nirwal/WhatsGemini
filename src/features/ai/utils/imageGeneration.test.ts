@@ -1,6 +1,6 @@
-import { deriveImagePrompt, parseSceneReply } from "./imageGeneration";
+import { composeImagePrompt, deriveImagePrompt, ImagePromptRefusedError, parseSceneReply } from "./imageGeneration";
 import { resolveImagePromptTarget } from "./imagePromptGuide";
-import { ChatProviderAdapter } from "../providers/types";
+import { ChatProviderAdapter, ContentBlockedError } from "../providers/types";
 
 // The real registry pulls in provider SDKs that Jest can't load (ESM-only);
 // deriveImagePrompt doesn't use it.
@@ -67,6 +67,46 @@ describe("deriveImagePrompt writes the prompt for the image model in use", () =>
     const result = await derive(fakeAdapter([SCENE_REPLY, 'PROMPT:\nmasterpiece, 1girl, cafe\nPARAMS:\n{"steps": 28, "width": 512, "height": 768}'], []), SD_WEBUI, undefined, []);
     expect(result.derivedImagePrompt).toBe("masterpiece, 1girl, cafe");
     expect(result.derivedParams).toEqual({ steps: 28, width: 512, height: 768 });
+  });
+});
+
+describe("a refused prompt", () => {
+  const REFUSAL = "I can't create a sexually explicit image prompt. I can help with something else.";
+
+  it("is never sent as the prompt", async () => {
+    const result = await derive(fakeAdapter([SCENE_REPLY, REFUSAL], []), SDXL_COMFY);
+    expect(result).toMatchObject({ refused: true, derivedImagePrompt: "", derivedSummary: "Here you go! [Image Context: selfie at the cafe]" });
+  });
+
+  it("stops the picture when the provider blocks the prompt call, instead of sending the plain description", async () => {
+    const result = await derive(fakeAdapter([SCENE_REPLY, new ContentBlockedError("Gemini", "PROHIBITED_CONTENT")], []), SDXL_COMFY);
+    expect(result.refused).toBe(true);
+    expect(result.derivedImagePrompt).toBe("");
+  });
+
+  it("stops the picture when the in-character call already refused", async () => {
+    const seen: string[] = [];
+    const result = await derive(fakeAdapter(["I'm sorry, but I can't continue with this roleplay.", "1girl"], seen), SDXL_COMFY);
+    expect(seen).toHaveLength(1);
+    expect(result.refused).toBe(true);
+  });
+
+  it("isn't redrawn from an earlier picture's saved prompt", async () => {
+    const seen: string[] = [];
+    const result = await derive(fakeAdapter([""], seen), SDXL_COMFY, REFUSAL);
+    expect(seen).toHaveLength(0);
+    expect(result.refused).toBe(true);
+  });
+
+  it("throws from composeImagePrompt so portraits and backdrops can fall back", async () => {
+    await expect(composeImagePrompt(fakeAdapter([REFUSAL], []), {} as any, "m", { target: SDXL_COMFY, scene: "a cafe" })).rejects.toBeInstanceOf(ImagePromptRefusedError);
+  });
+
+  it("goes out with the chat's safety settings", async () => {
+    const safety: any[] = [];
+    const adapter = { ...fakeAdapter(["1girl, cafe"], []), generateChat: async (opts: any) => (safety.push(opts.safetySettings), { text: "1girl, cafe" }) } as any;
+    await composeImagePrompt(adapter, {} as any, "m", { target: SDXL_COMFY, scene: "a cafe", safetySettings: { harassment: "BLOCK_NONE" } as any });
+    expect(safety).toEqual([{ harassment: "BLOCK_NONE" }]);
   });
 });
 

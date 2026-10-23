@@ -5,14 +5,17 @@ import { SettingsRow } from 'src/components/molecules/settings-card';
 import { SegmentedControl } from 'src/components/molecules/SegmentedControl';
 import {
   allTemplates,
+  ArtStyleOptions,
   ComfyUISettings as Settings,
   CustomWorkflow,
   DEFAULT_COMFYUI_URL,
+  DEFAULT_FACEID,
   loadComfySettings,
   loadCustomWorkflows,
   newCustomWorkflowId,
   saveComfySettings,
   saveCustomWorkflows,
+  takesStyleCheckpoint,
   TemplateOptions,
   templateOptionsFor,
 } from 'src/features/ai/comfyui/settings';
@@ -29,6 +32,9 @@ import {
 } from 'src/features/ai/comfyui/workflow';
 import { findMissingNodes, getSystemStats, LAUNCH_HINT, listInputOptions, normalizeServerUrl } from 'src/features/ai/comfyui/client';
 import { comfyuiAdapter } from 'src/features/ai/providers/comfyuiAdapter';
+import { guessStyleCheckpoint } from 'src/features/ai/utils/imagePromptGuide';
+import { ART_STYLES } from 'src/utils/constants';
+import type { ArtStyle } from 'src/types';
 
 // Everything for the local ComfyUI image provider (#39), as rows for the
 // image settings' Provider card. It reads and writes its own localStorage
@@ -47,6 +53,9 @@ const BASE_SIZE_OPTIONS = [
 const ROW_CLASS = 'comfyui-settings-row';
 
 const sourceKey = (source: ModelSource) => `${source.classType}.${source.input}`;
+// The art styles' checkpoints come from this list whatever the active
+// templates load.
+const SD_CHECKPOINT_SOURCE: ModelSource = { classType: 'CheckpointLoaderSimple', input: 'ckpt_name' };
 const formatGb = (bytes: number) => `${(bytes / 1024 ** 3).toFixed(bytes >= 10 * 1024 ** 3 ? 0 : 1)} GB`;
 
 const StatusLine: React.FC<{ status: Status; testId: string }> = ({ status, testId }) => {
@@ -154,6 +163,8 @@ const ComfyUISettings: React.FC = () => {
   const textTemplate = textTemplates.find((t) => t.id === settings.textTemplateId) || textTemplates[0];
   const activeTemplates = referenceTemplate.id === textTemplate.id ? [referenceTemplate] : [referenceTemplate, textTemplate];
   const serverUrl = normalizeServerUrl(settings.serverUrl || DEFAULT_COMFYUI_URL);
+  const usesFaceId = activeTemplates.some((t) => t.mappings.some((m) => m.placeholder === 'faceIdWeight'));
+  const sdCheckpoints = modelLists[sourceKey(SD_CHECKPOINT_SOURCE)] || [];
 
   const update = (patch: Partial<Settings>) => {
     setSettings((prev) => {
@@ -171,6 +182,30 @@ const ComfyUISettings: React.FC = () => {
     });
   };
 
+  const updateStyleOptions = (style: ArtStyle, patch: ArtStyleOptions) => {
+    setSettings((prev) => {
+      const next = { ...prev, styleOptions: { ...prev.styleOptions, [style]: { ...prev.styleOptions[style], ...patch } } };
+      saveComfySettings(next);
+      return next;
+    });
+  };
+
+  // The first time the server's checkpoints are known, each art style that
+  // was never set gets a guess from the file names. A style the user
+  // cleared stays empty.
+  const guessStyleCheckpoints = (checkpoints: string[]) => {
+    setSettings((prev) => {
+      const guesses = ART_STYLES.flatMap(({ value }) => {
+        const guess = prev.styleOptions[value]?.checkpoint === undefined ? guessStyleCheckpoint(value, checkpoints) : undefined;
+        return guess ? [[value, { ...prev.styleOptions[value], checkpoint: guess }] as const] : [];
+      });
+      if (guesses.length === 0) return prev;
+      const next = { ...prev, styleOptions: { ...prev.styleOptions, ...Object.fromEntries(guesses) } };
+      saveComfySettings(next);
+      return next;
+    });
+  };
+
   const updateCustoms = (next: CustomWorkflow[]) => {
     setCustoms(next);
     saveCustomWorkflows(next);
@@ -181,7 +216,7 @@ const ComfyUISettings: React.FC = () => {
     try {
       const stats = await getSystemStats(serverUrl);
       const classTypes = Array.from(new Set(activeTemplates.flatMap((t) => t.requirements.customNodes.flatMap((p) => p.classTypes))));
-      const sources = activeTemplates.flatMap((t) => [t.checkpointSource, t.loraSource]).filter((s): s is ModelSource => Boolean(s));
+      const sources = [SD_CHECKPOINT_SOURCE, ...activeTemplates.flatMap((t) => [t.checkpointSource, t.loraSource])].filter((s): s is ModelSource => Boolean(s));
       const uniqueSources = Array.from(new Map(sources.map((s) => [sourceKey(s), s])).values());
       const [missing, lists] = await Promise.all([
         findMissingNodes(serverUrl, classTypes),
@@ -189,6 +224,8 @@ const ComfyUISettings: React.FC = () => {
       ]);
       setMissingNodes(missing);
       setModelLists((prev) => ({ ...prev, ...Object.fromEntries(lists) }));
+      const checkpoints = lists.find(([key]) => key === sourceKey(SD_CHECKPOINT_SOURCE))?.[1] || [];
+      if (checkpoints.length > 0) guessStyleCheckpoints(checkpoints);
       const device = stats.devices[0];
       const deviceText = device ? `, ${device.name}${device.vramTotal ? ` (${formatGb(device.vramTotal)})` : ''}` : '';
       const missingText = missing.length > 0 ? ` Missing nodes: ${missing.join(', ')}.` : '';
@@ -357,6 +394,70 @@ const ComfyUISettings: React.FC = () => {
           </SettingsRow>
         );
       })}
+
+      {(activeTemplates.some(takesStyleCheckpoint) || usesFaceId) && (
+        <SettingsRow
+          className={ROW_CLASS}
+          label="By art style"
+          hint="Each character's art style picks the checkpoint for the SDXL workflows, and how closely FaceID copies the reference face. Leave a checkpoint empty to use the workflow's own."
+          align="start"
+        >
+          <div className="grid gap-3" data-testid="comfyui-art-styles">
+            {ART_STYLES.map(({ value, label }) => {
+              const stored = settings.styleOptions[value] || {};
+              const listId = `comfyui-style-ckpt-${value}`;
+              return (
+                <div key={value} className="grid gap-1.5">
+                  <span className="text-xs font-medium text-foreground">{label}</span>
+                  <TextInput
+                    type="text"
+                    aria-label={`Checkpoint for ${label} characters`}
+                    list={listId}
+                    value={stored.checkpoint ?? ''}
+                    onChange={(e) => updateStyleOptions(value, { checkpoint: e.target.value })}
+                    placeholder="The workflow's checkpoint"
+                  />
+                  <datalist id={listId} data-testid={listId}>
+                    {sdCheckpoints.map((m) => (
+                      <option key={m} value={m} />
+                    ))}
+                  </datalist>
+                  {usesFaceId && (
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <label className="flex items-center gap-2">
+                        FaceID weight
+                        <TextInput
+                          type="number"
+                          aria-label={`FaceID weight for ${label} characters`}
+                          className="w-24"
+                          min="0"
+                          max="2"
+                          step="0.05"
+                          value={stored.faceIdWeight ?? DEFAULT_FACEID[value].weight}
+                          onChange={(e) => updateStyleOptions(value, { faceIdWeight: Number(e.target.value) })}
+                        />
+                      </label>
+                      <label className="flex items-center gap-2">
+                        FaceID LoRA
+                        <TextInput
+                          type="number"
+                          aria-label={`FaceID LoRA strength for ${label} characters`}
+                          className="w-24"
+                          min="0"
+                          max="2"
+                          step="0.05"
+                          value={stored.faceIdLoraStrength ?? DEFAULT_FACEID[value].loraStrength}
+                          onChange={(e) => updateStyleOptions(value, { faceIdLoraStrength: Number(e.target.value) })}
+                        />
+                      </label>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </SettingsRow>
+      )}
 
       <SettingsRow className={ROW_CLASS} label="Base size" hint="1024 for SDXL and FLUX, 512 or 768 for SD 1.5. The picture's shape still follows the requested aspect ratio.">
         <SegmentedControl value={String(settings.baseSize)} onChange={(v) => update({ baseSize: Number(v) })} options={BASE_SIZE_OPTIONS} />

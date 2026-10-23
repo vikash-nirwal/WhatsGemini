@@ -1,4 +1,4 @@
-import { AISafetySettings, LocalImageSettings, SamplerSettings } from "../../../types";
+import { AISafetySettings, ArtStyle, LocalImageSettings, SamplerSettings } from "../../../types";
 import { ChatMessage, NormalizedImage, UsageInfo } from "../types";
 
 // Capability flags let Settings UI hide/disable controls a given provider can't
@@ -72,6 +72,9 @@ export interface ImageGenCallOptions {
   // The replying character's seed, LoRA and reference mode (#40). Only the
   // local providers (ComfyUI here; SD WebUI has its own path) use it.
   localImageSettings?: LocalImageSettings;
+  // The character's art style. ComfyUI uses it to pick the checkpoint and
+  // FaceID strength set for that style; other adapters ignore it.
+  artStyle?: ArtStyle;
 }
 
 export interface ImageGenCallResult {

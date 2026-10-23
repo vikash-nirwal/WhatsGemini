@@ -15,7 +15,7 @@ const OPENERS = [
   /^unfortunately,? i (?:can(?:'|’)?t|cannot|am unable)/,
 ];
 
-const ASSISTANT_PHRASES = /\b(?:continue (?:with )?(?:this|the) (?:roleplay|role-play|story|scenario|conversation)|(?:help|assist) with (?:this|that)|fulfil+ (?:this|that|your) request|(?:create|write|generate|produce|provide) (?:this|that|explicit|sexual|such|the requested)|engage in (?:this|that|explicit|sexual)|content (?:policy|guidelines)|(?:against|violates?) (?:my|the|our) (?:guidelines|policies|policy|usage)|as an ai|language model|(?:sexually )?explicit content|keep (?:things|this|it) (?:respectful|appropriate|sfw))\b/;
+const ASSISTANT_PHRASES = /\b(?:continue (?:with )?(?:this|the) (?:roleplay|role-play|story|scenario|conversation)|(?:help|assist) with (?:this|that)|fulfil+ (?:this|that|your) request|(?:create|write|generate|produce|provide) (?:an? )?(?:this|that|(?:sexually )?explicit|sexual|such|the requested)|engage in (?:this|that|explicit|sexual)|content (?:policy|guidelines)|(?:against|violates?) (?:my|the|our) (?:guidelines|policies|policy|usage)|as an ai|language model|(?:sexually )?explicit content|keep (?:things|this|it) (?:respectful|appropriate|sfw))\b/;
 
 export const looksLikeRefusal = (text: string | undefined): boolean => {
   if (!text) return false;
@@ -25,4 +25,13 @@ export const looksLikeRefusal = (text: string | undefined): boolean => {
   if (!normalized || normalized.length > 1200) return false;
   const head = normalized.slice(0, 400);
   return OPENERS.some((re) => re.test(head)) && ASSISTANT_PHRASES.test(head);
+};
+
+// An image prompt never speaks in the first person, so for one the refusal
+// opener alone is enough: "I can't create a sexually explicit image prompt"
+// must not be drawn.
+export const looksLikePromptRefusal = (text: string | undefined): boolean => {
+  if (!text) return false;
+  const head = text.trim().replace(/^[*_"“\s]+/, "").toLowerCase().slice(0, 400);
+  return OPENERS.some((re) => re.test(head));
 };

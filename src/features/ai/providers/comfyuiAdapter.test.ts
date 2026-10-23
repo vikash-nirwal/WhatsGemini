@@ -41,6 +41,10 @@ describe("comfyuiAdapter", () => {
     // No LoRA set: the loader is gone and FaceID reads the checkpoint directly.
     expect(workflow["2"]).toBeUndefined();
     expect(workflow["10"].inputs.model).toEqual(["1", 0]);
+    // No art style: the template's own checkpoint and FaceID strengths.
+    expect(workflow["1"].inputs.ckpt_name).toBe("sd_xl_base_1.0.safetensors");
+    expect(workflow["11"].inputs.weight).toBe(0.85);
+    expect(workflow["10"].inputs.lora_strength).toBe(0.6);
 
     const promptCall = fake.calls.find((c) => c.path === "/prompt")!;
     expect(JSON.parse(String(promptCall.init?.body)).client_id).toEqual(expect.any(String));
@@ -164,6 +168,49 @@ describe("comfyuiAdapter", () => {
     await adapter.generateImage({ model: "", prompt: "x" }, {});
 
     expect(String((global.fetch as jest.Mock).mock.calls[0][0])).toBe("http://127.0.0.1:8188/prompt");
+  });
+
+  describe("the character's art style", () => {
+    const styled = {
+      ...DEFAULT_COMFYUI_SETTINGS,
+      styleOptions: { anime: { checkpoint: "waiNSFWIllustrious_v140.safetensors" }, realistic: { checkpoint: "RealVisXL_V5.0.safetensors", faceIdWeight: 0.9 } },
+    };
+
+    it("picks the anime checkpoint and a lighter FaceID weight", async () => {
+      saveComfySettings(styled);
+      const fake = createFakeComfy();
+      install(fake);
+
+      await adapter.generateImage({ model: "", prompt: "Aria", referenceImages: [REF], artStyle: "anime" }, {});
+
+      const workflow = fake.queuedWorkflow();
+      expect(workflow["1"].inputs.ckpt_name).toBe("waiNSFWIllustrious_v140.safetensors");
+      expect(workflow["11"].inputs.weight).toBe(0.6);
+    });
+
+    it("uses the user's FaceID weight and the realistic checkpoint, also without a photo", async () => {
+      saveComfySettings(styled);
+      const fake = createFakeComfy();
+      install(fake);
+
+      await adapter.generateImage({ model: "", prompt: "Kai", referenceImages: [REF], artStyle: "realistic" }, {});
+      expect(fake.queuedWorkflow()["11"].inputs.weight).toBe(0.9);
+
+      const noPhoto = createFakeComfy();
+      install(noPhoto);
+      await adapter.generateImage({ model: "", prompt: "Kai", artStyle: "realistic" }, {});
+      expect(noPhoto.queuedWorkflow()["1"].inputs.ckpt_name).toBe("RealVisXL_V5.0.safetensors");
+    });
+
+    it("falls back to the template's checkpoint when the style has none", async () => {
+      saveComfySettings({ ...styled, templateOptions: { "sdxl-faceid": { checkpoint: "juggernautXL_v9.safetensors" } } });
+      const fake = createFakeComfy();
+      install(fake);
+
+      await adapter.generateImage({ model: "", prompt: "Mo", referenceImages: [REF], artStyle: "3d" }, {});
+
+      expect(fake.queuedWorkflow()["1"].inputs.ckpt_name).toBe("juggernautXL_v9.safetensors");
+    });
   });
 
   describe("a character's own local settings (#40)", () => {

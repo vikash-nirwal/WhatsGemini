@@ -3,7 +3,7 @@ import { performChatCompression, buildValidHistory, buildAutoCompressedMessages,
 import { AI, getModelPricing, ART_STYLE_CLAUSES, DEFAULT_ART_STYLE } from "../utils/constants";
 import { getProviderApiKey, getOllamaBaseUrl, getWanBaseUrl } from "./ai/utils/settings";
 import { extractAndSaveBase64ImagesLocally, stripLeakedBase64 } from "./ai/utils/apiUtils";
-import { composeImagePrompt, deriveImagePrompt, generateImage, RoomReferenceCharacter } from "./ai/utils/imageGeneration";
+import { composeImagePrompt, deriveImagePrompt, generateImage, IMAGE_PROMPT_REFUSED_MESSAGE, IMAGE_PROMPT_REFUSED_WARNING, RoomReferenceCharacter } from "./ai/utils/imageGeneration";
 import { ImagePromptTarget, resolveImagePromptTarget } from "./ai/utils/imagePromptGuide";
 import { generateVideo } from "./ai/utils/videoGeneration";
 import { extractEmotionTag } from "./ai/utils/emotionUtils";
@@ -22,7 +22,7 @@ import { appendCharacterImages } from "./ai/utils/imageProcessing";
 import type { NormalizedImage } from "./ai/types";
 
 import { extractMemoryChanges } from "./ai/utils/memoryExtraction";
-import { looksLikeRefusal } from "./ai/utils/refusal";
+import { looksLikePromptRefusal, looksLikeRefusal } from "./ai/utils/refusal";
 import { CHAT_PROVIDERS, IMAGE_PROVIDERS, VIDEO_PROVIDERS } from "./ai/providers/registry";
 import { ProviderRuntimeConfig } from "./ai/providers/types";
 import { ChatMessage, UsageInfo } from "./ai/types";
@@ -95,7 +95,7 @@ const rewordForTagModel = async (settings: RootState["settings"], target: ImageP
   if (!target.tags) return description;
   try {
     const helper = await resolveHelperCall(settings);
-    const { prompt } = await composeImagePrompt(helper.adapter, helper.config, helper.model, { target, scene: description, baseStyle: settings.imageGenPrompt });
+    const { prompt } = await composeImagePrompt(helper.adapter, helper.config, helper.model, { target, scene: description, baseStyle: settings.imageGenPrompt, safetySettings: settings.safetySettings });
     return prompt;
   } catch {
     return description;
@@ -232,6 +232,7 @@ export const generateAIResponse = createAsyncThunk(
             sdWebuiModel: settings.sdWebuiModel,
             hasReference: Boolean(characterImages?.length || otherRoomCharacters?.some((c) => c.images.length > 0)),
             referenceMode: localImageSettings?.referenceMode,
+            artStyle: artStyle || DEFAULT_ART_STYLE,
             isVideo: isVideoRequest,
           }),
           existingImagePrompt, existingImageParams, signal, isCharacterInitiated, isAutoSelfie, artStyle, appearanceLocks
@@ -239,7 +240,11 @@ export const generateAIResponse = createAsyncThunk(
         trackUsage(derivation.usage, chatProviderId, selectedModel);
         response = derivation.derivedSummary;
 
-        if (isVideoRequest) {
+        if (derivation.refused) {
+          // Nothing to draw: the reply is kept, with a note saying why
+          // there's no picture.
+          response += IMAGE_PROMPT_REFUSED_WARNING;
+        } else if (isVideoRequest) {
           finalDerivedVideoPrompt = derivation.derivedImagePrompt;
 
           const videoResult = await generateVideo(videoProviderId, videoConfig, videoModelName, derivation.derivedImagePrompt, signal);
@@ -252,7 +257,8 @@ export const generateAIResponse = createAsyncThunk(
 
           const imageResult = await generateImage(
             imageProviderId, imageConfig, useSdWebui, imageModelName, derivation.derivedImagePrompt, derivation.derivedParams,
-            characterImages, characterName, settings.safetySettings, signal, settings.geminiImageSize, undefined, otherRoomCharacters, localImageSettings
+            characterImages, characterName, settings.safetySettings, signal, settings.geminiImageSize, undefined, otherRoomCharacters, localImageSettings,
+            artStyle || DEFAULT_ART_STYLE
           );
           trackUsage(imageResult.usage, imageProviderId, imageModelName);
           generatedImages = imageResult.images;
@@ -623,12 +629,12 @@ export const generateBackdropImage = createAsyncThunk(
       const imageConfig = useSdWebui
         ? { apiKey: null }
         : await resolveProviderConfig(imageProviderId, IMAGE_PROVIDERS[imageProviderId]?.capabilities.requiresBaseUrl || false);
-      const target = resolveImagePromptTarget({ providerId: imageProviderId, imageModel: settings.imageModel, sdWebuiModel: settings.sdWebuiModel });
+      const target = resolveImagePromptTarget({ providerId: imageProviderId, imageModel: settings.imageModel, sdWebuiModel: settings.sdWebuiModel, artStyle: artStyle || DEFAULT_ART_STYLE });
       const result = await generateImage(
         imageProviderId, imageConfig, useSdWebui, settings.imageModel,
         await rewordForTagModel(settings, target, buildBackdropPrompt(setting, ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE])),
         useSdWebui ? { width: 1024, height: 576 } : {},
-        undefined, undefined, settings.safetySettings, undefined, settings.geminiImageSize, "16:9"
+        undefined, undefined, settings.safetySettings, undefined, settings.geminiImageSize, "16:9", undefined, undefined, artStyle || DEFAULT_ART_STYLE
       );
       if (!result.images || result.images.length === 0) throw new Error(result.warning?.replace(/^\s*\[Warning:\s*|\]\s*$/g, "") || "No image was generated. Check your image provider in Settings.");
       return result.images[0];
@@ -649,12 +655,12 @@ export const generateWorldMapImage = createAsyncThunk(
       const imageConfig = useSdWebui
         ? { apiKey: null }
         : await resolveProviderConfig(imageProviderId, IMAGE_PROVIDERS[imageProviderId]?.capabilities.requiresBaseUrl || false);
-      const target = resolveImagePromptTarget({ providerId: imageProviderId, imageModel: settings.imageModel, sdWebuiModel: settings.sdWebuiModel });
+      const target = resolveImagePromptTarget({ providerId: imageProviderId, imageModel: settings.imageModel, sdWebuiModel: settings.sdWebuiModel, artStyle: artStyle || DEFAULT_ART_STYLE });
       const result = await generateImage(
         imageProviderId, imageConfig, useSdWebui, settings.imageModel,
         await rewordForTagModel(settings, target, buildMapPrompt(world, places, ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE])),
         useSdWebui ? { width: 1024, height: 768 } : {},
-        undefined, undefined, settings.safetySettings, undefined, settings.geminiImageSize, "4:3"
+        undefined, undefined, settings.safetySettings, undefined, settings.geminiImageSize, "4:3", undefined, undefined, artStyle || DEFAULT_ART_STYLE
       );
       if (!result.images || result.images.length === 0) throw new Error(result.warning?.replace(/^\s*\[Warning:\s*|\]\s*$/g, "") || "No image was generated. Check your image provider in Settings.");
       return result.images[0];
@@ -716,6 +722,7 @@ export const generateAvatarImage = createAsyncThunk(
         sdWebuiModel: settings.sdWebuiModel,
         hasReference: Boolean(appearanceImages?.length),
         referenceMode: localImageSettings?.referenceMode,
+        artStyle: artStyle || DEFAULT_ART_STYLE,
       });
       const prompt = await rewordForTagModel(settings, target, parts.join(". ") + ".");
 
@@ -723,7 +730,7 @@ export const generateAvatarImage = createAsyncThunk(
         imageProviderId, imageConfig, useSdWebui, imageModelName,
         prompt, {}, // no SD-specific params
         appearanceImages, name,
-        settings.safetySettings, undefined, settings.geminiImageSize, "3:4", undefined, localImageSettings
+        settings.safetySettings, undefined, settings.geminiImageSize, "3:4", undefined, localImageSettings, artStyle || DEFAULT_ART_STYLE
       );
 
       if (!result.images || result.images.length === 0) {
@@ -772,7 +779,7 @@ export const generateAdventureSceneImage = createAsyncThunk(
       // Normally only NPCs the narration names; an explicit request can ask for everyone.
       const presentCast = includeFullCast ? cast : findCastInNarration(narration, cast);
       const hasReferences = presentCast.some((c) => c.appearanceImages?.length) || Boolean(persona?.avatar || persona?.appearanceImages?.length);
-      const sceneTarget = resolveImagePromptTarget({ providerId: imageProviderId, imageModel: imageModelName, sdWebuiModel: settings.sdWebuiModel, hasReference: hasReferences });
+      const sceneTarget = resolveImagePromptTarget({ providerId: imageProviderId, imageModel: imageModelName, sdWebuiModel: settings.sdWebuiModel, hasReference: hasReferences, artStyle: artStyle || DEFAULT_ART_STYLE });
       let imagePrompt = existingImagePrompt;
       if (!imagePrompt) {
         const chatAdapter = CHAT_PROVIDERS[settings.chatProvider] || CHAT_PROVIDERS.gemini;
@@ -789,6 +796,7 @@ export const generateAdventureSceneImage = createAsyncThunk(
         trackUsage(derivation.usage, settings.chatProvider, settings.selectedModel);
         imagePrompt = derivation.text.trim() || narration;
       }
+      if (looksLikePromptRefusal(imagePrompt)) throw new Error(IMAGE_PROMPT_REFUSED_MESSAGE);
       // Each drawn NPC's locked look (#34), guaranteed in the final prompt.
       imagePrompt = applyAppearanceLocks(imagePrompt, appearanceLocksFor(presentCast), sceneTarget.tags ? "tags" : "sentences");
 
@@ -806,7 +814,7 @@ export const generateAdventureSceneImage = createAsyncThunk(
         imageProviderId, imageConfig, useSdWebui, imageModelName, imagePrompt,
         useSdWebui ? { width: 768, height: 512 } : {},
         undefined, undefined, settings.safetySettings, undefined, settings.geminiImageSize, "16:9",
-        references.length > 0 ? references : undefined
+        references.length > 0 ? references : undefined, undefined, artStyle || DEFAULT_ART_STYLE
       );
       trackUsage(result.usage, imageProviderId, imageModelName);
 

@@ -77,6 +77,15 @@ describe("fillWorkflow", () => {
     expect(filled["13"].inputs.model).toEqual(["1", 0]);
   });
 
+  it("fills the FaceID strengths as numbers, keeping the LoRA bypass intact", () => {
+    const faceId = BUILT_IN_TEMPLATES.find((t) => t.id === "sdxl-faceid")!;
+    const filled = fillWorkflow(faceId.workflow, faceId.mappings, { faceIdWeight: "0.6", faceIdLoraStrength: 0.5 });
+    expect(filled["11"].inputs.weight).toBe(0.6);
+    expect(filled["10"].inputs).toMatchObject({ lora_strength: 0.5, model: ["1", 0] });
+    // Without values the template's own strengths stay.
+    expect(fillWorkflow(faceId.workflow, faceId.mappings, {})["11"].inputs.weight).toBe(0.85);
+  });
+
   it("keeps a values-free input at the workflow's own value", () => {
     const filled = fillWorkflow(withLora, mappings, { lora: "x.safetensors" });
     expect(filled["1"].inputs.ckpt_name).toBe("base.safetensors");

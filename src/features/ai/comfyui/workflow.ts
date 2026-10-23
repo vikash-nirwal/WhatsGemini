@@ -27,6 +27,8 @@ export const PLACEHOLDERS = [
   "checkpoint",
   "lora",
   "loraStrength",
+  "faceIdWeight",
+  "faceIdLoraStrength",
   "referenceImage",
   "referenceImage2",
   "referenceImage3",
@@ -43,6 +45,8 @@ export const PLACEHOLDER_LABELS: Record<Placeholder, string> = {
   checkpoint: "Checkpoint / model",
   lora: "LoRA name",
   loraStrength: "LoRA weight",
+  faceIdWeight: "FaceID weight",
+  faceIdLoraStrength: "FaceID LoRA strength",
   referenceImage: "Reference image (main)",
   referenceImage2: "Reference image 2",
   referenceImage3: "Reference image 3",
@@ -87,7 +91,7 @@ export const bypassNode = (workflow: ComfyWorkflow, nodeId: string, passthrough:
   delete workflow[nodeId];
 };
 
-const NUMERIC_PLACEHOLDERS: Placeholder[] = ["seed", "width", "height", "loraStrength"];
+const NUMERIC_PLACEHOLDERS: Placeholder[] = ["seed", "width", "height", "loraStrength", "faceIdWeight", "faceIdLoraStrength"];
 
 // Returns a filled copy; the template's own workflow object is never changed.
 // A missing value leaves the workflow's own value in place, except an empty

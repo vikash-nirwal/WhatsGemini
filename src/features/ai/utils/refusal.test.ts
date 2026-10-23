@@ -1,4 +1,4 @@
-import { looksLikeRefusal } from "./refusal";
+import { looksLikePromptRefusal, looksLikeRefusal } from "./refusal";
 
 describe("looksLikeRefusal", () => {
   it.each([
@@ -8,6 +8,7 @@ describe("looksLikeRefusal", () => {
     "As an AI language model, I must keep things appropriate.",
     "Sorry, I won't write that. Let's keep this respectful.",
     "I'm not comfortable continuing this scenario because it violates the content policy.",
+    "I can't create a sexually explicit image prompt. I can help with a tasteful one instead.",
   ])("flags %p", (text) => {
     expect(looksLikeRefusal(text)).toBe(true);
   });
@@ -20,5 +21,20 @@ describe("looksLikeRefusal", () => {
     "",
   ])("does not flag in-character text %p", (text) => {
     expect(looksLikeRefusal(text)).toBe(false);
+  });
+});
+
+describe("looksLikePromptRefusal", () => {
+  it.each([
+    "I can't create a sexually explicit image prompt. I can help with something else.",
+    "I'm sorry, I can't do that.",
+    "Sorry, that's not something I'll write.",
+    '"I cannot write this prompt."',
+  ])("flags %p", (text) => {
+    expect(looksLikePromptRefusal(text)).toBe(true);
+  });
+
+  it.each(["1girl, solo, rainy cafe window, smiling", "a woman taking a selfie by a rainy window", ""])("does not flag the prompt %p", (text) => {
+    expect(looksLikePromptRefusal(text)).toBe(false);
   });
 });

@@ -51,3 +51,15 @@ it("ships one text-only template and three that use the reference photo", () => 
   expect(BUILT_IN_TEMPLATES.filter((t) => !usesReference(t.mappings)).map((t) => t.id)).toEqual(["sdxl-txt2img"]);
   expect(BUILT_IN_TEMPLATES.filter((t) => usesReference(t.mappings))).toHaveLength(3);
 });
+
+it("maps the FaceID strengths, so they can follow the art style", () => {
+  const faceId = BUILT_IN_TEMPLATES.find((t) => t.id === "sdxl-faceid")!;
+  expect(faceId.mappings).toEqual(
+    expect.arrayContaining([
+      { placeholder: "faceIdWeight", nodeId: "11", input: "weight" },
+      { placeholder: "faceIdLoraStrength", nodeId: "10", input: "lora_strength" },
+    ])
+  );
+  expect(faceId.workflow["11"].class_type).toBe("IPAdapterFaceID");
+  expect(faceId.workflow["10"].class_type).toBe("IPAdapterUnifiedLoaderFaceID");
+});

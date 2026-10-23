@@ -1,7 +1,7 @@
 import type { ImageGenCallOptions, ImageGenCallResult, ImageProviderAdapter } from "./types";
 import type { NormalizedImage } from "../types";
 import { cancelPrompt, fetchOutputImage, normalizeServerUrl, queuePrompt, uploadImage, waitForOutputs } from "../comfyui/client";
-import { chooseTemplate, findTemplate, loadComfySettings, loadCustomWorkflows, parseSeed, REFERENCE_MODE_TEMPLATES, templateOptionsFor } from "../comfyui/settings";
+import { faceIdOptionsFor, loadComfySettings, loadCustomWorkflows, parseSeed, templateForCharacter, templateOptionsFor } from "../comfyui/settings";
 import { fillWorkflow, PlaceholderValues, randomSeed, REFERENCE_PLACEHOLDERS, sizeForAspectRatio } from "../comfyui/workflow";
 
 // A local ComfyUI server (#39). Everything the adapter needs (server URL,
@@ -62,9 +62,9 @@ export const createComfyUIAdapter = (adapterOptions: ComfyUIAdapterOptions = {})
     const character = opts.localImageSettings;
     const references = character?.referenceMode === "none" ? [] : pickReferences(opts);
     const customs = loadCustomWorkflows();
-    const modeTemplateId = references.length > 0 && character?.referenceMode ? REFERENCE_MODE_TEMPLATES[character.referenceMode] : undefined;
-    const template = (modeTemplateId && findTemplate(modeTemplateId, customs)) || chooseTemplate(settings, references.length > 0, customs);
-    const options = templateOptionsFor(settings, template);
+    const template = templateForCharacter(settings, references.length > 0, character?.referenceMode, customs);
+    // The art style picks the checkpoint and the FaceID strength, if set.
+    const options = templateOptionsFor(settings, template, opts.artStyle);
     const characterLora = character?.loraName?.trim();
     const trigger = character?.loraTrigger?.trim();
     const prompt = trigger && !opts.prompt.toLowerCase().includes(trigger.toLowerCase()) ? `${trigger}, ${opts.prompt}` : opts.prompt;
@@ -78,6 +78,7 @@ export const createComfyUIAdapter = (adapterOptions: ComfyUIAdapterOptions = {})
       height,
       lora: characterLora ? loraFileName(characterLora) : options.lora,
       loraStrength: characterLora ? character?.loraWeight ?? 0.8 : options.loraStrength,
+      ...faceIdOptionsFor(settings, opts.artStyle),
     };
     if (options.checkpoint) values.checkpoint = options.checkpoint;
 

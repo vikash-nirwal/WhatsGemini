@@ -3,11 +3,14 @@ import {
   CustomWorkflow,
   customToTemplate,
   DEFAULT_COMFYUI_SETTINGS,
+  faceIdOptionsFor,
+  findTemplate,
   loadComfySettings,
   loadCustomWorkflows,
   parseSeed,
   saveComfySettings,
   saveCustomWorkflows,
+  templateForCharacter,
   templateOptionsFor,
 } from "./settings";
 
@@ -80,6 +83,56 @@ describe("templateOptionsFor", () => {
   it("takes an imported workflow's saved checkpoint as its default", () => {
     expect(customToTemplate(textOnlyCustom).defaultCheckpoint).toBe("mine.safetensors");
     expect(customToTemplate(textOnlyCustom).checkpointSource).toEqual({ classType: "CheckpointLoaderSimple", input: "ckpt_name" });
+  });
+});
+
+describe("templateForCharacter", () => {
+  const settings = DEFAULT_COMFYUI_SETTINGS;
+
+  it("lets the reference mode pick the template when there's a photo", () => {
+    expect(templateForCharacter(settings, true, "img2img", []).id).toBe("flux-kontext-gguf");
+    expect(templateForCharacter(settings, true, undefined, []).id).toBe("sdxl-faceid");
+    expect(templateForCharacter(settings, false, "img2img", []).id).toBe("sdxl-txt2img");
+  });
+
+  it("ignores the photo when the mode is none", () => {
+    expect(templateForCharacter({ ...settings, referenceTemplateId: "flux-kontext-gguf" }, true, "none", []).id).toBe("sdxl-txt2img");
+  });
+});
+
+describe("per art style", () => {
+  const faceId = findTemplate("sdxl-faceid", [])!;
+  const styled = {
+    ...DEFAULT_COMFYUI_SETTINGS,
+    templateOptions: { "sdxl-faceid": { checkpoint: "juggernautXL_v9.safetensors" } },
+    styleOptions: { anime: { checkpoint: "waiIllustriousSDXL_v140.safetensors", faceIdWeight: 0.55 }, realistic: { checkpoint: "" } },
+  };
+
+  it("uses the art style's checkpoint, else the template's", () => {
+    expect(templateOptionsFor(styled, faceId, "anime").checkpoint).toBe("waiIllustriousSDXL_v140.safetensors");
+    expect(templateOptionsFor(styled, faceId, "realistic").checkpoint).toBe("juggernautXL_v9.safetensors");
+    expect(templateOptionsFor(styled, faceId, "3d").checkpoint).toBe("juggernautXL_v9.safetensors");
+    expect(templateOptionsFor(styled, faceId).checkpoint).toBe("juggernautXL_v9.safetensors");
+  });
+
+  it("leaves FLUX and imported workflows on their own checkpoint", () => {
+    const flux = findTemplate("flux-kontext-gguf", [])!;
+    expect(templateOptionsFor(styled, flux, "anime").checkpoint).toBe("flux1-kontext-dev-Q4_K_M.gguf");
+    expect(templateOptionsFor(styled, customToTemplate(textOnlyCustom), "anime").checkpoint).toBe("mine.safetensors");
+  });
+
+  it("gives FaceID a lighter touch for anime unless the user set it", () => {
+    expect(faceIdOptionsFor(DEFAULT_COMFYUI_SETTINGS, "anime")).toEqual({ faceIdWeight: 0.6, faceIdLoraStrength: 0.6 });
+    expect(faceIdOptionsFor(DEFAULT_COMFYUI_SETTINGS, "realistic")).toEqual({ faceIdWeight: 0.85, faceIdLoraStrength: 0.6 });
+    expect(faceIdOptionsFor(styled, "anime")).toEqual({ faceIdWeight: 0.55, faceIdLoraStrength: 0.6 });
+    // No style, or one the app doesn't know: the workflow keeps its own values.
+    expect(faceIdOptionsFor(styled)).toEqual({});
+    expect(faceIdOptionsFor(styled, "watercolor" as any)).toEqual({});
+  });
+
+  it("reads older stored settings without art styles", () => {
+    localStorage.setItem("comfyui_settings", JSON.stringify({ serverUrl: "http://127.0.0.1:8188" }));
+    expect(loadComfySettings().styleOptions).toEqual({});
   });
 });
 

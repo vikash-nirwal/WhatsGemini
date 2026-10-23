@@ -1,3 +1,4 @@
+import type { ArtStyle } from "../../../types";
 import { BUILT_IN_TEMPLATES, DEFAULT_REFERENCE_TEMPLATE_ID, DEFAULT_TEXT_TEMPLATE_ID, WorkflowTemplate } from "./templates";
 import { ComfyWorkflow, PlaceholderMapping, usesReference } from "./workflow";
 
@@ -18,6 +19,19 @@ export interface TemplateOptions {
   loraStrength?: number;
 }
 
+// Per character art style: the checkpoint that draws it and how hard FaceID
+// pulls the face toward the reference photo. An anime and a realistic
+// character want different models, and FaceID Plus V2, trained on real
+// faces, makes anime faces look semi-real at the strength photos need.
+export interface ArtStyleOptions {
+  // Undefined means not set yet, so Settings may fill in a guess from the
+  // server's list; empty means the user cleared it and the template's own
+  // checkpoint is used.
+  checkpoint?: string;
+  faceIdWeight?: number;
+  faceIdLoraStrength?: number;
+}
+
 export interface ComfyUISettings {
   serverUrl: string;
   // Used when the character has a reference photo, and when it has none.
@@ -30,6 +44,7 @@ export interface ComfyUISettings {
   seed: string;
   // Per template, since an SDXL checkpoint or LoRA means nothing to FLUX.
   templateOptions: Record<string, TemplateOptions>;
+  styleOptions: Partial<Record<ArtStyle, ArtStyleOptions>>;
 }
 
 export interface CustomWorkflow {
@@ -57,6 +72,13 @@ export const DEFAULT_COMFYUI_SETTINGS: ComfyUISettings = {
   negativePrompt: DEFAULT_NEGATIVE_PROMPT,
   seed: "",
   templateOptions: {},
+  styleOptions: {},
+};
+
+export const DEFAULT_FACEID: Record<ArtStyle, { weight: number; loraStrength: number }> = {
+  anime: { weight: 0.6, loraStrength: 0.6 },
+  realistic: { weight: 0.85, loraStrength: 0.6 },
+  "3d": { weight: 0.85, loraStrength: 0.6 },
 };
 
 const readJson = <T>(key: string): T | undefined => {
@@ -74,6 +96,7 @@ export const loadComfySettings = (): ComfyUISettings => {
     ...DEFAULT_COMFYUI_SETTINGS,
     ...stored,
     templateOptions: { ...(stored.templateOptions || {}) },
+    styleOptions: { ...(stored.styleOptions || {}) },
   };
 };
 
@@ -152,13 +175,50 @@ export const chooseTemplate = (
   return text && !usesReference(text.mappings) ? text : fallbackText;
 };
 
-export const templateOptionsFor = (settings: ComfyUISettings, template: WorkflowTemplate): Required<TemplateOptions> => {
+// The template a picture runs on. The character's reference mode (#40) picks
+// one when there's a photo to use, and "none" ignores the photo. The adapter
+// and the prompt guide both call this, so the prompt is written for the
+// workflow that actually runs.
+export const templateForCharacter = (
+  settings: ComfyUISettings,
+  hasReference: boolean,
+  referenceMode: string | undefined,
+  customs?: CustomWorkflow[]
+): WorkflowTemplate => {
+  const withReference = hasReference && referenceMode !== "none";
+  const modeTemplateId = withReference && referenceMode ? REFERENCE_MODE_TEMPLATES[referenceMode] : undefined;
+  return (modeTemplateId && findTemplate(modeTemplateId, customs)) || chooseTemplate(settings, withReference, customs);
+};
+
+// Only the bundled templates that load an SD checkpoint take the art style's
+// checkpoint: FLUX loads a different kind of file, and an imported workflow
+// keeps the checkpoint it was set up with.
+export const takesStyleCheckpoint = (template: WorkflowTemplate): boolean =>
+  !template.id.startsWith(CUSTOM_PREFIX) && template.checkpointSource?.classType === "CheckpointLoaderSimple";
+
+// The art style's checkpoint wins over the template's, since it's the more
+// specific choice; without one, the template's checkpoint is used as before.
+export const templateOptionsFor = (settings: ComfyUISettings, template: WorkflowTemplate, artStyle?: ArtStyle): Required<TemplateOptions> => {
   const opts = settings.templateOptions[template.id] || {};
+  const styleCheckpoint = artStyle && takesStyleCheckpoint(template) ? settings.styleOptions?.[artStyle]?.checkpoint?.trim() : "";
   return {
-    checkpoint: opts.checkpoint?.trim() || template.defaultCheckpoint,
+    checkpoint: styleCheckpoint || opts.checkpoint?.trim() || template.defaultCheckpoint,
     lora: opts.lora?.trim() || "",
     loraStrength: typeof opts.loraStrength === "number" && Number.isFinite(opts.loraStrength) ? opts.loraStrength : template.defaultLoraStrength,
   };
+};
+
+const finiteOr = (value: unknown, fallback: number): number =>
+  typeof value === "number" && Number.isFinite(value) ? value : fallback;
+
+// Values for the faceIdWeight and faceIdLoraStrength placeholders. Templates
+// that don't map them ignore these. Without an art style, the workflow keeps
+// its own values.
+export const faceIdOptionsFor = (settings: ComfyUISettings, artStyle?: ArtStyle): { faceIdWeight?: number; faceIdLoraStrength?: number } => {
+  const defaults = artStyle && DEFAULT_FACEID[artStyle];
+  if (!defaults) return {};
+  const opts = settings.styleOptions?.[artStyle!] || {};
+  return { faceIdWeight: finiteOr(opts.faceIdWeight, defaults.weight), faceIdLoraStrength: finiteOr(opts.faceIdLoraStrength, defaults.loraStrength) };
 };
 
 export const parseSeed = (seed: string): number | undefined => {

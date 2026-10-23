@@ -1,4 +1,4 @@
-import { buildImagePromptRequest, dialectForCheckpoint, parseImagePromptReply, resolveImagePromptTarget } from "./imagePromptGuide";
+import { buildImagePromptRequest, dialectForCheckpoint, guessStyleCheckpoint, parseImagePromptReply, resolveImagePromptTarget } from "./imagePromptGuide";
 import { LS_COMFYUI_SETTINGS } from "../comfyui/settings";
 
 afterEach(() => localStorage.clear());
@@ -12,6 +12,28 @@ describe("dialectForCheckpoint", () => {
     expect(dialectForCheckpoint("v1-5-pruned-emaonly.safetensors")).toBe("sd15");
     expect(dialectForCheckpoint("")).toBe("sd15");
     expect(dialectForCheckpoint("mystery.safetensors", "sdxl")).toBe("sdxl");
+  });
+});
+
+describe("guessStyleCheckpoint", () => {
+  const installed = [
+    "flux1-dev-anime.safetensors",
+    "juggernautXL_v9.safetensors",
+    "ponyRealism_v22.safetensors",
+    "RealVisXL_V5.0.safetensors",
+    "sd_xl_base_1.0.safetensors",
+    "waiNSFWIllustrious_v140.safetensors",
+  ];
+
+  it("finds an anime and a realistic checkpoint by name", () => {
+    expect(guessStyleCheckpoint("anime", installed)).toBe("waiNSFWIllustrious_v140.safetensors");
+    expect(guessStyleCheckpoint("realistic", installed)).toBe("juggernautXL_v9.safetensors");
+    expect(guessStyleCheckpoint("anime", ["animagineXLV31.safetensors"])).toBe("animagineXLV31.safetensors");
+  });
+
+  it("guesses nothing when no name fits", () => {
+    expect(guessStyleCheckpoint("3d", installed)).toBeUndefined();
+    expect(guessStyleCheckpoint("anime", ["sd_xl_base_1.0.safetensors"])).toBeUndefined();
   });
 });
 
@@ -32,6 +54,18 @@ describe("resolveImagePromptTarget", () => {
     const pony = resolveImagePromptTarget({ providerId: "comfyui" });
     expect(pony.dialect).toBe("pony");
     expect(pony.engine).toContain("ponyDiffusionV6XL.safetensors");
+  });
+
+  it("writes for the checkpoint the character's art style runs on", () => {
+    localStorage.setItem(LS_COMFYUI_SETTINGS, JSON.stringify({ styleOptions: { anime: { checkpoint: "waiNSFWIllustrious_v140.safetensors" } } }));
+    expect(resolveImagePromptTarget({ providerId: "comfyui", hasReference: true, artStyle: "anime" }).dialect).toBe("illustrious");
+    expect(resolveImagePromptTarget({ providerId: "comfyui", hasReference: true, artStyle: "realistic" }).dialect).toBe("sdxl");
+  });
+
+  it("matches the adapter when the reference mode leaves the photo out", () => {
+    localStorage.setItem(LS_COMFYUI_SETTINGS, JSON.stringify({ referenceTemplateId: "flux-kontext-gguf" }));
+    expect(resolveImagePromptTarget({ providerId: "comfyui", hasReference: true }).dialect).toBe("flux");
+    expect(resolveImagePromptTarget({ providerId: "comfyui", hasReference: true, referenceMode: "none" }).dialect).toBe("sdxl");
   });
 });
 

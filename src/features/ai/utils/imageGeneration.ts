@@ -2,11 +2,12 @@ import { AISafetySettings, SDImageParams, ArtStyle, LocalImageSettings } from ".
 import { appendCharacterImages } from "./imageProcessing";
 import { generateSDImage } from "./sdWebuiUtils";
 import { UsageInfo } from "../types";
-import { ChatProviderAdapter, ImageProviderAdapter, NamedReferenceImages, ProviderRuntimeConfig } from "../providers/types";
+import { ChatProviderAdapter, ContentBlockedError, ImageProviderAdapter, NamedReferenceImages, ProviderRuntimeConfig } from "../providers/types";
 import { IMAGE_PROVIDERS } from "../providers/registry";
 import { ART_STYLE_CLAUSES, DEFAULT_ART_STYLE } from "../../../utils/constants";
 import { AppearanceLock, applyAppearanceLocks, buildAppearanceLockInstruction } from "./appearanceLock";
 import { buildImagePromptRequest, ImagePromptTarget, parseImagePromptReply } from "./imagePromptGuide";
+import { looksLikePromptRefusal, looksLikeRefusal } from "./refusal";
 
 // A room's OTHER participants (never the speaking character, who is passed
 // separately as characterImages/characterName below) - name + raw appearance
@@ -32,7 +33,25 @@ export interface ImageDerivationResult {
   derivedParams: SDImageParams;
   derivedSummary: string;
   usage?: UsageInfo;
+  // The text model refused to describe or prompt the picture. There is no
+  // prompt then, and nothing should be sent to the image provider.
+  refused?: boolean;
 }
+
+// A refusal sent as a prompt gets drawn ("I can't create..." rendered as a
+// picture), so a refused or blocked prompt call stops the picture instead.
+export const IMAGE_PROMPT_REFUSED_MESSAGE =
+  "The text model wouldn't write the prompt for this picture, so nothing was sent to the image or video generator. Try again, or pick a text model that allows this content.";
+
+export class ImagePromptRefusedError extends Error {
+  constructor() {
+    super(IMAGE_PROMPT_REFUSED_MESSAGE);
+    this.name = "ImagePromptRefusedError";
+  }
+}
+
+// Appended to the character's reply, like the other image warnings.
+export const IMAGE_PROMPT_REFUSED_WARNING = `\n\n[Warning: ${IMAGE_PROMPT_REFUSED_MESSAGE}]`;
 
 // Step 1 of an image request: the text model writes the picture's prompt and
 // the character's reply. Two calls, because one call doing both did neither
@@ -71,6 +90,10 @@ export const deriveImagePrompt = async (
   appearanceLocks: AppearanceLock[] = []
 ): Promise<ImageDerivationResult> => {
   const lockStyle = target.tags ? "tags" : "sentences";
+  // A refusal saved as an earlier picture's prompt isn't redrawn either.
+  if (existingImagePrompt && looksLikePromptRefusal(existingImagePrompt)) {
+    return { derivedImagePrompt: "", derivedParams: {}, derivedSummary: "", refused: true };
+  }
   if (existingImagePrompt) {
     const regenSummary = isCharacterInitiated || isAutoSelfie
       ? "Here's another look at that same moment.\n[Image Context: Retrying generation of the previous scene]"
@@ -121,6 +144,11 @@ ${summaryInstruction} MUST INCLUDE: At the end of your response, append [Image C
     chatConfig
   );
   const { scene, reply } = parseSceneReply(sceneResult.text || "", prompt);
+  // A whole reply that refuses has no SCENE label, so its fallback scene
+  // would quote the refusal; check both.
+  if (looksLikeRefusal(scene) || looksLikeRefusal(reply)) {
+    return { derivedImagePrompt: "", derivedParams: {}, derivedSummary: reply, usage: sceneResult.usage, refused: true };
+  }
 
   // Folds the character's chosen art style (see ArtStyle/ART_STYLE_CLAUSES,
   // constants.ts) into the same instruction that already carries the user's
@@ -128,14 +156,21 @@ ${summaryInstruction} MUST INCLUDE: At the end of your response, append [Image C
   // image matches the character's established look the same way their main
   // avatar and emotion portraits already do (generateAvatarImage, aiSlice.ts).
   const artStyleClause = ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE];
-  const composed = await composeImagePrompt(chatAdapter, chatConfig, selectedModel, {
-    target,
-    scene,
-    baseStyle: imageGenPrompt,
-    artStyleClause,
-    lockInstruction: buildAppearanceLockInstruction(appearanceLocks),
-    signal,
-  });
+  let composed: Awaited<ReturnType<typeof composeImagePrompt>>;
+  try {
+    composed = await composeImagePrompt(chatAdapter, chatConfig, selectedModel, {
+      target,
+      scene,
+      baseStyle: imageGenPrompt,
+      artStyleClause,
+      lockInstruction: buildAppearanceLockInstruction(appearanceLocks),
+      safetySettings: turnConfig.safetySettings,
+      signal,
+    });
+  } catch (err) {
+    if (!(err instanceof ImagePromptRefusedError)) throw err;
+    return { derivedImagePrompt: "", derivedParams: {}, derivedSummary: reply, usage: sceneResult.usage, refused: true };
+  }
 
   // Models still paraphrase sometimes; make sure each locked look is there.
   const derivedImagePrompt = applyAppearanceLocks(composed.prompt || scene, appearanceLocks, lockStyle);
@@ -164,24 +199,30 @@ const addUsage = (a?: UsageInfo, b?: UsageInfo): UsageInfo | undefined =>
   a && b ? { inputTokens: a.inputTokens + b.inputTokens, outputTokens: a.outputTokens + b.outputTokens, totalTokens: a.totalTokens + b.totalTokens } : a || b;
 
 // Step 2 on its own: a description of a picture in, a prompt for this image
-// model out. Also used for adventure scenes, portraits and backdrops. A
-// failed call falls back to the description itself, so the picture still
-// gets made.
+// model out. Also used for portraits and backdrops. A call that fails for a
+// technical reason falls back to the description itself, so the picture
+// still gets made. A refusal, in words or as a provider block, throws
+// ImagePromptRefusedError instead: falling back there sent the plain-prose
+// description to tag models like SDXL, and the refusal text itself got drawn.
+// The chat's safety settings go with the call, as they do with the chat's
+// own calls; without them Gemini applies its stricter defaults here alone.
 export const composeImagePrompt = async (
   chatAdapter: ChatProviderAdapter,
   chatConfig: ProviderRuntimeConfig,
   model: string,
-  { target, scene, baseStyle, artStyleClause, lockInstruction, extra, signal }: { target: ImagePromptTarget; scene: string; baseStyle?: string; artStyleClause?: string; lockInstruction?: string; extra?: string; signal?: AbortSignal }
+  { target, scene, baseStyle, artStyleClause, lockInstruction, extra, safetySettings, signal }: { target: ImagePromptTarget; scene: string; baseStyle?: string; artStyleClause?: string; lockInstruction?: string; extra?: string; safetySettings?: AISafetySettings; signal?: AbortSignal }
 ): Promise<{ prompt: string; params: Record<string, unknown>; usage?: UsageInfo }> => {
   try {
     const result = await chatAdapter.generateChat(
-      { model, history: [], prompt: buildImagePromptRequest({ target, scene, baseStyle, artStyleClause, lockInstruction, extra }), temperature: 0.7, signal },
+      { model, history: [], prompt: buildImagePromptRequest({ target, scene, baseStyle, artStyleClause, lockInstruction, extra }), temperature: 0.7, safetySettings, signal },
       chatConfig
     );
     const { prompt, params } = parseImagePromptReply(result.text || "", target.wantsParams);
+    if (looksLikePromptRefusal(prompt)) throw new ImagePromptRefusedError();
     return { prompt: prompt || scene, params, usage: result.usage };
   } catch (err) {
-    if (signal?.aborted) throw err;
+    if (signal?.aborted || err instanceof ImagePromptRefusedError) throw err;
+    if (err instanceof ContentBlockedError) throw new ImagePromptRefusedError();
     console.warn("Writing the image prompt failed; using the description as it is:", err);
     return { prompt: scene, params: {} };
   }
@@ -216,7 +257,9 @@ export const generateImage = async (
   otherRoomCharacters?: RoomReferenceCharacter[],
   // Local generation only (#40): the character's seed, LoRA and reference
   // mode, for the SD WebUI and ComfyUI.
-  localImageSettings?: LocalImageSettings
+  localImageSettings?: LocalImageSettings,
+  // The character's art style; ComfyUI picks its checkpoint by it.
+  artStyle?: ArtStyle
 ): Promise<ImageGenerationResult> => {
   try {
     if (useSdWebui) {
@@ -247,7 +290,7 @@ export const generateImage = async (
     }
 
     const result = await adapter.generateImage(
-      { model: imageModelName, prompt: derivedImagePrompt, referenceImages, referenceCharacters, signal, safetySettings, imageSize, aspectRatio, localImageSettings },
+      { model: imageModelName, prompt: derivedImagePrompt, referenceImages, referenceCharacters, signal, safetySettings, imageSize, aspectRatio, localImageSettings, artStyle },
       imageConfig
     );
     return { images: result.images, usage: result.usage };

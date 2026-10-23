@@ -135,6 +135,9 @@ const sdxlTxt2img: WorkflowTemplate = {
 // what ComfyUI_IPAdapter_plus expects. FaceID also needs the insightface
 // Python package in ComfyUI's environment (pip install insightface
 // onnxruntime) and the buffalo_l / antelopev2 face models it downloads.
+// The FaceID weight and LoRA strength below are only fallbacks: the adapter
+// fills them per art style (faceIdOptionsFor in settings.ts), since FaceID
+// learned real faces and pulls anime faces toward a semi-real look at 0.85.
 const sdxlFaceId: WorkflowTemplate = {
   id: "sdxl-faceid",
   label: "SDXL + IP-Adapter FaceID",
@@ -163,7 +166,12 @@ const sdxlFaceId: WorkflowTemplate = {
       },
     },
   },
-  mappings: [...sdxlMappings, { placeholder: "referenceImage", nodeId: "9", input: "image" }],
+  mappings: [
+    ...sdxlMappings,
+    { placeholder: "referenceImage", nodeId: "9", input: "image" },
+    { placeholder: "faceIdWeight", nodeId: "11", input: "weight" },
+    { placeholder: "faceIdLoraStrength", nodeId: "10", input: "lora_strength" },
+  ],
   defaultCheckpoint: SDXL_CHECKPOINT,
   defaultLoraStrength: 0.8,
   checkpointSource: CHECKPOINT_SOURCE,
