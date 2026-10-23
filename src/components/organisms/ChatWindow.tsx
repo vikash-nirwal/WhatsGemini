@@ -8,6 +8,7 @@ import { getSiblingInfo } from "../../features/chat/messageTree";
 import { resolveEmotionPortrait } from "../../features/ai/utils/emotionUtils";
 import { stripStreamingTags } from "../../features/ai/utils/messageTags";
 import { receiptFor, revealDelayMs, splitIntoTexts } from "../../features/ai/utils/textingMode";
+import { bubbleDelayMs, FALSE_START_MS, planSlips, TextBubble } from "../../features/ai/utils/textingSlips";
 import { stripImageContextTag } from "../../features/ai/utils/imageGeneration";
 import type { RecapView } from "../../features/chat/useChatRecap";
 import { RecapCard } from "src/components/molecules/RecapCard";
@@ -337,30 +338,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
   const appTextingMode = useAppSelector((state) => state.settings.textingMode);
   const chatTextingMode = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.textingMode);
   const textingMode = (chatTextingMode ?? appTextingMode) && !terminal;
-  const [reveal, setReveal] = useState<{ id: string; shown: number; parts: string[] } | null>(null);
-  const lastSeenRef = useRef<{ chatId?: number; id?: string } | null>(null);
-  useEffect(() => {
-    const last = filteredMessages[filteredMessages.length - 1];
-    const previous = lastSeenRef.current;
-    lastSeenRef.current = { chatId, id: last?.id };
-    if (!previous || previous.chatId !== chatId) {
-      setReveal(null);
-      return;
-    }
-    if (!textingMode || !last?.id || last.id === previous.id || last.role === YOU || last.isVoiceNote) return;
-    if (Date.now() - (last.timestamp || 0) > 60_000) return;
-    const parts = splitIntoTexts(stripImageContextTag(last.txt || ""));
-    if (parts.length > 1) setReveal({ id: last.id, shown: 1, parts });
-  }, [filteredMessages, chatId, textingMode]);
-  useEffect(() => {
-    if (!reveal) return;
-    if (!textingMode || reveal.shown >= reveal.parts.length) {
-      setReveal(null);
-      return;
-    }
-    const timer = window.setTimeout(() => setReveal((r) => (r ? { ...r, shown: r.shown + 1 } : r)), revealDelayMs(reveal.parts[reveal.shown]));
-    return () => window.clearTimeout(timer);
-  }, [reveal, textingMode]);
   // Reading aloud stops when you leave the chat.
   useEffect(() => () => stopSpeaking(), [chatId]);
 
@@ -508,6 +485,53 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
     (msg: Message): Character | undefined => (msg.speakerId != null && characters?.find((c) => c.id === msg.speakerId)) || character,
     [characters, character]
   );
+
+  // Texting imperfections (#108) ride along: `parts` are the planned bubbles,
+  // and a false start keeps `shown` at 0 while the typing dots show, stop,
+  // and show again (`phase`).
+  const [reveal, setReveal] = useState<{ id: string; shown: number; parts: TextBubble[]; phase?: "typing" | "paused" | "retyping" } | null>(null);
+  // The run of your messages right before a reply (two or more), for a
+  // quoted reply (#108).
+  const burstBefore = useCallback((index: number): string[] | undefined => {
+    const out: string[] = [];
+    for (let j = index - 1; j >= 0; j--) {
+      const m = filteredMessages[j];
+      if (m.role !== YOU || m.isNarration || m.isSystem || !m.txt) break;
+      out.unshift(stripImageContextTag(m.txt));
+    }
+    return out.length >= 2 ? out : undefined;
+  }, [filteredMessages]);
+  const lastSeenRef = useRef<{ chatId?: number; id?: string } | null>(null);
+  useEffect(() => {
+    const last = filteredMessages[filteredMessages.length - 1];
+    const previous = lastSeenRef.current;
+    lastSeenRef.current = { chatId, id: last?.id };
+    if (!previous || previous.chatId !== chatId) {
+      setReveal(null);
+      return;
+    }
+    if (!textingMode || !last?.id || last.id === previous.id || last.role === YOU || last.isVoiceNote) return;
+    if (Date.now() - (last.timestamp || 0) > 60_000) return;
+    const parts = splitIntoTexts(stripImageContextTag(last.txt || ""));
+    const plan = planSlips(parts, last.id, resolveSpeaker(last)?.textingSlips, burstBefore(filteredMessages.length - 1));
+    if (plan.bubbles.length > 1 || plan.falseStart) setReveal({ id: last.id, shown: plan.falseStart ? 0 : 1, parts: plan.bubbles, phase: plan.falseStart ? "typing" : undefined });
+  }, [filteredMessages, chatId, textingMode, resolveSpeaker, burstBefore]);
+  useEffect(() => {
+    if (!reveal) return;
+    if (!textingMode || reveal.shown >= reveal.parts.length) {
+      setReveal(null);
+      return;
+    }
+    const step = (patch: Partial<NonNullable<typeof reveal>>, after: number) => window.setTimeout(() => setReveal((r) => (r ? { ...r, ...patch } : r)), after);
+    const timer = reveal.shown === 0
+      ? reveal.phase === "typing"
+        ? step({ phase: "paused" }, FALSE_START_MS.typing)
+        : reveal.phase === "paused"
+          ? step({ phase: "retyping" }, FALSE_START_MS.paused)
+          : step({ shown: 1, phase: undefined }, bubbleDelayMs(reveal.parts[0], revealDelayMs))
+      : step({ shown: reveal.shown + 1 }, bubbleDelayMs(reveal.parts[reveal.shown], revealDelayMs));
+    return () => window.clearTimeout(timer);
+  }, [reveal, textingMode]);
 
   const namesById = useMemo(
     () => Object.fromEntries((characters && characters.length > 0 ? characters : character ? [character] : []).map((c) => [c.id, c.name])) as Record<number, string>,
@@ -725,6 +749,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
               filteredMessages.map((msg, i) => {
                 const siblingInfo = tree && msg.id ? getSiblingInfo(tree, msg.id) : undefined;
                 const speaker = resolveSpeaker(msg);
+                // A false start (#108): nothing of the reply shows yet, only
+                // the typing dots below.
+                if (reveal && reveal.id === msg.id && reveal.shown === 0) return null;
                 const beatText = beatStartIndexes.has(i) && storyScript ? storyScript.beats[(msg.beat || 1) - 1]?.text : undefined;
                 const message = (
                   <React.Fragment key={msg.id || i}>
@@ -764,6 +791,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
                     onReact={onReact}
                     texting={textingMode}
                     visibleParts={reveal && reveal.id === msg.id ? reveal.shown : undefined}
+                    slips={msg.role === YOU ? undefined : speaker?.textingSlips}
+                    userBurst={textingMode && msg.role !== YOU ? burstBefore(i) : undefined}
                     receipt={textingMode && msg.role === YOU && !msg.isNarration ? receiptFor(i, lastReplyIndex, filteredMessages.length - 1, Boolean(aiLoading)) : undefined}
                     reactorName={msg.characterReaction ? resolveReactor(msg.characterReaction.speakerId) : undefined}
                     voice={msg.role === YOU ? undefined : speaker?.voice}
@@ -885,7 +914,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
               ) : null
             ) : aiLoading && streamingText && !textingMode && !recordingVoiceNote ? (
               <StreamingBubble text={streamingText} charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} />
-            ) : aiLoading || reveal ? (
+            ) : aiLoading || (reveal && reveal.phase !== "paused") ? (
               <TypingIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} recording={aiLoading && recordingVoiceNote} />
             ) : awayNote || isFollowupPending ? (
               <FollowupIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} note={awayNote || undefined} />

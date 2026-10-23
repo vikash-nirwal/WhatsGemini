@@ -19,6 +19,7 @@ import { NsfwBlur } from "src/components/molecules/NsfwBlur";
 import { InnerThoughts, ReactionBadge, ReactionPicker, ReactionRow } from "src/components/molecules/MessageExtras";
 import { REACTION_EMOJIS } from "src/features/ai/utils/messageTags";
 import { splitIntoTexts } from "../../features/ai/utils/textingMode";
+import { planSlips, SlipLevel } from "../../features/ai/utils/textingSlips";
 import { NOTE_LABELS } from "../../features/chat/storyTags";
 import { VoiceNote } from "src/components/molecules/VoiceNote";
 import { isSpeechSupported, speak, stopSpeaking, toSpokenText } from "../../features/voice/speech";
@@ -65,6 +66,10 @@ interface ChatMessageProps {
   texting?: boolean;
   visibleParts?: number;
   receipt?: "sent" | "read";
+  // Texting imperfections (#108): how sloppily the speaker texts, and the
+  // run of your messages this reply answers, for a quoted reply.
+  slips?: SlipLevel;
+  userBurst?: string[];
   voice?: CharacterVoice; // the speaker's voice, for "Read aloud" and voice notes (#12, #44)
 }
 
@@ -95,6 +100,15 @@ const LONG_PRESS_SLOP = 10;
 // leave an empty strip in every bubble; there it's hidden and long-press
 // opens an action sheet instead.
 const TOUCH_ONLY = "(hover: none)";
+
+// A quoted reply (#108): one of your messages the text answers, the way
+// messaging apps show it above the bubble.
+const QuotedMessage = ({ text }: { text: string }) => (
+  <div className="mb-1.5 rounded-md border-l-2 border-primary/70 bg-foreground/[0.05] px-2 py-1 font-sans text-[12px] text-subtle" aria-label={`Replying to: ${text}`}>
+    <span className="block text-[10.5px] font-medium text-primary">You</span>
+    <span className="line-clamp-2">{text}</span>
+  </div>
+);
 
 const ChatMessage = React.memo(({
   msg,
@@ -127,6 +141,8 @@ const ChatMessage = React.memo(({
   texting = false,
   visibleParts,
   receipt,
+  slips,
+  userBurst,
   voice,
 }: ChatMessageProps) => {
   const isUser = msg.role === YOU;
@@ -175,9 +191,13 @@ const ChatMessage = React.memo(({
   const splitParts = texting && !isUser && !msg.isVoiceNote && !msg.isImpersonated && !msg.isCompressionSummary && !msg.isRoomEvent && !msg.isNarration
     ? splitIntoTexts(stripImageContextTag(msg.txt || ""))
     : [];
-  const textParts = splitParts.length > 1 ? splitParts : null;
+  // Texting imperfections (#108): the odd typo and correction, a deleted
+  // message, a quote - decided from the message's id, so the look is stable.
+  const bubbles = planSlips(splitParts, msg.id || "", slips, userBurst).bubbles;
+  const textParts = bubbles.length > 1 ? bubbles : null;
   const shownParts = textParts ? Math.min(visibleParts ?? textParts.length, textParts.length) : 0;
   const showMainBubble = !textParts || shownParts === textParts.length;
+  const mainQuote = !textParts ? bubbles[0]?.quote : undefined;
   const thoughtsBlock = !isUser && msg.thoughts ? <InnerThoughts thoughts={msg.thoughts} terminal={is("terminal")} /> : null;
   // Language practice (#67): a correction under your message, a translation
   // under a reply once asked for.
@@ -622,7 +642,8 @@ const ChatMessage = React.memo(({
 
           <div className="font-serif">
             {oocLabel}
-            {voiceNote || <MarkdownRenderer msgText={textParts ? textParts[textParts.length - 1] : stripImageContextTag(msg.txt || "")} isUser={isUser} />}
+            {mainQuote && <QuotedMessage text={mainQuote} />}
+            {voiceNote || <MarkdownRenderer msgText={textParts ? textParts[textParts.length - 1].text : stripImageContextTag(msg.txt || "")} isUser={isUser} />}
             {refusalNotice}
           </div>
           {thoughtsBlock}
@@ -858,10 +879,23 @@ const ChatMessage = React.memo(({
 
       {textParts ? (
         <div className="flex flex-col items-start gap-1.5 max-w-[85%] md:max-w-[70%] min-w-0">
-          {textParts.slice(0, shownParts - (showMainBubble ? 1 : 0)).map((part, i) => (
+          {textParts.slice(0, shownParts - (showMainBubble ? 1 : 0)).map((part, i) => part.kind === "deleted" ? (
+            <motion.div
+              key={i}
+              data-slot="deleted-bubble"
+              className={cn("flex items-center gap-1.5 px-4 py-2.5 rounded-2xl max-w-full min-w-0 font-sans text-[13px] italic text-subtle", neumorphic ? "bg-elevated surface-raised" : "bg-card/[0.88] shadow-soft", i === 0 && "rounded-tl-[5px]")}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+            >
+              <span aria-hidden>🚫</span>
+              {part.text}
+            </motion.div>
+          ) : (
             <motion.div
               key={i}
               data-slot="text-bubble"
+              data-kind={part.kind === "correction" ? "correction" : undefined}
               className={cn("px-4 py-2.5 rounded-2xl max-w-full min-w-0 font-serif text-foreground [@media(hover:none)]:[-webkit-touch-callout:none]", neumorphic ? "bg-elevated surface-raised" : "bg-card/[0.88] shadow-soft", i === 0 && "rounded-tl-[5px]")}
               data-chat-text
           style={CHAT_TEXT_STYLE}
@@ -874,7 +908,8 @@ const ChatMessage = React.memo(({
               onTouchCancel={cancelPress}
               onContextMenu={handleContextMenu}
             >
-              <MarkdownRenderer msgText={part} isUser={false} />
+              {part.quote && <QuotedMessage text={part.quote} />}
+              <MarkdownRenderer msgText={part.text} isUser={false} />
             </motion.div>
           ))}
           {showMainBubble && bubble}

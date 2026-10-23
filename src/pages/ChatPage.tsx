@@ -47,6 +47,9 @@ import { buildDayMoodSection, dayMoodFor } from "../features/character/badDays";
 import { buildDreamDirective, dreamDue, dreamIngredients } from "../features/character/dreams";
 import { buildJokesSection } from "../features/chat/insideJokes";
 import { buildConflictDirective, buildConflictSection, upsetDelayMs } from "../features/chat/conflicts";
+import { buildMoodSection, fadedMood } from "../features/chat/lingeringMood";
+import { buildDayLogSection, dayLogText } from "../features/character/dayLog";
+import { buildSlipsDirective } from "../features/ai/utils/textingSlips";
 import { jealousyNoteFor } from "../features/chat/jealousy";
 import { buildLiesSection } from "../features/chat/lies";
 import { buildRumorSection, pendingRumors } from "../features/character/rumors";
@@ -130,6 +133,7 @@ const ChatPage = () => {
   const aiTokenCount = useAppSelector((state) => state.ai.tokenCount);
   const aiCostEstimate = useAppSelector((state) => state.ai.costEstimate);
   const replyLengthLimit = useAppSelector((state) => state.settings.replyLengthLimit);
+  const appTextingMode = useAppSelector((state) => state.settings.textingMode);
   const chatProvider = useAppSelector((state) => state.settings.chatProvider);
   const selectedModel = useAppSelector((state) => state.settings.selectedModel);
   const maxChatLength = useAppSelector((state) => state.settings.maxChatLength);
@@ -263,6 +267,7 @@ const ChatPage = () => {
     boldness: !isRoom ? currentChat?.boldness : undefined,
     sceneState: currentChat?.sceneState,
     world: currentChat?.worldId != null ? worlds.find((w) => w.id === currentChat.worldId) : undefined,
+    moodCarry: !isRoom && Boolean(currentChat?.moodCarry),
   };
 
   // Which persona this chat actually speaks as: its own override if set,
@@ -308,6 +313,10 @@ const ChatPage = () => {
   scene.plansNote = mainStory ? buildPlansSection(currentChat?.plans, userNameForNotes, noteTime) : undefined;
   scene.onThisDayNote = mainStory ? buildOnThisDayNote(currentChat?.content || [], userNameForNotes, noteTime) : undefined;
   scene.whatIfNote = !isRoom && characterData && currentChat?.whatIf ? buildWhatIfSection(currentChat.whatIf, characterData.name, userNameForNotes) : undefined;
+  // Texting imperfections (#108): the prompt's side, in texting mode only.
+  const textingOn = Boolean(currentChat?.textingMode ?? appTextingMode);
+  scene.slipsNote = !isRoom && characterData && textingOn ? buildSlipsDirective(characterData.name, characterData.textingSlips, currentBlock(characterData.schedule, noteTime)?.status === "busy") : undefined;
+  scene.dayNote = mainStory && characterData ? buildDayLogSection(characterData.name, dayLogText(characterData, noteTime)) : undefined;
   const dayMood = mainStory ? dayMoodFor(characterData, noteTime) : undefined;
   scene.dayMoodNote = dayMood && characterData ? buildDayMoodSection(characterData.name, dayMood, userNameForNotes) : undefined;
   scene.dreamNote = mainStory && characterData && dreamDue(characterData, currentChat, noteTime) ? buildDreamDirective(characterData.name, userNameForNotes, dreamIngredients(characterData, currentChat)) : undefined;
@@ -315,6 +324,10 @@ const ChatPage = () => {
   scene.conflictNote = !isRoom && characterData && currentChat?.conflicts
     ? currentChat.conflict ? buildConflictSection(characterData.name, userNameForNotes, currentChat.conflict, noteTime) : buildConflictDirective(characterData.name, userNameForNotes)
     : undefined;
+  // A mood carried over from earlier (#106); while they're upset with you the
+  // fight (#97) says it all.
+  const lingering = !isRoom && currentChat?.moodCarry && !currentChat.conflict ? fadedMood(currentChat.mood, noteTime) : undefined;
+  scene.moodNote = lingering && characterData ? buildMoodSection(characterData.name, lingering, userNameForNotes, noteTime) : undefined;
   scene.jealousyNote = mainStory ? jealousyNoteFor(characterData, currentChat, chats, characters, userNameForNotes, noteTime) : undefined;
   scene.liesNote = !isRoom && characterData && currentChat?.lies ? buildLiesSection(characterData.name, userNameForNotes, currentChat.toldLies) : undefined;
   scene.hookNote = currentChat?.pendingHook ? buildHookSection(currentChat.pendingHook) : undefined;
@@ -569,6 +582,7 @@ const ChatPage = () => {
     noteSecretRevealed,
     replyNotes,
     noteStoryTags,
+    carryMood,
     saveSceneState,
     pickNaturalSpeakers,
     maybeNarrate,
@@ -753,6 +767,7 @@ const ChatPage = () => {
     noteSecretRevealed(payloadObj);
     void noteStoryTags(payloadObj, speaker, dreamt);
     saveSceneState(payloadObj);
+    carryMood(payloadObj, compressedFreshMessages);
     advanceGame(payloadObj, false);
     runBackgroundUpdates((aiAddResult.payload as Message[]) || [], speaker);
     return speaker;
@@ -1206,6 +1221,7 @@ const ChatPage = () => {
         noteSecretRevealed(payloadObj);
         void noteStoryTags(payloadObj, speaker, dreamt);
         saveSceneState(payloadObj);
+        carryMood(payloadObj, contextMessages);
         advanceGame(payloadObj, true);
         runBackgroundUpdates((aiAddResult.payload as Message[]) || [], speaker);
 
@@ -1326,6 +1342,7 @@ const ChatPage = () => {
           noteSecretRevealed(payloadObj);
           void noteStoryTags(payloadObj, speaker);
           saveSceneState(payloadObj);
+          carryMood(payloadObj);
           advanceGame(payloadObj, false);
           runBackgroundUpdates(finalContent, speaker);
         }
@@ -1444,6 +1461,7 @@ const ChatPage = () => {
         noteSecretRevealed(payloadObj);
         void noteStoryTags(payloadObj, speaker);
         saveSceneState(payloadObj);
+        carryMood(payloadObj);
         advanceGame(payloadObj, false);
         runBackgroundUpdates(newContent, speaker);
         dispatch(fetchChats());
@@ -1755,6 +1773,7 @@ const ChatPage = () => {
         noteSecretRevealed(payloadObj);
         void noteStoryTags(payloadObj, speaker);
         saveSceneState(payloadObj);
+        carryMood(payloadObj);
         runBackgroundUpdates(updatedContent, speaker);
       }
 

@@ -10,6 +10,7 @@ import { moveBeat } from "../../features/chat/storyScript";
 import { secretsInPlay } from "../../features/character/secrets";
 import { StoryTags } from "../../features/chat/storyTags";
 import { trustAfter } from "../../features/chat/conflicts";
+import { moodAfterReply } from "../../features/chat/lingeringMood";
 import { addLie, catchLie, standingLies } from "../../features/chat/lies";
 import { markRumorRaised, pendingRumors } from "../../features/character/rumors";
 import { fetchCharacterById, updateCharacter } from "../../features/characterSlice";
@@ -109,6 +110,19 @@ export const useReplyEffects = ({
     const reported = mergeState(currentChat.sceneState, payload?.sceneState || {});
     const moved = change ? trustAfter(reported, change) : undefined;
     dispatch(updateChatOptions({ chatId: chatIdNum, patch: { sceneState: moved ? mergeState(reported, moved) : reported } }));
+  };
+
+  // Moods that carry over (#106): the reply's emotion tag moves the chat's
+  // lingering mood, with what the user last said as its cause. `fresh` is the
+  // message list as it stands after the reply, when the caller has it; the
+  // rendered one may not include the message just sent.
+  const carryMood = (payload: { emotion?: string } | undefined, fresh?: Message[]) => {
+    if (!chatIdNum || isRoom || !currentChat?.moodCarry) return;
+    const list = fresh || messages;
+    const lastUser = [...list].reverse().find((m) => m.role === YOU && !m.isNarration && m.txt);
+    const next = moodAfterReply(currentChat.mood, payload?.emotion, lastUser?.txt, Date.now());
+    if (next === currentChat.mood) return;
+    dispatch(updateChatOptions({ chatId: chatIdNum, patch: { mood: next } }));
   };
 
   // What else a reply changes (#94, #97, #98, #100, #103): the fight starts
@@ -261,6 +275,7 @@ export const useReplyEffects = ({
     noteSecretRevealed,
     replyNotes,
     noteStoryTags,
+    carryMood,
     saveSceneState,
     pickNaturalSpeakers,
     maybeNarrate,

@@ -175,6 +175,7 @@ export interface PromptOptions {
   roomRelationshipNotes?: string; // the speaker's feelings about the others (#24)
   roomThoughts?: boolean; // inner thoughts switched on for the whole room (#10)
   roomOffscreenTalk?: string; // a recent conversation members had without the user (#58)
+  emotionTag?: boolean; // ask for the emotion tag even without emotion portraits: moods that carry over need it (#106)
 }
 
 const describeDuration = (ms: number): string => {
@@ -409,8 +410,8 @@ export const buildSystemInstruction = (
     const dates = buildDatesSection(character.importantDates, options.now ?? Date.now());
     if (dates) sections.push(m(dates));
   }
-  if (character.emotionPortraits?.enabled) {
-    sections.push(buildEmotionDirective(character.emotionPortraits.customEmotions));
+  if (character.emotionPortraits?.enabled || options.emotionTag) {
+    sections.push(buildEmotionDirective(character.emotionPortraits?.customEmotions));
   }
   if (options.roleplayStyle?.characterReactions) sections.push(buildReactionDirective());
   if (character.innerThoughts || options.roomThoughts) sections.push(buildThoughtsDirective());
@@ -540,6 +541,10 @@ export interface SceneContext {
   jealousyNote?: string; // time you spent in other chats (#99)
   liesNote?: string; // may lie, and the lies still standing (#100)
   hookNote?: string; // the cliffhanger to pick up (#103)
+  moodCarry?: boolean; // moods carry over (#106): the reply reports its emotion
+  moodNote?: string; // the mood still hanging over from earlier (#106)
+  dayNote?: string; // what their day has actually been like (#107)
+  slipsNote?: string; // texting imperfections (#108): a word or two will do when busy
 }
 
 // The single function replacing the copy-pasted "build history + build system
@@ -577,7 +582,7 @@ export const buildTurnContext = (
     ...(scene?.giftsNote ? [scene.giftsNote] : []),
     ...(scene?.plansNote ? [scene.plansNote] : []),
     ...(scene?.secretsNote ? [scene.secretsNote] : []),
-    ...[scene?.whatIfNote, scene?.dayMoodNote, scene?.jokesNote, scene?.conflictNote, scene?.liesNote, scene?.jealousyNote, scene?.dreamNote, scene?.hookNote].filter((n): n is string => Boolean(n)),
+    ...[scene?.whatIfNote, scene?.dayNote, scene?.dayMoodNote, scene?.moodNote, scene?.jokesNote, scene?.conflictNote, scene?.liesNote, scene?.jealousyNote, scene?.dreamNote, scene?.hookNote, scene?.slipsNote].filter((n): n is string => Boolean(n)),
     ...(scene?.language ? [buildLanguageDirective(scene.language, activePersona?.name?.trim() || "The user")] : []),
     ...(scene?.coWriting && character ? [buildCoWritingDirective(character.name, activePersona?.name?.trim() || "the user")] : []),
     ...(scene?.stage ? [buildStageSection(scene.stage, activePersona?.name?.trim() || "the user")] : []),
@@ -597,6 +602,7 @@ export const buildTurnContext = (
       roomRelationshipNotes: roomContext?.relationshipNotes,
       roomThoughts: roomContext?.thoughts,
       roomOffscreenTalk: roomContext?.offscreenTalk,
+      emotionTag: scene?.moodCarry,
     }
   );
   // The active persona's own reference photos (UserProfile.appearanceImages),

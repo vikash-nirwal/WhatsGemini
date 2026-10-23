@@ -5,6 +5,9 @@ import { updateChatOptions } from "src/features/chatSlice";
 import { Select } from "src/components/molecules/form-controls";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { DAY_MOODS, dayKey, dayMoodFor } from "src/features/character/badDays";
+import { describeMood, fadedMood } from "src/features/chat/lingeringMood";
+import { dayLogFor } from "src/features/character/dayLog";
+import { writeDayLog } from "src/components/molecules/DayLogWriter";
 import { Character, Chat } from "src/types";
 
 // A labelled switch row, as elsewhere in the Chat tab.
@@ -27,8 +30,34 @@ export const BetweenMessagesSection: React.FC<{ character: Character }> = ({ cha
   const today = dayKey(Date.now());
   const mood = dayMoodFor(character, Date.now());
   const picked = character.dayMood?.date === today ? character.dayMood.mood || "good" : "";
+  const dayLog = dayLogFor(character, Date.now());
+  const [writingDay, setWritingDay] = React.useState(false);
+  const writeToday = async () => {
+    setWritingDay(true);
+    try {
+      await writeDayLog(dispatch, character, () => undefined);
+    } finally {
+      setWritingDay(false);
+    }
+  };
   return (
     <>
+      <div className="flex flex-col gap-2">
+        <SwitchRow
+          title={`${name} has one consistent day`}
+          hint={`Once a day, a short account of what ${name}'s day has been like, so replies, statuses and first texts all tell the same story.`}
+          checked={Boolean(character.dayLogs)}
+          onChange={(on) => set({ dayLogs: on || undefined })}
+        />
+        {character.dayLogs && (
+          <div className="flex flex-col gap-1 text-[11px] text-subtle" data-testid="day-log">
+            <span>{dayLog?.text || (dayLog ? "Nothing usable came back today." : "Not written yet today.")}</span>
+            <button type="button" className="self-start text-primary hover:underline disabled:opacity-50" disabled={writingDay} onClick={() => void writeToday()}>
+              {writingDay ? "Writing..." : dayLog ? "Write today again" : "Write today now"}
+            </button>
+          </div>
+        )}
+      </div>
       <SwitchRow
         title={`${name} texts first`}
         hint={`After a few quiet hours, a short text out of the blue, while the app is open. Never while ${name} is asleep, never two unanswered, at most two a day.`}
@@ -63,6 +92,22 @@ export const BetweenMessagesSection: React.FC<{ character: Character }> = ({ cha
           </div>
         )}
       </div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[12.5px] font-medium text-foreground">How {name} texts</div>
+          <div className="text-[11px] text-subtle">In texting mode: the odd typo and a correction, a message deleted and sent again, typing that stops and starts, a bare "?" when busy.</div>
+        </div>
+        <Select
+          aria-label={`How ${name} texts`}
+          className="w-auto shrink-0"
+          value={String(character.textingSlips || 0)}
+          onChange={(e) => set({ textingSlips: (Number(e.target.value) || undefined) as Character["textingSlips"] })}
+        >
+          <option value="0">Clean</option>
+          <option value="1">A few slips</option>
+          <option value="2">Plenty of slips</option>
+        </Select>
+      </div>
       <SwitchRow
         title={`What you tell ${name} can get around`}
         hint={`Now and then something from this chat reaches a character who knows ${name} or shares a group with them, a little wrong, and they bring it up.`}
@@ -73,13 +118,33 @@ export const BetweenMessagesSection: React.FC<{ character: Character }> = ({ cha
   );
 };
 
-// Drama and conflict (#97, #99, #100): per-chat switches.
+// Drama and conflict (#97, #99, #100) and moods that carry over (#106):
+// per-chat switches.
 export const DramaSection: React.FC<{ chat: Chat; character: Character }> = ({ chat, character }) => {
   const dispatch = useAppDispatch();
   const name = character.name;
   const set = (patch: Partial<Chat>) => dispatch(updateChatOptions({ chatId: chat.id, patch }));
+  const mood = chat.moodCarry ? fadedMood(chat.mood, Date.now()) : undefined;
   return (
     <>
+      <div className="flex flex-col gap-2">
+        <SwitchRow
+          title="Moods linger"
+          hint={`What ${name} felt in a reply stays with them for a few hours and colours the next ones, fading as time passes and with warmth from you.`}
+          checked={Boolean(chat.moodCarry)}
+          onChange={(on) => set({ moodCarry: on || undefined, ...(on ? {} : { mood: undefined }) })}
+        />
+        {chat.moodCarry && (
+          <div className="flex items-center justify-between gap-3 text-[11px] text-subtle" data-testid="lingering-mood">
+            <span>{mood ? describeMood(mood, Date.now()) : "Nothing hanging over right now"}</span>
+            {mood && (
+              <button type="button" className="shrink-0 text-primary hover:underline" onClick={() => set({ mood: undefined })}>
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+      </div>
       <div className="flex flex-col gap-2">
         <SwitchRow
           title="Fights that need making up"

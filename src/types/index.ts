@@ -245,6 +245,25 @@ export interface ChatConflict {
   since: number;
 }
 
+// What a character's day has been like (#107), written once a day. Empty text
+// means the model gave nothing usable; it still counts as written for the day.
+export interface CharacterDayLog {
+  date: string; // dayKey
+  text: string;
+  writtenAt: number;
+}
+
+// A mood that carries over between replies (#106): what the character felt,
+// how strongly (3 = fully, 1 = a trace), what set it off, and when it was
+// last felt (it fades from there).
+export interface ChatMood {
+  feeling: string;
+  intensity: 1 | 2 | 3;
+  cause?: string;
+  since: number;
+  updatedAt: number;
+}
+
 // A lie the character told (#100): what they said and the truth, which the
 // user only sees by asking for it.
 export interface ToldLie {
@@ -439,6 +458,8 @@ export interface Chat {
   jokesCheckedAt?: number; // message count at the last check
   conflicts?: boolean; // fights that need making up (#97)
   conflict?: ChatConflict; // the character is upset with you now
+  moodCarry?: boolean; // moods linger for a few hours and colour the next replies (#106)
+  mood?: ChatMood;
   jealousy?: boolean; // the character notices time you spend in other chats (#99)
   lies?: boolean; // the character may lie (#100)
   toldLies?: ToldLie[];
@@ -569,6 +590,9 @@ export interface Character {
   dreams?: boolean; // now and then tells you a dream they had (#94)
   lastDreamAt?: number;
   badDays?: boolean; // some days they're off (#95)
+  dayLogs?: boolean; // one account of their day, written once a day, for every prompt (#107)
+  dayLog?: CharacterDayLog; // today's (or the last one written)
+  textingSlips?: 1 | 2; // texting imperfections (#108): a few or plenty; unset = clean
   dayMood?: { date: string; mood: string }; // today's mood picked by hand; mood "" = a good day
   spreadsRumors?: boolean; // what you tell them can get around (#98)
   rumors?: Rumor[]; // rumors they heard about you

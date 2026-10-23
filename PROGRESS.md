@@ -7,7 +7,8 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 ## Where we stand
 
 - **State:** every roadmap item is built. #93–#105 were built on 2026-10-23 and committed after the full suites: type-check clean, 868 unit tests, 887 of 888 UI tests (the one failure, a timing race in `romance-profile.spec.ts`, was fixed and passed 40 of 40 repeats) and 16 screenshot tests. Not pushed.
-- **Next up:** push and deploy #93–#105 when the user says so; then new ideas, or the smaller follow-ups at the end of ROADMAP.md.
+- **Lifelike wave 1 (2026-10-23):** #106 moods that carry over, #107 one consistent day and #108 texting imperfections are built (see "What's built"), with unit tests and `e2e/lifelike.spec.ts`. Suite results are in the session log. Not pushed.
+- **Next up:** push and deploy when the user says so; then the rest of "More lifelike characters" (#109–#112), in the order the table gives.
 - **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
 - **How the new-ideas run went:** #42, #43, #12+#44 and #45 ran in fresh sessions; from #46 on they were built in the coordinating session, because new sessions can't be started over Remote Control. Each item was committed only after every suite passed.
 
@@ -15,6 +16,10 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
+| #109 | Memory with time | todo | Facts need a learned/last-mentioned date; today they're plain strings (`Character.memory`). |
+| #110 | Their own preoccupations | todo | Builds on the day log (#107). |
+| #111 | How they write | todo | Also expose `mes_example` in the editor. |
+| #112 | Real-world grounding | todo | Open-Meteo is keyless; only coordinates leave the browser. |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
 
@@ -29,6 +34,9 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **Moods that carry over (#106):** `Chat.moodCarry` (Chat tab, "Moods linger" in `DramaSection`) and `Chat.mood` ({feeling, intensity 1-3, cause, since, updatedAt}). `moodAfterReply` (src/features/chat/lingeringMood.ts) runs in `carryMood` (useReplyEffects, every reply path in ChatPage) off the reply's emotion tag: negatives start at 2, the same feeling deepens, warmth lifts a step, `fadedMood` drops a step every 3 h. `buildMoodSection` goes in `SceneContext.moodNote` (skipped while a fight is on). The switch makes the prompt ask for the emotion tag even without portraits (`PromptOptions.emotionTag`). The panel line has "Clear".
+- **One consistent day (#107):** `Character.dayLogs` / `Character.dayLog` ({date, text, writtenAt}; empty text = tried today). `DayLogWriter.tsx` (in App, first check after 8 s so statuses and first texts find it, then every 20 min; `writeDayLog` is also what "Write today again" in the Chat tab calls) writes one per character from `buildDayLogPrompt` (src/features/character/dayLog.ts: routine, day mood, memory, yesterday's log), from 9 am. Read by replies (`SceneContext.dayNote`, `buildDayLogSection`), statuses (`buildStatusPrompt`'s `dayLog`) and first texts (`FirstTextContext.dayLog`).
+- **Texting imperfections (#108):** `Character.textingSlips` (1 a few, 2 plenty; "How <name> texts" in the Chat tab). `planSlips` (src/features/ai/utils/textingSlips.ts) turns a reply's texts into `TextBubble`s (typo + `*correction`, a "This message was deleted" bubble, a quote of one of your burst messages, a false start), seeded by the message id so it's stable; display only. ChatMessage renders the bubbles (`data-slot="deleted-bubble"`, `QuotedMessage`); ChatWindow's reveal state carries the bubbles and a `phase` for the false start (typing shows, stops, shows again; the message is hidden while `shown` is 0). `buildSlipsDirective` goes in `SceneContext.slipsNote` in texting mode only: a word or two when the routine says busy, "fast and loose" at level 2.
 - **They text first (#93) and dreams (#94):** `Character.textsFirst` / `Character.dreams` (Chat tab, `scene-panel/BetweenMessagesSection.tsx`). `FirstTexter.tsx` (mounted in App, first check after 20 s, then every 20 min) sends a short helper-written text into the main 1:1 chat when `firstTextDue` (src/features/character/firstTexts.ts: 4 quiet hours, awake by the routine or 8 am-10 pm, never two unanswered, two a day, 6 h apart, letters take over after 3 days); `notes: ["texted-first"]`, a notification when away or a toast in another chat. `dreamDue` (dreams.ts: a morning's first reply, 3 days apart) puts `buildDreamDirective` in `SceneContext.dreamNote`, or the morning text is the dream; `lastDreamAt` is saved and the reply gets the "A dream" note.
 - **Bad days (#95):** `Character.badDays`; `dayMoodFor` (src/features/character/badDays.ts) picks about one day in six from a hash of the id and date, or `Character.dayMood` picked by hand for today ("Today's mood" in the Chat tab). Goes into replies (`dayMoodNote`), statuses (`buildStatusPrompt`'s `dayMood`) and first texts.
 - **Inside jokes (#96):** `Chat.insideJokes`, "Just between you" in the Story tab (`scene-panel/StorySections.tsx`); with `Chat.jokeTracking`, `maybeTrackJokes` in useBackgroundUpdates asks the helper every 30 messages (`buildJokesPrompt`, src/features/chat/insideJokes.ts). `buildJokesSection` asks for a callback now and then.
@@ -130,6 +138,7 @@ Choices a later session shouldn't revisit. Add the date.
 
 Facts that save the next session time.
 
+- **Terminal-theme screenshot test:** `terminal theme › chat screen @visual` fails most runs since at least 49105da (the message list sits a few pixels off and the composer placeholder is mid-cycle). Not caused by #106–#108; it needs the placeholder frozen and the scroll settled before the screenshot.
 - **Collapsed editor sections in UI tests:** open them with `openDetails(section)` from `e2e/fixtures.ts`; a plain click on the summary is sometimes lost while the step settles.
 - **Playwright browsers are shared by every project on this Mac** (`~/Library/Caches/ms-playwright`). If another project installs a different Playwright version, this one's browsers can disappear mid-run and every UI test fails to launch; `npx playwright install chromium webkit` brings them back.
 - **Every file in `src` must type-check, even unimported ones:** the dev server's type checker covers all of `src`, so a new file with a type error puts CRA's error overlay over every page and the whole UI run fails. Run `npx tsc --noEmit -p .` before starting a run, and don't add half-finished files during one.
@@ -155,6 +164,7 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
+- 2026-10-23: Asked how to make characters more lifelike; the answer became #106–#112 in ROADMAP.md ("More lifelike characters"). Built the first wave, #106 moods that carry over, #107 one consistent day and #108 texting imperfections, with unit tests and `e2e/lifelike.spec.ts`. Suites: type-check clean, 941 unit tests, 904 UI tests passed (176 skipped, the usual phone-redesign skips), 15 of 16 screenshot tests; the terminal-theme chat screenshot is flaky (a few-pixel scroll shift and the composer's cycling placeholder) and fails 5 of 6 runs on the commit before this one too. Committed, not pushed.
 - 2026-10-23: ComfyUI Klein 4B and Z-Image Turbo templates (from the user's own API exports) as the defaults, `img2img` mode now Klein, Z-Image prompts as FLUX prose, model dropdowns, custom-sampler import. Saved settings keep their template; the "By art style" row is always shown, since reference modes can still pick SDXL. Merged into main with the art-style commit, pushed and deployed (gh-pages 218c797). CI's UI shard 1 hung installing Playwright's system libraries and never ran; run locally instead, it passed apart from `relationship-stages.spec.ts` and `secrets.spec.ts`, which fail about half the time on the commit before too (a task card was proposed to fix them).
 - 2026-10-23: ComfyUI picture quality, on branch `comfyui-art-style-checkpoints` (committed after review, not pushed): a checkpoint and FaceID strength per art style; refusals no longer reach the image provider. The prose prompts for SDXL came from `composeImagePrompt` falling back to the plain SCENE description when the prompt call was blocked (it went without the chat's safety settings); a block is now a refusal and the settings go with the call. Also fixed the prompt guide assuming the reference template when the reference mode is "none".
 
