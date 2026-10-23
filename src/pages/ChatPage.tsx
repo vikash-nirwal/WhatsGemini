@@ -50,6 +50,7 @@ import { buildConflictDirective, buildConflictSection, upsetDelayMs } from "../f
 import { buildMoodSection, fadedMood } from "../features/chat/lingeringMood";
 import { buildDayLogSection, dayLogText } from "../features/character/dayLog";
 import { buildConcernsSection } from "../features/character/preoccupations";
+import { buildPlaceSection, cachedHolidays, cachedWeather, ensureHolidays, ensureWeather, holidaysNear } from "../features/character/realWorld";
 import { buildSlipsDirective } from "../features/ai/utils/textingSlips";
 import { buildCallbackDirective, callbackDue, pickCallback } from "../features/ai/utils/memoryTime";
 import { dayKey } from "../features/character/badDays";
@@ -328,6 +329,12 @@ const ChatPage = () => {
   // Texting imperfections (#108): the prompt's side, in texting mode only.
   const textingOn = Boolean(currentChat?.textingMode ?? appTextingMode);
   scene.slipsNote = !isRoom && characterData && textingOn ? buildSlipsDirective(characterData.name, characterData.textingSlips, currentBlock(characterData.schedule, noteTime)?.status === "busy") : undefined;
+  // Where they live (#112): what the caches hold right now; the refresher
+  // keeps them fresh, and `placeTick` re-renders once a fetch lands.
+  const home = mainStory ? characterData?.home : undefined;
+  scene.placeNote = home && characterData
+    ? buildPlaceSection(characterData.name, home, cachedWeather(home, noteTime), holidaysNear(cachedHolidays(home.countryCode, new Date(noteTime).getFullYear()), noteTime, home.timeZone), noteTime)
+    : undefined;
   scene.concernsNote = mainStory && characterData ? buildConcernsSection(characterData.name, characterData.concerns, noteTime) : undefined;
   scene.dayNote = mainStory && characterData ? buildDayLogSection(characterData.name, dayLogText(characterData, noteTime)) : undefined;
   const dayMood = mainStory ? dayMoodFor(characterData, noteTime) : undefined;
@@ -375,6 +382,23 @@ const ChatPage = () => {
 
   // "Previously on..." after a few days away (#46).
   const recap = useChatRecap(currentChat, messages, transcriptNames());
+
+  // Where they live (#112): fetch the weather and holidays when the chat
+  // opens, and render again once they're in.
+  const [, setPlaceTick] = useState(0);
+  const homeKey = home ? `${home.lat},${home.lon},${home.countryCode || ""}` : "";
+  useEffect(() => {
+    if (!home) return;
+    let alive = true;
+    const now = Date.now();
+    void Promise.all([ensureWeather(home, now), ensureHolidays(home.countryCode, new Date(now).getFullYear())]).then(() => {
+      if (alive) setPlaceTick((t) => t + 1);
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [homeKey]);
 
   // The character's most recently reported mood - drives the header avatar
   // (via resolveEmotionPortrait below) and, when that emotion has no saved

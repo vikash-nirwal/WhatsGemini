@@ -550,6 +550,16 @@ export type VoiceNoteFrequency = "off" | "sometimes" | "often";
 // A character's text-to-speech voice (#12), from the browser's own Web
 // Speech voices. Voices differ between devices, so the name and language are
 // kept too: they pick the closest voice where the saved one doesn't exist.
+// Where a character lives (#112): a city with its coordinates and time zone.
+export interface CharacterHome {
+  city: string;
+  country?: string;
+  countryCode?: string; // ISO 3166-1 alpha-2, for public holidays
+  lat: number;
+  lon: number;
+  timeZone: string; // IANA, e.g. "Europe/Lisbon"
+}
+
 // How they write (#111): texting habits kept to in every reply.
 export interface WritingStyle {
   length?: "short" | "medium" | "long";
@@ -636,6 +646,7 @@ export interface Character {
   currentOutfitId?: string; // the outfit being worn now (#50); none = the locked look's own
   voice?: CharacterVoice; // #12/#44: how they sound when read aloud, and how often they send voice notes
   writingStyle?: WritingStyle; // how they write (#111)
+  home?: CharacterHome; // where they live (#112): local time, weather and holidays
   appearanceImages?: string[];
   artStyle?: ArtStyle;
   avatar?: string;

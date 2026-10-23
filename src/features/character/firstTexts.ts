@@ -56,6 +56,7 @@ export interface FirstTextContext {
   dayLog?: string; // one consistent day (#107): what today has been like
   concerns?: string; // their own preoccupations (#110), one line
   style?: string; // how they write (#111), one line
+  place?: string; // where they live (#112): time and weather there, one line
   dream?: string; // dreams (#94): the dream directive, when it's the morning for one
 }
 
@@ -66,7 +67,7 @@ export const buildFirstTextPrompt = (
 ): string => `You are ${character.name}, texting ${userName}. You last talked ${ctx.hoursQuiet} hours ago, and now you're messaging first, unprompted.
 
 About you: ${[character.description, character.prompt].filter(Boolean).join(" ").slice(0, 700)}
-${character.relationship ? `You and ${userName}: ${character.relationship}\n` : ""}${ctx.nowDoing ? `Right now you're ${ctx.nowDoing}.\n` : ""}${ctx.dayMood ? `Today you're ${ctx.dayMood}.\n` : ""}${ctx.dayLog ? `Your day so far (keep to it): ${ctx.dayLog}\n` : ""}${ctx.concerns ? `On your mind lately: ${ctx.concerns}\n` : ""}${ctx.plans.length > 0 ? `Plans you two have made:\n- ${ctx.plans.join("\n- ")}\n` : ""}${ctx.facts.length > 0 ? `What you remember:\n- ${ctx.facts.slice(-8).join("\n- ")}\n` : ""}
+${character.relationship ? `You and ${userName}: ${character.relationship}\n` : ""}${ctx.nowDoing ? `Right now you're ${ctx.nowDoing}.\n` : ""}${ctx.dayMood ? `Today you're ${ctx.dayMood}.\n` : ""}${ctx.dayLog ? `Your day so far (keep to it): ${ctx.dayLog}\n` : ""}${ctx.concerns ? `On your mind lately: ${ctx.concerns}\n` : ""}${ctx.place ? `Where you are: ${ctx.place}\n` : ""}${ctx.plans.length > 0 ? `Plans you two have made:\n- ${ctx.plans.join("\n- ")}\n` : ""}${ctx.facts.length > 0 ? `What you remember:\n- ${ctx.facts.slice(-8).join("\n- ")}\n` : ""}
 How you last left things:
 ${ctx.transcript}
 

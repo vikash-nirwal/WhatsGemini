@@ -244,3 +244,35 @@ test("a writing profile set in the editor is saved and kept to in every prompt (
   for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Next" }).click();
   await expect(section.locator("summary")).toContainText("3 habits");
 });
+
+test("a home city gives the character the local time, weather and holidays (#112)", async ({ page, mockAI }) => {
+  await page.route("https://geocoding-api.open-meteo.com/v1/search**", (route) =>
+    route.fulfill({ json: { results: [{ name: "Lisbon", country: "Portugal", country_code: "PT", admin1: "Lisboa", latitude: 38.72, longitude: -9.14, timezone: "Europe/Lisbon" }] } })
+  );
+  await page.route("https://api.open-meteo.com/v1/forecast**", (route) => route.fulfill({ json: { current: { temperature_2m: 17.6, weather_code: 61, is_day: 1 } } }));
+  await page.route("https://date.nager.at/api/v3/PublicHolidays/**", (route) =>
+    route.fulfill({ json: [{ date: new Date().toISOString().slice(0, 10), localName: "Dia de Teste" }] })
+  );
+
+  await openRoute(page, "/characters/1/edit");
+  await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
+  for (let i = 0; i < 5; i++) await page.getByRole("button", { name: "Next" }).click();
+  const section = page.locator("details").filter({ has: page.locator("summary", { hasText: "Where they live" }) });
+  await expect(async () => {
+    if ((await section.getAttribute("open")) === null) await section.locator("summary").click();
+    await expect(section).toHaveAttribute("open", "");
+  }).toPass();
+  await section.getByRole("textbox", { name: "City" }).fill("Lisbon");
+  await section.getByRole("button", { name: "Find" }).click();
+  await section.getByRole("button", { name: "Lisbon, Lisboa, Portugal" }).click();
+  await expect(section.getByRole("group", { name: "Home" })).toContainText("Lisbon, Portugal · Europe/Lisbon");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+
+  await openChat(page);
+  await sendAndWait(page, mockAI.requests, "hey");
+  const system = lastSystem(mockAI.requests);
+  expect(system).toContain("Aria lives in Lisbon, Portugal. It's ");
+  expect(system).toContain(" there.");
+  expect(system).toContain("The weather there right now: raining, 18°C.");
+  expect(system).toContain("Public holidays where Aria lives: Dia de Teste (today).");
+});
