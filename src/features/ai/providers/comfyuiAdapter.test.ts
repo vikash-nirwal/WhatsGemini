@@ -4,6 +4,8 @@ import { DEFAULT_COMFYUI_SETTINGS, LS_COMFYUI_SETTINGS, saveComfySettings } from
 
 const REF = { mimeType: "image/png", data: btoa("reference-photo-bytes") };
 const adapter = createComfyUIAdapter({ pollIntervalMs: 1, timeoutMs: 2000 });
+// The SDXL templates, picked by hand now that Klein and Z-Image are the defaults.
+const SDXL = { ...DEFAULT_COMFYUI_SETTINGS, referenceTemplateId: "sdxl-faceid", textTemplateId: "sdxl-txt2img" };
 
 const install = (fake: ReturnType<typeof createFakeComfy>) => {
   (global as any).fetch = jest.fn(fake.fetch);
@@ -15,7 +17,7 @@ beforeEach(() => {
 
 describe("comfyuiAdapter", () => {
   it("uploads the reference, queues the FaceID workflow, polls history and fetches the image", async () => {
-    saveComfySettings({ ...DEFAULT_COMFYUI_SETTINGS, serverUrl: "http://127.0.0.1:8188/", seed: "42" });
+    saveComfySettings({ ...SDXL, serverUrl: "http://127.0.0.1:8188/", seed: "42" });
     const fake = createFakeComfy({ pendingPolls: 2 });
     install(fake);
 
@@ -52,7 +54,40 @@ describe("comfyuiAdapter", () => {
     expect(viewCall.path).toBe("/view?filename=WhatsGemini_00001_.png&subfolder=&type=output");
   });
 
+  it("runs Klein by default with a reference: the photo, the edit wording, one size for latent and scheduler, the seed on RandomNoise", async () => {
+    saveComfySettings({ ...DEFAULT_COMFYUI_SETTINGS, seed: "42" });
+    const fake = createFakeComfy();
+    install(fake);
+
+    await adapter.generateImage({ model: "", prompt: "Aria at the beach", referenceImages: [REF], aspectRatio: "3:4" }, {});
+
+    const workflow = fake.queuedWorkflow();
+    expect(workflow["1"].inputs.unet_name).toBe("flux-2-klein-4b-fp8.safetensors");
+    expect(workflow["5"].inputs.image).toBe(referenceFileName(REF));
+    expect(workflow["8"].inputs.text).toBe("Keep the person from image 1 the same: same face, identity, hairstyle and body. Show them in this new picture: Aria at the beach");
+    expect(workflow["12"].inputs).toMatchObject({ width: 896, height: 1152 });
+    expect(workflow["13"].inputs).toMatchObject({ width: 896, height: 1152 });
+    expect(workflow["15"].inputs.noise_seed).toBe(42);
+    // No LoRA: the guider reads the model directly.
+    expect(workflow["2"]).toBeUndefined();
+    expect(workflow["16"].inputs.model).toEqual(["1", 0]);
+  });
+
+  it("runs Z-Image by default without a reference", async () => {
+    const fake = createFakeComfy();
+    install(fake);
+
+    await adapter.generateImage({ model: "", prompt: "a lighthouse", artStyle: "anime" }, {});
+
+    const workflow = fake.queuedWorkflow();
+    expect(workflow["1"].inputs.unet_name).toBe("z_image_turbo_bf16.safetensors");
+    expect(workflow["6"].inputs.text).toBe("a lighthouse");
+    expect(workflow["8"].inputs).toMatchObject({ width: 1024, height: 1024 });
+    expect(workflow["3"].inputs.model).toEqual(["1", 0]);
+  });
+
   it("uses the text-to-image template and uploads nothing without a reference", async () => {
+    saveComfySettings(SDXL);
     const fake = createFakeComfy();
     install(fake);
 
@@ -172,7 +207,7 @@ describe("comfyuiAdapter", () => {
 
   describe("the character's art style", () => {
     const styled = {
-      ...DEFAULT_COMFYUI_SETTINGS,
+      ...SDXL,
       styleOptions: { anime: { checkpoint: "waiNSFWIllustrious_v140.safetensors" }, realistic: { checkpoint: "RealVisXL_V5.0.safetensors", faceIdWeight: 0.9 } },
     };
 
@@ -215,7 +250,7 @@ describe("comfyuiAdapter", () => {
 
   describe("a character's own local settings (#40)", () => {
     it("pin the seed, load the character's LoRA and add its trigger word", async () => {
-      saveComfySettings({ ...DEFAULT_COMFYUI_SETTINGS, seed: "42" });
+      saveComfySettings({ ...SDXL, seed: "42" });
       const fake = createFakeComfy();
       install(fake);
 

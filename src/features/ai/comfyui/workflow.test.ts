@@ -145,6 +145,57 @@ describe("suggestMappings", () => {
   });
 });
 
+describe("suggestMappings on a custom-sampler graph (FLUX.2 Klein, Z-Image)", () => {
+  // The scheduler before the latent, as an exported file may list them.
+  const klein: ComfyWorkflow = {
+    "1": { class_type: "UNETLoader", inputs: { unet_name: "flux-2-klein-4b-fp8.safetensors", weight_dtype: "default" } },
+    "2": { class_type: "LoraLoaderModelOnly", inputs: { lora_name: "", strength_model: 1, model: ["1", 0] } },
+    "3": { class_type: "CLIPLoader", inputs: { clip_name: "qwen_3_4b.safetensors", type: "flux2" } },
+    "5": { class_type: "LoadImage", inputs: { image: "" } },
+    "8": { class_type: "CLIPTextEncode", inputs: { text: "", clip: ["3", 0] } },
+    "9": { class_type: "ReferenceLatent", inputs: { conditioning: ["8", 0], latent: ["7", 0] } },
+    "10": { class_type: "ConditioningZeroOut", inputs: { conditioning: ["8", 0] } },
+    "11": { class_type: "CFGGuider", inputs: { cfg: 1, model: ["2", 0], positive: ["9", 0], negative: ["10", 0] } },
+    "12a": { class_type: "Flux2Scheduler", inputs: { steps: 4, width: 1024, height: 1024 } },
+    "13": { class_type: "EmptyFlux2LatentImage", inputs: { width: 1024, height: 1024, batch_size: 1 } },
+    "15": { class_type: "RandomNoise", inputs: { noise_seed: 0 } },
+    "16": { class_type: "SamplerCustomAdvanced", inputs: { noise: ["15", 0], guider: ["11", 0], sigmas: ["12a", 0], latent_image: ["13", 0] } },
+  };
+
+  it("finds the seed on RandomNoise, the prompt through the guider and the size on both the latent and the scheduler", () => {
+    const found = suggestMappings(klein);
+    expect(found).toEqual(
+      expect.arrayContaining([
+        { placeholder: "seed", nodeId: "15", input: "noise_seed" },
+        { placeholder: "positivePrompt", nodeId: "8", input: "text" },
+        { placeholder: "width", nodeId: "13", input: "width" },
+        { placeholder: "height", nodeId: "13", input: "height" },
+        { placeholder: "width", nodeId: "12a", input: "width" },
+        { placeholder: "height", nodeId: "12a", input: "height" },
+        { placeholder: "checkpoint", nodeId: "1", input: "unet_name" },
+        { placeholder: "lora", nodeId: "2", input: "lora_name" },
+        { placeholder: "referenceImage", nodeId: "5", input: "image" },
+      ])
+    );
+    // The zeroed-out negative isn't a prompt.
+    expect(found.some((m) => m.placeholder === "negativePrompt")).toBe(false);
+  });
+
+  it("fills one size into the latent and the scheduler", () => {
+    const filled = fillWorkflow(klein, suggestMappings(klein), { width: 896, height: 1152 });
+    expect(filled["13"].inputs).toMatchObject({ width: 896, height: 1152 });
+    expect(filled["12a"].inputs).toMatchObject({ width: 896, height: 1152 });
+  });
+
+  it("finds a CFGGuider's real negative prompt", () => {
+    const withNegative: ComfyWorkflow = {
+      ...klein,
+      "10": { class_type: "CLIPTextEncode", inputs: { text: "blurry", clip: ["3", 0] } },
+    };
+    expect(suggestMappings(withNegative)).toEqual(expect.arrayContaining([{ placeholder: "negativePrompt", nodeId: "10", input: "text" }]));
+  });
+});
+
 describe("listLiteralInputs", () => {
   it("lists only literal inputs, never links", () => {
     const inputs = listLiteralInputs(withLora);

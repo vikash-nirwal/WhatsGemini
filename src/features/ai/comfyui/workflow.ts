@@ -190,7 +190,13 @@ export const listLiteralInputs = (workflow: ComfyWorkflow): LiteralInput[] =>
   );
 
 const SAMPLER_CLASSES = ["KSampler", "KSamplerAdvanced", "SamplerCustom"];
-const LATENT_CLASSES = ["EmptyLatentImage", "EmptySD3LatentImage", "EmptyHunyuanLatentVideo"];
+const LATENT_CLASSES = ["EmptyLatentImage", "EmptySD3LatentImage", "EmptyFlux2LatentImage", "EmptyHunyuanLatentVideo"];
+// The custom-sampler graphs (FLUX.2, Z-Image) split the KSampler up: the seed
+// sits on a RandomNoise node, the prompts on a guider, and FLUX.2's scheduler
+// takes the picture size too, which must match the latent's.
+const NOISE_CLASSES = ["RandomNoise"];
+const GUIDER_CLASSES = ["CFGGuider", "BasicGuider"];
+const SIZED_SCHEDULER_CLASSES = ["Flux2Scheduler"];
 const CHECKPOINT_INPUTS: Record<string, string> = {
   CheckpointLoaderSimple: "ckpt_name",
   UnetLoaderGGUF: "unet_name",
@@ -231,6 +237,14 @@ export const suggestMappings = (workflow: ComfyWorkflow): PlaceholderMapping[] =
     if (neg && neg !== pos && !has("negativePrompt")) add("negativePrompt", neg, "text");
   }
   for (const [id, node] of entries) {
+    if (NOISE_CLASSES.includes(node.class_type) && !has("seed") && !isLink(node.inputs.noise_seed)) add("seed", id, "noise_seed");
+    if (!GUIDER_CLASSES.includes(node.class_type)) continue;
+    const pos = findTextEncoder(workflow, node.inputs.positive ?? node.inputs.conditioning);
+    if (pos && !has("positivePrompt")) add("positivePrompt", pos, "text");
+    const neg = findTextEncoder(workflow, node.inputs.negative);
+    if (neg && neg !== pos && !has("negativePrompt")) add("negativePrompt", neg, "text");
+  }
+  for (const [id, node] of entries) {
     if (LATENT_CLASSES.includes(node.class_type) && !has("width")) {
       if (!isLink(node.inputs.width)) add("width", id, "width");
       if (!isLink(node.inputs.height)) add("height", id, "height");
@@ -242,6 +256,12 @@ export const suggestMappings = (workflow: ComfyWorkflow): PlaceholderMapping[] =
       add("loraStrength", id, "strength_model");
       if ("strength_clip" in node.inputs) add("loraStrength", id, "strength_clip");
     }
+  }
+  // After the latent, so the latent's size is always mapped too.
+  for (const [id, node] of entries) {
+    if (!SIZED_SCHEDULER_CLASSES.includes(node.class_type)) continue;
+    if (!isLink(node.inputs.width)) add("width", id, "width");
+    if (!isLink(node.inputs.height)) add("height", id, "height");
   }
   const loadImages = entries.filter(([, node]) => node.class_type === "LoadImage");
   loadImages.slice(0, REFERENCE_PLACEHOLDERS.length).forEach(([id], i) => add(REFERENCE_PLACEHOLDERS[i], id, "image"));

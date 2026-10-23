@@ -61,7 +61,7 @@ export const CUSTOM_PREFIX = "custom:";
 export const REFERENCE_MODE_TEMPLATES: Record<string, string> = {
   controlnet: "sdxl-faceid",
   reactor: "sdxl-reactor",
-  img2img: "flux-kontext-gguf",
+  img2img: "flux2-klein-4b-reference",
 };
 
 export const DEFAULT_COMFYUI_SETTINGS: ComfyUISettings = {

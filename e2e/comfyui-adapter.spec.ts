@@ -8,10 +8,10 @@ import { COMFY_URL, mockComfyUI, openSourceHarness, PNG_BASE64 } from "./comfyui
 
 const REFERENCE = { mimeType: "image/png", data: PNG_BASE64 };
 
-const generate = (page: import("@playwright/test").Page, withReference: boolean, aspectRatio?: string) =>
+const generate = (page: import("@playwright/test").Page, withReference: boolean, aspectRatio?: string, settings: Record<string, string> = {}) =>
   page.evaluate(
-    async ({ withReference, reference, aspectRatio, serverUrl }) => {
-      localStorage.setItem("comfyui_settings", JSON.stringify({ serverUrl, seed: "1234" }));
+    async ({ withReference, reference, aspectRatio, serverUrl, settings }) => {
+      localStorage.setItem("comfyui_settings", JSON.stringify({ serverUrl, seed: "1234", ...settings }));
       const { createComfyUIAdapter } = await import("/src/features/ai/providers/comfyuiAdapter" as string);
       const adapter = createComfyUIAdapter({ pollIntervalMs: 50, timeoutMs: 10_000 });
       try {
@@ -24,7 +24,7 @@ const generate = (page: import("@playwright/test").Page, withReference: boolean,
         return { error: err instanceof Error ? err.message : String(err) };
       }
     },
-    { withReference, reference: REFERENCE, aspectRatio, serverUrl: COMFY_URL }
+    { withReference, reference: REFERENCE, aspectRatio, serverUrl: COMFY_URL, settings }
   );
 
 test.describe("ComfyUI adapter against a mocked server", () => {
@@ -32,7 +32,7 @@ test.describe("ComfyUI adapter against a mocked server", () => {
     const comfy = await mockComfyUI(page, { pendingPolls: 2 });
     await openSourceHarness(page);
 
-    const result = await generate(page, true, "16:9");
+    const result = await generate(page, true, "16:9", { referenceTemplateId: "sdxl-faceid" });
 
     expect(result.error).toBeUndefined();
     expect(result.images).toEqual([`data:image/png;base64,${PNG_BASE64}`]);
@@ -53,6 +53,23 @@ test.describe("ComfyUI adapter against a mocked server", () => {
     expect(workflow["5"].inputs).toMatchObject({ width: 1344, height: 768 });
     expect(workflow["6"].inputs.seed).toBe(1234);
     expect(comfy.requests[1].body.client_id).toEqual(expect.any(String));
+  });
+
+  test("runs FLUX.2 Klein by default with a reference: one size for latent and scheduler, the seed on RandomNoise", async ({ page }) => {
+    const comfy = await mockComfyUI(page);
+    await openSourceHarness(page);
+
+    const result = await generate(page, true, "16:9");
+
+    expect(result.error).toBeUndefined();
+    const workflow = comfy.queuedWorkflow();
+    expect(workflow["1"].inputs.unet_name).toBe("flux-2-klein-4b-fp8.safetensors");
+    expect(workflow["5"].inputs.image).toBe(comfy.requests[0].uploadName);
+    expect(workflow["8"].inputs.text).toMatch(/^Keep the person from image 1 the same.*Aria on a rooftop at dusk$/);
+    expect(workflow["12"].inputs).toMatchObject({ width: 1344, height: 768 });
+    expect(workflow["13"].inputs).toMatchObject({ width: 1344, height: 768 });
+    expect(workflow["15"].inputs.noise_seed).toBe(1234);
+    expect(workflow["2"]).toBeUndefined();
   });
 
   test("uses plain text to image without a reference", async ({ page }) => {

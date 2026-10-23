@@ -176,7 +176,8 @@ test.describe("Wan", () => {
 });
 
 test.describe("ComfyUI", () => {
-  test.use({ seed: { messages: 2 }, localStorageOverrides: { image_provider: "comfyui" } });
+  // The SDXL workflows, picked by hand: Klein and Z-Image are the defaults.
+  test.use({ seed: { messages: 2 }, localStorageOverrides: { image_provider: "comfyui", comfyui_settings: JSON.stringify({ referenceTemplateId: "sdxl-faceid", textTemplateId: "sdxl-txt2img" }) } });
 
   test("gets the photo, the locked look, and the character's seed and LoRA", async ({ page }) => {
     const comfy = await mockComfyUI(page);
@@ -198,7 +199,8 @@ test.describe("ComfyUI", () => {
 });
 
 test.describe("ComfyUI prompt writing", () => {
-  test.use({ seed: { messages: 2 }, localStorageOverrides: { image_provider: "comfyui" } });
+  // The SDXL workflows, picked by hand: Klein and Z-Image are the defaults.
+  test.use({ seed: { messages: 2 }, localStorageOverrides: { image_provider: "comfyui", comfyui_settings: JSON.stringify({ referenceTemplateId: "sdxl-faceid", textTemplateId: "sdxl-txt2img" }) } });
 
   test("the text model writes the prompt for the workflow, even when it ignores the format", async ({ page, mockAI }) => {
     const comfy = await mockComfyUI(page);

@@ -1,5 +1,6 @@
 import { composeImagePrompt, deriveImagePrompt, ImagePromptRefusedError, parseSceneReply } from "./imageGeneration";
 import { resolveImagePromptTarget } from "./imagePromptGuide";
+import { LS_COMFYUI_SETTINGS } from "../comfyui/settings";
 import { ChatProviderAdapter, ContentBlockedError } from "../providers/types";
 
 // The real registry pulls in provider SDKs that Jest can't load (ESM-only);
@@ -24,7 +25,10 @@ const fakeAdapter = (replies: (string | Error)[], seen: string[]): ChatProviderA
   generateOnce: async () => ({ text: "" }),
 } as any);
 
+// The SDXL text-to-image template, picked by hand: Klein and Z-Image are the defaults.
+localStorage.setItem(LS_COMFYUI_SETTINGS, JSON.stringify({ textTemplateId: "sdxl-txt2img" }));
 const SDXL_COMFY = resolveImagePromptTarget({ providerId: "comfyui" });
+localStorage.clear();
 const SD_WEBUI = resolveImagePromptTarget({ providerId: "sdwebui" });
 const OPENAI = resolveImagePromptTarget({ providerId: "openai" });
 

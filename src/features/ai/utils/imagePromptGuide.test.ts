@@ -9,6 +9,10 @@ describe("dialectForCheckpoint", () => {
     expect(dialectForCheckpoint("waiNSFWIllustrious_v140.safetensors")).toBe("illustrious");
     expect(dialectForCheckpoint("juggernautXL_v9.safetensors")).toBe("sdxl");
     expect(dialectForCheckpoint("flux1-dev-Q4_K_S.gguf")).toBe("flux");
+    expect(dialectForCheckpoint("flux-2-klein-4b-fp8.safetensors")).toBe("flux");
+    expect(dialectForCheckpoint("z_image_turbo_bf16.safetensors")).toBe("flux");
+    expect(dialectForCheckpoint("Z-Image-Turbo.safetensors")).toBe("flux");
+    expect(dialectForCheckpoint("zimage_turbo.safetensors")).toBe("flux");
     expect(dialectForCheckpoint("v1-5-pruned-emaonly.safetensors")).toBe("sd15");
     expect(dialectForCheckpoint("")).toBe("sd15");
     expect(dialectForCheckpoint("mystery.safetensors", "sdxl")).toBe("sdxl");
@@ -46,10 +50,17 @@ describe("resolveImagePromptTarget", () => {
   });
 
   it("follows the ComfyUI workflow that will run", () => {
-    // Bundled defaults: SDXL text to image without a reference photo.
-    expect(resolveImagePromptTarget({ providerId: "comfyui" })).toMatchObject({ dialect: "sdxl", tags: true });
-    // The FLUX Kontext template, picked by the character's img2img reference mode.
-    expect(resolveImagePromptTarget({ providerId: "comfyui", hasReference: true, referenceMode: "img2img" }).dialect).toBe("flux");
+    // Bundled defaults: Z-Image without a reference photo, Klein with one,
+    // both written as prose.
+    const zImage = resolveImagePromptTarget({ providerId: "comfyui" });
+    expect(zImage).toMatchObject({ dialect: "flux", tags: false });
+    expect(zImage.engine).toContain('"Z-Image Turbo text to image"');
+    expect(resolveImagePromptTarget({ providerId: "comfyui", hasReference: true }).engine).toContain("FLUX.2 Klein 4B");
+    // The SDXL FaceID template, picked by the character's controlnet reference mode.
+    expect(resolveImagePromptTarget({ providerId: "comfyui", hasReference: true, referenceMode: "controlnet" }).dialect).toBe("sdxl");
+    // Z-Image stays prose even with its file renamed.
+    localStorage.setItem(LS_COMFYUI_SETTINGS, JSON.stringify({ templateOptions: { "z-image-turbo-txt2img": { checkpoint: "my-turbo.safetensors" } } }));
+    expect(resolveImagePromptTarget({ providerId: "comfyui" }).dialect).toBe("flux");
     localStorage.setItem(LS_COMFYUI_SETTINGS, JSON.stringify({ textTemplateId: "sdxl-txt2img", templateOptions: { "sdxl-txt2img": { checkpoint: "ponyDiffusionV6XL.safetensors" } } }));
     const pony = resolveImagePromptTarget({ providerId: "comfyui" });
     expect(pony.dialect).toBe("pony");
@@ -57,13 +68,13 @@ describe("resolveImagePromptTarget", () => {
   });
 
   it("writes for the checkpoint the character's art style runs on", () => {
-    localStorage.setItem(LS_COMFYUI_SETTINGS, JSON.stringify({ styleOptions: { anime: { checkpoint: "waiNSFWIllustrious_v140.safetensors" } } }));
+    localStorage.setItem(LS_COMFYUI_SETTINGS, JSON.stringify({ referenceTemplateId: "sdxl-faceid", styleOptions: { anime: { checkpoint: "waiNSFWIllustrious_v140.safetensors" } } }));
     expect(resolveImagePromptTarget({ providerId: "comfyui", hasReference: true, artStyle: "anime" }).dialect).toBe("illustrious");
     expect(resolveImagePromptTarget({ providerId: "comfyui", hasReference: true, artStyle: "realistic" }).dialect).toBe("sdxl");
   });
 
   it("matches the adapter when the reference mode leaves the photo out", () => {
-    localStorage.setItem(LS_COMFYUI_SETTINGS, JSON.stringify({ referenceTemplateId: "flux-kontext-gguf" }));
+    localStorage.setItem(LS_COMFYUI_SETTINGS, JSON.stringify({ referenceTemplateId: "flux-kontext-gguf", textTemplateId: "sdxl-txt2img" }));
     expect(resolveImagePromptTarget({ providerId: "comfyui", hasReference: true }).dialect).toBe("flux");
     expect(resolveImagePromptTarget({ providerId: "comfyui", hasReference: true, referenceMode: "none" }).dialect).toBe("sdxl");
   });
@@ -71,6 +82,7 @@ describe("resolveImagePromptTarget", () => {
 
 describe("the prompt-writing call", () => {
   it("gives the scene, the style and the model's own rules", () => {
+    localStorage.setItem(LS_COMFYUI_SETTINGS, JSON.stringify({ textTemplateId: "sdxl-txt2img" }));
     const t = resolveImagePromptTarget({ providerId: "comfyui" });
     const request = buildImagePromptRequest({ target: t, scene: "Aria waves from a rainy bus stop.", baseStyle: "Cinematic.", artStyleClause: "anime style" });
     expect(request).toContain('You write prompts for an image generator: ComfyUI running the "SDXL text to image" workflow');

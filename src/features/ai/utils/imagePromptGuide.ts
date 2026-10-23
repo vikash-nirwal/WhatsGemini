@@ -45,7 +45,9 @@ const GUIDES: Record<PromptDialect, string> = {
 export const dialectForCheckpoint = (name: string | undefined, fallback: PromptDialect = "sd15"): PromptDialect => {
   const n = (name || "").toLowerCase();
   if (!n) return fallback;
-  if (n.includes("flux") || n.includes("kontext")) return "flux";
+  // Z-Image reads sentences and, at cfg 1, ignores the negative prompt, as
+  // FLUX does, so it gets FLUX's prose.
+  if (n.includes("flux") || n.includes("kontext") || /z[_-]?image/.test(n)) return "flux";
   if (n.includes("pony")) return "pony";
   if (/illustrious|noob|\bil[_-]|wai[_-]?ani/.test(n)) return "illustrious";
   if (/xl|sdxl|juggernaut|realvis|dreamshaper[_-]?xl|playground|animagine/.test(n)) return "sdxl";
@@ -100,7 +102,7 @@ export const resolveImagePromptTarget = ({ providerId, imageModel, sdWebuiModel,
         const customs = loadCustomWorkflows();
         const template = templateForCharacter(settings, hasReference, referenceMode, customs);
         const { checkpoint } = templateOptionsFor(settings, template, artStyle);
-        const byTemplate: PromptDialect = /flux/i.test(`${template.id} ${template.label}`) ? "flux" : "sdxl";
+        const byTemplate: PromptDialect = /flux|z-image/i.test(`${template.id} ${template.label}`) ? "flux" : "sdxl";
         const dialect = byTemplate === "flux" ? "flux" : dialectForCheckpoint(checkpoint, settings.baseSize <= 768 ? "sd15" : "sdxl");
         return target(dialect, `ComfyUI running the "${template.label}" workflow${checkpoint ? ` with "${checkpoint}"` : ""}`);
       } catch {

@@ -19,7 +19,7 @@ import {
   TemplateOptions,
   templateOptionsFor,
 } from 'src/features/ai/comfyui/settings';
-import { CustomNodePack, ModelSource, WorkflowTemplate } from 'src/features/ai/comfyui/templates';
+import { CustomNodePack, DEFAULT_REFERENCE_TEMPLATE_ID, DEFAULT_TEXT_TEMPLATE_ID, ModelSource, WorkflowTemplate } from 'src/features/ai/comfyui/templates';
 import {
   listLiteralInputs,
   parseApiWorkflow,
@@ -68,6 +68,48 @@ const StatusLine: React.FC<{ status: Status; testId: string }> = ({ status, test
     >
       {status.text}
     </p>
+  );
+};
+
+// A model file field. Once the server's list for its loader is known, a
+// dropdown of the installed files; a saved or default name the server
+// doesn't have stays listed as "(not installed)", since that picture would
+// fail. Without the list (server unreachable), a text field with
+// suggestions, as before.
+const ModelPicker: React.FC<{
+  label: string;
+  value: string;
+  // The file used when nothing is picked; shown as the field's placeholder.
+  fallback: string;
+  // Files the server offers, or undefined while unknown.
+  files: string[] | undefined;
+  // The first option, with the value '' (e.g. "None" for a LoRA).
+  emptyLabel?: string;
+  listId: string;
+  onChange: (value: string) => void;
+}> = ({ label, value, fallback, files, emptyLabel, listId, onChange }) => {
+  if (!files) {
+    return (
+      <>
+        <TextInput type="text" aria-label={label} list={listId} value={value} onChange={(e) => onChange(e.target.value)} placeholder={fallback} />
+        <datalist id={listId} data-testid={listId} />
+      </>
+    );
+  }
+  const shown = value || (emptyLabel ? '' : fallback);
+  const missing = shown && !files.includes(shown) ? [shown] : [];
+  return (
+    <Select aria-label={label} value={shown} onChange={(e) => onChange(e.target.value)}>
+      {emptyLabel && <option value="">{emptyLabel}</option>}
+      {missing.map((m) => (
+        <option key={m} value={m}>{`${m} (not installed)`}</option>
+      ))}
+      {files.map((m) => (
+        <option key={m} value={m}>
+          {m}
+        </option>
+      ))}
+    </Select>
   );
 };
 
@@ -163,8 +205,10 @@ const ComfyUISettings: React.FC = () => {
   const textTemplate = textTemplates.find((t) => t.id === settings.textTemplateId) || textTemplates[0];
   const activeTemplates = referenceTemplate.id === textTemplate.id ? [referenceTemplate] : [referenceTemplate, textTemplate];
   const serverUrl = normalizeServerUrl(settings.serverUrl || DEFAULT_COMFYUI_URL);
-  const usesFaceId = activeTemplates.some((t) => t.mappings.some((m) => m.placeholder === 'faceIdWeight'));
-  const sdCheckpoints = modelLists[sourceKey(SD_CHECKPOINT_SOURCE)] || [];
+  const sdxlLabels = templates.filter(takesStyleCheckpoint).map((t) => t.label).join(', ');
+  const sdCheckpoints = modelLists[sourceKey(SD_CHECKPOINT_SOURCE)];
+  // FLUX and Z-Image run at cfg 1 and have no negative prompt to fill.
+  const withoutNegative = activeTemplates.filter((t) => !t.mappings.some((m) => m.placeholder === 'negativePrompt'));
 
   const update = (patch: Partial<Settings>) => {
     setSettings((prev) => {
@@ -211,21 +255,35 @@ const ComfyUISettings: React.FC = () => {
     saveCustomWorkflows(next);
   };
 
+  // Every template's loaders, not only the active ones', so picking another
+  // workflow shows its files straight away.
+  const loadModelLists = async () => {
+    const sources = [SD_CHECKPOINT_SOURCE, ...templates.flatMap((t) => [t.checkpointSource, t.loraSource])].filter((s): s is ModelSource => Boolean(s));
+    const uniqueSources = Array.from(new Map(sources.map((s) => [sourceKey(s), s])).values());
+    const lists = await Promise.all(uniqueSources.map(async (s) => [sourceKey(s), await listInputOptions(serverUrl, s.classType, s.input)] as const));
+    setModelLists((prev) => ({ ...prev, ...Object.fromEntries(lists) }));
+    const checkpoints = lists.find(([key]) => key === sourceKey(SD_CHECKPOINT_SOURCE))?.[1] || [];
+    if (checkpoints.length > 0) guessStyleCheckpoints(checkpoints);
+  };
+
+  // The lists load when the settings open. One request first, so a ComfyUI
+  // that isn't running costs one failed call rather than one per loader; the
+  // fields then stay text inputs, and Test connection says what's wrong.
+  useEffect(() => {
+    getSystemStats(serverUrl)
+      .then(loadModelLists)
+      .catch(() => undefined);
+    // Once, on open; Test connection reloads them.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const testConnection = async () => {
     setConnection({ kind: 'busy', text: `Connecting to ${serverUrl}…` });
     try {
       const stats = await getSystemStats(serverUrl);
       const classTypes = Array.from(new Set(activeTemplates.flatMap((t) => t.requirements.customNodes.flatMap((p) => p.classTypes))));
-      const sources = [SD_CHECKPOINT_SOURCE, ...activeTemplates.flatMap((t) => [t.checkpointSource, t.loraSource])].filter((s): s is ModelSource => Boolean(s));
-      const uniqueSources = Array.from(new Map(sources.map((s) => [sourceKey(s), s])).values());
-      const [missing, lists] = await Promise.all([
-        findMissingNodes(serverUrl, classTypes),
-        Promise.all(uniqueSources.map(async (s) => [sourceKey(s), await listInputOptions(serverUrl, s.classType, s.input)] as const)),
-      ]);
+      const [missing] = await Promise.all([findMissingNodes(serverUrl, classTypes), loadModelLists()]);
       setMissingNodes(missing);
-      setModelLists((prev) => ({ ...prev, ...Object.fromEntries(lists) }));
-      const checkpoints = lists.find(([key]) => key === sourceKey(SD_CHECKPOINT_SOURCE))?.[1] || [];
-      if (checkpoints.length > 0) guessStyleCheckpoints(checkpoints);
       const device = stats.devices[0];
       const deviceText = device ? `, ${device.name}${device.vramTotal ? ` (${formatGb(device.vramTotal)})` : ''}` : '';
       const missingText = missing.length > 0 ? ` Missing nodes: ${missing.join(', ')}.` : '';
@@ -267,8 +325,8 @@ const ComfyUISettings: React.FC = () => {
 
   const deleteCustom = (id: string) => {
     updateCustoms(customs.filter((c) => c.id !== id));
-    if (settings.referenceTemplateId === id) update({ referenceTemplateId: allTemplates([])[0].id });
-    if (settings.textTemplateId === id) update({ textTemplateId: 'sdxl-txt2img' });
+    if (settings.referenceTemplateId === id) update({ referenceTemplateId: DEFAULT_REFERENCE_TEMPLATE_ID });
+    if (settings.textTemplateId === id) update({ textTemplateId: DEFAULT_TEXT_TEMPLATE_ID });
   };
 
   const runTest = async () => {
@@ -331,8 +389,9 @@ const ComfyUISettings: React.FC = () => {
       {activeTemplates.map((t) => {
         const opts = templateOptionsFor(settings, t);
         const stored = settings.templateOptions[t.id] || {};
-        const checkpointList = t.checkpointSource ? modelLists[sourceKey(t.checkpointSource)] || [] : [];
-        const loraList = t.loraSource ? modelLists[sourceKey(t.loraSource)] || [] : [];
+        // Each template's own loader: SDXL checkpoints and UNET files differ.
+        const checkpointList = t.checkpointSource ? modelLists[sourceKey(t.checkpointSource)] : undefined;
+        const loraList = t.loraSource ? modelLists[sourceKey(t.loraSource)] : undefined;
         const hasLora = t.mappings.some((m) => m.placeholder === 'lora');
         const hasCheckpoint = t.mappings.some((m) => m.placeholder === 'checkpoint');
         if (!hasLora && !hasCheckpoint) return null;
@@ -342,42 +401,31 @@ const ComfyUISettings: React.FC = () => {
             className={ROW_CLASS}
             key={t.id}
             label={`Models: ${t.label}`}
-            hint={checkpointList.length > 0 ? 'Suggestions come from your ComfyUI.' : 'Test the connection to get suggestions from your ComfyUI.'}
+            hint={checkpointList ? 'The files installed in your ComfyUI.' : "Can't read the installed files yet; test the connection."}
             align="start"
           >
             <div className="grid gap-2">
               {hasCheckpoint && (
-                <>
-                  <TextInput
-                    type="text"
-                    aria-label={`Checkpoint for ${t.label}`}
-                    list={listId('ckpt')}
-                    value={stored.checkpoint ?? ''}
-                    onChange={(e) => updateTemplateOptions(t.id, { checkpoint: e.target.value })}
-                    placeholder={t.defaultCheckpoint || 'Checkpoint file name'}
-                  />
-                  <datalist id={listId('ckpt')} data-testid={listId('ckpt')}>
-                    {checkpointList.map((m) => (
-                      <option key={m} value={m} />
-                    ))}
-                  </datalist>
-                </>
+                <ModelPicker
+                  label={`Checkpoint for ${t.label}`}
+                  listId={listId('ckpt')}
+                  value={stored.checkpoint ?? ''}
+                  fallback={t.defaultCheckpoint || 'Checkpoint file name'}
+                  files={checkpointList}
+                  onChange={(checkpoint) => updateTemplateOptions(t.id, { checkpoint })}
+                />
               )}
               {hasLora && (
                 <div className="flex items-center gap-2">
-                  <TextInput
-                    type="text"
-                    aria-label={`LoRA for ${t.label}`}
-                    list={listId('lora')}
+                  <ModelPicker
+                    label={`LoRA for ${t.label}`}
+                    listId={listId('lora')}
                     value={stored.lora ?? ''}
-                    onChange={(e) => updateTemplateOptions(t.id, { lora: e.target.value })}
-                    placeholder="LoRA (optional)"
+                    fallback="LoRA (optional)"
+                    emptyLabel="None"
+                    files={loraList}
+                    onChange={(lora) => updateTemplateOptions(t.id, { lora })}
                   />
-                  <datalist id={listId('lora')}>
-                    {loraList.map((m) => (
-                      <option key={m} value={m} />
-                    ))}
-                  </datalist>
                   <TextInput
                     type="number"
                     aria-label={`LoRA weight for ${t.label}`}
@@ -395,69 +443,63 @@ const ComfyUISettings: React.FC = () => {
         );
       })}
 
-      {(activeTemplates.some(takesStyleCheckpoint) || usesFaceId) && (
-        <SettingsRow
-          className={ROW_CLASS}
-          label="By art style"
-          hint="Each character's art style picks the checkpoint for the SDXL workflows, and how closely FaceID copies the reference face. Leave a checkpoint empty to use the workflow's own."
-          align="start"
-        >
-          <div className="grid gap-3" data-testid="comfyui-art-styles">
-            {ART_STYLES.map(({ value, label }) => {
-              const stored = settings.styleOptions[value] || {};
-              const listId = `comfyui-style-ckpt-${value}`;
-              return (
-                <div key={value} className="grid gap-1.5">
-                  <span className="text-xs font-medium text-foreground">{label}</span>
-                  <TextInput
-                    type="text"
-                    aria-label={`Checkpoint for ${label} characters`}
-                    list={listId}
-                    value={stored.checkpoint ?? ''}
-                    onChange={(e) => updateStyleOptions(value, { checkpoint: e.target.value })}
-                    placeholder="The workflow's checkpoint"
-                  />
-                  <datalist id={listId} data-testid={listId}>
-                    {sdCheckpoints.map((m) => (
-                      <option key={m} value={m} />
-                    ))}
-                  </datalist>
-                  {usesFaceId && (
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <label className="flex items-center gap-2">
-                        FaceID weight
-                        <TextInput
-                          type="number"
-                          aria-label={`FaceID weight for ${label} characters`}
-                          className="w-24"
-                          min="0"
-                          max="2"
-                          step="0.05"
-                          value={stored.faceIdWeight ?? DEFAULT_FACEID[value].weight}
-                          onChange={(e) => updateStyleOptions(value, { faceIdWeight: Number(e.target.value) })}
-                        />
-                      </label>
-                      <label className="flex items-center gap-2">
-                        FaceID LoRA
-                        <TextInput
-                          type="number"
-                          aria-label={`FaceID LoRA strength for ${label} characters`}
-                          className="w-24"
-                          min="0"
-                          max="2"
-                          step="0.05"
-                          value={stored.faceIdLoraStrength ?? DEFAULT_FACEID[value].loraStrength}
-                          onChange={(e) => updateStyleOptions(value, { faceIdLoraStrength: Number(e.target.value) })}
-                        />
-                      </label>
-                    </div>
-                  )}
+      {/* Always shown: a character's reference mode can pick an SDXL
+          workflow (FaceID or ReActor) even when the defaults aren't SDXL. */}
+      <SettingsRow
+        className={ROW_CLASS}
+        label="By art style"
+        hint={`Each character's art style picks the checkpoint for the SDXL workflows (${sdxlLabels}), and how closely FaceID copies the reference face. Leave a checkpoint empty to use the workflow's own.`}
+        align="start"
+      >
+        <div className="grid gap-3" data-testid="comfyui-art-styles">
+          {ART_STYLES.map(({ value, label }) => {
+            const stored = settings.styleOptions[value] || {};
+            const listId = `comfyui-style-ckpt-${value}`;
+            return (
+              <div key={value} className="grid gap-1.5">
+                <span className="text-xs font-medium text-foreground">{label}</span>
+                <ModelPicker
+                  label={`Checkpoint for ${label} characters`}
+                  listId={listId}
+                  value={stored.checkpoint ?? ''}
+                  fallback="The workflow's checkpoint"
+                  emptyLabel="The workflow's checkpoint"
+                  files={sdCheckpoints}
+                  onChange={(checkpoint) => updateStyleOptions(value, { checkpoint })}
+                />
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <label className="flex items-center gap-2">
+                    FaceID weight
+                    <TextInput
+                      type="number"
+                      aria-label={`FaceID weight for ${label} characters`}
+                      className="w-24"
+                      min="0"
+                      max="2"
+                      step="0.05"
+                      value={stored.faceIdWeight ?? DEFAULT_FACEID[value].weight}
+                      onChange={(e) => updateStyleOptions(value, { faceIdWeight: Number(e.target.value) })}
+                    />
+                  </label>
+                  <label className="flex items-center gap-2">
+                    FaceID LoRA
+                    <TextInput
+                      type="number"
+                      aria-label={`FaceID LoRA strength for ${label} characters`}
+                      className="w-24"
+                      min="0"
+                      max="2"
+                      step="0.05"
+                      value={stored.faceIdLoraStrength ?? DEFAULT_FACEID[value].loraStrength}
+                      onChange={(e) => updateStyleOptions(value, { faceIdLoraStrength: Number(e.target.value) })}
+                    />
+                  </label>
                 </div>
-              );
-            })}
-          </div>
-        </SettingsRow>
-      )}
+              </div>
+            );
+          })}
+        </div>
+      </SettingsRow>
 
       <SettingsRow className={ROW_CLASS} label="Base size" hint="1024 for SDXL and FLUX, 512 or 768 for SD 1.5. The picture's shape still follows the requested aspect ratio.">
         <SegmentedControl value={String(settings.baseSize)} onChange={(v) => update({ baseSize: Number(v) })} options={BASE_SIZE_OPTIONS} />
@@ -474,8 +516,25 @@ const ComfyUISettings: React.FC = () => {
         />
       </SettingsRow>
 
-      <SettingsRow className={ROW_CLASS} label="Negative prompt" hint="Things to keep out of the picture. FLUX Kontext ignores it." align="start">
-        <TextArea aria-label="ComfyUI negative prompt" value={settings.negativePrompt} onChange={(e) => update({ negativePrompt: e.target.value })} />
+      <SettingsRow
+        className={ROW_CLASS}
+        label="Negative prompt"
+        hint={
+          withoutNegative.length === 0
+            ? 'Things to keep out of the picture.'
+            : withoutNegative.length < activeTemplates.length
+              ? `Things to keep out of the picture. ${withoutNegative.map((t) => t.label).join(' and ')} doesn't use it.`
+              : 'Not used by the selected workflows: they have no negative prompt.'
+        }
+        align="start"
+      >
+        {withoutNegative.length < activeTemplates.length ? (
+          <TextArea aria-label="ComfyUI negative prompt" value={settings.negativePrompt} onChange={(e) => update({ negativePrompt: e.target.value })} />
+        ) : (
+          <p className="text-xs text-muted-foreground" data-testid="comfyui-no-negative">
+            Describe only what should be in the picture.
+          </p>
+        )}
       </SettingsRow>
 
       <SettingsRow
@@ -535,8 +594,8 @@ const ComfyUISettings: React.FC = () => {
             your local network.
           </p>
           <p>
-            Memory: SDXL with FaceID needs about 8 GB of VRAM; FLUX Kontext dev about 12 GB (less with a smaller GGUF quant). Apple Silicon works through
-            MPS, but FLUX is slow there.
+            Memory: FLUX.2 Klein 4B needs about 8-10 GB of VRAM and Z-Image Turbo about 10-12 GB; SDXL with FaceID about 8 GB; FLUX Kontext dev about
+            12 GB (less with a smaller GGUF quant). Apple Silicon works through MPS, but FLUX is slow there.
           </p>
           {activeTemplates.map((t) => (
             <RequirementList key={t.id} template={t} missing={missingNodes} />

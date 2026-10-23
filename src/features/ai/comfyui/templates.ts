@@ -64,6 +64,8 @@ const SAVE_PREFIX = "WhatsGemini";
 
 const CHECKPOINT_SOURCE: ModelSource = { classType: "CheckpointLoaderSimple", input: "ckpt_name" };
 const LORA_SOURCE: ModelSource = { classType: "LoraLoader", input: "lora_name" };
+const UNET_SOURCE: ModelSource = { classType: "UNETLoader", input: "unet_name" };
+const MODEL_ONLY_LORA_SOURCE: ModelSource = { classType: "LoraLoaderModelOnly", input: "lora_name" };
 
 // The SDXL text-to-image graph that (a), (c) and (d) build on:
 // checkpoint -> optional LoRA -> prompts -> KSampler -> decode -> save.
@@ -311,7 +313,135 @@ const sdxlReactor: WorkflowTemplate = {
   },
 };
 
-export const BUILT_IN_TEMPLATES: WorkflowTemplate[] = [sdxlFaceId, fluxKontext, sdxlReactor, sdxlTxt2img];
+// (e) FLUX.2 Klein 4B (distilled), from ComfyUI's official Klein template:
+// an edit model that redraws the person in the main reference photo in a new
+// scene, in seconds. The reference is encoded and attached to both the
+// prompt and the zeroed-out negative (ReferenceLatent). It runs at cfg 1, so
+// there is no negative prompt. Flux2Scheduler sizes its sigmas by the
+// picture, so it gets the same width and height as the latent.
+const flux2Klein: WorkflowTemplate = {
+  id: "flux2-klein-4b-reference",
+  label: "FLUX.2 Klein 4B (reference photo)",
+  description: "Redraws the character from the main reference photo in the new scene. Fast (seconds) and keeps the likeness; reads prompts as plain sentences.",
+  workflow: {
+    "1": { class_type: "UNETLoader", inputs: { unet_name: "flux-2-klein-4b-fp8.safetensors", weight_dtype: "default" }, _meta: { title: "Klein model" } },
+    "2": {
+      class_type: "LoraLoaderModelOnly",
+      inputs: { lora_name: "", strength_model: 1, model: ["1", 0] },
+      _meta: { title: "Klein LoRA (optional)" },
+    },
+    "3": { class_type: "CLIPLoader", inputs: { clip_name: "qwen_3_4b.safetensors", type: "flux2", device: "default" } },
+    "4": { class_type: "VAELoader", inputs: { vae_name: "flux2-vae.safetensors" } },
+    "5": { class_type: "LoadImage", inputs: { image: "" }, _meta: { title: "Reference photo" } },
+    "6": { class_type: "ImageScaleToTotalPixels", inputs: { image: ["5", 0], upscale_method: "lanczos", megapixels: 1, resolution_steps: 1 } },
+    "7": { class_type: "VAEEncode", inputs: { pixels: ["6", 0], vae: ["4", 0] } },
+    "8": { class_type: "CLIPTextEncode", inputs: { text: "", clip: ["3", 0] }, _meta: { title: "Prompt" } },
+    "9": { class_type: "ConditioningZeroOut", inputs: { conditioning: ["8", 0] } },
+    "10": { class_type: "ReferenceLatent", inputs: { conditioning: ["8", 0], latent: ["7", 0] } },
+    "11": { class_type: "ReferenceLatent", inputs: { conditioning: ["9", 0], latent: ["7", 0] } },
+    "12": { class_type: "EmptyFlux2LatentImage", inputs: { width: 1024, height: 1024, batch_size: 1 }, _meta: { title: "Size" } },
+    "13": { class_type: "Flux2Scheduler", inputs: { steps: 4, width: 1024, height: 1024 } },
+    "14": { class_type: "KSamplerSelect", inputs: { sampler_name: "euler" } },
+    "15": { class_type: "RandomNoise", inputs: { noise_seed: 0 } },
+    "16": { class_type: "CFGGuider", inputs: { model: ["2", 0], positive: ["10", 0], negative: ["11", 0], cfg: 1 } },
+    "17": {
+      class_type: "SamplerCustomAdvanced",
+      inputs: { noise: ["15", 0], guider: ["16", 0], sampler: ["14", 0], sigmas: ["13", 0], latent_image: ["12", 0] },
+    },
+    "18": { class_type: "VAEDecode", inputs: { samples: ["17", 0], vae: ["4", 0] } },
+    "19": { class_type: "SaveImage", inputs: { filename_prefix: SAVE_PREFIX, images: ["18", 0] } },
+  },
+  mappings: [
+    { placeholder: "checkpoint", nodeId: "1", input: "unet_name" },
+    { placeholder: "lora", nodeId: "2", input: "lora_name" },
+    { placeholder: "loraStrength", nodeId: "2", input: "strength_model" },
+    { placeholder: "referenceImage", nodeId: "5", input: "image" },
+    { placeholder: "positivePrompt", nodeId: "8", input: "text" },
+    { placeholder: "width", nodeId: "12", input: "width" },
+    { placeholder: "height", nodeId: "12", input: "height" },
+    { placeholder: "width", nodeId: "13", input: "width" },
+    { placeholder: "height", nodeId: "13", input: "height" },
+    { placeholder: "seed", nodeId: "15", input: "noise_seed" },
+  ],
+  // Klein reads the prompt as an edit instruction; without the first part a
+  // scene can come out as only the photo's background changed.
+  promptFormat: "Keep the person from image 1 the same: same face, identity, hairstyle and body. Show them in this new picture: {prompt}",
+  defaultCheckpoint: "flux-2-klein-4b-fp8.safetensors",
+  defaultLoraStrength: 1,
+  checkpointSource: UNET_SOURCE,
+  loraSource: MODEL_ONLY_LORA_SOURCE,
+  requirements: {
+    customNodes: [],
+    models: [
+      "diffusion_models/ flux-2-klein-4b-fp8.safetensors",
+      "text_encoders/ qwen_3_4b.safetensors",
+      "vae/ flux2-vae.safetensors",
+      "Needs a recent ComfyUI (EmptyFlux2LatentImage and Flux2Scheduler are core nodes).",
+    ],
+    vram: "about 8-10 GB",
+  },
+};
 
-export const DEFAULT_REFERENCE_TEMPLATE_ID = sdxlFaceId.id;
-export const DEFAULT_TEXT_TEMPLATE_ID = sdxlTxt2img.id;
+// (f) Z-Image Turbo text to image, from ComfyUI's official Z-Image template:
+// 8 steps at cfg 1, so the negative prompt is zeroed out and not used.
+const zImageTurbo: WorkflowTemplate = {
+  id: "z-image-turbo-txt2img",
+  label: "Z-Image Turbo text to image",
+  description: "No reference: a fast photoreal picture from the prompt, written as plain sentences. Used when the character has no reference photo.",
+  workflow: {
+    "1": { class_type: "UNETLoader", inputs: { unet_name: "z_image_turbo_bf16.safetensors", weight_dtype: "default" }, _meta: { title: "Z-Image model" } },
+    "2": {
+      class_type: "LoraLoaderModelOnly",
+      inputs: { lora_name: "", strength_model: 1, model: ["1", 0] },
+      _meta: { title: "Z-Image LoRA (optional)" },
+    },
+    "3": { class_type: "ModelSamplingAuraFlow", inputs: { model: ["2", 0], shift: 3 } },
+    "4": { class_type: "CLIPLoader", inputs: { clip_name: "qwen_3_4b.safetensors", type: "lumina2", device: "default" } },
+    "5": { class_type: "VAELoader", inputs: { vae_name: "ae.safetensors" } },
+    "6": { class_type: "CLIPTextEncode", inputs: { text: "", clip: ["4", 0] }, _meta: { title: "Prompt" } },
+    "7": { class_type: "ConditioningZeroOut", inputs: { conditioning: ["6", 0] } },
+    "8": { class_type: "EmptySD3LatentImage", inputs: { width: 1024, height: 1024, batch_size: 1 }, _meta: { title: "Size" } },
+    "9": {
+      class_type: "KSampler",
+      inputs: {
+        seed: 0,
+        steps: 8,
+        cfg: 1,
+        sampler_name: "res_multistep",
+        scheduler: "simple",
+        denoise: 1,
+        model: ["3", 0],
+        positive: ["6", 0],
+        negative: ["7", 0],
+        latent_image: ["8", 0],
+      },
+    },
+    "10": { class_type: "VAEDecode", inputs: { samples: ["9", 0], vae: ["5", 0] } },
+    "11": { class_type: "SaveImage", inputs: { filename_prefix: SAVE_PREFIX, images: ["10", 0] } },
+  },
+  mappings: [
+    { placeholder: "checkpoint", nodeId: "1", input: "unet_name" },
+    { placeholder: "lora", nodeId: "2", input: "lora_name" },
+    { placeholder: "loraStrength", nodeId: "2", input: "strength_model" },
+    { placeholder: "positivePrompt", nodeId: "6", input: "text" },
+    { placeholder: "width", nodeId: "8", input: "width" },
+    { placeholder: "height", nodeId: "8", input: "height" },
+    { placeholder: "seed", nodeId: "9", input: "seed" },
+  ],
+  defaultCheckpoint: "z_image_turbo_bf16.safetensors",
+  defaultLoraStrength: 1,
+  checkpointSource: UNET_SOURCE,
+  loraSource: MODEL_ONLY_LORA_SOURCE,
+  requirements: {
+    customNodes: [],
+    models: ["diffusion_models/ z_image_turbo_bf16.safetensors", "text_encoders/ qwen_3_4b.safetensors", "vae/ ae.safetensors"],
+    vram: "about 10-12 GB",
+  },
+};
+
+// Klein and Z-Image are the defaults: fast and photoreal. The SDXL templates
+// stay for anime and explicit pictures, with the checkpoints for those.
+export const BUILT_IN_TEMPLATES: WorkflowTemplate[] = [flux2Klein, zImageTurbo, sdxlFaceId, fluxKontext, sdxlReactor, sdxlTxt2img];
+
+export const DEFAULT_REFERENCE_TEMPLATE_ID = flux2Klein.id;
+export const DEFAULT_TEXT_TEMPLATE_ID = zImageTurbo.id;

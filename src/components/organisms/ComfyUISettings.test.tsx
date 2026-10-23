@@ -1,9 +1,9 @@
 import React from "react";
 import "@testing-library/jest-dom";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import ComfyUISettings from "./ComfyUISettings";
 import { createFakeComfy } from "src/features/ai/comfyui/fakeServer";
-import { loadComfySettings, loadCustomWorkflows } from "src/features/ai/comfyui/settings";
+import { DEFAULT_COMFYUI_SETTINGS, loadComfySettings, loadCustomWorkflows, saveComfySettings } from "src/features/ai/comfyui/settings";
 
 // CRA's Jest can't resolve Radix's package subpath exports, so the
 // Radix-backed Select is swapped for a native one (same props).
@@ -19,7 +19,21 @@ const SIMPLE_WORKFLOW = {
   "3": { class_type: "KSampler", inputs: { seed: 1, positive: ["6", 0], model: ["4", 0] } },
 };
 
-beforeEach(() => localStorage.clear());
+// The model lists load when the settings open. Unless a test installs its
+// own fake server, ComfyUI can't be reached, so the fields stay text inputs.
+beforeEach(() => {
+  localStorage.clear();
+  (global as any).fetch = jest.fn(async () => {
+    throw new TypeError("Failed to fetch");
+  });
+});
+
+const SDXL = { ...DEFAULT_COMFYUI_SETTINGS, referenceTemplateId: "sdxl-faceid", textTemplateId: "sdxl-txt2img" };
+
+const optionsOf = (label: string) =>
+  within(screen.getByLabelText(label))
+    .getAllByRole("option")
+    .map((o) => o.textContent);
 
 describe("ComfyUISettings", () => {
   it("saves the server URL and seed to its own settings as they're typed", () => {
@@ -33,12 +47,13 @@ describe("ComfyUISettings", () => {
 
   it("shows the model fields and requirements of the picked workflows", () => {
     render(<ComfyUISettings />);
-    expect(screen.getByLabelText("Checkpoint for SDXL + IP-Adapter FaceID")).toBeInTheDocument();
+    expect(screen.getByLabelText("Checkpoint for FLUX.2 Klein 4B (reference photo)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Checkpoint for Z-Image Turbo text to image")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Workflow with a reference photo"), { target: { value: "flux-kontext-gguf" } });
 
     expect(loadComfySettings().referenceTemplateId).toBe("flux-kontext-gguf");
-    expect(screen.queryByLabelText("Checkpoint for SDXL + IP-Adapter FaceID")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Checkpoint for FLUX.2 Klein 4B (reference photo)")).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Checkpoint for FLUX.1 Kontext dev (GGUF)"), { target: { value: "kontext-Q3.gguf" } });
     expect(loadComfySettings().templateOptions["flux-kontext-gguf"]).toEqual({ checkpoint: "kontext-Q3.gguf" });
     expect(screen.getByTestId("comfyui-setup-note").textContent).toMatch(/ComfyUI-GGUF/);
@@ -49,7 +64,7 @@ describe("ComfyUISettings", () => {
     const options = within(screen.getByLabelText("Workflow without a reference"))
       .getAllByRole("option")
       .map((o) => (o as HTMLOptionElement).value);
-    expect(options).toEqual(["sdxl-txt2img"]);
+    expect(options).toEqual(["z-image-turbo-txt2img", "sdxl-txt2img"]);
   });
 
   it("tests the connection, reports the device and flags a missing custom node pack", async () => {
@@ -57,6 +72,7 @@ describe("ComfyUISettings", () => {
       knownNodes: { CheckpointLoaderSimple: { input: { required: { ckpt_name: [["juggernautXL.safetensors", "pony.safetensors"]] } } } },
     });
     (global as any).fetch = jest.fn(fake.fetch);
+    saveComfySettings(SDXL);
     render(<ComfyUISettings />);
 
     fireEvent.click(screen.getByRole("button", { name: "Test connection" }));
@@ -65,9 +81,59 @@ describe("ComfyUISettings", () => {
     expect(status.textContent).toMatch(/Missing nodes: IPAdapterUnifiedLoaderFaceID, IPAdapterFaceID/);
     expect(screen.getByTestId("comfyui-requirements-sdxl-faceid").textContent).toMatch(/ComfyUI_IPAdapter_plus \(not installed\)/);
     expect(fake.paths()).toContain("GET /system_stats");
-    // The installed checkpoints become suggestions for the checkpoint field.
-    const options = within(screen.getByTestId("comfyui-ckpt-sdxl-faceid")).getAllByRole("option", { hidden: true });
-    expect(options.map((o) => o.getAttribute("value"))).toEqual(["juggernautXL.safetensors", "pony.safetensors"]);
+    // The installed checkpoints become a dropdown; the default isn't installed.
+    expect(optionsOf("Checkpoint for SDXL + IP-Adapter FaceID")).toEqual([
+      "sd_xl_base_1.0.safetensors (not installed)",
+      "juggernautXL.safetensors",
+      "pony.safetensors",
+    ]);
+  });
+
+  it("loads each workflow's own model files when the settings open", async () => {
+    const fake = createFakeComfy({
+      knownNodes: {
+        CheckpointLoaderSimple: { input: { required: { ckpt_name: [["RealVisXL_V5.0.safetensors"]] } } },
+        UNETLoader: { input: { required: { unet_name: [["flux-2-klein-4b-fp8.safetensors", "z_image_turbo_bf16.safetensors"]] } } },
+        LoraLoaderModelOnly: { input: { required: { lora_name: ["COMBO", { options: ["klein-style.safetensors"] }] } } },
+      },
+    });
+    (global as any).fetch = jest.fn(fake.fetch);
+    saveComfySettings({ ...DEFAULT_COMFYUI_SETTINGS, templateOptions: { "flux2-klein-4b-reference": { lora: "gone.safetensors" } } });
+    render(<ComfyUISettings />);
+
+    // UNET files only: an SDXL checkpoint can't run in Klein.
+    await waitFor(() => expect(screen.getByLabelText("Checkpoint for FLUX.2 Klein 4B (reference photo)").tagName).toBe("SELECT"));
+    expect(optionsOf("Checkpoint for FLUX.2 Klein 4B (reference photo)")).toEqual(["flux-2-klein-4b-fp8.safetensors", "z_image_turbo_bf16.safetensors"]);
+    expect((screen.getByLabelText("Checkpoint for Z-Image Turbo text to image") as HTMLSelectElement).value).toBe("z_image_turbo_bf16.safetensors");
+    expect(optionsOf("LoRA for FLUX.2 Klein 4B (reference photo)")).toEqual(["None", "gone.safetensors (not installed)", "klein-style.safetensors"]);
+    expect(optionsOf("LoRA for Z-Image Turbo text to image")).toEqual(["None", "klein-style.safetensors"]);
+    // The art styles pick from the SDXL checkpoints, and realistic got a guess.
+    expect(optionsOf("Checkpoint for Realistic characters")).toEqual(["The workflow's checkpoint", "RealVisXL_V5.0.safetensors"]);
+    expect(loadComfySettings().styleOptions.realistic?.checkpoint).toBe("RealVisXL_V5.0.safetensors");
+    expect(fake.paths()[0]).toBe("GET /system_stats");
+
+    fireEvent.change(screen.getByLabelText("LoRA for FLUX.2 Klein 4B (reference photo)"), { target: { value: "" } });
+    expect(loadComfySettings().templateOptions["flux2-klein-4b-reference"].lora).toBe("");
+  });
+
+  it("tries an unreachable ComfyUI once on open and keeps the text fields", async () => {
+    render(<ComfyUISettings />);
+
+    // One request and the probe that explains its failure, not one per loader.
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(screen.getByLabelText("Checkpoint for FLUX.2 Klein 4B (reference photo)").tagName).toBe("INPUT");
+  });
+
+  it("says the negative prompt isn't used by cfg 1 workflows", () => {
+    render(<ComfyUISettings />);
+    expect(screen.queryByLabelText("ComfyUI negative prompt")).not.toBeInTheDocument();
+    expect(screen.getByTestId("comfyui-no-negative")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Workflow without a reference"), { target: { value: "sdxl-txt2img" } });
+    expect(screen.getByLabelText("ComfyUI negative prompt")).toBeInTheDocument();
+    expect(screen.getByText(/FLUX\.2 Klein 4B \(reference photo\) doesn't use it/)).toBeInTheDocument();
   });
 
   it("shows the CORS hint when ComfyUI runs without --enable-cors-header", async () => {
@@ -124,15 +190,17 @@ describe("ComfyUISettings", () => {
 
     const img = await screen.findByAltText("ComfyUI test result");
     expect(img.getAttribute("src")).toMatch(/^data:image\/png;base64,/);
-    expect(fake.paths()).toEqual(["POST /prompt", "GET /history/prompt-123", "GET /view"]);
+    // Without the lists that load when the settings open.
+    expect(fake.paths().filter((p) => !p.startsWith("GET /object_info/") && p !== "GET /system_stats")).toEqual(["POST /prompt", "GET /history/prompt-123", "GET /view"]);
   });
 
   it("lists the setup needs: launch flag, VRAM and the active templates' nodes", () => {
     render(<ComfyUISettings />);
     const note = screen.getByTestId("comfyui-setup-note").textContent!;
     expect(note).toMatch(/--enable-cors-header/);
-    expect(note).toMatch(/8 GB/);
-    expect(note).toMatch(/12 GB/);
-    expect(note).toMatch(/ComfyUI_IPAdapter_plus/);
+    expect(note).toMatch(/8-10 GB/);
+    expect(note).toMatch(/10-12 GB/);
+    expect(note).toMatch(/qwen_3_4b\.safetensors/);
+    expect(note).not.toMatch(/ComfyUI_IPAdapter_plus/);
   });
 });

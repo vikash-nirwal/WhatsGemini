@@ -1,5 +1,5 @@
-import { BUILT_IN_TEMPLATES } from "./templates";
-import { fillWorkflow, isLink, usesReference } from "./workflow";
+import { BUILT_IN_TEMPLATES, DEFAULT_REFERENCE_TEMPLATE_ID, DEFAULT_TEXT_TEMPLATE_ID } from "./templates";
+import { fillWorkflow, isLink, suggestMappings, usesReference } from "./workflow";
 
 // The bundled workflows can't be run here without a real ComfyUI, so these
 // check what can go wrong in the JSON itself: links to missing nodes,
@@ -47,9 +47,63 @@ describe.each(BUILT_IN_TEMPLATES.map((t) => [t.id, t] as const))("template %s", 
   });
 });
 
-it("ships one text-only template and three that use the reference photo", () => {
-  expect(BUILT_IN_TEMPLATES.filter((t) => !usesReference(t.mappings)).map((t) => t.id)).toEqual(["sdxl-txt2img"]);
-  expect(BUILT_IN_TEMPLATES.filter((t) => usesReference(t.mappings))).toHaveLength(3);
+it("ships two text-only templates and four that use the reference photo", () => {
+  expect(BUILT_IN_TEMPLATES.filter((t) => !usesReference(t.mappings)).map((t) => t.id)).toEqual(["z-image-turbo-txt2img", "sdxl-txt2img"]);
+  expect(BUILT_IN_TEMPLATES.filter((t) => usesReference(t.mappings))).toHaveLength(4);
+});
+
+it("makes Klein and Z-Image the defaults", () => {
+  expect(DEFAULT_REFERENCE_TEMPLATE_ID).toBe("flux2-klein-4b-reference");
+  expect(DEFAULT_TEXT_TEMPLATE_ID).toBe("z-image-turbo-txt2img");
+});
+
+// Both run at cfg 1 from a UNETLoader, so: no negative prompt, the UNET and
+// model-only LoRA lists, and the model wired straight to its reader when no
+// LoRA is set.
+describe.each([
+  ["flux2-klein-4b-reference", "16", "flux-2-klein-4b-fp8.safetensors"],
+  ["z-image-turbo-txt2img", "3", "z_image_turbo_bf16.safetensors"],
+] as const)("%s", (id, modelReader, checkpoint) => {
+  const template = BUILT_IN_TEMPLATES.find((t) => t.id === id)!;
+
+  it("loads its model and LoRA from the UNET loaders, with no negative prompt", () => {
+    expect(template).toMatchObject({
+      defaultCheckpoint: checkpoint,
+      defaultLoraStrength: 1,
+      checkpointSource: { classType: "UNETLoader", input: "unet_name" },
+      loraSource: { classType: "LoraLoaderModelOnly", input: "lora_name" },
+    });
+    expect(template.workflow["1"].inputs.unet_name).toBe(checkpoint);
+    expect(template.mappings.some((m) => m.placeholder === "negativePrompt")).toBe(false);
+    expect(template.requirements.customNodes).toEqual([]);
+  });
+
+  it("bypasses node 2 without a LoRA and keeps it with one", () => {
+    const bare = fillWorkflow(template.workflow, template.mappings, { lora: "" });
+    expect(bare["2"]).toBeUndefined();
+    expect(bare[modelReader].inputs.model).toEqual(["1", 0]);
+    const withLora = fillWorkflow(template.workflow, template.mappings, { lora: "style.safetensors", loraStrength: 0.7 });
+    expect(withLora["2"].inputs).toMatchObject({ lora_name: "style.safetensors", strength_model: 0.7 });
+    expect(withLora[modelReader].inputs.model).toEqual(["2", 0]);
+  });
+});
+
+it("gives Klein's latent and scheduler the same size, and its seed to RandomNoise", () => {
+  const klein = BUILT_IN_TEMPLATES.find((t) => t.id === "flux2-klein-4b-reference")!;
+  const filled = fillWorkflow(klein.workflow, klein.mappings, { width: 896, height: 1152, seed: 7, positivePrompt: "p", referenceImage: "ref.png" });
+  expect(filled["12"].inputs).toMatchObject({ width: 896, height: 1152 });
+  expect(filled["13"].inputs).toMatchObject({ width: 896, height: 1152 });
+  expect(filled["15"].inputs.noise_seed).toBe(7);
+  expect(filled["8"].inputs.text).toBe("p");
+  expect(filled["5"].inputs.image).toBe("ref.png");
+  expect(klein.promptFormat).toMatch(/^Keep the person from image 1 the same.*\{prompt\}$/);
+});
+
+it("finds the same mappings in an imported copy of Klein or Z-Image", () => {
+  for (const id of ["flux2-klein-4b-reference", "z-image-turbo-txt2img"]) {
+    const template = BUILT_IN_TEMPLATES.find((t) => t.id === id)!;
+    expect(suggestMappings(template.workflow)).toEqual(expect.arrayContaining(template.mappings));
+  }
 });
 
 it("maps the FaceID strengths, so they can follow the art style", () => {

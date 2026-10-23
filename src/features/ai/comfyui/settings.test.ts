@@ -41,8 +41,14 @@ describe("chooseTemplate", () => {
   const settings = DEFAULT_COMFYUI_SETTINGS;
 
   it("uses the reference template when there's a reference photo, the text one otherwise", () => {
-    expect(chooseTemplate(settings, true, []).id).toBe("sdxl-faceid");
-    expect(chooseTemplate(settings, false, []).id).toBe("sdxl-txt2img");
+    expect(chooseTemplate(settings, true, []).id).toBe("flux2-klein-4b-reference");
+    expect(chooseTemplate(settings, false, []).id).toBe("z-image-turbo-txt2img");
+  });
+
+  it("keeps a choice saved before Klein and Z-Image became the defaults", () => {
+    localStorage.setItem("comfyui_settings", JSON.stringify({ referenceTemplateId: "sdxl-faceid", textTemplateId: "sdxl-txt2img" }));
+    expect(chooseTemplate(loadComfySettings(), true, []).id).toBe("sdxl-faceid");
+    expect(chooseTemplate(loadComfySettings(), false, []).id).toBe("sdxl-txt2img");
   });
 
   it("follows the user's picks, including imported workflows", () => {
@@ -53,14 +59,14 @@ describe("chooseTemplate", () => {
 
   it("never runs a reference template without a reference", () => {
     const picked = { ...settings, textTemplateId: "flux-kontext-gguf" };
-    expect(chooseTemplate(picked, false, []).id).toBe("sdxl-txt2img");
-    expect(chooseTemplate({ ...settings, textTemplateId: "custom:ref" }, false, [referenceCustom]).id).toBe("sdxl-txt2img");
+    expect(chooseTemplate(picked, false, []).id).toBe("z-image-turbo-txt2img");
+    expect(chooseTemplate({ ...settings, textTemplateId: "custom:ref" }, false, [referenceCustom]).id).toBe("z-image-turbo-txt2img");
   });
 
   it("falls back to the defaults when a picked workflow was deleted", () => {
     const picked = { ...settings, referenceTemplateId: "custom:gone", textTemplateId: "custom:gone" };
-    expect(chooseTemplate(picked, true, []).id).toBe("sdxl-faceid");
-    expect(chooseTemplate(picked, false, []).id).toBe("sdxl-txt2img");
+    expect(chooseTemplate(picked, true, []).id).toBe("flux2-klein-4b-reference");
+    expect(chooseTemplate(picked, false, []).id).toBe("z-image-turbo-txt2img");
   });
 
   it("lets a text-only template ignore references on purpose", () => {
@@ -70,7 +76,7 @@ describe("chooseTemplate", () => {
 
 describe("templateOptionsFor", () => {
   it("uses the template's defaults until the user sets their own", () => {
-    const template = chooseTemplate(DEFAULT_COMFYUI_SETTINGS, true, []);
+    const template = findTemplate("sdxl-faceid", [])!;
     expect(templateOptionsFor(DEFAULT_COMFYUI_SETTINGS, template)).toEqual({
       checkpoint: "sd_xl_base_1.0.safetensors",
       lora: "",
@@ -90,13 +96,14 @@ describe("templateForCharacter", () => {
   const settings = DEFAULT_COMFYUI_SETTINGS;
 
   it("lets the reference mode pick the template when there's a photo", () => {
-    expect(templateForCharacter(settings, true, "img2img", []).id).toBe("flux-kontext-gguf");
-    expect(templateForCharacter(settings, true, undefined, []).id).toBe("sdxl-faceid");
-    expect(templateForCharacter(settings, false, "img2img", []).id).toBe("sdxl-txt2img");
+    expect(templateForCharacter(settings, true, "img2img", []).id).toBe("flux2-klein-4b-reference");
+    expect(templateForCharacter(settings, true, "controlnet", []).id).toBe("sdxl-faceid");
+    expect(templateForCharacter(settings, true, undefined, []).id).toBe("flux2-klein-4b-reference");
+    expect(templateForCharacter(settings, false, "img2img", []).id).toBe("z-image-turbo-txt2img");
   });
 
   it("ignores the photo when the mode is none", () => {
-    expect(templateForCharacter({ ...settings, referenceTemplateId: "flux-kontext-gguf" }, true, "none", []).id).toBe("sdxl-txt2img");
+    expect(templateForCharacter(settings, true, "none", []).id).toBe("z-image-turbo-txt2img");
   });
 });
 
@@ -115,9 +122,11 @@ describe("per art style", () => {
     expect(templateOptionsFor(styled, faceId).checkpoint).toBe("juggernautXL_v9.safetensors");
   });
 
-  it("leaves FLUX and imported workflows on their own checkpoint", () => {
+  it("leaves FLUX, Klein, Z-Image and imported workflows on their own checkpoint", () => {
     const flux = findTemplate("flux-kontext-gguf", [])!;
     expect(templateOptionsFor(styled, flux, "anime").checkpoint).toBe("flux1-kontext-dev-Q4_K_M.gguf");
+    expect(templateOptionsFor(styled, findTemplate("flux2-klein-4b-reference", [])!, "anime").checkpoint).toBe("flux-2-klein-4b-fp8.safetensors");
+    expect(templateOptionsFor(styled, findTemplate("z-image-turbo-txt2img", [])!, "anime").checkpoint).toBe("z_image_turbo_bf16.safetensors");
     expect(templateOptionsFor(styled, customToTemplate(textOnlyCustom), "anime").checkpoint).toBe("mine.safetensors");
   });
 
@@ -142,7 +151,7 @@ describe("storage", () => {
     saveCustomWorkflows([textOnlyCustom]);
     expect(localStorage.getItem("comfyui_settings")).toContain("192.168.1.5");
     expect(loadComfySettings().serverUrl).toBe("http://192.168.1.5:8188");
-    expect(loadComfySettings().textTemplateId).toBe("sdxl-txt2img");
+    expect(loadComfySettings().textTemplateId).toBe("z-image-turbo-txt2img");
     expect(loadCustomWorkflows()).toEqual([textOnlyCustom]);
   });
 
