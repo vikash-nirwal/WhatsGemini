@@ -28,15 +28,16 @@ jobs:
         env:
           CI: true
 
-  # The UI tests run in two halves at once: one job took close to its
-  # 30-minute limit as the suite grew (and a run on 2026-10-22 hit it).
+  # The UI tests run in three parts at once: with two, one half hit the
+  # 30-minute job limit as the suite grew (on 2026-10-22, and again on
+  # 2026-10-23 after #93-#105).
   ui:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7
 
@@ -68,7 +69,7 @@ jobs:
         run: npx playwright install-deps chromium webkit
 
       - name: UI tests
-        run: npm run test:e2e -- --shard=${{ matrix.shard }}/2
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/3
         env:
           CI: true
 
