@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openChat, sendMessage, waitForReplyDone, headerAction, MockAIRequest } from "./fixtures";
+import { test, expect, openChat, openRoute, sendMessage, waitForReplyDone, headerAction, MockAIRequest } from "./fixtures";
 
 // More lifelike characters (#106-#108): moods that carry over, one consistent
 // day, and texting imperfections.
@@ -215,4 +215,32 @@ test("a character's own preoccupations are written weekly and reach the reply's 
   // Written once a week: an hour later nothing more is asked.
   await page.clock.fastForward(61 * 60_000);
   await expect.poll(() => mockAI.requests.filter((r) => r.prompt.includes("in their own life this week")).length).toBe(1);
+});
+
+test("a writing profile set in the editor is saved and kept to in every prompt (#111)", async ({ page, mockAI }) => {
+  await openRoute(page, "/characters/1/edit");
+  await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
+  for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Next" }).click();
+  const section = page.locator("details").filter({ has: page.locator("summary", { hasText: "How Aria writes" }) });
+  await expect(async () => {
+    if ((await section.getAttribute("open")) === null) await section.locator("summary").click();
+    await expect(section).toHaveAttribute("open", "");
+  }).toPass();
+  await section.getByRole("combobox", { name: "Message length" }).click();
+  await page.getByRole("option", { name: "Short (a line or two)" }).click();
+  await section.getByRole("combobox", { name: "Emoji" }).click();
+  await page.getByRole("option", { name: "Never" }).click();
+  await section.getByRole("switch", { name: "Mostly lowercase" }).click();
+  await expect(section.locator("summary")).toContainText("3 habits");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+
+  await openChat(page);
+  await sendAndWait(page, mockAI.requests, "hey");
+  expect(lastSystem(mockAI.requests)).toContain("How Aria writes: keeps messages short, a line or two; writes mostly in lowercase; never uses emoji. Keep to this in every reply");
+
+  // Saved on the character: the editor shows it again.
+  await openRoute(page, "/characters/1/edit");
+  await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
+  for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Next" }).click();
+  await expect(section.locator("summary")).toContainText("3 habits");
 });

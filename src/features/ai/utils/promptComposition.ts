@@ -23,6 +23,7 @@ import { applyMacros } from "./macros";
 import { countProtectedPrefix, trimToLatestSummary } from "./transcript";
 import { selectRelevantFacts } from "./memoryRelevance";
 import { annotateFacts, buildMisrememberDirective, MEMORY_DATES_NOTE } from "./memoryTime";
+import { buildWritingStyleSection } from "../../character/writingStyle";
 import { buildDiarySection } from "./diary";
 import { AppearanceLock, appearanceLocksFor, currentOutfit } from "./appearanceLock";
 import { effectiveContentRating } from "../../character/contentRating";
@@ -407,6 +408,9 @@ export const buildSystemInstruction = (
       `Example dialogue showing ${character.name}'s speech style, tone, and formatting (e.g. use of asterisks for actions) - use this only as a style reference, never repeat these lines verbatim:\n${m(character.mes_example)}`
     );
   }
+  // How they write (#111): the habits, after the example dialogue.
+  const writing = buildWritingStyleSection(character.name, character.writingStyle);
+  if (writing) sections.push(writing);
   if (options.roleplayStyle?.timeAwareness && recentMessages) {
     sections.push(buildTimeSection(recentMessages, options.now ?? Date.now()));
   }

@@ -550,6 +550,16 @@ export type VoiceNoteFrequency = "off" | "sometimes" | "often";
 // A character's text-to-speech voice (#12), from the browser's own Web
 // Speech voices. Voices differ between devices, so the name and language are
 // kept too: they pick the closest voice where the saved one doesn't exist.
+// How they write (#111): texting habits kept to in every reply.
+export interface WritingStyle {
+  length?: "short" | "medium" | "long";
+  lowercase?: boolean;
+  punctuation?: "sparse" | "normal" | "careful";
+  emoji?: "none" | "rare" | "often";
+  abbreviations?: boolean;
+  doubleTexts?: boolean; // a thought split over several texts
+}
+
 export interface CharacterVoice {
   voiceURI?: string; // unset = the browser's default voice
   voiceName?: string;
@@ -625,6 +635,7 @@ export interface Character {
   wardrobe?: Outfit[]; // #50
   currentOutfitId?: string; // the outfit being worn now (#50); none = the locked look's own
   voice?: CharacterVoice; // #12/#44: how they sound when read aloud, and how often they send voice notes
+  writingStyle?: WritingStyle; // how they write (#111)
   appearanceImages?: string[];
   artStyle?: ArtStyle;
   avatar?: string;

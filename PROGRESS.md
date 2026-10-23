@@ -18,7 +18,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 |---|------|--------|-------|
 | #109 | Memory with time | todo | Facts need a learned/last-mentioned date; today they're plain strings (`Character.memory`). |
 | #110 | Their own preoccupations | todo | Builds on the day log (#107). |
-| #111 | How they write | todo | Also expose `mes_example` in the editor. |
+| #111 | How they write | todo | Example dialogue already has an editor step; this is the habits profile. |
 | #112 | Real-world grounding | todo | Open-Meteo is keyless; only coordinates leave the browser. |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.

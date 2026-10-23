@@ -55,6 +55,7 @@ export interface FirstTextContext {
   dayMood?: string; // bad days (#95)
   dayLog?: string; // one consistent day (#107): what today has been like
   concerns?: string; // their own preoccupations (#110), one line
+  style?: string; // how they write (#111), one line
   dream?: string; // dreams (#94): the dream directive, when it's the morning for one
 }
 
@@ -70,7 +71,7 @@ How you last left things:
 ${ctx.transcript}
 
 ${ctx.dream ? `${ctx.dream}\nWrite it as a text message or two.` : `Write a short, casual text: something you just saw or did that made you think of ${userName}, a thought, a question, or a plan coming up. Not a greeting card, not "just checking in".`}
-- One to three short sentences, the way you'd really text: lowercase is fine, one emoji at most.
+- ${ctx.style ? `The way you write: ${ctx.style}.` : "One to three short sentences, the way you'd really text: lowercase is fine, one emoji at most."}
 - Stay in character and in the story's world. No mention of being an AI. Reply with only the text.`;
 
 export const cleanFirstText = (reply: string): string | undefined => {

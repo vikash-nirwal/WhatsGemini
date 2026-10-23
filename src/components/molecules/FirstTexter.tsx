@@ -11,6 +11,7 @@ import { buildDreamDirective, dreamDue, dreamIngredients } from "src/features/ch
 import { dayMoodFor } from "src/features/character/badDays";
 import { dayLogText } from "src/features/character/dayLog";
 import { concernsLine } from "src/features/character/preoccupations";
+import { writingStyleLine } from "src/features/character/writingStyle";
 import { currentBlock } from "src/features/character/schedule";
 import { openPlans } from "src/features/chat/sharedPlans";
 import { formatTranscript } from "src/features/ai/utils/chatHistoryUtils";
@@ -66,6 +67,7 @@ const FirstTexter = () => {
             dayMood: dayMoodFor(texter, now)?.label,
             dayLog: dayLogText(texter, now),
             concerns: concernsLine(texter.concerns),
+            style: writingStyleLine(texter.writingStyle),
             dream: dreaming ? buildDreamDirective(texter.name, userName, dreamIngredients(texter, chat)) : undefined,
           }),
           background: true,

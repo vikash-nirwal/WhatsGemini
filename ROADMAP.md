@@ -14,7 +14,7 @@ The mechanics are mostly there (#7, #8, #93–#108); what still breaks the illus
 
 109. **Memory with time** (M). Facts remember when they were learned and last mentioned, so the character can say "you told me that in March" and bring up an old fact unprompted (a callback directive picks one relevant fact not mentioned in 50+ messages). Optional: misremember a trivial detail and self-correct. Embedding-based recall through the in-browser model (#55) could replace the keyword relevance.
 110. **Their own preoccupations** (M). A short list of things the character is currently dealing with (a deadline, a friend's drama, something they want to try), written weekly from the personality and the day log (#107), brought up over days and resolved or dropped. Distinct from secrets (#81) and plans (#84), which are about you.
-111. **How they write** (S). A per-character texting profile in the editor: message length, lowercase, emoji habit, voice note versus text, double-texting; enforced in the prompt. Also expose example dialogue (`mes_example`) in the editor, since only the import review can set it today.
+111. **How they write** (S). A per-character texting profile in the editor: message length, lowercase, emoji habit, voice note versus text, double-texting; enforced in the prompt. (Example dialogue already has its own editor step.)
 112. **Real-world grounding** (S–M). A home city and time zone per character; keyless weather from Open-Meteo fetched in the browser, and public holidays, mentioned in statuses, first texts and replies when they fit. Only the city's coordinates leave the browser.
 
 ## Smaller follow-ups
