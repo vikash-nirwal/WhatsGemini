@@ -2109,6 +2109,319 @@ html[data-theme="terminal"] :focus-visible {
   backdrop-filter: none;
 }
 
+/* ── WhatsApp-style theme (#113) ─────────────────────────────────────
+   As close to WhatsApp as the app's shape allows: the WhatsApp Web
+   palette, the beige (light) or near-black (dark) chat wallpaper with a
+   doodle pattern (an original tile, not WhatsApp's), green and white
+   bubbles with tails, blue read ticks and a time on every bubble, a white
+   pill composer with a round green send button. No WhatsApp logo.
+   Hooks: ChatWindow's `chat-pane` (+ `data-room`), `chat-backdrop` and
+   `chat-backdrop-fade` (`data-kind` photo|backdrop); ChatMessage's
+   `message-bubble`, `text-bubble`, `deleted-bubble`, `bubble-meta`,
+   `ticks`, `message-avatar`, `narration`, `room-event`; MessageInput's
+   `composer` and `send-button`; Sidebar's aside and rows. */
+[data-theme="whatsapp"] {
+  --background: 240 242 245;      /* #F0F2F5 panel header grey */
+  --foreground: 17 27 33;         /* #111B21 */
+  --card: 255 255 255;
+  --card-foreground: 17 27 33;
+  --popover: 255 255 255;
+  --popover-foreground: 17 27 33;
+  --primary: 0 128 105;           /* #008069 WhatsApp teal (5:1 on white) */
+  --primary-foreground: 255 255 255;
+  --primary-hover: 0 110 90;
+  --secondary: 240 242 245;
+  --secondary-foreground: 17 27 33;
+  --muted: 240 242 245;
+  --muted-foreground: 84 101 111; /* #54656F */
+  --accent: 245 246 246;
+  --accent-foreground: 17 27 33;
+  --destructive: 234 0 56;        /* #EA0038 */
+  --destructive-foreground: 255 255 255;
+  --success: 0 128 105;
+  --success-foreground: 255 255 255;
+  --overlay: 11 20 26;
+  --subtle: 94 109 118;           /* #667781, nudged to 4.5:1 on grey */
+  --border: 209 215 219;          /* #D1D7DB */
+  --input: 209 215 219;
+  --ring: 0 168 132;
+  --radius: 8px;
+  --shadow-soft: rgba(11, 20, 26, 0.13);
+  --shadow-mid: rgba(11, 20, 26, 0.18);
+  --shadow-strong: rgba(11, 20, 26, 0.26);
+  --wa-green: 0 168 132;          /* #00A884 send button, unread badges */
+  --wa-chat-bg: 239 234 226;      /* #EFEAE2 */
+  --wa-out: 217 253 211;          /* #D9FDD3 */
+  --wa-in: 255 255 255;
+  --wa-tick: 83 189 235;          /* #53BDEB */
+  --wa-meta-out: 94 109 118;      /* time on an outgoing bubble */
+  --wa-system: 255 255 255;
+  --wa-wallpaper: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='224' height='224' viewBox='0 0 224 224'%3E%3Cg fill='none' stroke='%234a3f30' stroke-opacity='0.13' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E %3Cpath d='M28 34c-5-7-16-3-11 6l11 11 11-11c5-9-6-13-11-6z'/%3E %3Cpath d='M122 18l4 9 10 1-7 7 2 10-9-5-9 5 2-10-7-7 10-1z'/%3E %3Cpath d='M168 86h34a6 6 0 0 1 6 6v16a6 6 0 0 1-6 6h-22l-9 8v-8h-3a6 6 0 0 1-6-6v-16a6 6 0 0 1 6-6z'/%3E %3Cpath d='M58 118v-22l16-4v22'/%3E%3Ccircle cx='53' cy='118' r='5'/%3E%3Ccircle cx='69' cy='114' r='5'/%3E %3Cpath d='M196 26a12 12 0 1 0 10 18 10 10 0 1 1-10-18z'/%3E %3Cpath d='M98 172h30a8 8 0 0 0 0-16 11 11 0 0 0-21-3 8 8 0 0 0-9 19z'/%3E %3Ccircle cx='30' cy='186' r='12'/%3E%3Cpath d='M25 183h.01M35 183h.01M24 190c3 4 9 4 12 0'/%3E %3Cpath d='M150 196h18v12a9 9 0 0 1-18 0zM168 199h4a4 4 0 0 1 0 8h-4'/%3E %3Cpath d='M112 92l3 3m-6 0l3-3m0 0v0'/%3E%3Cpath d='M100 66c4 0 6-2 6-6 0 4 2 6 6 6-4 0-6 2-6 6 0-4-2-6-6-6z'/%3E %3Cpath d='M14 92c4 0 6-2 6-6 0 4 2 6 6 6-4 0-6 2-6 6 0-4-2-6-6-6z'/%3E %3Cpath d='M206 160c3 0 4-1 4-4 0 3 1 4 4 4-3 0-4 1-4 4 0-3-1-4-4-4z'/%3E %3Cpath d='M70 210l8-14 8 14z'/%3E%3Ccircle cx='140' cy='124' r='3'/%3E%3Ccircle cx='196' cy='212' r='2'/%3E %3C/g%3E%3C/svg%3E");
+
+  --color-app-bg: 240 242 245;
+  --color-panel-bg: 255 255 255;
+  --color-panel2-bg: 240 242 245;
+  --color-panel3-bg: 233 237 239;
+  --color-hover-bg: 240 242 245;
+  --color-chat-bg: 239 234 226;
+  --color-text-main: 17 27 33;
+  --color-text-muted: 84 101 111;
+  --color-text-faint: 94 109 118;
+  --color-primary: 0 128 105;
+  --color-primary-hover: 0 110 90;
+  --color-accent: 0 168 132;
+  --color-accent-2: 37 211 102;
+  --color-on-accent: 255 255 255;
+  --color-secondary: 240 242 245;
+  --color-secondary-hover: 233 237 239;
+  --color-on-secondary: 17 27 33;
+  --color-border-main: 209 215 219;
+}
+
+[data-theme="whatsapp"].dark {
+  --background: 17 27 33;         /* #111B21 */
+  --foreground: 233 237 239;      /* #E9EDEF */
+  --card: 17 27 33;
+  --card-foreground: 233 237 239;
+  --popover: 35 45 54;            /* #233138 */
+  --popover-foreground: 233 237 239;
+  --primary: 0 168 132;           /* #00A884 */
+  --primary-foreground: 17 27 33;
+  --primary-hover: 6 207 156;
+  --secondary: 32 44 51;          /* #202C33 */
+  --secondary-foreground: 233 237 239;
+  --muted: 32 44 51;
+  --muted-foreground: 174 186 193;/* #AEBAC1 */
+  --accent: 32 44 51;
+  --accent-foreground: 233 237 239;
+  --destructive: 241 92 109;
+  --destructive-foreground: 17 27 33;
+  --success: 0 168 132;
+  --success-foreground: 17 27 33;
+  --overlay: 0 0 0;
+  --subtle: 134 150 160;          /* #8696A0 */
+  --border: 52 66 75;
+  --input: 52 66 75;
+  --ring: 0 168 132;
+  --shadow-soft: rgba(0, 0, 0, 0.3);
+  --shadow-mid: rgba(0, 0, 0, 0.45);
+  --shadow-strong: rgba(0, 0, 0, 0.6);
+  --wa-chat-bg: 11 20 26;         /* #0B141A */
+  --wa-out: 0 92 75;              /* #005C4B */
+  --wa-in: 32 44 51;              /* #202C33 */
+  --wa-meta-out: 184 214 207;     /* 4.5:1 on #005C4B, WhatsApp's own is fainter */
+  --wa-system: 24 34 41;
+  --wa-wallpaper: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='224' height='224' viewBox='0 0 224 224'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.06' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E %3Cpath d='M28 34c-5-7-16-3-11 6l11 11 11-11c5-9-6-13-11-6z'/%3E %3Cpath d='M122 18l4 9 10 1-7 7 2 10-9-5-9 5 2-10-7-7 10-1z'/%3E %3Cpath d='M168 86h34a6 6 0 0 1 6 6v16a6 6 0 0 1-6 6h-22l-9 8v-8h-3a6 6 0 0 1-6-6v-16a6 6 0 0 1 6-6z'/%3E %3Cpath d='M58 118v-22l16-4v22'/%3E%3Ccircle cx='53' cy='118' r='5'/%3E%3Ccircle cx='69' cy='114' r='5'/%3E %3Cpath d='M196 26a12 12 0 1 0 10 18 10 10 0 1 1-10-18z'/%3E %3Cpath d='M98 172h30a8 8 0 0 0 0-16 11 11 0 0 0-21-3 8 8 0 0 0-9 19z'/%3E %3Ccircle cx='30' cy='186' r='12'/%3E%3Cpath d='M25 183h.01M35 183h.01M24 190c3 4 9 4 12 0'/%3E %3Cpath d='M150 196h18v12a9 9 0 0 1-18 0zM168 199h4a4 4 0 0 1 0 8h-4'/%3E %3Cpath d='M112 92l3 3m-6 0l3-3m0 0v0'/%3E%3Cpath d='M100 66c4 0 6-2 6-6 0 4 2 6 6 6-4 0-6 2-6 6 0-4-2-6-6-6z'/%3E %3Cpath d='M14 92c4 0 6-2 6-6 0 4 2 6 6 6-4 0-6 2-6 6 0-4-2-6-6-6z'/%3E %3Cpath d='M206 160c3 0 4-1 4-4 0 3 1 4 4 4-3 0-4 1-4 4 0-3-1-4-4-4z'/%3E %3Cpath d='M70 210l8-14 8 14z'/%3E%3Ccircle cx='140' cy='124' r='3'/%3E%3Ccircle cx='196' cy='212' r='2'/%3E %3C/g%3E%3C/svg%3E");
+
+  --color-app-bg: 17 27 33;
+  --color-panel-bg: 17 27 33;
+  --color-panel2-bg: 32 44 51;
+  --color-panel3-bg: 42 57 66;
+  --color-hover-bg: 42 57 66;     /* #2A3942 selected row */
+  --color-chat-bg: 11 20 26;
+  --color-text-main: 233 237 239;
+  --color-text-muted: 174 186 193;
+  --color-text-faint: 134 150 160;
+  --color-primary: 0 168 132;
+  --color-primary-hover: 6 207 156;
+  --color-accent: 0 168 132;
+  --color-accent-2: 37 211 102;
+  --color-on-accent: 17 27 33;
+  --color-secondary: 32 44 51;
+  --color-secondary-hover: 42 57 66;
+  --color-on-secondary: 233 237 239;
+  --color-border-main: 52 66 75;
+}
+
+/* WhatsApp Web's font stack, everywhere (Radix portals included). */
+html[data-theme="whatsapp"],
+[data-theme="whatsapp"] body,
+[data-theme="whatsapp"] .font-sans,
+[data-theme="whatsapp"] .font-serif {
+  font-family: "Segoe UI", "Helvetica Neue", Helvetica, "Lucida Grande", Arial, Ubuntu, Cantarell, "Fira Sans", sans-serif;
+}
+
+/* Pill buttons in the green, flat. */
+[data-theme="whatsapp"] [data-slot="button"] {
+  border-radius: 24px;
+  box-shadow: none;
+}
+[data-theme="whatsapp"] [data-slot="card"] {
+  box-shadow: 0 1px 3px var(--shadow-soft);
+  border-color: transparent;
+}
+
+/* Header: the grey panel bar of WhatsApp Web (dark: #202C33). */
+[data-theme="whatsapp"] header {
+  background-color: rgb(var(--background));
+  border-bottom-color: transparent;
+}
+[data-theme="whatsapp"].dark header {
+  background-color: rgb(var(--secondary));
+}
+
+/* Chat list: a white column with flat rows and hairline dividers; the
+   selected row is grey with no accent bar. */
+[data-theme="whatsapp"] aside[aria-label="Sidebar"] {
+  background-color: rgb(var(--card));
+  border-right-color: rgb(var(--border) / 0.6);
+}
+[data-theme="whatsapp"] aside[aria-label="Sidebar"] a.rounded-lg {
+  border-radius: 0;
+  box-shadow: inset 0 -1px 0 rgb(var(--border) / 0.45);
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+[data-theme="whatsapp"] aside[aria-label="Sidebar"] a > span.absolute.bg-primary {
+  display: none;
+}
+
+/* The chat: wallpaper colour with the doodle tile. The character's photo
+   (the other themes' faint background) is left out, like WhatsApp; a
+   chat's own backdrop (#13) still shows, as a custom wallpaper. */
+[data-theme="whatsapp"] [data-slot="chat-pane"] {
+  background-color: rgb(var(--wa-chat-bg));
+  background-image: var(--wa-wallpaper);
+  background-size: 224px 224px;
+}
+[data-theme="whatsapp"] :is([data-slot="chat-backdrop"], [data-slot="chat-backdrop-fade"])[data-kind="photo"] {
+  display: none;
+}
+[data-theme="whatsapp"] [data-slot="chat-backdrop-fade"][data-kind="backdrop"] {
+  background-image: none;
+  background-color: rgb(var(--wa-chat-bg) / 0.35);
+}
+
+/* Messages sit close together; no avatars beside a 1:1 chat's bubbles. */
+[data-theme="whatsapp"] [data-message-id] {
+  margin-bottom: 8px;
+}
+[data-theme="whatsapp"] [data-slot="chat-pane"]:not([data-room]) [data-slot="message-avatar"] {
+  display: none;
+}
+
+/* Bubbles: white in, green out, small corners and a tail at the top. */
+[data-theme="whatsapp"] :is([data-slot="message-bubble"], [data-slot="text-bubble"], [data-slot="deleted-bubble"]) {
+  border-radius: 7.5px;
+  padding: 6px 8px 6px 9px;
+  box-shadow: 0 1px 0.5px var(--shadow-soft);
+  font-size: 14.2px;
+  line-height: 19px;
+}
+[data-theme="whatsapp"] [data-slot="message-bubble"][data-sender="user"] {
+  background-color: rgb(var(--wa-out));
+  color: rgb(var(--foreground));
+  border-top-right-radius: 0;
+}
+[data-theme="whatsapp"] :is([data-slot="message-bubble"][data-sender="ai"], [data-slot="text-bubble"], [data-slot="deleted-bubble"]) {
+  background-color: rgb(var(--wa-in));
+  color: rgb(var(--foreground));
+}
+[data-theme="whatsapp"] [data-slot="message-bubble"][data-sender="ai"] {
+  border-top-left-radius: 0;
+}
+[data-theme="whatsapp"] [data-slot="message-bubble"]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 8px;
+  height: 13px;
+  pointer-events: none;
+}
+[data-theme="whatsapp"] [data-slot="message-bubble"][data-sender="user"]::before {
+  right: -8px;
+  background-color: rgb(var(--wa-out));
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+[data-theme="whatsapp"] [data-slot="message-bubble"][data-sender="ai"]::before {
+  left: -8px;
+  background-color: rgb(var(--wa-in));
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+}
+[data-theme="whatsapp"] [data-slot="message-bubble"] .font-serif {
+  font-size: inherit;
+}
+/* The time and ticks tuck into the bubble's bottom corner. */
+[data-theme="whatsapp"] [data-slot="bubble-meta"] {
+  margin-top: 0;
+  margin-bottom: -2px;
+  font-size: 11px;
+  color: rgb(var(--subtle));
+}
+[data-theme="whatsapp"] [data-sender="user"] [data-slot="bubble-meta"],
+[data-theme="whatsapp"] [data-sender="user"] [data-slot="ticks"] {
+  color: rgb(var(--wa-meta-out));
+}
+[data-theme="whatsapp"] [data-slot="ticks"] {
+  color: rgb(var(--subtle));
+  font-weight: 600;
+}
+[data-theme="whatsapp"] [data-slot="ticks"][data-state="read"] {
+  color: rgb(var(--wa-tick));
+}
+
+/* Hover actions float over the bubble's top corner, like WhatsApp's menu
+   chevron, instead of a reserved row under every bubble. A message with
+   variants keeps its row for the 2/3 counter. */
+[data-theme="whatsapp"] [data-slot="bubble-actions"]:not([data-variants]) {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  margin: 0;
+  z-index: 2;
+}
+[data-theme="whatsapp"] [data-slot="bubble-actions-menu"] {
+  border-radius: 14px;
+  padding: 1px 3px;
+  background-color: rgb(var(--wa-in));
+  box-shadow: 0 1px 3px var(--shadow-mid);
+}
+[data-theme="whatsapp"] [data-sender="user"] [data-slot="bubble-actions-menu"] {
+  background-color: rgb(var(--wa-out));
+}
+
+/* Narration and room events: WhatsApp's centred system notes. */
+[data-theme="whatsapp"] [data-slot="narration"] > p,
+[data-theme="whatsapp"] [data-slot="room-event"] {
+  background-color: rgb(var(--wa-system));
+  color: rgb(var(--muted-foreground));
+  border-radius: 7.5px;
+  padding: 5px 12px 6px;
+  font-style: normal;
+  font-size: 12.5px;
+  box-shadow: 0 1px 0.5px var(--shadow-soft);
+}
+
+/* Composer: a white pill and a round green send button. */
+[data-theme="whatsapp"] [data-slot="composer"] {
+  background-color: rgb(var(--card));
+  border-color: transparent;
+  box-shadow: 0 1px 2px var(--shadow-soft);
+  backdrop-filter: none;
+  border-radius: 24px;
+}
+[data-theme="whatsapp"].dark [data-slot="composer"] {
+  background-color: rgb(var(--secondary));
+}
+[data-theme="whatsapp"] [data-slot="send-button"] {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 9999px;
+  background-color: rgb(var(--wa-green));
+  color: #fff;
+}
+[data-theme="whatsapp"].dark [data-slot="send-button"] {
+  color: rgb(17 27 33);
+}
+[data-theme="whatsapp"] [data-slot="send-button"] > span {
+  display: none;
+}
+[data-theme="whatsapp"] [data-slot="send-button"]:disabled {
+  background-color: rgb(var(--wa-green) / 0.45);
+}
+
 /* Reading comfort (#91): high contrast turns muted and faint text into the
    main text colour, in every theme. */
 :root[data-contrast="high"] {

@@ -176,6 +176,8 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc, note }: { charIniti
 const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggestion, onAcceptStage, onDismissStage, coWriting = false, onSuggestNext, onTranslate, onReplyToLetter, arcSuggestion, onAcceptArc, onDismissArc, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
+  // The WhatsApp-style theme (#113) shows a time and ticks on every bubble.
+  const whatsapp = is("whatsapp");
   const chatEndRef = useRef<HTMLDivElement>(null);
   // Only this chat's own stream - the ai slice holds at most one, keyed by chat id.
   const streamingReply = useAppSelector((state) => state.ai.streamingReply);
@@ -635,15 +637,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
   return (
     <>
     <div className="relative h-full w-full flex overflow-hidden">
-      <div className="flex-1 min-w-0 relative flex flex-col overflow-hidden">
+      <div className="flex-1 min-w-0 relative flex flex-col overflow-hidden" data-slot="chat-pane" data-room={isRoom ? "true" : undefined}>
         {(chatBackdrop || character?.appearanceImages?.[0]) && !terminal && (
           <>
             {/* The chat's own backdrop (#13) when it has one, otherwise the
                 character's photo, both kept faint behind the bubbles. */}
-            <div className={cn("absolute inset-0 pointer-events-none overflow-hidden", chatBackdrop ? "opacity-40" : "opacity-25")} data-slot="chat-backdrop">
+            <div className={cn("absolute inset-0 pointer-events-none overflow-hidden", chatBackdrop ? "opacity-40" : "opacity-25")} data-slot="chat-backdrop" data-kind={chatBackdrop ? "backdrop" : "photo"}>
               <DisplayImage srcContext={(chatBackdrop || character?.appearanceImages?.[0])!} alt="" aria-hidden="true" className="w-full h-full object-cover" />
             </div>
-            <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-background/60 via-background/80 to-background" />
+            <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-background/60 via-background/80 to-background" data-slot="chat-backdrop-fade" data-kind={chatBackdrop ? "backdrop" : "photo"} />
           </>
         )}
         {/* Mood-tinted chat (#90): a soft colour from the latest mood. */}
@@ -793,7 +795,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
                     visibleParts={reveal && reveal.id === msg.id ? reveal.shown : undefined}
                     slips={msg.role === YOU ? undefined : speaker?.textingSlips}
                     userBurst={textingMode && msg.role !== YOU ? burstBefore(i) : undefined}
-                    receipt={textingMode && msg.role === YOU && !msg.isNarration ? receiptFor(i, lastReplyIndex, filteredMessages.length - 1, Boolean(aiLoading)) : undefined}
+                    receipt={(textingMode || whatsapp) && msg.role === YOU && !msg.isNarration ? receiptFor(i, lastReplyIndex, filteredMessages.length - 1, Boolean(aiLoading)) : undefined}
                     reactorName={msg.characterReaction ? resolveReactor(msg.characterReaction.speakerId) : undefined}
                     voice={msg.role === YOU ? undefined : speaker?.voice}
                   />

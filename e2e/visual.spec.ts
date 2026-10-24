@@ -9,7 +9,7 @@ import { test, expect, openChat, openRoute } from "./fixtures";
 // `npm run test:visual:update`): fonts render differently on Linux CI, so
 // these baselines are macOS ones and CI skips them (see ci.yml).
 
-const THEMES = ["cozy", "neumorphic", "aurora", "terminal", "parchment", "material"] as const;
+const THEMES = ["cozy", "neumorphic", "aurora", "terminal", "parchment", "material", "whatsapp"] as const;
 const SNAPSHOT = { maxDiffPixelRatio: 0.01 };
 
 for (const theme of THEMES) {

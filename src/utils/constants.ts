@@ -288,6 +288,7 @@ export const COLOR_THEMES = [
   { value: "terminal", label: "Terminal", description: "CRT hacker aesthetic with a choice of 4 phosphor colors" },
   { value: "parchment", label: "Parchment", description: "Aged paper, warm ink, and leather-bound grimoire aesthetics" },
   { value: "material", label: "Material", description: "Google's Material Design 3: tonal surfaces, pill buttons, with a choice of 4 color schemes" },
+  { value: "whatsapp", label: "WhatsApp", description: "Looks like WhatsApp: doodle wallpaper, green bubbles with tails, blue ticks" },
 ] as const;
 export const DEFAULT_COLOR_THEME = "cozy";
 

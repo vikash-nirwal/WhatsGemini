@@ -1250,6 +1250,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
         ) : (
           <Button
             onClick={handleSend}
+            data-slot="send-button"
             className={cn(
               "h-10 flex-shrink-0 rounded-lg font-semibold shadow-none",
               !canSend && "bg-accent text-muted-foreground cursor-not-allowed hover:bg-accent"

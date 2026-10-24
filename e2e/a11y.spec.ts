@@ -107,7 +107,7 @@ const pages: PageCase[] = [
 // small controls: its sticky Back/Next bar covers whichever suggestion chips
 // sit at the bottom of the screen, and axe counts a partly covered chip as
 // too small. How many chips that hits depends on each theme's font metrics.
-const THEMES = ["cozy", "neumorphic", "aurora", "terminal", "parchment", "material"] as const;
+const THEMES = ["cozy", "neumorphic", "aurora", "terminal", "parchment", "material", "whatsapp"] as const;
 const MODES = ["dark", "light"] as const;
 const THEMED_PAGES = ["chat", "character editor", "spending", "image settings"];
 const THEMED_PROJECTS = ["desktop", "pixel"];

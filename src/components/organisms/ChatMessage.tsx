@@ -148,6 +148,8 @@ const ChatMessage = React.memo(({
   const isUser = msg.role === YOU;
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
+  // WhatsApp-style theme (#113): every bubble carries its time, like WhatsApp.
+  const whatsapp = is("whatsapp");
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
   const [termReactOpen, setTermReactOpen] = useState(false);
 
@@ -500,7 +502,7 @@ const ChatMessage = React.memo(({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
-        <span className="px-3 py-1 rounded-full bg-muted text-[11.5px] font-medium text-muted-foreground">
+        <span data-slot="room-event" className="px-3 py-1 rounded-full bg-muted text-[11.5px] font-medium text-muted-foreground">
           {msg.txt}
         </span>
       </motion.div>
@@ -649,12 +651,16 @@ const ChatMessage = React.memo(({
           {thoughtsBlock}
           {languageBlock}
           {secretNote}
-          {receipt && (
-            <div className="mt-1 flex items-center justify-end gap-1 font-sans text-[11px] text-subtle" aria-label={receipt === "read" ? "Read" : "Sent"}>
+          {receipt ? (
+            <div data-slot="bubble-meta" className="mt-1 flex items-center justify-end gap-1 font-sans text-[11px] text-subtle" aria-label={receipt === "read" ? "Read" : "Sent"}>
               {msg.timestamp && <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>}
-              <span aria-hidden className={cn("tracking-[-0.2em]", receipt === "read" && "text-primary")}>{receipt === "read" ? "✓✓" : "✓"}</span>
+              <span aria-hidden data-slot="ticks" data-state={receipt} className={cn("tracking-[-0.2em]", receipt === "read" && "text-primary")}>{receipt === "read" ? "✓✓" : "✓"}</span>
             </div>
-          )}
+          ) : whatsapp && msg.timestamp ? (
+            <div data-slot="bubble-meta" className="mt-1 flex items-center justify-end font-sans text-[11px] text-subtle">
+              {new Date(msg.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+            </div>
+          ) : null}
 
           {!isUser && msg.reaction && <ReactionBadge emoji={msg.reaction} side="right" label={`You reacted ${msg.reaction}`} />}
           {isUser && msg.characterReaction && (
@@ -686,8 +692,8 @@ const ChatMessage = React.memo(({
               long-press action sheet instead, so the row only shows there
               when it has a variant count to display. */}
           {isUser && (
-            <div className={cn("flex items-center justify-end gap-1 mt-2 font-sans", !siblingInfo && "[@media(hover:none)]:hidden")}>
-              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity [@media(hover:none)]:hidden">
+            <div data-slot="bubble-actions" data-variants={siblingInfo ? "true" : undefined} className={cn("flex items-center justify-end gap-1 mt-2 font-sans", !siblingInfo && "[@media(hover:none)]:hidden")}>
+              <div data-slot="bubble-actions-menu" className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity [@media(hover:none)]:hidden">
                 <Button variant="ghost" size="icon" onClick={handleCopy} aria-label="Copy" title="Copy" className="h-auto w-auto p-1.5 rounded-md text-foreground/60 hover:bg-primary/10 hover:text-foreground">
                   <FaCopy size={12} />
                 </Button>
@@ -730,8 +736,8 @@ const ChatMessage = React.memo(({
               constant weight for something used occasionally. The outer
               bubble already carries the `group` class this reveal keys off. */}
           {!isUser && (
-            <div className={cn("flex items-center gap-1 mt-2 font-sans", !siblingInfo && "[@media(hover:none)]:hidden")}>
-              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity [@media(hover:none)]:hidden">
+            <div data-slot="bubble-actions" data-variants={siblingInfo ? "true" : undefined} className={cn("flex items-center gap-1 mt-2 font-sans", !siblingInfo && "[@media(hover:none)]:hidden")}>
+              <div data-slot="bubble-actions-menu" className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity [@media(hover:none)]:hidden">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" onClick={handleCopy} aria-label="Copy" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
@@ -874,7 +880,9 @@ const ChatMessage = React.memo(({
     >
       {/* AI Avatar */}
       {!isUser && (
-        <CharacterAvatar name={charInitials} accent={accent} imageSrc={avatarImageSrc} size={32} className="mt-1 mr-3 shadow-md" />
+        <div data-slot="message-avatar" className="flex-shrink-0">
+          <CharacterAvatar name={charInitials} accent={accent} imageSrc={avatarImageSrc} size={32} className="mt-1 mr-3 shadow-md" />
+        </div>
       )}
 
       {textParts ? (

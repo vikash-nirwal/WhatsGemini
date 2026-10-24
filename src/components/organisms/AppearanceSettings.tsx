@@ -37,6 +37,7 @@ const THEME_SWATCHES: Record<string, [string, string, string]> = {
   terminal: ['#F2F1E9', '#0A6B78', '#08210F'],
   parchment: ['#F7F3EA', '#A32B38', '#2C2218'],
   material: ['#FEF7FF', '#6750A4', '#EADDFF'],
+  whatsapp: ['#EFEAE2', '#00A884', '#D9FDD3'],
 };
 
 // Every color theme's own accent-palette sub-choice - see tokens.css's

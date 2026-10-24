@@ -16,6 +16,23 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
+| #113 | WhatsApp-style theme | done | 2026-10-24 |
+| #114 | Phone-style shell | todo | |
+| #115 | A WhatsApp chat list | todo | |
+| #116 | Your profile | todo | |
+| #117 | Your own statuses | todo | |
+| #118 | Photo statuses | todo | |
+| #119 | Quoted replies | todo | |
+| #120 | Starred messages | todo | |
+| #121 | Message info | todo | |
+| #122 | View-once photos | todo | |
+| #123 | Forwarded | todo | |
+| #124 | Group events and polls | todo | |
+| #125 | Profile changes | todo | |
+| #126 | Left on read | todo | |
+| #127 | Channels | todo | |
+| #128 | Shared contacts | todo | |
+| #129 | Status mentions | todo | |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
 
@@ -30,6 +47,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **WhatsApp-style theme (#113):** `whatsapp` in `COLOR_THEMES`; all CSS in `tokens.css` ("WhatsApp-style theme" block, `--wa-*` tokens, the doodle wallpaper is an inline SVG tile in `--wa-wallpaper`). Hooks it uses: ChatWindow `chat-pane` (+`data-room`), `chat-backdrop`/`chat-backdrop-fade` with `data-kind`; ChatMessage `bubble-meta`, `ticks`, `message-avatar`, `bubble-actions(-menu)`, `room-event`; MessageInput `send-button`. Under this theme every bubble shows its time (`whatsapp` in ChatMessage) and your messages get ticks without texting mode (ChatWindow). In the a11y and screenshot theme lists.
 - **Scene panel groups (2026-10-23):** the Chat and Scene tabs are folded into titled groups (`scene-panel/PanelGroup.tsx`, a `<details>` open by default, folds remembered in localStorage `scene_panel_groups`). Chat: Messaging & display, Group chat (rooms), Alive between messages, Inner life, Relationship, Drama, This story. Scene: The scene now, Story script, Setting, Boundaries. The old `BetweenMessagesSection` is split into `AliveSection`, `TextingSlipsRow`, `MisremembersRow`, `MoodCarryRows` and `DramaSection`. Nothing moved between tabs, so the UI specs that open the Chat tab still find their switches; groups start open, so tests need no `openDetails`.
 - **Memory with time (#109):** `Character.memoryDates` / `Chat.memoryDates` ({learnedAt, mentionedAt} keyed by fact text, like the categories), kept by `carryMemoryDates` (src/features/ai/utils/memoryTime.ts) in useBackgroundUpdates and `memoryDatesFor` in the Memory tab (hand edits), and copied when a chat starts its own memory. The prompt lists facts as "fact (learned 12 Mar)" (`annotateFacts`, `MEMORY_DATES_NOTE`). `pickCallback` offers one fact a week old and not mentioned since, every 2 days (`Chat.callbackAt`, set by `noteCallback` in useReplyEffects on the send and follow-up paths), as `SceneContext.callbackNote`. `Character.misremembers` (Chat tab switch) adds `buildMisrememberDirective`. The Memory tab shows "learned 12 Mar" next to a fact. Embedding-based recall wasn't done (follow-up).
 - **Their own preoccupations (#110):** `Character.preoccupations` (Chat tab switch), `Character.concerns` (`Preoccupation` {id, text, since, resolvedAt, outcome}; 4 open, last 4 finished) and `concernsWrittenAt`. `ConcernsWriter.tsx` (in App, first check after 12 s, then hourly; `writeConcerns` is also what "Write this week again" calls) asks weekly for `NEW:` lines and `DONE n:` outcomes (src/features/character/preoccupations.ts: `buildConcernsPrompt`, `parseConcerns`, `applyConcerns`). Replies get `buildConcernsSection` (`SceneContext.concernsNote`, with what's recently over); first texts and statuses get `concernsLine`. "Drop" removes one.
