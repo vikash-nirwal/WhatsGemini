@@ -1,4 +1,4 @@
-import { test, expect, openChat, openRoute, sendMessage } from "./fixtures";
+import { test, expect, openChat, openRoute, sendMessage, chatMessages } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // Character diary (#5): with the diary on, crossing the 30-message mark gets
@@ -28,7 +28,7 @@ test("the character writes a diary entry you can read, and remembers it", async 
 
   // Message 29 from you, 30 from Aria: the diary is due.
   await sendMessage(page, "Want to hear a joke?");
-  await expect(page.getByText("That's lovely to hear.")).toBeVisible();
+  await expect(chatMessages(page).getByText("That's lovely to hear.")).toBeVisible();
   await expect.poll(() => mockAI.requests.some((r) => !r.stream && r.prompt.includes("private diary entry"))).toBe(true);
 
   // The entry reaches the next reply's prompt.

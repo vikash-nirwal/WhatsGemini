@@ -1,4 +1,4 @@
-import { test, expect, openChat, openRoute } from "./fixtures";
+import { test, expect, openChat, openRoute, chatMessages } from "./fixtures";
 
 // T5 screenshot tests, deliberately few: the chat screen in every color
 // theme (desktop and phone), plus the character gallery at every size.
@@ -19,7 +19,7 @@ for (const theme of THEMES) {
     test(`chat screen @visual`, async ({ page }, testInfo) => {
       test.skip(!["desktop", "pixel"].includes(testInfo.project.name), "chat screens are captured on desktop and Pixel only");
       await openChat(page);
-      await expect(page.getByText("User message 30: it was fine, thanks.")).toBeVisible();
+      await expect(chatMessages(page).getByText("User message 30: it was fine, thanks.")).toBeVisible();
       await page.waitForTimeout(500); // entrance animations, the composer's first measurement
       await expect(page).toHaveScreenshot(`chat-${theme}.png`, SNAPSHOT);
     });

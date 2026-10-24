@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openChat, messageBubble } from "./fixtures";
+import { test, expect, openChat, messageBubble, chatMessages } from "./fixtures";
 
 // Fork into a new chat (#86): a new chat that starts at the chosen message.
 
@@ -18,9 +18,9 @@ test("a new chat starts from a message, and the original stays as it was", async
     await bubble.getByRole("button", { name: "Start a new chat from here" }).click();
   }
   await expect(page).toHaveURL(/#\/chat\/(?!1$)\d+$/);
-  await expect(page.getByText("Aria message 3: how was your day?")).toBeVisible();
-  await expect(page.getByText("User message 4: it was fine, thanks.")).toHaveCount(0);
+  await expect(chatMessages(page).getByText("Aria message 3: how was your day?")).toBeVisible();
+  await expect(chatMessages(page).getByText("User message 4: it was fine, thanks.")).toHaveCount(0);
 
   await page.goto("./#/chat/1");
-  await expect(page.getByText("User message 6: it was fine, thanks.")).toBeVisible({ timeout: 30_000 });
+  await expect(chatMessages(page).getByText("User message 6: it was fine, thanks.")).toBeVisible({ timeout: 30_000 });
 });

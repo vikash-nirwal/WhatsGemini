@@ -341,6 +341,10 @@ export const waitForReplyDone = async (page: Page) => {
 // The chat bubble holding `text`, so a message action ("Edit", "Regenerate",
 // "Previous variant"...) is clicked on that message and not another one. The
 // footer actions only fade in on hover, so hover the bubble before clicking.
+// The chat's message list. Message text also shows in the chat list's
+// previews (#115), so look for it here rather than on the whole page.
+export const chatMessages = (page: Page) => page.getByRole("region", { name: "Messages" });
+
 export const messageBubble = (page: Page, text: string) =>
   page.locator('[data-slot="message-bubble"]').filter({ hasText: text });
 

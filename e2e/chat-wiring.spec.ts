@@ -1,4 +1,4 @@
-import { test, expect, openChat, sendMessage, waitForReplyDone } from "./fixtures";
+import { test, expect, openChat, sendMessage, waitForReplyDone, chatMessages } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // Lane B's pieces wired into the chat: "Show what was sent" on a reply
@@ -30,7 +30,7 @@ test("a reply's 'Show what was sent' opens the request behind it", async ({ page
   mockAI.replyOnce("Aria twirls her pen thoughtfully.");
   await openChat(page, 1);
   await sendMessage(page, "What are you thinking about?");
-  await expect(page.getByText("Aria twirls her pen thoughtfully.")).toBeVisible();
+  await expect(chatMessages(page).getByText("Aria twirls her pen thoughtfully.")).toBeVisible();
   await waitForReplyDone(page);
 
   const bubble = page.locator('[data-slot="message-bubble"]').filter({ hasText: "Aria twirls her pen thoughtfully." });
@@ -55,7 +55,7 @@ test("a character's own model is the one the reply is requested from", async ({ 
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
 
   await sendMessage(page, "Hi!");
-  await expect(page.getByText("Mock reply")).toBeVisible();
+  await expect(chatMessages(page).getByText("Mock reply")).toBeVisible();
   const sent = mockAI.requests.filter((r) => r.stream).pop()!;
   expect(sent.model).toBe("aria-special-model");
 });

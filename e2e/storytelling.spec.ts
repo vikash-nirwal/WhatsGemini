@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openChat, sendMessage, waitForReplyDone, headerAction, messageBubble, MockAIRequest } from "./fixtures";
+import { test, expect, openChat, sendMessage, waitForReplyDone, headerAction, messageBubble, MockAIRequest, chatMessages } from "./fixtures";
 
 // Ways of telling the story (#101-#105): their side of the story,
 // flashbacks, episodes with cliffhangers, what-if worlds and role reversal.
@@ -56,7 +56,7 @@ test("a flashback is its own chat, and ending it adds to their past", async ({ p
   await dialog.getByRole("textbox", { name: "Who you play in it" }).fill("the baker");
   await dialog.getByRole("button", { name: "Start the flashback" }).click();
 
-  await expect(page.getByText("ten-year-old Aria squeezes between the flour sacks")).toBeVisible({ timeout: 15_000 });
+  await expect(chatMessages(page).getByText("ten-year-old Aria squeezes between the flour sacks")).toBeVisible({ timeout: 15_000 });
   expect(page.url()).not.toMatch(/#\/chat\/1$/);
   const opening = lastSystem(mockAI.requests);
   expect(opening).toContain("This chat is a flashback, set before Aria ever met");
@@ -84,7 +84,7 @@ test("a what-if world opens a new chat that doesn't touch the main story", async
   await headerAction(page, "What-if universe");
   await page.getByRole("dialog").getByRole("button", { name: "Cyberpunk" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Go there" }).click();
-  await expect(page.getByText("You look lost, choom.")).toBeVisible({ timeout: 15_000 });
+  await expect(chatMessages(page).getByText("You look lost, choom.")).toBeVisible({ timeout: 15_000 });
   expect(lastSystem(mockAI.requests)).toContain("This chat is a what-if, an alternate universe: A neon megacity");
   const id = Number(page.url().match(/chat\/(\d+)/)?.[1]);
   const chat = await readRow(page, "chats", id);
@@ -99,7 +99,7 @@ test("an episode ends on a cliffhanger with a teaser, and the next reply picks u
   });
   await openChat(page);
   await headerAction(page, "End episode (on a cliffhanger)");
-  await expect(page.getByText("Nobody knows I live here.")).toBeVisible({ timeout: 15_000 });
+  await expect(chatMessages(page).getByText("Nobody knows I live here.")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Episode 1: The Knock")).toBeVisible();
   await expect(page.locator('[data-slot="episode-teaser"]')).toContainText("A stranger at the door.");
 

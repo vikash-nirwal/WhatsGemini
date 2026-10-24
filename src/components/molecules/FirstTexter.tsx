@@ -96,9 +96,9 @@ const FirstTexter = () => {
         const notes: MessageNote[] = dreaming ? ["texted-first", "dream"] : ["texted-first"];
         await dispatch(addMessage({ chatId: chat.id, role: AI, text, speakerId: texter.id, notes }));
         await dispatch(fetchChats());
-        const shown = await notifyChatMessage({ chatId: chat.id, speaker: texter, text, isNsfwChat: isNsfwCharacter(texter), privacy: latest.current.privacy });
-        // In the app but in another chat: a toast instead.
-        if (!shown && latest.current.path !== `/chat/${chat.id}`) {
+        const shown = await notifyChatMessage({ chatId: chat.id, speaker: texter, text, isNsfwChat: isNsfwCharacter(texter), privacy: latest.current.privacy, muted: chat.muted });
+        // In the app but in another chat: a toast instead (not for a muted chat).
+        if (!shown && !chat.muted && latest.current.path !== `/chat/${chat.id}`) {
           toast.message(`${texter.name} texted you`, { description: text.length > 90 ? `${text.slice(0, 87)}...` : text, action: { label: "Open", onClick: () => navigate(`/chat/${chat.id}`) } });
         }
       } catch (err) {

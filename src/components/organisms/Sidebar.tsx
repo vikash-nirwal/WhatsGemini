@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { fetchChats, deleteChat, addChat, importChat, updateChatPinned } from "../../features/chatSlice";
+import { fetchChats, deleteChat, addChat, importChat, updateChatPinned, updateChatOptions } from "../../features/chatSlice";
 import { selectActivePersona } from "../../features/settingsSlice";
 import { fetchCharacters } from "../../features/characterSlice";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { FaTrash, FaFileImport, FaPlus, FaSearch, FaThumbtack, FaPencilAlt, FaChevronRight, FaCheck, FaUsers, FaAngleDoubleLeft, FaAngleDoubleRight } from "react-icons/fa";
+import { FaFileImport, FaPlus, FaSearch, FaThumbtack, FaPencilAlt, FaChevronRight, FaCheck, FaUsers, FaAngleDoubleLeft, FaAngleDoubleRight, FaArrowLeft, FaArchive, FaVolumeMute, FaChevronDown } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { useModal } from "../../contexts/ModalContext";
 import { useSidebar } from "../../contexts/SidebarContext";
@@ -23,6 +23,8 @@ import { stripLeakedBase64 } from "../../features/ai/utils/apiUtils";
 import { isNsfwCharacter } from "../../features/character/contentRating";
 import { StatusStrip } from "./StatusStrip";
 import { hasUnseenStatus, statusReplyDraft } from "../../features/character/statusUpdates";
+import { lastPreview, splitArchived, unreadCount } from "../../features/chat/chatList";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "src/components/molecules/dropdown-menu";
 
 const formatChatTime = (timestamp?: number) => {
   if (!timestamp) return "";
@@ -163,6 +165,14 @@ const Sidebar = () => {
   const handleTogglePin = useCallback((chatId: number, pinned: boolean) => {
     dispatch(updateChatPinned({ chatId, pinned: !pinned }));
   }, [dispatch]);
+  // A WhatsApp chat list (#115): mute and archive from a row's menu.
+  const handleToggleMute = useCallback((chatId: number, muted: boolean) => {
+    dispatch(updateChatOptions({ chatId, patch: { muted: !muted || undefined } }));
+  }, [dispatch]);
+  const handleToggleArchive = useCallback((chatId: number, archived: boolean) => {
+    dispatch(updateChatOptions({ chatId, patch: { archived: !archived || undefined } }));
+  }, [dispatch]);
+  const [showArchived, setShowArchived] = useState(false);
 
   const handleCharacterClick = useCallback(async (characterId: number, characterName: string) => {
     // The character's own 1:1 chat specifically - not just any room they
@@ -251,8 +261,12 @@ const Sidebar = () => {
     return results;
   }, [chats, characters, search]);
 
-  const pinnedItems = useMemo(() => filteredChats.filter((i) => i.chat.pinned), [filteredChats]);
-  const unpinnedItems = useMemo(() => filteredChats.filter((i) => !i.chat.pinned), [filteredChats]);
+  const { shown: listedItems, archived: archivedItems } = useMemo(() => splitArchived(filteredChats, Boolean(search.trim())), [filteredChats, search]);
+  const viewingArchived = showArchived && archivedItems.length > 0 && !search.trim();
+  const visibleItems = viewingArchived ? archivedItems : listedItems;
+  const pinnedItems = useMemo(() => visibleItems.filter((i) => i.chat.pinned), [visibleItems]);
+  const unpinnedItems = useMemo(() => visibleItems.filter((i) => !i.chat.pinned), [visibleItems]);
+  const archivedUnread = archivedItems.filter((i) => unreadCount(i.chat) > 0).length;
 
   // The new-chat picker honors the gallery's "Show NSFW" switch; the chat
   // list above still resolves every chat's character regardless.
@@ -410,6 +424,21 @@ const Sidebar = () => {
               <StatusStrip characters={statusCharacters} onReply={handleStatusReply} compact />
             </div>
           )}
+          {/* Archived chats (#115): one row at the top opens them. */}
+          {!search.trim() && archivedItems.length > 0 && (
+            viewingArchived ? (
+              <button type="button" onClick={() => setShowArchived(false)} className={cn("w-full flex items-center gap-3 px-3 py-2.5 text-[13.5px] font-semibold text-foreground hover:bg-hover rounded-lg", collapsed && "lg:hidden")} aria-label="Back to chats">
+                <FaArrowLeft size={12} className="text-subtle" />
+                Archived
+              </button>
+            ) : (
+              <button type="button" onClick={() => setShowArchived(true)} className={cn("w-full flex items-center gap-3 px-3 py-2.5 text-[13.5px] text-foreground hover:bg-hover rounded-lg", collapsed && "lg:hidden")} aria-label={`Archived, ${archivedItems.length} ${archivedItems.length === 1 ? "chat" : "chats"}`}>
+                <FaArchive size={13} className="text-primary w-[34px]" />
+                <span className="flex-1 text-left font-medium">Archived</span>
+                <span className={cn("text-[12px]", archivedUnread > 0 ? "font-semibold text-primary" : "text-subtle")}>{archivedUnread > 0 ? archivedUnread : archivedItems.length}</span>
+              </button>
+            )
+          )}
           {search.trim() && filteredChats.length === 0 ? (
             <p className={cn("text-center text-subtle text-[12.5px] px-3 py-6", collapsed && "lg:hidden")}>No chats or messages match "{search.trim()}".</p>
           ) : (
@@ -419,7 +448,7 @@ const Sidebar = () => {
                   <div className={cn("text-[10.5px] font-semibold tracking-[0.09em] uppercase text-subtle px-3 pt-2 pb-1.5", collapsed && "lg:hidden")}>
                     {terminal ? <span className="normal-case tracking-normal font-normal text-[10px] text-muted-foreground"># pinned</span> : "Pinned"}
                   </div>
-                  <ChatList items={pinnedItems} characters={characters} onDeleteChat={handleDeleteChat} onTogglePin={handleTogglePin} onNavigate={close} query={search.trim()} activeChatId={activeChatId} pendingFollowups={pendingFollowups} collapsed={collapsed} />
+                  <ChatList items={pinnedItems} characters={characters} onDeleteChat={handleDeleteChat} onTogglePin={handleTogglePin} onToggleMute={handleToggleMute} onToggleArchive={handleToggleArchive} onNavigate={close} query={search.trim()} activeChatId={activeChatId} pendingFollowups={pendingFollowups} collapsed={collapsed} />
                 </>
               )}
               {unpinnedItems.length > 0 && (
@@ -429,7 +458,7 @@ const Sidebar = () => {
                       <span className="normal-case tracking-normal font-normal text-[10px] text-muted-foreground"># ls ~/chats -lt</span>
                     ) : pinnedItems.length > 0 ? "Other chats" : "Recent"}
                   </div>
-                  <ChatList items={unpinnedItems} characters={characters} onDeleteChat={handleDeleteChat} onTogglePin={handleTogglePin} onNavigate={close} query={search.trim()} activeChatId={activeChatId} pendingFollowups={pendingFollowups} collapsed={collapsed} />
+                  <ChatList items={unpinnedItems} characters={characters} onDeleteChat={handleDeleteChat} onTogglePin={handleTogglePin} onToggleMute={handleToggleMute} onToggleArchive={handleToggleArchive} onNavigate={close} query={search.trim()} activeChatId={activeChatId} pendingFollowups={pendingFollowups} collapsed={collapsed} />
                 </>
               )}
             </>
@@ -660,7 +689,7 @@ const Sidebar = () => {
   );
 };
 
-const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, query, activeChatId, pendingFollowups, collapsed }: { items: { chat: Chat; snippet?: string }[], characters: Character[], onDeleteChat: (id: number) => void, onTogglePin: (id: number, pinned: boolean) => void, onNavigate: () => void, query: string, activeChatId: number | null, pendingFollowups: Record<number, number>, collapsed: boolean }) => {
+const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onToggleMute, onToggleArchive, onNavigate, query, activeChatId, pendingFollowups, collapsed }: { items: { chat: Chat; snippet?: string }[], characters: Character[], onDeleteChat: (id: number) => void, onTogglePin: (id: number, pinned: boolean) => void, onToggleMute: (id: number, muted: boolean) => void, onToggleArchive: (id: number, archived: boolean) => void, onNavigate: () => void, query: string, activeChatId: number | null, pendingFollowups: Record<number, number>, collapsed: boolean }) => {
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
   const terminal = is("terminal");
@@ -687,6 +716,11 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, qu
         const isWaitingForUser = Boolean(
           chat.autoReply?.enabled && chat.autoReply.followupCount >= chat.autoReply.maxFollowups
         );
+        // A WhatsApp chat list (#115): unread replies (none for the chat
+        // you're in), the last message's preview, with ticks on yours.
+        const unread = isActive ? 0 : unreadCount(chat);
+        const preview = hidePreview ? undefined : lastPreview(chat);
+        const previewSpeaker = preview && !preview.fromYou && members.length > 1 ? members.find((m) => m.id === preview.speakerId)?.name : undefined;
 
         return (
           <Link
@@ -729,52 +763,69 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onNavigate, qu
                     {terminal ? "waiting" : "Waiting for you"}
                   </span>
                 ) : (
-                  <span className={cn("text-[10.5px] flex-shrink-0", terminal ? "text-[10px] opacity-75" : "text-ink-faint")}>{formatChatTime(chat.timestamp)}</span>
+                  <span className={cn("text-[10.5px] flex-shrink-0", terminal ? "text-[10px] opacity-75" : unread > 0 ? "font-semibold text-primary" : "text-ink-faint")}>{formatChatTime(chat.timestamp)}</span>
                 )}
               </div>
-              {snippet ? (
-                <span className={cn("text-xs truncate", terminal ? "text-[11px] opacity-75" : "text-muted-foreground")}>
-                  {terminal && "# "}
-                  <HighlightedText text={snippet} query={query} />
-                </span>
-              ) : character?.description && !hidePreview ? (
-                <span className={cn("text-xs truncate", terminal ? "text-[11px] opacity-75" : "text-muted-foreground")}>
-                  {terminal && "# "}
-                  {character.description}
-                </span>
-              ) : null}
+              <div className="flex items-center gap-1.5 min-w-0">
+                {snippet ? (
+                  <span className={cn("flex-1 min-w-0 text-xs truncate", terminal ? "text-[11px] opacity-75" : "text-muted-foreground")}>
+                    {terminal && "# "}
+                    <HighlightedText text={snippet} query={query} />
+                  </span>
+                ) : preview ? (
+                  <span className={cn("flex-1 min-w-0 text-xs truncate", terminal ? "text-[11px] opacity-75" : unread > 0 ? "text-foreground" : "text-muted-foreground")} data-slot="chat-preview">
+                    {terminal && "# "}
+                    {preview.fromYou && <span aria-label="You:" className="mr-1 tracking-[-0.2em] text-subtle" data-slot="ticks" data-state="delivered">✓✓</span>}
+                    {previewSpeaker && <span className="font-medium">{previewSpeaker}: </span>}
+                    {preview.text}
+                  </span>
+                ) : character?.description && !hidePreview ? (
+                  <span className={cn("flex-1 min-w-0 text-xs truncate", terminal ? "text-[11px] opacity-75" : "text-muted-foreground")}>
+                    {terminal && "# "}
+                    {character.description}
+                  </span>
+                ) : <span className="flex-1" />}
+                {chat.muted && <FaVolumeMute size={11} className="flex-shrink-0 text-subtle" aria-label="Muted" />}
+                {chat.pinned && !terminal && <FaThumbtack size={10} className="flex-shrink-0 text-subtle" aria-label="Pinned" />}
+                {unread > 0 && (
+                  <span
+                    data-slot="unread-badge"
+                    aria-label={`${unread} unread`}
+                    className={cn("min-w-[19px] h-[19px] px-1.5 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] font-semibold", chat.muted ? "bg-subtle/30 text-foreground" : "bg-primary text-primary-foreground")}
+                  >
+                    {unread}
+                  </span>
+                )}
+              </div>
             </div>
-            <Button
-              onClick={(e) => { e.preventDefault(); onTogglePin(chat.id, Boolean(chat.pinned)); }}
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "h-auto w-auto p-1.5 rounded-lg flex-shrink-0",
-                chat.pinned
-                  ? "text-primary hover:bg-transparent"
-                  : "text-ink-faint opacity-0 group-hover:opacity-100 hover:text-primary hover:bg-primary/10",
-                terminal && isActive && "text-primary-foreground/80 hover:text-primary-foreground",
-                collapsed && "lg:hidden"
-              )}
-              title={chat.pinned ? "Unpin chat" : "Pin chat"}
-              aria-label={chat.pinned ? `Unpin chat with ${chat.title}` : `Pin chat with ${chat.title}`}
-            >
-              <FaThumbtack size={12} />
-            </Button>
-            <Button
-              onClick={(e) => { e.preventDefault(); onDeleteChat(chat.id); }}
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "h-auto w-auto p-1.5 rounded-lg text-ink-faint hover:text-red-500 hover:bg-red-500/10 flex-shrink-0",
-                terminal && isActive && "text-primary-foreground/80",
-                collapsed && "lg:hidden"
-              )}
-              title="Delete Chat"
-              aria-label={`Delete chat with ${chat.title}`}
-            >
-              <FaTrash size={12} />
-            </Button>
+            {/* Pin, mute, archive and delete (#115), in one menu per row: on
+                hover with a mouse, always on a touch screen. */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  // Inside the row's link: neither open the chat nor close the drawer.
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "h-auto w-auto p-1.5 rounded-lg flex-shrink-0 text-ink-faint hover:text-foreground hover:bg-primary/10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 [@media(hover:none)]:opacity-100",
+                    terminal && isActive && "text-primary-foreground/80 hover:text-primary-foreground",
+                    collapsed && "lg:hidden"
+                  )}
+                  title="Chat options"
+                  aria-label={`Chat options for ${chat.title}`}
+                >
+                  <FaChevronDown size={11} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuItem onSelect={() => onTogglePin(chat.id, Boolean(chat.pinned))}>{chat.pinned ? "Unpin chat" : "Pin chat"}</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onToggleMute(chat.id, Boolean(chat.muted))}>{chat.muted ? "Unmute" : "Mute"}</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onToggleArchive(chat.id, Boolean(chat.archived))}>{chat.archived ? "Unarchive chat" : "Archive chat"}</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => onDeleteChat(chat.id)} className="text-destructive focus:text-destructive">Delete chat</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </Link>
         );
       })}

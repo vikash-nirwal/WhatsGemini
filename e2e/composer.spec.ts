@@ -1,4 +1,4 @@
-import { test, expect, openChat } from "./fixtures";
+import { test, expect, openChat, chatMessages } from "./fixtures";
 import { box, overlaps, viewportWidth, expectNoHorizontalScroll } from "./layout";
 
 // Layout checks for the chat composer (U1, U2, U3, U6, U8): geometry, not
@@ -8,7 +8,7 @@ const SIX_LINES = ["one", "two", "three", "four", "five", "six"].join("\n");
 const PHONE_MAX_WIDTH = 640; // below Tailwind's `sm`, where the tools collapse into "+"
 
 const composer = (page: import("@playwright/test").Page) => page.locator('[data-slot="composer"]');
-const lastMessage = (page: import("@playwright/test").Page) => page.getByText("User message 30: it was fine, thanks.");
+const lastMessage = (page: import("@playwright/test").Page) => chatMessages(page).getByText("User message 30: it was fine, thanks.");
 
 test.describe("chat composer", () => {
   test("a multi-line draft stays inside the composer, which grows with it", async ({ page }) => {

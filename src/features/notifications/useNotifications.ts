@@ -30,6 +30,7 @@ export const useNotificationClicks = () => {
 // message; it only notifies when the user is away (see shouldNotify).
 export const useChatNotifier = (chatId: number | null, members: Character[]) => {
   const privacy = useAppSelector((state) => state.settings.privacy);
+  const muted = useAppSelector((state) => Boolean(state.chat.chats.find((c) => c.id === chatId)?.muted));
   return useCallback(
     (speaker: Character, text: string, images?: string[]) => {
       if (!chatId) return;
@@ -40,8 +41,9 @@ export const useChatNotifier = (chatId: number | null, members: Character[]) => 
         hasImages: Boolean(images?.length),
         isNsfwChat: members.some(isNsfwCharacter),
         privacy,
+        muted,
       });
     },
-    [chatId, members, privacy]
+    [chatId, members, privacy, muted]
   );
 };

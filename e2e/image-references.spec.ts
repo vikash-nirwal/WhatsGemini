@@ -1,5 +1,5 @@
 import { Page, Request } from "@playwright/test";
-import { test, expect, openChat, openRoute, sendMessage, waitForReplyDone, ARIA } from "./fixtures";
+import { test, expect, openChat, openRoute, sendMessage, waitForReplyDone, ARIA, chatMessages } from "./fixtures";
 import { mockComfyUI } from "./comfyui";
 
 // #36-#41: a character's appearance photo reaches each image provider as a
@@ -49,7 +49,7 @@ const requestPictureFromAria = async (page: Page, extra: Record<string, unknown>
   await openChat(page);
   await sendMessage(page, "/image a selfie please");
   // Wan polls every 5 seconds, so its picture takes a little longer.
-  await expect(page.getByText("Here's me right now!")).toBeVisible({ timeout: 20_000 });
+  await expect(chatMessages(page).getByText("Here's me right now!")).toBeVisible({ timeout: 20_000 });
   await waitForReplyDone(page);
   await expect(page.getByRole("img", { name: "Generated" })).toBeVisible();
 };
@@ -209,7 +209,7 @@ test.describe("ComfyUI prompt writing", () => {
     mockAI.replyOnce("Here's me right now! [Image Context: Aria on a beach at sunset]", "1girl, solo, Aria, beach at sunset, sundress, waving, golden hour, upper body");
     await openChat(page);
     await sendMessage(page, "/image send me a pic at the beach");
-    await expect(page.getByText("Here's me right now!")).toBeVisible({ timeout: 20_000 });
+    await expect(chatMessages(page).getByText("Here's me right now!")).toBeVisible({ timeout: 20_000 });
     await waitForReplyDone(page);
 
     expect(mockAI.requests[1].prompt).toContain('You write prompts for an image generator: ComfyUI running the "SDXL text to image" workflow');

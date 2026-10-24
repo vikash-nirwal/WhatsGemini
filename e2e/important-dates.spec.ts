@@ -77,10 +77,14 @@ test("dates are found in the character's memory", async ({ page, mockAI }) => {
 
 test("on the day, the character messages first, once", async ({ page, mockAI }) => {
   mockAI.reply("Happy birthday!! I've been waiting all day to say it.");
-  await openChat(page);
+  // The date is set before the chat opens: an open chat re-reads its
+  // character and would celebrate before the reload below.
+  await openRoute(page, "/characters");
+  await expect(page.getByText("Aria").first()).toBeVisible({ timeout: 30_000 });
   const today = new Date();
   await patchAria(page, { importantDates: [{ id: "d1", label: "Your birthday", month: today.getMonth() + 1, day: today.getDate(), messageOnDay: true }] });
   await page.reload();
+  await openChat(page);
 
   await expect(messageBubble(page, "Happy birthday!!")).toBeVisible({ timeout: 30_000 });
   const request = mockAI.requests[0];

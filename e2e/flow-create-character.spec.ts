@@ -1,4 +1,4 @@
-import { test, expect, openRoute, sendMessage } from "./fixtures";
+import { test, expect, openRoute, sendMessage, chatMessages } from "./fixtures";
 
 // An empty database, so the new character is the only one in the gallery.
 test.use({ seed: false });
@@ -31,7 +31,7 @@ test("create a character in the editor and start a chat with it", async ({ page,
   await expect(page.locator("header").first()).toContainText("Nell the Navigator");
 
   await sendMessage(page, "Hello Nell!");
-  await expect(page.getByText("Ahoy! Nell here, glad you came by.")).toBeVisible();
+  await expect(chatMessages(page).getByText("Ahoy! Nell here, glad you came by.")).toBeVisible();
   // The character's own prompt drove the reply.
   const system = mockAI.requests[0].messages.map((m) => m.content).join("\n");
   expect(system).toContain("cheerful map-maker who loves puns");

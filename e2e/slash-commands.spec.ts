@@ -1,4 +1,4 @@
-import { test, expect, openChat } from "./fixtures";
+import { test, expect, openChat, chatMessages } from "./fixtures";
 
 // Composer slash commands (#14).
 
@@ -22,7 +22,7 @@ test("/roll sends the action with a real dice result the AI must respect", async
   mockAI.reply("The lock clicks open.");
   await openChat(page, 1);
   await send(page, "/roll 1d20 I try to pick the lock");
-  await expect(page.getByText("The lock clicks open.")).toBeVisible();
+  await expect(chatMessages(page).getByText("The lock clicks open.")).toBeVisible();
   const prompt = mockAI.requests.filter((r) => r.stream).pop()!.prompt;
   expect(prompt).toContain("I try to pick the lock");
   expect(prompt).toMatch(/1d20 rolled \d+ = \d+\. Use this result/);

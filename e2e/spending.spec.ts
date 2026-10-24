@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openRoute, openChat, sendMessage, waitForReplyDone } from "./fixtures";
+import { test, expect, openRoute, openChat, sendMessage, waitForReplyDone, chatMessages } from "./fixtures";
 
 // #42: the Spending page in Settings and the monthly limit. Spending is
 // seeded straight into localStorage; paid calls go to DeepSeek (a plaintext
@@ -111,7 +111,7 @@ test.describe("80% warning", () => {
     const requests = await mockPaidReplies(page);
     await openChat(page);
     await sendMessage(page, "Hello there");
-    await expect(page.getByText("Paid reply 1")).toBeVisible();
+    await expect(chatMessages(page).getByText("Paid reply 1")).toBeVisible();
     await waitForReplyDone(page);
     expect(requests.length).toBeGreaterThan(0);
 
@@ -156,7 +156,7 @@ test.describe("hard stop", () => {
 
     await openChat(page);
     await sendMessage(page, "How about now?");
-    await expect(page.getByText("Paid reply 1")).toBeVisible();
+    await expect(chatMessages(page).getByText("Paid reply 1")).toBeVisible();
     expect(requests.length).toBeGreaterThan(0);
   });
 });
@@ -173,7 +173,7 @@ test.describe("hard stop with a local provider", () => {
     mockAI.reply("Local and free");
     await openChat(page);
     await sendMessage(page, "Still free?");
-    await expect(page.getByText("Local and free")).toBeVisible();
+    await expect(chatMessages(page).getByText("Local and free")).toBeVisible();
     await expect(page.getByText(/Monthly spending limit reached/)).toHaveCount(0);
   });
 });

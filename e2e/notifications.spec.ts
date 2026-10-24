@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openChat, openRoute, sendMessage, waitForReplyDone } from "./fixtures";
+import { test, expect, openChat, openRoute, sendMessage, waitForReplyDone, chatMessages } from "./fixtures";
 
 // Notifications (#43): with the switch on and the permission granted through
 // the browser context, a reply that lands while the tab is hidden, or an
@@ -120,7 +120,7 @@ test("a reply in a visible tab doesn't notify", async ({ page, mockAI }) => {
   await turnOnInSettings(page);
   await openChat(page);
   await sendMessage(page, "Hello");
-  await expect(page.getByText("Right here with you.")).toBeVisible();
+  await expect(chatMessages(page).getByText("Right here with you.")).toBeVisible();
   await waitForReplyDone(page);
   expect(await shownNotifications(page)).toEqual([]);
 });
@@ -164,5 +164,5 @@ test("an auto follow-up in a hidden tab notifies", async ({ page, mockAI }) => {
   await expect.poll(() => shownNotifications(page), { timeout: 15_000 }).toEqual([
     { title: "Aria", body: "Hey, still there?", tag: "chat-1" },
   ]);
-  await expect(page.getByText("Hey, still there?")).toBeVisible();
+  await expect(chatMessages(page).getByText("Hey, still there?")).toBeVisible();
 });

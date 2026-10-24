@@ -1,4 +1,4 @@
-import { test, expect, openChat, sendMessage, messageBubble, waitForReplyDone, PHONE_REDESIGN_SKIP } from "./fixtures";
+import { test, expect, openChat, sendMessage, messageBubble, waitForReplyDone, PHONE_REDESIGN_SKIP, chatMessages } from "./fixtures";
 
 test.skip(({ isMobile }) => isMobile, PHONE_REDESIGN_SKIP);
 test.use({ seed: { messages: 3 } });
@@ -8,7 +8,7 @@ test("edit your last message and get a new reply to it", async ({ page, mockAI }
   await openChat(page, 1);
 
   await sendMessage(page, "Coffee or tea?");
-  await expect(page.getByText("Coffee is the answer.")).toBeVisible();
+  await expect(chatMessages(page).getByText("Coffee is the answer.")).toBeVisible();
   await waitForReplyDone(page);
 
   const bubble = messageBubble(page, "Coffee or tea?");
@@ -23,10 +23,10 @@ test("edit your last message and get a new reply to it", async ({ page, mockAI }
   await expect(dialog).toBeHidden();
 
   // The edited message replaces the old one and gets its own reply.
-  await expect(page.getByText("Tea or coffee? Pick tea.")).toBeVisible();
-  await expect(page.getByText("Tea it is, then.")).toBeVisible();
-  await expect(page.getByText("Coffee or tea?", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("Coffee is the answer.")).toHaveCount(0);
+  await expect(chatMessages(page).getByText("Tea or coffee? Pick tea.")).toBeVisible();
+  await expect(chatMessages(page).getByText("Tea it is, then.")).toBeVisible();
+  await expect(chatMessages(page).getByText("Coffee or tea?", { exact: true })).toHaveCount(0);
+  await expect(chatMessages(page).getByText("Coffee is the answer.")).toHaveCount(0);
   expect(mockAI.requests).toHaveLength(2);
   expect(mockAI.requests[1].prompt).toContain("Tea or coffee? Pick tea.");
   // The original is kept as an earlier variant of the message.

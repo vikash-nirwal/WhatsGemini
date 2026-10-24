@@ -547,6 +547,23 @@ const ChatPage = () => {
     }
   }, [dispatch, messages, currentChat]);
 
+  // A WhatsApp chat list (#115): a chat on screen is read. Saved only when
+  // a reply came in after the last time, so it isn't written every render;
+  // a chat open in a hidden tab waits until the tab is shown.
+  const hasChat = Boolean(currentChat);
+  const readAt = currentChat?.readAt;
+  useEffect(() => {
+    if (!chatIdNum || !hasChat) return;
+    const mark = () => {
+      if (document.visibilityState === "hidden") return;
+      const latest = messages.reduce((t, m) => (m.role === AI && (m.timestamp || 0) > t ? m.timestamp || 0 : t), 0);
+      if (readAt == null || latest > readAt) dispatch(updateChatOptions({ chatId: chatIdNum, patch: { readAt: Math.max(Date.now(), latest) } }));
+    };
+    mark();
+    document.addEventListener("visibilitychange", mark);
+    return () => document.removeEventListener("visibilitychange", mark);
+  }, [chatIdNum, hasChat, messages, readAt, dispatch]);
+
   const [draftInjection, setDraftInjection] = useState<{ text: string; nonce: number } | undefined>(undefined);
   // A status reply (#8) arrives with its draft in the route state.
   const routeLocation = useLocation();
@@ -949,7 +966,9 @@ const ChatPage = () => {
   // reload doesn't send it twice.
   const celebratedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!chatIdNum || isRoom || !characterData || aiLoading || messages.length === 0) return;
+    // Waits for the chat and its members as well: sendCharacterFollowup
+    // needs both, and the date is marked celebrated before it's called.
+    if (!chatIdNum || isRoom || !characterData || !currentChat || roomCharacters.length === 0 || aiLoading || messages.length === 0) return;
     const now = Date.now();
     const due = datesToCelebrate(characterData.importantDates || [], now);
     const key = `${chatIdNum}-${new Date(now).toDateString()}`;
@@ -993,7 +1012,7 @@ const ChatPage = () => {
       .catch((err) => console.error("Special-date message failed:", err))
       .finally(() => { autoReplyInFlightRef.current = false; });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatIdNum, isRoom, characterData, aiLoading, messages.length]);
+  }, [chatIdNum, isRoom, characterData, Boolean(currentChat), roomCharacters.length, aiLoading, messages.length]);
 
   // Event deck (#49): draw a random event from the deck, and the next
   // character reply works it into the scene.

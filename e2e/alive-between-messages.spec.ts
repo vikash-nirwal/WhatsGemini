@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openChat, openRoute, sendMessage, waitForReplyDone, headerAction, messageBubble, MockAIRequest } from "./fixtures";
+import { test, expect, openChat, openRoute, sendMessage, waitForReplyDone, headerAction, messageBubble, MockAIRequest, chatMessages } from "./fixtures";
 
 // Characters who feel alive between messages (#93-#96): they text first,
 // tell you their dreams, have off days, and pick up inside jokes.
@@ -59,7 +59,7 @@ test("a character with the switch on texts first after a quiet spell", async ({ 
   await expect(bubble.getByText("Texted first")).toBeVisible();
   // Never two unanswered: the next check sends nothing.
   await page.clock.fastForward(21 * 60_000);
-  await expect(page.getByText("saw a dog in a tiny raincoat")).toHaveCount(1);
+  await expect(chatMessages(page).getByText("saw a dog in a tiny raincoat")).toHaveCount(1);
   expect(mockAI.requests.filter((r) => r.prompt.includes("now you're messaging first"))).toHaveLength(1);
 });
 

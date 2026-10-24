@@ -1,4 +1,4 @@
-import { test, expect, openChat } from "./fixtures";
+import { test, expect, openChat, chatMessages } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // Narrative tools: "Write my reply" (#15) and "Surprise me" (#18).
@@ -34,7 +34,7 @@ test("Surprise me asks the next reply for a twist", async ({ page, mockAI }) => 
   mockAI.reply("A stranger bursts through the door.");
   await openChat(page, 1);
   await chatAction(page, /Surprise me/);
-  await expect(page.getByText("A stranger bursts through the door.")).toBeVisible();
+  await expect(chatMessages(page).getByText("A stranger bursts through the door.")).toBeVisible();
   const sent = mockAI.requests.filter((r) => r.stream).pop()!;
   expect(sent.messages.map((m) => String(m.content)).join("\n")).toContain("introduce an unexpected but fitting development");
 });
@@ -52,7 +52,7 @@ test("author's note presets add and remove their line, and reach the next reply"
 
   await page.getByLabel("Message input").fill("Hello again.");
   await page.getByRole("button", { name: "Send Message" }).click();
-  await expect(page.getByText("Mock reply")).toBeVisible();
+  await expect(chatMessages(page).getByText("Mock reply")).toBeVisible();
   expect(mockAI.requests.filter((r) => r.stream).pop()!.prompt).toContain("Pace the relationship slowly");
 
   await chatAction(page, "Scene & chat settings");

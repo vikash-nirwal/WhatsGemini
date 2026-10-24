@@ -18,7 +18,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 |---|------|--------|-------|
 | #113 | WhatsApp-style theme | done | 2026-10-24 |
 | #114 | Phone-style shell | todo | |
-| #115 | A WhatsApp chat list | todo | |
+| #115 | A WhatsApp chat list | done | 2026-10-24 |
 | #116 | Your profile | todo | |
 | #117 | Your own statuses | todo | |
 | #118 | Photo statuses | todo | |
@@ -47,6 +47,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **A WhatsApp chat list (#115):** `Chat.readAt`, `muted`, `archived` (via `updateChatOptions`). `src/features/chat/chatList.ts`: `unreadCount` (AI messages after `readAt`; with no `readAt`, only trailing texted-first ones), `lastPreview`, `splitArchived`. ChatPage marks a visible chat read when a newer reply is on screen. Sidebar rows show the preview (ticks on yours, speaker in groups), unread badge, muted and pinned icons, and one row menu (Pin, Mute, Archive, Delete) replacing the old pin and trash buttons; archived chats sit behind an "Archived" row. Muted chats never notify (`ChatNotificationInput.muted`) or toast. UI tests now look for message text in `chatMessages(page)` (fixtures), since previews repeat it in the list.
 - **WhatsApp-style theme (#113):** `whatsapp` in `COLOR_THEMES`; all CSS in `tokens.css` ("WhatsApp-style theme" block, `--wa-*` tokens, the doodle wallpaper is an inline SVG tile in `--wa-wallpaper`). Hooks it uses: ChatWindow `chat-pane` (+`data-room`), `chat-backdrop`/`chat-backdrop-fade` with `data-kind`; ChatMessage `bubble-meta`, `ticks`, `message-avatar`, `bubble-actions(-menu)`, `room-event`; MessageInput `send-button`. Under this theme every bubble shows its time (`whatsapp` in ChatMessage) and your messages get ticks without texting mode (ChatWindow). In the a11y and screenshot theme lists.
 - **Scene panel groups (2026-10-23):** the Chat and Scene tabs are folded into titled groups (`scene-panel/PanelGroup.tsx`, a `<details>` open by default, folds remembered in localStorage `scene_panel_groups`). Chat: Messaging & display, Group chat (rooms), Alive between messages, Inner life, Relationship, Drama, This story. Scene: The scene now, Story script, Setting, Boundaries. The old `BetweenMessagesSection` is split into `AliveSection`, `TextingSlipsRow`, `MisremembersRow`, `MoodCarryRows` and `DramaSection`. Nothing moved between tabs, so the UI specs that open the Chat tab still find their switches; groups start open, so tests need no `openDetails`.
 - **Memory with time (#109):** `Character.memoryDates` / `Chat.memoryDates` ({learnedAt, mentionedAt} keyed by fact text, like the categories), kept by `carryMemoryDates` (src/features/ai/utils/memoryTime.ts) in useBackgroundUpdates and `memoryDatesFor` in the Memory tab (hand edits), and copied when a chat starts its own memory. The prompt lists facts as "fact (learned 12 Mar)" (`annotateFacts`, `MEMORY_DATES_NOTE`). `pickCallback` offers one fact a week old and not mentioned since, every 2 days (`Chat.callbackAt`, set by `noteCallback` in useReplyEffects on the send and follow-up paths), as `SceneContext.callbackNote`. `Character.misremembers` (Chat tab switch) adds `buildMisrememberDirective`. The Memory tab shows "learned 12 Mar" next to a fact. Embedding-based recall wasn't done (follow-up).

@@ -1,4 +1,4 @@
-import { test, expect, openChat, sendMessage, waitForReplyDone, headerAction } from "./fixtures";
+import { test, expect, openChat, sendMessage, waitForReplyDone, headerAction, chatMessages } from "./fixtures";
 
 // Co-writing mode (#68): one shared story, shown as a document, with ideas
 // for what happens next.
@@ -21,7 +21,7 @@ test("the chat becomes one shared story, and ideas for what happens next fill th
 
   await expect(page.getByLabel("Message input")).toHaveAttribute("placeholder", "Write the next part of the story…");
   await sendMessage(page, "The night train left Vienna an hour late.");
-  await expect(page.getByText("somewhere ahead a whistle cried out")).toBeVisible();
+  await expect(chatMessages(page).getByText("somewhere ahead a whistle cried out")).toBeVisible();
   await waitForReplyDone(page);
   await expect(page.locator('[data-slot="story-paragraph"]')).toHaveCount(4);
   await expect(page.locator('[data-slot="message-bubble"]')).toHaveCount(0);

@@ -432,6 +432,11 @@ export interface Chat {
     followupCount: number;
   };
   pinned?: boolean;
+  // A WhatsApp chat list (#115): when you last looked at the chat (replies
+  // after it count as unread), no alerts for it, and kept out of the list.
+  readAt?: number;
+  muted?: boolean;
+  archived?: boolean;
   authorNote?: string; // freeform per-chat note injected into every reply
   worldTags?: string[]; // short user-authored lore/setting tags for this chat
   // Group-room-only equivalents of Character.scenario/memory (see there) -

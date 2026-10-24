@@ -1,4 +1,4 @@
-import { test, expect, openChat, sendMessage, waitForReplyDone } from "./fixtures";
+import { test, expect, openChat, sendMessage, waitForReplyDone, chatMessages } from "./fixtures";
 
 // #31: every provider call is kept in memory, and Settings > Text can show
 // the latest one. The log lives in memory only, so the test moves to the
@@ -9,7 +9,7 @@ test("send a message, then inspect exactly what was sent and the reply", async (
   mockAI.replyOnce("Aria waves back from across the room.");
   await openChat(page, 1);
   await sendMessage(page, "Hello there, Aria!");
-  await expect(page.getByText("Aria waves back from across the room.")).toBeVisible();
+  await expect(chatMessages(page).getByText("Aria waves back from across the room.")).toBeVisible();
   await waitForReplyDone(page);
 
   await page.evaluate(() => {

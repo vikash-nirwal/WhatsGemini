@@ -1,4 +1,4 @@
-import { test, expect, openChat, sendMessage } from "./fixtures";
+import { test, expect, openChat, sendMessage, chatMessages } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // "End chapter" (#4): the conversation so far becomes a titled chapter with
@@ -42,7 +42,7 @@ test("ending a chapter titles it, recaps it, and the next reply starts from it",
 
   // The next reply gets the chapter summary, not the old messages.
   await sendMessage(page, "Good morning!");
-  await expect(page.getByText("A fresh morning begins.")).toBeVisible();
+  await expect(chatMessages(page).getByText("A fresh morning begins.")).toBeVisible();
   const sent = mockAI.requests.filter((r) => r.stream).pop()!;
   const history = sent.messages.map((m) => String(m.content)).join("\n");
   expect(history).toContain("Story so far: they talked about their day.");
@@ -65,7 +65,7 @@ test("a chapter or compression can be undone, and the AI reads the old messages 
   await expect(page.getByText("Aria message 1: how was your day?")).toBeVisible();
 
   await sendMessage(page, "Where were we?");
-  await expect(page.getByText("Back to where we were.")).toBeVisible();
+  await expect(chatMessages(page).getByText("Back to where we were.")).toBeVisible();
   const history = mockAI.requests.filter((r) => r.stream).pop()!.messages.map((m) => String(m.content)).join("\n");
   expect(history).toContain("Aria message 1: how was your day?");
   expect(history).not.toContain("Story so far");

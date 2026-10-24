@@ -82,6 +82,7 @@ export interface ChatNotificationInput {
   // Any member of the chat is NSFW, as in the sidebar's discreet list.
   isNsfwChat: boolean;
   privacy: PrivacySettings;
+  muted?: boolean; // a muted chat (#115) never alerts
 }
 
 export interface ChatNotificationContent {
@@ -164,7 +165,7 @@ const getRegistration = async (): Promise<ServiceWorkerRegistration | undefined>
 // Returns whether one was shown. Never throws: a notification is a nicety
 // and must not break saving a reply.
 export const notifyChatMessage = async (input: ChatNotificationInput): Promise<boolean> => {
-  if (!shouldNotify()) return false;
+  if (input.muted || !shouldNotify()) return false;
   const content = buildNotificationContent(input);
   const options: NotificationOptions & { renotify?: boolean } = {
     body: content.body,
