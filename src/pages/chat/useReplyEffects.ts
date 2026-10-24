@@ -83,12 +83,17 @@ export const useReplyEffects = ({
   };
   // Quoted replies (#119): a reply that quoted one of your messages keeps
   // the quote, once the message it points at is found.
-  const applyReplyQuote = (payload: { replyQuote?: string } | undefined, allMessages: Message[]) => {
-    if (!chatIdNum || !payload?.replyQuote) return;
+  // Forwarded (#123): something they passed along is kept the same way.
+  const applyReplyQuote = (payload: { replyQuote?: string; forward?: string } | undefined, allMessages: Message[]) => {
+    if (!chatIdNum || (!payload?.replyQuote && !payload?.forward)) return;
     const reply = [...allMessages].reverse().find((m) => m.role === AI && m.id);
-    const quoted = findQuotedMessage(allMessages, payload.replyQuote);
-    if (!reply?.id || !quoted) return;
-    void dispatch(updateChatMessage({ chatId: chatIdNum, messageId: reply.id, patch: { replyTo: { id: quoted.id, text: quoteTextOf(quoted), from: "you" } } }));
+    if (!reply?.id) return;
+    const quoted = payload.replyQuote ? findQuotedMessage(allMessages, payload.replyQuote) : undefined;
+    const patch: Partial<Message> = {
+      ...(quoted ? { replyTo: { id: quoted.id, text: quoteTextOf(quoted), from: "you" as const } } : {}),
+      ...(payload.forward ? { forward: { text: payload.forward } } : {}),
+    };
+    if (Object.keys(patch).length > 0) void dispatch(updateChatMessage({ chatId: chatIdNum, messageId: reply.id, patch }));
   };
   // View-once photos (#122): with the switch on, about half the photos a
   // character sends open only once.

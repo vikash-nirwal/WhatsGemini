@@ -26,7 +26,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #120 | Starred messages | done | 2026-10-24 |
 | #121 | Message info | done | 2026-10-24 |
 | #122 | View-once photos | done | 2026-10-24 |
-| #123 | Forwarded | todo | |
+| #123 | Forwarded | done | 2026-10-24 |
 | #124 | Group events and polls | todo | |
 | #125 | Profile changes | todo | |
 | #126 | Left on read | todo | |
@@ -47,6 +47,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **Forwarded (#123):** `Message.forward` ({text}). In texting mode `buildForwardDirective` (with the quote directive in `scene.quoteNote`) lets a character start a reply with `[Fwd: …]`; aiSlice strips it to `payload.forward` and `applyReplyQuote` saves it. You can Forward any message (hover row, action sheet) through `ForwardDialog.tsx`: it lands in the picked chat as your message with the card, without a reply, and that chat opens. `promptTextFor` sends yours as `(forwarded: "…")` and theirs as `[Fwd: …]`. The phone action sheet now scrolls when it outgrows the screen.
 - **View-once photos (#122):** `Character.viewOncePhotos` (Chat tab switch); `markViewOnce` (useReplyEffects, every reply path) flags about half the replies with pictures `Message.viewOnce`. ChatMessage shows a "Photo · view once" pill instead of the picture; opening it shows it full screen and `openViewOnce` sets `viewedOnce` and drops the images, leaving "Opened". Only characters send them for now.
 - **Message info (#121):** "Info" on your messages (hover row, action sheet) opens a dialog in ChatWindow: read time per member (when each first replied after it, `messageInfoFor` in `src/features/chat/messageInfo.ts`), and delivered (= sent). UI tests for #119-#121 are in `e2e/message-extras.spec.ts`.
 - **Starred messages (#120):** bookmarks (`Message.bookmarked`, #21) are now "Star"/"Unstar" with a "Starred" badge; the Story tab section is "Starred messages". `/starred` (`StarredPage.tsx`) lists them across chats, newest first, and opens the chat with route state `jumpTo` (ChatPage scrolls to it). Links: the sidebar header's star and the phone home's title row.

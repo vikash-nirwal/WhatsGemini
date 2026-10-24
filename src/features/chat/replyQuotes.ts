@@ -49,3 +49,19 @@ export const quoteTextOf = (msg: Pick<Message, "txt" | "images" | "isVoiceNote">
 // The prompt's side, in texting mode: they may quote an older message.
 export const buildQuoteDirective = (charName: string, userName: string): string =>
   `When ${charName} answers one particular earlier message of ${userName}'s rather than the latest one, the reply can quote it the way messaging apps do: start it with [Re: a few exact words from that message]. Only now and then, and never for ${userName}'s latest message.`;
+
+// Forwarded (#123): a character passes something along (a joke, a quote, a
+// headline from their world) by starting a reply with [Fwd: the thing],
+// with their own comment after it, if any.
+const FWD_TAG = /^\s*\[\s*fwd\s*:\s*([^\]]{1,600})\]\s*/i;
+const FWD_TAG_PARTIAL = /^\s*\[\s*fwd\s*:[^\]]*$/i;
+
+export const extractForward = (text: string): { text: string; forward?: string } => {
+  const match = text.match(FWD_TAG);
+  return match ? { text: text.slice(match[0].length), forward: match[1].trim() } : { text };
+};
+
+export const stripStreamingForward = (text: string): string => (FWD_TAG_PARTIAL.test(text) ? "" : text.replace(FWD_TAG, ""));
+
+export const buildForwardDirective = (charName: string, userName: string): string =>
+  `Once in a long while, ${charName} can forward ${userName} something, the way people do in group-chat culture: a joke, a quote, a recipe, a headline or a meme caption from their world (made up, never a real link). Put it first as [Fwd: the forwarded text], then their own short comment, if any.`;

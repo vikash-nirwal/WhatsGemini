@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from "react";
 import { useColorTheme } from "../../hooks/useColorTheme";
-import { FaReply, FaInfoCircle, FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask, FaBookmark, FaStar, FaCode, FaVolumeUp, FaStop, FaLanguage, FaCodeBranch } from "react-icons/fa";
+import { FaReply, FaShare, FaInfoCircle, FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask, FaBookmark, FaStar, FaCode, FaVolumeUp, FaStop, FaLanguage, FaCodeBranch } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { cn } from "../../utils/cn";
 import { CharacterVoice, Message } from "../../types";
@@ -63,6 +63,7 @@ interface ChatMessageProps {
   replyToName?: string; // who wrote the message this one quotes (#119)
   onInfo?: () => void; // message info for one of yours (#121)
   onViewOnce?: (msg: Message) => void; // a view-once photo was opened (#122)
+  onForward?: (msg: Message) => void; // pass it on to another chat (#123)
   reactorName?: string; // who left msg.characterReaction, for its label
   // Texting mode (#6): show a reply as several bubbles. visibleParts limits
   // how many are shown while a new reply is being revealed; receipt is the
@@ -154,6 +155,7 @@ const ChatMessage = React.memo(({
   replyToName,
   onInfo,
   onViewOnce,
+  onForward,
   reactorName,
   texting = false,
   visibleParts,
@@ -339,6 +341,7 @@ const ChatMessage = React.memo(({
     ...(canReply ? [{ label: "Reply", icon: FaReply, onSelect: handleReply }] : []),
     { label: "Copy", icon: FaCopy, onSelect: handleCopy },
     ...(onInfo && isUser ? [{ label: "Info", icon: FaInfoCircle, onSelect: onInfo }] : []),
+    ...(onForward && canReply ? [{ label: "Forward", icon: FaShare, onSelect: () => onForward(msg) }] : []),
     ...(!isUser && !msg.isImpersonated ? [{ label: "Regenerate", icon: FaRedo, onSelect: handleRegenerate, disabled: aiLoading }] : []),
     ...(!isUser && !msg.isImpersonated && isLastMessage && onContinue ? [{ label: "Continue", icon: FaForward, onSelect: handleContinue, disabled: aiLoading }] : []),
     ...(canReadAloud ? [{ label: readAloudLabel, icon: speaking ? FaStop : FaVolumeUp, onSelect: handleReadAloud }] : []),
@@ -357,7 +360,8 @@ const ChatMessage = React.memo(({
       >
         <DialogTitle className="sr-only">Message actions</DialogTitle>
         {canReact && <ReactionRow current={msg.reaction} onPick={(emoji) => { setActionsOpen(false); handleReact(emoji); }} />}
-        <div role="menu" aria-label="Message actions" className="flex flex-col">
+        {/* Scrolls inside the sheet when the actions outgrow a short screen. */}
+        <div role="menu" aria-label="Message actions" className="flex flex-col max-h-[65dvh] overflow-y-auto">
           {sheetActions.map((action) => (
             <button
               key={action.label}
@@ -707,6 +711,12 @@ const ChatMessage = React.memo(({
           <div className="font-serif">
             {oocLabel}
             {msg.quotedStatus && <QuotedStatus quoted={msg.quotedStatus} ownerName={msg.quotedStatus.owner === "you" ? "You" : speakerName || "Them"} />}
+            {msg.forward && (
+              <div data-slot="forwarded" className="mb-1.5 font-sans">
+                <span className="block text-[11.5px] italic text-subtle">↪ Forwarded</span>
+                <div className="mt-0.5 rounded-md bg-foreground/[0.05] px-2.5 py-1.5 text-[13.5px] text-foreground whitespace-pre-line">{msg.forward.text}</div>
+              </div>
+            )}
             {msg.replyTo && <QuotedMessage text={msg.replyTo.text} name={msg.replyTo.from === "you" ? "You" : replyToName || "Them"} />}
             {mainQuote && <QuotedMessage text={mainQuote} />}
             {voiceNote || <MarkdownRenderer msgText={textParts ? textParts[textParts.length - 1].text : stripImageContextTag(msg.txt || "")} isUser={isUser} />}
@@ -763,6 +773,11 @@ const ChatMessage = React.memo(({
                     <FaReply size={11} />
                   </Button>
                 )}
+                {onForward && canReply && (
+                  <Button variant="ghost" size="icon" onClick={() => onForward(msg)} aria-label="Forward" title="Forward" className="h-auto w-auto p-1.5 rounded-md text-foreground/60 hover:bg-primary/10 hover:text-foreground">
+                    <FaShare size={11} />
+                  </Button>
+                )}
                 {onInfo && (
                   <Button variant="ghost" size="icon" onClick={onInfo} aria-label="Info" title="Message info" className="h-auto w-auto p-1.5 rounded-md text-foreground/60 hover:bg-primary/10 hover:text-foreground">
                     <FaInfoCircle size={11} />
@@ -815,6 +830,11 @@ const ChatMessage = React.memo(({
                 {canReply && (
                   <Button variant="ghost" size="icon" onClick={handleReply} aria-label="Reply" title="Reply" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
                     <FaReply size={11} />
+                  </Button>
+                )}
+                {onForward && canReply && (
+                  <Button variant="ghost" size="icon" onClick={() => onForward(msg)} aria-label="Forward" title="Forward" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
+                    <FaShare size={11} />
                   </Button>
                 )}
                 <Tooltip>

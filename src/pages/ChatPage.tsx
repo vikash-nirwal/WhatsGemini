@@ -36,7 +36,7 @@ import { useBackgroundUpdates } from "./chat/useBackgroundUpdates";
 import { useReplyEffects } from "./chat/useReplyEffects";
 import { knowsNoteFor, recentLetterNote, roomContextFor } from "./chat/promptNotes";
 import { buildMyStatusNote } from "../features/status/myStatuses";
-import { buildQuoteDirective, quoteTextOf } from "../features/chat/replyQuotes";
+import { buildForwardDirective, buildQuoteDirective, quoteTextOf } from "../features/chat/replyQuotes";
 import { buildOnThisDayNote } from "../features/chat/onThisDay";
 import { buildGiftBackPrompt, buildGiftReactionDirective, buildGiftsSection, giftBackDirective, giftMessage, newGiftId, parseGiftBack } from "../features/character/gifts";
 import { factsAboutUser } from "../features/character/intimacy";
@@ -332,7 +332,7 @@ const ChatPage = () => {
   // Texting imperfections (#108): the prompt's side, in texting mode only.
   const textingOn = Boolean(currentChat?.textingMode ?? appTextingMode);
   // Quoted replies (#119): in texting mode they may quote an older message.
-  scene.quoteNote = !isRoom && characterData && textingOn ? buildQuoteDirective(characterData.name, userNameForNotes) : undefined;
+  scene.quoteNote = !isRoom && characterData && textingOn ? `${buildQuoteDirective(characterData.name, userNameForNotes)}\n${buildForwardDirective(characterData.name, userNameForNotes)}` : undefined;
   scene.slipsNote = !isRoom && characterData && textingOn ? buildSlipsDirective(characterData.name, characterData.textingSlips, currentBlock(characterData.schedule, noteTime)?.status === "busy") : undefined;
   // Where they live (#112): what the caches hold right now; the refresher
   // keeps them fresh, and `placeTick` re-renders once a fetch lands.

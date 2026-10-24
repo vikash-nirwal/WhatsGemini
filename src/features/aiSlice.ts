@@ -13,7 +13,7 @@ import { extractStoryTags, hasStoryTags, StoryTags } from "./chat/storyTags";
 import { splitChoiceMoment } from "./chat/choiceMoments";
 import { buildRecapPrompt, cleanRecap, latestStorySummary, recentForRecap } from "./chat/recap";
 import { extractBeatTag } from "./chat/storyScript";
-import { extractReplyQuote } from "./chat/replyQuotes";
+import { extractForward, extractReplyQuote } from "./chat/replyQuotes";
 import { extractGameOverTag, GameOutcome } from "./chat/miniGames";
 import { extractStateBlock } from "./chat/sceneState";
 import { buildBackdropPrompt } from "./chat/backdrop";
@@ -58,6 +58,7 @@ export interface GenerateAIResponseResult {
   reaction?: string; // the character's reaction to the message it answered (#11)
   beatDone?: boolean; // the story script's current beat was reached (#57)
   replyQuote?: string; // a [Re: ...] quote of one of your messages (#119)
+  forward?: string; // something they forwarded, [Fwd: ...] (#123)
   gameOver?: GameOutcome; // the mini-game ended, and who won (#52)
   sceneState?: Partial<SceneState>; // the scene's state as the reply left it (#9)
   photoDescription?: string; // what a helper model saw in the user's photo (#48)
@@ -334,7 +335,12 @@ export const generateAIResponse = createAsyncThunk(
       const gameTag = extractGameOverTag(withoutBeat);
       const beatAfter = beatDone ? { text: gameTag.text, beatDone } : extractBeatTag(gameTag.text);
       // Quoted replies (#119): a leading [Re: ...] quote of one of yours.
-      const { text: responseWithoutTags, quote: replyQuote } = extractReplyQuote(beatAfter.text);
+      const quoted = extractReplyQuote(beatAfter.text);
+      const replyQuote = quoted.quote;
+      // Forwarded (#123): a leading [Fwd: ...], before or after the quote.
+      const forwarded = extractForward(quoted.text);
+      const responseWithoutTags = forwarded.text;
+      const forward = forwarded.forward;
       const gameOver = gameTag.gameOver;
 
       const finalResponseText = await extractAndSaveBase64ImagesLocally(responseWithoutTags, generatedImages);
@@ -356,6 +362,7 @@ export const generateAIResponse = createAsyncThunk(
         photoUnseen: photoUnseen || undefined,
         beatDone: beatAfter.beatDone || undefined,
         replyQuote,
+        forward,
         gameOver,
         sceneState,
         // Only a plain text reply can be an out-of-character refusal; image/

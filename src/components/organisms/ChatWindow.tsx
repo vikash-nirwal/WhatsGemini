@@ -23,6 +23,7 @@ import { DisplayImage } from "src/components/molecules/DisplayImage";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import ChatMessage from "./ChatMessage";
 import PromptInspectorDialog from "./PromptInspectorDialog";
+import ForwardDialog from "./ForwardDialog";
 import ScenePanel from "./ScenePanel";
 import ParticipantsPanel from "src/components/molecules/ParticipantsPanel";
 import EmotionSpritePanel from "src/components/molecules/EmotionSpritePanel";
@@ -538,6 +539,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
     return () => window.clearTimeout(timer);
   }, [reveal, textingMode]);
 
+  // Forwarding (#123): the message being passed on.
+  const [forwarding, setForwarding] = useState<Message | null>(null);
   // Message info (#121): which message of yours is open, by list position.
   const [infoIndex, setInfoIndex] = useState<number | null>(null);
   const memberIds = useMemo(() => (characters && characters.length > 0 ? characters.map((c) => c.id) : character ? [character.id] : []), [characters, character]);
@@ -805,6 +808,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
                     onReact={onReact}
                     onReply={onReply}
                     onViewOnce={onViewOnce}
+                    onForward={setForwarding}
                     onInfo={msg.role === YOU && !msg.isNarration ? () => setInfoIndex(i) : undefined}
                     replyToName={msg.replyTo && typeof msg.replyTo.from === "number" ? namesById[msg.replyTo.from] : undefined}
                     texting={textingMode}
@@ -1068,6 +1072,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
           </div>
         </DialogContent>
       </Dialog>
+
+      <ForwardDialog message={forwarding} onClose={() => setForwarding(null)} />
 
       {/* Message info (#121): sent, delivered and read times. */}
       <Dialog open={info != null} onOpenChange={(open) => !open && setInfoIndex(null)}>

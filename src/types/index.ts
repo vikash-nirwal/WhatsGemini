@@ -64,6 +64,8 @@ export interface Message {
   // View-once photos (#122): opens once, then only "Opened" is left.
   viewOnce?: boolean;
   viewedOnce?: boolean;
+  // Forwarded (#123): something passed along, shown as a "Forwarded" card.
+  forward?: { text: string };
   reaction?: string; // the user's emoji reaction to this message (#11)
   // The character's emoji reaction to this (user) message (#11), and who
   // reacted in a room.

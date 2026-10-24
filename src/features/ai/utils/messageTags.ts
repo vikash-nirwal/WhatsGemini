@@ -2,7 +2,7 @@ import { stripStreamingSecretTag } from "../../character/secrets";
 import { stripStreamingStoryTags } from "../../chat/storyTags";
 import { stripStreamingEmotionTag } from "./emotionUtils";
 import { stripStreamingBeatTag } from "../../chat/storyScript";
-import { stripStreamingReplyQuote } from "../../chat/replyQuotes";
+import { stripStreamingForward, stripStreamingReplyQuote } from "../../chat/replyQuotes";
 import { stripStreamingGameTag } from "../../chat/miniGames";
 import { stripStreamingState } from "../../chat/sceneState";
 
@@ -81,6 +81,7 @@ export const stripStreamingTags = (text: string): string => {
     if (reaction) out = out.slice(reaction[0].length).trimStart();
     out = stripStreamingEmotionTag(out);
     out = stripStreamingReplyQuote(out); // a [Re: ...] quote (#119)
+    out = stripStreamingForward(out); // a [Fwd: ...] (#123)
     if (out === before) break;
   }
   out = out.replace(THOUGHTS_BLOCK, "");

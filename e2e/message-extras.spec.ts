@@ -85,11 +85,38 @@ test("a view-once photo opens once", async ({ page }) => {
   }, pixel);
   await page.reload();
   const bubble = messageBubble(page, "just for you");
-  await expect(bubble.getByRole("img")).toHaveCount(0);
+  await expect(bubble.getByRole("img", { name: "Generated" })).toHaveCount(0);
   await bubble.getByRole("button", { name: /view once/ }).click();
   await expect(page.getByRole("img", { name: "Fullscreen" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(bubble.locator('[data-slot="view-once"][data-state="opened"]')).toHaveText(/Opened/);
   await page.reload();
   await expect(messageBubble(page, "just for you").locator('[data-slot="view-once"]')).toHaveText(/Opened/);
+});
+
+// Forwarded (#123): a character forwards something, and you forward a
+// message to another chat.
+test.describe("forwarding", () => {
+  test.use({ seed: { messages: 4, room: true } });
+
+  test("a character's [Fwd: ...] shows as forwarded", async ({ page, mockAI }) => {
+    mockAI.reply("[Fwd: Why did the scarecrow win an award? He was outstanding in his field.] this is so you 😂");
+    await openChat(page);
+    await sendMessage(page, "Bored.");
+    await waitForReplyDone(page);
+    const reply = messageBubble(page, "this is so you");
+    await expect(reply).not.toContainText("[Fwd:");
+    await expect(reply.locator('[data-slot="forwarded"]')).toContainText("outstanding in his field");
+  });
+
+  test("you can forward a message to another chat", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", PHONE_REDESIGN_SKIP);
+    await openChat(page);
+    const source = messageBubble(page, "Aria message 3: how was your day?");
+    await source.hover();
+    await source.getByRole("button", { name: "Forward" }).click();
+    await page.getByRole("dialog", { name: "Forward to…" }).getByRole("button", { name: "Aria & Kai" }).click();
+    await expect(page).toHaveURL(/#\/chat\/2$/);
+    await expect(page.locator('[data-slot="forwarded"]').filter({ hasText: "Aria message 3: how was your day?" })).toBeVisible();
+  });
 });
