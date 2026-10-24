@@ -374,6 +374,21 @@ const pushRoomEvent = (chat: Chat, txt: string) => {
   }
 };
 
+// A notice in a chat, like "Aria changed their profile photo" (#125).
+export const addChatNotice = createAsyncThunk(
+  "chat/addChatNotice",
+  async ({ chatId, text }: { chatId: number; text: string }, { rejectWithValue }) => {
+    try {
+      const chat = await dbService.getChatById(chatId);
+      pushRoomEvent(chat, text);
+      await dbService.updateChat(chat);
+      return { chatId, content: chat.content, tree: chat.tree, activeLeafId: chat.activeLeafId };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
 // Renames a group chat, by you or by a member, with its notice (#124).
 export const renameGroupChat = createAsyncThunk(
   "chat/renameGroupChat",
@@ -861,6 +876,14 @@ const chatSlice = createSlice({
       })
       .addCase(updateChatMutedParticipants.rejected, (state, action) => {
         state.error = action.payload as string;
+      })
+      .addCase(addChatNotice.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c.id === action.payload.chatId);
+        if (chat) {
+          chat.content = action.payload.content;
+          chat.tree = action.payload.tree;
+          chat.activeLeafId = action.payload.activeLeafId;
+        }
       })
       .addCase(renameGroupChat.fulfilled, (state, action) => {
         const chat = state.chats.find((c) => c.id === action.payload.chatId);

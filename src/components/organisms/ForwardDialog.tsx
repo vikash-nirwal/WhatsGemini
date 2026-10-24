@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { avatarOf } from "../../features/character/profileChanges";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "src/components/molecules/dialog";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
@@ -41,7 +42,7 @@ const ForwardDialog = ({ message, onClose }: { message: Message | null; onClose:
             return (
               <li key={chat.id}>
                 <button type="button" onClick={() => void forwardTo(chat.id!)} className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-hover">
-                  <CharacterAvatar name={first?.name || chat.title} accent={first?.accent} imageSrc={first?.appearanceImages?.[0]} size={36} />
+                  <CharacterAvatar name={first?.name || chat.title} accent={first?.accent} imageSrc={avatarOf(first)} size={36} />
                   <span className="truncate text-[14px] font-medium text-foreground">{chat.title}</span>
                 </button>
               </li>

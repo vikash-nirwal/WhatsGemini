@@ -689,6 +689,13 @@ export interface Character {
   postsStatuses?: boolean; // #8: posts a status now and then
   statusPhotos?: boolean; // #118: every other status comes with a photo
   viewOncePhotos?: boolean; // #122: about half the photos they send are view-once
+  // Profile changes (#125): their About line and a changed profile photo
+  // (the avatar; appearanceImages stay the references for their look).
+  about?: string;
+  profilePhoto?: string;
+  profileChanges?: boolean;
+  profileChangedAt?: number;
+  profileChangeCount?: number;
   statuses?: CharacterStatus[];
   wardrobe?: Outfit[]; // #50
   currentOutfitId?: string; // the outfit being worn now (#50); none = the locked look's own

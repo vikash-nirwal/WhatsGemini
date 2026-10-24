@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from "react";
+import { avatarOf } from "../features/character/profileChanges";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, insertCompressionSummary, removeCompressionSummary, forkChat, updateChatMessage, updateChatOptions, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatGreeting, setPendingFollowupAt, addPreparedChat } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter } from "../features/characterSlice";
@@ -38,6 +39,7 @@ import { knowsNoteFor, recentLetterNote, roomContextFor } from "./chat/promptNot
 import { buildMyStatusNote } from "../features/status/myStatuses";
 import { buildForwardDirective, buildQuoteDirective, quoteTextOf } from "../features/chat/replyQuotes";
 import { buildGroupDirective } from "../features/chat/groupLife";
+import { buildProfileNote } from "../features/character/profileChanges";
 import PollDialog from "../components/organisms/PollDialog";
 import { buildOnThisDayNote } from "../features/chat/onThisDay";
 import { buildGiftBackPrompt, buildGiftReactionDirective, buildGiftsSection, giftBackDirective, giftMessage, newGiftId, parseGiftBack } from "../features/character/gifts";
@@ -333,6 +335,8 @@ const ChatPage = () => {
   scene.callbackNote = callback && characterData ? buildCallbackDirective(characterData.name, userNameForNotes, callback.fact, callback.learnedAt, noteTime) : undefined;
   // Texting imperfections (#108): the prompt's side, in texting mode only.
   const textingOn = Boolean(currentChat?.textingMode ?? appTextingMode);
+  // Their own About line (#125).
+  scene.profileNote = mainStory && characterData ? buildProfileNote(characterData.name, characterData.about) : undefined;
   // Group chats (#124): members may rename the group or start a poll.
   scene.groupNote = isRoom ? buildGroupDirective(userNameForNotes) : undefined;
   // Quoted replies (#119): in texting mode they may quote an older message.
@@ -2301,7 +2305,7 @@ const ChatPage = () => {
             name={characterData.name}
             initials={characterData.name.slice(0, 2).toUpperCase()}
             accent={characterData.accent}
-            imageSrc={headerEmotionImageSrc || characterData.appearanceImages?.[0]}
+            imageSrc={headerEmotionImageSrc || avatarOf(characterData)}
             call={call}
             onEnd={endCall}
           />

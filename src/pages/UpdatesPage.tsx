@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { avatarOf } from "../features/character/profileChanges";
 import Header from "src/components/organisms/Header";
 import { cn } from "src/utils/cn";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
@@ -57,7 +58,7 @@ const UpdatesPage = () => {
             <li key={character.id}>
               <button type="button" onClick={() => open(character)} className="flex w-full items-center gap-3.5 px-4 py-2.5 text-left hover:bg-hover" aria-label={`${character.name}'s status${unseen ? ", new" : ""}`}>
                 <span className={cn("rounded-full p-[2px] ring-2 ring-offset-2 ring-offset-background", unseen ? "ring-primary" : "ring-border")}>
-                  <CharacterAvatar name={character.name} accent={character.accent} imageSrc={character.appearanceImages?.[0]} size={46} />
+                  <CharacterAvatar name={character.name} accent={character.accent} imageSrc={avatarOf(character)} size={46} />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[16px] font-medium text-foreground">{character.name}</span>

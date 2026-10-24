@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from "react";
+import { avatarOf } from "../features/character/profileChanges";
 import { useColorTheme } from "../hooks/useColorTheme";
 import { addCharacter, deleteCharacter } from "../features/characterSlice";
 import { addChat, fetchChats } from "../features/chatSlice";
@@ -375,7 +376,7 @@ const CharacterPage = () => {
           <div className="grid gap-5" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${terminal ? 170 : 230}px, 1fr))` }}>
             {filteredCharacters.map((char) => {
               const charAccent = char.accent ?? CHARACTER_SWATCHES[0];
-              const cardImageSrc = alwaysShowInitials ? undefined : char.appearanceImages?.[0];
+              const cardImageSrc = alwaysShowInitials ? undefined : avatarOf(char);
               if (terminal) {
                 return (
                   <div key={char.id} className="border border-border hover:border-border-bright transition-colors flex flex-col min-w-0">

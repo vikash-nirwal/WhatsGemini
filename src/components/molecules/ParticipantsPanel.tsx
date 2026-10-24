@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { avatarOf } from "../../features/character/profileChanges";
 import { useNavigate } from "react-router-dom";
 import { FaPlus, FaSearch, FaTimes } from "react-icons/fa";
 import { useAppDispatch } from "../../store/hooks";
@@ -99,10 +100,11 @@ const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({ chatId, character
               key={char.id}
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-background border border-border/30"
             >
-              <CharacterAvatar name={char.name} accent={char.accent} imageSrc={char.appearanceImages?.[0]} size={36} className={isMuted ? "opacity-40" : undefined} />
+              <CharacterAvatar name={char.name} accent={char.accent} imageSrc={avatarOf(char)} size={36} className={isMuted ? "opacity-40" : undefined} />
               <div className="flex-1 min-w-0">
                 <div className={`text-sm font-semibold truncate ${isMuted ? "text-subtle" : "text-foreground"}`}>{char.name}</div>
                 {char.relationship && <div className="text-xs text-subtle truncate">{char.relationship}</div>}
+                {char.about && <div className="text-xs text-muted-foreground truncate" data-slot="about">{char.about}</div>}
               </div>
               {characters.length > 1 && (
                 <ToggleSwitch
@@ -160,7 +162,7 @@ const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({ chatId, character
                       onClick={() => handleInvite(char.id)}
                       className="flex items-center gap-3 px-3 py-2 rounded-lg bg-background border border-border/30 hover:border-primary/50 text-left transition disabled:opacity-50 disabled:pointer-events-none"
                     >
-                      <CharacterAvatar name={char.name} accent={char.accent} imageSrc={char.appearanceImages?.[0]} size={32} />
+                      <CharacterAvatar name={char.name} accent={char.accent} imageSrc={avatarOf(char)} size={32} />
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-semibold truncate text-foreground">{char.name}</div>
                         {char.relationship && <div className="text-xs text-subtle truncate">{char.relationship}</div>}

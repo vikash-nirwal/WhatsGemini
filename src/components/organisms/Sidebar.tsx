@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
+import { avatarOf } from "../../features/character/profileChanges";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchChats, deleteChat, addChat, importChat, updateChatPinned, updateChatOptions } from "../../features/chatSlice";
 import { selectActivePersona } from "../../features/settingsSlice";
@@ -675,7 +676,7 @@ const Sidebar = () => {
                           {isSelected && <FaCheck size={10} className="text-primary-foreground" />}
                         </span>
                       )}
-                      <CharacterAvatar name={char.name} accent={char.accent} imageSrc={char.appearanceImages?.[0]} size={40} />
+                      <CharacterAvatar name={char.name} accent={char.accent} imageSrc={avatarOf(char)} size={40} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold text-[14.5px] text-foreground truncate">{char.name}</h3>
@@ -769,7 +770,7 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onToggleMute, 
         // Discreet mode drops the NSFW chat's preview line; blur mode drops
         // its portrait back to initials (too small to usefully tap-reveal).
         const hidePreview = privacy.discreetMode && isNsfwChat && !snippet;
-        const avatarSrc = privacy.blurNsfwMedia && isNsfwChat ? undefined : character?.appearanceImages?.[0];
+        const avatarSrc = privacy.blurNsfwMedia && isNsfwChat ? undefined : avatarOf(character);
         // "Typing..." only ever applies to the chat currently open in this tab
         // (autonomous follow-ups aren't scheduled for closed chats), while
         // "Waiting for you" is derived straight from the persisted follow-up

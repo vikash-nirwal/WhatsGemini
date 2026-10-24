@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo, lazy, Suspense } from "react";
+import { avatarOf } from "../../features/character/profileChanges";
 import { FaPaperPlane, FaStop, FaCog, FaImage, FaVideo, FaTimes, FaMask, FaUserFriends, FaCommentSlash, FaPlus, FaMagic, FaMicrophone, FaMicrophoneAlt, FaPaperclip } from "react-icons/fa";
 import { cn } from "../../utils/cn";
 import { Button } from "src/components/atoms/button";
@@ -557,7 +558,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
               selectedSpeakerId === char.id && "ring-2 ring-primary"
             )}
           >
-            <CharacterAvatar name={char.name} accent={char.accent} imageSrc={char.appearanceImages?.[0]} size={32} />
+            <CharacterAvatar name={char.name} accent={char.accent} imageSrc={avatarOf(char)} size={32} />
           </button>
         );
       })}
@@ -876,7 +877,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
       {selectedSpeaker && !isImpersonated && terminal && terminalBanner(`only ${selectedSpeaker.name} will reply to this message.`, () => setSelectedSpeakerId(null), "Clear selected replier")}
       {selectedSpeaker && !isImpersonated && !terminal && (
         <div className="flex items-center gap-2.5 px-3 py-2 bg-primary/10 border border-primary rounded-lg">
-          <CharacterAvatar name={selectedSpeaker.name} accent={selectedSpeaker.accent} imageSrc={selectedSpeaker.appearanceImages?.[0]} size={18} className="flex-shrink-0" />
+          <CharacterAvatar name={selectedSpeaker.name} accent={selectedSpeaker.accent} imageSrc={avatarOf(selectedSpeaker)} size={18} className="flex-shrink-0" />
           <span className="flex-1 text-[12.5px] text-foreground font-medium">
             Only {selectedSpeaker.name} will reply to this message.
           </span>
@@ -1029,7 +1030,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 i === mentionActiveIndex ? "bg-primary/[0.14] text-primary" : "text-foreground hover:bg-secondary"
               )}
             >
-              <CharacterAvatar name={char.name} accent={char.accent} imageSrc={char.appearanceImages?.[0]} size={22} />
+              <CharacterAvatar name={char.name} accent={char.accent} imageSrc={avatarOf(char)} size={22} />
               <span className="font-medium">{char.name}</span>
             </button>
           ))}
@@ -1168,7 +1169,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
               )}
             >
               {selectedSpeaker ? (
-                <CharacterAvatar name={selectedSpeaker.name} accent={selectedSpeaker.accent} imageSrc={selectedSpeaker.appearanceImages?.[0]} size={22} />
+                <CharacterAvatar name={selectedSpeaker.name} accent={selectedSpeaker.accent} imageSrc={avatarOf(selectedSpeaker)} size={22} />
               ) : (
                 <FaUserFriends size={16} />
               )}

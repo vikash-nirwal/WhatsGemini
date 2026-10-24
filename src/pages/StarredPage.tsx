@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { avatarOf } from "../features/character/profileChanges";
 import { useNavigate } from "react-router-dom";
 import { FaStar } from "react-icons/fa";
 import Header from "src/components/organisms/Header";
@@ -51,7 +52,7 @@ const StarredPage = () => {
                       className="flex w-full gap-3 px-4 py-3 text-left hover:bg-hover"
                       aria-label={`${from} in ${chat.title}: ${quoteTextOf(m).slice(0, 60)}`}
                     >
-                      <CharacterAvatar name={first?.name || chat.title} accent={first?.accent} imageSrc={first?.appearanceImages?.[0]} size={36} />
+                      <CharacterAvatar name={first?.name || chat.title} accent={first?.accent} imageSrc={avatarOf(first)} size={36} />
                       <span className="min-w-0 flex-1">
                         <span className="flex items-baseline justify-between gap-2">
                           <span className="truncate text-[13px] font-medium text-foreground">{from} <span className="text-muted-foreground">▸ {chat.title}</span></span>

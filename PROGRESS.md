@@ -28,7 +28,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #122 | View-once photos | done | 2026-10-24 |
 | #123 | Forwarded | done | 2026-10-24 |
 | #124 | Group events and polls | done | 2026-10-24 |
-| #125 | Profile changes | todo | |
+| #125 | Profile changes | done | 2026-10-24 |
 | #126 | Left on read | todo | |
 | #127 | Channels | todo | |
 | #128 | Shared contacts | todo | |
@@ -47,6 +47,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **Profile changes (#125):** `Character.about`, `profilePhoto`, `profileChanges`, `profileChangedAt`, `profileChangeCount`; editor "Profile" section (`CharacterEditorPage/ProfileSection.tsx`). `ProfileChanger.tsx` in App (first check after 25 s, then hourly): every 3 days while awake, a character with a 1:1 chat writes a new About (`buildAboutPrompt`), and every other time a new photo via `generateAvatarImage`; `addChatNotice` puts "X changed their About to …" / "… profile photo" in the chat. `avatarOf` (profileChanges.ts) is the avatar everywhere a character's picture is shown (the references in `appearanceImages` are untouched); `emotionUtils` falls back to it too. `scene.profileNote` gives them their own About. Photo changes not tried with a real image provider. Test: `e2e/profile-changes.spec.ts`.
 - **Group events and polls (#124):** notices read "You added Kai" and "You removed Kai" (`pushRoomEvent` in chatSlice), and `renameGroupChat` adds "X changed the group name to …" (Participants panel "Group name", or a member ending a reply with `[Group name: …]`). Polls: `Message.poll` (`Poll`, `PollVote` with `at` times), logic in `src/features/chat/groupLife.ts`. "Create poll" in a group's header (`PollDialog.tsx`) posts yours; a member can start one with `[Poll: q | a | b]`. `runPollVotes` (useReplyEffects) asks the helper once how each member votes, timed over 5-90 s; `PollCard.tsx` shows counts, voters and your vote (`votePoll`, `castYourVote`). In rooms `buildGroupDirective` (`scene.groupNote`) allows both tags; `promptTextFor` reads a poll with its tally. Test: `e2e/group-life.spec.ts`.
 - **Forwarded (#123):** `Message.forward` ({text}). In texting mode `buildForwardDirective` (with the quote directive in `scene.quoteNote`) lets a character start a reply with `[Fwd: …]`; aiSlice strips it to `payload.forward` and `applyReplyQuote` saves it. You can Forward any message (hover row, action sheet) through `ForwardDialog.tsx`: it lands in the picked chat as your message with the card, without a reply, and that chat opens. `promptTextFor` sends yours as `(forwarded: "…")` and theirs as `[Fwd: …]`. The phone action sheet now scrolls when it outgrows the screen.
 - **View-once photos (#122):** `Character.viewOncePhotos` (Chat tab switch); `markViewOnce` (useReplyEffects, every reply path) flags about half the replies with pictures `Message.viewOnce`. ChatMessage shows a "Photo · view once" pill instead of the picture; opening it shows it full screen and `openViewOnce` sets `viewedOnce` and drops the images, leaving "Opened". Only characters send them for now.

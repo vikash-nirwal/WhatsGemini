@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { avatarOf } from "../../features/character/profileChanges";
 import { cn } from "src/utils/cn";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "src/components/molecules/dialog";
@@ -59,7 +60,7 @@ export const StatusStrip = ({ characters, onReply, compact = false }: { characte
               className={cn("flex flex-col items-center gap-1", !compact && "w-14")}
             >
               <span className={cn("rounded-full p-[2px] ring-2 ring-offset-2 ring-offset-card", unseen ? "ring-primary" : "ring-border")}>
-                <CharacterAvatar name={c.name} accent={c.accent} imageSrc={c.appearanceImages?.[0]} size={compact ? 34 : 40} />
+                <CharacterAvatar name={c.name} accent={c.accent} imageSrc={avatarOf(c)} size={compact ? 34 : 40} />
               </span>
               {!compact && <span className={cn("w-full truncate text-center text-[11px]", unseen ? "font-semibold text-foreground" : "text-muted-foreground")}>{c.name}</span>}
             </button>

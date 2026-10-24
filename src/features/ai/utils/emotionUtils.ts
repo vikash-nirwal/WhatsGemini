@@ -93,5 +93,6 @@ export const resolveEmotionPortrait = (character: Character | undefined, emotion
       return character.emotionPortraits.images[key];
     }
   }
-  return character.appearanceImages?.[0];
+  // A changed profile photo (#125) is their display picture now.
+  return character.profilePhoto || character.appearanceImages?.[0];
 };

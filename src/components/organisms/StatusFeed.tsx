@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { avatarOf } from "../../features/character/profileChanges";
 import { FaHeart, FaRegHeart } from "react-icons/fa";
 import { cn } from "src/utils/cn";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
@@ -70,7 +71,7 @@ export const StatusFeed: React.FC<StatusFeedProps> = ({ items, onReply, showPost
           <li key={status.id} className="flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3" aria-label={`${character.name}: ${status.text}`}>
             {showPoster && (
               <div className="flex items-center gap-2">
-                <CharacterAvatar name={character.name} accent={character.accent} imageSrc={character.appearanceImages?.[0]} size={26} />
+                <CharacterAvatar name={character.name} accent={character.accent} imageSrc={avatarOf(character)} size={26} />
                 <span className="text-sm font-semibold text-foreground">{character.name}</span>
               </div>
             )}
