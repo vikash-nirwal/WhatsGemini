@@ -8,6 +8,8 @@ import { NARRATIVE_CONTEXT_MESSAGES, parseReplySuggestions } from "../../feature
 import { buildNarrationPrompt, buildWhoRepliesPrompt, cleanNarration, MAX_CHAIN, parseWhoReplies } from "../../features/ai/utils/roomTurns";
 import { BEAT_CHECK_MESSAGES, buildBeatCheckPrompt, isFinished, moveBeat, parseBeatCheckReply } from "../../features/chat/storyScript";
 import { findQuotedMessage, quoteTextOf } from "../../features/chat/replyQuotes";
+import { buildPollVotesPrompt, castYourVote, parsePollVotes } from "../../features/chat/groupLife";
+import { renameGroupChat } from "../../features/chatSlice";
 import { secretsInPlay } from "../../features/character/secrets";
 import { StoryTags } from "../../features/chat/storyTags";
 import { trustAfter } from "../../features/chat/conflicts";
@@ -20,7 +22,7 @@ import { gameLabel, GameOutcome } from "../../features/chat/miniGames";
 import { buildNextIdeasPrompt } from "../../features/chat/coWriting";
 import { browserLanguageName, buildTranslatePrompt } from "../../features/chat/languagePractice";
 import { AI, YOU } from "../../utils/constants";
-import { Character, Chat, Message, MessageNote, SceneState, UserProfile } from "../../types";
+import { Character, Chat, Message, MessageNote, Poll, PollVote, SceneState, UserProfile } from "../../types";
 
 export interface ReplyEffectDeps {
   chatIdNum: number | null;
@@ -105,6 +107,42 @@ export const useReplyEffects = ({
   // Opened once: the picture leaves the message.
   const openViewOnce = (msg: Message) => {
     if (chatIdNum && msg.id && !msg.viewedOnce) void dispatch(updateChatMessage({ chatId: chatIdNum, messageId: msg.id, patch: { viewedOnce: true, images: undefined } }));
+  };
+  // Group chats (#124): the members vote on a new poll (one helper call,
+  // votes timed over the next minute or two), and a member can rename the
+  // group or start a poll from a reply.
+  const runPollVotes = async (messageId: string, poll: { question: string; options: string[] }, voters: Character[], allMessages: Message[]) => {
+    if (!chatIdNum || voters.length === 0) return;
+    try {
+      const recent = trimToLatestSummary(allMessages).filter((m) => !m.isSystem).slice(-8);
+      const reply = await dispatch(generateAssistText({ instruction: buildPollVotesPrompt(poll, voters, formatTranscript(recent, transcriptNames())), background: true })).unwrap();
+      const votes = parsePollVotes(reply, voters, poll.options.length, Date.now());
+      if (votes.length === 0) return;
+      // Fresh copy: you may have voted meanwhile.
+      const fresh: Chat | undefined = await dispatch(fetchChatById(chatIdNum)).unwrap().catch(() => undefined);
+      const current: Poll = fresh?.content?.find((m: Message) => m.id === messageId)?.poll || { ...poll, votes: [] };
+      await dispatch(updateChatMessage({ chatId: chatIdNum, messageId, patch: { poll: { ...current, votes: [...current.votes.filter((v: PollVote) => v.voter === "you"), ...votes] } } }));
+    } catch (err) {
+      console.warn("Poll votes failed (non-fatal):", err);
+    }
+  };
+  const applyGroupTags = (payload: { groupName?: string; poll?: { question: string; options: string[] } } | undefined, allMessages: Message[], speaker: Character | undefined) => {
+    if (!chatIdNum || !isRoom || !speaker) return;
+    if (payload?.groupName) void dispatch(renameGroupChat({ chatId: chatIdNum, title: payload.groupName, by: speaker.name }));
+    if (payload?.poll) {
+      const reply = [...allMessages].reverse().find((m) => m.role === AI && m.id);
+      if (!reply?.id) return;
+      const poll = { ...payload.poll, votes: [] };
+      const replyId = reply.id;
+      void dispatch(updateChatMessage({ chatId: chatIdNum, messageId: replyId, patch: { poll } })).then(() =>
+        runPollVotes(replyId, poll, roomCharacters.filter((c) => c.id !== speaker.id), allMessages)
+      );
+    }
+  };
+  // Your vote: one option; tapping it again takes it back.
+  const votePoll = (msg: Message, option: number) => {
+    if (!chatIdNum || !msg.id || !msg.poll) return;
+    void dispatch(updateChatMessage({ chatId: chatIdNum, messageId: msg.id, patch: { poll: castYourVote(msg.poll, option, Date.now()) } }));
   };
   const advanceStoryIfDone = (payload: { beatDone?: boolean } | undefined, allMessages?: Message[]) => {
     if (payload?.beatDone) moveStoryBeat(1);
@@ -328,6 +366,9 @@ export const useReplyEffects = ({
     advanceStoryIfDone,
     applyReplyQuote,
     markViewOnce,
+    runPollVotes,
+    applyGroupTags,
+    votePoll,
     openViewOnce,
     revealedSecretFor,
     noteSecretRevealed,

@@ -85,7 +85,7 @@ export const addPreparedChat = createAsyncThunk("chat/addPrepared", async (chat:
 
 export const addMessage = createAsyncThunk(
   "chat/addMessage",
-  async ({ chatId, role, text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration, thoughts, isVoiceNote, beat, choices, secretRevealed, notes, swapped, noGreeting, quotedStatus, replyTo, forward }: { chatId: number; role: string; text: string; images?: string[], isImageRequest?: boolean, videos?: string[], isVideoRequest?: boolean, videoPrompt?: string, isImpersonated?: boolean, emotion?: string, imagePrompt?: string, imageParams?: any, speakerId?: number, isRefusal?: boolean, isNarration?: boolean, thoughts?: string, isVoiceNote?: boolean, beat?: number, choices?: Message["choices"], secretRevealed?: boolean, notes?: Message["notes"], swapped?: boolean, noGreeting?: boolean, quotedStatus?: Message["quotedStatus"], replyTo?: Message["replyTo"], forward?: Message["forward"] }, { dispatch, getState, rejectWithValue }) => {
+  async ({ chatId, role, text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration, thoughts, isVoiceNote, beat, choices, secretRevealed, notes, swapped, noGreeting, quotedStatus, replyTo, forward, poll }: { chatId: number; role: string; text: string; images?: string[], isImageRequest?: boolean, videos?: string[], isVideoRequest?: boolean, videoPrompt?: string, isImpersonated?: boolean, emotion?: string, imagePrompt?: string, imageParams?: any, speakerId?: number, isRefusal?: boolean, isNarration?: boolean, thoughts?: string, isVoiceNote?: boolean, beat?: number, choices?: Message["choices"], secretRevealed?: boolean, notes?: Message["notes"], swapped?: boolean, noGreeting?: boolean, quotedStatus?: Message["quotedStatus"], replyTo?: Message["replyTo"], forward?: Message["forward"], poll?: Message["poll"] }, { dispatch, getState, rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
 
@@ -121,7 +121,7 @@ export const addMessage = createAsyncThunk(
         }
       }
 
-      const newMessage: Message = { role, txt: text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration: isNarration || undefined, thoughts, isVoiceNote: isVoiceNote || undefined, beat, choices, secretRevealed: secretRevealed || undefined, notes: notes && notes.length > 0 ? notes : undefined, swapped: swapped || undefined, quotedStatus, replyTo, forward, id: generateNodeId(), timestamp: Date.now() };
+      const newMessage: Message = { role, txt: text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration: isNarration || undefined, thoughts, isVoiceNote: isVoiceNote || undefined, beat, choices, secretRevealed: secretRevealed || undefined, notes: notes && notes.length > 0 ? notes : undefined, swapped: swapped || undefined, quotedStatus, replyTo, forward, poll, id: generateNodeId(), timestamp: Date.now() };
 
       // A real reply from the user - or the user speaking as the character via
       // Impersonate mode - both mean the user is actively here, so any pending
@@ -361,6 +361,38 @@ export const updateChatMutedParticipants = createAsyncThunk(
 // brand-new chat already seeds itself from `first_mes` in `addMessage`
 // above, so joining mid-conversation feels the same as starting fresh with
 // them.
+// Group events (#124): a centred notice at the end of the active branch.
+const pushRoomEvent = (chat: Chat, txt: string) => {
+  const message: Message = { role: AI, txt, isRoomEvent: true, id: generateNodeId(), timestamp: Date.now() };
+  if (chat.tree) {
+    const { tree, nodeId } = addChildNode(chat.tree, chat.activeLeafId || null, message);
+    chat.tree = tree;
+    chat.activeLeafId = nodeId;
+    chat.content = flattenPath(tree, nodeId);
+  } else {
+    chat.content.push(message);
+  }
+};
+
+// Renames a group chat, by you or by a member, with its notice (#124).
+export const renameGroupChat = createAsyncThunk(
+  "chat/renameGroupChat",
+  async ({ chatId, title, by }: { chatId: number; title: string; by: string }, { rejectWithValue }) => {
+    try {
+      const chat = await dbService.getChatById(chatId);
+      const clean = title.trim().slice(0, 60);
+      if (clean && clean !== chat.title) {
+        chat.title = clean;
+        pushRoomEvent(chat, `${by} changed the group name to "${clean}"`);
+        await dbService.updateChat(chat);
+      }
+      return { chatId, title: chat.title, content: chat.content, tree: chat.tree, activeLeafId: chat.activeLeafId };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
 export const addChatParticipant = createAsyncThunk(
   "chat/addChatParticipant",
   async ({ chatId, characterId }: { chatId: number; characterId: number }, { dispatch, getState, rejectWithValue }) => {
@@ -386,7 +418,7 @@ export const addChatParticipant = createAsyncThunk(
 
       pushMessage({
         role: AI,
-        txt: `${character?.name || "Someone"} joined the chat.`,
+        txt: `You added ${character?.name || "someone"}`, // WhatsApp's wording (#124)
         isRoomEvent: true,
         id: generateNodeId(),
         timestamp: Date.now(),
@@ -453,7 +485,7 @@ export const branchChatWithParticipant = createAsyncThunk(
 
       pushMessage({
         role: AI,
-        txt: `${character?.name || "Someone"} joined the chat.`,
+        txt: `You added ${character?.name || "someone"}`, // WhatsApp's wording (#124)
         isRoomEvent: true,
         id: generateNodeId(),
         timestamp: Date.now(),
@@ -586,8 +618,11 @@ export const removeChatParticipant = createAsyncThunk(
       const chat = await dbService.getChatById(chatId);
       chat.characterIds = (chat.characterIds || []).filter((id) => id !== characterId);
       chat.mutedParticipantIds = (chat.mutedParticipantIds || []).filter((id) => id !== characterId);
+      // A group event (#124): "You removed Kai".
+      const character = await dbService.getCharacterById(characterId).catch(() => undefined);
+      pushRoomEvent(chat, `You removed ${character?.name || "someone"}`);
       await dbService.updateChat(chat);
-      return { chatId, characterIds: chat.characterIds, mutedParticipantIds: chat.mutedParticipantIds };
+      return { chatId, characterIds: chat.characterIds, mutedParticipantIds: chat.mutedParticipantIds, content: chat.content, tree: chat.tree, activeLeafId: chat.activeLeafId };
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
@@ -827,6 +862,15 @@ const chatSlice = createSlice({
       .addCase(updateChatMutedParticipants.rejected, (state, action) => {
         state.error = action.payload as string;
       })
+      .addCase(renameGroupChat.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c.id === action.payload.chatId);
+        if (chat) {
+          chat.title = action.payload.title;
+          chat.content = action.payload.content;
+          chat.tree = action.payload.tree;
+          chat.activeLeafId = action.payload.activeLeafId;
+        }
+      })
       .addCase(addChatParticipant.fulfilled, (state, action) => {
         const chat = state.chats.find((c) => c.id === action.payload.chatId);
         if (chat) {
@@ -892,6 +936,9 @@ const chatSlice = createSlice({
         if (chat) {
           chat.characterIds = action.payload.characterIds;
           chat.mutedParticipantIds = action.payload.mutedParticipantIds;
+          chat.content = action.payload.content;
+          chat.tree = action.payload.tree;
+          chat.activeLeafId = action.payload.activeLeafId;
         }
       })
       .addCase(removeChatParticipant.rejected, (state, action) => {

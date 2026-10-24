@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaPlus, FaSearch, FaTimes } from "react-icons/fa";
 import { useAppDispatch } from "../../store/hooks";
-import { updateChatMutedParticipants, addChatParticipant, branchChatWithParticipant, removeChatParticipant } from "../../features/chatSlice";
+import { updateChatMutedParticipants, addChatParticipant, branchChatWithParticipant, removeChatParticipant, renameGroupChat } from "../../features/chatSlice";
 import { Character } from "../../types";
 import { CharacterAvatar } from "./CharacterAvatar";
 import { ChatSidePanelShell } from "./ChatSidePanelShell";
@@ -15,6 +15,7 @@ interface ParticipantsPanelProps {
   characters: Character[]; // every member of the room, in characterIds order
   allCharacters?: Character[]; // the full character roster - used to offer who's not in the room yet
   mutedParticipantIds?: number[];
+  title?: string; // the group's name, editable in a group chat (#124)
   onClose: () => void;
 }
 
@@ -23,13 +24,19 @@ interface ParticipantsPanelProps {
 // member and an invite picker to pull someone new in. Also doubles as the
 // 1:1-chat entry point into becoming a room: with only one member, this is
 // just the invite picker with nothing to mute yet.
-const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({ chatId, characters, allCharacters, mutedParticipantIds, onClose }) => {
+const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({ chatId, characters, allCharacters, mutedParticipantIds, title, onClose }) => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const muted = mutedParticipantIds || [];
   const [inviting, setInviting] = useState(false);
   const [search, setSearch] = useState("");
   const [branching, setBranching] = useState(false);
+  // The group's name (#124): renaming it leaves a notice in the chat.
+  const [groupName, setGroupName] = useState(title || "");
+  useEffect(() => setGroupName(title || ""), [title]);
+  const rename = () => {
+    if (groupName.trim() && groupName.trim() !== title) dispatch(renameGroupChat({ chatId, title: groupName, by: "You" }));
+  };
 
   const handleToggleMute = (id: number) => {
     const next = muted.includes(id) ? muted.filter((m) => m !== id) : [...muted, id];
@@ -74,6 +81,12 @@ const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({ chatId, character
   return (
     <ChatSidePanelShell title="Participants" onClose={onClose} closeLabel="Close participants panel">
       <div className="flex-1 overflow-y-auto px-[18px] py-[18px] flex flex-col gap-2">
+        {characters.length > 1 && (
+          <form className="flex gap-2 mb-2" onSubmit={(e) => { e.preventDefault(); rename(); }}>
+            <Input aria-label="Group name" value={groupName} maxLength={60} onChange={(e) => setGroupName(e.target.value)} className="h-9 text-[13px]" />
+            <Button type="submit" size="sm" variant="outline" disabled={!groupName.trim() || groupName.trim() === title}>Rename</Button>
+          </form>
+        )}
         {characters.length > 1 && (
           <p className="text-[12px] text-subtle -mt-1 mb-1">
             Muted members sit out the round-robin and won't speak up on their own, but can still be brought in with @their name.

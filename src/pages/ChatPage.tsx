@@ -37,6 +37,8 @@ import { useReplyEffects } from "./chat/useReplyEffects";
 import { knowsNoteFor, recentLetterNote, roomContextFor } from "./chat/promptNotes";
 import { buildMyStatusNote } from "../features/status/myStatuses";
 import { buildForwardDirective, buildQuoteDirective, quoteTextOf } from "../features/chat/replyQuotes";
+import { buildGroupDirective } from "../features/chat/groupLife";
+import PollDialog from "../components/organisms/PollDialog";
 import { buildOnThisDayNote } from "../features/chat/onThisDay";
 import { buildGiftBackPrompt, buildGiftReactionDirective, buildGiftsSection, giftBackDirective, giftMessage, newGiftId, parseGiftBack } from "../features/character/gifts";
 import { factsAboutUser } from "../features/character/intimacy";
@@ -71,7 +73,7 @@ import Header, { HeaderAction } from "src/components/organisms/Header";
 import PortraitPreviewModal from "src/components/organisms/PortraitPreviewModal";
 import AutoReplyModal from "src/components/organisms/AutoReplyModal";
 import PersonaModal from "src/components/organisms/PersonaModal";
-import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20, FaLayerGroup, FaGamepad, FaCodeBranch, FaPhoneAlt, FaBookOpen, FaImages, FaTheaterMasks, FaForward, FaGift, FaBalanceScale, FaEye, FaHourglassStart, FaGlobe, FaFilm, FaExchangeAlt } from "react-icons/fa";
+import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20, FaLayerGroup, FaGamepad, FaCodeBranch, FaPhoneAlt, FaBookOpen, FaImages, FaTheaterMasks, FaForward, FaGift, FaBalanceScale, FaEye, FaHourglassStart, FaGlobe, FaFilm, FaExchangeAlt, FaPoll } from "react-icons/fa";
 import { Button } from "src/components/atoms/button";
 import { AI, YOU, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
@@ -331,6 +333,8 @@ const ChatPage = () => {
   scene.callbackNote = callback && characterData ? buildCallbackDirective(characterData.name, userNameForNotes, callback.fact, callback.learnedAt, noteTime) : undefined;
   // Texting imperfections (#108): the prompt's side, in texting mode only.
   const textingOn = Boolean(currentChat?.textingMode ?? appTextingMode);
+  // Group chats (#124): members may rename the group or start a poll.
+  scene.groupNote = isRoom ? buildGroupDirective(userNameForNotes) : undefined;
   // Quoted replies (#119): in texting mode they may quote an older message.
   scene.quoteNote = !isRoom && characterData && textingOn ? `${buildQuoteDirective(characterData.name, userNameForNotes)}\n${buildForwardDirective(characterData.name, userNameForNotes)}` : undefined;
   scene.slipsNote = !isRoom && characterData && textingOn ? buildSlipsDirective(characterData.name, characterData.textingSlips, currentBlock(characterData.schedule, noteTime)?.status === "busy") : undefined;
@@ -571,6 +575,16 @@ const ChatPage = () => {
     return () => document.removeEventListener("visibilitychange", mark);
   }, [chatIdNum, hasChat, messages, readAt, dispatch]);
 
+  // Polls (#124): yours go up as a message, and the members vote.
+  const [pollOpen, setPollOpen] = useState(false);
+  const handleCreatePoll = async (question: string, options: string[]) => {
+    if (!chatIdNum) return;
+    const poll = { question, options, votes: [] };
+    const content = (await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text: "", poll })).unwrap().catch(() => [])) as Message[];
+    const posted = [...content].reverse().find((m) => m.poll && m.role === YOU);
+    if (posted?.id) void runPollVotes(posted.id, poll, getActiveParticipants(roomCharacters, unavailableIds), content);
+  };
+
   // Quoted replies (#119): the message your next one answers.
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   useEffect(() => setReplyingTo(null), [chatIdNum]);
@@ -645,6 +659,9 @@ const ChatPage = () => {
     advanceStoryIfDone,
     applyReplyQuote,
     markViewOnce,
+    runPollVotes,
+    applyGroupTags,
+    votePoll,
     openViewOnce,
     revealedSecretFor,
     noteSecretRevealed,
@@ -835,6 +852,7 @@ const ChatPage = () => {
     advanceStoryIfDone(payloadObj, (aiAddResult.payload as Message[]) || []);
     applyReplyQuote(payloadObj, (aiAddResult.payload as Message[]) || []);
     markViewOnce(payloadObj, (aiAddResult.payload as Message[]) || [], speaker);
+    applyGroupTags(payloadObj, (aiAddResult.payload as Message[]) || [], speaker);
     noteSecretRevealed(payloadObj);
     void noteStoryTags(payloadObj, speaker, dreamt);
     saveSceneState(payloadObj);
@@ -1298,6 +1316,7 @@ const ChatPage = () => {
         advanceStoryIfDone(payloadObj, (aiAddResult.payload as Message[]) || []);
         applyReplyQuote(payloadObj, (aiAddResult.payload as Message[]) || []);
         markViewOnce(payloadObj, (aiAddResult.payload as Message[]) || [], speaker);
+        applyGroupTags(payloadObj, (aiAddResult.payload as Message[]) || [], speaker);
         noteSecretRevealed(payloadObj);
         void noteStoryTags(payloadObj, speaker, dreamt);
         saveSceneState(payloadObj);
@@ -1424,6 +1443,8 @@ const ChatPage = () => {
 
           markViewOnce(payloadObj, finalContent, speaker);
 
+          applyGroupTags(payloadObj, finalContent, speaker);
+
           noteSecretRevealed(payloadObj);
           void noteStoryTags(payloadObj, speaker);
           saveSceneState(payloadObj);
@@ -1546,6 +1567,8 @@ const ChatPage = () => {
         applyReplyQuote(payloadObj, newContent);
 
         markViewOnce(payloadObj, newContent, speaker);
+
+        applyGroupTags(payloadObj, newContent, speaker);
 
         noteSecretRevealed(payloadObj);
         void noteStoryTags(payloadObj, speaker);
@@ -1871,6 +1894,8 @@ const ChatPage = () => {
 
         markViewOnce(payloadObj, updatedContent, speaker);
 
+        applyGroupTags(payloadObj, updatedContent, speaker);
+
         noteSecretRevealed(payloadObj);
         void noteStoryTags(payloadObj, speaker);
         saveSceneState(payloadObj);
@@ -2155,6 +2180,9 @@ const ChatPage = () => {
     ...(hasBranches(currentChat?.tree)
       ? [{ icon: FaCodeBranch, label: "Branch map (every storyline in this chat)", onClick: () => setBranchMapOpen(true) }]
       : []),
+    ...(isRoom
+      ? [{ icon: FaPoll, label: "Create poll", onClick: () => setPollOpen(true), disabled: aiLoading }]
+      : []),
     ...(!isRoom && characterData
       ? [{ icon: FaGamepad, label: "Play a game", onClick: () => setGameOpen(true), disabled: aiLoading || Boolean(currentChat?.game) }]
       : []),
@@ -2267,7 +2295,7 @@ const ChatPage = () => {
             </div>
           </div>
         )}
-        <ChatWindow awayNote={awayNote} onFork={handleFork} stageSuggestion={currentChat?.stage && currentChat.stageSuggestion ? { from: currentChat.stage, to: currentChat.stageSuggestion } : undefined} onAcceptStage={acceptStage} onDismissStage={dismissStage} coWriting={!isRoom && Boolean(currentChat?.coWriting)} onSuggestNext={handleSuggestNext} onTranslate={currentChat?.language ? handleTranslate : undefined} onReplyToLetter={(letter) => setDraftInjection({ text: letterReplyDraft(letter), nonce: Date.now() })} arcSuggestion={currentChat?.arcSuggestion} onAcceptArc={acceptArc} onDismissArc={dismissArc} relationshipSuggestion={currentChat?.relationshipSuggestion} onAcceptRelationship={acceptRelationship} onDismissRelationship={dismissRelationship} game={currentChat?.game} gameScore={currentChat?.gameScore} onEndGame={() => chatIdNum && dispatch(updateChatOptions({ chatId: chatIdNum, patch: { game: undefined } }))} storyScript={currentChat?.storyScript} onEditStory={() => setStoryOpen(true)} onMoveBeat={moveStoryBeat} onReply={(m) => setReplyingTo(m)} onViewOnce={openViewOnce} recap={recap} onToggleBookmark={handleToggleBookmark} onUndoSummary={handleUndoSummary} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} />
+        <ChatWindow awayNote={awayNote} onFork={handleFork} stageSuggestion={currentChat?.stage && currentChat.stageSuggestion ? { from: currentChat.stage, to: currentChat.stageSuggestion } : undefined} onAcceptStage={acceptStage} onDismissStage={dismissStage} coWriting={!isRoom && Boolean(currentChat?.coWriting)} onSuggestNext={handleSuggestNext} onTranslate={currentChat?.language ? handleTranslate : undefined} onReplyToLetter={(letter) => setDraftInjection({ text: letterReplyDraft(letter), nonce: Date.now() })} arcSuggestion={currentChat?.arcSuggestion} onAcceptArc={acceptArc} onDismissArc={dismissArc} relationshipSuggestion={currentChat?.relationshipSuggestion} onAcceptRelationship={acceptRelationship} onDismissRelationship={dismissRelationship} game={currentChat?.game} gameScore={currentChat?.gameScore} onEndGame={() => chatIdNum && dispatch(updateChatOptions({ chatId: chatIdNum, patch: { game: undefined } }))} storyScript={currentChat?.storyScript} onEditStory={() => setStoryOpen(true)} onMoveBeat={moveStoryBeat} onReply={(m) => setReplyingTo(m)} onViewOnce={openViewOnce} onVote={votePoll} recap={recap} onToggleBookmark={handleToggleBookmark} onUndoSummary={handleUndoSummary} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} />
         {inCall && characterData && (
           <CallScreen
             name={characterData.name}
@@ -2289,6 +2317,7 @@ const ChatPage = () => {
           }}
         />
         <GameDialog open={gameOpen} onOpenChange={setGameOpen} characterName={characterData?.name || "them"} onStart={startGame} />
+        <PollDialog open={pollOpen} onOpenChange={setPollOpen} onCreate={(q, o) => void handleCreatePoll(q, o)} />
         <StoryScriptDialog open={storyOpen} onOpenChange={setStoryOpen} script={currentChat?.storyScript} onSave={saveStoryScript} />
         <ScenarioCardsDialog open={scenarioOpen} onOpenChange={setScenarioOpen} onStart={handleStartScenario} />
         <TimeSkipDialog open={timeSkipOpen} onOpenChange={setTimeSkipOpen} onSkip={handleTimeSkip} />

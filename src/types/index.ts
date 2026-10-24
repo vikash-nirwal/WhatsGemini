@@ -66,6 +66,8 @@ export interface Message {
   viewedOnce?: boolean;
   // Forwarded (#123): something passed along, shown as a "Forwarded" card.
   forward?: { text: string };
+  // A poll in a group chat (#124), from you or a member.
+  poll?: Poll;
   reaction?: string; // the user's emoji reaction to this message (#11)
   // The character's emoji reaction to this (user) message (#11), and who
   // reacted in a room.
@@ -179,6 +181,21 @@ export interface CharacterStatus {
   likes?: number[];
   likedByYou?: boolean;
   comments?: StatusComment[];
+}
+
+// A group chat poll (#124): votes carry the time they're cast, and only
+// those whose time has come are shown.
+export interface PollVote {
+  voter: "you" | number;
+  name?: string; // the member's name when they voted, for the transcript
+  option: number;
+  at: number;
+}
+
+export interface Poll {
+  question: string;
+  options: string[];
+  votes: PollVote[];
 }
 
 // Your own status (#117): what you posted, and when each character saw it,

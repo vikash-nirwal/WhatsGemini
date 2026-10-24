@@ -14,6 +14,7 @@ import { splitChoiceMoment } from "./chat/choiceMoments";
 import { buildRecapPrompt, cleanRecap, latestStorySummary, recentForRecap } from "./chat/recap";
 import { extractBeatTag } from "./chat/storyScript";
 import { extractForward, extractReplyQuote } from "./chat/replyQuotes";
+import { extractGroupName, extractPoll } from "./chat/groupLife";
 import { extractGameOverTag, GameOutcome } from "./chat/miniGames";
 import { extractStateBlock } from "./chat/sceneState";
 import { buildBackdropPrompt } from "./chat/backdrop";
@@ -59,6 +60,8 @@ export interface GenerateAIResponseResult {
   beatDone?: boolean; // the story script's current beat was reached (#57)
   replyQuote?: string; // a [Re: ...] quote of one of your messages (#119)
   forward?: string; // something they forwarded, [Fwd: ...] (#123)
+  groupName?: string; // a member renamed the group (#124)
+  poll?: { question: string; options: string[] }; // a member started a poll (#124)
   gameOver?: GameOutcome; // the mini-game ended, and who won (#52)
   sceneState?: Partial<SceneState>; // the scene's state as the reply left it (#9)
   photoDescription?: string; // what a helper model saw in the user's photo (#48)
@@ -339,8 +342,13 @@ export const generateAIResponse = createAsyncThunk(
       const replyQuote = quoted.quote;
       // Forwarded (#123): a leading [Fwd: ...], before or after the quote.
       const forwarded = extractForward(quoted.text);
-      const responseWithoutTags = forwarded.text;
       const forward = forwarded.forward;
+      // Group chats (#124): a new group name at the end, or a poll.
+      const renamed = extractGroupName(forwarded.text);
+      const polled = extractPoll(renamed.text);
+      const responseWithoutTags = polled.text;
+      const groupName = renamed.groupName;
+      const poll = polled.poll;
       const gameOver = gameTag.gameOver;
 
       const finalResponseText = await extractAndSaveBase64ImagesLocally(responseWithoutTags, generatedImages);
@@ -363,6 +371,8 @@ export const generateAIResponse = createAsyncThunk(
         beatDone: beatAfter.beatDone || undefined,
         replyQuote,
         forward,
+        groupName,
+        poll,
         gameOver,
         sceneState,
         // Only a plain text reply can be an out-of-character refusal; image/

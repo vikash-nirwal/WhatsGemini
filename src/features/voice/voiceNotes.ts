@@ -1,4 +1,5 @@
 import { CharacterVoice, Message, VoiceNoteFrequency } from "../../types";
+import { pollPromptText } from "../chat/groupLife";
 import { YOU } from "../../utils/constants";
 import { isSpeechSupported, toSpokenText } from "./speech";
 
@@ -50,8 +51,10 @@ export const quoteFor = (text: string): string => {
   return flat.length > QUOTE_MAX ? `${flat.slice(0, QUOTE_MAX - 1).trimEnd()}…` : flat;
 };
 
-export const promptTextFor = (msg: Pick<Message, "role" | "txt" | "isVoiceNote" | "replyTo" | "forward">): string => {
+export const promptTextFor = (msg: Pick<Message, "role" | "txt" | "isVoiceNote" | "replyTo" | "forward" | "poll">): string => {
   const base = msg.isVoiceNote && msg.role === YOU ? markVoiceNote(msg.txt || "") : msg.txt || "";
+  // A poll (#124) reads as its question, options and votes so far.
+  if (msg.poll) return `${pollPromptText(msg as Pick<Message, "role" | "poll">, {})} ${base}`.trim();
   // Forwarded (#123) goes first, as the character's own tag form or a note.
   const fwd = msg.forward?.text ? (msg.role === YOU ? `(forwarded: "${msg.forward.text}") ` : `[Fwd: ${msg.forward.text}] `) : "";
   if (!msg.replyTo?.text) return fwd ? `${fwd}${base}`.trimEnd() : base;

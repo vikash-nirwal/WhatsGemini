@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogTitle } from "src/components/molecules/dia
 import { DisplayImage } from "src/components/molecules/DisplayImage";
 import { DisplayVideo } from "src/components/molecules/DisplayVideo";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
+import { PollCard } from "src/components/molecules/PollCard";
 import { Button } from "src/components/atoms/button";
 import { Card, CardContent } from "src/components/atoms/card";
 import { Tooltip, TooltipTrigger, TooltipContent } from "src/components/atoms/tooltip";
@@ -64,6 +65,8 @@ interface ChatMessageProps {
   onInfo?: () => void; // message info for one of yours (#121)
   onViewOnce?: (msg: Message) => void; // a view-once photo was opened (#122)
   onForward?: (msg: Message) => void; // pass it on to another chat (#123)
+  onVote?: (msg: Message, option: number) => void; // your vote in a poll (#124)
+  voterName?: (voter: "you" | number) => string; // names on a poll's votes (#124)
   reactorName?: string; // who left msg.characterReaction, for its label
   // Texting mode (#6): show a reply as several bubbles. visibleParts limits
   // how many are shown while a new reply is being revealed; receipt is the
@@ -156,6 +159,8 @@ const ChatMessage = React.memo(({
   onInfo,
   onViewOnce,
   onForward,
+  onVote,
+  voterName,
   reactorName,
   texting = false,
   visibleParts,
@@ -711,6 +716,7 @@ const ChatMessage = React.memo(({
           <div className="font-serif">
             {oocLabel}
             {msg.quotedStatus && <QuotedStatus quoted={msg.quotedStatus} ownerName={msg.quotedStatus.owner === "you" ? "You" : speakerName || "Them"} />}
+            {msg.poll && <PollCard poll={msg.poll} onVote={onVote && msg.id ? (option) => onVote(msg, option) : undefined} nameOf={voterName || ((v) => (v === "you" ? "You" : "Someone"))} />}
             {msg.forward && (
               <div data-slot="forwarded" className="mb-1.5 font-sans">
                 <span className="block text-[11.5px] italic text-subtle">↪ Forwarded</span>

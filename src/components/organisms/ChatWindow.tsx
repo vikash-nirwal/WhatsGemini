@@ -75,6 +75,7 @@ interface ChatWindowProps {
   onMoveBeat?: (step: number) => void;
   onReply?: (msg: Message) => void; // quote a message in your next one (#119)
   onViewOnce?: (msg: Message) => void; // a view-once photo was opened (#122)
+  onVote?: (msg: Message, option: number) => void; // your vote in a poll (#124)
   // Reply ideas for the newest message (#16) and what tapping one does.
   replySuggestions?: { forMessageId: string; items: string[] } | null;
   onPickSuggestion?: (text: string) => void;
@@ -177,7 +178,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc, note }: { charIniti
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggestion, onAcceptStage, onDismissStage, coWriting = false, onSuggestNext, onTranslate, onReplyToLetter, arcSuggestion, onAcceptArc, onDismissArc, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, onReply, onViewOnce, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggestion, onAcceptStage, onDismissStage, coWriting = false, onSuggestNext, onTranslate, onReplyToLetter, arcSuggestion, onAcceptArc, onDismissArc, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, onReply, onViewOnce, onVote, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   // The WhatsApp-style theme (#113) shows a time and ticks on every bubble.
@@ -330,6 +331,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
   // one text at a time, with the typing dots in between. Messages already
   // there when the chat opens (or reached by switching branches) show whole.
   const chatBackdrop = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.backdrop);
+  const chatTitle = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.title);
   // The scene state HUD (#9), when this chat tracks it.
   const sceneTracker = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.sceneTracker);
   const chatMeters = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.meters);
@@ -809,6 +811,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
                     onReply={onReply}
                     onViewOnce={onViewOnce}
                     onForward={setForwarding}
+                    onVote={onVote}
+                    voterName={(v) => (v === "you" ? "You" : namesById[v] || "Someone")}
                     onInfo={msg.role === YOU && !msg.isNarration ? () => setInfoIndex(i) : undefined}
                     replyToName={msg.replyTo && typeof msg.replyTo.from === "number" ? namesById[msg.replyTo.from] : undefined}
                     texting={textingMode}
@@ -995,6 +999,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
           characters={characters}
           allCharacters={allCharacters}
           mutedParticipantIds={mutedParticipantIds}
+          title={chatTitle}
           onClose={onCloseParticipants || (() => {})}
         />
       )}
