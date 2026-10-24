@@ -3,10 +3,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { generateAssistText } from "src/features/aiSlice";
-import { addMessage, fetchChats } from "src/features/chatSlice";
+import { addChat, addMessage, fetchChats } from "src/features/chatSlice";
 import { updateCharacter } from "src/features/characterSlice";
 import { selectActivePersona } from "src/features/settingsSlice";
-import { addFirstText, buildFirstTextPrompt, cleanFirstText, firstTextDue } from "src/features/character/firstTexts";
+import { addFirstText, buildFirstTextPrompt, cleanFirstText, firstTextDue, unansweredFirstTexts } from "src/features/character/firstTexts";
 import { buildDreamDirective, dreamDue, dreamIngredients } from "src/features/character/dreams";
 import { dayMoodFor } from "src/features/character/badDays";
 import { dayLogText } from "src/features/character/dayLog";
@@ -29,7 +29,8 @@ const HOUR_MS = 60 * 60 * 1000;
 // They text first (#93): while the app is open, a character with the switch
 // on whose 1:1 chat has gone quiet sends a short text into it, at most one
 // per check, on the cheaper helper model. In the morning, with dreams on
-// (#94), the text can be about a dream instead.
+// (#94), the text can be about a dream instead. A character you've never
+// chatted with one to one starts a new chat with their first text.
 const FirstTexter = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -49,20 +50,30 @@ const FirstTexter = () => {
       const { chats, characters, persona } = latest.current;
       // The character's main 1:1 chat: not a what-if or a chat with its own memory.
       const chatFor = (id: number) => chats.find((c) => c.characterIds?.length === 1 && c.characterIds[0] === id && c.memoryScope !== "chat" && !c.whatIf);
-      const texter = characters.find((c) => firstTextDue(c, chatFor(c.id), now));
-      const chat = texter && chatFor(texter.id);
-      if (!texter || !chat?.id) return;
+      // Only a character with no 1:1 chat at all may open one; one whose
+      // only chats are what-ifs or keep their own memory is left alone.
+      const hasOneToOne = (id: number) => chats.some((c) => c.characterIds?.length === 1 && c.characterIds[0] === id);
+      const texter = characters.find((c) => {
+        const main = chatFor(c.id);
+        return (main || !hasOneToOne(c.id)) && firstTextDue(c, main, now);
+      });
+      if (!texter) return;
       busy.current = true;
       try {
+        let chat = chatFor(texter.id);
+        const content = chat?.content || [];
+        const firstContact = !content.some((m) => !m.isSystem && !m.isCompressionSummary);
         const userName = persona?.name?.trim() || "the user";
-        const content = chat.content || [];
-        const last = content[content.length - 1]?.timestamp || chat.timestamp || now;
-        const dreaming = dreamDue(texter, chat, now);
+        const last = content[content.length - 1]?.timestamp || chat?.timestamp || now;
+        const dreaming = Boolean(chat) && !firstContact && dreamDue(texter, chat!, now);
         const reply = await dispatch(generateAssistText({
           instruction: buildFirstTextPrompt(texter, userName, {
             hoursQuiet: Math.max(1, Math.round((now - last) / HOUR_MS)),
+            firstContact,
+            unanswered: unansweredFirstTexts(content),
+            scenario: firstContact ? texter.scenario : undefined,
             nowDoing: currentBlock(texter.schedule, now)?.activity,
-            plans: openPlans(chat.plans).slice(0, 3).map((p) => p.what),
+            plans: openPlans(chat?.plans).slice(0, 3).map((p) => p.what),
             facts: [...(texter.pinnedMemory || []), ...(texter.memory || [])],
             transcript: formatTranscript(trimToLatestSummary(content).slice(-8), { userName, charName: texter.name }),
             dayMood: dayMoodFor(texter, now)?.label,
@@ -70,7 +81,7 @@ const FirstTexter = () => {
             concerns: concernsLine(texter.concerns),
             style: writingStyleLine(texter.writingStyle),
             place: placeLine(texter.home, now),
-            dream: dreaming ? buildDreamDirective(texter.name, userName, dreamIngredients(texter, chat)) : undefined,
+            dream: dreaming ? buildDreamDirective(texter.name, userName, dreamIngredients(texter, chat!)) : undefined,
           }),
           background: true,
         })).unwrap();
@@ -80,6 +91,8 @@ const FirstTexter = () => {
         const fresh = latest.current.characters.find((c) => c.id === texter.id) || texter;
         await dispatch(updateCharacter({ ...fresh, firstTexts: addFirstText(fresh.firstTexts, now), ...(dreaming && text ? { lastDreamAt: now } : {}) }));
         if (!text) return;
+        if (!chat?.id) chat = await dispatch(addChat({ title: texter.name, characterIds: [texter.id] })).unwrap();
+        if (!chat?.id) return;
         const notes: MessageNote[] = dreaming ? ["texted-first", "dream"] : ["texted-first"];
         await dispatch(addMessage({ chatId: chat.id, role: AI, text, speakerId: texter.id, notes }));
         await dispatch(fetchChats());

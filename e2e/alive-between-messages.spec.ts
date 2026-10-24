@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openChat, sendMessage, waitForReplyDone, headerAction, messageBubble, MockAIRequest } from "./fixtures";
+import { test, expect, openChat, openRoute, sendMessage, waitForReplyDone, headerAction, messageBubble, MockAIRequest } from "./fixtures";
 
 // Characters who feel alive between messages (#93-#96): they text first,
 // tell you their dreams, have off days, and pick up inside jokes.
@@ -61,6 +61,62 @@ test("a character with the switch on texts first after a quiet spell", async ({ 
   await page.clock.fastForward(21 * 60_000);
   await expect(page.getByText("saw a dog in a tiny raincoat")).toHaveCount(1);
   expect(mockAI.requests.filter((r) => r.prompt.includes("now you're messaging first"))).toHaveLength(1);
+});
+
+test.describe("someone you've never chatted with", () => {
+  // Kai is only in the group chat, with no 1:1 chat of his own.
+  test.use({ seed: { messages: 4, room: true } });
+
+  test("switched on in the editor, texts first and starts the chat, up to the limit", async ({ page, mockAI }) => {
+    await page.clock.install({ time: MORNING });
+    mockAI.reply((req) =>
+      req.prompt.includes("You two haven't texted each other yet") ? "hey, it's Kai from the climbing gym" : req.prompt.includes("now you're messaging first") ? "you around?" : "Mock reply"
+    );
+    await openRoute(page, "/characters/2/edit");
+    await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Kai", { timeout: 30_000 });
+    for (let i = 0; i < 5; i++) await page.getByRole("button", { name: "Next" }).click();
+    const section = page.locator("details").filter({ has: page.locator("summary", { hasText: "Texts first" }) });
+    await expect(async () => {
+      if ((await section.getAttribute("open")) === null) await section.locator("summary").click();
+      await expect(section).toHaveAttribute("open", "");
+    }).toPass();
+    await section.getByRole("switch", { name: "Kai texts first" }).click();
+    await section.getByRole("combobox", { name: "Texts in a row without an answer" }).click();
+    await page.getByRole("option", { name: "2", exact: true }).click();
+    await expect(section.locator("summary")).toContainText("on, up to 2 without an answer");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect.poll(async () => (await readRow(page, "characters", 2))?.firstTextLimit).toBe(2);
+
+    const kaiChat = () =>
+      page.evaluate(async () => {
+        const db: IDBDatabase = await new Promise((resolve, reject) => {
+          const req = indexedDB.open("ChatAppDB");
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        });
+        const rows = await new Promise<any[]>((resolve) => {
+          const get = db.transaction("chats", "readonly").objectStore("chats").getAll();
+          get.onsuccess = () => resolve(get.result);
+        });
+        db.close();
+        const chat = rows.find((c) => c.characterIds?.length === 1 && c.characterIds[0] === 2);
+        return chat ? { id: chat.id as number, texts: (chat.content || []).map((m: any) => m.txt as string) } : null;
+      });
+
+    // The first text opens a new chat with Kai.
+    await page.clock.fastForward(25_000);
+    await expect.poll(async () => (await kaiChat())?.texts, { timeout: 15_000 }).toEqual(["hey, it's Kai from the climbing gym"]);
+
+    // Unanswered, a second one comes hours later (the limit is two), and
+    // Kai knows the first went unanswered.
+    await page.clock.fastForward(6 * 60 * 60_000 + 60_000);
+    await expect.poll(async () => (await kaiChat())?.texts.length, { timeout: 15_000 }).toBe(2);
+    expect(mockAI.requests.find((r) => r.prompt.includes("now you're messaging first"))?.prompt).toContain("You've already texted");
+
+    const chat = await kaiChat();
+    await openChat(page, chat!.id);
+    await expect(messageBubble(page, "it's Kai from the climbing gym").getByText("Texted first")).toBeVisible();
+  });
 });
 
 test("on a morning, the first reply can open with a dream", async ({ page, mockAI }) => {

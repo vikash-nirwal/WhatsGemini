@@ -1,7 +1,7 @@
 import { Character, Chat, Message } from "../../types";
 import { buildDayMoodSection, DAY_MOODS, dayKey, dayMoodFor } from "./badDays";
 import { buildDreamDirective, dreamDue, dreamIngredients, DREAM_GAP_MS } from "./dreams";
-import { addFirstText, awakeAt, buildFirstTextPrompt, cleanFirstText, firstTextDue, FIRST_TEXT_GAP_MS } from "./firstTexts";
+import { addFirstText, awakeAt, buildFirstTextPrompt, cleanFirstText, firstTextDue, firstTextLimitOf, FIRST_TEXT_GAP_MS, unansweredFirstTexts } from "./firstTexts";
 
 const HOUR = 60 * 60 * 1000;
 // A Wednesday, 9 am local time.
@@ -71,6 +71,35 @@ describe("they text first (#93)", () => {
     expect(firstTextDue(aria({ textsFirst: true, firstTexts: [MORNING - FIRST_TEXT_GAP_MS + HOUR] }), quiet, MORNING)).toBe(false);
     expect(firstTextDue(aria({ textsFirst: true, firstTexts: [MORNING - 20 * HOUR, MORNING - 10 * HOUR] }), quiet, MORNING)).toBe(false);
     expect(addFirstText(Array.from({ length: 10 }, (_, i) => i), 99)).toHaveLength(10);
+  });
+
+  it("sends up to its limit of unanswered texts, counted since you last wrote", () => {
+    const first = (at: number) => msg("ai", at, { notes: ["texted-first"] });
+    const two = chat([msg("you", MORNING - 30 * HOUR), msg("ai", MORNING - 29 * HOUR), first(MORNING - 20 * HOUR), first(MORNING - 10 * HOUR)]);
+    expect(unansweredFirstTexts(two.content)).toBe(2);
+    expect(unansweredFirstTexts(chat([first(MORNING - 20 * HOUR), msg("you", MORNING - 5 * HOUR)]).content)).toBe(0);
+    expect(firstTextDue(aria({ textsFirst: true }), two, MORNING)).toBe(false);
+    expect(firstTextDue(aria({ textsFirst: true, firstTextLimit: 2 }), two, MORNING)).toBe(false);
+    expect(firstTextDue(aria({ textsFirst: true, firstTextLimit: 3 }), two, MORNING)).toBe(true);
+    expect(firstTextLimitOf(aria({ firstTextLimit: 99 }))).toBe(5);
+    expect(firstTextLimitOf(aria())).toBe(1);
+  });
+
+  it("reaches out first to someone with no chat yet", () => {
+    expect(firstTextDue(aria({ textsFirst: true }), undefined, MORNING)).toBe(true);
+    expect(firstTextDue(aria({ textsFirst: true }), chat([]), MORNING)).toBe(true);
+    expect(firstTextDue(aria(), undefined, MORNING)).toBe(false);
+    expect(firstTextDue(aria({ textsFirst: true }), undefined, new Date(2026, 9, 21, 3).getTime())).toBe(false);
+    expect(firstTextDue(aria({ textsFirst: true, firstTexts: [MORNING - HOUR] }), undefined, MORNING)).toBe(false);
+    const prompt = buildFirstTextPrompt(aria(), "Sam", { hoursQuiet: 1, firstContact: true, scenario: "Neighbours in the same building.", plans: [], facts: [], transcript: "" });
+    expect(prompt).toContain("You two haven't texted each other yet");
+    expect(prompt).toContain("How things stand: Neighbours in the same building.");
+    expect(prompt).not.toContain("How you last left things");
+  });
+
+  it("knows when it's been left on read", () => {
+    const prompt = buildFirstTextPrompt(aria(), "Sam", { hoursQuiet: 6, unanswered: 2, plans: [], facts: [], transcript: "Aria: hey" });
+    expect(prompt).toContain("You've already texted Sam 2 times since they last replied");
   });
 
   it("leaves a long absence to a letter", () => {

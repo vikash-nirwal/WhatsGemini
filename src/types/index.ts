@@ -625,6 +625,7 @@ export interface Character {
   letters?: CharacterLetter[];
   textsFirst?: boolean; // sends a short text first after a few quiet hours (#93)
   firstTexts?: number[]; // when they did, the last few
+  firstTextLimit?: number; // how many texts first in a row without an answer, 1-5 (1 when unset)
   dreams?: boolean; // now and then tells you a dream they had (#94)
   lastDreamAt?: number;
   badDays?: boolean; // some days they're off (#95)

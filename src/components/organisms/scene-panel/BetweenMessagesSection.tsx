@@ -5,6 +5,7 @@ import { updateChatOptions } from "src/features/chatSlice";
 import { Select } from "src/components/molecules/form-controls";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { DAY_MOODS, dayKey, dayMoodFor } from "src/features/character/badDays";
+import { firstTextLimitOf, MAX_UNANSWERED } from "src/features/character/firstTexts";
 import { describeMood, fadedMood } from "src/features/chat/lingeringMood";
 import { dayLogFor } from "src/features/character/dayLog";
 import { writeDayLog } from "src/components/molecules/DayLogWriter";
@@ -54,12 +55,27 @@ export const AliveSection: React.FC<{ character: Character }> = ({ character }) 
   };
   return (
     <>
-      <SwitchRow
-        title={`${name} texts first`}
-        hint={`After a few quiet hours, a short text out of the blue, while the app is open. Never while ${name} is asleep, never two unanswered, at most two a day.`}
-        checked={Boolean(character.textsFirst)}
-        onChange={(on) => set({ textsFirst: on || undefined })}
-      />
+      <div className="flex flex-col gap-2">
+        <SwitchRow
+          title={`${name} texts first`}
+          hint={`After a few quiet hours, a short text out of the blue, while the app is open. Never while ${name} is asleep, at most two a day.`}
+          checked={Boolean(character.textsFirst)}
+          onChange={(on) => set({ textsFirst: on || undefined })}
+        />
+        {character.textsFirst && (
+          <div className="flex items-center justify-between gap-2 text-[11px] text-subtle">
+            <span>Texts in a row without an answer</span>
+            <Select
+              aria-label="Texts in a row without an answer"
+              value={String(firstTextLimitOf(character))}
+              onChange={(e) => set({ firstTextLimit: Number(e.target.value) > 1 ? Number(e.target.value) : undefined })}
+              className="w-20"
+            >
+              {Array.from({ length: MAX_UNANSWERED }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
+            </Select>
+          </div>
+        )}
+      </div>
       <SwitchRow
         title={`${name} has dreams`}
         hint={`Now and then, the first reply of a morning opens with a dream ${name} had, made of what you've shared. At most every few days.`}

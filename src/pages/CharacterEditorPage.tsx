@@ -34,6 +34,7 @@ import WardrobeSection from "./CharacterEditorPage/WardrobeSection";
 import ScheduleSection from "./CharacterEditorPage/ScheduleSection";
 import WritingStyleSection from "./CharacterEditorPage/WritingStyleSection";
 import HomeSection from "./CharacterEditorPage/HomeSection";
+import TextsFirstSection from "./CharacterEditorPage/TextsFirstSection";
 import { cleanWritingStyle } from "../features/character/writingStyle";
 import IntimacySection from "src/components/molecules/IntimacySection";
 import { cleanSchedule } from "../features/character/schedule";
@@ -181,6 +182,7 @@ const CharacterEditorPage = () => {
   const [voice, setVoice] = useState<CharacterVoice | undefined>(undefined);
   const [writingStyle, setWritingStyle] = useState<WritingStyle | undefined>(undefined); // #111
   const [home, setHome] = useState<CharacterHome | undefined>(undefined); // #112
+  const [textsFirst, setTextsFirst] = useState({ enabled: false, limit: 1 }); // #93
   // Character from one line (#45).
   const [ideaDialogOpen, setIdeaDialogOpen] = useState(false);
   const [ideaDraftRequest, setIdeaDraftRequest] = useState<CharacterDraftRequest | null>(null);
@@ -240,6 +242,7 @@ const CharacterEditorPage = () => {
       setVoice(source.voice);
       setWritingStyle(source.writingStyle);
       setHome(source.home);
+      setTextsFirst({ enabled: Boolean(source.textsFirst), limit: source.firstTextLimit || 1 });
     } else {
       setName("");
       setDescription("");
@@ -275,6 +278,7 @@ const CharacterEditorPage = () => {
       setVoice(undefined);
       setWritingStyle(undefined);
       setHome(undefined);
+      setTextsFirst({ enabled: false, limit: 1 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [characterId]);
@@ -475,7 +479,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
       return;
     }
     if (!checkContentRating()) return;
-    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), writingStyle: cleanWritingStyle(writingStyle), home, importantDates: cleanDates(importantDates), secrets: cleanSecrets(secrets), ...cleanWardrobe(wardrobe, currentOutfitId), schedule: cleanSchedule(schedule), intimacy }));
+    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), writingStyle: cleanWritingStyle(writingStyle), home, importantDates: cleanDates(importantDates), secrets: cleanSecrets(secrets), ...cleanWardrobe(wardrobe, currentOutfitId), schedule: cleanSchedule(schedule), intimacy, textsFirst: textsFirst.enabled || undefined, firstTextLimit: textsFirst.limit > 1 ? textsFirst.limit : undefined }));
     navigate("/characters");
   };
 
@@ -493,7 +497,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     // Spread the stored record first: db.put replaces the whole row, so any
     // field this form doesn't own (memory, pinnedMemory, avatar, creatorNotes)
     // was being wiped on every save.
-    dispatch(updateCharacter({ ...editCharacter, id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), writingStyle: cleanWritingStyle(writingStyle), home, importantDates: cleanDates(importantDates), secrets: cleanSecrets(secrets), ...cleanWardrobe(wardrobe, currentOutfitId), schedule: cleanSchedule(schedule), intimacy }));
+    dispatch(updateCharacter({ ...editCharacter, id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), writingStyle: cleanWritingStyle(writingStyle), home, importantDates: cleanDates(importantDates), secrets: cleanSecrets(secrets), ...cleanWardrobe(wardrobe, currentOutfitId), schedule: cleanSchedule(schedule), intimacy, textsFirst: textsFirst.enabled || undefined, firstTextLimit: textsFirst.limit > 1 ? textsFirst.limit : undefined }));
     if (options?.stay) {
       toast.success("Character saved");
     } else {
@@ -1303,6 +1307,9 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                 </div>
                 <div className="mt-4 border-t border-border pt-4">
                   <HomeSection value={home} onChange={setHome} />
+                </div>
+                <div className="mt-4 border-t border-border pt-4">
+                  <TextsFirstSection name={name} enabled={textsFirst.enabled} limit={textsFirst.limit} onChange={setTextsFirst} />
                 </div>
                 <div className="mt-4 border-t border-border pt-4">
                   <IntimacySection value={intimacy} onChange={setIntimacy} />
