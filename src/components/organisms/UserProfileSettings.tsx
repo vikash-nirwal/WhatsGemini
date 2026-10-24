@@ -269,6 +269,14 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
                 value={persona.name}
                 onChange={(e) => onUpdatePersona({ ...persona, name: e.target.value })}
               />
+              <TextInput
+                type="text"
+                aria-label="About"
+                maxLength={139}
+                placeholder="About: a short line on your profile, like WhatsApp's (e.g. Busy, coffee first)"
+                value={persona.about || ''}
+                onChange={(e) => onUpdatePersona({ ...persona, about: e.target.value || undefined })}
+              />
               <TextArea
                 placeholder="About you - hobbies, communication style, anything a character should know (Optional)"
                 value={persona.bio}

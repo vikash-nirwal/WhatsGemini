@@ -57,6 +57,8 @@ export interface Message {
   // speaker's voice when played. Only the text is stored; the user's own
   // reach the model as "(voice note) ...".
   isVoiceNote?: boolean;
+  // A reply to a status (#117, #129), shown as a quoted card above the text.
+  quotedStatus?: { owner: "you" | number; text: string; photo?: boolean };
   reaction?: string; // the user's emoji reaction to this message (#11)
   // The character's emoji reaction to this (user) message (#11), and who
   // reacted in a room.
@@ -170,6 +172,20 @@ export interface CharacterStatus {
   likes?: number[];
   likedByYou?: boolean;
   comments?: StatusComment[];
+}
+
+// Your own status (#117): what you posted, and when each character saw it,
+// liked it, commented or replied privately (decided when posted, with times
+// a little later; only what's "happened" by now is shown).
+export interface MyStatus {
+  id: string;
+  text: string;
+  image?: string; // a shrunk data: URL
+  createdAt: number;
+  views?: { characterId: number; at: number }[];
+  likes?: { characterId: number; at: number }[];
+  comments?: StatusComment[];
+  replies?: { characterId: number; text: string; at: number; sent?: boolean }[];
 }
 
 export interface StatusComment {
@@ -733,6 +749,7 @@ export interface UserProfile {
   bio: string;
   appearance?: string; // physical description, given to image-capable models
   backstory?: string; // background/history a character might reference
+  about?: string; // a WhatsApp-style About line (#116); characters know it
   avatar?: string; // this persona's own display picture - a local:/data: ref, same shape as Character.appearanceImages entries
   // Extra photos of this persona, same shape/purpose as Character.appearanceImages -
   // given to image-capable models as named reference photos so a scene depicting

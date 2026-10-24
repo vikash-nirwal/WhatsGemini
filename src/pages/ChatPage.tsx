@@ -35,6 +35,7 @@ import ChatWindow from "src/components/organisms/ChatWindow";
 import { useBackgroundUpdates } from "./chat/useBackgroundUpdates";
 import { useReplyEffects } from "./chat/useReplyEffects";
 import { knowsNoteFor, recentLetterNote, roomContextFor } from "./chat/promptNotes";
+import { buildMyStatusNote } from "../features/status/myStatuses";
 import { buildOnThisDayNote } from "../features/chat/onThisDay";
 import { buildGiftBackPrompt, buildGiftReactionDirective, buildGiftsSection, giftBackDirective, giftMessage, newGiftId, parseGiftBack } from "../features/character/gifts";
 import { factsAboutUser } from "../features/character/intimacy";
@@ -201,6 +202,7 @@ const ChatPage = () => {
     [currentChat?.mutedParticipantIds, currentChat?.sceneTracker, currentChat?.sceneState, isRoom, roomCharacters]
   );
   const worlds = useAppSelector((state) => state.world.worlds);
+  const myStatuses = useAppSelector((state) => state.myStatus.statuses);
   // A phone call (#56): replies are spoken, and what you say is sent as voice messages.
   const [inCall, setInCall] = useState(false);
   // Shown while a realistic schedule (#7) holds a reply back.
@@ -351,6 +353,8 @@ const ChatPage = () => {
   scene.jealousyNote = mainStory ? jealousyNoteFor(characterData, currentChat, chats, characters, userNameForNotes, noteTime) : undefined;
   scene.liesNote = !isRoom && characterData && currentChat?.lies ? buildLiesSection(characterData.name, userNameForNotes, currentChat.toldLies) : undefined;
   scene.hookNote = currentChat?.pendingHook ? buildHookSection(currentChat.pendingHook) : undefined;
+  // Your status (#117), once this character has seen it.
+  scene.statusNote = mainStory ? buildMyStatusNote(userNameForNotes, myStatuses, characterData?.id, noteTime) : undefined;
 
   // Role reversal (#105): while swapped, a reply is built as if your persona
   // were the character and the character "the user", with only the chat's

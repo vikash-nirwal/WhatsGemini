@@ -110,6 +110,15 @@ const QuotedMessage = ({ text }: { text: string }) => (
   </div>
 );
 
+// A reply to a status (#117, #129): the status quoted above the text, like
+// WhatsApp's "Status" card.
+const QuotedStatus = ({ quoted, ownerName }: { quoted: NonNullable<Message["quotedStatus"]>; ownerName: string }) => (
+  <div data-slot="quoted-status" className="mb-1.5 rounded-md border-l-2 border-primary/70 bg-foreground/[0.05] px-2 py-1 font-sans text-[12px] text-subtle" aria-label={`Replying to ${ownerName === "You" ? "your" : `${ownerName}'s`} status: ${quoted.text || "a photo"}`}>
+    <span className="block text-[10.5px] font-medium text-primary">{ownerName} · Status</span>
+    <span className="line-clamp-2">{quoted.photo ? "📷 " : ""}{quoted.text || "Photo"}</span>
+  </div>
+);
+
 const ChatMessage = React.memo(({
   msg,
   charInitials,
@@ -644,6 +653,7 @@ const ChatMessage = React.memo(({
 
           <div className="font-serif">
             {oocLabel}
+            {msg.quotedStatus && <QuotedStatus quoted={msg.quotedStatus} ownerName={msg.quotedStatus.owner === "you" ? "You" : speakerName || "Them"} />}
             {mainQuote && <QuotedMessage text={mainQuote} />}
             {voiceNote || <MarkdownRenderer msgText={textParts ? textParts[textParts.length - 1].text : stripImageContextTag(msg.txt || "")} isUser={isUser} />}
             {refusalNotice}

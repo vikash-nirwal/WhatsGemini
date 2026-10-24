@@ -28,6 +28,7 @@ import WeatherRefresher from "src/components/molecules/WeatherRefresher";
 import OffscreenTalker from "src/components/molecules/OffscreenTalker";
 import LetterWriter from "src/components/molecules/LetterWriter";
 import FirstTexter from "src/components/molecules/FirstTexter";
+import MyStatusWatcher from "src/components/molecules/MyStatusWatcher";
 import RumorMill from "src/components/molecules/RumorMill";
 import Logo from "src/components/atoms/Logo";
 import { TooltipProvider } from "src/components/atoms/tooltip";
@@ -220,6 +221,7 @@ const AppContent = () => {
         <OffscreenTalker />
         <LetterWriter />
         <FirstTexter />
+        <MyStatusWatcher />
         <RumorMill />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar />

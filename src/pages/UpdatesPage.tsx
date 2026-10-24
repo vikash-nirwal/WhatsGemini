@@ -5,6 +5,7 @@ import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "src/components/molecules/dialog";
 import { Button } from "src/components/atoms/button";
 import { StatusFeed } from "src/components/organisms/StatusFeed";
+import { MyStatusSection } from "src/components/organisms/MyStatusSection";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { updateCharacter } from "src/features/characterSlice";
 import { isNsfwCharacter } from "src/features/character/contentRating";
@@ -80,8 +81,9 @@ const UpdatesPage = () => {
               <Button type="button" variant="ghost" size="sm" onClick={() => setFeedOpen(true)}>All posts</Button>
             )}
           </div>
+          <MyStatusSection />
           {posting.length === 0 ? (
-            <p className="px-4 py-6 text-[13.5px] text-muted-foreground">No status updates in the last day. A character posts here when "Posts statuses" is on in their chat's Chat tab.</p>
+            <p className="px-4 py-6 text-[13.5px] text-muted-foreground">Nothing from your characters in the last day. A character posts here when "Posts statuses" is on in their chat's Chat tab.</p>
           ) : (
             <>
               {rows("Recent updates", recent)}

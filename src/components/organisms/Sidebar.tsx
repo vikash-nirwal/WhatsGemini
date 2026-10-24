@@ -26,7 +26,7 @@ import { hasUnseenStatus } from "../../features/character/statusUpdates";
 import { useStatusReply } from "../../hooks/useStatusReply";
 import { lastPreview, splitArchived, unreadCount } from "../../features/chat/chatList";
 import { TAB_BAR_HEIGHT, usePhoneShell } from "../../hooks/usePhoneShell";
-import { MdOutlineAddComment } from "react-icons/md";
+import { MdOutlineAddComment, MdOutlineDonutLarge } from "react-icons/md";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "src/components/molecules/dropdown-menu";
 
 const formatChatTime = (timestamp?: number) => {
@@ -331,6 +331,13 @@ const Sidebar = () => {
               <div className="font-bold text-[16px] tracking-tight text-foreground">WhatsGemini</div>
               <div className="text-[11px] text-subtle font-medium">Your characters, your stories</div>
             </div>
+          )}
+          {/* Updates (#114, #117): statuses, yours included. The phone
+              shell has a tab for it; everywhere else it's this button. */}
+          {!terminal && (
+            <Link to="/updates" onClick={close} title="Updates" aria-label="Updates" className={cn("flex h-8 w-8 items-center justify-center rounded-lg text-subtle hover:bg-hover hover:text-foreground flex-shrink-0", collapsed && "lg:hidden")}>
+              <MdOutlineDonutLarge size={17} />
+            </Link>
           )}
           {/* Desktop-only icon-rail collapse toggle - mobile relies on the
               overlay/Header hamburger instead, so this never shows there. */}

@@ -85,7 +85,7 @@ export const addPreparedChat = createAsyncThunk("chat/addPrepared", async (chat:
 
 export const addMessage = createAsyncThunk(
   "chat/addMessage",
-  async ({ chatId, role, text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration, thoughts, isVoiceNote, beat, choices, secretRevealed, notes, swapped, noGreeting }: { chatId: number; role: string; text: string; images?: string[], isImageRequest?: boolean, videos?: string[], isVideoRequest?: boolean, videoPrompt?: string, isImpersonated?: boolean, emotion?: string, imagePrompt?: string, imageParams?: any, speakerId?: number, isRefusal?: boolean, isNarration?: boolean, thoughts?: string, isVoiceNote?: boolean, beat?: number, choices?: Message["choices"], secretRevealed?: boolean, notes?: Message["notes"], swapped?: boolean, noGreeting?: boolean }, { dispatch, getState, rejectWithValue }) => {
+  async ({ chatId, role, text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration, thoughts, isVoiceNote, beat, choices, secretRevealed, notes, swapped, noGreeting, quotedStatus }: { chatId: number; role: string; text: string; images?: string[], isImageRequest?: boolean, videos?: string[], isVideoRequest?: boolean, videoPrompt?: string, isImpersonated?: boolean, emotion?: string, imagePrompt?: string, imageParams?: any, speakerId?: number, isRefusal?: boolean, isNarration?: boolean, thoughts?: string, isVoiceNote?: boolean, beat?: number, choices?: Message["choices"], secretRevealed?: boolean, notes?: Message["notes"], swapped?: boolean, noGreeting?: boolean, quotedStatus?: Message["quotedStatus"] }, { dispatch, getState, rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
 
@@ -121,7 +121,7 @@ export const addMessage = createAsyncThunk(
         }
       }
 
-      const newMessage: Message = { role, txt: text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration: isNarration || undefined, thoughts, isVoiceNote: isVoiceNote || undefined, beat, choices, secretRevealed: secretRevealed || undefined, notes: notes && notes.length > 0 ? notes : undefined, swapped: swapped || undefined, id: generateNodeId(), timestamp: Date.now() };
+      const newMessage: Message = { role, txt: text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration: isNarration || undefined, thoughts, isVoiceNote: isVoiceNote || undefined, beat, choices, secretRevealed: secretRevealed || undefined, notes: notes && notes.length > 0 ? notes : undefined, swapped: swapped || undefined, quotedStatus, id: generateNodeId(), timestamp: Date.now() };
 
       // A real reply from the user - or the user speaking as the character via
       // Impersonate mode - both mean the user is actively here, so any pending
