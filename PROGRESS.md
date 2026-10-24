@@ -25,7 +25,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #119 | Quoted replies | done | 2026-10-24 |
 | #120 | Starred messages | done | 2026-10-24 |
 | #121 | Message info | done | 2026-10-24 |
-| #122 | View-once photos | todo | |
+| #122 | View-once photos | done | 2026-10-24 |
 | #123 | Forwarded | todo | |
 | #124 | Group events and polls | todo | |
 | #125 | Profile changes | todo | |
@@ -47,6 +47,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **View-once photos (#122):** `Character.viewOncePhotos` (Chat tab switch); `markViewOnce` (useReplyEffects, every reply path) flags about half the replies with pictures `Message.viewOnce`. ChatMessage shows a "Photo · view once" pill instead of the picture; opening it shows it full screen and `openViewOnce` sets `viewedOnce` and drops the images, leaving "Opened". Only characters send them for now.
 - **Message info (#121):** "Info" on your messages (hover row, action sheet) opens a dialog in ChatWindow: read time per member (when each first replied after it, `messageInfoFor` in `src/features/chat/messageInfo.ts`), and delivered (= sent). UI tests for #119-#121 are in `e2e/message-extras.spec.ts`.
 - **Starred messages (#120):** bookmarks (`Message.bookmarked`, #21) are now "Star"/"Unstar" with a "Starred" badge; the Story tab section is "Starred messages". `/starred` (`StarredPage.tsx`) lists them across chats, newest first, and opens the chat with route state `jumpTo` (ChatPage scrolls to it). Links: the sidebar header's star and the phone home's title row.
 - **Quoted replies (#119):** `Message.replyTo` ({id, text, from}). Logic in `src/features/chat/replyQuotes.ts`. You reply from a message's Reply button (hover row, action sheet) or by swiping it right on touch; ChatPage holds `replyingTo`, MessageInput shows a "Replying to" strip, and `promptTextFor` (voiceNotes.ts) sends it as `(replying to "…")` (a character's own quote goes back as `[Re: …]`). In texting mode `buildQuoteDirective` (`scene.quoteNote`) lets the character start a reply with `[Re: words]`; aiSlice strips it into `payload.replyQuote` and `applyReplyQuote` (useReplyEffects, every reply path) finds your message (`findQuotedMessage`) and patches the reply. Swipe isn't covered by a UI test; the tests are in `e2e/message-extras.spec.ts`.

@@ -60,3 +60,36 @@ test("message info shows when your message was delivered and read", async ({ pag
   await last.getByRole("button", { name: "Info" }).click();
   await expect(page.getByRole("dialog", { name: "Message info" })).toContainText("Not yet");
 });
+
+// View-once photos (#122): opens once, then only "Opened" is left.
+test("a view-once photo opens once", async ({ page }) => {
+  await openChat(page);
+  const pixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  await page.evaluate(async (image) => {
+    const db: IDBDatabase = await new Promise((resolve, reject) => {
+      const req = indexedDB.open("ChatAppDB");
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    await new Promise<void>((resolve) => {
+      const store = db.transaction("chats", "readwrite").objectStore("chats");
+      const get = store.get(1);
+      get.onsuccess = () => {
+        const chat = get.result;
+        chat.content.push({ id: "vo-1", role: "ai", txt: "just for you 🙈", images: [image], viewOnce: true, speakerId: 1, timestamp: Date.now() });
+        store.put(chat);
+        store.transaction.oncomplete = () => resolve();
+      };
+    });
+    db.close();
+  }, pixel);
+  await page.reload();
+  const bubble = messageBubble(page, "just for you");
+  await expect(bubble.getByRole("img")).toHaveCount(0);
+  await bubble.getByRole("button", { name: /view once/ }).click();
+  await expect(page.getByRole("img", { name: "Fullscreen" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(bubble.locator('[data-slot="view-once"][data-state="opened"]')).toHaveText(/Opened/);
+  await page.reload();
+  await expect(messageBubble(page, "just for you").locator('[data-slot="view-once"]')).toHaveText(/Opened/);
+});

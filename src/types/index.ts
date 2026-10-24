@@ -61,6 +61,9 @@ export interface Message {
   quotedStatus?: { owner: "you" | number; text: string; photo?: boolean };
   // A quoted reply (#119): the message this one answers, as it read then.
   replyTo?: { id?: string; text: string; from: "you" | number };
+  // View-once photos (#122): opens once, then only "Opened" is left.
+  viewOnce?: boolean;
+  viewedOnce?: boolean;
   reaction?: string; // the user's emoji reaction to this message (#11)
   // The character's emoji reaction to this (user) message (#11), and who
   // reacted in a room.
@@ -666,6 +669,7 @@ export interface Character {
   schedule?: CharacterSchedule; // #7
   postsStatuses?: boolean; // #8: posts a status now and then
   statusPhotos?: boolean; // #118: every other status comes with a photo
+  viewOncePhotos?: boolean; // #122: about half the photos they send are view-once
   statuses?: CharacterStatus[];
   wardrobe?: Outfit[]; // #50
   currentOutfitId?: string; // the outfit being worn now (#50); none = the locked look's own

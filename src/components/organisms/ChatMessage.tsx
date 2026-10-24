@@ -62,6 +62,7 @@ interface ChatMessageProps {
   onReply?: (msg: Message) => void; // quote it in your next message (#119)
   replyToName?: string; // who wrote the message this one quotes (#119)
   onInfo?: () => void; // message info for one of yours (#121)
+  onViewOnce?: (msg: Message) => void; // a view-once photo was opened (#122)
   reactorName?: string; // who left msg.characterReaction, for its label
   // Texting mode (#6): show a reply as several bubbles. visibleParts limits
   // how many are shown while a new reply is being revealed; receipt is the
@@ -152,6 +153,7 @@ const ChatMessage = React.memo(({
   onReply,
   replyToName,
   onInfo,
+  onViewOnce,
   reactorName,
   texting = false,
   visibleParts,
@@ -189,6 +191,24 @@ const ChatMessage = React.memo(({
   const bookmarkLabel = msg.bookmarked ? "Unstar" : "Star";
   const handleReact = useCallback((emoji: string) => onReact?.(msg, emoji), [onReact, msg]);
   const canReply = Boolean(onReply && msg.id && !msg.isNarration && !msg.isRoomEvent && !msg.isCompressionSummary);
+  // View-once photos (#122): a pill instead of the picture; opening it shows
+  // it full screen once, then only "Opened" is left.
+  const viewOnceBadge = msg.viewOnce ? (
+    msg.viewedOnce || !msg.images?.length ? (
+      <div data-slot="view-once" data-state="opened" className="mt-2 inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 font-sans text-[13px] text-muted-foreground">
+        <span aria-hidden>◌</span> Opened
+      </div>
+    ) : (
+      <button
+        type="button"
+        data-slot="view-once"
+        onClick={() => { setFullscreenImage(msg.images![0]); onViewOnce?.(msg); }}
+        className="mt-2 inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 font-sans text-[13px] font-medium text-primary"
+      >
+        <span aria-hidden>①</span> Photo · view once
+      </button>
+    )
+  ) : null;
   const handleReply = useCallback(() => onReply?.(msg), [onReply, msg]);
   // Fork into a new chat (#86): from any real message.
   const canFork = Boolean(onFork && msg.id && !msg.isSystem);
@@ -495,7 +515,8 @@ const ChatMessage = React.memo(({
               # {isUser ? `${reactorName || "they"} reacted ${msg.characterReaction?.emoji}` : `you reacted ${msg.reaction}`}
             </div>
           )}
-          {msg.images && msg.images.map((imgSrc, idx) => (
+          {viewOnceBadge}
+          {!viewOnceBadge && msg.images && msg.images.map((imgSrc, idx) => (
             <NsfwBlur key={idx} active={blurMedia} className="w-fit max-w-full">
               <DisplayImage
                 srcContext={imgSrc}
@@ -710,7 +731,7 @@ const ChatMessage = React.memo(({
             <ReactionBadge emoji={msg.characterReaction.emoji} side="left" label={`${reactorName || "They"} reacted ${msg.characterReaction.emoji}`} />
           )}
 
-          {msg.images && msg.images.map((imgSrc, idx) => (
+          {viewOnceBadge || (msg.images && msg.images.map((imgSrc, idx) => (
             <NsfwBlur key={idx} active={blurMedia} className="w-fit max-w-full">
               <DisplayImage
                 srcContext={imgSrc}
@@ -719,7 +740,7 @@ const ChatMessage = React.memo(({
                 className="mt-2 max-w-full rounded-lg shadow-sm cursor-zoom-in hover:opacity-90 transition-opacity"
               />
             </NsfwBlur>
-          ))}
+          )))}
 
           {msg.videos && msg.videos.map((vidSrc, idx) => (
             <NsfwBlur key={idx} active={blurMedia} className="w-fit max-w-full">

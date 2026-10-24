@@ -644,6 +644,8 @@ const ChatPage = () => {
     moveStoryBeat,
     advanceStoryIfDone,
     applyReplyQuote,
+    markViewOnce,
+    openViewOnce,
     revealedSecretFor,
     noteSecretRevealed,
     replyNotes,
@@ -832,6 +834,7 @@ const ChatPage = () => {
     await saveCharacterReaction(payloadObj?.reaction, compressedFreshMessages, speaker.id);
     advanceStoryIfDone(payloadObj, (aiAddResult.payload as Message[]) || []);
     applyReplyQuote(payloadObj, (aiAddResult.payload as Message[]) || []);
+    markViewOnce(payloadObj, (aiAddResult.payload as Message[]) || [], speaker);
     noteSecretRevealed(payloadObj);
     void noteStoryTags(payloadObj, speaker, dreamt);
     saveSceneState(payloadObj);
@@ -1294,6 +1297,7 @@ const ChatPage = () => {
         await saveCorrection(payloadObj?.correction, contextMessages);
         advanceStoryIfDone(payloadObj, (aiAddResult.payload as Message[]) || []);
         applyReplyQuote(payloadObj, (aiAddResult.payload as Message[]) || []);
+        markViewOnce(payloadObj, (aiAddResult.payload as Message[]) || [], speaker);
         noteSecretRevealed(payloadObj);
         void noteStoryTags(payloadObj, speaker, dreamt);
         saveSceneState(payloadObj);
@@ -1418,6 +1422,8 @@ const ChatPage = () => {
 
           applyReplyQuote(payloadObj, finalContent);
 
+          markViewOnce(payloadObj, finalContent, speaker);
+
           noteSecretRevealed(payloadObj);
           void noteStoryTags(payloadObj, speaker);
           saveSceneState(payloadObj);
@@ -1538,6 +1544,8 @@ const ChatPage = () => {
         advanceStoryIfDone(payloadObj, newContent);
 
         applyReplyQuote(payloadObj, newContent);
+
+        markViewOnce(payloadObj, newContent, speaker);
 
         noteSecretRevealed(payloadObj);
         void noteStoryTags(payloadObj, speaker);
@@ -1860,6 +1868,8 @@ const ChatPage = () => {
         advanceStoryIfDone(payloadObj, updatedContent);
 
         applyReplyQuote(payloadObj, updatedContent);
+
+        markViewOnce(payloadObj, updatedContent, speaker);
 
         noteSecretRevealed(payloadObj);
         void noteStoryTags(payloadObj, speaker);
@@ -2257,7 +2267,7 @@ const ChatPage = () => {
             </div>
           </div>
         )}
-        <ChatWindow awayNote={awayNote} onFork={handleFork} stageSuggestion={currentChat?.stage && currentChat.stageSuggestion ? { from: currentChat.stage, to: currentChat.stageSuggestion } : undefined} onAcceptStage={acceptStage} onDismissStage={dismissStage} coWriting={!isRoom && Boolean(currentChat?.coWriting)} onSuggestNext={handleSuggestNext} onTranslate={currentChat?.language ? handleTranslate : undefined} onReplyToLetter={(letter) => setDraftInjection({ text: letterReplyDraft(letter), nonce: Date.now() })} arcSuggestion={currentChat?.arcSuggestion} onAcceptArc={acceptArc} onDismissArc={dismissArc} relationshipSuggestion={currentChat?.relationshipSuggestion} onAcceptRelationship={acceptRelationship} onDismissRelationship={dismissRelationship} game={currentChat?.game} gameScore={currentChat?.gameScore} onEndGame={() => chatIdNum && dispatch(updateChatOptions({ chatId: chatIdNum, patch: { game: undefined } }))} storyScript={currentChat?.storyScript} onEditStory={() => setStoryOpen(true)} onMoveBeat={moveStoryBeat} onReply={(m) => setReplyingTo(m)} recap={recap} onToggleBookmark={handleToggleBookmark} onUndoSummary={handleUndoSummary} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} />
+        <ChatWindow awayNote={awayNote} onFork={handleFork} stageSuggestion={currentChat?.stage && currentChat.stageSuggestion ? { from: currentChat.stage, to: currentChat.stageSuggestion } : undefined} onAcceptStage={acceptStage} onDismissStage={dismissStage} coWriting={!isRoom && Boolean(currentChat?.coWriting)} onSuggestNext={handleSuggestNext} onTranslate={currentChat?.language ? handleTranslate : undefined} onReplyToLetter={(letter) => setDraftInjection({ text: letterReplyDraft(letter), nonce: Date.now() })} arcSuggestion={currentChat?.arcSuggestion} onAcceptArc={acceptArc} onDismissArc={dismissArc} relationshipSuggestion={currentChat?.relationshipSuggestion} onAcceptRelationship={acceptRelationship} onDismissRelationship={dismissRelationship} game={currentChat?.game} gameScore={currentChat?.gameScore} onEndGame={() => chatIdNum && dispatch(updateChatOptions({ chatId: chatIdNum, patch: { game: undefined } }))} storyScript={currentChat?.storyScript} onEditStory={() => setStoryOpen(true)} onMoveBeat={moveStoryBeat} onReply={(m) => setReplyingTo(m)} onViewOnce={openViewOnce} recap={recap} onToggleBookmark={handleToggleBookmark} onUndoSummary={handleUndoSummary} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} />
         {inCall && characterData && (
           <CallScreen
             name={characterData.name}

@@ -90,6 +90,17 @@ export const useReplyEffects = ({
     if (!reply?.id || !quoted) return;
     void dispatch(updateChatMessage({ chatId: chatIdNum, messageId: reply.id, patch: { replyTo: { id: quoted.id, text: quoteTextOf(quoted), from: "you" } } }));
   };
+  // View-once photos (#122): with the switch on, about half the photos a
+  // character sends open only once.
+  const markViewOnce = (payload: { images?: string[] } | undefined, allMessages: Message[], speaker: Character | undefined) => {
+    if (!chatIdNum || !speaker?.viewOncePhotos || !payload?.images?.length || Math.random() >= 0.5) return;
+    const reply = [...allMessages].reverse().find((m) => m.role === AI && m.id);
+    if (reply?.id && reply.images?.length) void dispatch(updateChatMessage({ chatId: chatIdNum, messageId: reply.id, patch: { viewOnce: true } }));
+  };
+  // Opened once: the picture leaves the message.
+  const openViewOnce = (msg: Message) => {
+    if (chatIdNum && msg.id && !msg.viewedOnce) void dispatch(updateChatMessage({ chatId: chatIdNum, messageId: msg.id, patch: { viewedOnce: true, images: undefined } }));
+  };
   const advanceStoryIfDone = (payload: { beatDone?: boolean } | undefined, allMessages?: Message[]) => {
     if (payload?.beatDone) moveStoryBeat(1);
     else if (allMessages) void checkBeatReached(allMessages);
@@ -311,6 +322,8 @@ export const useReplyEffects = ({
     moveStoryBeat,
     advanceStoryIfDone,
     applyReplyQuote,
+    markViewOnce,
+    openViewOnce,
     revealedSecretFor,
     noteSecretRevealed,
     replyNotes,
