@@ -6,40 +6,13 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 ---
 
-Every numbered item is built (the last batch, #106–#112 "More lifelike characters", on 2026-10-23). New ideas get the next free numbers.
-
-## Your own WhatsApp (#113–#129, picked 2026-10-24)
-
-The app should feel like the user's own WhatsApp account, with characters living a social life around it. The user asked to leave out calls (no Calls tab, no missed calls, no characters calling).
-
-**Look and shell**
-- **#113 WhatsApp-style theme (M).** A color theme as close to WhatsApp as possible, light and dark: teal/green header, the beige chat wallpaper with a doodle pattern (an original pattern, not WhatsApp's asset), green and white bubbles with tails, blue read ticks, a round composer with a green send button, WhatsApp-like chat list rows. No WhatsApp logo.
-- **#114 Phone-style shell (M).** On phones, bottom tabs for Chats and Updates (statuses, channels), and your profile behind your avatar at the top.
-- **#115 A WhatsApp chat list (M).** Unread counts, pinned, muted and archived chats (an "Archived" row), and the last message's preview with ticks.
-
-**You take part**
-- **#116 Your profile (S).** A photo and an About line on your persona, shown in the shell; characters know your About.
-- **#117 Your own statuses (M).** Post a text or photo status. Characters see it ("Seen by"), like or comment, and some reply in your direct messages.
-- **#118 Photo statuses (M).** A character's status can carry a picture drawn with their locked look (the old follow-up).
-
-**Messages**
-- **#119 Quoted replies (M).** Swipe (or a menu item) to reply to a message with a quote; characters can quote yours too.
-- **#120 Starred messages (S).** Bookmarks shown as stars, with a Starred messages list per chat and across chats.
-- **#121 Message info (S).** When a message was sent, delivered and read.
-- **#122 View-once photos (S).** A character can send a photo that opens once and then shows "Opened".
-- **#123 Forwarded (S).** Characters pass things along (a meme, a quote, a song) marked "Forwarded".
-
-**Their social life**
-- **#124 Group events and polls (M).** "Aria added Ben", "Ben changed the group name"; polls in group chats that members vote in.
-- **#125 Profile changes (S).** Characters change their About line or profile photo now and then; the chat shows it.
-- **#126 Left on read (M).** Depending on mood and schedule, a character reads your message and answers later, sometimes with an excuse.
-- **#127 Channels (M).** Follow-only feeds from a character or a world (a band's news, a town paper about your story); you can react but not reply.
-- **#128 Shared contacts (M).** A character sends you someone's contact card; opening it starts a chat with a character drafted on the spot.
-- **#129 Status mentions (S).** Characters mention you in statuses, and replies to a status show as a quoted card in the chat.
+Every numbered item is built (the last batch, #113–#129 "Your own WhatsApp", on 2026-10-24). New ideas get the next free numbers.
 
 ## Smaller follow-ups
 
 Leftovers noted while building the finished items. Pick them up alongside related work.
+
+- **#113–#129 (2026-10-24):** not tried with real models or a real image provider: whether models use the new tags (`[Re: …]`, `[Fwd: …]`, `[Contact: …]`, `[Group name: …]`, `[Poll: …]`), the status, channel, About and poll-vote helper prompts, and photo statuses and profile photos. Swipe-to-reply has no UI test. Channels, your statuses' private replies and profile changes only happen while the app is open. You can't send view-once photos yourself yet. The phone shell is WhatsApp-theme only.
 
 - **Lorebook:** SillyTavern fields not mapped yet: cooldown, delay, regex keys, case-sensitive matching, insertion position, groups. Sticky only applies to direct keyword hits, not recursive ones.
 - **Photos:** real vision APIs weren't tried (mocked only).

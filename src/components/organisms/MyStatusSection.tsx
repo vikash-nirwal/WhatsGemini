@@ -117,7 +117,7 @@ export const MyStatusSection = () => {
           <Textarea aria-label="Status text" value={text} maxLength={MAX_STATUS} onChange={(e) => setText(e.target.value)} placeholder="What's on your mind?" className="min-h-[96px] resize-none" />
           {photo && (
             <div className="relative w-fit">
-              <img src={photo} alt="Your status photo" className="max-h-48 rounded-lg" />
+              <img src={photo} alt="Your status" className="max-h-48 rounded-lg" />
               <Button type="button" variant="destructive" className="absolute right-1 top-1 h-auto w-auto rounded-full p-1" aria-label="Remove photo" onClick={() => setPhoto(undefined)}>
                 <FaTimes size={10} />
               </Button>
@@ -147,7 +147,7 @@ export const MyStatusSection = () => {
               const comments = happened(s.comments, now);
               return (
                 <li key={s.id} className="flex flex-col gap-2" aria-label={`Status from ${timeOf(s.createdAt)}`}>
-                  {s.image && <img src={s.image} alt="Your status photo" className="max-h-72 w-full rounded-lg object-cover" />}
+                  {s.image && <img src={s.image} alt="Your status" className="max-h-72 w-full rounded-lg object-cover" />}
                   {s.text && (
                     <p className={cn("rounded-lg px-4 py-3 text-[15px]", s.image ? "text-foreground" : "bg-primary text-primary-foreground text-center text-[17px] py-6")}>{s.text}</p>
                   )}

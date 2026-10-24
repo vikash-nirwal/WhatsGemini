@@ -6,8 +6,8 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 ## Where we stand
 
-- **State:** every roadmap item is built. #93–#105 were built on 2026-10-23 and committed after the full suites: type-check clean, 868 unit tests, 887 of 888 UI tests (the one failure, a timing race in `romance-profile.spec.ts`, was fixed and passed 40 of 40 repeats) and 16 screenshot tests. Not pushed.
-- **More lifelike characters (#106–#112, 2026-10-23):** all seven are built, each committed on its own (see "What's built"), with unit tests and `e2e/lifelike.spec.ts`. Suite results are in the session log. Not pushed.
+- **State:** every roadmap item is built. Everything up to #112 and the self-moving story beats is pushed and deployed (2026-10-23 and 2026-10-24); #113–#129 are committed on main, not pushed.
+- **Your own WhatsApp (#113–#129, 2026-10-24):** all seventeen are built, each committed on its own (see "What's built"), plus a texts-first change the user asked for (editor switch, first contact, unanswered limit). Calls were left out at the user's request. Suite results are in the session log. Not pushed.
 - **Next up:** push and deploy when the user says so; then new ideas, or the smaller follow-ups at the end of ROADMAP.md.
 - **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
 - **How the new-ideas run went:** #42, #43, #12+#44 and #45 ran in fresh sessions; from #46 on they were built in the coordinating session, because new sessions can't be started over Remote Control. Each item was committed only after every suite passed.
@@ -16,23 +16,6 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| #113 | WhatsApp-style theme | done | 2026-10-24 |
-| #114 | Phone-style shell | done | 2026-10-24 |
-| #115 | A WhatsApp chat list | done | 2026-10-24 |
-| #116 | Your profile | done | 2026-10-24 |
-| #117 | Your own statuses | done | 2026-10-24 |
-| #118 | Photo statuses | done | 2026-10-24 |
-| #119 | Quoted replies | done | 2026-10-24 |
-| #120 | Starred messages | done | 2026-10-24 |
-| #121 | Message info | done | 2026-10-24 |
-| #122 | View-once photos | done | 2026-10-24 |
-| #123 | Forwarded | done | 2026-10-24 |
-| #124 | Group events and polls | done | 2026-10-24 |
-| #125 | Profile changes | done | 2026-10-24 |
-| #126 | Left on read | done | 2026-10-24 |
-| #127 | Channels | done | 2026-10-24 |
-| #128 | Shared contacts | done | 2026-10-24 |
-| #129 | Status mentions | done | 2026-10-24 |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
 
@@ -198,6 +181,7 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
+- 2026-10-24 (later): Built "Your own WhatsApp" (#113–#129, the user's picks minus calls), each committed on its own, plus a texts-first change the user asked for mid-run (editor switch, a character can open a chat, 1-5 unanswered texts). Fixed along the way: the birthday message could burn its once-a-day flag before the chat's members loaded; the phone action sheet now scrolls. UI tests now look for message text in the message list (`chatMessages`), since chat rows preview it. Final suites: type-check clean, 999 unit tests, 1040 UI tests (220 skipped; the two letter failures were a test selector, fixed and passing), 18 screenshot tests. Lint: 6 errors in older test files (unnecessary `act`), not from this run. Not pushed.
 - 2026-10-24: Story script beats now move on by themselves: a reply without the `[Beat done]` tag gets a helper check on the background model. The beat strip became a thin segmented bar that opens into every beat with Previous, Done and Edit. Suites: type-check clean, 959 unit tests, 928 UI tests (176 skipped). Pushed (ed52f55) and deployed (gh-pages b44c98c); the live site serves the new bundle.
 - 2026-10-23 (evening): Pushed main and deployed (gh-pages), twice: #106–#112 (1c3c6a7) and the panel groups (ba80aab). CI: the unit job passed on both runs; the three UI shards were still running an hour in on the first (runs 39981600210 and 39983138800), as with the hang noted on 2026-10-23 morning. Organised the Scene panel: the Chat tab's 25 settings and the Scene tab's 9 blocks sit under titled, foldable groups (see "What's built"). Checked with the 21 specs that open the panel (46 passed; `relationship-stages.spec.ts` is the known flake) and screenshots of both tabs.
 - 2026-10-23 (later): Built #109–#112 the same way, one commit each: memory with time, their own preoccupations, how they write, real-world grounding. The roadmap's note that example dialogue needed an editor field was wrong (the Example Dialogues step already has it); fixed in ROADMAP.md. Each item was committed after type-check, its unit tests and `e2e/lifelike.spec.ts` passed; the full suites ran on #109 (945 unit, 910 UI, 16 screenshots; two iPhone tests failed under load and passed on a re-run) and on the final commit 72f851f (956 unit, 924 UI with 176 skipped, 15 of 16 screenshots, the terminal-theme flake again). Not pushed.

@@ -23,7 +23,8 @@ test("a letter arrives after an absence, and can be replied to", async ({ page, 
   await expect(envelope).toBeVisible({ timeout: 15_000 });
   await envelope.click();
   await expect(page.getByText("I kept your window seat free all week.")).toBeVisible();
-  await page.getByRole("button", { name: "Reply", exact: true }).click();
+  // The letter's own Reply (the messages have icon-only Reply buttons too, #119).
+  await page.getByRole("button", { name: "Reply", exact: true }).filter({ hasText: "Reply" }).click();
   await expect(page.getByLabel("Message input")).toHaveValue('(Replying to your letter: "Dear friend,") ');
 
   await sendMessage(page, "Sorry I've been away, I missed you too.");
