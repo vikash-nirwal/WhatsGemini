@@ -19,9 +19,9 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #130 | While you were away | todo |  |
 | #131 | Life dial and activity log | todo |  |
 | #132 | Real-model tuning pass | blocked | needs the user's API key |
-| #133 | Blocked | todo |  |
+| #133 | Blocking, both ways | todo | they block you, or you block them and they ask a common contact to talk you round |
 | #134 | Event invites | todo |  |
-| #135 | Location sharing | todo |  |
+| #135 | Location sharing | skipped | dropped by the user (2026-10-25) |
 | #136 | Disappearing messages | todo |  |
 | #137 | Character stickers | todo |  |
 | #138 | Relationship map | todo |  |
