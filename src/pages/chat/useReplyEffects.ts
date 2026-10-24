@@ -86,14 +86,16 @@ export const useReplyEffects = ({
   // Quoted replies (#119): a reply that quoted one of your messages keeps
   // the quote, once the message it points at is found.
   // Forwarded (#123): something they passed along is kept the same way.
-  const applyReplyQuote = (payload: { replyQuote?: string; forward?: string } | undefined, allMessages: Message[]) => {
-    if (!chatIdNum || (!payload?.replyQuote && !payload?.forward)) return;
+  // A shared contact card (#128) is kept on the reply too.
+  const applyReplyQuote = (payload: { replyQuote?: string; forward?: string; contact?: { name: string; about: string } } | undefined, allMessages: Message[]) => {
+    if (!chatIdNum || (!payload?.replyQuote && !payload?.forward && !payload?.contact)) return;
     const reply = [...allMessages].reverse().find((m) => m.role === AI && m.id);
     if (!reply?.id) return;
     const quoted = payload.replyQuote ? findQuotedMessage(allMessages, payload.replyQuote) : undefined;
     const patch: Partial<Message> = {
       ...(quoted ? { replyTo: { id: quoted.id, text: quoteTextOf(quoted), from: "you" as const } } : {}),
       ...(payload.forward ? { forward: { text: payload.forward } } : {}),
+      ...(payload.contact ? { contactCard: payload.contact } : {}),
     };
     if (Object.keys(patch).length > 0) void dispatch(updateChatMessage({ chatId: chatIdNum, messageId: reply.id, patch }));
   };

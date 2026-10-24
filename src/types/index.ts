@@ -68,6 +68,8 @@ export interface Message {
   forward?: { text: string };
   // A poll in a group chat (#124), from you or a member.
   poll?: Poll;
+  // A shared contact (#128): who it is, and the character made from it.
+  contactCard?: { name: string; about: string; characterId?: number };
   reaction?: string; // the user's emoji reaction to this message (#11)
   // The character's emoji reaction to this (user) message (#11), and who
   // reacted in a room.

@@ -67,6 +67,7 @@ interface ChatMessageProps {
   onForward?: (msg: Message) => void; // pass it on to another chat (#123)
   onVote?: (msg: Message, option: number) => void; // your vote in a poll (#124)
   voterName?: (voter: "you" | number) => string; // names on a poll's votes (#124)
+  onOpenContact?: (msg: Message) => void; // message a shared contact (#128)
   reactorName?: string; // who left msg.characterReaction, for its label
   // Texting mode (#6): show a reply as several bubbles. visibleParts limits
   // how many are shown while a new reply is being revealed; receipt is the
@@ -161,6 +162,7 @@ const ChatMessage = React.memo(({
   onForward,
   onVote,
   voterName,
+  onOpenContact,
   reactorName,
   texting = false,
   visibleParts,
@@ -728,6 +730,23 @@ const ChatMessage = React.memo(({
             {voiceNote || <MarkdownRenderer msgText={textParts ? textParts[textParts.length - 1].text : stripImageContextTag(msg.txt || "")} isUser={isUser} />}
             {refusalNotice}
           </div>
+          {/* A shared contact (#128): a card with "Message". */}
+          {msg.contactCard && (
+            <div data-slot="contact-card" className="mt-2 rounded-lg border border-border/60 bg-foreground/[0.04] font-sans">
+              <div className="flex items-center gap-3 px-3 py-2.5">
+                <CharacterAvatar name={msg.contactCard.name} size={38} />
+                <div className="min-w-0">
+                  <div className="truncate text-[14px] font-semibold text-foreground">{msg.contactCard.name}</div>
+                  {msg.contactCard.about && <div className="line-clamp-2 text-[12px] text-muted-foreground">{msg.contactCard.about}</div>}
+                </div>
+              </div>
+              {onOpenContact && (
+                <button type="button" onClick={() => onOpenContact(msg)} className="w-full border-t border-border/60 py-2 text-[13.5px] font-medium text-primary hover:bg-primary/5" aria-label={`Message ${msg.contactCard.name}`}>
+                  Message
+                </button>
+              )}
+            </div>
+          )}
           {thoughtsBlock}
           {languageBlock}
           {secretNote}

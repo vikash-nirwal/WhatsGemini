@@ -15,6 +15,7 @@ import { buildRecapPrompt, cleanRecap, latestStorySummary, recentForRecap } from
 import { extractBeatTag } from "./chat/storyScript";
 import { extractForward, extractReplyQuote } from "./chat/replyQuotes";
 import { extractGroupName, extractPoll } from "./chat/groupLife";
+import { extractContact } from "./chat/sharedContacts";
 import { extractGameOverTag, GameOutcome } from "./chat/miniGames";
 import { extractStateBlock } from "./chat/sceneState";
 import { buildBackdropPrompt } from "./chat/backdrop";
@@ -62,6 +63,7 @@ export interface GenerateAIResponseResult {
   forward?: string; // something they forwarded, [Fwd: ...] (#123)
   groupName?: string; // a member renamed the group (#124)
   poll?: { question: string; options: string[] }; // a member started a poll (#124)
+  contact?: { name: string; about: string }; // a shared contact card (#128)
   gameOver?: GameOutcome; // the mini-game ended, and who won (#52)
   sceneState?: Partial<SceneState>; // the scene's state as the reply left it (#9)
   photoDescription?: string; // what a helper model saw in the user's photo (#48)
@@ -346,7 +348,10 @@ export const generateAIResponse = createAsyncThunk(
       // Group chats (#124): a new group name at the end, or a poll.
       const renamed = extractGroupName(forwarded.text);
       const polled = extractPoll(renamed.text);
-      const responseWithoutTags = polled.text;
+      // Shared contacts (#128): a [Contact: ...] card at the end.
+      const carded = extractContact(polled.text);
+      const responseWithoutTags = carded.text;
+      const contact = carded.contact;
       const groupName = renamed.groupName;
       const poll = polled.poll;
       const gameOver = gameTag.gameOver;
@@ -373,6 +378,7 @@ export const generateAIResponse = createAsyncThunk(
         forward,
         groupName,
         poll,
+        contact,
         gameOver,
         sceneState,
         // Only a plain text reply can be an out-of-character refusal; image/

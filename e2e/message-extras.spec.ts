@@ -120,3 +120,34 @@ test.describe("forwarding", () => {
     await expect(page.locator('[data-slot="forwarded"]').filter({ hasText: "Aria message 3: how was your day?" })).toBeVisible();
   });
 });
+
+// Shared contacts (#128): a character's [Contact: ...] card, and "Message"
+// drafting that person and opening a chat with them.
+test("a shared contact becomes a new character you can message", async ({ page, mockAI }) => {
+  const draft = { name: "Lena", description: "Aria's older sister, a night-shift nurse.", personalityTraits: ["warm", "blunt"], prompt: "You are Lena, Aria's sister, a nurse.", scenario: "", first_mes: "Hey, Aria said you'd text.", alternateGreetings: [], mes_example: "", relationship: "Aria's sister", appearance: "Short dark hair.", visualTags: "" };
+  mockAI.reply((req) => (req.prompt.includes("Lena, my sister, a nurse") ? JSON.stringify(draft) : "You two would get along.\n[Contact: Lena — my sister, a nurse]"));
+  await openChat(page);
+  await sendMessage(page, "Know anyone who works nights?");
+  await waitForReplyDone(page);
+  const reply = messageBubble(page, "You two would get along.");
+  await expect(reply).not.toContainText("[Contact");
+  await expect(reply.locator('[data-slot="contact-card"]')).toContainText("my sister, a nurse");
+  await reply.getByRole("button", { name: "Message Lena" }).click();
+  await expect(page).toHaveURL(/#\/chat\/2$/, { timeout: 15_000 });
+  await expect(page.locator("header").first()).toContainText("Lena");
+  const lena = await page.evaluate(async () => {
+    const db: IDBDatabase = await new Promise((resolve, reject) => {
+      const req = indexedDB.open("ChatAppDB");
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    const rows: any[] = await new Promise((resolve) => {
+      const get = db.transaction("characters").objectStore("characters").getAll();
+      get.onsuccess = () => resolve(get.result);
+    });
+    db.close();
+    return rows.map((c) => ({ id: c.id, name: c.name, knowsAbout: c.knowsAbout }));
+  });
+  expect(lena.find((c) => c.name === "Lena")?.knowsAbout).toEqual([1]);
+  expect(lena.find((c) => c.name === "Aria")?.knowsAbout).toContain(lena.find((c) => c.name === "Lena")?.id);
+});
