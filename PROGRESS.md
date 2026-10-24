@@ -17,7 +17,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | # | Item | Status | Notes |
 |---|------|--------|-------|
 | #113 | WhatsApp-style theme | done | 2026-10-24 |
-| #114 | Phone-style shell | todo | |
+| #114 | Phone-style shell | done | 2026-10-24 |
 | #115 | A WhatsApp chat list | done | 2026-10-24 |
 | #116 | Your profile | todo | |
 | #117 | Your own statuses | todo | |
@@ -47,6 +47,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **Phone-style shell (#114):** only with the WhatsApp theme below 1024px (`usePhoneShell`, `TAB_BAR_PATHS` in `src/hooks/usePhoneShell.ts`). On "/" the Sidebar renders as the home screen (`home` in Sidebar: full width above the tab bar, title row with import and your avatar, All/Unread/Groups chips, a new-chat button in the corner, no status strip). `PhoneTabBar.tsx` (Chats with unread count, Updates with a dot, Characters, Settings) shows on "/", "/updates" and "/characters". A chat's header has "Back to chats" instead of the drawer button. `/updates` (`UpdatesPage.tsx`, every theme) lists statuses (recent and viewed) and opens the feed; `useStatusReply` is shared with the sidebar. Test: `e2e/phone-shell.spec.ts`.
 - **A WhatsApp chat list (#115):** `Chat.readAt`, `muted`, `archived` (via `updateChatOptions`). `src/features/chat/chatList.ts`: `unreadCount` (AI messages after `readAt`; with no `readAt`, only trailing texted-first ones), `lastPreview`, `splitArchived`. ChatPage marks a visible chat read when a newer reply is on screen. Sidebar rows show the preview (ticks on yours, speaker in groups), unread badge, muted and pinned icons, and one row menu (Pin, Mute, Archive, Delete) replacing the old pin and trash buttons; archived chats sit behind an "Archived" row. Muted chats never notify (`ChatNotificationInput.muted`) or toast. UI tests now look for message text in `chatMessages(page)` (fixtures), since previews repeat it in the list.
 - **WhatsApp-style theme (#113):** `whatsapp` in `COLOR_THEMES`; all CSS in `tokens.css` ("WhatsApp-style theme" block, `--wa-*` tokens, the doodle wallpaper is an inline SVG tile in `--wa-wallpaper`). Hooks it uses: ChatWindow `chat-pane` (+`data-room`), `chat-backdrop`/`chat-backdrop-fade` with `data-kind`; ChatMessage `bubble-meta`, `ticks`, `message-avatar`, `bubble-actions(-menu)`, `room-event`; MessageInput `send-button`. Under this theme every bubble shows its time (`whatsapp` in ChatMessage) and your messages get ticks without texting mode (ChatWindow). In the a11y and screenshot theme lists.
 - **Scene panel groups (2026-10-23):** the Chat and Scene tabs are folded into titled groups (`scene-panel/PanelGroup.tsx`, a `<details>` open by default, folds remembered in localStorage `scene_panel_groups`). Chat: Messaging & display, Group chat (rooms), Alive between messages, Inner life, Relationship, Drama, This story. Scene: The scene now, Story script, Setting, Boundaries. The old `BetweenMessagesSection` is split into `AliveSection`, `TextingSlipsRow`, `MisremembersRow`, `MoodCarryRows` and `DramaSection`. Nothing moved between tabs, so the UI specs that open the Chat tab still find their switches; groups start open, so tests need no `openDetails`.

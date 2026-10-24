@@ -22,8 +22,11 @@ import { useColorTheme } from "../../hooks/useColorTheme";
 import { stripLeakedBase64 } from "../../features/ai/utils/apiUtils";
 import { isNsfwCharacter } from "../../features/character/contentRating";
 import { StatusStrip } from "./StatusStrip";
-import { hasUnseenStatus, statusReplyDraft } from "../../features/character/statusUpdates";
+import { hasUnseenStatus } from "../../features/character/statusUpdates";
+import { useStatusReply } from "../../hooks/useStatusReply";
 import { lastPreview, splitArchived, unreadCount } from "../../features/chat/chatList";
+import { TAB_BAR_HEIGHT, usePhoneShell } from "../../hooks/usePhoneShell";
+import { MdOutlineAddComment } from "react-icons/md";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "src/components/molecules/dropdown-menu";
 
 const formatChatTime = (timestamp?: number) => {
@@ -87,6 +90,11 @@ const Sidebar = () => {
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
   const terminal = is("terminal");
+  // The phone-style shell (#114): on "/" the chat list is the home screen,
+  // full width above the tab bar, with WhatsApp's title row and a new-chat
+  // button in the corner; statuses move to the Updates tab.
+  const shell = usePhoneShell();
+  const home = shell && location.pathname === "/";
 
   const activeChatId = useMemo(() => {
     const match = location.pathname.match(/^\/chat\/(\d+)/);
@@ -152,15 +160,7 @@ const Sidebar = () => {
     () => (showNsfwCharacters ? characters : characters.filter((c: Character) => !isNsfwCharacter(c))),
     [characters, showNsfwCharacters]
   );
-  const handleStatusReply = useCallback(async (character: Character, status: { text: string; id: string; createdAt: number }) => {
-    const draft = statusReplyDraft(status);
-    const existingChat = chats.find((chat: Chat) => chat.characterIds?.length === 1 && chat.characterIds[0] === character.id);
-    const id = existingChat?.id ?? ((await dispatch(addChat({ title: character.name, characterIds: [character.id] }))).payload as Chat | undefined)?.id;
-    if (id != null) {
-      navigate(`/chat/${id}`, { state: { draft } });
-      close();
-    }
-  }, [chats, dispatch, navigate, close]);
+  const handleStatusReply = useStatusReply(close);
 
   const handleTogglePin = useCallback((chatId: number, pinned: boolean) => {
     dispatch(updateChatPinned({ chatId, pinned: !pinned }));
@@ -263,7 +263,12 @@ const Sidebar = () => {
 
   const { shown: listedItems, archived: archivedItems } = useMemo(() => splitArchived(filteredChats, Boolean(search.trim())), [filteredChats, search]);
   const viewingArchived = showArchived && archivedItems.length > 0 && !search.trim();
-  const visibleItems = viewingArchived ? archivedItems : listedItems;
+  // WhatsApp's filter chips on the home screen (#114): all, unread, groups.
+  const [listFilter, setListFilter] = useState<"all" | "unread" | "groups">("all");
+  const filterOn = home && !viewingArchived ? listFilter : "all";
+  const visibleItems = (viewingArchived ? archivedItems : listedItems).filter((i) =>
+    filterOn === "unread" ? unreadCount(i.chat) > 0 : filterOn === "groups" ? (i.chat.characterIds?.length || 0) > 1 : true
+  );
   const pinnedItems = useMemo(() => visibleItems.filter((i) => i.chat.pinned), [visibleItems]);
   const unpinnedItems = useMemo(() => visibleItems.filter((i) => !i.chat.pinned), [visibleItems]);
   const archivedUnread = archivedItems.filter((i) => unreadCount(i.chat) > 0).length;
@@ -295,12 +300,26 @@ const Sidebar = () => {
           // shows the full 300px drawer when opened regardless of this flag,
           // so every `collapsed` class below is paired with `lg:`.
           collapsed && "lg:w-[76px]",
-          isOpen ? "translate-x-0" : "-translate-x-full"
+          isOpen ? "translate-x-0" : "-translate-x-full",
+          home && "!fixed !inset-x-0 !top-0 !w-full !h-auto !translate-x-0 z-30 border-r-0"
         )}
+        style={home ? { bottom: TAB_BAR_HEIGHT } : undefined}
         aria-label="Sidebar"
+        data-home={home ? "true" : undefined}
       >
+        {home && (
+          <div className="h-[60px] px-4 flex items-center gap-2 flex-shrink-0" data-slot="home-title">
+            <h1 className="flex-1 text-[22px] font-bold tracking-tight text-primary">WhatsGemini</h1>
+            <Button onClick={handleImportClick} variant="ghost" size="icon" title="Import chat" aria-label="Import chat" className="h-10 w-10 rounded-full text-muted-foreground">
+              <FaFileImport size={16} />
+            </Button>
+            <Link to="/settings/profile" aria-label="Your profile" title="Your profile" className="rounded-full">
+              <CharacterAvatar name={personaName || "You"} imageSrc={activePersona?.avatar} size={32} />
+            </Link>
+          </div>
+        )}
         {/* Logo header - h-[60px] to match Header.tsx so the border-b seam lines up */}
-        <div className={cn("h-[60px] px-4 flex items-center gap-3 border-b border-border/40 flex-shrink-0", collapsed && "lg:px-2.5")}>
+        <div className={cn("h-[60px] px-4 flex items-center gap-3 border-b border-border/40 flex-shrink-0", collapsed && "lg:px-2.5", home && "hidden")}>
           <Logo size={34} className="shadow-[0_6px_18px_rgb(var(--primary)/0.35)] rounded-full flex-shrink-0" />
           {terminal ? (
             <div className={cn("leading-tight flex-1 min-w-0", collapsed && "lg:hidden")}>
@@ -332,7 +351,7 @@ const Sidebar = () => {
         </div>
 
         {/* New chat / Import */}
-        <div className={cn("px-4 pt-4 pb-2.5 flex gap-2 flex-shrink-0", collapsed && "lg:px-2.5 lg:justify-center")}>
+        <div className={cn("px-4 pt-4 pb-2.5 flex gap-2 flex-shrink-0", collapsed && "lg:px-2.5 lg:justify-center", home && "hidden")}>
           {terminal ? (
             <Button
               onClick={() => setIsNewChatModalOpen(true)}
@@ -410,11 +429,27 @@ const Sidebar = () => {
           )}
         </div>
 
+        {home && !search.trim() && !viewingArchived && (
+          <div role="group" aria-label="Filter chats" className="px-4 pb-2.5 flex gap-2 flex-shrink-0">
+            {(["all", "unread", "groups"] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                aria-pressed={listFilter === f}
+                onClick={() => setListFilter(f)}
+                className={cn("px-3.5 py-1.5 rounded-full text-[13.5px] font-medium transition-colors", listFilter === f ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground hover:text-foreground")}
+              >
+                {f === "all" ? "All" : f === "unread" ? "Unread" : "Groups"}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Chat list */}
         <div className={cn("flex-1 overflow-y-auto px-2 pb-2.5", collapsed && "lg:px-1.5")}>
           {/* Collapsing only applies from lg up, so below that the full row
               shows even when the sidebar is set to collapsed. */}
-          {!terminal && !search.trim() && (
+          {!terminal && !search.trim() && !home && (
             <div className={cn(collapsed && "lg:hidden")}>
               <StatusStrip characters={statusCharacters} onReply={handleStatusReply} />
             </div>
@@ -445,7 +480,7 @@ const Sidebar = () => {
             <>
               {pinnedItems.length > 0 && (
                 <>
-                  <div className={cn("text-[10.5px] font-semibold tracking-[0.09em] uppercase text-subtle px-3 pt-2 pb-1.5", collapsed && "lg:hidden")}>
+                  <div className={cn("text-[10.5px] font-semibold tracking-[0.09em] uppercase text-subtle px-3 pt-2 pb-1.5", collapsed && "lg:hidden", home && "sr-only")}>
                     {terminal ? <span className="normal-case tracking-normal font-normal text-[10px] text-muted-foreground"># pinned</span> : "Pinned"}
                   </div>
                   <ChatList items={pinnedItems} characters={characters} onDeleteChat={handleDeleteChat} onTogglePin={handleTogglePin} onToggleMute={handleToggleMute} onToggleArchive={handleToggleArchive} onNavigate={close} query={search.trim()} activeChatId={activeChatId} pendingFollowups={pendingFollowups} collapsed={collapsed} />
@@ -453,7 +488,7 @@ const Sidebar = () => {
               )}
               {unpinnedItems.length > 0 && (
                 <>
-                  <div className={cn("text-[10.5px] font-semibold tracking-[0.09em] uppercase text-subtle px-3 pt-2 pb-1.5", collapsed && "lg:hidden")}>
+                  <div className={cn("text-[10.5px] font-semibold tracking-[0.09em] uppercase text-subtle px-3 pt-2 pb-1.5", collapsed && "lg:hidden", home && "sr-only")}>
                     {terminal ? (
                       <span className="normal-case tracking-normal font-normal text-[10px] text-muted-foreground"># ls ~/chats -lt</span>
                     ) : pinnedItems.length > 0 ? "Other chats" : "Recent"}
@@ -465,8 +500,19 @@ const Sidebar = () => {
           )}
         </div>
 
-        {/* Your persona - links into Settings' User Profile section */}
-        {terminal ? (
+        {/* Your persona - links into Settings' User Profile section; the
+            home screen has the avatar in its title row instead. */}
+        {home ? (
+          <Button
+            onClick={() => setIsNewChatModalOpen(true)}
+            title="New chat"
+            aria-label="New chat"
+            data-slot="new-chat-fab"
+            className="absolute right-4 bottom-4 h-14 w-14 rounded-2xl p-0 shadow-[0_4px_14px_rgb(0_0_0/0.25)]"
+          >
+            <MdOutlineAddComment size={24} />
+          </Button>
+        ) : terminal ? (
           <Link
             to="/settings/profile"
             onClick={close}

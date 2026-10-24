@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openChat, messageBubble, headerAction, sendMessage, waitForReplyDone, ARIA } from "./fixtures";
+import { test, expect, openChat, messageBubble, headerAction, sendMessage, waitForReplyDone, ARIA, openRoute } from "./fixtures";
 
 // Gifts (#82): give the character something; they react and remember it,
 // and on a special date they may give you something back.
@@ -68,13 +68,17 @@ test("a gift in your own words", async ({ page, mockAI }) => {
 
 test("on a special date, Aria gives you something back", async ({ page, mockAI }) => {
   mockAI.reply((req) => (req.prompt.includes("wants to give") ? "A star map of the night we met" : "Happy birthday! I made you something."));
-  await openChat(page);
+  // Set before the chat opens: an open chat re-reads its character and
+  // would celebrate before the reload below.
+  await openRoute(page, "/characters");
+  await expect(page.getByText("Aria").first()).toBeVisible({ timeout: 30_000 });
   const today = new Date();
   await patchAria(page, {
     importantDates: [{ id: "d1", label: "Your birthday", month: today.getMonth() + 1, day: today.getDate(), messageOnDay: true }],
     gifts: [{ id: "g1", what: "Flowers", at: Date.now() - 86_400_000, from: "you" }],
   });
   await page.reload();
+  await openChat(page);
 
   await expect(messageBubble(page, "Happy birthday!")).toBeVisible({ timeout: 30_000 });
   const celebration = mockAI.requests.find((r) => systemOf(r.messages).includes("Today is your birthday"))!;

@@ -21,6 +21,7 @@ import { Card } from "src/components/atoms/card";
 import { Input } from "src/components/atoms/input";
 import { TermLink } from "src/components/atoms/TermLink";
 import Header from "src/components/organisms/Header";
+import { TAB_BAR_HEIGHT, usePhoneShell } from "src/hooks/usePhoneShell";
 import { CHARACTER_SWATCHES, SAMPLE_CHARACTER, DIARY_INTERVAL } from "../utils/constants";
 import { characterToCardV2, parseCharacterCardText, buildCharacterCardPng, extractCharacterCardFromPng, ParsedCharacterCard } from "../features/character/characterCard";
 import ImportReviewDialog from "src/components/organisms/ImportReviewDialog";
@@ -30,6 +31,8 @@ import { parseSize, resolveImageSrcToUrl, autoCoverCropToBlob, generatePlacehold
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 const CharacterPage = () => {
+  // The phone-style shell's tab bar (#114) sits over the bottom of the page.
+  const shell = usePhoneShell();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const allCharacters = useAppSelector((state) => state.character.characters);
@@ -273,7 +276,7 @@ const CharacterPage = () => {
         subtitle="Craft a persona to embody, or open one you've already made."
         onBack={goBackOrHome}
       />
-      <div className="flex-1 overflow-auto p-4 md:p-8">
+      <div className="flex-1 overflow-auto p-4 md:p-8" style={shell ? { paddingBottom: TAB_BAR_HEIGHT + 16 } : undefined}>
       <div className="w-full max-w-[1180px] mx-auto">
 
         <div className="flex items-end justify-between gap-4 flex-wrap mb-6">

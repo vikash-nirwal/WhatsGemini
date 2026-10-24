@@ -13,6 +13,7 @@ import { fetchWorlds } from "./features/worldSlice";
 import { fetchAdventures } from "./features/adventureSlice";
 import { LS_FONT_SIZE, LS_FIRST_USED_AT, SAMPLE_CHARACTER } from "./utils/constants";
 
+import PhoneTabBar from "./components/organisms/PhoneTabBar";
 import Sidebar from "src/components/organisms/Sidebar";
 import Header from "src/components/organisms/Header";
 import ServiceWorkerUpdater from "src/components/molecules/ServiceWorkerUpdater";
@@ -39,6 +40,7 @@ import { useNotificationClicks } from "./features/notifications/useNotifications
 const ChatPage = lazy(() => import("./pages/ChatPage"));
 const Login = lazy(() => import("./pages/Login"));
 const CharacterPage = lazy(() => import("./pages/CharacterPage"));
+const UpdatesPage = lazy(() => import("./pages/UpdatesPage"));
 const CharacterEditorPage = lazy(() => import("./pages/CharacterEditorPage"));
 const CharacterGalleryPage = lazy(() => import("./pages/CharacterGalleryPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
@@ -237,12 +239,14 @@ const AppContent = () => {
                 <Route path="/adventures/:adventureId" element={<AdventurePage />} />
                 <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
                 <Route path="/settings/:section" element={<SettingsPage />} />
+                <Route path="/updates" element={<UpdatesPage />} />
                 <Route path="/" element={<EmptyChatState />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
           </main>
         </div>
+        <PhoneTabBar />
       </div>
     </div>
   );

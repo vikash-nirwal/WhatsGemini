@@ -11,6 +11,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { Button } from "src/components/atoms/button";
 import KeyboardShortcutsModal from "src/components/molecules/KeyboardShortcutsModal";
 import { TermLink } from "src/components/atoms/TermLink";
+import { TAB_BAR_PATHS, usePhoneShell } from "src/hooks/usePhoneShell";
 
 // A single header icon action, described once and rendered two ways: as a
 // tooltipped icon button (desktop, `primary` actions only) and as a labeled
@@ -72,6 +73,9 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, online = true, avatar,
   const isCharacters = location.pathname.startsWith("/characters");
   const isAdventures = location.pathname.startsWith("/adventures") || location.pathname.startsWith("/worlds");
   const isSettings = location.pathname.startsWith("/settings");
+  // The phone-style shell (#114): a chat goes back to the chat list, and
+  // the tab screens have the tab bar instead of the drawer.
+  const shell = usePhoneShell();
   const [showShortcuts, setShowShortcuts] = useState(false);
 
   // Global "?" shortcut to open the help overlay - guarded so it doesn't
@@ -191,9 +195,15 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, online = true, avatar,
 
   return (
     <header className="h-[60px] flex-shrink-0 border-b border-border/40 bg-card flex items-center gap-2.5 px-3 md:px-4 z-20">
-      <Button onClick={open} variant="outline" size="icon" title="Menu" aria-label="Open menu" className={cn(iconBtnClass, "lg:hidden")}>
-        <FaBars size={16} />
-      </Button>
+      {shell && avatar ? (
+        <Button onClick={() => navigate("/")} variant="outline" size="icon" title="Chats" aria-label="Back to chats" className={cn(iconBtnClass, "lg:hidden")} data-slot="back-to-chats">
+          <FaArrowLeft size={15} />
+        </Button>
+      ) : shell && TAB_BAR_PATHS.includes(location.pathname) ? null : (
+        <Button onClick={open} variant="outline" size="icon" title="Menu" aria-label="Open menu" className={cn(iconBtnClass, "lg:hidden")}>
+          <FaBars size={16} />
+        </Button>
+      )}
 
       {onBack && (
         <Button
