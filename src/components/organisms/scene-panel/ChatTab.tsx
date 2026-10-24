@@ -260,6 +260,20 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
             />
           </div>
         )}
+        {/* Photo statuses (#118) */}
+        {!isRoom && character?.postsStatuses && (
+          <div className="flex items-center justify-between gap-3 pl-3">
+            <div className="min-w-0">
+              <div className="text-[12.5px] font-medium text-foreground">With photos</div>
+              <div className="text-[11px] text-subtle">Every other status comes with a picture, drawn on your image provider with {character.name}'s look.</div>
+            </div>
+            <ToggleSwitch
+              checked={Boolean(character.statusPhotos)}
+              onChange={(val) => dispatch(updateCharacter({ ...character, statusPhotos: val || undefined }))}
+              label={<span className="sr-only">{character.name}'s statuses come with photos</span>}
+            />
+          </div>
+        )}
 
           {/* Letters (#61) - per character */}
         {!isRoom && character && (

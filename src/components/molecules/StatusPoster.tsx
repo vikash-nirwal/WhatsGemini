@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
-import { generateAssistText } from "src/features/aiSlice";
+import { generateAdventureSceneImage, generateAssistText } from "src/features/aiSlice";
 import { updateCharacter } from "src/features/characterSlice";
-import { addStatus, buildStatusPrompt, cleanStatus, liveStatuses, statusDue } from "src/features/character/statusUpdates";
+import { addStatus, buildStatusPrompt, cleanStatus, liveStatuses, photoStatusDue, statusDue, statusPhotoScene } from "src/features/character/statusUpdates";
 import { buildFeedReactionsPrompt, feedPeersFor, parseFeedReactions, updateStatus } from "src/features/character/statusFeed";
 import { CharacterStatus } from "src/types";
 import { currentBlock } from "src/features/character/schedule";
@@ -40,7 +40,18 @@ const StatusPoster = () => {
         const text = cleanStatus(await dispatch(generateAssistText({ instruction: prompt, background: true })).unwrap());
         if (text) {
           const latest = charactersRef.current.find((c) => c.id === due.id) || due;
-          const status: CharacterStatus = { id: `st-${now.toString(36)}`, text, createdAt: now };
+          // A photo status (#118): drawn before posting, so it appears with
+          // the text; a failed picture still posts the text.
+          let image: string | undefined;
+          if (photoStatusDue(latest)) {
+            try {
+              const drawn = await dispatch(generateAdventureSceneImage({ narration: statusPhotoScene(latest.name, text), cast: [latest], artStyle: latest.artStyle })).unwrap();
+              image = drawn.images?.[0];
+            } catch (err) {
+              console.warn("Status photo failed (non-fatal):", err);
+            }
+          }
+          const status: CharacterStatus = { id: `st-${now.toString(36)}`, text, createdAt: now, ...(image ? { image } : {}) };
           await dispatch(updateCharacter({ ...latest, statuses: addStatus(latest.statuses, status) }));
           // The feed (#85): the others who know them like it and comment.
           const peers = feedPeersFor(latest, charactersRef.current, chatsRef.current);

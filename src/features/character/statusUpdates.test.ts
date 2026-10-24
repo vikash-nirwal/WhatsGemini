@@ -1,4 +1,4 @@
-import { addStatus, buildStatusPrompt, cleanStatus, hasUnseenStatus, liveStatuses, markSeen, statusDue, statusReplyDraft, STATUS_GAP_MS, STATUS_LIFETIME_MS } from "./statusUpdates";
+import { addStatus, buildStatusPrompt, cleanStatus, hasUnseenStatus, liveStatuses, markSeen, statusDue, statusReplyDraft, STATUS_GAP_MS, STATUS_LIFETIME_MS, photoStatusDue, statusPhotoScene } from "./statusUpdates";
 
 const NOW = Date.UTC(2026, 9, 21, 12);
 const status = (hoursAgo: number, seen = false) => ({ id: `s${hoursAgo}`, text: `status ${hoursAgo}`, createdAt: NOW - hoursAgo * 3_600_000, seen });
@@ -39,5 +39,18 @@ describe("prompt, reply and drafts", () => {
     const many = Array.from({ length: 12 }, (_, i) => status(i));
     expect(addStatus(many, status(0.5))).toHaveLength(10);
     expect(statusReplyDraft({ id: "x", text: "Pottery day!", createdAt: NOW })).toBe('(Replying to your status: "Pottery day!") ');
+  });
+});
+
+describe("photo statuses (#118)", () => {
+  it("come every other status, with the switch on", () => {
+    expect(photoStatusDue({ statusPhotos: true, statuses: [] })).toBe(true);
+    expect(photoStatusDue({ statusPhotos: true, statuses: [{ id: "a", text: "x", createdAt: 1, image: "data:x" }] })).toBe(false);
+    expect(photoStatusDue({ statusPhotos: true, statuses: [{ id: "a", text: "x", createdAt: 1 }] })).toBe(true);
+    expect(photoStatusDue({ statuses: [] })).toBe(false);
+  });
+
+  it("describe a phone photo that fits the status", () => {
+    expect(statusPhotoScene("Aria", "Rainy cafe shift")).toContain('Aria posts a photo with their status: "Rainy cafe shift"');
   });
 });

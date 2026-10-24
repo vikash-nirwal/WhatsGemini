@@ -663,6 +663,7 @@ export interface Character {
   importantDates?: ImportantDate[]; // #47
   schedule?: CharacterSchedule; // #7
   postsStatuses?: boolean; // #8: posts a status now and then
+  statusPhotos?: boolean; // #118: every other status comes with a photo
   statuses?: CharacterStatus[];
   wardrobe?: Outfit[]; // #50
   currentOutfitId?: string; // the outfit being worn now (#50); none = the locked look's own

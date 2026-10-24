@@ -40,5 +40,17 @@ export const addStatus = (statuses: CharacterStatus[] | undefined, status: Chara
 
 export const markSeen = (statuses: CharacterStatus[] | undefined): CharacterStatus[] | undefined => statuses?.map((s) => (s.seen ? s : { ...s, seen: true }));
 
+// Photo statuses (#118): with the switch on, every other status comes with
+// a picture, drawn on the image provider with the character's locked look.
+export const photoStatusDue = (character: Pick<Character, "statusPhotos" | "statuses">): boolean => {
+  if (!character.statusPhotos) return false;
+  const last = (character.statuses || [])[(character.statuses || []).length - 1];
+  return !last?.image;
+};
+
+// What the picture shows, worded as a scene for the illustrator.
+export const statusPhotoScene = (name: string, text: string): string =>
+  `${name} posts a photo with their status: "${text}". It's a casual phone photo they took themselves: a selfie of ${name}, or what they're looking at right now, whichever fits the status.`;
+
 // The draft a status reply starts from in the chat.
 export const statusReplyDraft = (status: CharacterStatus): string => `(Replying to your status: "${status.text}") `;

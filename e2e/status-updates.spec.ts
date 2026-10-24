@@ -26,6 +26,19 @@ const patchAria = (page: Page, fields: Record<string, unknown>) =>
     { id: ARIA.id, fields }
   );
 
+// Photo statuses (#118): a status with a picture shows it in the viewer.
+test("a status with a photo shows the picture", async ({ page }) => {
+  await openChat(page);
+  const pixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  await patchAria(page, { statuses: [{ id: "st-photo", text: "Golden hour at the docks", image: pixel, createdAt: Date.now() - 60_000 }] });
+  await page.goto("./#/updates");
+  await page.reload();
+  await page.getByRole("region", { name: "Recent updates" }).getByRole("button", { name: "Aria's status, new" }).click({ timeout: 30_000 });
+  const viewer = page.getByRole("dialog", { name: "Aria's status" });
+  await expect(viewer.getByRole("img", { name: "Aria's status photo" })).toBeVisible();
+  await expect(viewer).toContainText("Golden hour at the docks");
+});
+
 test.describe("on wide screens", () => {
 test.skip(({ viewport }) => (viewport?.width ?? 0) < 1024, "the sidebar is always shown on wide screens; phones open it from the menu");
 

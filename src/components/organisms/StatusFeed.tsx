@@ -9,6 +9,9 @@ import { fetchCharacterById, updateCharacter } from "src/features/characterSlice
 import { generateAssistText } from "src/features/aiSlice";
 import { buildCommentReplyPrompt, cleanCommentReply, newCommentId, toggleLike, updateStatus, withComment } from "src/features/character/statusFeed";
 import { formatRelativeTime } from "src/utils/formatRelativeTime";
+import { DisplayImage } from "src/components/molecules/DisplayImage";
+import { NsfwBlur } from "src/components/molecules/NsfwBlur";
+import { isNsfwCharacter } from "src/features/character/contentRating";
 import { Character, CharacterStatus } from "src/types";
 
 interface StatusFeedProps {
@@ -28,6 +31,7 @@ export const StatusFeed: React.FC<StatusFeedProps> = ({ items, onReply, showPost
   const userName = (personas.find((p) => p.id === activePersonaId) || personas[0])?.name?.trim() || "You";
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [answering, setAnswering] = useState<string | null>(null);
+  const blurMedia = useAppSelector((state) => state.settings.privacy.blurNsfwMedia);
   const nameOf = (from: number | "you") => (from === "you" ? "You" : characters.find((c) => c.id === from)?.name || "Someone");
 
   // Always change the latest copy of the poster, so a like and a comment
@@ -69,6 +73,11 @@ export const StatusFeed: React.FC<StatusFeedProps> = ({ items, onReply, showPost
                 <CharacterAvatar name={character.name} accent={character.accent} imageSrc={character.appearanceImages?.[0]} size={26} />
                 <span className="text-sm font-semibold text-foreground">{character.name}</span>
               </div>
+            )}
+            {status.image && (
+              <NsfwBlur active={blurMedia && isNsfwCharacter(character)} className="w-full">
+                <DisplayImage srcContext={status.image} alt={`${character.name}'s status photo`} className="max-h-80 w-full rounded-lg object-cover" />
+              </NsfwBlur>
             )}
             <p className="text-[15px] text-foreground">{status.text}</p>
             <div className="flex items-center justify-between gap-2">
