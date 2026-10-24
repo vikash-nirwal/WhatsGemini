@@ -94,7 +94,7 @@ const FirstTexter = () => {
         if (!chat?.id) chat = await dispatch(addChat({ title: texter.name, characterIds: [texter.id] })).unwrap();
         if (!chat?.id) return;
         const notes: MessageNote[] = dreaming ? ["texted-first", "dream"] : ["texted-first"];
-        await dispatch(addMessage({ chatId: chat.id, role: AI, text, speakerId: texter.id, notes }));
+        await dispatch(addMessage({ chatId: chat.id, role: AI, text, speakerId: texter.id, notes, noGreeting: firstContact }));
         await dispatch(fetchChats());
         const shown = await notifyChatMessage({ chatId: chat.id, speaker: texter, text, isNsfwChat: isNsfwCharacter(texter), privacy: latest.current.privacy, muted: chat.muted });
         // In the app but in another chat: a toast instead (not for a muted chat).

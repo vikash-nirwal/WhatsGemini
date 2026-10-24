@@ -85,7 +85,7 @@ export const addPreparedChat = createAsyncThunk("chat/addPrepared", async (chat:
 
 export const addMessage = createAsyncThunk(
   "chat/addMessage",
-  async ({ chatId, role, text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration, thoughts, isVoiceNote, beat, choices, secretRevealed, notes, swapped }: { chatId: number; role: string; text: string; images?: string[], isImageRequest?: boolean, videos?: string[], isVideoRequest?: boolean, videoPrompt?: string, isImpersonated?: boolean, emotion?: string, imagePrompt?: string, imageParams?: any, speakerId?: number, isRefusal?: boolean, isNarration?: boolean, thoughts?: string, isVoiceNote?: boolean, beat?: number, choices?: Message["choices"], secretRevealed?: boolean, notes?: Message["notes"], swapped?: boolean }, { dispatch, getState, rejectWithValue }) => {
+  async ({ chatId, role, text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration, thoughts, isVoiceNote, beat, choices, secretRevealed, notes, swapped, noGreeting }: { chatId: number; role: string; text: string; images?: string[], isImageRequest?: boolean, videos?: string[], isVideoRequest?: boolean, videoPrompt?: string, isImpersonated?: boolean, emotion?: string, imagePrompt?: string, imageParams?: any, speakerId?: number, isRefusal?: boolean, isNarration?: boolean, thoughts?: string, isVoiceNote?: boolean, beat?: number, choices?: Message["choices"], secretRevealed?: boolean, notes?: Message["notes"], swapped?: boolean, noGreeting?: boolean }, { dispatch, getState, rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
 
@@ -101,7 +101,9 @@ export const addMessage = createAsyncThunk(
         const primaryCharacterId = chat.characterIds?.[0];
         const character = primaryCharacterId ? await dbService.getCharacterById(primaryCharacterId).catch(() => undefined) : undefined;
         const greetings = getGreetings(character);
-        if (character && greetings.length > 0) {
+        // `noGreeting`: a character texting first (#93) opens the chat with
+        // that text, not their roleplay greeting.
+        if (character && greetings.length > 0 && !noGreeting) {
           // Unlike the generic seed messages below, this is a real visible greeting
           // (not a hidden priming message), so it's left unflagged as `isSystem`.
           // Whichever greeting was picked in the empty-state preview wins;
