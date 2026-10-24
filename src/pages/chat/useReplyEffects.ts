@@ -7,6 +7,7 @@ import { trimToLatestSummary } from "../../features/ai/utils/transcript";
 import { NARRATIVE_CONTEXT_MESSAGES, parseReplySuggestions } from "../../features/ai/utils/narrativeTools";
 import { buildNarrationPrompt, buildWhoRepliesPrompt, cleanNarration, MAX_CHAIN, parseWhoReplies } from "../../features/ai/utils/roomTurns";
 import { BEAT_CHECK_MESSAGES, buildBeatCheckPrompt, isFinished, moveBeat, parseBeatCheckReply } from "../../features/chat/storyScript";
+import { findQuotedMessage, quoteTextOf } from "../../features/chat/replyQuotes";
 import { secretsInPlay } from "../../features/character/secrets";
 import { StoryTags } from "../../features/chat/storyTags";
 import { trustAfter } from "../../features/chat/conflicts";
@@ -79,6 +80,15 @@ export const useReplyEffects = ({
     } catch (err) {
       console.warn("Story beat check failed (non-fatal):", err);
     }
+  };
+  // Quoted replies (#119): a reply that quoted one of your messages keeps
+  // the quote, once the message it points at is found.
+  const applyReplyQuote = (payload: { replyQuote?: string } | undefined, allMessages: Message[]) => {
+    if (!chatIdNum || !payload?.replyQuote) return;
+    const reply = [...allMessages].reverse().find((m) => m.role === AI && m.id);
+    const quoted = findQuotedMessage(allMessages, payload.replyQuote);
+    if (!reply?.id || !quoted) return;
+    void dispatch(updateChatMessage({ chatId: chatIdNum, messageId: reply.id, patch: { replyTo: { id: quoted.id, text: quoteTextOf(quoted), from: "you" } } }));
   };
   const advanceStoryIfDone = (payload: { beatDone?: boolean } | undefined, allMessages?: Message[]) => {
     if (payload?.beatDone) moveStoryBeat(1);
@@ -300,6 +310,7 @@ export const useReplyEffects = ({
     saveStoryScript,
     moveStoryBeat,
     advanceStoryIfDone,
+    applyReplyQuote,
     revealedSecretFor,
     noteSecretRevealed,
     replyNotes,

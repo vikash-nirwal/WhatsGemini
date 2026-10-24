@@ -71,6 +71,7 @@ interface ChatWindowProps {
   onEndGame?: () => void;
   onEditStory?: () => void;
   onMoveBeat?: (step: number) => void;
+  onReply?: (msg: Message) => void; // quote a message in your next one (#119)
   // Reply ideas for the newest message (#16) and what tapping one does.
   replySuggestions?: { forMessageId: string; items: string[] } | null;
   onPickSuggestion?: (text: string) => void;
@@ -173,7 +174,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc, note }: { charIniti
   </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggestion, onAcceptStage, onDismissStage, coWriting = false, onSuggestNext, onTranslate, onReplyToLetter, arcSuggestion, onAcceptArc, onDismissArc, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggestion, onAcceptStage, onDismissStage, coWriting = false, onSuggestNext, onTranslate, onReplyToLetter, arcSuggestion, onAcceptArc, onDismissArc, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, onReply, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   // The WhatsApp-style theme (#113) shows a time and ticks on every bubble.
@@ -791,6 +792,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
                     onFork={onFork}
                     onInspect={handleInspect}
                     onReact={onReact}
+                    onReply={onReply}
+                    replyToName={msg.replyTo && typeof msg.replyTo.from === "number" ? namesById[msg.replyTo.from] : undefined}
                     texting={textingMode}
                     visibleParts={reveal && reveal.id === msg.id ? reveal.shown : undefined}
                     slips={msg.role === YOU ? undefined : speaker?.textingSlips}

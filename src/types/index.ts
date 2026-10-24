@@ -59,6 +59,8 @@ export interface Message {
   isVoiceNote?: boolean;
   // A reply to a status (#117, #129), shown as a quoted card above the text.
   quotedStatus?: { owner: "you" | number; text: string; photo?: boolean };
+  // A quoted reply (#119): the message this one answers, as it read then.
+  replyTo?: { id?: string; text: string; from: "you" | number };
   reaction?: string; // the user's emoji reaction to this message (#11)
   // The character's emoji reaction to this (user) message (#11), and who
   // reacted in a room.

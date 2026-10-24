@@ -553,6 +553,7 @@ export interface SceneContext {
   conflictNote?: string; // a fight, or how one starts (#97)
   jealousyNote?: string; // time you spent in other chats (#99)
   statusNote?: string; // your status they've seen (#117)
+  quoteNote?: string; // they may quote an older message of yours (#119)
   liesNote?: string; // may lie, and the lies still standing (#100)
   hookNote?: string; // the cliffhanger to pick up (#103)
   moodCarry?: boolean; // moods carry over (#106): the reply reports its emotion
@@ -601,7 +602,7 @@ export const buildTurnContext = (
     ...(scene?.giftsNote ? [scene.giftsNote] : []),
     ...(scene?.plansNote ? [scene.plansNote] : []),
     ...(scene?.secretsNote ? [scene.secretsNote] : []),
-    ...[scene?.whatIfNote, scene?.dayNote, scene?.dayMoodNote, scene?.moodNote, scene?.jokesNote, scene?.conflictNote, scene?.liesNote, scene?.jealousyNote, scene?.dreamNote, scene?.hookNote, scene?.slipsNote, scene?.callbackNote, scene?.concernsNote, scene?.placeNote, scene?.statusNote].filter((n): n is string => Boolean(n)),
+    ...[scene?.whatIfNote, scene?.dayNote, scene?.dayMoodNote, scene?.moodNote, scene?.jokesNote, scene?.conflictNote, scene?.liesNote, scene?.jealousyNote, scene?.dreamNote, scene?.hookNote, scene?.slipsNote, scene?.callbackNote, scene?.concernsNote, scene?.placeNote, scene?.statusNote, scene?.quoteNote].filter((n): n is string => Boolean(n)),
     ...(scene?.language ? [buildLanguageDirective(scene.language, activePersona?.name?.trim() || "The user")] : []),
     ...(scene?.coWriting && character ? [buildCoWritingDirective(character.name, activePersona?.name?.trim() || "the user")] : []),
     ...(scene?.stage ? [buildStageSection(scene.stage, activePersona?.name?.trim() || "the user")] : []),

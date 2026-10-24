@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from "react";
 import { useColorTheme } from "../../hooks/useColorTheme";
-import { FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask, FaBookmark, FaStar, FaCode, FaVolumeUp, FaStop, FaLanguage, FaCodeBranch } from "react-icons/fa";
+import { FaReply, FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask, FaBookmark, FaStar, FaCode, FaVolumeUp, FaStop, FaLanguage, FaCodeBranch } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { cn } from "../../utils/cn";
 import { CharacterVoice, Message } from "../../types";
@@ -59,6 +59,8 @@ interface ChatMessageProps {
   onFork?: (msg: Message) => void; // start a new chat from this message (#86)
   onInspect?: (msg: Message) => void; // "Show what was sent" for an AI reply (#31)
   onReact?: (msg: Message, emoji: string) => void; // your emoji reaction to a reply (#11)
+  onReply?: (msg: Message) => void; // quote it in your next message (#119)
+  replyToName?: string; // who wrote the message this one quotes (#119)
   reactorName?: string; // who left msg.characterReaction, for its label
   // Texting mode (#6): show a reply as several bubbles. visibleParts limits
   // how many are shown while a new reply is being revealed; receipt is the
@@ -101,11 +103,11 @@ const LONG_PRESS_SLOP = 10;
 // opens an action sheet instead.
 const TOUCH_ONLY = "(hover: none)";
 
-// A quoted reply (#108): one of your messages the text answers, the way
+// A quoted reply (#108, #119): the message this one answers, the way
 // messaging apps show it above the bubble.
-const QuotedMessage = ({ text }: { text: string }) => (
-  <div className="mb-1.5 rounded-md border-l-2 border-primary/70 bg-foreground/[0.05] px-2 py-1 font-sans text-[12px] text-subtle" aria-label={`Replying to: ${text}`}>
-    <span className="block text-[10.5px] font-medium text-primary">You</span>
+const QuotedMessage = ({ text, name = "You" }: { text: string; name?: string }) => (
+  <div data-slot="quoted-message" className="mb-1.5 rounded-md border-l-2 border-primary/70 bg-foreground/[0.05] px-2 py-1 font-sans text-[12px] text-subtle" aria-label={`Replying to: ${text}`}>
+    <span className="block text-[10.5px] font-medium text-primary">{name}</span>
     <span className="line-clamp-2">{text}</span>
   </div>
 );
@@ -146,6 +148,8 @@ const ChatMessage = React.memo(({
   onFork,
   onInspect,
   onReact,
+  onReply,
+  replyToName,
   reactorName,
   texting = false,
   visibleParts,
@@ -182,6 +186,8 @@ const ChatMessage = React.memo(({
   const canInspect = Boolean(onInspect && !isUser && !msg.isImpersonated);
   const bookmarkLabel = msg.bookmarked ? "Remove bookmark" : "Bookmark";
   const handleReact = useCallback((emoji: string) => onReact?.(msg, emoji), [onReact, msg]);
+  const canReply = Boolean(onReply && msg.id && !msg.isNarration && !msg.isRoomEvent && !msg.isCompressionSummary);
+  const handleReply = useCallback(() => onReply?.(msg), [onReply, msg]);
   // Fork into a new chat (#86): from any real message.
   const canFork = Boolean(onFork && msg.id && !msg.isSystem);
   const handleFork = useCallback(() => onFork?.(msg), [onFork, msg]);
@@ -254,6 +260,9 @@ const ChatMessage = React.memo(({
   // message never opens it.
   const [actionsOpen, setActionsOpen] = useState(false);
   const pressRef = useRef<{ timer: number; x: number; y: number } | null>(null);
+  // Swipe right to reply (#119), like WhatsApp: a mostly sideways drag.
+  const swipeRef = useRef<{ x: number; y: number; done: boolean } | null>(null);
+  const [swipeX, setSwipeX] = useState(0);
   const cancelPress = useCallback(() => {
     if (pressRef.current) window.clearTimeout(pressRef.current.timer);
     pressRef.current = null;
@@ -262,6 +271,7 @@ const ChatMessage = React.memo(({
     cancelPress();
     if (e.touches.length !== 1) return;
     const { clientX, clientY } = e.touches[0];
+    swipeRef.current = { x: clientX, y: clientY, done: false };
     pressRef.current = {
       x: clientX,
       y: clientY,
@@ -276,7 +286,25 @@ const ChatMessage = React.memo(({
     const press = pressRef.current;
     const touch = e.touches[0];
     if (press && touch && Math.hypot(touch.clientX - press.x, touch.clientY - press.y) > LONG_PRESS_SLOP) cancelPress();
-  }, [cancelPress]);
+    const swipe = swipeRef.current;
+    if (swipe && touch && canReply && !swipe.done) {
+      const dx = touch.clientX - swipe.x;
+      const dy = Math.abs(touch.clientY - swipe.y);
+      if (dy > 30) swipeRef.current = null;
+      else if (dx > 0) {
+        setSwipeX(Math.min(dx, 72));
+        if (dx > 64) {
+          swipe.done = true;
+          navigator.vibrate?.(10);
+          handleReply();
+        }
+      }
+    }
+  }, [cancelPress, canReply, handleReply]);
+  const endSwipe = useCallback(() => {
+    swipeRef.current = null;
+    setSwipeX(0);
+  }, []);
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     // Only on touch screens; a mouse right-click keeps the browser's menu.
     if (!window.matchMedia?.(TOUCH_ONLY).matches) return;
@@ -286,6 +314,7 @@ const ChatMessage = React.memo(({
   }, [cancelPress]);
 
   const sheetActions: { label: string; icon: React.ComponentType<{ size?: number; className?: string }>; onSelect: () => void; disabled?: boolean; danger?: boolean }[] = [
+    ...(canReply ? [{ label: "Reply", icon: FaReply, onSelect: handleReply }] : []),
     { label: "Copy", icon: FaCopy, onSelect: handleCopy },
     ...(!isUser && !msg.isImpersonated ? [{ label: "Regenerate", icon: FaRedo, onSelect: handleRegenerate, disabled: aiLoading }] : []),
     ...(!isUser && !msg.isImpersonated && isLastMessage && onContinue ? [{ label: "Continue", icon: FaForward, onSelect: handleContinue, disabled: aiLoading }] : []),
@@ -598,11 +627,11 @@ const ChatMessage = React.memo(({
                 : "bg-card/[0.88] shadow-soft text-foreground rounded-tl-[5px]"
           )}
           data-chat-text
-          style={CHAT_TEXT_STYLE}
+          style={swipeX ? { ...CHAT_TEXT_STYLE, transform: `translateX(${swipeX}px)` } : CHAT_TEXT_STYLE}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
-          onTouchEnd={cancelPress}
-          onTouchCancel={cancelPress}
+          onTouchEnd={() => { cancelPress(); endSwipe(); }}
+          onTouchCancel={() => { cancelPress(); endSwipe(); }}
           onContextMenu={handleContextMenu}
         >
           {/* Floating sibling prev/next, anchored to the card's edges */}
@@ -654,6 +683,7 @@ const ChatMessage = React.memo(({
           <div className="font-serif">
             {oocLabel}
             {msg.quotedStatus && <QuotedStatus quoted={msg.quotedStatus} ownerName={msg.quotedStatus.owner === "you" ? "You" : speakerName || "Them"} />}
+            {msg.replyTo && <QuotedMessage text={msg.replyTo.text} name={msg.replyTo.from === "you" ? "You" : replyToName || "Them"} />}
             {mainQuote && <QuotedMessage text={mainQuote} />}
             {voiceNote || <MarkdownRenderer msgText={textParts ? textParts[textParts.length - 1].text : stripImageContextTag(msg.txt || "")} isUser={isUser} />}
             {refusalNotice}
@@ -704,6 +734,11 @@ const ChatMessage = React.memo(({
           {isUser && (
             <div data-slot="bubble-actions" data-variants={siblingInfo ? "true" : undefined} className={cn("flex items-center justify-end gap-1 mt-2 font-sans", !siblingInfo && "[@media(hover:none)]:hidden")}>
               <div data-slot="bubble-actions-menu" className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity [@media(hover:none)]:hidden">
+                {canReply && (
+                  <Button variant="ghost" size="icon" onClick={handleReply} aria-label="Reply" title="Reply" className="h-auto w-auto p-1.5 rounded-md text-foreground/60 hover:bg-primary/10 hover:text-foreground">
+                    <FaReply size={11} />
+                  </Button>
+                )}
                 <Button variant="ghost" size="icon" onClick={handleCopy} aria-label="Copy" title="Copy" className="h-auto w-auto p-1.5 rounded-md text-foreground/60 hover:bg-primary/10 hover:text-foreground">
                   <FaCopy size={12} />
                 </Button>
@@ -748,6 +783,11 @@ const ChatMessage = React.memo(({
           {!isUser && (
             <div data-slot="bubble-actions" data-variants={siblingInfo ? "true" : undefined} className={cn("flex items-center gap-1 mt-2 font-sans", !siblingInfo && "[@media(hover:none)]:hidden")}>
               <div data-slot="bubble-actions-menu" className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity [@media(hover:none)]:hidden">
+                {canReply && (
+                  <Button variant="ghost" size="icon" onClick={handleReply} aria-label="Reply" title="Reply" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
+                    <FaReply size={11} />
+                  </Button>
+                )}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" onClick={handleCopy} aria-label="Copy" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
@@ -922,8 +962,8 @@ const ChatMessage = React.memo(({
               transition={{ duration: 0.18, ease: "easeOut" }}
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
-              onTouchEnd={cancelPress}
-              onTouchCancel={cancelPress}
+              onTouchEnd={() => { cancelPress(); endSwipe(); }}
+              onTouchCancel={() => { cancelPress(); endSwipe(); }}
               onContextMenu={handleContextMenu}
             >
               {part.quote && <QuotedMessage text={part.quote} />}

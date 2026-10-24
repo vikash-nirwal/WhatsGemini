@@ -27,6 +27,10 @@ interface MessageInputProps {
   // Text pushed into the box from outside (a tapped reply suggestion); a new
   // nonce replaces the draft even when the text repeats.
   draftInjection?: { text: string; nonce: number };
+  // Quoted replies (#119): the message your next one answers, shown above
+  // the box with a way to drop it.
+  replyPreview?: { name: string; text: string };
+  onCancelReply?: () => void;
   // `forcedSpeakerId` is set when the user picked a specific participant
   // (via the room picker below) while a draft was in the box - only that
   // character should reply to this particular message, bypassing the usual
@@ -98,6 +102,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
   onForceReply,
   onDraftReply,
   draftInjection,
+  replyPreview,
+  onCancelReply,
 }) => {
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
@@ -164,6 +170,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const [mentionActiveIndex, setMentionActiveIndex] = useState(0);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (replyPreview) inputRef.current?.focus();
+  }, [replyPreview]);
   const pickerRef = useRef<HTMLDivElement>(null);
 
   const isRoom = Boolean(roomCharacters && roomCharacters.length > 1);
@@ -878,6 +887,18 @@ const MessageInput: React.FC<MessageInputProps> = ({
             className="h-6 w-6 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground flex-shrink-0"
             aria-label="Clear selected replier"
           >
+            <FaTimes size={11} />
+          </Button>
+        </div>
+      )}
+
+      {replyPreview && (
+        <div data-slot="reply-preview" className="flex items-center gap-2.5 px-3 py-2 rounded-lg border-l-4 border-primary bg-primary/[0.08]" role="group" aria-label={`Replying to ${replyPreview.name}`}>
+          <div className="min-w-0 flex-1 font-sans">
+            <div className="text-[11.5px] font-semibold text-primary">{replyPreview.name}</div>
+            <div className="truncate text-[12.5px] text-muted-foreground">{replyPreview.text}</div>
+          </div>
+          <Button onClick={onCancelReply} variant="ghost" size="icon" className="h-6 w-6 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground flex-shrink-0" aria-label="Cancel reply">
             <FaTimes size={11} />
           </Button>
         </div>

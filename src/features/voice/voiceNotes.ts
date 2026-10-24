@@ -42,8 +42,19 @@ export const VOICE_NOTE_MARK = "(voice note)";
 
 export const markVoiceNote = (text: string): string => `${VOICE_NOTE_MARK} ${text}`;
 
-export const promptTextFor = (msg: Pick<Message, "role" | "txt" | "isVoiceNote">): string =>
-  msg.isVoiceNote && msg.role === YOU ? markVoiceNote(msg.txt || "") : msg.txt || "";
+// A quoted reply (#119) keeps its quote: yours as "(replying to ...)", a
+// character's in the [Re: ...] form their prompt asks them to use.
+const QUOTE_MAX = 120;
+export const quoteFor = (text: string): string => {
+  const flat = text.replace(/\s+/g, " ").trim();
+  return flat.length > QUOTE_MAX ? `${flat.slice(0, QUOTE_MAX - 1).trimEnd()}…` : flat;
+};
+
+export const promptTextFor = (msg: Pick<Message, "role" | "txt" | "isVoiceNote" | "replyTo">): string => {
+  const base = msg.isVoiceNote && msg.role === YOU ? markVoiceNote(msg.txt || "") : msg.txt || "";
+  if (!msg.replyTo?.text) return base;
+  return msg.role === YOU ? `(replying to "${quoteFor(msg.replyTo.text)}") ${base}` : `[Re: ${quoteFor(msg.replyTo.text)}] ${base}`;
+};
 
 // The bars of a voice note's waveform: made-up but steady heights (0.25-1)
 // from the message id, so a note looks the same every time it's shown.

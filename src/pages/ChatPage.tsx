@@ -36,6 +36,7 @@ import { useBackgroundUpdates } from "./chat/useBackgroundUpdates";
 import { useReplyEffects } from "./chat/useReplyEffects";
 import { knowsNoteFor, recentLetterNote, roomContextFor } from "./chat/promptNotes";
 import { buildMyStatusNote } from "../features/status/myStatuses";
+import { buildQuoteDirective, quoteTextOf } from "../features/chat/replyQuotes";
 import { buildOnThisDayNote } from "../features/chat/onThisDay";
 import { buildGiftBackPrompt, buildGiftReactionDirective, buildGiftsSection, giftBackDirective, giftMessage, newGiftId, parseGiftBack } from "../features/character/gifts";
 import { factsAboutUser } from "../features/character/intimacy";
@@ -91,7 +92,7 @@ import { toast } from "sonner";
 import { useColorTheme } from "../hooks/useColorTheme";
 import { cn } from "../utils/cn";
 import { useChatNotifier } from "../features/notifications/useNotifications";
-import { fitsVoiceNote, markVoiceNote, promptTextFor, rollVoiceNote } from "../features/voice/voiceNotes";
+import { fitsVoiceNote, promptTextFor, rollVoiceNote } from "../features/voice/voiceNotes";
 
 const DEFAULT_AUTO_REPLY = { enabled: false, minDelaySeconds: 30, maxDelaySeconds: 120, maxFollowups: 2, followupCount: 0 };
 
@@ -330,6 +331,8 @@ const ChatPage = () => {
   scene.callbackNote = callback && characterData ? buildCallbackDirective(characterData.name, userNameForNotes, callback.fact, callback.learnedAt, noteTime) : undefined;
   // Texting imperfections (#108): the prompt's side, in texting mode only.
   const textingOn = Boolean(currentChat?.textingMode ?? appTextingMode);
+  // Quoted replies (#119): in texting mode they may quote an older message.
+  scene.quoteNote = !isRoom && characterData && textingOn ? buildQuoteDirective(characterData.name, userNameForNotes) : undefined;
   scene.slipsNote = !isRoom && characterData && textingOn ? buildSlipsDirective(characterData.name, characterData.textingSlips, currentBlock(characterData.schedule, noteTime)?.status === "busy") : undefined;
   // Where they live (#112): what the caches hold right now; the refresher
   // keeps them fresh, and `placeTick` re-renders once a fetch lands.
@@ -568,6 +571,10 @@ const ChatPage = () => {
     return () => document.removeEventListener("visibilitychange", mark);
   }, [chatIdNum, hasChat, messages, readAt, dispatch]);
 
+  // Quoted replies (#119): the message your next one answers.
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  useEffect(() => setReplyingTo(null), [chatIdNum]);
+
   const [draftInjection, setDraftInjection] = useState<{ text: string; nonce: number } | undefined>(undefined);
   // A status reply (#8) arrives with its draft in the route state.
   const routeLocation = useLocation();
@@ -636,6 +643,7 @@ const ChatPage = () => {
     saveStoryScript,
     moveStoryBeat,
     advanceStoryIfDone,
+    applyReplyQuote,
     revealedSecretFor,
     noteSecretRevealed,
     replyNotes,
@@ -823,6 +831,7 @@ const ChatPage = () => {
 
     await saveCharacterReaction(payloadObj?.reaction, compressedFreshMessages, speaker.id);
     advanceStoryIfDone(payloadObj, (aiAddResult.payload as Message[]) || []);
+    applyReplyQuote(payloadObj, (aiAddResult.payload as Message[]) || []);
     noteSecretRevealed(payloadObj);
     void noteStoryTags(payloadObj, speaker, dreamt);
     saveSceneState(payloadObj);
@@ -1164,7 +1173,11 @@ const ChatPage = () => {
         return;
       }
 
-      const resultAction = await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, images: photos && photos.length > 0 ? photos : undefined, isImageRequest, isVideoRequest, isVoiceNote, swapped: swap ? true : undefined }));
+      const replyTo: Message["replyTo"] = replyingTo?.id
+        ? { id: replyingTo.id, text: quoteTextOf(replyingTo), from: replyingTo.role === YOU ? "you" : replyingTo.speakerId ?? characterData?.id ?? 0 }
+        : undefined;
+      if (replyTo) setReplyingTo(null);
+      const resultAction = await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, images: photos && photos.length > 0 ? photos : undefined, isImageRequest, isVideoRequest, isVoiceNote, swapped: swap ? true : undefined, replyTo }));
       const updatedMessages = resultAction.payload as Message[] || [];
 
       if (silentSend) {
@@ -1237,7 +1250,7 @@ const ChatPage = () => {
       const sendVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest || shouldAutoSelfie));
       // Matches the "(voice note)" mark buildChatHistory puts on the same
       // message, so it's recognized as the prompt and not sent twice.
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: isVoiceNote ? markVoiceNote(text) : text, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isVideoRequest, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings, promptImages: photos }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: promptTextFor({ role: YOU, txt: text, isVoiceNote, replyTo }), history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isVideoRequest, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings, promptImages: photos }));
       const aiResponse = await aiPromiseRef.current;
       setRecordingVoiceNote(false);
       aiPromiseRef.current = null;
@@ -1280,6 +1293,7 @@ const ChatPage = () => {
         await saveCharacterReaction(payloadObj?.reaction, contextMessages, speaker.id);
         await saveCorrection(payloadObj?.correction, contextMessages);
         advanceStoryIfDone(payloadObj, (aiAddResult.payload as Message[]) || []);
+        applyReplyQuote(payloadObj, (aiAddResult.payload as Message[]) || []);
         noteSecretRevealed(payloadObj);
         void noteStoryTags(payloadObj, speaker, dreamt);
         saveSceneState(payloadObj);
@@ -1402,6 +1416,8 @@ const ChatPage = () => {
 
           advanceStoryIfDone(payloadObj, finalContent);
 
+          applyReplyQuote(payloadObj, finalContent);
+
           noteSecretRevealed(payloadObj);
           void noteStoryTags(payloadObj, speaker);
           saveSceneState(payloadObj);
@@ -1520,6 +1536,8 @@ const ChatPage = () => {
         }
 
         advanceStoryIfDone(payloadObj, newContent);
+
+        applyReplyQuote(payloadObj, newContent);
 
         noteSecretRevealed(payloadObj);
         void noteStoryTags(payloadObj, speaker);
@@ -1832,6 +1850,8 @@ const ChatPage = () => {
         await dispatch(updateChatTree({ chatId: chatIdNum, content: updatedContent, tree: updatedTree, activeLeafId: currentActiveLeafId }));
 
         advanceStoryIfDone(payloadObj, updatedContent);
+
+        applyReplyQuote(payloadObj, updatedContent);
 
         noteSecretRevealed(payloadObj);
         void noteStoryTags(payloadObj, speaker);
@@ -2229,7 +2249,7 @@ const ChatPage = () => {
             </div>
           </div>
         )}
-        <ChatWindow awayNote={awayNote} onFork={handleFork} stageSuggestion={currentChat?.stage && currentChat.stageSuggestion ? { from: currentChat.stage, to: currentChat.stageSuggestion } : undefined} onAcceptStage={acceptStage} onDismissStage={dismissStage} coWriting={!isRoom && Boolean(currentChat?.coWriting)} onSuggestNext={handleSuggestNext} onTranslate={currentChat?.language ? handleTranslate : undefined} onReplyToLetter={(letter) => setDraftInjection({ text: letterReplyDraft(letter), nonce: Date.now() })} arcSuggestion={currentChat?.arcSuggestion} onAcceptArc={acceptArc} onDismissArc={dismissArc} relationshipSuggestion={currentChat?.relationshipSuggestion} onAcceptRelationship={acceptRelationship} onDismissRelationship={dismissRelationship} game={currentChat?.game} gameScore={currentChat?.gameScore} onEndGame={() => chatIdNum && dispatch(updateChatOptions({ chatId: chatIdNum, patch: { game: undefined } }))} storyScript={currentChat?.storyScript} onEditStory={() => setStoryOpen(true)} onMoveBeat={moveStoryBeat} recap={recap} onToggleBookmark={handleToggleBookmark} onUndoSummary={handleUndoSummary} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} />
+        <ChatWindow awayNote={awayNote} onFork={handleFork} stageSuggestion={currentChat?.stage && currentChat.stageSuggestion ? { from: currentChat.stage, to: currentChat.stageSuggestion } : undefined} onAcceptStage={acceptStage} onDismissStage={dismissStage} coWriting={!isRoom && Boolean(currentChat?.coWriting)} onSuggestNext={handleSuggestNext} onTranslate={currentChat?.language ? handleTranslate : undefined} onReplyToLetter={(letter) => setDraftInjection({ text: letterReplyDraft(letter), nonce: Date.now() })} arcSuggestion={currentChat?.arcSuggestion} onAcceptArc={acceptArc} onDismissArc={dismissArc} relationshipSuggestion={currentChat?.relationshipSuggestion} onAcceptRelationship={acceptRelationship} onDismissRelationship={dismissRelationship} game={currentChat?.game} gameScore={currentChat?.gameScore} onEndGame={() => chatIdNum && dispatch(updateChatOptions({ chatId: chatIdNum, patch: { game: undefined } }))} storyScript={currentChat?.storyScript} onEditStory={() => setStoryOpen(true)} onMoveBeat={moveStoryBeat} onReply={(m) => setReplyingTo(m)} recap={recap} onToggleBookmark={handleToggleBookmark} onUndoSummary={handleUndoSummary} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} />
         {inCall && characterData && (
           <CallScreen
             name={characterData.name}
@@ -2289,6 +2309,8 @@ const ChatPage = () => {
         }
       >
         <MessageInput
+          replyPreview={replyingTo ? { name: replyingTo.role === YOU ? "You" : roomCharacters.find((c) => c.id === replyingTo.speakerId)?.name || characterData?.name || "Them", text: quoteTextOf(replyingTo) } : undefined}
+          onCancelReply={() => setReplyingTo(null)}
           placeholderText={swap && characterData ? `Write as ${characterData.name}…` : !isRoom && currentChat?.coWriting ? "Write the next part of the story…" : undefined}
           userName={activePersona?.name}
           onSend={handleSend}
