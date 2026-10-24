@@ -6,6 +6,7 @@ import { Select } from "src/components/molecules/form-controls";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { DAY_MOODS, dayKey, dayMoodFor } from "src/features/character/badDays";
 import { firstTextLimitOf, MAX_UNANSWERED } from "src/features/character/firstTexts";
+import { LEFT_ON_READ_LEVELS } from "src/features/chat/leftOnRead";
 import { describeMood, fadedMood } from "src/features/chat/lingeringMood";
 import { dayLogFor } from "src/features/character/dayLog";
 import { writeDayLog } from "src/components/molecules/DayLogWriter";
@@ -75,6 +76,23 @@ export const AliveSection: React.FC<{ character: Character }> = ({ character }) 
             </Select>
           </div>
         )}
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[12.5px] font-medium text-foreground">{name} leaves you on read</div>
+            <div className="text-[11px] text-subtle">Reads your message and answers minutes later, more often when busy, off or upset. Your messages show as read meanwhile.</div>
+          </div>
+          <Select
+            aria-label={`${name} leaves you on read`}
+            value={String(character.leavesOnRead || 0)}
+            onChange={(e) => set({ leavesOnRead: Number(e.target.value) ? (Number(e.target.value) as 1 | 2 | 3) : undefined })}
+            className="w-28"
+          >
+            <option value="0">Never</option>
+            {Object.entries(LEFT_ON_READ_LEVELS).map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+          </Select>
+        </div>
       </div>
       <SwitchRow
         title={`${name} has dreams`}

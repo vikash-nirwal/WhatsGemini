@@ -333,6 +333,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
   // there when the chat opens (or reached by switching branches) show whole.
   const chatBackdrop = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.backdrop);
   const chatTitle = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.title);
+  // Left on read (#126): they've seen your latest messages, no answer yet.
+  const seenNoReply = useAppSelector((state) => Boolean(state.chat.chats.find((c) => c.id === chatId)?.leftOnReadUntil));
   // The scene state HUD (#9), when this chat tracks it.
   const sceneTracker = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.sceneTracker);
   const chatMeters = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.meters);
@@ -820,7 +822,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
                     visibleParts={reveal && reveal.id === msg.id ? reveal.shown : undefined}
                     slips={msg.role === YOU ? undefined : speaker?.textingSlips}
                     userBurst={textingMode && msg.role !== YOU ? burstBefore(i) : undefined}
-                    receipt={(textingMode || whatsapp) && msg.role === YOU && !msg.isNarration ? receiptFor(i, lastReplyIndex, filteredMessages.length - 1, Boolean(aiLoading)) : undefined}
+                    receipt={(textingMode || whatsapp) && msg.role === YOU && !msg.isNarration ? (seenNoReply ? "read" : receiptFor(i, lastReplyIndex, filteredMessages.length - 1, Boolean(aiLoading))) : undefined}
                     reactorName={msg.characterReaction ? resolveReactor(msg.characterReaction.speakerId) : undefined}
                     voice={msg.role === YOU ? undefined : speaker?.voice}
                   />

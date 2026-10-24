@@ -177,3 +177,26 @@ test.describe("inside jokes", () => {
     await expect(list).not.toContainText("pineapple");
   });
 });
+
+// Left on read (#126): with "Always", your message is read and answered
+// minutes later, knowing it's late.
+test("a character can leave you on read and answer later", async ({ page, mockAI }) => {
+  await page.clock.install({ time: MORNING });
+  mockAI.reply("sorry, was buried in work. yes!");
+  await openChat(page);
+  await openTab(page, "Chat");
+  await page.getByRole("combobox", { name: "Aria leaves you on read" }).click();
+  await page.getByRole("option", { name: "Always" }).click();
+  await closePanel(page);
+
+  await sendMessage(page, "Coffee later?");
+  await page.waitForTimeout(500);
+  expect(replies(mockAI.requests)).toHaveLength(0);
+  await expect.poll(async () => (await readRow(page, "chats", 1)).leftOnReadUntil).toBeGreaterThan(MORNING.getTime());
+
+  // Within the half hour the late reply arrives.
+  await page.clock.fastForward(26 * 60_000);
+  await expect(messageBubble(page, "sorry, was buried in work")).toBeVisible({ timeout: 15_000 });
+  expect(JSON.stringify(replies(mockAI.requests)[0].messages)).toContain("is only answering now");
+  await expect.poll(async () => (await readRow(page, "chats", 1)).leftOnReadUntil).toBeUndefined();
+});

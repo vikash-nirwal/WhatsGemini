@@ -40,6 +40,7 @@ import { buildMyStatusNote } from "../features/status/myStatuses";
 import { buildForwardDirective, buildQuoteDirective, quoteTextOf } from "../features/chat/replyQuotes";
 import { buildGroupDirective } from "../features/chat/groupLife";
 import { buildProfileNote } from "../features/character/profileChanges";
+import { buildLateReplyDirective, leftOnReadDelay } from "../features/chat/leftOnRead";
 import PollDialog from "../components/organisms/PollDialog";
 import { buildOnThisDayNote } from "../features/chat/onThisDay";
 import { buildGiftBackPrompt, buildGiftReactionDirective, buildGiftsSection, giftBackDirective, giftMessage, newGiftId, parseGiftBack } from "../features/character/gifts";
@@ -588,6 +589,29 @@ const ChatPage = () => {
     const posted = [...content].reverse().find((m) => m.poll && m.role === YOU);
     if (posted?.id) void runPollVotes(posted.id, poll, getActiveParticipants(roomCharacters, unavailableIds), content);
   };
+
+  // Left on read (#126): when the time comes (or when you come back to the
+  // chat after it), the late reply arrives, knowing it's late.
+  const leftOnReadUntil = currentChat?.leftOnReadUntil;
+  const lateReplyRef = useRef(false);
+  useEffect(() => {
+    if (!chatIdNum || !leftOnReadUntil || !characterData) return;
+    const fire = async () => {
+      if (lateReplyRef.current) return;
+      lateReplyRef.current = true;
+      try {
+        await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { leftOnReadUntil: undefined } }));
+        const lastYours = [...messages].reverse().find((m) => m.role === YOU);
+        const minutes = lastYours?.timestamp ? (Date.now() - lastYours.timestamp) / 60_000 : 0;
+        await sendCharacterFollowup(undefined, buildLateReplyDirective(characterData.name, activePersona?.name?.trim() || "the user", minutes));
+      } finally {
+        lateReplyRef.current = false;
+      }
+    };
+    const timer = window.setTimeout(() => void fire(), Math.max(0, leftOnReadUntil - Date.now()));
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatIdNum, leftOnReadUntil, characterData?.id]);
 
   // Quoted replies (#119): the message your next one answers.
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -1204,6 +1228,18 @@ const ChatPage = () => {
       if (replyTo) setReplyingTo(null);
       const resultAction = await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, images: photos && photos.length > 0 ? photos : undefined, isImageRequest, isVideoRequest, isVoiceNote, swapped: swap ? true : undefined, replyTo }));
       const updatedMessages = resultAction.payload as Message[] || [];
+
+      // Left on read (#126): they've seen it and will answer later; while
+      // that's pending, more messages just pile up, read and unanswered.
+      if (!isRoom && !swap && characterData?.leavesOnRead && !silentSend) {
+        const pending = (currentChat?.leftOnReadUntil || 0) > Date.now();
+        const delay = pending ? 0 : leftOnReadDelay(characterData, currentChat, Date.now());
+        if (pending || delay > 0) {
+          if (delay > 0) await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { leftOnReadUntil: Date.now() + delay } }));
+          dispatch(fetchChats());
+          return;
+        }
+      }
 
       if (silentSend) {
         // Add the user's own turn but stop there - no AI reply this time,

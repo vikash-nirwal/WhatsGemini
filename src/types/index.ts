@@ -477,6 +477,7 @@ export interface Chat {
   readAt?: number;
   muted?: boolean;
   archived?: boolean;
+  leftOnReadUntil?: number; // #126: they've read it, and answer at this time
   authorNote?: string; // freeform per-chat note injected into every reply
   worldTags?: string[]; // short user-authored lore/setting tags for this chat
   // Group-room-only equivalents of Character.scenario/memory (see there) -
@@ -696,6 +697,7 @@ export interface Character {
   profileChanges?: boolean;
   profileChangedAt?: number;
   profileChangeCount?: number;
+  leavesOnRead?: 1 | 2 | 3; // #126: sometimes, often or always reads and answers later
   statuses?: CharacterStatus[];
   wardrobe?: Outfit[]; // #50
   currentOutfitId?: string; // the outfit being worn now (#50); none = the locked look's own
