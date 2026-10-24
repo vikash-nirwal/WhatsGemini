@@ -43,6 +43,7 @@ import { Badge } from "src/components/atoms/badge";
 import { useColorTheme } from "../../hooks/useColorTheme";
 import { cn } from "../../utils/cn";
 import { beatStarts } from "../../features/chat/storyScript";
+import { messageInfoFor } from "../../features/chat/messageInfo";
 import { latestMood, tintFor } from "../../features/chat/moodTint";
 
 interface ChatWindowProps {
@@ -536,6 +537,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
     return () => window.clearTimeout(timer);
   }, [reveal, textingMode]);
 
+  // Message info (#121): which message of yours is open, by list position.
+  const [infoIndex, setInfoIndex] = useState<number | null>(null);
+  const memberIds = useMemo(() => (characters && characters.length > 0 ? characters.map((c) => c.id) : character ? [character.id] : []), [characters, character]);
+  const info = infoIndex != null ? messageInfoFor(filteredMessages, infoIndex, memberIds) : undefined;
+  const timeLabel = (at: number) => {
+    const d = new Date(at);
+    const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    return d.toDateString() === new Date().toDateString() ? `Today, ${time}` : `${d.toLocaleDateString([], { month: "short", day: "numeric" })}, ${time}`;
+  };
   const namesById = useMemo(
     () => Object.fromEntries((characters && characters.length > 0 ? characters : character ? [character] : []).map((c) => [c.id, c.name])) as Record<number, string>,
     [characters, character]
@@ -793,6 +803,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
                     onInspect={handleInspect}
                     onReact={onReact}
                     onReply={onReply}
+                    onInfo={msg.role === YOU && !msg.isNarration ? () => setInfoIndex(i) : undefined}
                     replyToName={msg.replyTo && typeof msg.replyTo.from === "number" ? namesById[msg.replyTo.from] : undefined}
                     texting={textingMode}
                     visibleParts={reveal && reveal.id === msg.id ? reveal.shown : undefined}
@@ -1053,6 +1064,33 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Message info (#121): sent, delivered and read times. */}
+      <Dialog open={info != null} onOpenChange={(open) => !open && setInfoIndex(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogTitle>Message info</DialogTitle>
+          {info && infoIndex != null && (
+            <div className="flex flex-col gap-3 font-sans text-[13.5px]">
+              <p className="rounded-lg bg-primary/[0.12] px-3 py-2 text-foreground line-clamp-3">{filteredMessages[infoIndex]?.txt}</p>
+              <ul aria-label="Read by" className="flex flex-col gap-2">
+                {info.reads.map((r, k) => (
+                  <li key={k} className="flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-2">
+                      <span aria-hidden data-slot="ticks" data-state={r.readAt ? "read" : "sent"} className={cn("tracking-[-0.2em] font-semibold", r.readAt ? "text-primary" : "text-subtle")}>✓✓</span>
+                      {info.reads.length > 1 ? namesById[r.speakerId ?? -1] || "Someone" : "Read"}
+                    </span>
+                    <span className="text-muted-foreground">{r.readAt ? timeLabel(r.readAt) : "Not yet"}</span>
+                  </li>
+                ))}
+                <li className="flex items-center justify-between gap-3 border-t border-border/50 pt-2">
+                  <span className="flex items-center gap-2"><span aria-hidden className="tracking-[-0.2em] font-semibold text-subtle">✓✓</span>Delivered</span>
+                  <span className="text-muted-foreground">{info.deliveredAt ? timeLabel(info.deliveredAt) : ""}</span>
+                </li>
+              </ul>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

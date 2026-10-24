@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from "react";
 import { useColorTheme } from "../../hooks/useColorTheme";
-import { FaReply, FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask, FaBookmark, FaStar, FaCode, FaVolumeUp, FaStop, FaLanguage, FaCodeBranch } from "react-icons/fa";
+import { FaReply, FaInfoCircle, FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask, FaBookmark, FaStar, FaCode, FaVolumeUp, FaStop, FaLanguage, FaCodeBranch } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { cn } from "../../utils/cn";
 import { CharacterVoice, Message } from "../../types";
@@ -61,6 +61,7 @@ interface ChatMessageProps {
   onReact?: (msg: Message, emoji: string) => void; // your emoji reaction to a reply (#11)
   onReply?: (msg: Message) => void; // quote it in your next message (#119)
   replyToName?: string; // who wrote the message this one quotes (#119)
+  onInfo?: () => void; // message info for one of yours (#121)
   reactorName?: string; // who left msg.characterReaction, for its label
   // Texting mode (#6): show a reply as several bubbles. visibleParts limits
   // how many are shown while a new reply is being revealed; receipt is the
@@ -150,6 +151,7 @@ const ChatMessage = React.memo(({
   onReact,
   onReply,
   replyToName,
+  onInfo,
   reactorName,
   texting = false,
   visibleParts,
@@ -316,6 +318,7 @@ const ChatMessage = React.memo(({
   const sheetActions: { label: string; icon: React.ComponentType<{ size?: number; className?: string }>; onSelect: () => void; disabled?: boolean; danger?: boolean }[] = [
     ...(canReply ? [{ label: "Reply", icon: FaReply, onSelect: handleReply }] : []),
     { label: "Copy", icon: FaCopy, onSelect: handleCopy },
+    ...(onInfo && isUser ? [{ label: "Info", icon: FaInfoCircle, onSelect: onInfo }] : []),
     ...(!isUser && !msg.isImpersonated ? [{ label: "Regenerate", icon: FaRedo, onSelect: handleRegenerate, disabled: aiLoading }] : []),
     ...(!isUser && !msg.isImpersonated && isLastMessage && onContinue ? [{ label: "Continue", icon: FaForward, onSelect: handleContinue, disabled: aiLoading }] : []),
     ...(canReadAloud ? [{ label: readAloudLabel, icon: speaking ? FaStop : FaVolumeUp, onSelect: handleReadAloud }] : []),
@@ -737,6 +740,11 @@ const ChatMessage = React.memo(({
                 {canReply && (
                   <Button variant="ghost" size="icon" onClick={handleReply} aria-label="Reply" title="Reply" className="h-auto w-auto p-1.5 rounded-md text-foreground/60 hover:bg-primary/10 hover:text-foreground">
                     <FaReply size={11} />
+                  </Button>
+                )}
+                {onInfo && (
+                  <Button variant="ghost" size="icon" onClick={onInfo} aria-label="Info" title="Message info" className="h-auto w-auto p-1.5 rounded-md text-foreground/60 hover:bg-primary/10 hover:text-foreground">
+                    <FaInfoCircle size={11} />
                   </Button>
                 )}
                 <Button variant="ghost" size="icon" onClick={handleCopy} aria-label="Copy" title="Copy" className="h-auto w-auto p-1.5 rounded-md text-foreground/60 hover:bg-primary/10 hover:text-foreground">

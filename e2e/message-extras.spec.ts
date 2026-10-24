@@ -1,6 +1,6 @@
 import { test, expect, openChat, sendMessage, waitForReplyDone, messageBubble, chatMessages, PHONE_REDESIGN_SKIP } from "./fixtures";
 
-// Quoted replies (#119): reply to one message with its quote above yours,
+// WhatsApp-style message extras. Quoted replies (#119): reply to one message with its quote above yours,
 // and a character can quote one of yours with [Re: ...].
 
 test.use({ seed: { messages: 4 } });
@@ -40,4 +40,23 @@ test("a character's [Re: ...] quotes one of your messages", async ({ page, mockA
   await expect(reply).not.toContainText("[Re:");
   await expect(reply.locator('[data-slot="quoted-message"]')).toContainText("User message 2: it was fine, thanks.");
   await expect(chatMessages(page).getByText("About that, yes, it was fine for me too.")).toBeVisible();
+});
+
+// Message info (#121): when your message was delivered and read.
+test("message info shows when your message was delivered and read", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", PHONE_REDESIGN_SKIP);
+  await openChat(page);
+  const mine = messageBubble(page, "User message 2: it was fine, thanks.");
+  await mine.hover();
+  await mine.getByRole("button", { name: "Info" }).click();
+  const dialog = page.getByRole("dialog", { name: "Message info" });
+  await expect(dialog.getByRole("list", { name: "Read by" })).toContainText("Read");
+  await expect(dialog.getByRole("list", { name: "Read by" })).toContainText("Delivered");
+  await expect(dialog.getByRole("list", { name: "Read by" })).not.toContainText("Not yet");
+  await page.keyboard.press("Escape");
+  // Your last message hasn't been answered yet.
+  const last = messageBubble(page, "User message 4: it was fine, thanks.");
+  await last.hover();
+  await last.getByRole("button", { name: "Info" }).click();
+  await expect(page.getByRole("dialog", { name: "Message info" })).toContainText("Not yet");
 });
