@@ -6,7 +6,21 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 ---
 
-Every numbered item is built (the last batch, #113–#129 "Your own WhatsApp", on 2026-10-24). New ideas get the next free numbers.
+Items up to #129 are built (the last batch, #113–#129 "Your own WhatsApp", on 2026-10-24). New ideas get the next free numbers.
+
+## Your own WhatsApp, part 2 (#130–#138, picked 2026-10-25)
+
+Picked by the user from the ideas after #113–#129. No voice features until the app has an AI voice model (see PROGRESS.md › Decisions).
+
+- **#130 While you were away (M).** When the app opens after hours closed, fill in what would plausibly have happened meanwhile, within each job's own limits: texts first, statuses, channel posts, profile changes, timestamped in the past.
+- **#131 Life dial and activity log (M).** One setting (Quiet / Normal / Lively) that scales every background job's frequency, and a log of what each job did, when, and its estimated cost.
+- **#132 Real-model tuning pass (S, the user's).** Try #113–#129 with a real model: how often the tags (`[Re:]`, `[Fwd:]`, `[Contact:]`, `[Poll:]`, `[Group name:]`) are used, and the helper prompts' output; tune the directives. Needs the user's API key.
+- **#133 Blocked (M).** After a bad enough fight (#97), a character blocks you: their photo and status disappear, your messages get one grey tick and no reply, until you make up through someone else (a group, or a character who knows them, #74).
+- **#134 Event invites (M).** A character sends an invite card (what, when, where) that you accept or decline; it joins shared plans (#84) and they bring it up before and after.
+- **#135 Location sharing (S).** A character shares where they are as a map card: their home city (#112) or a pin on their world's map (#66).
+- **#136 Disappearing messages (S).** Per chat, messages vanish after a day or a week; the character knows it's on.
+- **#137 Character stickers (M).** A small sticker set per character, drawn once with their locked look; they send one now and then instead of an emoji.
+- **#138 Relationship map (M).** A picture of who knows whom (#74), the room feelings between them (#24), and how each bond with you has changed.
 
 ## Smaller follow-ups
 

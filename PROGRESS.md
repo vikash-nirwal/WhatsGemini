@@ -16,6 +16,15 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
+| #130 | While you were away | todo |  |
+| #131 | Life dial and activity log | todo |  |
+| #132 | Real-model tuning pass | blocked | needs the user's API key |
+| #133 | Blocked | todo |  |
+| #134 | Event invites | todo |  |
+| #135 | Location sharing | todo |  |
+| #136 | Disappearing messages | todo |  |
+| #137 | Character stickers | todo |  |
+| #138 | Relationship map | todo |  |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
 
@@ -148,8 +157,11 @@ Choices a later session shouldn't revisit. Add the date.
 - 2026-10-20: Image providers are limited to ones the user can sign up for from India, or local: Wan, OpenAI, fal.ai (Seedream 4, FLUX Kontext), BFL, SD WebUI, ComfyUI. Not Gemini image models (cost) and not Qwen's own API (rejects Indian phone numbers).
 - 2026-10-20: Compression is non-destructive (summaries are inserted, never replace messages).
 - 2026-10-20: Screenshot tests are macOS-local (`@visual`); CI leaves them out because Linux fonts differ.
-- 2026-10-21: chat rows keep showing the character's description rather than the last message; "🎤 Voice message" marks voice notes in search snippets, where message text appears.
+- 2026-10-21: "🎤 Voice message" marks voice notes in search snippets. (Chat rows showed the description then; since #115 on 2026-10-24 they preview the last message, WhatsApp-style.)
 - 2026-10-21 (user): adventure story memory is on by default, with a switch per adventure. Group chats write diary entries: each member with the diary on writes their own. For overnight runs, push and deploy once all suites and CI pass, and decide small open questions, noting them here.
+
+- 2026-10-25 (user): no new voice features (voice statuses, voice-based anything) until the app has an AI voice model; the browser's speech engine isn't good enough. Calls were left out of #113–#129 for the same reason.
+- 2026-10-25: "Your own WhatsApp, part 2" (#130–#138) was picked by the user, all but voice statuses. #132 (tuning with a real model) needs the user's API key and is theirs to run.
 
 ## Working notes
 
