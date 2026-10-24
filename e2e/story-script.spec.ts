@@ -3,7 +3,9 @@ import { test, expect, openChat, sendMessage, waitForReplyDone, messageBubble } 
 
 // Story script (#57): written before the roleplay, every reply gets the
 // premise, the directions and only the current beat, and a reply that
-// reports [Beat done] moves the story on.
+// reports [Beat done], or one the helper's check says reached the beat,
+// moves the story on. The progress shows as a thin bar that opens into the
+// full list of beats.
 
 test.use({ seed: { messages: 0 } });
 
@@ -23,22 +25,26 @@ const writeScript = async (page: Page) => {
   await expect(dialog).toBeHidden();
 };
 
+// The folded bar, named after where the story is.
+const progressBar = (page: Page, state: string) => page.getByRole("button", { name: `Story progress: ${state}. Show the story` });
+
 const systemPrompt = (messages: { role: string; content: string }[]) => messages.find((m) => m.role === "system")?.content || "";
 
 test("replies follow the current beat and move on when it's done", async ({ page, mockAI }) => {
   await openChat(page);
   await writeScript(page);
-  const progress = page.getByRole("region", { name: "Story progress" });
-  await expect(progress).toContainText(`Beat 1 of 2: ${BEAT_1}`);
+  await expect(progressBar(page, "Beat 1 of 2")).toBeVisible();
 
   mockAI.reply("*She slides into the seat across from you.* Is this taken?\n[Beat done]");
   await sendMessage(page, "Hello there.");
   await expect(messageBubble(page, "Is this taken?")).toBeVisible();
   await waitForReplyDone(page);
   await expect(messageBubble(page, "Is this taken?")).not.toContainText("[Beat");
-  await expect(progress).toContainText(`Beat 2 of 2: ${BEAT_2}`);
+  await expect(progressBar(page, "Beat 2 of 2")).toBeVisible();
   // The reply that finished beat 1 sits under a divider for it.
   await expect(page.getByRole("separator", { name: "Beat 1" })).toContainText(BEAT_1);
+  // A tagged reply needs no helper check.
+  expect(mockAI.requests).toHaveLength(1);
 
   const first = systemPrompt(mockAI.requests[0].messages);
   expect(first).toContain(`Premise: ${PREMISE}`);
@@ -46,18 +52,50 @@ test("replies follow the current beat and move on when it's done", async ({ page
   expect(first).not.toContain(BEAT_2);
   expect(first).toContain("Slow burn. No violence.");
 
+  // An untagged reply gets the helper's check, which says no here (the
+  // mock answers with the reply text), so the beat stays.
   mockAI.reply("The train shudders to a halt.");
   await sendMessage(page, "What was that?");
-  await expect.poll(() => mockAI.requests.length).toBe(2);
+  await expect.poll(() => mockAI.requests.length).toBe(3);
   expect(systemPrompt(mockAI.requests[1].messages)).toContain(`Current beat: ${BEAT_2}`);
+  expect(mockAI.requests[2].prompt).toContain(`The current beat is: "${BEAT_2}"`);
   await expect(page.getByRole("separator", { name: "Beat 2" })).toContainText(BEAT_2);
+  await expect(progressBar(page, "Beat 2 of 2")).toBeVisible();
 
-  // Beats can also be moved by hand.
+  // Clicking the bar opens the whole story, where beats can be moved by hand.
   await waitForReplyDone(page);
+  await progressBar(page, "Beat 2 of 2").click();
+  const progress = page.getByRole("region", { name: "Story progress" });
+  await expect(progress).toContainText("Beat 2 of 2");
+  await expect(progress.getByRole("listitem")).toHaveText([BEAT_1, BEAT_2]);
+  await expect(progress.locator('[aria-current="step"]')).toHaveText(BEAT_2);
   await progress.getByRole("button", { name: "Mark beat done" }).click();
   await expect(progress).toContainText("All 2 beats done");
   await progress.getByRole("button", { name: "Previous beat" }).click();
   await expect(progress).toContainText("Beat 2 of 2");
+  await progress.getByRole("button", { name: "Hide the story" }).click();
+  await expect(progress).toBeHidden();
+  await expect(progressBar(page, "Beat 2 of 2")).toBeVisible();
+});
+
+test("the story moves on by itself when the helper says a beat has happened", async ({ page, mockAI }) => {
+  await openChat(page);
+  await writeScript(page);
+  mockAI.replyOnce("*She slides into the seat across from you.* Is this taken?", "Yes.");
+  mockAI.reply("no");
+  await sendMessage(page, "Hello there.");
+  await expect(messageBubble(page, "Is this taken?")).toBeVisible();
+  await expect(progressBar(page, "Beat 2 of 2")).toBeVisible();
+
+  const check = mockAI.requests[1].prompt;
+  expect(check).toContain(`The current beat is: "${BEAT_1}"`);
+  expect(check).toContain(`(not due yet): "${BEAT_2}"`);
+  expect(check).toContain("Is this taken?");
+
+  // The next reply is written for beat 2.
+  await sendMessage(page, "Sure, sit down.");
+  await expect.poll(() => mockAI.requests.length).toBeGreaterThanOrEqual(3);
+  expect(systemPrompt(mockAI.requests[2].messages)).toContain(`Current beat: ${BEAT_2}`);
 });
 
 test("a pasted story is split into beats, and a script can be saved as a template", async ({ page, mockAI }) => {
@@ -74,7 +112,8 @@ test("a pasted story is split into beats, and a script can be saved as a templat
   await dialog.getByLabel("Template name").fill("Opera heist");
   await dialog.getByRole("button", { name: "Save as template" }).click();
   await dialog.getByRole("button", { name: "Save script" }).click();
-  await expect(page.getByRole("region", { name: "Story progress" })).toContainText("Beat 1 of 3: Case the building");
+  await progressBar(page, "Beat 1 of 3").click();
+  await expect(page.getByRole("region", { name: "Story progress" }).locator('[aria-current="step"]')).toHaveText("Case the building");
 
   // Remove it, then bring it back from the template.
   await page.getByRole("region", { name: "Story progress" }).getByRole("button", { name: "Edit" }).click();

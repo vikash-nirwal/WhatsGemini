@@ -98,6 +98,27 @@ export const extractBeatTag = (text: string): { text: string; beatDone: boolean 
 const PARTIAL_BEAT_TAG = /\n*\[\s*(?:b(?:e(?:a(?:t(?:\s*:?\s*(?:d(?:o(?:n(?:e)?)?)?)?)?)?)?)?)?$/i;
 export const stripStreamingBeatTag = (text: string): string => text.replace(BEAT_TAG, "").replace(PARTIAL_BEAT_TAG, "").trimEnd();
 
+// The model often forgets the [Beat done] tag, so after a reply without it
+// the cheap helper model reads the end of the scene and says whether the
+// current beat has happened. That's what moves the story on by itself; the
+// buttons in the progress panel are only for nudging it.
+export const BEAT_CHECK_MESSAGES = 10;
+
+export const buildBeatCheckPrompt = (script: StoryScript, transcript: string): string => {
+  const beat = script.beats[script.currentBeat]?.text || "";
+  const next = script.beats[script.currentBeat + 1]?.text;
+  return `A roleplay is following a story planned in beats. The current beat is: "${beat}"${next ? `\nThe beat after it (not due yet): "${next}"` : ""}
+
+Read the end of the conversation below. Has the current beat now fully happened in the story? Say yes only if what it describes has clearly taken place in the scene, not if it's only hinted at, planned or just starting.
+
+Reply with only "yes" or "no".
+
+Conversation:
+${transcript}`;
+};
+
+export const parseBeatCheckReply = (reply: string): boolean => /^[\s*_"'`.]*yes\b/i.test(reply);
+
 // "Paste a story": the AI splits the user's text into a script for review.
 export const buildScriptDraftPrompt = (story: string): string =>
   `Turn the user's story or script below into a roleplay plan. Keep their plot, names and order of events; don't add new events.

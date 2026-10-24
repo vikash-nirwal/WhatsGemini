@@ -1,4 +1,4 @@
-import { beatStamp, beatStarts, buildStoryScriptSection, cleanScript, emptyScript, extractBeatTag, makeBeat, moveBeat, parseScriptDraft, stripStreamingBeatTag } from "./storyScript";
+import { beatStamp, beatStarts, buildBeatCheckPrompt, buildStoryScriptSection, cleanScript, emptyScript, extractBeatTag, makeBeat, moveBeat, parseBeatCheckReply, parseScriptDraft, stripStreamingBeatTag } from "./storyScript";
 import { StoryScript } from "../../types";
 
 const script = (overrides: Partial<StoryScript> = {}): StoryScript => ({
@@ -87,5 +87,27 @@ describe("beats on messages", () => {
 
   it("puts the beat tag before an adventure's choices block", () => {
     expect(buildStoryScriptSection({ ...script, currentBeat: 0 }, { beforeChoices: true })).toContain("put the tag [Beat done] on its own line just before the choices block");
+  });
+});
+
+describe("beat check", () => {
+  it("asks about the current beat, naming the next one as not due yet", () => {
+    const text = buildBeatCheckPrompt(script({ currentBeat: 1 }), "Mira: The train shudders to a halt.");
+    expect(text).toContain('The current beat is: "A storm stops the train."');
+    expect(text).toContain('(not due yet): "They confess."');
+    expect(text).not.toContain("They meet.");
+    expect(text).toContain("Mira: The train shudders to a halt.");
+  });
+
+  it("leaves out the next beat on the last one", () => {
+    expect(buildBeatCheckPrompt(script({ currentBeat: 2 }), "")).not.toContain("not due yet");
+  });
+
+  it("reads only a clear yes", () => {
+    expect(parseBeatCheckReply("yes")).toBe(true);
+    expect(parseBeatCheckReply('**Yes.** The storm hit.')).toBe(true);
+    expect(parseBeatCheckReply("no")).toBe(false);
+    expect(parseBeatCheckReply("Not yet, yes it's close")).toBe(false);
+    expect(parseBeatCheckReply("yesterday")).toBe(false);
   });
 });

@@ -6,7 +6,7 @@ import { formatTranscript, TranscriptNames } from "../../features/ai/utils/chatH
 import { trimToLatestSummary } from "../../features/ai/utils/transcript";
 import { NARRATIVE_CONTEXT_MESSAGES, parseReplySuggestions } from "../../features/ai/utils/narrativeTools";
 import { buildNarrationPrompt, buildWhoRepliesPrompt, cleanNarration, MAX_CHAIN, parseWhoReplies } from "../../features/ai/utils/roomTurns";
-import { moveBeat } from "../../features/chat/storyScript";
+import { BEAT_CHECK_MESSAGES, buildBeatCheckPrompt, isFinished, moveBeat, parseBeatCheckReply } from "../../features/chat/storyScript";
 import { secretsInPlay } from "../../features/character/secrets";
 import { StoryTags } from "../../features/chat/storyTags";
 import { trustAfter } from "../../features/chat/conflicts";
@@ -18,7 +18,7 @@ import { mergeState } from "../../features/chat/sceneState";
 import { gameLabel, GameOutcome } from "../../features/chat/miniGames";
 import { buildNextIdeasPrompt } from "../../features/chat/coWriting";
 import { browserLanguageName, buildTranslatePrompt } from "../../features/chat/languagePractice";
-import { YOU } from "../../utils/constants";
+import { AI, YOU } from "../../utils/constants";
 import { Character, Chat, Message, MessageNote, SceneState, UserProfile } from "../../types";
 
 export interface ReplyEffectDeps {
@@ -52,15 +52,37 @@ export const useReplyEffects = ({
   const dispatch = useAppDispatch();
 
   // Story script (#57): saved on the chat; a reply that reports reaching the
-  // current beat moves the story on to the next one.
+  // current beat moves the story on to the next one. One without the tag
+  // gets the helper's check instead (given the chat's messages), so the
+  // story moves on by itself even when the model forgets to tag it.
   const saveStoryScript = (script: Chat["storyScript"]) => {
     if (chatIdNum) dispatch(updateChatOptions({ chatId: chatIdNum, patch: { storyScript: script } }));
   };
   const moveStoryBeat = (step: number) => {
     if (currentChat?.storyScript) saveStoryScript(moveBeat(currentChat.storyScript, step));
   };
-  const advanceStoryIfDone = (payload: { beatDone?: boolean } | undefined) => {
+  const checkBeatReached = async (allMessages: Message[]) => {
+    const script = currentChat?.storyScript;
+    const last = allMessages[allMessages.length - 1];
+    // Only for a reply written for the current beat, the one the check asks about.
+    if (!chatIdNum || !script || script.beats.length === 0 || isFinished(script) || last?.role !== AI || last.beat !== script.currentBeat + 1) return;
+    try {
+      const recent = trimToLatestSummary(allMessages).filter((m) => !m.isSystem).slice(-BEAT_CHECK_MESSAGES);
+      const reply = await dispatch(generateAssistText({ instruction: buildBeatCheckPrompt(script, formatTranscript(recent, transcriptNames())), background: true })).unwrap();
+      if (!parseBeatCheckReply(reply)) return;
+      // Re-read the script: it may have been moved by hand or edited while
+      // the check ran, and then this answer is about a beat that's gone.
+      const fresh = await dispatch(fetchChatById(chatIdNum)).unwrap().catch(() => undefined);
+      const latest = fresh?.storyScript;
+      if (!latest || latest.currentBeat !== script.currentBeat || latest.beats[script.currentBeat]?.id !== script.beats[script.currentBeat].id) return;
+      await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { storyScript: moveBeat(latest, 1) } }));
+    } catch (err) {
+      console.warn("Story beat check failed (non-fatal):", err);
+    }
+  };
+  const advanceStoryIfDone = (payload: { beatDone?: boolean } | undefined, allMessages?: Message[]) => {
     if (payload?.beatDone) moveStoryBeat(1);
+    else if (allMessages) void checkBeatReached(allMessages);
   };
 
   // Secrets (#81): the tag's number points into the secrets the prompt

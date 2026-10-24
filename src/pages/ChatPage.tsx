@@ -801,7 +801,7 @@ const ChatPage = () => {
     }
 
     await saveCharacterReaction(payloadObj?.reaction, compressedFreshMessages, speaker.id);
-    advanceStoryIfDone(payloadObj);
+    advanceStoryIfDone(payloadObj, (aiAddResult.payload as Message[]) || []);
     noteSecretRevealed(payloadObj);
     void noteStoryTags(payloadObj, speaker, dreamt);
     saveSceneState(payloadObj);
@@ -1256,7 +1256,7 @@ const ChatPage = () => {
 
         await saveCharacterReaction(payloadObj?.reaction, contextMessages, speaker.id);
         await saveCorrection(payloadObj?.correction, contextMessages);
-        advanceStoryIfDone(payloadObj);
+        advanceStoryIfDone(payloadObj, (aiAddResult.payload as Message[]) || []);
         noteSecretRevealed(payloadObj);
         void noteStoryTags(payloadObj, speaker, dreamt);
         saveSceneState(payloadObj);
@@ -1377,7 +1377,7 @@ const ChatPage = () => {
             dispatch(updateCharacter({ ...speaker, gallery: [...(speaker.gallery || []), ...generatedImages] }));
           }
 
-          advanceStoryIfDone(payloadObj);
+          advanceStoryIfDone(payloadObj, finalContent);
 
           noteSecretRevealed(payloadObj);
           void noteStoryTags(payloadObj, speaker);
@@ -1496,7 +1496,7 @@ const ChatPage = () => {
           dispatch(updateCharacter({ ...speaker, gallery: [...(speaker.gallery || []), ...generatedImages] }));
         }
 
-        advanceStoryIfDone(payloadObj);
+        advanceStoryIfDone(payloadObj, newContent);
 
         noteSecretRevealed(payloadObj);
         void noteStoryTags(payloadObj, speaker);
@@ -1808,7 +1808,7 @@ const ChatPage = () => {
         const updatedContent = flattenPath(updatedTree, currentActiveLeafId);
         await dispatch(updateChatTree({ chatId: chatIdNum, content: updatedContent, tree: updatedTree, activeLeafId: currentActiveLeafId }));
 
-        advanceStoryIfDone(payloadObj);
+        advanceStoryIfDone(payloadObj, updatedContent);
 
         noteSecretRevealed(payloadObj);
         void noteStoryTags(payloadObj, speaker);
