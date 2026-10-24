@@ -42,6 +42,7 @@ const ChatPage = lazy(() => import("./pages/ChatPage"));
 const Login = lazy(() => import("./pages/Login"));
 const CharacterPage = lazy(() => import("./pages/CharacterPage"));
 const UpdatesPage = lazy(() => import("./pages/UpdatesPage"));
+const StarredPage = lazy(() => import("./pages/StarredPage"));
 const CharacterEditorPage = lazy(() => import("./pages/CharacterEditorPage"));
 const CharacterGalleryPage = lazy(() => import("./pages/CharacterGalleryPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
@@ -242,6 +243,7 @@ const AppContent = () => {
                 <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
                 <Route path="/settings/:section" element={<SettingsPage />} />
                 <Route path="/updates" element={<UpdatesPage />} />
+                <Route path="/starred" element={<StarredPage />} />
                 <Route path="/" element={<EmptyChatState />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

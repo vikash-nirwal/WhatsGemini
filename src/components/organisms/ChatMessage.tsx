@@ -184,7 +184,7 @@ const ChatMessage = React.memo(({
   const handleInspect = useCallback(() => onInspect?.(msg), [onInspect, msg]);
   // Only a real generation has a request behind it.
   const canInspect = Boolean(onInspect && !isUser && !msg.isImpersonated);
-  const bookmarkLabel = msg.bookmarked ? "Remove bookmark" : "Bookmark";
+  const bookmarkLabel = msg.bookmarked ? "Unstar" : "Star";
   const handleReact = useCallback((emoji: string) => onReact?.(msg, emoji), [onReact, msg]);
   const canReply = Boolean(onReply && msg.id && !msg.isNarration && !msg.isRoomEvent && !msg.isCompressionSummary);
   const handleReply = useCallback(() => onReply?.(msg), [onReply, msg]);
@@ -661,7 +661,7 @@ const ChatMessage = React.memo(({
           )}
 
           {msg.bookmarked && (
-            <span className="absolute -top-2 -right-2 text-amber-400 drop-shadow" title="Bookmarked" aria-label="Bookmarked">
+            <span className="absolute -top-2 -right-2 text-amber-400 drop-shadow" title="Starred" aria-label="Starred" data-slot="star">
               <FaStar size={12} />
             </span>
           )}

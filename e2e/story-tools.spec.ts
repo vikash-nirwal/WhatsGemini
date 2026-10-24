@@ -27,17 +27,17 @@ test("Export as story downloads readable Markdown", async ({ page }) => {
   expect(text).toContain("User message 30: it was fine, thanks.");
 });
 
-test("a bookmarked message is starred, listed in the Scene panel and can be jumped to", async ({ page }) => {
+test("a starred message is listed in the Scene panel and can be jumped to", async ({ page }) => {
   await openChat(page, 1);
   const bubble = page.locator('[data-slot="message-bubble"]').filter({ hasText: "User message 28: it was fine, thanks." });
   if (await isTouch(page)) {
     await bubble.dispatchEvent("contextmenu");
-    await page.getByRole("menu", { name: "Message actions" }).getByRole("menuitem", { name: "Bookmark" }).click();
+    await page.getByRole("menu", { name: "Message actions" }).getByRole("menuitem", { name: "Star", exact: true }).click();
   } else {
     await bubble.hover();
-    await bubble.getByRole("button", { name: "Bookmark" }).click();
+    await bubble.getByRole("button", { name: "Star", exact: true }).click();
   }
-  await expect(bubble.getByLabel("Bookmarked")).toBeVisible();
+  await expect(bubble.getByLabel("Starred")).toBeVisible();
 
   // Scroll away, then jump back from the Scene panel.
   await page.getByText("Aria message 1: how was your day?").scrollIntoViewIfNeeded();
@@ -45,4 +45,24 @@ test("a bookmarked message is starred, listed in the Scene panel and can be jump
   await page.getByRole("tab", { name: "Story", exact: true }).click();
   await page.getByRole("button", { name: /^Jump to: User message 28/ }).click();
   await expect(bubble).toBeInViewport();
+});
+
+// Starred messages (#120): every starred message across chats, opening the
+// chat at that message.
+test("starred messages are listed across chats and open at the message", async ({ page }) => {
+  await openChat(page, 1);
+  const bubble = page.locator('[data-slot="message-bubble"]').filter({ hasText: "User message 6: it was fine, thanks." });
+  if (await isTouch(page)) {
+    await bubble.dispatchEvent("contextmenu");
+    await page.getByRole("menu", { name: "Message actions" }).getByRole("menuitem", { name: "Star", exact: true }).click();
+  } else {
+    await bubble.hover();
+    await bubble.getByRole("button", { name: "Star", exact: true }).click();
+  }
+  await expect(bubble.getByLabel("Starred")).toBeVisible();
+  await page.goto("./#/starred");
+  const list = page.getByRole("list", { name: "Starred messages" });
+  await list.getByRole("button", { name: /^You in Aria: User message 6/ }).click();
+  await expect(page).toHaveURL(/#\/chat\/1$/);
+  await expect(bubble).toBeInViewport({ timeout: 10_000 });
 });

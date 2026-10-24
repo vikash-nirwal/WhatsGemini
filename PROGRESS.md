@@ -23,7 +23,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #117 | Your own statuses | done | 2026-10-24 |
 | #118 | Photo statuses | done | 2026-10-24 |
 | #119 | Quoted replies | done | 2026-10-24 |
-| #120 | Starred messages | todo | |
+| #120 | Starred messages | done | 2026-10-24 |
 | #121 | Message info | todo | |
 | #122 | View-once photos | todo | |
 | #123 | Forwarded | todo | |
@@ -47,6 +47,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **Starred messages (#120):** bookmarks (`Message.bookmarked`, #21) are now "Star"/"Unstar" with a "Starred" badge; the Story tab section is "Starred messages". `/starred` (`StarredPage.tsx`) lists them across chats, newest first, and opens the chat with route state `jumpTo` (ChatPage scrolls to it). Links: the sidebar header's star and the phone home's title row.
 - **Quoted replies (#119):** `Message.replyTo` ({id, text, from}). Logic in `src/features/chat/replyQuotes.ts`. You reply from a message's Reply button (hover row, action sheet) or by swiping it right on touch; ChatPage holds `replyingTo`, MessageInput shows a "Replying to" strip, and `promptTextFor` (voiceNotes.ts) sends it as `(replying to "…")` (a character's own quote goes back as `[Re: …]`). In texting mode `buildQuoteDirective` (`scene.quoteNote`) lets the character start a reply with `[Re: words]`; aiSlice strips it into `payload.replyQuote` and `applyReplyQuote` (useReplyEffects, every reply path) finds your message (`findQuotedMessage`) and patches the reply. Swipe isn't covered by a UI test.
 - **Photo statuses (#118):** `Character.statusPhotos` ("With photos" under "posts statuses" in the Chat tab). `photoStatusDue` (every other status) in statusUpdates.ts; StatusPoster draws it with `generateAdventureSceneImage` from `statusPhotoScene` before posting (a failed picture still posts the text). StatusFeed shows `status.image`, blurred for NSFW characters when media blur is on. Not tried with a real image provider.
 - **Your profile and statuses (#116, #117):** `UserProfile.about` (Settings › User Profile, "About"), in the prompt's user section. Your statuses: `MyStatus` in `myStatusSlice` (kept in the settings table under `my_statuses`, not in backups since they last a day; `changeMyStatuses` re-reads before writing). Logic in `src/features/status/myStatuses.ts`: viewers are characters with a 1:1 chat (6 at most), one helper call on posting decides views, likes, comments and private replies with times spread over the next half hour (`parseMyStatusReactions`); the UI shows what has `happened` by now. `MyStatusSection.tsx` (top of Updates: post with an optional photo, view with "Seen by", likes, comments, delete). `MyStatusWatcher.tsx` in App delivers due private replies into the 1:1 chat with `Message.quotedStatus` (a quoted card in ChatMessage). A character who has seen your latest status gets `buildMyStatusNote` (`scene.statusNote`). The sidebar header has an Updates link. Test: `e2e/my-status.spec.ts`.

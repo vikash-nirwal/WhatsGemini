@@ -1661,6 +1661,14 @@ const ChatPage = () => {
       toast.error(typeof err === "string" ? err : "Couldn't start that chat.");
     }
   };
+  // Starred messages (#120): opened at the message you tapped.
+  const jumpTo = (routeLocation.state as { jumpTo?: string } | null)?.jumpTo;
+  const jumpedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!jumpTo || jumpedRef.current === jumpTo || !messages.some((m) => m.id === jumpTo)) return;
+    jumpedRef.current = jumpTo;
+    window.setTimeout(() => document.querySelector(`[data-message-id="${CSS.escape(jumpTo)}"]`)?.scrollIntoView({ block: "center" }), 300);
+  }, [jumpTo, messages]);
   const openSceneRef = useRef<number | null>(null);
   useEffect(() => {
     if (!(routeLocation.state as { openScene?: boolean } | null)?.openScene || !chatIdNum) return;

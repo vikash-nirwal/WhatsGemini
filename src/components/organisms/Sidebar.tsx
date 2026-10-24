@@ -26,7 +26,7 @@ import { hasUnseenStatus } from "../../features/character/statusUpdates";
 import { useStatusReply } from "../../hooks/useStatusReply";
 import { lastPreview, splitArchived, unreadCount } from "../../features/chat/chatList";
 import { TAB_BAR_HEIGHT, usePhoneShell } from "../../hooks/usePhoneShell";
-import { MdOutlineAddComment, MdOutlineDonutLarge } from "react-icons/md";
+import { MdOutlineAddComment, MdOutlineDonutLarge, MdOutlineStarBorder } from "react-icons/md";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "src/components/molecules/dropdown-menu";
 
 const formatChatTime = (timestamp?: number) => {
@@ -310,6 +310,9 @@ const Sidebar = () => {
         {home && (
           <div className="h-[60px] px-4 flex items-center gap-2 flex-shrink-0" data-slot="home-title">
             <h1 className="flex-1 text-[22px] font-bold tracking-tight text-primary">WhatsGemini</h1>
+            <Link to="/starred" title="Starred messages" aria-label="Starred messages" className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:bg-hover">
+              <MdOutlineStarBorder size={22} />
+            </Link>
             <Button onClick={handleImportClick} variant="ghost" size="icon" title="Import chat" aria-label="Import chat" className="h-10 w-10 rounded-full text-muted-foreground">
               <FaFileImport size={16} />
             </Button>
@@ -337,6 +340,12 @@ const Sidebar = () => {
           {!terminal && (
             <Link to="/updates" onClick={close} title="Updates" aria-label="Updates" className={cn("flex h-8 w-8 items-center justify-center rounded-lg text-subtle hover:bg-hover hover:text-foreground flex-shrink-0", collapsed && "lg:hidden")}>
               <MdOutlineDonutLarge size={17} />
+            </Link>
+          )}
+          {/* Starred messages (#120), across every chat. */}
+          {!terminal && (
+            <Link to="/starred" onClick={close} title="Starred messages" aria-label="Starred messages" className={cn("flex h-8 w-8 items-center justify-center rounded-lg text-subtle hover:bg-hover hover:text-foreground flex-shrink-0", collapsed && "lg:hidden")}>
+              <MdOutlineStarBorder size={18} />
             </Link>
           )}
           {/* Desktop-only icon-rail collapse toggle - mobile relies on the

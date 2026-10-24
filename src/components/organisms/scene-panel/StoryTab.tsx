@@ -101,7 +101,7 @@ const StoryTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, onC
           {/* Bookmarks (#21) - starred messages on the current branch */}
           <div>
             <div className="flex items-baseline justify-between mb-2">
-              <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">Bookmarks</span>
+              <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">Starred messages</span>
               {bookmarks.length > 0 && <span className="text-[11px] text-primary">{bookmarks.length}</span>}
             </div>
             {bookmarks.length === 0 ? (
