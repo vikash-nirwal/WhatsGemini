@@ -30,6 +30,7 @@ import LetterWriter from "src/components/molecules/LetterWriter";
 import FirstTexter from "src/components/molecules/FirstTexter";
 import MyStatusWatcher from "src/components/molecules/MyStatusWatcher";
 import ProfileChanger from "src/components/molecules/ProfileChanger";
+import ChannelPoster from "src/components/molecules/ChannelPoster";
 import RumorMill from "src/components/molecules/RumorMill";
 import Logo from "src/components/atoms/Logo";
 import { TooltipProvider } from "src/components/atoms/tooltip";
@@ -44,6 +45,7 @@ const Login = lazy(() => import("./pages/Login"));
 const CharacterPage = lazy(() => import("./pages/CharacterPage"));
 const UpdatesPage = lazy(() => import("./pages/UpdatesPage"));
 const StarredPage = lazy(() => import("./pages/StarredPage"));
+const ChannelPage = lazy(() => import("./pages/ChannelPage"));
 const CharacterEditorPage = lazy(() => import("./pages/CharacterEditorPage"));
 const CharacterGalleryPage = lazy(() => import("./pages/CharacterGalleryPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
@@ -225,6 +227,7 @@ const AppContent = () => {
         <FirstTexter />
         <MyStatusWatcher />
         <ProfileChanger />
+        <ChannelPoster />
         <RumorMill />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar />
@@ -246,6 +249,7 @@ const AppContent = () => {
                 <Route path="/settings/:section" element={<SettingsPage />} />
                 <Route path="/updates" element={<UpdatesPage />} />
                 <Route path="/starred" element={<StarredPage />} />
+                <Route path="/channels/:channelId" element={<ChannelPage />} />
                 <Route path="/" element={<EmptyChatState />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

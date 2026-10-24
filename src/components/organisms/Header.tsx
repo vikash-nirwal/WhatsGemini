@@ -195,11 +195,11 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, online = true, avatar,
 
   return (
     <header className="h-[60px] flex-shrink-0 border-b border-border/40 bg-card flex items-center gap-2.5 px-3 md:px-4 z-20">
-      {shell && avatar ? (
+      {shell && avatar && !onBack ? (
         <Button onClick={() => navigate("/")} variant="outline" size="icon" title="Chats" aria-label="Back to chats" className={cn(iconBtnClass, "lg:hidden")} data-slot="back-to-chats">
           <FaArrowLeft size={15} />
         </Button>
-      ) : shell && TAB_BAR_PATHS.includes(location.pathname) ? null : (
+      ) : shell && (onBack || TAB_BAR_PATHS.includes(location.pathname)) ? null : (
         <Button onClick={open} variant="outline" size="icon" title="Menu" aria-label="Open menu" className={cn(iconBtnClass, "lg:hidden")}>
           <FaBars size={16} />
         </Button>

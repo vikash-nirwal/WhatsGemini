@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "src/compo
 import { Button } from "src/components/atoms/button";
 import { StatusFeed } from "src/components/organisms/StatusFeed";
 import { MyStatusSection } from "src/components/organisms/MyStatusSection";
+import { ChannelsSection } from "src/components/organisms/ChannelsSection";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { updateCharacter } from "src/features/characterSlice";
 import { isNsfwCharacter } from "src/features/character/contentRating";
@@ -91,6 +92,7 @@ const UpdatesPage = () => {
               {rows("Viewed updates", viewed)}
             </>
           )}
+          <ChannelsSection />
         </div>
       </div>
 

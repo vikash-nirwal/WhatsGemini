@@ -6,6 +6,7 @@ import adventureReducer from "../features/adventureSlice";
 import aiReducer from "../features/aiSlice";
 import settingsReducer from "../features/settingsSlice";
 import myStatusReducer from "../features/myStatusSlice";
+import channelReducer from "../features/channelSlice";
 import {
   LS_AI_MODEL,
   LS_MAX_CHAT_LENGTH,
@@ -59,6 +60,7 @@ export const store = configureStore({
     ai: aiReducer,
     settings: settingsReducer,
     myStatus: myStatusReducer,
+    channels: channelReducer,
   },
   devTools: process.env.NODE_ENV !== "production", // Enable Redux DevTools in development
 });

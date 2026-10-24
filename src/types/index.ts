@@ -198,6 +198,25 @@ export interface Poll {
   votes: PollVote[];
 }
 
+// Channels (#127): a followed, follow-only feed from a character or a
+// world, kept with its posts in the database's settings table.
+export interface ChannelPost {
+  id: string;
+  text: string;
+  at: number;
+  yourReaction?: string;
+}
+
+export interface Channel {
+  id: string; // "character-3", "world-2"
+  kind: "character" | "world";
+  refId: number;
+  followedAt: number;
+  posts: ChannelPost[];
+  lastPostAt?: number;
+  lastReadAt?: number;
+}
+
 // Your own status (#117): what you posted, and when each character saw it,
 // liked it, commented or replied privately (decided when posted, with times
 // a little later; only what's "happened" by now is shown).
