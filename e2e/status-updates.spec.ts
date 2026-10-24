@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openChat, ARIA } from "./fixtures";
+import { test, expect, openChat, ARIA, sendMessage, messageBubble } from "./fixtures";
 
 // Status updates (#8): a character with statuses on posts one now and then;
 // the sidebar shows it with a ring until seen, and replying quotes it.
@@ -25,6 +25,18 @@ const patchAria = (page: Page, fields: Record<string, unknown>) =>
     },
     { id: ARIA.id, fields }
   );
+
+// Status mentions (#129): a status that tags you says so and shows the @.
+test("a status that mentions you stands out", async ({ page }) => {
+  await openChat(page);
+  await patchAria(page, { statuses: [{ id: "st-m", text: "Garage karaoke with @Sam tonight 🎤", mentionsYou: true, createdAt: Date.now() - 60_000 }] });
+  await page.goto("./#/updates");
+  await page.reload();
+  const row = page.getByRole("region", { name: "Recent updates" }).getByRole("button", { name: "Aria's status, new" });
+  await expect(row).toContainText("Mentioned you", { timeout: 30_000 });
+  await row.click();
+  await expect(page.getByRole("dialog", { name: "Aria's status" }).locator('[data-slot="mention"]')).toHaveText("@Sam");
+});
 
 // Photo statuses (#118): a status with a picture shows it in the viewer.
 test("a status with a photo shows the picture", async ({ page }) => {
@@ -55,7 +67,7 @@ test("a character with statuses on posts one, shown in the sidebar", async ({ pa
   expect(mockAI.requests[0].prompt).toContain("Write one short status update that Aria posts");
 });
 
-test("a status is seen once opened, and replying quotes it in the chat", async ({ page }) => {
+test("a status is seen once opened, and replying quotes it in the chat", async ({ page, mockAI }) => {
   await openChat(page);
   await patchAria(page, { statuses: [{ id: "s1", text: "Pottery class tonight!", createdAt: Date.now() - 60_000 }] });
   await page.reload();
@@ -66,8 +78,14 @@ test("a status is seen once opened, and replying quotes it in the chat", async (
   await expect(viewer).toContainText("Pottery class tonight!");
   await viewer.getByRole("button", { name: "Reply" }).click();
   await expect(viewer).toBeHidden();
-  await expect(page.getByLabel("Message input")).toHaveValue('(Replying to your status: "Pottery class tonight!") ');
+  // The status is quoted above the composer (#129), and on the sent message.
+  await expect(page.getByRole("group", { name: "Replying to Aria · Status" })).toContainText("Pottery class tonight!");
+  await expect(page.getByLabel("Message input")).toHaveValue("");
   await expect(page.getByRole("button", { name: "Aria's status", exact: true })).toBeVisible();
+  await sendMessage(page, "So jealous!");
+  await expect(messageBubble(page, "So jealous!").locator('[data-slot="quoted-status"]')).toContainText("Pottery class tonight!");
+  await expect.poll(() => mockAI.requests.filter((r) => r.stream).length).toBe(1);
+  expect(mockAI.requests.filter((r) => r.stream)[0].prompt).toContain('(replying to your status: "Pottery class tonight!") So jealous!');
 });
 
 test("the collapsed sidebar still shows who posted", async ({ page }) => {
@@ -94,6 +112,6 @@ test.describe("on phones and tablets", () => {
     const viewer = page.getByRole("dialog", { name: "Aria's status" });
     await viewer.getByRole("button", { name: "Reply" }).click();
     await expect(viewer).toBeHidden();
-    await expect(page.getByLabel("Message input")).toHaveValue('(Replying to your status: "Pottery class tonight!") ');
+    await expect(page.getByRole("group", { name: "Replying to Aria · Status" })).toContainText("Pottery class tonight!");
   });
 });

@@ -667,10 +667,13 @@ const ChatPage = () => {
   // A status reply (#8) arrives with its draft in the route state.
   const routeLocation = useLocation();
   const routeNavigate = useNavigate();
+  // A status reply (#129) arrives as a quote instead.
+  const [replyingToStatus, setReplyingToStatus] = useState<NonNullable<Message["quotedStatus"]> | null>(null);
   useEffect(() => {
-    const draft = (routeLocation.state as { draft?: string } | null)?.draft;
-    if (!draft) return;
-    setDraftInjection({ text: draft, nonce: Date.now() });
+    const state = routeLocation.state as { draft?: string; replyToStatus?: NonNullable<Message["quotedStatus"]> } | null;
+    if (!state?.draft && !state?.replyToStatus) return;
+    if (state.draft) setDraftInjection({ text: state.draft, nonce: Date.now() });
+    if (state.replyToStatus) setReplyingToStatus(state.replyToStatus);
     routeNavigate(routeLocation.pathname, { replace: true, state: null });
   }, [routeLocation, routeNavigate]);
   const handlePickSuggestion = (text: string) => setDraftInjection({ text, nonce: Date.now() });
@@ -1272,7 +1275,9 @@ const ChatPage = () => {
         ? { id: replyingTo.id, text: quoteTextOf(replyingTo), from: replyingTo.role === YOU ? "you" : replyingTo.speakerId ?? characterData?.id ?? 0 }
         : undefined;
       if (replyTo) setReplyingTo(null);
-      const resultAction = await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, images: photos && photos.length > 0 ? photos : undefined, isImageRequest, isVideoRequest, isVoiceNote, swapped: swap ? true : undefined, replyTo }));
+      const quotedStatus = replyingToStatus || undefined;
+      if (quotedStatus) setReplyingToStatus(null);
+      const resultAction = await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, images: photos && photos.length > 0 ? photos : undefined, isImageRequest, isVideoRequest, isVoiceNote, swapped: swap ? true : undefined, replyTo, quotedStatus }));
       const updatedMessages = resultAction.payload as Message[] || [];
 
       // Left on read (#126): they've seen it and will answer later; while
@@ -1357,7 +1362,7 @@ const ChatPage = () => {
       const sendVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest || shouldAutoSelfie));
       // Matches the "(voice note)" mark buildChatHistory puts on the same
       // message, so it's recognized as the prompt and not sent twice.
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: promptTextFor({ role: YOU, txt: text, isVoiceNote, replyTo }), history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isVideoRequest, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings, promptImages: photos }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: promptTextFor({ role: YOU, txt: text, isVoiceNote, replyTo, quotedStatus }), history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isVideoRequest, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings, promptImages: photos }));
       const aiResponse = await aiPromiseRef.current;
       setRecordingVoiceNote(false);
       aiPromiseRef.current = null;
@@ -2442,8 +2447,8 @@ const ChatPage = () => {
         }
       >
         <MessageInput
-          replyPreview={replyingTo ? { name: replyingTo.role === YOU ? "You" : roomCharacters.find((c) => c.id === replyingTo.speakerId)?.name || characterData?.name || "Them", text: quoteTextOf(replyingTo) } : undefined}
-          onCancelReply={() => setReplyingTo(null)}
+          replyPreview={replyingToStatus ? { name: `${roomCharacters.find((c) => c.id === replyingToStatus.owner)?.name || characterData?.name || "Their"} · Status`, text: `${replyingToStatus.photo ? "📷 " : ""}${replyingToStatus.text || "Photo"}` } : replyingTo ? { name: replyingTo.role === YOU ? "You" : roomCharacters.find((c) => c.id === replyingTo.speakerId)?.name || characterData?.name || "Them", text: quoteTextOf(replyingTo) } : undefined}
+          onCancelReply={() => { setReplyingTo(null); setReplyingToStatus(null); }}
           placeholderText={swap && characterData ? `Write as ${characterData.name}…` : !isRoom && currentChat?.coWriting ? "Write the next part of the story…" : undefined}
           userName={activePersona?.name}
           onSend={handleSend}

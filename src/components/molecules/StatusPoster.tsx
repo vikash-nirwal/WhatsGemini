@@ -1,8 +1,11 @@
 import { useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { selectActivePersona } from "src/features/settingsSlice";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { generateAdventureSceneImage, generateAssistText } from "src/features/aiSlice";
 import { updateCharacter } from "src/features/characterSlice";
-import { addStatus, buildStatusPrompt, cleanStatus, liveStatuses, photoStatusDue, statusDue, statusPhotoScene } from "src/features/character/statusUpdates";
+import { addStatus, buildStatusPrompt, cleanStatus, liveStatuses, mentionsUser, photoStatusDue, statusDue, statusPhotoScene } from "src/features/character/statusUpdates";
 import { buildFeedReactionsPrompt, feedPeersFor, parseFeedReactions, updateStatus } from "src/features/character/statusFeed";
 import { CharacterStatus } from "src/types";
 import { currentBlock } from "src/features/character/schedule";
@@ -26,6 +29,10 @@ const StatusPoster = () => {
   const chats = useAppSelector((state) => state.chat.chats);
   const chatsRef = useRef(chats);
   chatsRef.current = chats;
+  const persona = useAppSelector(selectActivePersona);
+  const userNameRef = useRef(persona?.name?.trim() || "");
+  userNameRef.current = persona?.name?.trim() || "";
+  const navigate = useNavigate();
   const busy = useRef(false);
 
   useEffect(() => {
@@ -36,7 +43,12 @@ const StatusPoster = () => {
       if (!due) return;
       busy.current = true;
       try {
-        const prompt = buildStatusPrompt(due, currentBlock(due.schedule, now)?.activity, (due.memory || []).slice(-8), liveStatuses(due, now).map((s) => s.text), dayMoodFor(due, now)?.label, dayLogText(due, now), concernsLine(due.concerns), placeLine(due.home, now));
+        // Status mentions (#129): about one status in three from someone you
+        // chat with tags you, when you have a name to tag.
+        const userName = userNameRef.current;
+        const knowsYou = chatsRef.current.some((c) => c.characterIds?.length === 1 && c.characterIds[0] === due.id);
+        const mention = userName && knowsYou && Math.random() < 1 / 3 ? userName : undefined;
+        const prompt = buildStatusPrompt(due, currentBlock(due.schedule, now)?.activity, (due.memory || []).slice(-8), liveStatuses(due, now).map((s) => s.text), dayMoodFor(due, now)?.label, dayLogText(due, now), concernsLine(due.concerns), placeLine(due.home, now), mention);
         const text = cleanStatus(await dispatch(generateAssistText({ instruction: prompt, background: true })).unwrap());
         if (text) {
           const latest = charactersRef.current.find((c) => c.id === due.id) || due;
@@ -51,8 +63,10 @@ const StatusPoster = () => {
               console.warn("Status photo failed (non-fatal):", err);
             }
           }
-          const status: CharacterStatus = { id: `st-${now.toString(36)}`, text, createdAt: now, ...(image ? { image } : {}) };
+          const mentioned = Boolean(userName) && mentionsUser(text, userName);
+          const status: CharacterStatus = { id: `st-${now.toString(36)}`, text, createdAt: now, ...(image ? { image } : {}), ...(mentioned ? { mentionsYou: true } : {}) };
           await dispatch(updateCharacter({ ...latest, statuses: addStatus(latest.statuses, status) }));
+          if (mentioned) toast.message(`${latest.name} mentioned you in a status`, { description: text, action: { label: "View", onClick: () => navigate("/updates") } });
           // The feed (#85): the others who know them like it and comment.
           const peers = feedPeersFor(latest, charactersRef.current, chatsRef.current);
           if (peers.length > 0) {
@@ -76,7 +90,7 @@ const StatusPoster = () => {
       window.clearTimeout(first);
       window.clearInterval(timer);
     };
-  }, [dispatch]);
+  }, [dispatch, navigate]);
 
   return null;
 };

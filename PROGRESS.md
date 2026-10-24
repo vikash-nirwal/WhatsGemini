@@ -32,7 +32,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #126 | Left on read | done | 2026-10-24 |
 | #127 | Channels | done | 2026-10-24 |
 | #128 | Shared contacts | done | 2026-10-24 |
-| #129 | Status mentions | todo | |
+| #129 | Status mentions | done | 2026-10-24 |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
 
@@ -47,6 +47,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **Status mentions (#129):** StatusPoster has about one status in three (from a character with a 1:1 chat, when your persona has a name) mention you (`buildStatusPrompt(..., mention)`); `mentionsUser` sets `CharacterStatus.mentionsYou`, with a toast. StatusFeed highlights @names; Updates rows say "Mentioned you". Replying to a status (`useStatusReply`) now passes route state `replyToStatus`: the composer shows "Replying to X · Status" and the sent message carries `quotedStatus` (a card), sent to the model as `(replying to your status: "…")`. The old text draft (`statusReplyDraft`) is gone.
 - **Shared contacts (#128):** `Message.contactCard` ({name, about, characterId}). In texting mode `buildContactDirective` (in `scene.quoteNote`) lets a character end a reply with `[Contact: Name — who they are]`; aiSlice strips it to `payload.contact` and `applyReplyQuote` saves it. ChatMessage shows a card with "Message"; `openContact` in ChatPage drafts the person once (`contactIdea` + `buildCharacterDraftPrompt` on the helper, the sender's rating and art style), links them both ways with `knowsAbout`, saves the id on the card and opens a 1:1 chat. Logic in `src/features/chat/sharedContacts.ts`.
 - **Channels (#127):** `Channel` / `ChannelPost` in `channelSlice` (settings table key `channels`, `changeChannels` re-reads first). Logic in `src/features/channels/channels.ts`: every character and world has one ("Aria's channel", "Ravenmoor News"); `ChannelPoster.tsx` in App (after 20 s, then every 30 min) posts for one due channel (6 h apart) with `buildCharacterChannelPrompt` / `buildWorldChannelPrompt`. Updates has a Channels section (`ChannelsSection.tsx`: followed list with new counts, "Find channels"); `/channels/:channelId` (`ChannelPage.tsx`) shows posts with made-up crowd reactions (`crowdReactions`, steady per post) plus yours, no composer, and Unfollow. In the phone shell, a page with `onBack` gets one back button. Test: `e2e/channels.spec.ts`.
 - **Left on read (#126):** `Character.leavesOnRead` (1 sometimes, 2 often, 3 always; select in the Chat tab's alive group) and `Chat.leftOnReadUntil`. `leftOnReadChance` / `leftOnReadDelay` (src/features/chat/leftOnRead.ts) add chance when busy, on an off day, upset or in a fight; 3-25 minutes. handleSend stops after saving your message (and keeps stopping while one is pending); a ChatPage effect sends the late reply through `sendCharacterFollowup` with `buildLateReplyDirective` when it's due or when you come back. ChatWindow shows your messages as read meanwhile. Only while the app is open on that chat.

@@ -80,7 +80,10 @@ export const StatusFeed: React.FC<StatusFeedProps> = ({ items, onReply, showPost
                 <DisplayImage srcContext={status.image} alt={`${character.name}'s status photo`} className="max-h-80 w-full rounded-lg object-cover" />
               </NsfwBlur>
             )}
-            <p className="text-[15px] text-foreground">{status.text}</p>
+            <p className="text-[15px] text-foreground">
+              {/* Status mentions (#129): @names stand out, like WhatsApp's. */}
+              {status.text.split(/(@[\p{L}\p{N}_]+)/u).map((part, i) => (part.startsWith("@") ? <span key={i} data-slot="mention" className="font-semibold text-primary">{part}</span> : <React.Fragment key={i}>{part}</React.Fragment>))}
+            </p>
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs text-subtle">{formatRelativeTime(status.createdAt)}</span>
               <div className="flex items-center gap-1.5">

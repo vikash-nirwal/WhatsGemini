@@ -182,6 +182,7 @@ export interface CharacterStatus {
   // comments under it (yours, the poster's answers and the others').
   likes?: number[];
   likedByYou?: boolean;
+  mentionsYou?: boolean; // tags you as @you (#129)
   comments?: StatusComment[];
 }
 

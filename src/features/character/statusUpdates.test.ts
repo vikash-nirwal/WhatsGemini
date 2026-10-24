@@ -1,4 +1,4 @@
-import { addStatus, buildStatusPrompt, cleanStatus, hasUnseenStatus, liveStatuses, markSeen, statusDue, statusReplyDraft, STATUS_GAP_MS, STATUS_LIFETIME_MS, photoStatusDue, statusPhotoScene } from "./statusUpdates";
+import { addStatus, buildStatusPrompt, cleanStatus, hasUnseenStatus, liveStatuses, markSeen, statusDue, mentionsUser, STATUS_GAP_MS, STATUS_LIFETIME_MS, photoStatusDue, statusPhotoScene } from "./statusUpdates";
 
 const NOW = Date.UTC(2026, 9, 21, 12);
 const status = (hoursAgo: number, seen = false) => ({ id: `s${hoursAgo}`, text: `status ${hoursAgo}`, createdAt: NOW - hoursAgo * 3_600_000, seen });
@@ -35,10 +35,16 @@ describe("prompt, reply and drafts", () => {
     expect(cleanStatus("  ")).toBeUndefined();
   });
 
-  it("keeps the last ten and quotes one in a reply", () => {
+  it("keeps the last ten", () => {
     const many = Array.from({ length: 12 }, (_, i) => status(i));
     expect(addStatus(many, status(0.5))).toHaveLength(10);
-    expect(statusReplyDraft({ id: "x", text: "Pottery day!", createdAt: NOW })).toBe('(Replying to your status: "Pottery day!") ');
+  });
+
+  it("can mention you (#129)", () => {
+    expect(buildStatusPrompt({ name: "Aria", description: "", prompt: "" }, undefined, [], [], undefined, undefined, undefined, undefined, "Sam")).toContain("mention Sam in it as @Sam");
+    expect(mentionsUser("Coffee with @Sam ☕", "Sam")).toBe(true);
+    expect(mentionsUser("Coffee with @sam!", "Sam")).toBe(true);
+    expect(mentionsUser("Coffee with Samantha", "Sam")).toBe(false);
   });
 });
 

@@ -21,13 +21,14 @@ export const statusDue = (character: Pick<Character, "postsStatuses" | "statuses
   return now - latest >= STATUS_GAP_MS;
 };
 
-export const buildStatusPrompt = (character: Pick<Character, "name" | "description" | "prompt">, nowDoing: string | undefined, facts: string[], recent: string[], dayMood?: string, dayLog?: string, concerns?: string, place?: string): string =>
+// `mention`: the user's name, when this status should mention them (#129).
+export const buildStatusPrompt = (character: Pick<Character, "name" | "description" | "prompt">, nowDoing: string | undefined, facts: string[], recent: string[], dayMood?: string, dayLog?: string, concerns?: string, place?: string, mention?: string): string =>
   `Write one short status update that ${character.name} posts for their friends to see, like a WhatsApp Status.
 
 About ${character.name}: ${[character.description, character.prompt].filter(Boolean).join(" ").slice(0, 600)}
 ${nowDoing ? `Right now they're ${nowDoing}.\n` : ""}${dayMood ? `Today they're ${dayMood}, and it shows.\n` : ""}${dayLog ? `Their day so far (keep to it): ${dayLog}\n` : ""}${concerns ? `On their mind lately: ${concerns}\n` : ""}${place ? `Where they are: ${place}\n` : ""}${facts.length > 0 ? `Things going on in their life lately:\n- ${facts.slice(0, 8).join("\n- ")}\n` : ""}${recent.length > 0 ? `Their last statuses (don't repeat them):\n- ${recent.join("\n- ")}\n` : ""}
 - First person, in ${character.name}'s own voice, about their day, a mood, a small moment or something they're looking forward to.
-- At most 140 characters. One emoji is fine. No hashtags, no quotes, no mention of being an AI.
+${mention ? `- This time, mention ${mention} in it as @${mention}: something you did together, are planning, or a thought about them.\n` : ""}- At most 140 characters. One emoji is fine. No hashtags, no quotes, no mention of being an AI.
 - Reply with only the status text.`;
 
 export const cleanStatus = (reply: string): string | undefined => {
@@ -52,5 +53,9 @@ export const photoStatusDue = (character: Pick<Character, "statusPhotos" | "stat
 export const statusPhotoScene = (name: string, text: string): string =>
   `${name} posts a photo with their status: "${text}". It's a casual phone photo they took themselves: a selfie of ${name}, or what they're looking at right now, whichever fits the status.`;
 
-// The draft a status reply starts from in the chat.
-export const statusReplyDraft = (status: CharacterStatus): string => `(Replying to your status: "${status.text}") `;
+// Status mentions (#129): the status tags you as @YourName.
+export const mentionsUser = (text: string, userName: string): boolean => {
+  const name = userName.trim();
+  if (!name) return false;
+  return new RegExp(`@${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\p{N}])`, "iu").test(text);
+};

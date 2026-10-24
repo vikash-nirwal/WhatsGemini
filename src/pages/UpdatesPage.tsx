@@ -39,7 +39,7 @@ const UpdatesPage = () => {
   const visible = showNsfw ? characters : characters.filter((c) => !isNsfwCharacter(c));
   const posting = visible
     .filter((c) => liveStatuses(c, now).length > 0)
-    .map((c) => ({ character: c, latest: Math.max(...liveStatuses(c, now).map((s) => s.createdAt)), unseen: hasUnseenStatus(c, now) }))
+    .map((c) => ({ character: c, latest: Math.max(...liveStatuses(c, now).map((s) => s.createdAt)), unseen: hasUnseenStatus(c, now), mentions: liveStatuses(c, now).some((s) => s.mentionsYou) }))
     .sort((a, b) => b.latest - a.latest);
   const recent = posting.filter((p) => p.unseen);
   const viewed = posting.filter((p) => !p.unseen);
@@ -55,7 +55,7 @@ const UpdatesPage = () => {
       <section aria-label={title} className="pt-3">
         <h3 className="px-4 pb-1 text-[13px] font-medium text-muted-foreground">{title}</h3>
         <ul>
-          {items.map(({ character, latest, unseen }) => (
+          {items.map(({ character, latest, unseen, mentions }) => (
             <li key={character.id}>
               <button type="button" onClick={() => open(character)} className="flex w-full items-center gap-3.5 px-4 py-2.5 text-left hover:bg-hover" aria-label={`${character.name}'s status${unseen ? ", new" : ""}`}>
                 <span className={cn("rounded-full p-[2px] ring-2 ring-offset-2 ring-offset-background", unseen ? "ring-primary" : "ring-border")}>
@@ -63,7 +63,7 @@ const UpdatesPage = () => {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[16px] font-medium text-foreground">{character.name}</span>
-                  <span className="block text-[13px] text-muted-foreground">{timeOf(latest)}</span>
+                  <span className="block text-[13px] text-muted-foreground">{mentions ? <span className="font-medium text-primary">Mentioned you · </span> : null}{timeOf(latest)}</span>
                 </span>
               </button>
             </li>
