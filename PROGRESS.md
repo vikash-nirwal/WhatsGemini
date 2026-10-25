@@ -162,7 +162,7 @@ Choices a later session shouldn't revisit. Add the date.
 - 2026-10-21 (user): adventure story memory is on by default, with a switch per adventure. Group chats write diary entries: each member with the diary on writes their own. For overnight runs, push and deploy once all suites and CI pass, and decide small open questions, noting them here.
 
 - 2026-10-25 (user): no new voice features (voice statuses, voice-based anything) until the app has an AI voice model; the browser's speech engine isn't good enough. Calls were left out of #113–#129 for the same reason.
-- 2026-10-25: "Your own WhatsApp, part 2" (#130–#138) was picked by the user, all but voice statuses; the user then dropped #135 (location sharing) and made #133 blocking two-way. Not to be built until the user says so. #132 (tuning with a real model) needs the user's API key and is theirs to run.
+- 2026-10-25: "Your own WhatsApp, part 2" (#130–#138) was picked by the user, all but voice statuses; the user then dropped #135 (location sharing) and made #133 blocking two-way. #139 (circles, 10-message cap per exchange) added the same day. Not to be built until the user says so. #132 (tuning with a real model) needs the user's API key and is theirs to run.
 
 ## Working notes
 

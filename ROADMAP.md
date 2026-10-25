@@ -8,7 +8,7 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 Items up to #129 are built (the last batch, #113–#129 "Your own WhatsApp", on 2026-10-24). New ideas get the next free numbers.
 
-## Your own WhatsApp, part 2 (#130–#138, picked 2026-10-25)
+## Your own WhatsApp, part 2 (#130–#139, picked 2026-10-25)
 
 Picked by the user from the ideas after #113–#129. No voice features until the app has an AI voice model (see PROGRESS.md › Decisions).
 
@@ -22,6 +22,11 @@ Picked by the user from the ideas after #113–#129. No voice features until the
 - **#136 Disappearing messages (S).** Per chat, messages vanish after a day or a week; the character knows it's on.
 - **#137 Character stickers (M).** A small sticker set per character, drawn once with their locked look; they send one now and then instead of an emoji.
 - **#138 Relationship map (M).** A picture of who knows whom (#74), the room feelings between them (#24), and how each bond with you has changed.
+- **#139 Circles (L).** You set up circles of characters (a name, the members, how they know each other: "old school friends", "coworkers who can't stand the boss"), and members talk to each other on their own.
+  - *When:* a background job, like the others: now and then two members, or the whole circle, have a short exchange about their own lives, plans among themselves, or you. Only while they're awake, a few a day at most, with the time and recent events so nothing goes stale.
+  - *Cost limit:* each exchange is one helper call and at most **10 messages** by default, adjustable per circle (the user's choice, to keep API costs down). The life dial (#131) scales how often they happen.
+  - *What you see:* hidden by default, as on WhatsApp: you learn of it indirectly (a member brings it up, a status or comment refers to it, a rumor reaches you). A per-circle "Peek" switch shows their threads read-only. (Default proposed, not yet confirmed by the user.)
+  - *How it feeds back:* each member's prompt gets a short note on recent circle talk; members comment on each other's statuses and share each other's contacts (#128); blocking (#133) uses circle members as the mutual contacts; the relationship map (#138) draws circles; now and then the circle invites you into a group chat ("we're planning Friday, you in?").
 
 ## Smaller follow-ups
 
