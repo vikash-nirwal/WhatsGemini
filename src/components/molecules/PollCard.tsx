@@ -20,10 +20,12 @@ export const PollCard = ({ poll, onVote, nameOf }: { poll: Poll; onVote?: (optio
   const votes = happenedVotes(poll, now);
 
   return (
-    <div data-slot="poll" className="font-sans" role="group" aria-label={`Poll: ${poll.question}`}>
-      <div className="text-[15px] font-semibold text-foreground">{poll.question}</div>
-      <div className="mb-2 text-[12px] text-subtle">Select one</div>
-      <ul className="flex flex-col gap-2">
+    <div data-slot="poll" className="w-[min(320px,100%)] min-w-0 font-sans" role="group" aria-label={`Poll: ${poll.question}`}>
+      <div className="text-[15px] font-semibold leading-[21px]">{poll.question}</div>
+      <div className="mb-1 text-[12.5px] opacity-75">Select one{total > 0 ? ` · ${total} ${total === 1 ? "vote" : "votes"}` : ""}</div>
+      {/* #149: the canvas's poll - a 20 px radio, the count, then a 6 px bar
+          and who voted, indented under the option. */}
+      <ul className="flex flex-col">
         {poll.options.map((option, i) => {
           const share = total > 0 ? counts[i] / total : 0;
           const voters = votes.filter((v) => v.option === i).map((v) => nameOf(v.voter));
@@ -35,19 +37,21 @@ export const PollCard = ({ poll, onVote, nameOf }: { poll: Poll; onVote?: (optio
                 disabled={!onVote}
                 aria-pressed={mine === i}
                 aria-label={`${option}, ${counts[i]} ${counts[i] === 1 ? "vote" : "votes"}`}
-                className="w-full text-left"
+                className="w-full py-2 text-left"
               >
-                <span className="flex items-center gap-2">
-                  <span aria-hidden className={cn("flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border-2", mine === i ? "border-primary bg-primary" : "border-subtle")}>
-                    {mine === i && <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />}
+                <span className="flex items-center gap-2.5">
+                  <span aria-hidden className={cn("grid h-5 w-5 flex-shrink-0 place-items-center rounded-full", mine === i ? "bg-primary text-primary-foreground" : "ring-[1.75px] ring-inset ring-subtle")}>
+                    {mine === i && (
+                      <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4 4 10-10" /></svg>
+                    )}
                   </span>
-                  <span className="flex-1 text-[14px] text-foreground">{option}</span>
-                  <span className="text-[13px] text-muted-foreground">{counts[i]}</span>
+                  <span className="min-w-0 flex-1 text-[14px]">{option}</span>
+                  <span className="text-[13px] font-semibold tabular-nums opacity-80">{counts[i]}</span>
                 </span>
-                <span aria-hidden className="mt-1 ml-6 block h-1.5 overflow-hidden rounded-full bg-foreground/10">
-                  <span className="block h-full rounded-full bg-primary transition-[width] duration-500" style={{ width: `${Math.round(share * 100)}%` }} />
+                <span aria-hidden className="mt-1.5 ml-[30px] block h-1.5 overflow-hidden rounded-[3px] bg-foreground/[0.18]">
+                  <span className="block h-full rounded-[3px] bg-primary transition-[width] duration-500" style={{ width: `${Math.round(share * 100)}%` }} />
                 </span>
-                {voters.length > 0 && <span className="ml-6 mt-0.5 block text-[11.5px] text-subtle">{voters.join(", ")}</span>}
+                {voters.length > 0 && <span className="ml-[30px] mt-1 block text-[12px] opacity-75">{voters.join(", ")}</span>}
               </button>
             </li>
           );

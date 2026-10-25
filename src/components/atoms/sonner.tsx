@@ -33,19 +33,25 @@ const Toaster = ({ ...props }: ToasterProps) => {
       className="toaster group"
       toastOptions={{
         classNames: {
+          // #149: the canvas's toast, inverted (text colour on the page
+          // colour) so it stands apart from every surface; success and error
+          // keep a coloured edge.
           toast:
-            "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:shadow-lg",
-          description: "group-[.toast]:text-muted-foreground",
+            "group toast group-[.toaster]:rounded-xl group-[.toaster]:border-0 group-[.toaster]:bg-foreground group-[.toaster]:text-background group-[.toaster]:shadow-popover group-[.toaster]:font-medium",
+          description: "group-[.toast]:text-background/80",
           actionButton:
-            "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
+            "group-[.toast]:bg-background/15 group-[.toast]:text-background group-[.toast]:font-semibold",
           cancelButton:
-            "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
-          success: "group-[.toaster]:!bg-secondary group-[.toaster]:!text-foreground group-[.toaster]:!border-success/40",
-          error: "group-[.toaster]:!bg-secondary group-[.toaster]:!text-foreground group-[.toaster]:!border-destructive/40",
+            "group-[.toast]:bg-transparent group-[.toast]:text-background/80",
+          success: "group-[.toaster]:!bg-foreground group-[.toaster]:!text-background group-[.toaster]:!border-l-4 group-[.toaster]:!border-success",
+          error: "group-[.toaster]:!bg-foreground group-[.toaster]:!text-background group-[.toaster]:!border-l-4 group-[.toaster]:!border-destructive",
         },
       }}
       {...props}
       position={isPhone ? "top-center" : props.position}
+      // Below the 64 px header on phones, so a toast never covers its back
+      // button (#150).
+      mobileOffset={{ top: 72 }}
     />
   )
 }

@@ -54,6 +54,12 @@
  */
 
 :root {
+  /* A letter (#61, #149) is paper in every theme, light or dark. */
+  --paper: 243 233 218; /* #F3E9DA */
+  --paper-ink: 58 42 28; /* #3A2A1C */
+  --paper-label: 122 92 64; /* #7A5C40 */
+  --paper-action: 138 74 34; /* #8A4A22 */
+
   /* ============================================================
      App tokens - brand palette, from the "WhatsGemini UI revamp" canvas
      (#148; design/canvas-system.css has the canvas's own values)
@@ -2470,134 +2476,11 @@ html[data-theme="terminal"] :focus-visible {
   background-color: rgb(var(--wa-chat-bg) / 0.35);
 }
 
-/* Messages sit close together; no avatars beside a 1:1 chat's bubbles. */
-[data-theme="whatsapp"] [data-message-id] {
-  margin-bottom: 8px;
-}
-[data-theme="whatsapp"] [data-slot="chat-pane"]:not([data-room]) [data-slot="message-avatar"] {
-  display: none;
-}
-
-/* Bubbles: white in, green out, small corners and a tail at the top. */
-[data-theme="whatsapp"] :is([data-slot="message-bubble"], [data-slot="text-bubble"], [data-slot="deleted-bubble"]) {
-  border-radius: 7.5px;
-  padding: 6px 8px 6px 9px;
-  box-shadow: 0 1px 0.5px var(--shadow-soft);
-  font-size: 14.2px;
-  line-height: 19px;
-}
-[data-theme="whatsapp"] [data-slot="message-bubble"][data-sender="user"] {
-  background-color: rgb(var(--wa-out));
-  color: rgb(var(--foreground));
-  border-top-right-radius: 0;
-}
-[data-theme="whatsapp"] :is([data-slot="message-bubble"][data-sender="ai"], [data-slot="text-bubble"], [data-slot="deleted-bubble"]) {
-  background-color: rgb(var(--wa-in));
-  color: rgb(var(--foreground));
-}
-[data-theme="whatsapp"] [data-slot="message-bubble"][data-sender="ai"] {
-  border-top-left-radius: 0;
-}
-[data-theme="whatsapp"] [data-slot="message-bubble"]::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  width: 8px;
-  height: 13px;
-  pointer-events: none;
-}
-[data-theme="whatsapp"] [data-slot="message-bubble"][data-sender="user"]::before {
-  right: -8px;
-  background-color: rgb(var(--wa-out));
-  clip-path: polygon(0 0, 100% 0, 0 100%);
-}
-[data-theme="whatsapp"] [data-slot="message-bubble"][data-sender="ai"]::before {
-  left: -8px;
-  background-color: rgb(var(--wa-in));
-  clip-path: polygon(0 0, 100% 0, 100% 100%);
-}
-[data-theme="whatsapp"] [data-slot="message-bubble"] .font-serif {
-  font-size: inherit;
-}
-/* The time and ticks tuck into the bubble's bottom corner. */
-[data-theme="whatsapp"] [data-slot="bubble-meta"] {
-  margin-top: 0;
-  margin-bottom: -2px;
-  font-size: 11px;
-  color: rgb(var(--subtle));
-}
-[data-theme="whatsapp"] [data-sender="user"] [data-slot="bubble-meta"],
-[data-theme="whatsapp"] [data-sender="user"] [data-slot="ticks"] {
-  color: rgb(var(--wa-meta-out));
-}
-[data-theme="whatsapp"] [data-slot="ticks"] {
-  color: rgb(var(--subtle));
-  font-weight: 600;
-}
-[data-theme="whatsapp"] [data-slot="ticks"][data-state="read"] {
-  color: rgb(var(--wa-tick));
-}
-
-/* Hover actions float over the bubble's top corner, like WhatsApp's menu
-   chevron, instead of a reserved row under every bubble. A message with
-   variants keeps its row for the 2/3 counter. */
-[data-theme="whatsapp"] [data-slot="bubble-actions"]:not([data-variants]) {
-  position: absolute;
-  top: 3px;
-  right: 4px;
-  margin: 0;
-  z-index: 2;
-}
-[data-theme="whatsapp"] [data-slot="bubble-actions-menu"] {
-  border-radius: 14px;
-  padding: 1px 3px;
-  background-color: rgb(var(--wa-in));
-  box-shadow: 0 1px 3px var(--shadow-mid);
-}
-[data-theme="whatsapp"] [data-sender="user"] [data-slot="bubble-actions-menu"] {
-  background-color: rgb(var(--wa-out));
-}
-
-/* Narration and room events: WhatsApp's centred system notes. */
-[data-theme="whatsapp"] [data-slot="narration"] > p,
-[data-theme="whatsapp"] [data-slot="room-event"] {
-  background-color: rgb(var(--wa-system));
-  color: rgb(var(--muted-foreground));
-  border-radius: 7.5px;
-  padding: 5px 12px 6px;
-  font-style: normal;
-  font-size: 12.5px;
-  box-shadow: 0 1px 0.5px var(--shadow-soft);
-}
-
-/* Composer: a white pill and a round green send button. */
-[data-theme="whatsapp"] [data-slot="composer"] {
-  background-color: rgb(var(--card));
-  border-color: transparent;
-  box-shadow: 0 1px 2px var(--shadow-soft);
-  backdrop-filter: none;
-  border-radius: 24px;
-}
-[data-theme="whatsapp"].dark [data-slot="composer"] {
-  background-color: rgb(var(--secondary));
-}
-[data-theme="whatsapp"] [data-slot="send-button"] {
-  width: 40px;
-  min-width: 40px;
-  height: 40px;
-  padding: 0;
-  border-radius: 9999px;
+/* Messenger's bubbles, composer, times and system notes are the shared
+   components from the revamp (#149), coloured by the tokens above; only the
+   wallpaper and the send button's green are its own. */
+[data-theme="whatsapp"] [data-slot="send-button"]:not(:disabled) {
   background-color: rgb(var(--wa-green));
-  color: #fff;
-}
-[data-theme="whatsapp"].dark [data-slot="send-button"] {
-  color: rgb(17 27 33);
-}
-[data-theme="whatsapp"] [data-slot="send-button"] > span {
-  display: none;
-}
-[data-theme="whatsapp"] [data-slot="send-button"]:disabled {
-  background-color: rgb(var(--wa-green) / 0.45);
 }
 
 /* Reading comfort (#91): high contrast turns muted and faint text into the

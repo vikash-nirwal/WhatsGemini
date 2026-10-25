@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from "react";
 import { useColorTheme } from "../../hooks/useColorTheme";
-import { FaReply, FaShare, FaInfoCircle, FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask, FaBookmark, FaStar, FaCode, FaVolumeUp, FaStop, FaLanguage, FaCodeBranch } from "react-icons/fa";
+import { FaReply, FaShare, FaInfoCircle, FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask, FaBookmark, FaStar, FaCode, FaVolumeUp, FaStop, FaLanguage, FaCodeBranch, FaEllipsisH } from "react-icons/fa";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "src/components/molecules/dropdown-menu";
 import { motion } from "framer-motion";
 import { cn } from "../../utils/cn";
 import { CharacterVoice, Message } from "../../types";
@@ -14,7 +15,6 @@ import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { PollCard } from "src/components/molecules/PollCard";
 import { Button } from "src/components/atoms/button";
 import { Card, CardContent } from "src/components/atoms/card";
-import { Tooltip, TooltipTrigger, TooltipContent } from "src/components/atoms/tooltip";
 import { TermLink } from "src/components/atoms/TermLink";
 import { NsfwBlur } from "src/components/molecules/NsfwBlur";
 import { InnerThoughts, ReactionBadge, ReactionPicker, ReactionRow } from "src/components/molecules/MessageExtras";
@@ -80,6 +80,13 @@ interface ChatMessageProps {
   slips?: SlipLevel;
   userBurst?: string[];
   voice?: CharacterVoice; // the speaker's voice, for "Read aloud" and voice notes (#12, #44)
+  // Bubbles group by sender (#149): runStart is the first message of a run
+  // from the same sender (more space above it; in a group, the speaker's
+  // avatar and name), runEnd the last (its corner on the sender's side
+  // tightens into a tail). inRoom: a group chat, where avatars show.
+  runStart?: boolean;
+  runEnd?: boolean;
+  inRoom?: boolean;
 }
 
 // The chat's text size. `data-chat-text` lets a reading font or line
@@ -111,21 +118,41 @@ const LONG_PRESS_SLOP = 10;
 const TOUCH_ONLY = "(hover: none)";
 
 // A quoted reply (#108, #119): the message this one answers, the way
-// messaging apps show it above the bubble.
-const QuotedMessage = ({ text, name = "You" }: { text: string; name?: string }) => (
-  <div data-slot="quoted-message" className="mb-1.5 rounded-md border-l-2 border-primary/70 bg-foreground/[0.05] px-2 py-1 font-sans text-[12px] text-subtle" aria-label={`Replying to: ${text}`}>
-    <span className="block text-[10.5px] font-medium text-primary">{name}</span>
-    <span className="line-clamp-2">{text}</span>
+// messaging apps show it above the text. #149: the canvas's quote card, an
+// accent bar beside the name and two lines of the quoted text.
+const QuoteCard = ({ name, text, label, slot }: { name: string; text: string; label: string; slot: string }) => (
+  <div data-slot={slot} className="mb-1.5 flex overflow-hidden rounded-[10px] bg-foreground/[0.07] font-sans" aria-label={label}>
+    <span aria-hidden className="w-[3px] flex-none bg-primary" />
+    <span className="min-w-0 px-2.5 py-1.5">
+      <span className="block text-[12.5px] font-semibold leading-[17px] text-primary-text">{name}</span>
+      <span className="line-clamp-2 text-[13px] leading-[18px] opacity-80">{text}</span>
+    </span>
   </div>
+);
+
+const QuotedMessage = ({ text, name = "You" }: { text: string; name?: string }) => (
+  <QuoteCard slot="quoted-message" name={name} text={text} label={`Replying to: ${text}`} />
 );
 
 // A reply to a status (#117, #129): the status quoted above the text, like
 // WhatsApp's "Status" card.
 const QuotedStatus = ({ quoted, ownerName }: { quoted: NonNullable<Message["quotedStatus"]>; ownerName: string }) => (
-  <div data-slot="quoted-status" className="mb-1.5 rounded-md border-l-2 border-primary/70 bg-foreground/[0.05] px-2 py-1 font-sans text-[12px] text-subtle" aria-label={`Replying to ${ownerName === "You" ? "your" : `${ownerName}'s`} status: ${quoted.text || "a photo"}`}>
-    <span className="block text-[10.5px] font-medium text-primary">{ownerName} · Status</span>
-    <span className="line-clamp-2">{quoted.photo ? "📷 " : ""}{quoted.text || "Photo"}</span>
-  </div>
+  <QuoteCard
+    slot="quoted-status"
+    name={`${ownerName} · Status`}
+    text={`${quoted.photo ? "📷 " : ""}${quoted.text || "Photo"}`}
+    label={`Replying to ${ownerName === "You" ? "your" : `${ownerName}'s`} status: ${quoted.text || "a photo"}`}
+  />
+);
+
+// The time, the ticks on your own messages and a regenerated reply's 2/3
+// pager, at the bubble's bottom edge (#149), in every theme but terminal.
+const formatTime = (timestamp: number) => new Date(timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+const Ticks = ({ state }: { state: "sent" | "read" }) => (
+  <svg data-slot="ticks" data-state={state} aria-hidden viewBox="0 0 24 24" className={cn("h-4 w-4 flex-none", state === "read" ? "text-tick-read" : "text-tick")} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+    {state === "read" ? <path d="M2 13l4 4L16 7M10 15l2 2L22 7" /> : <path d="m5 12 4 4 10-10" />}
+  </svg>
 );
 
 const ChatMessage = React.memo(({
@@ -170,12 +197,13 @@ const ChatMessage = React.memo(({
   slips,
   userBurst,
   voice,
+  runStart = true,
+  runEnd = true,
+  inRoom = false,
 }: ChatMessageProps) => {
   const isUser = msg.role === YOU;
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
-  // WhatsApp-style theme (#113): every bubble carries its time, like WhatsApp.
-  const whatsapp = is("whatsapp");
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
   const [termReactOpen, setTermReactOpen] = useState(false);
 
@@ -204,7 +232,7 @@ const ChatMessage = React.memo(({
   // it full screen once, then only "Opened" is left.
   const viewOnceBadge = msg.viewOnce ? (
     msg.viewedOnce || !msg.images?.length ? (
-      <div data-slot="view-once" data-state="opened" className="mt-2 inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 font-sans text-[13px] text-muted-foreground">
+      <div data-slot="view-once" data-state="opened" className="mt-1.5 inline-flex h-9 items-center gap-2 rounded-[18px] pl-2.5 pr-3.5 font-sans text-[13.5px] font-semibold text-subtle ring-1 ring-inset ring-border-strong">
         <span aria-hidden>◌</span> Opened
       </div>
     ) : (
@@ -212,7 +240,7 @@ const ChatMessage = React.memo(({
         type="button"
         data-slot="view-once"
         onClick={() => { setFullscreenImage(msg.images![0]); onViewOnce?.(msg); }}
-        className="mt-2 inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 font-sans text-[13px] font-medium text-primary"
+        className="mt-1.5 inline-flex h-9 items-center gap-2 rounded-[18px] bg-primary/[0.14] pl-2.5 pr-3.5 font-sans text-[13.5px] font-semibold text-primary-text"
       >
         <span aria-hidden>①</span> Photo · view once
       </button>
@@ -361,10 +389,7 @@ const ChatMessage = React.memo(({
   ];
   const actionSheet = (
     <Dialog open={actionsOpen} onOpenChange={setActionsOpen}>
-      <DialogContent
-        aria-describedby={undefined}
-        className="top-auto bottom-0 translate-y-0 data-[state=open]:slide-in-from-top-[100%] rounded-t-2xl rounded-b-none p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] gap-0"
-      >
+      <DialogContent aria-describedby={undefined} size="sheet">
         <DialogTitle className="sr-only">Message actions</DialogTitle>
         {canReact && <ReactionRow current={msg.reaction} onPick={(emoji) => { setActionsOpen(false); handleReact(emoji); }} />}
         {/* Scrolls inside the sheet when the actions outgrow a short screen. */}
@@ -378,7 +403,7 @@ const ChatMessage = React.memo(({
               onClick={() => { setActionsOpen(false); action.onSelect(); }}
               className={cn(
                 "flex items-center gap-3 px-4 py-3.5 rounded-xl text-left text-[15px] font-sans disabled:opacity-50",
-                action.danger ? "text-destructive hover:bg-destructive/10" : "text-foreground hover:bg-secondary"
+                action.danger ? "text-destructive hover:bg-destructive/10" : "text-foreground hover:bg-raised"
               )}
             >
               <action.icon size={15} className="flex-shrink-0" />
@@ -555,12 +580,12 @@ const ChatMessage = React.memo(({
     return (
       <motion.div
         data-slot="narration"
-        className="flex w-full mb-6 justify-center"
+        className="flex w-full mt-3.5 mb-1 justify-center"
         initial={{ opacity: 0, y: 4 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
-        <p className="max-w-[85%] md:max-w-[70%] text-center font-serif italic text-[15px] leading-relaxed text-muted-foreground">
+        <p className="max-w-[88%] md:max-w-[70%] rounded-xl bg-surface px-3 py-1.5 text-center font-serif italic text-[14px] leading-[21px] text-muted-foreground ring-1 ring-inset ring-border">
           {msg.txt}
         </p>
       </motion.div>
@@ -570,12 +595,12 @@ const ChatMessage = React.memo(({
   if (msg.isRoomEvent) {
     return (
       <motion.div
-        className="flex w-full mb-6 justify-center"
+        className="flex w-full mt-3 mb-0.5 justify-center"
         initial={{ opacity: 0, y: 4 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
-        <span data-slot="room-event" className="px-3 py-1 rounded-full bg-muted text-[11.5px] font-medium text-muted-foreground">
+        <span data-slot="room-event" className="max-w-[80%] rounded-xl bg-surface px-3 py-[5px] text-center text-[12.5px] leading-[17px] text-muted-foreground ring-1 ring-inset ring-border">
           {msg.txt}
         </span>
       </motion.div>
@@ -585,12 +610,12 @@ const ChatMessage = React.memo(({
   if (msg.isCompressionSummary) {
     return (
       <motion.div
-        className="flex w-full mb-6 justify-center"
+        className="flex w-full mt-4 mb-2 justify-center"
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
-        <Card className="max-w-[90%] md:max-w-[70%] bg-muted text-center">
+        <Card className="max-w-[90%] md:max-w-[70%] rounded-card bg-surface text-center shadow-none">
           <CardContent className="px-4 py-3">
             <div className="flex items-center justify-center gap-2 text-xs font-semibold text-muted-foreground mb-1.5">
               {msg.chapterTitle ? <FaBookmark size={10} /> : <FaCompressArrowsAlt size={11} />}
@@ -642,24 +667,137 @@ const ChatMessage = React.memo(({
   }
 
   // The bubble itself; in texting mode it holds only the last text, after
-  // the others.
+  // the others. #149: the canvas's bubble - its own colour token, 18 px
+  // corners with a tail on the last bubble of a sender's run, and the time
+  // (plus ticks and the 2/3 pager) inside it, with nothing reserved below.
+  const tailCorner = isUser ? "rounded-br-[6px]" : "rounded-bl-[6px]";
+  const bubbleTone = isUser
+    ? neumorphic
+      ? "bg-accent-soft text-accent-ink"
+      : "bg-bubble-out text-bubble-out-text"
+    : neumorphic
+      ? "bg-elevated surface-raised text-foreground"
+      : "bg-bubble-in text-bubble-in-text";
+  const metaTone = isUser ? "text-bubble-out-meta" : "text-bubble-meta";
+  const hasReaction = Boolean((!isUser && msg.reaction) || (isUser && msg.characterReaction));
+  const showMeta = Boolean(msg.timestamp || receipt || siblingInfo);
+
+  const meta = showMeta ? (
+    <div
+      data-slot="bubble-meta"
+      className={cn("mt-0.5 -mb-0.5 flex items-center justify-end gap-1 font-sans text-[11.5px] leading-[14px] tabular-nums", metaTone)}
+      aria-label={receipt === "read" ? "Read" : receipt === "sent" ? "Sent" : undefined}
+    >
+      {siblingInfo && (
+        <span className="mr-auto flex items-center gap-0.5 pr-2" title={`${siblingInfo.total} variants of this message`}>
+          {/* Only the arrows that lead somewhere; a spacer keeps the count still. */}
+          {siblingInfo.index > 0 ? (
+            <button
+              type="button"
+              onClick={() => onSwitchBranch?.(siblingInfo.siblingIds[siblingInfo.index - 1])}
+              className="grid h-5 w-5 place-items-center rounded-md hover:bg-foreground/10"
+              aria-label="Previous variant"
+              data-hit
+            >
+              <FaChevronLeft size={9} />
+            </button>
+          ) : <span aria-hidden className="w-5" />}
+          <span className="font-semibold">{siblingInfo.index + 1}/{siblingInfo.total}</span>
+          {siblingInfo.index < siblingInfo.total - 1 ? (
+            <button
+              type="button"
+              onClick={() => onSwitchBranch?.(siblingInfo.siblingIds[siblingInfo.index + 1])}
+              className="grid h-5 w-5 place-items-center rounded-md hover:bg-foreground/10"
+              aria-label="Next variant"
+              data-hit
+            >
+              <FaChevronRight size={9} />
+            </button>
+          ) : <span aria-hidden className="w-5" />}
+        </span>
+      )}
+      {msg.bookmarked && <FaStar size={10} className="text-warning" aria-label="Starred" data-slot="star" />}
+      {msg.timestamp && <span>{formatTime(msg.timestamp)}</span>}
+      {receipt && <Ticks state={receipt} />}
+    </div>
+  ) : null;
+
+  // Desktop (#149): a small toolbar beside the bubble on hover or keyboard
+  // focus - React, Reply and More, with every other action in the More menu -
+  // instead of a row of icons that reserved space under every bubble. Touch
+  // screens use the long-press sheet. The padding (not a margin) between it
+  // and the bubble keeps the pointer inside while it moves across.
+  const menuActions = sheetActions.filter((a) => a.label !== "Reply");
+  const toolbar = (
+    <div
+      data-slot="message-toolbar"
+      className={cn(
+        // Faded out rather than pointer-events: none, so a pointer
+        // that lands on it directly still hovers the bubble and shows it.
+        "absolute top-0 z-20 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100 [@media(hover:none)]:hidden",
+        isUser ? "right-full pr-2" : "left-full pl-2"
+      )}
+    >
+      <div className="flex items-center gap-0.5 rounded-xl bg-popover p-[3px] shadow-popover ring-1 ring-inset ring-border font-sans">
+        {canReact && (
+          <ReactionPicker
+            current={msg.reaction}
+            onPick={handleReact}
+            className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-raised hover:text-foreground"
+          />
+        )}
+        {/* While this reply is read aloud, stopping it is one tap away. */}
+        {speaking && (
+          <Button variant="ghost" size="icon" onClick={handleReadAloud} aria-label="Stop reading" title="Stop reading" className="h-8 w-8 rounded-lg text-primary-text hover:bg-raised">
+            <FaStop size={11} />
+          </Button>
+        )}
+        {canReply && (
+          <Button variant="ghost" size="icon" onClick={handleReply} aria-label="Reply" title="Reply" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-raised hover:text-foreground">
+            <FaReply size={12} />
+          </Button>
+        )}
+        {/* Not modal: its actions open dialogs (Info, Edit), and a modal menu's
+            layer still holding Escape and focus as it fades fights them. */}
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="More message actions" title="More" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-raised hover:text-foreground">
+              <FaEllipsisH size={12} />
+            </Button>
+          </DropdownMenuTrigger>
+          {/* No focus return to "More" and no fade-out on close: an action
+              that opens a dialog (Info, Edit) keeps the focus, and a menu
+              still fading out would keep taking the dialog's Escape. */}
+          <DropdownMenuContent align={isUser ? "end" : "start"} className="w-60 data-[state=closed]:!animate-none" onCloseAutoFocus={(e) => e.preventDefault()}>
+            {menuActions.map((action, i) => (
+              <DropdownMenuItem
+                // By position: "Read aloud" becomes "Stop reading" while it
+                // speaks, and a label key would remount the item mid-click.
+                key={i}
+                disabled={action.disabled}
+                onSelect={action.onSelect}
+                aria-pressed={action.label === bookmarkLabel ? Boolean(msg.bookmarked) : undefined}
+                className={cn("gap-3 py-2", action.danger && "text-destructive focus:text-destructive")}
+              >
+                <action.icon size={13} className="flex-shrink-0" />
+                {action.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  );
+
   const bubble = (
         <div
           data-slot="message-bubble"
           data-sender={isUser ? "user" : "ai"}
           className={cn(
-            "relative p-4 rounded-2xl min-w-0 group [@media(hover:none)]:[-webkit-touch-callout:none]",
-            textParts ? "max-w-full" : "max-w-[85%] md:max-w-[70%]",
-            // Canvas spec: "plain div. Incoming: bg-elevated surface-raised.
-            // Outgoing: bg-accent-soft text-accent-ink." Cozy keeps its own
-            // translucent-tint look untouched.
-            isUser
-              ? neumorphic
-                ? "bg-accent-soft text-accent-ink rounded-br-[5px]"
-                : "bg-primary/[0.16] text-foreground rounded-br-[5px]"
-              : neumorphic
-                ? "bg-elevated surface-raised text-foreground rounded-tl-[5px]"
-                : "bg-card/[0.88] shadow-soft text-foreground rounded-tl-[5px]"
+            "relative min-w-0 group rounded-bubble px-3 pt-2 pb-1.5 shadow-bubble [@media(hover:none)]:[-webkit-touch-callout:none]",
+            textParts ? "max-w-full" : "max-w-[86%] md:max-w-[min(600px,78%)]",
+            bubbleTone,
+            runEnd && tailCorner
           )}
           data-chat-text
           style={swipeX ? { ...CHAT_TEXT_STYLE, transform: `translateX(${swipeX}px)` } : CHAT_TEXT_STYLE}
@@ -669,47 +807,22 @@ const ChatMessage = React.memo(({
           onTouchCancel={() => { cancelPress(); endSwipe(); }}
           onContextMenu={handleContextMenu}
         >
-          {/* Floating sibling prev/next, anchored to the card's edges */}
-          {siblingInfo && siblingInfo.index > 0 && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onSwitchBranch?.(siblingInfo.siblingIds[siblingInfo.index - 1])}
-              className="absolute -left-4 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-secondary border border-border/50 shadow-soft text-foreground hover:bg-muted z-10"
-              aria-label="Previous variant"
-              title="Previous variant"
-            >
-              <FaChevronLeft size={12} />
-            </Button>
-          )}
-          {siblingInfo && siblingInfo.index < siblingInfo.total - 1 && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onSwitchBranch?.(siblingInfo.siblingIds[siblingInfo.index + 1])}
-              className="absolute -right-4 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-secondary border border-border/50 shadow-soft text-foreground hover:bg-muted z-10"
-              aria-label="Next variant"
-              title="Next variant"
-            >
-              <FaChevronRight size={12} />
-            </Button>
-          )}
+          {toolbar}
 
-          {msg.bookmarked && (
-            <span className="absolute -top-2 -right-2 text-amber-400 drop-shadow" title="Starred" aria-label="Starred" data-slot="star">
-              <FaStar size={12} />
-            </span>
+          {/* In a group (#149), the speaker's name opens their run. */}
+          {inRoom && !isUser && runStart && speakerName && (
+            <div data-slot="sender-name" className="mb-0.5 font-sans text-[13px] font-semibold leading-[18px] text-foreground">{speakerName}</div>
           )}
 
           {msg.isImpersonated && (
-            <div className="flex items-center gap-1.5 mb-1.5 text-[11px] font-semibold text-primary/80">
+            <div className="flex items-center gap-1.5 mb-1 font-sans text-[11.5px] font-semibold text-primary-text">
               <FaMask size={10} />
               You, in character
             </div>
           )}
           {/* Role reversal (#105): who's playing whom. */}
           {msg.swapped && !msg.isImpersonated && (
-            <div className="flex items-center gap-1.5 mb-1.5 text-[11px] font-semibold text-primary/80" data-slot="swap-label">
+            <div className="flex items-center gap-1.5 mb-1 font-sans text-[11.5px] font-semibold text-primary-text" data-slot="swap-label">
               <FaMask size={10} />
               {isUser ? `You, as ${speakerName || "them"}` : `${speakerName || "They"}, as ${userName?.trim() || "you"}`}
             </div>
@@ -721,8 +834,8 @@ const ChatMessage = React.memo(({
             {msg.poll && <PollCard poll={msg.poll} onVote={onVote && msg.id ? (option) => onVote(msg, option) : undefined} nameOf={voterName || ((v) => (v === "you" ? "You" : "Someone"))} />}
             {msg.forward && (
               <div data-slot="forwarded" className="mb-1.5 font-sans">
-                <span className="block text-[11.5px] italic text-subtle">↪ Forwarded</span>
-                <div className="mt-0.5 rounded-md bg-foreground/[0.05] px-2.5 py-1.5 text-[13.5px] text-foreground whitespace-pre-line">{msg.forward.text}</div>
+                <span className={cn("flex items-center gap-1 text-[12px] italic", metaTone)}><FaShare size={9} aria-hidden /> Forwarded</span>
+                <div className="mt-1 rounded-[10px] bg-foreground/[0.07] px-2.5 py-1.5 text-[14px] leading-[20px] whitespace-pre-line">{msg.forward.text}</div>
               </div>
             )}
             {msg.replyTo && <QuotedMessage text={msg.replyTo.text} name={msg.replyTo.from === "you" ? "You" : replyToName || "Them"} />}
@@ -732,16 +845,16 @@ const ChatMessage = React.memo(({
           </div>
           {/* A shared contact (#128): a card with "Message". */}
           {msg.contactCard && (
-            <div data-slot="contact-card" className="mt-2 rounded-lg border border-border/60 bg-foreground/[0.04] font-sans">
-              <div className="flex items-center gap-3 px-3 py-2.5">
-                <CharacterAvatar name={msg.contactCard.name} size={38} />
+            <div data-slot="contact-card" className="mt-1.5 w-[280px] max-w-full overflow-hidden rounded-xl bg-foreground/[0.07] font-sans">
+              <div className="flex items-center gap-3 p-3">
+                <CharacterAvatar name={msg.contactCard.name} size={40} />
                 <div className="min-w-0">
-                  <div className="truncate text-[14px] font-semibold text-foreground">{msg.contactCard.name}</div>
-                  {msg.contactCard.about && <div className="line-clamp-2 text-[12px] text-muted-foreground">{msg.contactCard.about}</div>}
+                  <div className="truncate text-[14px] font-semibold">{msg.contactCard.name}</div>
+                  {msg.contactCard.about && <div className="line-clamp-2 text-[12.5px] opacity-80">{msg.contactCard.about}</div>}
                 </div>
               </div>
               {onOpenContact && (
-                <button type="button" onClick={() => onOpenContact(msg)} className="w-full border-t border-border/60 py-2 text-[13.5px] font-medium text-primary hover:bg-primary/5" aria-label={`Message ${msg.contactCard.name}`}>
+                <button type="button" onClick={() => onOpenContact(msg)} className="w-full border-t border-border py-2.5 text-[14px] font-semibold text-primary-text hover:bg-primary/5" aria-label={`Message ${msg.contactCard.name}`}>
                   Message
                 </button>
               )}
@@ -750,21 +863,6 @@ const ChatMessage = React.memo(({
           {thoughtsBlock}
           {languageBlock}
           {secretNote}
-          {receipt ? (
-            <div data-slot="bubble-meta" className="mt-1 flex items-center justify-end gap-1 font-sans text-[11px] text-subtle" aria-label={receipt === "read" ? "Read" : "Sent"}>
-              {msg.timestamp && <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>}
-              <span aria-hidden data-slot="ticks" data-state={receipt} className={cn("tracking-[-0.2em]", receipt === "read" && "text-primary")}>{receipt === "read" ? "✓✓" : "✓"}</span>
-            </div>
-          ) : whatsapp && msg.timestamp ? (
-            <div data-slot="bubble-meta" className="mt-1 flex items-center justify-end font-sans text-[11px] text-subtle">
-              {new Date(msg.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-            </div>
-          ) : null}
-
-          {!isUser && msg.reaction && <ReactionBadge emoji={msg.reaction} side="right" label={`You reacted ${msg.reaction}`} />}
-          {isUser && msg.characterReaction && (
-            <ReactionBadge emoji={msg.characterReaction.emoji} side="left" label={`${reactorName || "They"} reacted ${msg.characterReaction.emoji}`} />
-          )}
 
           {viewOnceBadge || (msg.images && msg.images.map((imgSrc, idx) => (
             <NsfwBlur key={idx} active={blurMedia} className="w-fit max-w-full">
@@ -772,7 +870,7 @@ const ChatMessage = React.memo(({
                 srcContext={imgSrc}
                 alt={isUser ? "Sent by you" : "Generated"}
                 onClick={() => setFullscreenImage(imgSrc)}
-                className="mt-2 max-w-full rounded-lg shadow-sm cursor-zoom-in hover:opacity-90 transition-opacity"
+                className="mt-1.5 max-w-full rounded-xl cursor-zoom-in hover:opacity-90 transition-opacity"
               />
             </NsfwBlur>
           )))}
@@ -781,241 +879,56 @@ const ChatMessage = React.memo(({
             <NsfwBlur key={idx} active={blurMedia} className="w-fit max-w-full">
               <DisplayVideo
                 srcContext={vidSrc}
-                className="mt-2 max-w-full rounded-lg shadow-sm"
+                className="mt-1.5 max-w-full rounded-xl"
               />
             </NsfwBlur>
           ))}
 
-          {/* User messages: the same hover-revealed footer as AI replies (the
-              old ⋮ menu floated over the text). Touch screens use the
-              long-press action sheet instead, so the row only shows there
-              when it has a variant count to display. */}
-          {isUser && (
-            <div data-slot="bubble-actions" data-variants={siblingInfo ? "true" : undefined} className={cn("flex items-center justify-end gap-1 mt-2 font-sans", !siblingInfo && "[@media(hover:none)]:hidden")}>
-              <div data-slot="bubble-actions-menu" className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity [@media(hover:none)]:hidden">
-                {canReply && (
-                  <Button variant="ghost" size="icon" onClick={handleReply} aria-label="Reply" title="Reply" className="h-auto w-auto p-1.5 rounded-md text-foreground/60 hover:bg-primary/10 hover:text-foreground">
-                    <FaReply size={11} />
-                  </Button>
-                )}
-                {onForward && canReply && (
-                  <Button variant="ghost" size="icon" onClick={() => onForward(msg)} aria-label="Forward" title="Forward" className="h-auto w-auto p-1.5 rounded-md text-foreground/60 hover:bg-primary/10 hover:text-foreground">
-                    <FaShare size={11} />
-                  </Button>
-                )}
-                {onInfo && (
-                  <Button variant="ghost" size="icon" onClick={onInfo} aria-label="Info" title="Message info" className="h-auto w-auto p-1.5 rounded-md text-foreground/60 hover:bg-primary/10 hover:text-foreground">
-                    <FaInfoCircle size={11} />
-                  </Button>
-                )}
-                <Button variant="ghost" size="icon" onClick={handleCopy} aria-label="Copy" title="Copy" className="h-auto w-auto p-1.5 rounded-md text-foreground/60 hover:bg-primary/10 hover:text-foreground">
-                  <FaCopy size={12} />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={handleEdit} disabled={aiLoading} aria-label="Edit" title="Edit" className="h-auto w-auto p-1.5 rounded-md text-foreground/60 hover:bg-primary/10 hover:text-foreground">
-                  <FaEdit size={12} />
-                </Button>
-                {onToggleBookmark && (
-                  <Button variant="ghost" size="icon" onClick={handleToggleBookmark} aria-label={bookmarkLabel} aria-pressed={Boolean(msg.bookmarked)} title={bookmarkLabel} className={cn("h-auto w-auto p-1.5 rounded-md hover:bg-primary/10", msg.bookmarked ? "text-amber-500" : "text-foreground/60 hover:text-foreground")}>
-                    <FaStar size={11} />
-                  </Button>
-                )}
-                {onDeleteBranch && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleDeleteBranch}
-                    disabled={aiLoading}
-                    className="h-auto w-auto p-1.5 rounded-md text-subtle hover:bg-destructive/15 hover:text-destructive"
-                    aria-label={siblingInfo ? "Delete this variant" : "Delete message"}
-                    title={siblingInfo ? "Delete this variant" : "Delete message"}
-                  >
-                    <FaTrash size={10} />
-                  </Button>
-                )}
-              </div>
-              {siblingInfo && (
-                <span
-                  className="text-[11px] font-mono font-semibold text-subtle tabular-nums"
-                  title={`${siblingInfo.total} variants of this message`}
-                >
-                  {siblingInfo.index + 1}/{siblingInfo.total}
-                </span>
-              )}
-            </div>
-          )}
+          {meta}
 
-          {/* AI messages: icon-only actions, hidden until the message is hovered
-              or a button inside it has focus (keyboard/touch) - a permanently
-              visible labeled row under every single reply added a lot of
-              constant weight for something used occasionally. The outer
-              bubble already carries the `group` class this reveal keys off. */}
-          {!isUser && (
-            <div data-slot="bubble-actions" data-variants={siblingInfo ? "true" : undefined} className={cn("flex items-center gap-1 mt-2 font-sans", !siblingInfo && "[@media(hover:none)]:hidden")}>
-              <div data-slot="bubble-actions-menu" className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity [@media(hover:none)]:hidden">
-                {canReply && (
-                  <Button variant="ghost" size="icon" onClick={handleReply} aria-label="Reply" title="Reply" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
-                    <FaReply size={11} />
-                  </Button>
-                )}
-                {onForward && canReply && (
-                  <Button variant="ghost" size="icon" onClick={() => onForward(msg)} aria-label="Forward" title="Forward" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
-                    <FaShare size={11} />
-                  </Button>
-                )}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" onClick={handleCopy} aria-label="Copy" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
-                      <FaCopy size={12} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Copy</TooltipContent>
-                </Tooltip>
-                {canReadAloud && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" onClick={handleReadAloud} aria-label={readAloudLabel} className={cn("h-auto w-auto p-1.5 rounded-md hover:bg-secondary", speaking ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
-                        {speaking ? <FaStop size={11} /> : <FaVolumeUp size={12} />}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>{readAloudLabel}</TooltipContent>
-                  </Tooltip>
-                )}
-                {canReact && (
-                  <ReactionPicker
-                    current={msg.reaction}
-                    onPick={handleReact}
-                    className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  />
-                )}
-                {!msg.isImpersonated && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" onClick={handleRegenerate} aria-label="Regenerate" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
-                        <FaRedo size={12} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Regenerate</TooltipContent>
-                  </Tooltip>
-                )}
-                {!msg.isImpersonated && isLastMessage && onContinue && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleContinue}
-                        disabled={aiLoading}
-                        aria-label="Continue"
-                        className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
-                      >
-                        <FaForward size={12} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Ask the model to keep writing from where this reply left off</TooltipContent>
-                  </Tooltip>
-                )}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" onClick={handleEdit} aria-label="Edit" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
-                      <FaEdit size={12} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Edit</TooltipContent>
-                </Tooltip>
-                {onToggleBookmark && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" onClick={handleToggleBookmark} aria-label={bookmarkLabel} aria-pressed={Boolean(msg.bookmarked)} className={cn("h-auto w-auto p-1.5 rounded-md hover:bg-secondary", msg.bookmarked ? "text-amber-500" : "text-muted-foreground hover:text-foreground")}>
-                        <FaStar size={11} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>{bookmarkLabel}</TooltipContent>
-                  </Tooltip>
-                )}
-                {canFork && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" onClick={handleFork} disabled={aiLoading} aria-label="Start a new chat from here" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
-                        <FaCodeBranch size={11} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Start a new chat from here (a "what if")</TooltipContent>
-                  </Tooltip>
-                )}
-                {canTranslate && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" onClick={handleTranslate} disabled={translating} aria-label="Translate" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
-                        <FaLanguage size={12} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Translate this reply</TooltipContent>
-                  </Tooltip>
-                )}
-                {canInspect && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" onClick={handleInspect} aria-label="Show what was sent" className="h-auto w-auto p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
-                        <FaCode size={11} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Show what was sent to the model for this reply</TooltipContent>
-                  </Tooltip>
-                )}
-                {onDeleteBranch && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleDeleteBranch}
-                        disabled={aiLoading}
-                        className="h-auto w-auto p-1.5 rounded-md text-subtle hover:bg-destructive/15 hover:text-destructive"
-                        aria-label={siblingInfo ? "Delete this variant" : "Delete message"}
-                      >
-                        <FaTrash size={10} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>{siblingInfo ? "Delete this variant" : "Delete message"}</TooltipContent>
-                  </Tooltip>
-                )}
-              </div>
-              <div className="flex-1" />
-              {siblingInfo && (
-                <span
-                  className="text-[11px] font-mono font-semibold text-subtle tabular-nums"
-                  title={`${siblingInfo.total} variants of this message`}
-                >
-                  {siblingInfo.index + 1}/{siblingInfo.total}
-                </span>
-              )}
-            </div>
+          {!isUser && msg.reaction && <ReactionBadge emoji={msg.reaction} side="right" label={`You reacted ${msg.reaction}`} />}
+          {isUser && msg.characterReaction && (
+            <ReactionBadge emoji={msg.characterReaction.emoji} side="left" label={`${reactorName || "They"} reacted ${msg.characterReaction.emoji}`} />
           )}
         </div>
+  );
+
+  // Texting mode's earlier texts and deleted messages (#6, #108), in the
+  // same bubble style as the reply's last text.
+  const partClass = () => cn(
+    "max-w-full min-w-0 rounded-bubble px-3 py-2 shadow-bubble",
+    neumorphic ? "bg-elevated surface-raised" : "bg-bubble-in text-bubble-in-text"
   );
 
   return (
     <motion.div
       data-message-id={msg.id}
-      className={cn("flex w-full mb-6 scroll-mt-20", isUser ? "justify-end" : "justify-start")}
+      data-run-start={runStart ? "true" : undefined}
+      className={cn(
+        "flex w-full scroll-mt-20",
+        isUser ? "justify-end" : "justify-start",
+        runStart ? "mt-3.5" : "mt-0.5",
+        hasReaction && "mb-4"
+      )}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
     >
-      {/* AI Avatar */}
-      {!isUser && (
-        <div data-slot="message-avatar" className="flex-shrink-0">
-          <CharacterAvatar name={charInitials} accent={accent} imageSrc={avatarImageSrc} size={32} className="mt-1 mr-3 shadow-md" />
+      {/* Group chats show who's talking (#149); a 1:1 chat needs no avatar
+          beside each message. The avatar opens a run; the rest keep its space. */}
+      {!isUser && inRoom && (
+        <div data-slot="message-avatar" className="mr-2 w-8 flex-shrink-0">
+          {runStart && <CharacterAvatar name={charInitials} accent={accent} imageSrc={avatarImageSrc} size={32} className="mt-0.5" />}
         </div>
       )}
 
       {textParts ? (
-        <div className="flex flex-col items-start gap-1.5 max-w-[85%] md:max-w-[70%] min-w-0">
+        <div className="flex flex-col items-start gap-0.5 max-w-[86%] md:max-w-[min(600px,78%)] min-w-0">
           {textParts.slice(0, shownParts - (showMainBubble ? 1 : 0)).map((part, i) => part.kind === "deleted" ? (
             <motion.div
               key={i}
               data-slot="deleted-bubble"
-              className={cn("flex items-center gap-1.5 px-4 py-2.5 rounded-2xl max-w-full min-w-0 font-sans text-[13px] italic text-subtle", neumorphic ? "bg-elevated surface-raised" : "bg-card/[0.88] shadow-soft", i === 0 && "rounded-tl-[5px]")}
+              className={cn(partClass(), "flex items-center gap-1.5 font-sans text-[13px] italic text-subtle")}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.18, ease: "easeOut" }}
@@ -1028,9 +941,9 @@ const ChatMessage = React.memo(({
               key={i}
               data-slot="text-bubble"
               data-kind={part.kind === "correction" ? "correction" : undefined}
-              className={cn("px-4 py-2.5 rounded-2xl max-w-full min-w-0 font-serif text-foreground [@media(hover:none)]:[-webkit-touch-callout:none]", neumorphic ? "bg-elevated surface-raised" : "bg-card/[0.88] shadow-soft", i === 0 && "rounded-tl-[5px]")}
+              className={cn(partClass(), "font-serif [@media(hover:none)]:[-webkit-touch-callout:none]")}
               data-chat-text
-          style={CHAT_TEXT_STYLE}
+              style={CHAT_TEXT_STYLE}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.18, ease: "easeOut" }}
@@ -1040,6 +953,9 @@ const ChatMessage = React.memo(({
               onTouchCancel={() => { cancelPress(); endSwipe(); }}
               onContextMenu={handleContextMenu}
             >
+              {i === 0 && inRoom && runStart && speakerName && (
+                <div data-slot="sender-name" className="mb-0.5 font-sans text-[13px] font-semibold leading-[18px] text-foreground">{speakerName}</div>
+              )}
               {part.quote && <QuotedMessage text={part.quote} />}
               <MarkdownRenderer msgText={part.text} isUser={false} />
             </motion.div>
@@ -1051,6 +967,7 @@ const ChatMessage = React.memo(({
     </motion.div>
   );
 });
+
 
 ChatMessage.displayName = "ChatMessage";
 

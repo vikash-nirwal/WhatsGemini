@@ -18,7 +18,7 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-overlay/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-50 bg-overlay/[var(--scrim-opacity,0.6)] backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
     )}
     {...props}
@@ -33,13 +33,16 @@ interface DialogContentProps
   // fullscreen image viewers) - every call site supplies its own DialogClose,
   // so there's no built-in close button here (avoids a duplicate with the one
   // each header already renders).
-  size?: "default" | "lg" | "full"
+  // "sheet" (#149): the canvas's bottom sheet for phones - full width,
+  // pinned to the bottom, 24 px top corners and a grabber.
+  size?: "default" | "lg" | "full" | "sheet"
 }
 
 const sizeClasses: Record<NonNullable<DialogContentProps["size"]>, string> = {
   default: "max-w-lg max-h-[85vh] flex flex-col overflow-hidden",
   lg: "max-w-2xl max-h-[85vh] flex flex-col overflow-hidden",
   full: "max-w-[95vw] max-h-[95vh] w-full h-full flex flex-col items-center justify-center border-none bg-transparent shadow-none p-0",
+  sheet: "top-auto bottom-0 translate-y-0 max-w-lg max-h-[85dvh] flex flex-col gap-0 overflow-hidden rounded-t-sheet rounded-b-none sm:rounded-t-sheet sm:rounded-b-none border-0 p-2 pt-0 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-sheet data-[state=open]:slide-in-from-top-[100%] data-[state=closed]:slide-out-to-top-[100%]",
 }
 
 const DialogContent = React.forwardRef<
@@ -52,13 +55,15 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          "fixed left-[50%] top-[50%] z-50 grid w-full translate-x-[-50%] translate-y-[-50%] gap-4 bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
-          size !== "full" && "surface-panel",
+          // #149: dialogs sit on the canvas's overlay surface (popover).
+          "fixed left-[50%] top-[50%] z-50 grid w-full translate-x-[-50%] translate-y-[-50%] gap-4 bg-popover p-6 shadow-sheet duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+          size !== "full" && size !== "sheet" && "surface-panel",
           sizeClasses[size],
           className
         )}
         {...props}
       >
+        {size === "sheet" && <div aria-hidden className="mx-auto mb-1 mt-2 h-1 w-9 flex-none rounded-full bg-border-strong" />}
         {children}
       </DialogPrimitive.Content>
     </DialogPortal>

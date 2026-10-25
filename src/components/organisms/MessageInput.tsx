@@ -75,6 +75,61 @@ const RECORD_CANCEL_SLOP = 60;
 // A press shorter than this was a tap: say how the button works.
 const RECORD_MIN_MS = 600;
 const ASCII_BAR_CELLS = 40;
+
+// The context budget as a small ring in the composer (#149), which only
+// speaks up near the limit: neutral below 60% of the model's context,
+// amber from 60% (with the percentage beside it), red from 85%. Tapping it
+// shows the numbers and the chat's token cost.
+const BudgetRing = ({ used, max, open, onToggle, details }: { used: number; max: number; open: boolean; onToggle: () => void; details: React.ReactNode }) => {
+  const ratio = Math.min(used / max, 1);
+  const percent = Math.round(ratio * 100);
+  const circumference = 2 * Math.PI * 9;
+  const tone = ratio >= 0.85 ? "text-destructive" : ratio >= 0.6 ? "text-warning" : "text-subtle";
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent | TouchEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onToggle();
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("touchstart", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("touchstart", close);
+    };
+  }, [open, onToggle]);
+  return (
+    <div ref={ref} className="relative flex-shrink-0 self-end">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-label={`Context ${percent}% used`}
+        title={`Context: ${formatTokenCount(used)} / ${formatTokenCount(max)} tokens`}
+        data-slot="context-budget"
+        className={cn("flex h-10 min-w-8 items-center justify-center gap-1 rounded-[10px] px-1 hover:bg-sunken", tone)}
+      >
+        <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden>
+          <circle cx="12" cy="12" r="9" fill="none" stroke="rgb(var(--border-strong))" strokeWidth="2.5" />
+          <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeDasharray={`${Math.max(ratio * circumference, 1.2)} ${circumference}`} transform="rotate(-90 12 12)" />
+        </svg>
+        {ratio >= 0.6 && <span className="text-[11.5px] font-semibold tabular-nums">{percent}%</span>}
+      </button>
+      {open && (
+        <div role="status" className="absolute bottom-full right-0 mb-2 w-72 rounded-2xl bg-popover p-3 font-sans text-[12.5px] text-muted-foreground shadow-popover ring-1 ring-inset ring-border z-30">
+          <div className="flex justify-between font-semibold text-foreground">
+            <span>Context</span>
+            <span className="tabular-nums">{formatTokenCount(used)} / {formatTokenCount(max)} tokens</span>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sunken">
+            <div className={cn("h-full rounded-full bg-current", tone)} style={{ width: `${percent}%` }} />
+          </div>
+          {details && <p className="mt-2 leading-[18px]">{details}</p>}
+        </div>
+      )}
+    </div>
+  );
+};
 // The terminal theme's short bracketed names for the composer tools.
 const TERMINAL_TOOL_LABELS: Record<string, string> = { image: "img", photo: "photo", video: "vid", impersonate: "mask", silent: "silent", draft: "draft", dictate: "mic", settings: "cfg" };
 
@@ -257,6 +312,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   // impersonate, silent send, image settings), so the text box gets the row's
   // width instead of being squeezed to a sliver by five icon buttons.
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [budgetOpen, setBudgetOpen] = useState(false);
   const toolsRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!toolsOpen) return;
@@ -524,9 +580,20 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const contextUtilization = maxContextTokens > 0 ? estimatedTotalTokens / maxContextTokens : 0;
   const budgetColorClass =
     contextUtilization >= 0.85 ? "text-destructive" : contextUtilization >= 0.6 ? "text-amber-500" : "text-ink-faint";
-  const budgetBarColorClass =
-    contextUtilization >= 0.85 ? "bg-destructive" : contextUtilization >= 0.6 ? "bg-amber-500" : "bg-primary/60";
   const filledCells = Math.round(Math.min(contextUtilization, 1) * ASCII_BAR_CELLS);
+  // The token cost of the last turn and of the whole chat, shown by the
+  // terminal under its meter and elsewhere in the budget ring's card (#149).
+  const costLine = (
+    <>
+      {tokenCount > 0 && (
+        <>~ {tokenCount.toLocaleString()} tokens last turn ({costEstimate > 0.0001 ? `$${costEstimate.toFixed(4)}` : '< $0.0001'} est.)</>
+      )}
+      {tokenCount > 0 && totalChatTokens > 0 && "  ·  "}
+      {totalChatTokens > 0 && (
+        <>{formatTokenCount(totalChatTokens)} tokens total this chat (~{totalChatCost > 0.0001 ? `$${totalChatCost.toFixed(4)}` : '< $0.0001'})</>
+      )}
+    </>
+  );
   const promptName = isImpersonated
     ? `${(impersonatedName || "character").toLowerCase()}@session`
     : `you@${(userName?.trim() || "you").toLowerCase()}`;
@@ -634,7 +701,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
   // "+" menu, so the text box keeps most of the row. When the composer is
   // too narrow even for those two and a usable text box (phones, or next to
   // an open side panel), everything folds into "+".
-  const INLINE_TOOLS = ["image", "photo"];
+  // #149: only the photo button sits in the row, as on the canvas; asking
+  // for an image is one tap further, in the "+" menu.
+  const INLINE_TOOLS = terminal ? ["image", "photo"] : ["photo"];
   const inlineCount = composerTools.filter((t) => INLINE_TOOLS.includes(t.key)).length;
   const toolCountRef = useRef(inlineCount);
   toolCountRef.current = inlineCount;
@@ -766,41 +835,18 @@ const MessageInput: React.FC<MessageInputProps> = ({
         </div>
       )}
 
-      {maxContextTokens > 0 && !terminal && (
-        <div className="flex flex-col gap-1 px-1">
-          <div className={cn("flex justify-between text-[11px] font-mono", budgetColorClass)}>
-            <span>Context</span>
-            <span className="tabular-nums">
-              {formatTokenCount(estimatedTotalTokens)} / {formatTokenCount(maxContextTokens)} tokens
-            </span>
-          </div>
-          <div className={cn("h-1.5 rounded-full bg-accent/40 overflow-hidden", neumorphic && "surface-sunken")}>
-            <div
-              className={cn("h-full rounded-full transition-all", budgetBarColorClass)}
-              style={{ width: `${Math.min(contextUtilization * 100, 100)}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {(tokenCount > 0 || totalChatTokens > 0) && (
-        <div className={cn("flex justify-center text-xs text-ink-faint font-mono", terminal && "justify-start text-[10px]")}>
+      {(tokenCount > 0 || totalChatTokens > 0) && terminal && (
+        <div className="flex justify-start text-[10px] text-ink-faint font-mono">
           <span>
-            {terminal && "# "}
-            {tokenCount > 0 && (
-              <>~ {tokenCount.toLocaleString()} tokens last turn ({costEstimate > 0.0001 ? `$${costEstimate.toFixed(4)}` : '< $0.0001'} est.)</>
-            )}
-            {tokenCount > 0 && totalChatTokens > 0 && "  ·  "}
-            {totalChatTokens > 0 && (
-              <>{formatTokenCount(totalChatTokens)} tokens total this chat (~{totalChatCost > 0.0001 ? `$${totalChatCost.toFixed(4)}` : '< $0.0001'})</>
-            )}
+            {"# "}
+            {costLine}
           </span>
         </div>
       )}
 
       {isImageRequest && terminal && terminalBanner("image generation on - a picture will be created alongside the reply.", () => setIsImageRequest(false), "Turn off image generation")}
       {isImageRequest && !terminal && (
-        <div className="flex items-center gap-2.5 px-3 py-2 bg-primary/10 border border-primary rounded-lg">
+        <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-raised ring-1 ring-inset ring-primary/40 shadow-bubble">
           <span className="text-primary flex-shrink-0 flex"><FaImage size={13} /></span>
           <span className="flex-1 text-[12.5px] text-foreground font-medium">
             Image generation on — a picture will be created alongside the reply.
@@ -819,7 +865,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
       {isVideoRequest && terminal && terminalBanner("video generation on - a video will be created alongside the reply (this takes 1-5+ minutes).", () => setIsVideoRequest(false), "Turn off video generation")}
       {isVideoRequest && !terminal && (
-        <div className="flex items-center gap-2.5 px-3 py-2 bg-primary/10 border border-primary rounded-lg">
+        <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-raised ring-1 ring-inset ring-primary/40 shadow-bubble">
           <span className="text-primary flex-shrink-0 flex"><FaVideo size={13} /></span>
           <span className="flex-1 text-[12.5px] text-foreground font-medium">
             Video generation on — a video will be created alongside the reply (this takes 1-5+ minutes).
@@ -837,46 +883,12 @@ const MessageInput: React.FC<MessageInputProps> = ({
       )}
 
       {isImpersonated && terminal && terminalBanner(`impersonation on - this message is sent as ${impersonatedName || "the character"}, not you.`, () => setIsImpersonated(false), "Turn off impersonation")}
-      {isImpersonated && !terminal && (
-        <div className="flex items-center gap-2.5 px-3 py-2 bg-violet-500/10 border border-violet-500/50 rounded-lg">
-          <span className="text-violet-500 flex-shrink-0 flex"><FaMask size={13} /></span>
-          <span className="flex-1 text-[12.5px] text-foreground font-medium">
-            Impersonation on — this message is sent as {impersonatedName || "the character"}, not you.
-          </span>
-          <Button
-            onClick={() => setIsImpersonated(false)}
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground flex-shrink-0"
-            aria-label="Turn off impersonation"
-          >
-            <FaTimes size={11} />
-          </Button>
-        </div>
-      )}
 
       {isSilentSend && terminal && terminalBanner("silent send on - this message won't trigger an AI reply.", () => setIsSilentSend(false), "Turn off silent send")}
-      {isSilentSend && !terminal && (
-        <div className="flex items-center gap-2.5 px-3 py-2 bg-amber-500/10 border border-amber-500/50 rounded-lg">
-          <span className="text-amber-500 flex-shrink-0 flex"><FaCommentSlash size={13} /></span>
-          <span className="flex-1 text-[12.5px] text-foreground font-medium">
-            Silent send on — this message won't trigger an AI reply.
-          </span>
-          <Button
-            onClick={() => setIsSilentSend(false)}
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground flex-shrink-0"
-            aria-label="Turn off silent send"
-          >
-            <FaTimes size={11} />
-          </Button>
-        </div>
-      )}
 
       {selectedSpeaker && !isImpersonated && terminal && terminalBanner(`only ${selectedSpeaker.name} will reply to this message.`, () => setSelectedSpeakerId(null), "Clear selected replier")}
       {selectedSpeaker && !isImpersonated && !terminal && (
-        <div className="flex items-center gap-2.5 px-3 py-2 bg-primary/10 border border-primary rounded-lg">
+        <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-raised ring-1 ring-inset ring-primary/40 shadow-bubble">
           <CharacterAvatar name={selectedSpeaker.name} accent={selectedSpeaker.accent} imageSrc={avatarOf(selectedSpeaker)} size={18} className="flex-shrink-0" />
           <span className="flex-1 text-[12.5px] text-foreground font-medium">
             Only {selectedSpeaker.name} will reply to this message.
@@ -894,9 +906,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
       )}
 
       {replyPreview && (
-        <div data-slot="reply-preview" className="flex items-center gap-2.5 px-3 py-2 rounded-lg border-l-4 border-primary bg-primary/[0.08]" role="group" aria-label={`Replying to ${replyPreview.name}`}>
+        <div data-slot="reply-preview" className="flex items-center gap-2.5 py-1.5 pl-3 pr-1.5 rounded-xl border-l-[3px] border-primary bg-raised ring-1 ring-inset ring-border shadow-bubble" role="group" aria-label={`Replying to ${replyPreview.name}`}>
           <div className="min-w-0 flex-1 font-sans">
-            <div className="text-[11.5px] font-semibold text-primary">{replyPreview.name}</div>
+            <div className="text-[12.5px] font-semibold text-primary-text">{replyPreview.name}</div>
             <div className="truncate text-[12.5px] text-muted-foreground">{replyPreview.text}</div>
           </div>
           <Button onClick={onCancelReply} variant="ghost" size="icon" className="h-6 w-6 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground flex-shrink-0" aria-label="Cancel reply">
@@ -959,7 +971,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
       {dictating && terminal && terminalBanner("listening - speak and your words appear in the box.", () => dictationRef.current?.stop(), "Stop dictating")}
       {dictating && !terminal && (
-        <div className="flex items-center gap-2.5 px-3 py-2 bg-destructive/10 border border-destructive/40 rounded-lg">
+        <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-raised ring-1 ring-inset ring-destructive/40 shadow-bubble">
           <span className="text-destructive flex-shrink-0 flex animate-pulse"><FaMicrophoneAlt size={13} /></span>
           <span className="flex-1 text-[12.5px] text-foreground font-medium">
             Listening — speak and your words appear in the box.
@@ -1136,19 +1148,22 @@ const MessageInput: React.FC<MessageInputProps> = ({
       ) : (
       <div
         // Theme hook (Material restyles the idle composer); left off in the
-        // impersonate/silent modes so their warning tints still show.
+        // impersonate/silent modes so their outlines still show.
         data-slot={isImpersonated || isSilentSend ? undefined : "composer"}
+        data-mode={isImpersonated ? "impersonate" : isSilentSend ? "silent" : undefined}
         className={cn(
-          // min-h, not h: the row grows with a multi-line draft (the text
-          // used to spill out of a fixed 56px pill), and items-end keeps the
-          // buttons on the bottom line beside the caret.
-          "flex items-end gap-1 min-h-14 px-2 py-2 rounded-[28px] backdrop-blur-md transition-colors",
-          neumorphic && !isImpersonated && !isSilentSend ? "surface-sunken" : "shadow-soft",
+          // #149: the canvas's composer - opaque, one row that grows with a
+          // multi-line draft (items-end keeps the buttons on the bottom line),
+          // the tools behind "+", then the text, a photo button, the context
+          // ring, and the mic or Send. Impersonate and silent send are modes of
+          // the composer itself: an outline and a chip, not a banner above it.
+          "relative flex items-end gap-1 min-h-[52px] p-1.5 rounded-[24px] transition-shadow",
+          neumorphic && !isImpersonated && !isSilentSend ? "surface-sunken" : "bg-raised shadow-popover",
           isImpersonated
-            ? "bg-violet-500/[0.06] border border-violet-500/40"
+            ? "ring-[1.5px] ring-inset ring-info"
             : isSilentSend
-            ? "bg-amber-500/[0.06] border border-amber-500/40"
-            : "bg-card/[0.85] border border-border/10"
+            ? "ring-[1.5px] ring-inset ring-border-strong"
+            : "ring-1 ring-inset ring-border"
         )}
       >
         {isRoom && roomCharacters && (
@@ -1162,10 +1177,10 @@ const MessageInput: React.FC<MessageInputProps> = ({
               aria-label="Choose who replies"
               aria-expanded={pickerOpen}
               className={cn(
-                "h-10 w-10 flex-shrink-0 rounded-lg",
+                "h-10 w-10 flex-shrink-0 rounded-[10px]",
                 selectedSpeaker
-                  ? "bg-primary/[0.14] text-primary hover:bg-primary/[0.2]"
-                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  ? "bg-primary/[0.14] text-primary-text hover:bg-primary/[0.2]"
+                  : "text-muted-foreground hover:bg-sunken hover:text-foreground"
               )}
             >
               {selectedSpeaker ? (
@@ -1189,16 +1204,16 @@ const MessageInput: React.FC<MessageInputProps> = ({
             aria-label="Composer options"
             aria-expanded={toolsOpen}
             className={cn(
-              "h-10 w-10 flex-shrink-0 rounded-lg",
+              "h-10 w-10 flex-shrink-0 rounded-[10px]",
               menuTools.some((t) => t.active)
-                ? "bg-primary/[0.14] text-primary hover:bg-primary/[0.2]"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                ? "bg-primary/[0.14] text-primary-text hover:bg-primary/[0.2]"
+                : "text-muted-foreground hover:bg-sunken hover:text-foreground"
             )}
           >
             <FaPlus size={15} />
           </Button>
           {toolsOpen && (
-            <div role="menu" className="absolute bottom-full left-0 mb-2 w-60 p-1.5 rounded-xl bg-card border border-border shadow-soft z-30 flex flex-col">
+            <div role="menu" className="absolute bottom-full left-0 mb-2 w-64 p-1.5 rounded-2xl bg-popover shadow-popover ring-1 ring-inset ring-border z-30 flex flex-col">
               {menuTools.map((tool) => (
                 <button
                   key={tool.key}
@@ -1209,8 +1224,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
                   disabled={tool.disabled}
                   onClick={() => { tool.onClick(); setToolsOpen(false); }}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-[14px] disabled:opacity-50",
-                    tool.active ? tool.activeClass : "text-foreground hover:bg-secondary"
+                    "flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-[14px] disabled:opacity-50",
+                    tool.active ? tool.activeClass : "text-foreground hover:bg-raised"
                   )}
                 >
                   <tool.icon size={15} className="flex-shrink-0" />
@@ -1221,6 +1236,24 @@ const MessageInput: React.FC<MessageInputProps> = ({
             </div>
           )}
         </div>
+
+        {/* The mode chip: who you're writing as, or that no reply follows. */}
+        {(isImpersonated || isSilentSend) && (
+          <button
+            type="button"
+            onClick={() => (isImpersonated ? setIsImpersonated(false) : setIsSilentSend(false))}
+            aria-label={isImpersonated ? "Turn off impersonation" : "Turn off silent send"}
+            title={isImpersonated ? `Impersonation on: this message is sent as ${impersonatedName || "the character"}, not you` : "Silent send on: this message won't trigger an AI reply"}
+            data-slot="composer-mode"
+            className={cn(
+              "my-2 ml-0.5 inline-flex h-6 flex-shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[12.5px] font-semibold",
+              isImpersonated ? "bg-info/[0.14] text-info" : "bg-sunken text-muted-foreground ring-1 ring-inset ring-border"
+            )}
+          >
+            {isImpersonated ? `As ${impersonatedName || "the character"}` : "Silent"}
+            <FaTimes size={9} aria-hidden />
+          </button>
+        )}
 
         {/* Wider screens: the everyday tools as inline icon buttons. */}
         {inlineTools.map((tool) => (
@@ -1233,8 +1266,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
             aria-label={tool.ariaLabel}
             aria-pressed={tool.toggle ? tool.active : undefined}
             className={cn(
-              "inline-flex h-10 w-10 flex-shrink-0 rounded-lg",
-              tool.active ? tool.activeButtonClass : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              "inline-flex h-10 w-10 flex-shrink-0 rounded-[10px]",
+              tool.active ? tool.activeButtonClass : "text-muted-foreground hover:bg-sunken hover:text-foreground"
             )}
           >
             <tool.icon size={16} />
@@ -1243,45 +1276,59 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
         {composerTextarea}
 
-        {showRecordButton && (
-          <Button
-            type="button"
-            variant="ghost"
-            title="Hold to record a voice note"
-            aria-label={recordLabel}
-            className={cn(
-              "h-10 w-10 flex-shrink-0 rounded-lg touch-none select-none [-webkit-touch-callout:none]",
-              recording ? "bg-destructive text-destructive-foreground hover:bg-destructive scale-110" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-            )}
-            {...recordButtonHandlers}
-          >
-            <FaMicrophone size={16} />
-          </Button>
+        {maxContextTokens > 0 && (
+          <BudgetRing
+            used={estimatedTotalTokens}
+            max={maxContextTokens}
+            open={budgetOpen}
+            onToggle={() => setBudgetOpen((v) => !v)}
+            details={(tokenCount > 0 || totalChatTokens > 0) ? costLine : null}
+          />
         )}
 
         {disabled && onStop ? (
           <Button
             onClick={onStop}
             variant="destructive"
-            className="h-10 flex-shrink-0 rounded-lg font-semibold"
+            size="icon"
+            className="h-10 w-10 flex-shrink-0 rounded-full"
             title="Stop Generating"
             aria-label="Stop Generating"
           >
-            <FaStop size={13} /> <span className="hidden sm:inline">Stop</span>
+            <FaStop size={13} />
+          </Button>
+        ) : showRecordButton ? (
+          // An empty draft: the round button records a voice note; Send
+          // takes its place once there's something to send (#149).
+          <Button
+            type="button"
+            variant="ghost"
+            title="Hold to record a voice note"
+            aria-label={recordLabel}
+            className={cn(
+              "h-10 w-10 flex-shrink-0 rounded-full touch-none select-none [-webkit-touch-callout:none]",
+              recording ? "bg-destructive text-destructive-foreground hover:bg-destructive scale-110" : "bg-sunken text-muted-foreground hover:text-foreground"
+            )}
+            {...recordButtonHandlers}
+          >
+            <FaMicrophone size={16} />
           </Button>
         ) : (
           <Button
             onClick={handleSend}
             data-slot="send-button"
+            size="icon"
             className={cn(
-              "h-10 flex-shrink-0 rounded-lg font-semibold shadow-none",
-              !canSend && "bg-accent text-muted-foreground cursor-not-allowed hover:bg-accent"
+              "h-10 w-10 flex-shrink-0 rounded-full shadow-none",
+              isImpersonated && "bg-info text-background hover:bg-info/90",
+              isSilentSend && "bg-muted-foreground text-background hover:bg-muted-foreground/90",
+              !canSend && "bg-sunken text-subtle cursor-not-allowed hover:bg-sunken"
             )}
             disabled={!canSend}
             title="Send Message"
             aria-label="Send Message"
           >
-            <span className="hidden sm:inline">Send</span> <FaPaperPlane size={14} />
+            <FaPaperPlane size={14} />
           </Button>
         )}
       </div>

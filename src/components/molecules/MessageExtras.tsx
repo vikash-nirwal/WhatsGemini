@@ -18,26 +18,28 @@ export const InnerThoughts = ({ thoughts, terminal = false }: { thoughts: string
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="text-xs font-medium text-muted-foreground hover:text-foreground"
+        className="text-[12.5px] font-semibold opacity-75 hover:opacity-100"
       >
         {terminal ? (open ? "# hide thoughts" : "# thoughts") : open ? "Hide inner thoughts" : "💭 Inner thoughts"}
       </button>
+      {/* #149: the canvas's thought card, an outlined aside in the reading font. */}
       {open && (
-        <p className="mt-1 text-sm italic text-muted-foreground border-l-2 border-border pl-2">{thoughts}</p>
+        <p className={cn("mt-1.5 text-[14px] italic leading-[21px] opacity-85", terminal ? "border-l-2 border-border pl-2" : "rounded-xl px-3.5 py-2.5 font-serif ring-1 ring-inset ring-border-strong")}>{thoughts}</p>
       )}
     </div>
   );
 };
 
-// A reaction pinned to the bubble's bottom edge, like a messaging app.
+// A reaction pinned to the bubble's bottom edge, like a messaging app. The
+// message reserves room for it (#149), so it never covers the next one.
 export const ReactionBadge = ({ emoji, label, side }: { emoji: string; label: string; side: "left" | "right" }) => (
   <span
     role="img"
     aria-label={label}
     title={label}
     className={cn(
-      "absolute -bottom-3 flex h-6 min-w-6 items-center justify-center rounded-full border border-border bg-card px-1 text-sm leading-none shadow-soft",
-      side === "right" ? "right-3" : "left-3"
+      "absolute -bottom-3.5 flex h-6 min-w-6 items-center justify-center rounded-xl bg-raised px-[7px] font-sans text-[13px] leading-none text-muted-foreground shadow-[0_0_0_2px_rgb(var(--color-chat-bg)),var(--sh-1)]",
+      side === "right" ? "right-2.5" : "left-2.5"
     )}
   >
     {emoji}
@@ -50,7 +52,7 @@ export const ReactionPicker = ({ current, onPick, className }: { current?: strin
   <DropdownMenu>
     <DropdownMenuTrigger asChild>
       <Button variant="ghost" size="icon" aria-label="React" title="React" className={className}>
-        <FaRegSmile size={12} />
+        <FaRegSmile size={13} />
       </Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="start" className="flex gap-0.5 p-1 min-w-0">
