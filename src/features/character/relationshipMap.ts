@@ -51,6 +51,13 @@ export const buildRelationshipMap = (characters: Character[], chats: Chat[]): { 
   };
   for (const c of people) for (const other of c.knowsAbout || []) link(c.id, other);
   const names = new Map(people.map((p) => [p.id, p.name]));
+  // Ties from the world wizard (#144): "Kai is Aria's older brother".
+  for (const c of people) {
+    for (const t of c.ties || []) {
+      const l = link(c.id, t.withId);
+      if (l) l.feelings.push(`${names.get(t.withId)}: ${c.name}'s ${t.tie.replace(/^your\s+/i, "")}`);
+    }
+  }
   for (const group of chats.filter((c) => (c.characterIds?.length || 0) > 1)) {
     const members = group.characterIds!;
     for (let i = 0; i < members.length; i++) for (let j = i + 1; j < members.length; j++) link(members[i], members[j]);

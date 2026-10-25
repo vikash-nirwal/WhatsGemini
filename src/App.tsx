@@ -55,6 +55,7 @@ const CharacterGalleryPage = lazy(() => import("./pages/CharacterGalleryPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const WorldGalleryPage = lazy(() => import("./pages/WorldGalleryPage"));
 const WorldEditorPage = lazy(() => import("./pages/WorldEditorPage"));
+const WorldWizardPage = lazy(() => import("./pages/WorldWizardPage"));
 const AdventureGalleryPage = lazy(() => import("./pages/AdventureGalleryPage"));
 const AdventureWizardPage = lazy(() => import("./pages/AdventureWizardPage"));
 const AdventurePage = lazy(() => import("./pages/AdventurePage"));
@@ -253,6 +254,7 @@ const AppContent = () => {
                 <Route path="/characters/:characterId/gallery" element={<CharacterGalleryPage />} />
                 <Route path="/worlds" element={<WorldGalleryPage />} />
                 <Route path="/worlds/new" element={<WorldEditorPage />} />
+                <Route path="/worlds/wizard" element={<WorldWizardPage />} />
                 <Route path="/worlds/:worldId/edit" element={<WorldEditorPage />} />
                 <Route path="/adventures" element={<AdventureGalleryPage />} />
                 <Route path="/adventures/new" element={<AdventureWizardPage />} />

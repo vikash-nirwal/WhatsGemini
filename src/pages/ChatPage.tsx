@@ -42,6 +42,7 @@ import ChatWindow from "src/components/organisms/ChatWindow";
 import { useBackgroundUpdates } from "./chat/useBackgroundUpdates";
 import { useReplyEffects } from "./chat/useReplyEffects";
 import { knowsNoteFor, recentLetterNote, roomContextFor } from "./chat/promptNotes";
+import { tiesNoteFor } from "../features/world/worldWizard";
 import { buildMyStatusNote } from "../features/status/myStatuses";
 import { buildForwardDirective, buildQuoteDirective, quoteTextOf } from "../features/chat/replyQuotes";
 import { buildGroupDirective } from "../features/chat/groupLife";
@@ -334,6 +335,7 @@ const ChatPage = () => {
   const noteTime = Date.now();
   scene.letterNote = mainStory ? recentLetterNote(characterData, currentChat, chatIdNum, userNameForNotes) : undefined;
   scene.knowsNote = mainStory ? knowsNoteFor(characterData, characters, chats, userNameForNotes) : undefined;
+  scene.tiesNote = mainStory ? tiesNoteFor(characterData, characters) : undefined;
   scene.giftsNote = mainStory && characterData ? buildGiftsSection(characterData.gifts, characterData.name, userNameForNotes) : undefined;
   scene.secretsNote = mainStory && characterData ? buildSecretsSection(characterData.name, userNameForNotes, secretsInPlay(characterData, currentChat)) : undefined;
   scene.plansNote = mainStory ? buildPlansSection(currentChat?.plans, userNameForNotes, noteTime) : undefined;

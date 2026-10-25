@@ -797,6 +797,9 @@ export interface Character {
   // their own memory and life.
   worldId?: number;
   cardOf?: number;
+  // How they're tied to others in their world (#144): "your older brother",
+  // "your rival at the shipyard". Set by the world wizard; per world.
+  ties?: { withId: number; tie: string }[];
   modelOverride?: {
     provider?: string; // chat provider id (a CHAT_PROVIDERS key)
     model?: string;
@@ -903,6 +906,7 @@ export interface World {
   tags?: string[]; // discoverability tags, mirrors Character.tags
   map?: WorldMap; // a picture of the world with its places pinned (#66)
   personaId?: string; // who you are in this world (#143); unset = your active persona
+  era?: string; // era or technology (#144), e.g. "Medieval: news travels by letter"
 }
 
 // A place pinned on a World's map; x and y are percent of the picture.

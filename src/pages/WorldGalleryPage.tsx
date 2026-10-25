@@ -72,7 +72,7 @@ const WorldGalleryPage = () => {
                   <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search worlds" aria-label="Search worlds" className="pl-8 text-[13px] w-[220px] bg-card" />
                 </div>
               )}
-              <Button onClick={() => navigate("/worlds/new")} variant="default">
+              <Button onClick={() => navigate("/worlds/wizard")} variant="default">
                 <FaPlus size={12} /> New world
               </Button>
             </div>
@@ -99,7 +99,7 @@ const WorldGalleryPage = () => {
             <Card className={cn("p-6 text-center flex flex-col items-center gap-3", neumorphic && "surface-sunken")}>
               <p className="text-muted-foreground">No worlds yet.</p>
               <p className="text-sm text-muted-foreground">A world is its own space: its own people, chats and news. Adventures can be set in one too.</p>
-              <Button onClick={() => navigate("/worlds/new")} variant="default" className="h-auto px-4 py-2.5 font-semibold text-sm">
+              <Button onClick={() => navigate("/worlds/wizard")} variant="default" className="h-auto px-4 py-2.5 font-semibold text-sm">
                 Create a world
               </Button>
             </Card>

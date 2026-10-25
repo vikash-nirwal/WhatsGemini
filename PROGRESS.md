@@ -31,7 +31,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #141 | Texting mode everywhere | done | 2026-10-25 |
 | #142 | Where things stand (memory paragraph) | done | 2026-10-25 |
 | #143 | Worlds as spaces | done | 2026-10-25 |
-| #144 | World creation wizard | todo | world, cast (pick or generate), connections, your persona |
+| #144 | World creation wizard | done | 2026-10-25 |
 | #145 | Life inside a world | todo | replaces circles: characters talk, Peek, 10 messages per exchange |
 | #146 | Worlds keep running | todo | background life in every world, per-world switch |
 | #147 | Story time | todo | optional world calendar |
@@ -60,6 +60,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+#144 world wizard: pages/WorldWizardPage.tsx at /worlds/wizard (Worlds › New world, switcher › New world): world (name, premise, tone, World.era), cast (people you have join as copies; new ones drafted with castIdea + the #45 draft prompt), connections (buildConnectionsPrompt/parseConnections in features/world/worldWizard.ts, editable; applyTies writes Character.ties both ways plus knowsAbout), who they are to you, your persona. tiesNoteFor goes in the prompt (scene.tiesNote); the era line in the chat world section; ties show on the relationship map. The old editor stays at /worlds/new and for edits.
 #143 worlds as spaces: features/world/currentWorld.ts (MY_WORLD = no worldId, worldOf, inWorld; current_world in localStorage, worldSlice.currentWorldId + switchWorld), hooks/useWorld.ts (useCurrentWorld, useWorldChats, useWorldCharacters, useInWorldChannel) scope the chat list, Characters, Updates, channels, starred, forward and the map; background jobs still see every world. features/character/card.ts: CARD_FIELDS, worldCopy (linked copy, Character.worldId + cardOf), withCard (updateCharacter syncs card edits to copies), resetCharacter for #158. WorldSwitcher (rail top, phone title row), Worlds page is the manager (My world card, Switch), JoinWorldDialog (Characters › From another world), World.personaId (addChat stamps it). New chats and characters take the world on screen. Left: terminal theme switches only from the Worlds page; a chat's own world picker (#28) now moves that chat into the world.
 #138 relationship map: features/character/relationshipMap.ts (buildRelationshipMap, circleLayout), organisms/RelationshipMap.tsx, Characters › Relationship map dialog; Character.relationshipHistory recorded on accepted changes.
 - **Blocking, both ways (#133):** `Chat.blocked` ({by: you|them, at, nudgedAt, nudgedBy}); `setBlocked` (chatSlice) with a notice. You block: Contact info or the chat menu (confirm), a blocked bar replaces the composer, "Blocked" in the header and list; statuses (UpdatesPage) and first texts stop (`blockedEitherWay`). `GoBetween` job: after 12 h, then every 2 days, a mutual friend (`mutualFriends`) brings it up in your chat with them (`buildGoBetweenPrompt`, notice "X is talking about Y"), and `blockNotesFor` briefs their replies. They block you: during a fight `buildBlockDirective` allows `[Block]`; your messages then get one tick (`sentWhileBlocked`) and no reply; a friend may end a reply with `[Patched up: Name]` (applied in useReplyEffects `patchUp`). Logic in `features/chat/blocking.ts`.

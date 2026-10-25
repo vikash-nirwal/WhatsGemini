@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { FaChevronDown } from "react-icons/fa";
+import { FaChevronDown, FaPlus } from "react-icons/fa";
 import { MdOutlinePublic } from "react-icons/md";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "src/components/molecules/dropdown-menu";
@@ -47,6 +47,9 @@ export const WorldSwitcher = ({ variant }: { variant: "title" | "rail" }) => {
           ))}
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => navigate("/worlds/wizard")}>
+          <FaPlus aria-hidden /> New world
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => navigate("/worlds")}>
           <MdOutlinePublic aria-hidden /> Manage worlds
         </DropdownMenuItem>
