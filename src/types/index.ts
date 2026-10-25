@@ -72,6 +72,7 @@ export interface Message {
   contactCard?: { name: string; about: string; characterId?: number };
   // An event invite (#134): what, when, where, and your answer.
   invite?: { what: string; when?: string; where?: string; answer?: "accepted" | "declined"; planId?: string };
+  sticker?: string; // a sticker sent with (or as) the reply: its mood, from the speaker's set (#137)
   reaction?: string; // the user's emoji reaction to this message (#11)
   // The character's emoji reaction to this (user) message (#11), and who
   // reacted in a room.
@@ -753,6 +754,7 @@ export interface Character {
   adultsConfirmed?: boolean; // author confirmed every character in the card is 18+
   memory?: string[]; // durable facts about the user/relationship, extracted over time
   memoryStanding?: MemoryStanding; // "where things stand" (#142), from the facts and the latest conversation
+  stickers?: { id: string; mood: string; image: string }[]; // their sticker set (#137)
   pinnedMemory?: string[]; // facts the user pinned: always injected, never evicted by the MAX_MEMORY_ENTRIES cap
   // What each fact (memory or pinned, keyed by its text) is about - for
   // grouping in the Scene panel. Facts with no entry show as "Other".

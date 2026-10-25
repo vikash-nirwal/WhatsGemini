@@ -1,3 +1,4 @@
+import { buildStickerDirective } from "../features/character/stickers";
 import { buildInviteAnswerNote, buildInviteDirective } from "../features/chat/invites";
 import { newPlanId } from "../features/chat/sharedPlans";
 import { buildDisappearingNote, DISAPPEAR_LABEL, pruneDisappeared } from "../features/chat/disappearing";
@@ -349,6 +350,8 @@ const ChatPage = () => {
   scene.disappearingNote = !isRoom && characterData && currentChat?.disappearing ? buildDisappearingNote(currentChat.disappearing.after, characterData.name, userNameForNotes) : undefined;
   // Event invites (#134): they may send one; your last answer reaches them.
   scene.inviteNote = !isRoom && characterData && mainStory ? [buildInviteDirective(characterData.name, userNameForNotes), buildInviteAnswerNote(currentChat?.content || [], characterData.name, userNameForNotes)].filter(Boolean).join("\n") : undefined;
+  // Stickers (#137): with a set drawn, now and then one instead of an emoji.
+  scene.stickerNote = !isRoom && characterData?.stickers?.length ? buildStickerDirective(characterData.name, characterData.stickers.map((st) => st.mood)) : undefined;
   // Group chats (#124): members may rename the group or start a poll.
   scene.groupNote = isRoom ? buildGroupDirective(userNameForNotes) : undefined;
   // Quoted replies (#119): in texting mode they may quote an older message.

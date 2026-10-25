@@ -90,6 +90,8 @@ interface ChatMessageProps {
   inRoom?: boolean;
   // Disappearing messages (#136): how long until this one vanishes ("1 day").
   disappears?: string;
+  // A sticker sent with the reply (#137): the image from the speaker's set.
+  stickerSrc?: string;
 }
 
 // The chat's text size. `data-chat-text` lets a reading font or line
@@ -205,6 +207,7 @@ const ChatMessage = React.memo(({
   runEnd = true,
   inRoom = false,
   disappears,
+  stickerSrc,
 }: ChatMessageProps) => {
   const isUser = msg.role === YOU;
   const { is } = useColorTheme();
@@ -694,6 +697,8 @@ const ChatMessage = React.memo(({
       ? "bg-elevated surface-raised text-foreground"
       : "bg-bubble-in text-bubble-in-text";
   const metaTone = isUser ? "text-bubble-out-meta" : "text-bubble-meta";
+  // A reply that is only a sticker shows it without a bubble (#137).
+  const stickerOnly = Boolean(stickerSrc && !stripImageContextTag(msg.txt || "").trim() && !msg.images?.length);
   const hasReaction = Boolean((!isUser && msg.reaction) || (isUser && msg.characterReaction));
   const showMeta = Boolean(msg.timestamp || receipt || siblingInfo || disappears);
 
@@ -816,8 +821,8 @@ const ChatMessage = React.memo(({
           className={cn(
             "relative min-w-0 group rounded-bubble px-3 pt-2 pb-1.5 shadow-bubble [@media(hover:none)]:[-webkit-touch-callout:none]",
             textParts ? "max-w-full" : "max-w-[86%] md:max-w-[min(600px,78%)]",
-            bubbleTone,
-            runEnd && tailCorner
+            stickerOnly ? "bg-transparent shadow-none px-0 text-bubble-meta" : bubbleTone,
+            runEnd && !stickerOnly && tailCorner
           )}
           data-chat-text
           style={swipeX ? { ...CHAT_TEXT_STYLE, transform: `translateX(${swipeX}px)` } : CHAT_TEXT_STYLE}
@@ -860,9 +865,12 @@ const ChatMessage = React.memo(({
             )}
             {msg.replyTo && <QuotedMessage text={msg.replyTo.text} name={msg.replyTo.from === "you" ? "You" : replyToName || "Them"} />}
             {mainQuote && <QuotedMessage text={mainQuote} />}
-            {voiceNote || <MarkdownRenderer msgText={textParts ? textParts[textParts.length - 1].text : stripImageContextTag(msg.txt || "")} isUser={isUser} />}
+            {!stickerOnly && (voiceNote || <MarkdownRenderer msgText={textParts ? textParts[textParts.length - 1].text : stripImageContextTag(msg.txt || "")} isUser={isUser} />)}
             {refusalNotice}
           </div>
+          {stickerSrc && (
+            <DisplayImage srcContext={stickerSrc} alt={`Sticker: ${msg.sticker}`} className="mt-1 h-32 w-32 object-contain" data-slot="sticker" />
+          )}
           {/* A shared contact (#128): a card with "Message". */}
           {msg.contactCard && (
             <div data-slot="contact-card" className="mt-1.5 w-[280px] max-w-full overflow-hidden rounded-xl bg-foreground/[0.07] font-sans">

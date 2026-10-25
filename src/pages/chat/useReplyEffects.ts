@@ -88,8 +88,8 @@ export const useReplyEffects = ({
   // Forwarded (#123): something they passed along is kept the same way.
   // A shared contact card (#128) is kept on the reply too.
   // An event invite (#134) too.
-  const applyReplyQuote = (payload: { replyQuote?: string; forward?: string; contact?: { name: string; about: string }; invite?: Message["invite"] } | undefined, allMessages: Message[]) => {
-    if (!chatIdNum || (!payload?.replyQuote && !payload?.forward && !payload?.contact && !payload?.invite)) return;
+  const applyReplyQuote = (payload: { replyQuote?: string; forward?: string; contact?: { name: string; about: string }; invite?: Message["invite"]; sticker?: string } | undefined, allMessages: Message[]) => {
+    if (!chatIdNum || (!payload?.replyQuote && !payload?.forward && !payload?.contact && !payload?.invite && !payload?.sticker)) return;
     const reply = [...allMessages].reverse().find((m) => m.role === AI && m.id);
     if (!reply?.id) return;
     const quoted = payload.replyQuote ? findQuotedMessage(allMessages, payload.replyQuote) : undefined;
@@ -98,6 +98,7 @@ export const useReplyEffects = ({
       ...(payload.forward ? { forward: { text: payload.forward } } : {}),
       ...(payload.contact ? { contactCard: payload.contact } : {}),
       ...(payload.invite ? { invite: payload.invite } : {}),
+      ...(payload.sticker ? { sticker: payload.sticker } : {}),
     };
     if (Object.keys(patch).length > 0) void dispatch(updateChatMessage({ chatId: chatIdNum, messageId: reply.id, patch }));
   };

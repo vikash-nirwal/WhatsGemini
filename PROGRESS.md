@@ -24,7 +24,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #134 | Event invites | done | 2026-10-25 |
 | #135 | Location sharing | skipped | dropped by the user (2026-10-25) |
 | #136 | Disappearing messages | done | 2026-10-25 |
-| #137 | Character stickers | todo |  |
+| #137 | Character stickers | done | 2026-10-25 |
 | #138 | Relationship map | todo |  |
 | #139 | Circles | skipped | folded into worlds (#145) |
 | #140 | How long a status lasts | done | 2026-10-25 |
@@ -60,6 +60,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **Character stickers (#137):** `Character.stickers` ({id, mood, image}); `StickerSet` in Contact info > Look draws the missing moods (`STICKER_MOODS`, `stickerHint`) with generateAvatarImage in their locked look. With a set, `buildStickerDirective` (scene.stickerNote) lets a reply end with `[Sticker: mood]`, extracted to `Message.sticker`; ChatWindow resolves the image (`stickerFor`), and a sticker-only reply shows without a bubble.
 - **Event invites (#134):** `features/chat/invites.ts`: a reply may end with `[Invite: what | when | where]` (`buildInviteDirective` in `scene.inviteNote`, 1:1 main chats), extracted in aiSlice to `Message.invite` (via applyReplyQuote); ChatMessage shows the card with Accept / Decline (`onAnswerInvite` -> ChatPage `answerInvite`): accepting adds a SharedPlan and a notice; `buildInviteAnswerNote` gives your answer to the next reply.
 - **While you were away (#130):** `features/life/away.ts` keeps "last seen" (`LastSeenTracker`: every minute, on hide and close); after 2+ hours away `catchUpTime(job)` gives FirstTexter, StatusPoster, ChannelPoster and ProfileChanger one turn at a moment inside the absence (claimed when their first timer fires), checked against their own due rules and stamped with it (`addMessage({ at })`, activity `at`). `AwayCard` on the chat list sums up those entries.
 - **Life dial and activity log (#131):** `features/life/lifeDial.ts` (Quiet / Normal / Lively, `life_dial` in localStorage) scales every background job's waiting time through `lifeScaled()` in its due check (status, channel, preoccupations, day log, first texts, letters, talk between members, profile, rumors, dreams). `generateAssistText({ ..., activity })` logs a background job's call with its estimated cost (`features/life/activityLog.ts`, last 300 entries); Settings > Spending shows the dial and the log (`LifeSettings`).

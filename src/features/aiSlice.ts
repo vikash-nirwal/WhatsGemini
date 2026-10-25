@@ -1,4 +1,5 @@
 import { extractInvite } from "./chat/invites";
+import { extractSticker } from "./character/stickers";
 import { ActivityEntry, logActivity } from "./life/activityLog";
 import { estimateCallCost, isFreeProvider } from "./spending/spending";
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
@@ -68,6 +69,7 @@ export interface GenerateAIResponseResult {
   poll?: { question: string; options: string[] }; // a member started a poll (#124)
   contact?: { name: string; about: string }; // a shared contact card (#128)
   invite?: Message["invite"]; // an event invite (#134)
+  sticker?: string; // a sticker's mood (#137)
   gameOver?: GameOutcome; // the mini-game ended, and who won (#52)
   sceneState?: Partial<SceneState>; // the scene's state as the reply left it (#9)
   photoDescription?: string; // what a helper model saw in the user's photo (#48)
@@ -356,7 +358,9 @@ export const generateAIResponse = createAsyncThunk(
       const carded = extractContact(polled.text);
       // Event invites (#134): an [Invite: ...] card at the end.
       const invited = extractInvite(carded.text);
-      const responseWithoutTags = invited.text;
+      // A sticker (#137): [Sticker: mood] at the very end.
+      const stickered = extractSticker(invited.text);
+      const responseWithoutTags = stickered.text;
       const contact = carded.contact;
       const groupName = renamed.groupName;
       const poll = polled.poll;
@@ -386,6 +390,7 @@ export const generateAIResponse = createAsyncThunk(
         poll,
         contact,
         invite: invited.invite,
+        sticker: stickered.sticker,
         gameOver,
         sceneState,
         // Only a plain text reply can be an out-of-character refusal; image/

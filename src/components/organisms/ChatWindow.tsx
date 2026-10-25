@@ -1,3 +1,4 @@
+import { stickerFor } from "../../features/character/stickers";
 import { DISAPPEAR_LABEL, willDisappear } from "../../features/chat/disappearing";
 import React, { useRef, useEffect, useCallback, useMemo, useState } from "react";
 import { avatarOf } from "../../features/character/profileChanges";
@@ -848,6 +849,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
                     onVote={onVote}
                     onOpenContact={onOpenContact}
                     onAnswerInvite={onAnswerInvite}
+                    stickerSrc={msg.sticker ? stickerFor(speaker, msg.sticker)?.image : undefined}
                     voterName={(v) => (v === "you" ? "You" : namesById[v] || "Someone")}
                     onInfo={msg.role === YOU && !msg.isNarration ? () => setInfoIndex(i) : undefined}
                     replyToName={msg.replyTo && typeof msg.replyTo.from === "number" ? namesById[msg.replyTo.from] : undefined}

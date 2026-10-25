@@ -1,3 +1,4 @@
+import { StickerSet } from "src/components/molecules/StickerSet";
 import React from "react";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { setDisappearing, updateChatOptions } from "src/features/chatSlice";
@@ -559,10 +560,11 @@ const ChatTab: React.FC<ScenePanelTabProps & { groups?: ChatTabGroup[] }> = ({ c
 
           </PanelGroup>}
 
-          {!isRoom && character && character.wardrobe && character.wardrobe.length > 0 && show("look") && (
+          {!isRoom && character && show("look") && (
           <PanelGroup id="look" title="Look">
+          <StickerSet character={character} />
           {/* Wardrobe (#50): what the character is wearing in this story */}
-          {!isRoom && character && character.wardrobe && character.wardrobe.length > 0 && (
+          {character.wardrobe && character.wardrobe.length > 0 && (
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-[12.5px] font-medium text-foreground">{character.name} is wearing</div>
