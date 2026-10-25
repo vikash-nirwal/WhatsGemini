@@ -94,3 +94,21 @@ test("a status is seen once opened, and replying quotes it in the chat", async (
   await expect(page.getByRole("region", { name: "Viewed updates" }).getByRole("button", { name: "Aria's status", exact: true })).toBeVisible({ timeout: 30_000 });
 });
 });
+
+// How long a status lasts (#140): set the day to an hour in Settings, and a
+// two-hour-old status is gone from Updates.
+test("a status lasts one day, as long as you set it", async ({ page }) => {
+  await openChat(page);
+  await patchAria(page, { statuses: [{ id: "s-old", text: "Morning ride", createdAt: Date.now() - 2 * 3_600_000 }] });
+  await page.goto("./#/updates");
+  await page.reload();
+  await expect(page.getByRole("region", { name: "Recent updates" }).getByRole("button", { name: "Aria's status, new" })).toBeVisible({ timeout: 30_000 });
+
+  await page.goto("./#/settings/chat");
+  const hours = page.getByRole("spinbutton", { name: "Hours in a day" });
+  await expect(hours).toHaveValue("24", { timeout: 30_000 });
+  await hours.fill("1");
+  await page.goto("./#/updates");
+  await expect(page.getByRole("heading", { name: "Status" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Aria's status/ })).toHaveCount(0);
+});

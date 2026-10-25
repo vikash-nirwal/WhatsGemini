@@ -1,4 +1,5 @@
 import { Character, CharacterStatus, Chat, StatusComment } from "../../types";
+import { statusLifetimeMs } from "./statusUpdates";
 
 // Character feed (#85): statuses (#8) become a small feed. When a character
 // posts, the others who know them (they share a group chat, or one knows of
@@ -89,7 +90,9 @@ export const updateStatus = (statuses: CharacterStatus[] | undefined, id: string
   statuses?.map((s) => (s.id === id ? change(s) : s));
 
 // Every kept status, newest first, with who posted it: the feed.
-export const feedItems = (characters: Character[]): { character: Character; status: CharacterStatus }[] =>
+// With `now`, only statuses still within their day (#140: the Feed hides
+// expired ones too, as the user asked).
+export const feedItems = (characters: Character[], now?: number, lifetime: number = statusLifetimeMs()): { character: Character; status: CharacterStatus }[] =>
   characters
-    .flatMap((character) => (character.statuses || []).map((status) => ({ character, status })))
+    .flatMap((character) => (character.statuses || []).filter((status) => now === undefined || now - status.createdAt < lifetime).map((status) => ({ character, status })))
     .sort((a, b) => b.status.createdAt - a.status.createdAt);

@@ -9,6 +9,7 @@ import { SettingsCard, SettingsCardHeader, SettingsRow } from 'src/components/mo
 import { SegmentedControl } from 'src/components/molecules/SegmentedControl';
 import ToggleSwitch from 'src/components/atoms/ToggleSwitch';
 import NotificationSettings from 'src/components/organisms/NotificationSettings';
+import { clampDayHours, loadStatusDayHours, saveStatusDayHours } from 'src/features/character/statusUpdates';
 import { applyReadingComfort, LineSpacing, loadReadingComfort, ReadingComfort, ReadingFont, saveReadingComfort } from 'src/features/settings/readingComfort';
 
 interface ChatInterfaceSettingsProps {
@@ -63,6 +64,31 @@ const EventDeckSetting = () => {
 };
 
 // Reading comfort (#91): saved on this device and applied right away.
+// How long a status lasts (#140): one "day", 1 to 24 hours.
+const StatusDayRow = () => {
+  const [hours, setHours] = useState(loadStatusDayHours);
+  return (
+    <SettingsRow label="How long a day is" hint="Statuses, yours and the characters', last one day, and so does the Feed. Shorten the day to see them come and go faster." align="start">
+      <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
+        <input
+          type="number"
+          min={1}
+          max={24}
+          value={hours}
+          aria-label="Hours in a day"
+          onChange={(e) => {
+            const next = clampDayHours(Number(e.target.value));
+            setHours(next);
+            saveStatusDayHours(next);
+          }}
+          className="h-10 w-20 rounded-[10px] bg-sunken px-3 text-[14px] text-foreground ring-1 ring-inset ring-border"
+        />
+        hours
+      </label>
+    </SettingsRow>
+  );
+};
+
 const ReadingComfortRows = () => {
   const [value, setValue] = useState<ReadingComfort>(() => loadReadingComfort());
   const update = (patch: Partial<ReadingComfort>) => {
@@ -135,6 +161,8 @@ const ChatInterfaceSettings: React.FC<ChatInterfaceSettingsProps> = ({
         <SettingsRow label="Texting mode" hint="Replies arrive as separate texts, one at a time with typing pauses, and your messages show read ticks. Only the display changes." align="start">
           <ToggleSwitch checked={textingMode} onChange={setTextingMode} label={<span className="sr-only">Texting mode</span>} />
         </SettingsRow>
+
+        <StatusDayRow />
 
         <SettingsRow label={'"Previously on…" recap'} hint="Coming back to a chat after this long shows a short recap of where the story stands. Written once and kept; never sent to the AI." align="start">
           <SegmentedControl value={String(recapAfterDays)} onChange={(v) => setRecapAfterDays(Number(v))} options={RECAP_OPTIONS} />

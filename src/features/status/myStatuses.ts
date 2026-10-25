@@ -1,4 +1,5 @@
 import { Character, Chat, MyStatus, StatusComment } from "../../types";
+import { statusLifetimeMs } from "../character/statusUpdates";
 
 // Your own statuses (#117): you post a text or photo status, and the
 // characters you chat with see it over the next minutes: "Seen by", likes,
@@ -15,7 +16,8 @@ const MINUTE = 60 * 1000;
 
 export const newMyStatusId = () => `my-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
-export const liveMyStatuses = (statuses: MyStatus[], now: number): MyStatus[] => statuses.filter((s) => now - s.createdAt < MY_STATUS_LIFETIME_MS);
+// A day as long as you set it (#140), like the characters' statuses.
+export const liveMyStatuses = (statuses: MyStatus[], now: number, lifetime: number = statusLifetimeMs()): MyStatus[] => statuses.filter((s) => now - s.createdAt < lifetime);
 
 export const addMyStatus = (statuses: MyStatus[], status: MyStatus): MyStatus[] => [...statuses, status].slice(-KEEP);
 

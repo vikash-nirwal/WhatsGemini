@@ -6,19 +6,44 @@ import { Character, CharacterStatus } from "../../types";
 // avatar. Replying to one opens their chat with the status quoted.
 
 export const STATUS_LIFETIME_MS = 24 * 60 * 60 * 1000;
-export const STATUS_GAP_MS = 10 * 60 * 60 * 1000; // at most one every 10 hours
+export const STATUS_GAP_MS = 10 * 60 * 60 * 1000; // at most one every 10 hours of a 24-hour day
 const KEEP = 10;
+const HOUR = 60 * 60 * 1000;
 
-export const liveStatuses = (character: Pick<Character, "statuses">, now: number): CharacterStatus[] =>
-  (character.statuses || []).filter((s) => now - s.createdAt < STATUS_LIFETIME_MS);
+// How long a status lasts (#140): one "day", and you set how long a day is,
+// 1 to 24 hours (Settings › Chat). Kept on this device, like the reading
+// settings. Character statuses, yours and the Feed all follow it, and the
+// gap between a character's statuses shrinks with it.
+export const LS_STATUS_DAY_HOURS = "status_day_hours";
+export const DEFAULT_STATUS_DAY_HOURS = 24;
+export const clampDayHours = (hours: number): number => (Number.isFinite(hours) ? Math.min(24, Math.max(1, Math.round(hours))) : DEFAULT_STATUS_DAY_HOURS);
+export const loadStatusDayHours = (): number => {
+  try {
+    const raw = localStorage.getItem(LS_STATUS_DAY_HOURS);
+    return raw ? clampDayHours(Number(raw)) : DEFAULT_STATUS_DAY_HOURS;
+  } catch {
+    return DEFAULT_STATUS_DAY_HOURS;
+  }
+};
+export const saveStatusDayHours = (hours: number): void => {
+  try {
+    localStorage.setItem(LS_STATUS_DAY_HOURS, String(clampDayHours(hours)));
+  } catch {
+    // Only a convenience.
+  }
+};
+export const statusLifetimeMs = (hours: number = loadStatusDayHours()): number => clampDayHours(hours) * HOUR;
 
-export const hasUnseenStatus = (character: Pick<Character, "statuses">, now: number): boolean =>
-  liveStatuses(character, now).some((s) => !s.seen);
+export const liveStatuses = (character: Pick<Character, "statuses">, now: number, lifetime: number = statusLifetimeMs()): CharacterStatus[] =>
+  (character.statuses || []).filter((s) => now - s.createdAt < lifetime);
 
-export const statusDue = (character: Pick<Character, "postsStatuses" | "statuses">, now: number): boolean => {
+export const hasUnseenStatus = (character: Pick<Character, "statuses">, now: number, lifetime: number = statusLifetimeMs()): boolean =>
+  liveStatuses(character, now, lifetime).some((s) => !s.seen);
+
+export const statusDue = (character: Pick<Character, "postsStatuses" | "statuses">, now: number, lifetime: number = statusLifetimeMs()): boolean => {
   if (!character.postsStatuses) return false;
   const latest = (character.statuses || []).reduce((t, s) => Math.max(t, s.createdAt), 0);
-  return now - latest >= STATUS_GAP_MS;
+  return now - latest >= STATUS_GAP_MS * (lifetime / STATUS_LIFETIME_MS);
 };
 
 // `mention`: the user's name, when this status should mention them (#129).

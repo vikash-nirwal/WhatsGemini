@@ -1,3 +1,5 @@
+import { feedItems } from "./statusFeed";
+import { clampDayHours, loadStatusDayHours, saveStatusDayHours, statusLifetimeMs } from "./statusUpdates";
 import { addStatus, buildStatusPrompt, cleanStatus, hasUnseenStatus, liveStatuses, markSeen, statusDue, mentionsUser, nowLine, STATUS_GAP_MS, STATUS_LIFETIME_MS, photoStatusDue, statusPhotoScene } from "./statusUpdates";
 
 const NOW = Date.UTC(2026, 9, 21, 12);
@@ -69,5 +71,35 @@ describe("statuses keep to the timeline", () => {
     expect(prompt).toContain("Their latest messages with Sam (all of this has already happened):\nSam: see you at the café at 5");
     expect(prompt).toContain("Never post about a plan, trip or meeting as still ahead");
     expect(nowLine(at)).toMatch(/^It's Wednesday, /);
+  });
+});
+
+describe("how long a day is (#140)", () => {
+  afterEach(() => localStorage.clear());
+
+  it("is 1 to 24 hours, 24 by default, kept on this device", () => {
+    expect(loadStatusDayHours()).toBe(24);
+    expect(clampDayHours(0)).toBe(1);
+    expect(clampDayHours(30)).toBe(24);
+    expect(clampDayHours(Number("x"))).toBe(24);
+    saveStatusDayHours(10);
+    expect(loadStatusDayHours()).toBe(10);
+    expect(statusLifetimeMs()).toBe(10 * 3_600_000);
+  });
+
+  it("decides which statuses still show, and how soon the next one is due", () => {
+    const character = { statuses: [status(12), status(5)] };
+    expect(liveStatuses(character, NOW, statusLifetimeMs(24)).map((s) => s.id)).toEqual(["s12", "s5"]);
+    expect(liveStatuses(character, NOW, statusLifetimeMs(10)).map((s) => s.id)).toEqual(["s5"]);
+    // The gap between a character's statuses shrinks with the day: 10 of 24 hours.
+    const posted = { postsStatuses: true, statuses: [status(5)] };
+    expect(statusDue(posted, NOW, statusLifetimeMs(24))).toBe(false);
+    expect(statusDue(posted, NOW, statusLifetimeMs(12))).toBe(true);
+  });
+
+  it("the Feed hides statuses past their day when given the time", () => {
+    const aria = { id: 1, name: "Aria", statuses: [status(30), status(2)] } as any;
+    expect(feedItems([aria]).map((i) => i.status.id)).toEqual(["s2", "s30"]);
+    expect(feedItems([aria], NOW).map((i) => i.status.id)).toEqual(["s2"]);
   });
 });

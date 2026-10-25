@@ -48,7 +48,7 @@ const UpdatesPage = () => {
     if (hasUnseenStatus(c, now)) dispatch(updateCharacter({ ...c, statuses: markSeen(c.statuses) }));
   };
   const current = viewing ? characters.find((c) => c.id === viewing.id) || viewing : null;
-  const feed = feedItems(visible);
+  const feed = feedItems(visible, now);
 
   const rows = (title: string, items: typeof posting) =>
     items.length > 0 && (
