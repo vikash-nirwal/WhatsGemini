@@ -8,8 +8,8 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 - **State:** every roadmap item is built. Everything through #129 and the 2026-10-25 timeline and group-prompt fixes is pushed and deployed (last deploy 2026-10-25, gh-pages 3dec559).
 - **Your own WhatsApp (#113–#129, 2026-10-24):** all seventeen are built, each committed on its own (see "What's built"), plus a texts-first change the user asked for (editor switch, first contact, unanswered limit). Calls were left out at the user's request. Suite results are in the session log. Pushed and deployed.
-- **UI revamp (#148–#157):** wave 1 (#148–#151: tokens, components, navigation shell, header, Contact info and the settings split) is built and committed, not pushed or deployed. Wave 2 (#152–#156) is next; wave 3 (#157) goes with worlds.
-- **Next up (user, 2026-10-25):** the features first - part 2 and worlds, in this order: #140, #141, #136, #142, #131, #130, #134, #137, #133, #138, #143, #144, #145, #146, #147 - built in the new shell (they follow the canvas's boards for Peek, blocking, invites, stickers, the activity log and worlds). Push and deploy once they're all done, and tell the user. Revamp waves 2 and 3 after that.
+- **UI revamp (#148–#157):** wave 1 (#148–#151) is built, pushed and deployed. Wave 2 (#152–#156) is next, then wave 3 (#157, the worlds UI, which now has working screens to restyle).
+- **Part 2, worlds and Reset (#130–#147, #158):** all built, pushed and deployed on 2026-10-25, each committed on its own (see "What's built"). Next up: revamp waves 2 and 3.
 - **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
 - **How the new-ideas run went:** #42, #43, #12+#44 and #45 ran in fresh sessions; from #46 on they were built in the coordinating session, because new sessions can't be started over Remote Control. Each item was committed only after every suite passed.
 
@@ -240,6 +240,8 @@ Facts that save the next session time.
 ## Session log
 
 Newest first. One or two lines per session.
+
+- 2026-10-25 (late night): Built the features before the revamp, at the user's request: #140, #141, #136, #142, #131, #130, #134, #137, #133, #138, #143, #144, #145, #146, #147 and #158 (Reset, added by the user before the deploy). Worlds use linked character copies (card shared via CARD_FIELDS, life per world). Suites: 1048 unit tests, 1101 UI tests (187 skipped), 18 screenshot tests (character gallery baselines updated for the new toolbar). Pushed and deployed.
 
 - 2026-10-25 (night): UI revamp added to the roadmap (#148–#157, three waves); wave 1 built: #148 tokens and type, #149 components, #150 navigation shell, #151 header, Contact info and the settings split (both group bugs fixed). Suites on the combined wave: 1004 unit tests, 1041 UI tests passed (187 skipped), 18 screenshot tests (baselines updated for the redesign). Committed per item (the wave's test changes are in #151's commit), not pushed. The user then chose: part 2 and worlds next, deploy when done, then revamp waves 2 and 3.
 - 2026-10-25 (evening): Reviewed the Claude Design canvas (https://claude.ai/artifact/M3jbFgiyZEipQ2G5PS5HSt, 32 boards): strong structure and a near-complete settings map; both group bugs designed away. Gaps: some phone and Updates screens, Peek, blocking, invites, stickers, and contrast, focus and 44 px targets. Wrote `design/claude-design-second-pass.md` for the next pass, with default answers to four open decisions (no Favourites filter, keep the "Messenger" name, Drama stays per chat, forwarding stays in one world). No code changes.
