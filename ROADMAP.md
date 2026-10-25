@@ -8,7 +8,7 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 Items up to #129 are built (the last batch, #113–#129 "Your own WhatsApp", on 2026-10-24). New ideas get the next free numbers.
 
-## Your own WhatsApp, part 2 (#130–#141, picked 2026-10-25)
+## Your own WhatsApp, part 2 (#130–#142, picked 2026-10-25)
 
 Picked by the user from the ideas after #113–#129. No voice features until the app has an AI voice model (see PROGRESS.md › Decisions).
 
@@ -29,6 +29,10 @@ Picked by the user from the ideas after #113–#129. No voice features until the
   - *How it feeds back:* each member's prompt gets a short note on recent circle talk; members comment on each other's statuses and share each other's contacts (#128); blocking (#133) uses circle members as the mutual contacts; the relationship map (#138) draws circles; now and then the circle invites you into a group chat ("we're planning Friday, you in?").
 - **#140 How long a status lasts (S).** A status lasts one "day", and the user sets how long a day is: a number field, 1 to 24 hours, default 24 (Settings). Everything follows it: the status rings, Updates, your own statuses, and the Feed ("All posts"), which today still shows expired statuses (the user's call, 2026-10-25).
 - **#141 Texting mode everywhere (S).** Replies split into separate texts in the terminal theme and the novel view too (today only the normal chat view).
+- **#142 "Where things stand" memory paragraph (M).** The memory update (every 12 messages) also writes, in the same helper call, one short paragraph from all the character's facts and the recent conversation: what's true now, what already happened (finished plans read as finished), what's coming. Replies get that paragraph instead of the 30 word-matched facts, so memory works by meaning, not shared words.
+  - The fact list stays the source of truth (Memory tab: edit, pin, date); pinned facts are still sent word for word; with no paragraph yet (or a failed one), replies fall back to the 30-fact list.
+  - Rewritten with each memory update and when you come back to a chat after a long gap; not per reply (cost).
+  - 1:1 chats, group chats (from the group's own memory) and adventures.
 
 ## Smaller follow-ups
 
