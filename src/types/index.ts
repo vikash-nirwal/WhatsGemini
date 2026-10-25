@@ -702,6 +702,9 @@ export interface Character {
   localImageSettings?: LocalImageSettings; // #40, local generation only
   innerThoughts?: boolean; // #10: also write hidden thoughts with each reply
   growth?: string[]; // accepted notes on how they've changed (#60)
+  // How your relationship label changed (#138), oldest first: what it was,
+  // and when it changed.
+  relationshipHistory?: { from: string; to: string; at: number }[];
   writesLetters?: boolean; // writes you a letter after a few days away (#61)
   intimacy?: IntimacyProfile; // romance details, sent only when the scene is romantic (#73)
   knowsAbout?: number[]; // other characters whose bond with you this one knows of (#74)

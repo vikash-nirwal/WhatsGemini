@@ -1,3 +1,5 @@
+import { FaProjectDiagram } from "react-icons/fa";
+import RelationshipMap from "src/components/organisms/RelationshipMap";
 import React, { useState, useMemo, useRef } from "react";
 import { avatarOf } from "../features/character/profileChanges";
 import { useColorTheme } from "../hooks/useColorTheme";
@@ -33,6 +35,7 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 const CharacterPage = () => {
   // The phone-style shell's tab bar (#114) sits over the bottom of the page.
+  const [mapOpen, setMapOpen] = useState(false);
   const shell = usePhoneShell();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -286,7 +289,8 @@ const CharacterPage = () => {
                 : `${characters.length} character${characters.length === 1 ? "" : "s"}${chattedThisWeek > 0 ? ` · ${chattedThisWeek} chatted with this week` : ""}`}
             </p>
           </div>
-          <div className="flex gap-2">
+          {/* Wraps on a phone, so the toolbar never runs off the screen. */}
+          <div className="flex flex-wrap gap-2">
             {characters.length > 0 && terminal && (
               <div className="flex items-center gap-1.5 border border-border px-3 w-[220px] text-[11px] focus-within:border-ring">
                 <span className="text-muted-foreground flex-none">grep&gt;</span>
@@ -327,6 +331,16 @@ const CharacterPage = () => {
             >
               <FaUpload size={12} /> {importingCard ? "Importing..." : "Import Card"}
             </Button>
+            {/* The relationship map (#138): who knows whom, and each bond with you. */}
+            <Button onClick={() => setMapOpen(true)} variant="outline">
+              <FaProjectDiagram size={12} /> Relationship map
+            </Button>
+            <Dialog open={mapOpen} onOpenChange={setMapOpen}>
+              <DialogContent size="lg" className="overflow-y-auto">
+                <DialogTitle>Relationship map</DialogTitle>
+                <RelationshipMap />
+              </DialogContent>
+            </Dialog>
             <input
               type="file"
               ref={importCardInputRef}

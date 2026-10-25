@@ -13,7 +13,6 @@ Items up to #129 are built (the last batch, #113–#129 "Your own WhatsApp", on 
 Picked by the user from the ideas after #113–#129. No voice features until the app has an AI voice model (see PROGRESS.md › Decisions).
 
 - **#132 Real-model tuning pass (S).** The user tries #81 onward and the latest fixes with their own key and reports what's off; Claude fixes it. Watch: how often the tags (`[Re:]`, `[Fwd:]`, `[Contact:]`, `[Poll:]`, `[Group name:]`, story tags) are used, the helper prompts' output, statuses keeping to the timeline, group rounds.
-- **#138 Relationship map (M).** A picture of who knows whom (#74), the room feelings between them (#24), and how each bond with you has changed.
 - **#139 Circles.** Folded into worlds (#145): the world is the circle.
 
 ## Worlds (#143–#147, picked 2026-10-25)

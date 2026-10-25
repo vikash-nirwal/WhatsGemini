@@ -237,7 +237,9 @@ export const useBackgroundUpdates = ({
   const acceptRelationship = () => {
     const suggestion = currentChat?.relationshipSuggestion;
     if (!chatIdNum || !suggestion || !characterData) return;
-    dispatch(updateCharacter({ ...characterData, relationship: suggestion.to }));
+    // Kept for the relationship map (#138): what it was, and when it changed.
+    const history = [...(characterData.relationshipHistory || []), { from: characterData.relationship || suggestion.from || "", to: suggestion.to, at: Date.now() }].slice(-10);
+    dispatch(updateCharacter({ ...characterData, relationship: suggestion.to, relationshipHistory: history }));
     dispatch(updateChatOptions({ chatId: chatIdNum, patch: { relationshipSuggestion: undefined } }));
     toast.success(`${characterData.name} and you: ${suggestion.to}`);
   };
