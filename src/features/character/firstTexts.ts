@@ -1,3 +1,4 @@
+import { lifeScaled } from "../life/lifeDial";
 import { Character, Chat, Message } from "../../types";
 import { AI } from "../../utils/constants";
 import { currentBlock } from "./schedule";
@@ -52,7 +53,7 @@ export const firstTextDue = (character: Pick<Character, "textsFirst" | "firstTex
   if (!character.textsFirst) return false;
   const sent = character.firstTexts || [];
   if (sent.filter((t) => now - t < DAY_MS).length >= MAX_PER_DAY) return false;
-  if (sent.some((t) => now - t < FIRST_TEXT_GAP_MS)) return false;
+  if (sent.some((t) => now - t < lifeScaled(FIRST_TEXT_GAP_MS))) return false;
   const last = lastReal(chat?.content);
   if (last) {
     if (unansweredFirstTexts(chat?.content) >= firstTextLimitOf(character)) return false;

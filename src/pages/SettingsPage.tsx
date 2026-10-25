@@ -97,6 +97,7 @@ import ChatInterfaceSettings from "src/components/organisms/ChatInterfaceSetting
 import SafetySettings from "src/components/organisms/SafetySettings";
 import DataBackupSettings from "src/components/organisms/DataBackupSettings";
 import PrivacySettings from "src/components/organisms/PrivacySettings";
+import LifeSettings from "src/components/organisms/LifeSettings";
 import SpendingSettings from "src/components/organisms/SpendingSettings";
 import { getSpendingSnapshot, importLedger, setBudget } from "../features/spending/spending";
 import { formatRelativeTime } from "../utils/formatRelativeTime";
@@ -794,7 +795,7 @@ const SettingsPage = () => {
     { id: "appearance", icon: <FaPalette size={13} />, title: "Appearance", subtitle: "Color theme", conf: "appearance" },
     { id: "privacy", icon: <FaLock size={13} />, title: "Privacy", subtitle: "Blur, discreet list, app lock", conf: "privacy" },
     { id: "safety", icon: <FaShieldAlt size={13} />, title: "Safety Settings", subtitle: chatProvider === "gemini" ? "Content filtering thresholds" : "Gemini only - not used by other providers", conf: "safety" },
-    { id: "spending", icon: <FaWallet size={13} />, title: "Spending", subtitle: "Estimated costs and a monthly limit", conf: "spending" },
+    { id: "spending", icon: <FaWallet size={13} />, title: "Spending", subtitle: "Life dial, activity log, costs and a monthly limit", conf: "spending" },
     { id: "data", icon: <FaDatabase size={13} />, title: "Data & Import/Export", subtitle: "Import / export conversations", conf: "data_io" },
   ];
   const activeSection = sections.find((s) => s.id === selectedSection) || sections[0];
@@ -1017,7 +1018,12 @@ const SettingsPage = () => {
                   <PrivacySettings privacy={privacy} setPrivacy={(val) => dispatch(setPrivacy(val))} />
                 )}
 
-                {selectedSection === "spending" && <SpendingSettings />}
+                {selectedSection === "spending" && (
+                  <>
+                    <LifeSettings />
+                    <SpendingSettings />
+                  </>
+                )}
 
                 {selectedSection === "data" && (
                   <DataBackupSettings

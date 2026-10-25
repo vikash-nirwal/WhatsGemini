@@ -1,3 +1,4 @@
+import { lifeScaled } from "../life/lifeDial";
 import { Character, Chat, OffscreenTalk, RoomRelationship } from "../../types";
 
 // Characters talk while you're away (#58): in a group chat with this on, two
@@ -18,7 +19,7 @@ export const talkDue = (chat: Pick<Chat, "offscreenTalk" | "offscreenTalks" | "c
   const latest = (chat.offscreenTalks || []).reduce((t, x) => Math.max(t, x.at), 0);
   // One per stretch away: nothing new until you've been back since the last one.
   if (latest > lastActivity(chat)) return false;
-  return now - latest >= TALK_GAP_MS;
+  return now - latest >= lifeScaled(TALK_GAP_MS);
 };
 
 // Who talks: a pair with feelings about each other if there is one, so the

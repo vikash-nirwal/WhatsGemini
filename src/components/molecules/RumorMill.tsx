@@ -36,7 +36,7 @@ const RumorMill = () => {
       try {
         const userName = persona?.name?.trim() || "the user";
         const transcript = formatTranscript(trimToLatestSummary(chat.content || []).slice(-16), { userName, charName: source.name });
-        const reply = await dispatch(generateAssistText({ instruction: buildRumorPrompt(source.name, listener.name, userName, transcript), background: true })).unwrap();
+        const reply = await dispatch(generateAssistText({ instruction: buildRumorPrompt(source.name, listener.name, userName, transcript), background: true, activity: { kind: "rumor", text: `${source.name} talked to ${listener.name} about you`, characterId: source.id, name: source.name } })).unwrap();
         const parsed = parseRumorReply(reply);
         const fresh = latest.current.characters.find((c) => c.id === listener.id) || listener;
         // Kept even when there was nothing worth gossiping about (an empty

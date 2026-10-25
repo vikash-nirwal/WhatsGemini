@@ -1,3 +1,4 @@
+import { lifeScaled } from "../life/lifeDial";
 import { Character } from "../../types";
 
 // Profile changes (#125): with the switch on, now and then a character
@@ -14,7 +15,7 @@ export const avatarOf = (character: Pick<Character, "profilePhoto" | "appearance
   character?.profilePhoto || character?.appearanceImages?.[0];
 
 export const profileChangeDue = (character: Pick<Character, "profileChanges" | "profileChangedAt">, now: number): boolean =>
-  Boolean(character.profileChanges) && (character.profileChangedAt == null || now - character.profileChangedAt >= PROFILE_GAP_MS);
+  Boolean(character.profileChanges) && (character.profileChangedAt == null || now - character.profileChangedAt >= lifeScaled(PROFILE_GAP_MS));
 
 // Every other change brings a new photo too, if they have a look to draw.
 export const photoChangeDue = (character: Pick<Character, "profileChangeCount" | "appearanceImages" | "appearance" | "visualTags">): boolean =>

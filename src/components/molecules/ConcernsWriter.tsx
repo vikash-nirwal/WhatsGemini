@@ -25,7 +25,7 @@ export const writeConcerns = async (dispatch: AppDispatch, character: Character,
   });
   let concerns = character.concerns;
   try {
-    const update = parseConcerns(await dispatch(generateAssistText({ instruction: prompt, background: true })).unwrap(), current.length);
+    const update = parseConcerns(await dispatch(generateAssistText({ instruction: prompt, background: true, activity: { kind: "concerns", text: `What's on ${character.name}'s mind was updated`, characterId: character.id, name: character.name } })).unwrap(), current.length);
     if (update.added.length > 0 || update.done.length > 0) concerns = applyConcerns(character.concerns, update, now);
   } catch (err) {
     console.warn("Preoccupations failed (non-fatal):", err);

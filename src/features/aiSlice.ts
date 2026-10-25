@@ -1,3 +1,5 @@
+import { ActivityEntry, logActivity } from "./life/activityLog";
+import { estimateCallCost, isFreeProvider } from "./spending/spending";
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import { performChatCompression, buildValidHistory, buildAutoCompressedMessages, truncateHistory, splitTrailingUserMessages, formatTranscript, TranscriptNames, summarizeConversation, parseChapterReply, CHAPTER_INSTRUCTIONS } from "./ai/utils/chatHistoryUtils";
 import { AI, getModelPricing, ART_STYLE_CLAUSES, DEFAULT_ART_STYLE } from "../utils/constants";
@@ -616,13 +618,19 @@ export const generateAssistText = createAsyncThunk(
   "ai/generateAssistText",
   // `background`: use the cheaper background model (see resolveHelperCall),
   // for helpers like reply suggestions that run after every reply.
-  async ({ instruction, background = false }: { instruction: string; background?: boolean }, { getState, rejectWithValue }) => {
+  // `activity` (#131): a background job's call, noted in the activity log
+  // with its estimated cost.
+  async ({ instruction, background = false, activity }: { instruction: string; background?: boolean; activity?: Omit<ActivityEntry, "id" | "at" | "cost"> }, { getState, rejectWithValue }) => {
     try {
       const state = getState() as RootState;
       const settings = state.settings;
       if (background) {
         const helper = await resolveHelperCall(settings);
         const result = await helper.adapter.generateOnce(instruction, helper.model, helper.config);
+        if (activity) {
+          const cost = isFreeProvider(helper.providerId) ? undefined : estimateCallCost({ kind: "text", providerId: helper.providerId, model: helper.model, usage: result.usage });
+          logActivity({ ...activity, cost });
+        }
         return result.text.trim();
       }
       const chatProviderId = settings.chatProvider;

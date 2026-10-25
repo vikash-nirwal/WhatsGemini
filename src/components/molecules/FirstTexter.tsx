@@ -84,6 +84,8 @@ const FirstTexter = () => {
             dream: dreaming ? buildDreamDirective(texter.name, userName, dreamIngredients(texter, chat!)) : undefined,
           }),
           background: true,
+          activity: { kind: dreaming ? "dream" : "first-text", text: dreaming ? `${texter.name} told you a dream` : `${texter.name} texted you first`, characterId: texter.id, name: texter.name },
+          
         })).unwrap();
         const text = cleanFirstText(reply);
         // Recorded even when the reply was unusable, so a failing model

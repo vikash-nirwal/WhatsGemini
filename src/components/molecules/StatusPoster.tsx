@@ -59,7 +59,7 @@ const StatusPoster = () => {
         const recentChat = recent.length > 0 ? formatTranscript(recent, { userName: userName || "User", charName: due.name }) : undefined;
         const facts = annotateFacts((due.memory || []).slice(-8), due.memoryDates, now);
         const prompt = buildStatusPrompt(due, currentBlock(due.schedule, now)?.activity, facts, liveStatuses(due, now).map((s) => s.text), dayMoodFor(due, now)?.label, dayLogText(due, now), concernsLine(due.concerns), placeLine(due.home, now), mention, { now, userName, recentChat });
-        const text = cleanStatus(await dispatch(generateAssistText({ instruction: prompt, background: true })).unwrap());
+        const text = cleanStatus(await dispatch(generateAssistText({ instruction: prompt, background: true, activity: { kind: "status", text: `${due.name} posted a status`, characterId: due.id, name: due.name } })).unwrap());
         if (text) {
           const latest = charactersRef.current.find((c) => c.id === due.id) || due;
           // A photo status (#118): drawn before posting, so it appears with
@@ -80,7 +80,7 @@ const StatusPoster = () => {
           // The feed (#85): the others who know them like it and comment.
           const peers = feedPeersFor(latest, charactersRef.current, chatsRef.current);
           if (peers.length > 0) {
-            const reply = await dispatch(generateAssistText({ instruction: buildFeedReactionsPrompt(latest, status, peers), background: true })).unwrap();
+            const reply = await dispatch(generateAssistText({ instruction: buildFeedReactionsPrompt(latest, status, peers), background: true, activity: { kind: "status", text: `Friends reacted to ${latest.name}'s status`, characterId: latest.id, name: latest.name } })).unwrap();
             const { likes, comments } = parseFeedReactions(reply, peers, Date.now());
             const posted = charactersRef.current.find((c) => c.id === due.id);
             if (posted && (likes.length > 0 || comments.length > 0)) {

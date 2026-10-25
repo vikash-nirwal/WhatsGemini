@@ -43,6 +43,7 @@ const LetterWriter = () => {
         const reply = await dispatch(generateAssistText({
           instruction: buildLetterPrompt(writer, userName, Math.max(1, Math.round((now - last) / DAY_MS)), writer.memory || [], formatTranscript(recent, { userName, charName: writer.name }), currentBlock(writer.schedule, now)?.activity, latestStorySummary(content)),
           background: true,
+          activity: { kind: "letter", text: `${writer.name} wrote you a letter`, characterId: writer.id, name: writer.name },
         })).unwrap();
         const text = cleanLetter(reply);
         const fresh = latest.current.characters.find((c) => c.id === writer.id) || writer;

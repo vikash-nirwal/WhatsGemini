@@ -1,3 +1,4 @@
+import { lifeScaled } from "../life/lifeDial";
 import { Character, CharacterLetter, Message } from "../../types";
 
 // Letters (#61): when you've been away from a 1:1 chat for a few days, a
@@ -15,7 +16,7 @@ const lastActivity = (content: Message[] | undefined, fallback = 0): number =>
 export const letterDue = (character: Pick<Character, "writesLetters" | "letters">, chat: { content?: Message[]; timestamp?: number } | undefined, now: number): boolean => {
   if (!character.writesLetters || !chat || !chat.content?.length) return false;
   const last = lastActivity(chat.content, chat.timestamp);
-  if (now - last < LETTER_AWAY_MS) return false;
+  if (now - last < lifeScaled(LETTER_AWAY_MS)) return false;
   return !(character.letters || []).some((l) => l.at > last);
 };
 

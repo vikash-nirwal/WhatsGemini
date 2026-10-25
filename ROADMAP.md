@@ -13,7 +13,6 @@ Items up to #129 are built (the last batch, #113–#129 "Your own WhatsApp", on 
 Picked by the user from the ideas after #113–#129. No voice features until the app has an AI voice model (see PROGRESS.md › Decisions).
 
 - **#130 While you were away (M).** When the app opens after hours closed, fill in what would plausibly have happened meanwhile, within each job's own limits: texts first, statuses, channel posts, profile changes, timestamped in the past.
-- **#131 Life dial and activity log (M).** One setting (Quiet / Normal / Lively) that scales every background job's frequency, and a log of what each job did, when, and its estimated cost.
 - **#132 Real-model tuning pass (S).** The user tries #81 onward and the latest fixes with their own key and reports what's off; Claude fixes it. Watch: how often the tags (`[Re:]`, `[Fwd:]`, `[Contact:]`, `[Poll:]`, `[Group name:]`, story tags) are used, the helper prompts' output, statuses keeping to the timeline, group rounds.
 - **#133 Blocking, both ways (L).** Either side can block the other.
   - *They block you:* after a bad enough fight (#97), a character blocks you. Their photo, About and status disappear for you, your messages get one grey tick and no reply, and you can't see when they're online. To make up you go through someone who knows you both (a group, or a character who knows them, #74).

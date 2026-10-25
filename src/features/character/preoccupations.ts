@@ -1,3 +1,4 @@
+import { lifeScaled } from "../life/lifeDial";
 import { Character, Preoccupation } from "../../types";
 
 // Their own preoccupations (#110): with the switch on, once a week the helper
@@ -17,7 +18,7 @@ export const resolvedConcerns = (concerns: Preoccupation[] | undefined): Preoccu
 
 // Due with the switch on, once a week counted from the last writing.
 export const concernsDue = (character: Pick<Character, "preoccupations" | "concernsWrittenAt"> | undefined, now: number): boolean =>
-  Boolean(character?.preoccupations) && (!character?.concernsWrittenAt || now - character.concernsWrittenAt >= CONCERNS_GAP_MS);
+  Boolean(character?.preoccupations) && (!character?.concernsWrittenAt || now - character.concernsWrittenAt >= lifeScaled(CONCERNS_GAP_MS));
 
 export interface ConcernsContext {
   routine?: string; // the schedule section (#7)

@@ -29,7 +29,7 @@ export const writeDayLog = async (dispatch: AppDispatch, character: Character, l
   });
   let text = "";
   try {
-    text = cleanDayLog(await dispatch(generateAssistText({ instruction: prompt, background: true })).unwrap()) || "";
+    text = cleanDayLog(await dispatch(generateAssistText({ instruction: prompt, background: true, activity: { kind: "day-log", text: `${character.name}'s day was planned`, characterId: character.id, name: character.name } })).unwrap()) || "";
   } catch (err) {
     console.warn("Day log failed (non-fatal):", err);
   }

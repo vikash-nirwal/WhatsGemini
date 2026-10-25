@@ -1,3 +1,4 @@
+import { lifeScaled } from "../life/lifeDial";
 import { Channel, ChannelPost, Character, World } from "../../types";
 import { nowLine } from "../character/statusUpdates";
 
@@ -18,7 +19,7 @@ export const channelName = (kind: Channel["kind"], subject: Pick<Character, "nam
 
 export const newChannelPostId = () => `cp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
-export const channelPostDue = (channel: Pick<Channel, "lastPostAt">, now: number): boolean => now - (channel.lastPostAt || 0) >= CHANNEL_GAP_MS;
+export const channelPostDue = (channel: Pick<Channel, "lastPostAt">, now: number): boolean => now - (channel.lastPostAt || 0) >= lifeScaled(CHANNEL_GAP_MS);
 
 export const addChannelPost = (posts: ChannelPost[], post: ChannelPost): ChannelPost[] => [...posts, post].slice(-KEEP);
 

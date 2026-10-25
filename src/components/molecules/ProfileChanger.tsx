@@ -37,6 +37,7 @@ const ProfileChanger = () => {
         const about = cleanAbout(await dispatch(generateAssistText({
           instruction: buildAboutPrompt(changer, { dayMood: dayMoodFor(changer, now)?.label, concerns: concernsLine(changer.concerns), dayLog: dayLogText(changer, now) }),
           background: true,
+          activity: { kind: "profile", text: `${changer.name} changed their About`, characterId: changer.id, name: changer.name },
         })).unwrap());
         let photo: string | undefined;
         if (about && photoChangeDue(changer)) {

@@ -1,3 +1,4 @@
+import { lifeScaled } from "../life/lifeDial";
 import { Character, CharacterStatus } from "../../types";
 
 // Status updates (#8): like WhatsApp Status, a character with statuses on
@@ -43,7 +44,7 @@ export const hasUnseenStatus = (character: Pick<Character, "statuses">, now: num
 export const statusDue = (character: Pick<Character, "postsStatuses" | "statuses">, now: number, lifetime: number = statusLifetimeMs()): boolean => {
   if (!character.postsStatuses) return false;
   const latest = (character.statuses || []).reduce((t, s) => Math.max(t, s.createdAt), 0);
-  return now - latest >= STATUS_GAP_MS * (lifetime / STATUS_LIFETIME_MS);
+  return now - latest >= lifeScaled(STATUS_GAP_MS) * (lifetime / STATUS_LIFETIME_MS);
 };
 
 // `mention`: the user's name, when this status should mention them (#129).

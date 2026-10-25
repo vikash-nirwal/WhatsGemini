@@ -45,6 +45,7 @@ const OffscreenTalker = () => {
         const reply = await dispatch(generateAssistText({
           instruction: buildOffscreenTalkPrompt(pair[0], pair[1], userName, feelings, formatTranscript(recent, { userName, speakerNames: namesById }), chat.scenario),
           background: true,
+          activity: { kind: "talk", text: `${pair[0].name} and ${pair[1].name} talked`, characterId: pair[0].id, name: pair[0].name },
         })).unwrap();
         const lines = parseOffscreenTalk(reply, pair);
         // Saved even when empty, so a failed attempt waits for the next stretch away.

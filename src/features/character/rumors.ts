@@ -1,3 +1,4 @@
+import { lifeScaled } from "../life/lifeDial";
 import { Character, Chat, Rumor } from "../../types";
 import { YOU } from "../../utils/constants";
 
@@ -31,7 +32,7 @@ export const lastRumorFrom = (sourceId: number, characters: Character[]): number
 export const rumorDue = (source: Character, chat: Chat | undefined, characters: Character[], chats: Chat[], now: number): boolean => {
   if (!source.spreadsRumors || !chat) return false;
   const last = lastRumorFrom(source.id, characters);
-  if (last && now - last < RUMOR_GAP_MS) return false;
+  if (last && now - last < lifeScaled(RUMOR_GAP_MS)) return false;
   const fresh = (chat.content || []).filter((m) => m.role === YOU && !m.isSystem && !m.isNarration && (m.timestamp || 0) > last).length;
   if (fresh < MIN_NEW_MESSAGES) return false;
   return rumorListenersFor(source, characters, chats).length > 0;

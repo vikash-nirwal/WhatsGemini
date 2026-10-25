@@ -1,3 +1,4 @@
+import { lifeScaled } from "../life/lifeDial";
 import { Character, Chat, Message } from "../../types";
 import { AI } from "../../utils/constants";
 import { secretsInPlay } from "./secrets";
@@ -26,7 +27,7 @@ const repliedToday = (content: Message[] | undefined, now: number): boolean => {
 export const dreamDue = (character: Pick<Character, "dreams" | "lastDreamAt"> | undefined, chat: Pick<Chat, "content"> | undefined, now: number): boolean =>
   Boolean(character?.dreams) &&
   isMorning(now) &&
-  (!character!.lastDreamAt || now - character!.lastDreamAt >= DREAM_GAP_MS) &&
+  (!character!.lastDreamAt || now - character!.lastDreamAt >= lifeScaled(DREAM_GAP_MS)) &&
   !repliedToday(chat?.content, now);
 
 export interface DreamIngredients {

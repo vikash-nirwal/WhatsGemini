@@ -1,3 +1,4 @@
+import { lifeScaled } from "../life/lifeDial";
 import { Character, CharacterDayLog } from "../../types";
 import { dayKey } from "./badDays";
 
@@ -32,7 +33,7 @@ export const dayLogDue = (character: Pick<Character, "dayLogs" | "dayLog"> | und
   if (hour < DAY_LOG_FROM_HOUR) return false;
   const today = dayLogFor(character, now);
   if (!today) return true;
-  return Boolean(today.text) && hour < DAY_LOG_UNTIL_HOUR && now - (today.writtenAt || 0) >= DAY_LOG_REFRESH_MS;
+  return Boolean(today.text) && hour < DAY_LOG_UNTIL_HOUR && now - (today.writtenAt || 0) >= lifeScaled(DAY_LOG_REFRESH_MS);
 };
 
 export interface DayLogContext {
