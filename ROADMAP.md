@@ -32,7 +32,6 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 **Wave 2: the other screens**
 
 **Wave 3: with the features they belong to**
-- **#157 Worlds UI (M, with #143 and #144).** The world rail and phone switcher, the Worlds page and the world wizard.
 - The canvas's boards for Peek (#145), blocking (#133), event invites (#134), disappearing messages (#136), stickers (#137), the activity log (#131), "where things stand" (#142) and "While you were away" (#130) are built with those items; they get no numbers of their own.
 
 ## Smaller follow-ups

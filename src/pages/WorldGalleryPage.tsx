@@ -8,6 +8,7 @@ import { formatStoryDate } from "../features/world/storyTime";
 import { useCurrentWorld } from "../hooks/useWorld";
 import { WorldLifeControls } from "src/components/organisms/WorldLifeControls";
 import { ResetDialog } from "src/components/organisms/ResetDialog";
+import { CurrentWorldHero } from "src/components/organisms/CurrentWorldHero";
 import { resetWorldLife } from "../features/life/reset";
 import { useModal } from "../contexts/ModalContext";
 import { useColorTheme } from "../hooks/useColorTheme";
@@ -73,6 +74,7 @@ const WorldGalleryPage = () => {
       <Header title="Worlds" subtitle="Each world is its own space, with its own people and chats." onBack={() => navigate("/adventures")} />
       <div className="flex-1 overflow-auto p-4 md:p-8">
         <div className="w-full max-w-[1180px] mx-auto">
+          <CurrentWorldHero />
 
           <div className="flex items-end justify-between gap-4 flex-wrap mb-6">
             <div>

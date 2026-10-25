@@ -11,6 +11,39 @@ import { cn } from "src/utils/cn";
 
 // The world switcher (#143): like switching accounts. "title" is the phone
 // home's title row, "rail" the top of the desktop rail.
+// The rail (#157): every world as its own tile, the current one ringed, and
+// "New world" under them, as on the canvas.
+export const WorldRail = () => {
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const { worlds, currentWorldId } = useCurrentWorld();
+  const all = [{ id: null as number | null, name: MY_WORLD, cover: undefined as string | undefined }, ...worlds.map((w) => ({ id: w.id as number | null, name: w.name, cover: w.coverImage }))];
+  const pick = (id: number | null) => {
+    if (id === currentWorldId) return navigate("/worlds");
+    dispatch(switchWorld(id));
+    if (pathname.startsWith("/chat/")) navigate("/");
+  };
+  return (
+    <div role="group" aria-label="Worlds" className="flex flex-col items-center gap-2">
+      {all.slice(0, 6).map((w) => {
+        const current = w.id === currentWorldId;
+        return (
+          <button key={w.id ?? "mine"} type="button" onClick={() => pick(w.id)} title={w.name}
+            aria-label={current ? `World: ${w.name} (current). Open worlds` : `Go to ${w.name}`}
+            className={cn("rounded-[14px] transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", current ? "shadow-[0_0_0_2px_rgb(var(--surface)),0_0_0_4px_rgb(var(--primary))]" : "opacity-80 hover:opacity-100")}>
+            <CharacterAvatar name={w.name} imageSrc={w.cover} size={44} className="rounded-[14px]" />
+          </button>
+        );
+      })}
+      {all.length > 6 && <WorldSwitcher variant="rail" />}
+      <button type="button" onClick={() => navigate("/worlds/wizard")} aria-label="New world" title="New world" className="grid h-11 w-11 place-items-center rounded-[14px] text-muted-foreground ring-1 ring-inset ring-border-strong hover:text-foreground">
+        <FaPlus size={13} />
+      </button>
+    </div>
+  );
+};
+
 export const WorldSwitcher = ({ variant }: { variant: "title" | "rail" }) => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();

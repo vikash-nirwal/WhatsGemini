@@ -10,6 +10,7 @@ import { buildCharacterDraftPrompt, CharacterDraft, parseCharacterDraft } from "
 import { rootOf, worldCopy } from "../features/character/card";
 import { applyTies, buildConnectionsPrompt, castIdea, CastMember, parseConnections, WorldTie } from "../features/world/worldWizard";
 import { worldName, worldOf } from "../features/world/currentWorld";
+import { circleLayout } from "../features/character/relationshipMap";
 import { avatarOf } from "../features/character/profileChanges";
 import { Character } from "../types";
 import { cn } from "../utils/cn";
@@ -26,6 +27,49 @@ const STEPS = ["World", "Cast", "Connections", "You"];
 // Someone in the new world's cast: a person from another world (joining as a
 // copy) or one drafted for this world.
 type Member = CastMember & ({ kind: "existing"; character: Character } | { kind: "new"; draft: CharacterDraft });
+
+// A live preview of the connections (#157), as on the canvas: you in the
+// middle, the cast around you, their ties as labelled lines.
+const ConnectionsPreview = ({ cast, ties, userName }: { cast: Member[]; ties: WorldTie[]; userName: string }) => {
+  const spots = circleLayout(cast.length, 220, 210, 130);
+  const at = (key: string) => spots[cast.findIndex((m) => m.key === key)];
+  return (
+    <aside aria-label="Connections preview" className="hidden flex-col gap-3 rounded-card bg-surface p-5 ring-1 ring-inset ring-border xl:flex">
+      <span className="text-[11.5px] font-bold uppercase tracking-[0.06em] text-subtle">How they're connected</span>
+      <svg viewBox="-40 0 520 420" className="w-full" role="img" aria-label={`${userName} in the middle, with ${cast.map((m) => m.name).join(", ")}`}>
+        {spots.map((p, i) => <line key={`y${i}`} x1={220} y1={210} x2={p.x} y2={p.y} stroke="rgb(var(--border))" strokeWidth={1.5} />)}
+        {ties.map((t, i) => {
+          const a = at(t.a), b = at(t.b);
+          if (!a || !b) return null;
+          // Bowed away from you, so a tie between people opposite each other
+          // doesn't run through the middle.
+          const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+          let dx = mx - 220, dy = my - 210;
+          if (Math.hypot(dx, dy) < 1) { dx = b.y - a.y; dy = a.x - b.x; }
+          const len = Math.hypot(dx, dy) || 1;
+          const cx = mx + (dx / len) * 140, cy = my + (dy / len) * 140;
+          const lx = 0.25 * a.x + 0.5 * cx + 0.25 * b.x, ly = 0.25 * a.y + 0.5 * cy + 0.25 * b.y;
+          return (
+            <g key={`t${i}`}>
+              <path d={`M${a.x} ${a.y} Q${cx} ${cy} ${b.x} ${b.y}`} fill="none" stroke="rgb(var(--primary))" strokeWidth={2} />
+              <text x={lx} y={ly + 5} textAnchor="middle" className="fill-foreground text-[15px] font-bold">{t.aToB.replace(/^your\s+/i, "")}</text>
+            </g>
+          );
+        })}
+        <circle cx={220} cy={210} r={26} fill="rgb(var(--primary))" />
+        <text x={220} y={216} textAnchor="middle" className="fill-primary-foreground text-[15px] font-bold">You</text>
+        {cast.map((m, i) => (
+          <g key={m.key}>
+            <circle cx={spots[i].x} cy={spots[i].y} r={24} fill="rgb(var(--raised))" stroke="rgb(var(--border-strong))" />
+            <text x={spots[i].x} y={spots[i].y + 5} textAnchor="middle" className="fill-foreground text-[14px] font-bold">{m.name.slice(0, 2).toUpperCase()}</text>
+            <text x={spots[i].x + (spots[i].x >= 220 ? 32 : -32)} y={spots[i].y + 5} textAnchor={spots[i].x >= 220 ? "start" : "end"} className="fill-foreground text-[15px] font-semibold">{m.name}</text>
+          </g>
+        ))}
+      </svg>
+      <p className="text-[12px] text-subtle">They use these when they talk about each other. Editable later in their Contact info.</p>
+    </aside>
+  );
+};
 
 // The world wizard (#144): the world, who lives there, how they're
 // connected, and who you are there. Nothing is saved until "Create world".
@@ -141,7 +185,7 @@ const WorldWizardPage = () => {
     <div className="w-full h-dvh flex flex-col">
       <Header title="New world" subtitle="Its own people, chats and news" onBack={() => navigate("/worlds")} />
       <div className="flex-1 overflow-auto p-4 md:p-8">
-        <div className="w-full max-w-[860px] mx-auto">
+        <div className={cn("mx-auto w-full", step === 2 ? "max-w-[1240px]" : "max-w-[860px]")}>
           <WizardSteps steps={STEPS} current={step}>
             {STEPS.map((label, i) => (
               <React.Fragment key={label}>
@@ -226,6 +270,7 @@ const WorldWizardPage = () => {
           )}
 
           {step === 2 && (
+            <div className="grid items-start gap-5 xl:grid-cols-[1fr_400px]">
             <Card className="p-6 flex flex-col gap-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="font-semibold text-[15px] text-foreground flex items-center gap-2"><FaLink size={13} className="text-subtle" /> How they're connected</h3>
@@ -257,6 +302,8 @@ const WorldWizardPage = () => {
                 </ul>
               </div>
             </Card>
+            <ConnectionsPreview cast={cast} ties={ties} userName={userName} />
+            </div>
           )}
 
           {step === 3 && (

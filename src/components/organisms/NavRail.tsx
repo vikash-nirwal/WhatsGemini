@@ -9,7 +9,7 @@ import { hasUnseenStatus } from "src/features/character/statusUpdates";
 import { unreadCount } from "src/features/chat/chatList";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { useWorldChats, useWorldCharacters } from "src/hooks/useWorld";
-import { WorldSwitcher } from "src/components/molecules/WorldSwitcher";
+import { WorldRail } from "src/components/molecules/WorldSwitcher";
 
 // The app's sections, which part of the app a path belongs to (#150).
 export type Section = "chats" | "updates" | "characters" | "adventures" | "settings" | "other";
@@ -48,7 +48,7 @@ export const NavRail = () => {
 
   return (
     <nav aria-label="Sections" data-slot="nav-rail" className="hidden lg:flex w-[72px] flex-none flex-col items-center gap-1 border-r border-border bg-surface py-3">
-      <WorldSwitcher variant="rail" />
+      <WorldRail />
       <span aria-hidden className="my-2 h-px w-8 bg-border" />
       {SECTIONS.map(({ section, to, label, Icon }) => {
         const active = current === section;
