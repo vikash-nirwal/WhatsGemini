@@ -1,0 +1,2 @@
+"use strict";(self.webpackChunkkindred=self.webpackChunkkindred||[]).push([[1126],{87700:(n,e,a)=>{function r(n){n.languages.bnf={string:{pattern:/"[^\r\n"]*"|'[^\r\n']*'/},definition:{pattern:/<[^<>\r\n\t]+>(?=\s*::=)/,alias:["rule","keyword"],inside:{punctuation:/^<|>$/}},rule:{pattern:/<[^<>\r\n\t]+>/,inside:{punctuation:/^<|>$/}},operator:/::=|[|()[\]{}*+?]|\.{3}/},n.languages.rbnf=n.languages.bnf}a.r(e),a.d(e,{default:()=>r}),r.displayName="bnf",r.aliases=["rbnf"]}}]);
+//# sourceMappingURL=react-syntax-highlighter_languages_refractor_bnf.d28991f6.chunk.js.map

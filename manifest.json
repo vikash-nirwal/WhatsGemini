@@ -1,7 +1,7 @@
 {
-  "short_name": "WhatsGemini",
-  "name": "WhatsGemini — AI Character Chat",
-  "description": "Chat with Gemini-powered AI characters, entirely stored on your device.",
+  "short_name": "Kindred",
+  "name": "Kindred — characters with lives of their own",
+  "description": "Chat with AI characters who have lives of their own, all stored on your device.",
   "icons": [
     {
       "src": "favicon-32.png",
@@ -15,7 +15,7 @@
       "purpose": "any"
     },
     {
-      "src": "logo192.png",
+      "src": "logo-maskable-192.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "maskable"
@@ -27,7 +27,7 @@
       "purpose": "any"
     },
     {
-      "src": "logo512.png",
+      "src": "logo-maskable-512.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "maskable"

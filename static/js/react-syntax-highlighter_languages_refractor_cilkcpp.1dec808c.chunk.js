@@ -1,0 +1,2 @@
+"use strict";(self.webpackChunkkindred=self.webpackChunkkindred||[]).push([[4150],{96356:(e,a,l)=>{l.r(a),l.d(a,{default:()=>p});var c=l(83323);function p(e){e.register(c.default),e.languages.cilkcpp=e.languages.insertBefore("cpp","function",{"parallel-keyword":{pattern:/\bcilk_(?:for|reducer|s(?:cope|pawn|ync))\b/,alias:"keyword"}}),e.languages["cilk-cpp"]=e.languages.cilkcpp,e.languages.cilk=e.languages.cilkcpp}p.displayName="cilkcpp",p.aliases=["cilk","cilk-cpp"]}}]);
+//# sourceMappingURL=react-syntax-highlighter_languages_refractor_cilkcpp.1dec808c.chunk.js.map
