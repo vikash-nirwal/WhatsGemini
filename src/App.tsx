@@ -1,3 +1,4 @@
+import { MotionConfig } from "framer-motion";
 import React, { useContext, useEffect, useState, lazy, Suspense } from "react";
 import { HashRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { Provider } from "react-redux";
@@ -213,6 +214,9 @@ const AppContent = () => {
   }
 
   return (
+    // Framer-motion follows the system's reduce-motion setting (#148), like
+    // the CSS rule in index.css.
+    <MotionConfig reducedMotion="user">
     <div className="bg-background min-h-dvh text-foreground font-sans">
       <div className="flex flex-col h-dvh w-full">
         <BackupReminderBanner />
@@ -259,6 +263,7 @@ const AppContent = () => {
         <PhoneTabBar />
       </div>
     </div>
+    </MotionConfig>
   );
 };
 

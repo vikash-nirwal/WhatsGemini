@@ -34,6 +34,16 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #145 | Life inside a world | todo | replaces circles: characters talk, Peek, 10 messages per exchange |
 | #146 | Worlds keep running | todo | background life in every world, per-world switch |
 | #147 | Story time | todo | optional world calendar |
+| #148 | Revamp: design tokens and type | done | 2026-10-25 |
+| #149 | Revamp: core components | todo | wave 1 |
+| #150 | Revamp: navigation shell | todo | wave 1 |
+| #151 | Revamp: chat header, Contact info, settings split | todo | wave 1; fixes the two group bugs |
+| #152 | Revamp: Updates | todo | wave 2 |
+| #153 | Revamp: message actions | todo | wave 2 |
+| #154 | Revamp: character creation | todo | wave 2 |
+| #155 | Revamp: characters, new chat, settings | todo | wave 2 |
+| #156 | Revamp: smaller screens | todo | wave 2 |
+| #157 | Revamp: worlds UI | todo | wave 3, with #143 and #144 |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
 
@@ -48,6 +58,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **Revamp tokens and type (#148):** `tokens.css` holds the canvas's semantic tokens (surface, raised, sunken, border-strong, primary-text, bubble-in/out with text and meta, tick/tick-read, warning, info, focus, scrim opacity, `--sh-1..3`) with the canvas's values for cozy (`:root`/`.dark`, its three palettes) and Messenger (`[data-theme="whatsapp"]`); the other themes derive them in the `[data-theme]:not([data-theme="whatsapp"])` block. Tailwind names them (`bg-raised`, `text-bubble-out-meta`, `shadow-popover`, `rounded-card`...; THEMING.md lists them). Fonts are Figtree and Literata. index.css adds the `:focus-visible` ring, 44 px touch hit areas (icon/small buttons, switches, checkboxes, `data-hit`) and reduced motion (plus `MotionConfig` in App.tsx). The canvas's own stylesheet is `design/canvas-system.css`; contrast was checked for every text pair (light primaries are the canvas's darker primary-text shade).
 - **Timeline and group prompt fixes (2026-10-25):** statuses (`buildStatusPrompt`'s `timeline`) get the time now (`nowLine`), the character's latest 12 messages with you marked as already happened, dated memories (`annotateFacts`) and a rule never to post a finished plan as still ahead; channel posts get the time. The day log is rewritten every 6 hours until 10 pm (`dayLogDue`, `DAY_LOG_REFRESH_MS`), continuing the earlier account (`earlier`). Groups: `sendCharacterFollowup(..., { answering: true })` (next member in a round, late replies) drops the follow-up directive and, in a group, sends the last labeled line as the prompt instead of `FOLLOWUP_CONTINUATION_PROMPT`; `buildOthersAbout` (promptNotes) tells each member who the others are; a group's scene is `Chat.scenario` (the new-group dialog saves it there; older groups' author's note stands in and is no longer sent as your out-of-character note); the reaction tag is only offered when you spoke last.
 - **Status mentions (#129):** StatusPoster has about one status in three (from a character with a 1:1 chat, when your persona has a name) mention you (`buildStatusPrompt(..., mention)`); `mentionsUser` sets `CharacterStatus.mentionsYou`, with a toast. StatusFeed highlights @names; Updates rows say "Mentioned you". Replying to a status (`useStatusReply`) now passes route state `replyToStatus`: the composer shows "Replying to X · Status" and the sent message carries `quotedStatus` (a card), sent to the model as `(replying to your status: "…")`. The old text draft (`statusReplyDraft`) is gone.
 - **Shared contacts (#128):** `Message.contactCard` ({name, about, characterId}). In texting mode `buildContactDirective` (in `scene.quoteNote`) lets a character end a reply with `[Contact: Name — who they are]`; aiSlice strips it to `payload.contact` and `applyReplyQuote` saves it. ChatMessage shows a card with "Message"; `openContact` in ChatPage drafts the person once (`contactIdea` + `buildCharacterDraftPrompt` on the helper, the sender's rating and art style), links them both ways with `knowsAbout`, saves the id on the card and opens a 1:1 chat. Logic in `src/features/chat/sharedContacts.ts`.
@@ -177,6 +188,8 @@ Choices a later session shouldn't revisit. Add the date.
 
 - 2026-10-25 (user): worlds replace circles (#143–#147). A character can join several worlds with separate memory per world; the user is in every world (a persona per world, else the default); other worlds keep running, with a per-world switch; optional story time per world; the Worlds gallery becomes the world manager. On hold with part 2.
 
+- 2026-10-25 (user): the UI revamp (#148–#157) follows the Claude Design canvas (link in ROADMAP.md). From the review: no "Favourites" chat filter; the WhatsApp theme is shown as "Messenger" (its stored id stays "whatsapp"); all four Drama settings stay per chat; forwarding and contact cards stay inside one world. The terminal theme keeps its own phone drawer and desktop sidebar (its shell look has no tab bar or rail on the canvas).
+
 ## Working notes
 
 Facts that save the next session time.
@@ -207,6 +220,7 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
+- 2026-10-25 (evening): Reviewed the Claude Design canvas (https://claude.ai/artifact/M3jbFgiyZEipQ2G5PS5HSt, 32 boards): strong structure and a near-complete settings map; both group bugs designed away. Gaps: some phone and Updates screens, Peek, blocking, invites, stickers, and contrast, focus and 44 px targets. Wrote `design/claude-design-second-pass.md` for the next pass, with default answers to four open decisions (no Favourites filter, keep the "Messenger" name, Drama stays per chat, forwarding stays in one world). No code changes.
 - 2026-10-25 (later): Planning only, no code: part 2 (#130–#142) and worlds (#143–#147) added with the user's answers, all on hold; the user tests with a real model (#132) and reports. Took 104 screenshots (desktop and iPhone, default and WhatsApp themes) and wrote a Claude Design brief for a spacious UI revamp, in `design/`; two small group-chat bugs left for that revamp. Pushed for the user to continue on another machine.
 - 2026-10-25: Fixed stale statuses (they never saw the chat or the time, and the morning day log stayed "the one true account" all day) and four group-prompt problems (the next member in a round got the unprompted-follow-up framing and a fake "continue" line; members only knew each other's names; the new-group scene went out as the user's OOC note; reactions were offered when answering another member). Checked by capturing real group prompts against the mock. Suites: type-check clean, 1004 unit tests, 1040 UI tests (220 skipped). Pushed (18f03c0) and deployed (gh-pages 3dec559).
 - 2026-10-24 (later): Built "Your own WhatsApp" (#113–#129, the user's picks minus calls), each committed on its own, plus a texts-first change the user asked for mid-run (editor switch, a character can open a chat, 1-5 unanswered texts). Fixed along the way: the birthday message could burn its once-a-day flag before the chat's members loaded; the phone action sheet now scrolls. UI tests now look for message text in the message list (`chatMessages`), since chat rows preview it. Final suites: type-check clean, 999 unit tests, 1040 UI tests (220 skipped; the two letter failures were a test selector, fixed and passing), 18 screenshot tests. Lint: 6 errors in older test files (unnecessary `act`), not from this run. Pushed (cf28b65) and deployed (gh-pages 65960e8); the live site serves the new bundle.

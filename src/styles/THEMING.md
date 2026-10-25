@@ -5,7 +5,8 @@ WhatsGemini has two independent visual axes:
 1. **Light/dark mode** — `theme`/`toggleTheme` in `src/contexts/ThemeContext.tsx`,
    toggles the `.dark` class on `<html>`. Not what this doc is about.
 2. **Color theme** — `colorTheme`/`setColorTheme`, today `"cozy"` (default),
-   `"neumorphic"`, `"aurora"`, `"terminal"`, `"parchment"`, `"material"`. Sets `data-theme="name"` on `<html>`. **This is
+   `"neumorphic"`, `"aurora"`, `"terminal"`, `"parchment"`, `"material"`,
+   `"whatsapp"` (shown as "Messenger"). Sets `data-theme="name"` on `<html>`. **This is
    what adding a new theme means.**
 
 A theme can optionally add a **third, independent sub-axis** — a choice within
@@ -342,6 +343,48 @@ rules as `[data-theme="x"] .something` (0,2,0), or use `!important` for true
 global resets, as terminal's square/flat reset does.
 
 ---
+
+## Semantic tokens from the revamp (#148)
+
+The UI revamp (ROADMAP #148–#157) adds the Claude Design canvas's token
+names on top of the two vocabularies above. New and rebuilt components use
+these; Tailwind exposes them as `bg-surface`, `bg-raised`, `bg-sunken`,
+`border-border-strong`, `text-primary-text`, `bg-bubble-in`,
+`bg-bubble-out`, `text-bubble-out-text`, `text-bubble-meta`,
+`text-bubble-out-meta`, `text-tick`, `text-tick-read`, `text-warning`,
+`text-info`, `outline-focus`, plus `shadow-bubble` / `shadow-popover` /
+`shadow-sheet` (`--sh-1..3`) and `rounded-card` (14) / `rounded-bubble`
+(18) / `rounded-sheet` (24).
+
+| Token | Meaning |
+|---|---|
+| `--surface` | sidebar, panels, headers (same as `--card`) |
+| `--raised` | cards, inputs, menus, chips, the selected row |
+| `--sunken` | search fields, segmented controls, wells |
+| `--border-strong` | outlines that must show (switch track, ring around a chip) |
+| `--primary-text` | the accent as text; deeper than `--primary` in light themes |
+| `--bubble-in`, `--bubble-in-text`, `--bubble-meta` | their messages, the time inside them |
+| `--bubble-out`, `--bubble-out-text`, `--bubble-out-meta` | your messages, the time inside them |
+| `--tick`, `--tick-read` | delivery ticks (icons: 3:1 against the bubble) |
+| `--warning`, `--info` | the cost marker, informational accents |
+| `--focus` | the keyboard focus ring (`--ring` points at it in cozy and Messenger) |
+| `--sh-1`, `--sh-2`, `--sh-3` | bubble, popover, sheet elevation |
+
+Cozy (`:root`/`.dark`, and its three palettes) and Messenger
+(`[data-theme="whatsapp"]`) set them to the canvas's values. Every other
+theme gets them from its existing tokens through the
+`[data-theme]:not([data-theme="whatsapp"])` block in `tokens.css`
+(surface from card, raised from popover, sunken from muted, and so on), so
+a new theme gets sensible values for free and only sets the ones it wants
+to change. Check the new pairs too: `--bubble-out-text` and
+`--bubble-out-meta` on `--bubble-out`, `--bubble-meta` on `--bubble-in`,
+`--primary-text` on every surface.
+
+Also from #148, for every theme: a 2 px `:focus-visible` outline in
+`--focus` (index.css, base layer), 44 px hit areas on touch screens for icon
+and small buttons, switches, checkboxes and anything with `data-hit`, and
+`prefers-reduced-motion` support (CSS, plus framer-motion's `MotionConfig`
+in App.tsx).
 
 ## Full required-token reference
 

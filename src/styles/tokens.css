@@ -55,39 +55,40 @@
 
 :root {
   /* ============================================================
-     App tokens - brand palette (light)
+     App tokens - brand palette, from the "WhatsGemini UI revamp" canvas
+     (#148; design/canvas-system.css has the canvas's own values)
      ============================================================ */
-  --color-app-bg: 247 241 236; /* #F7F1EC */
-  --color-panel-bg: 255 251 248; /* #FFFBF8 */
-  --color-panel2-bg: 230 219 210; /* #E6DBD2 */
-  --color-panel3-bg: 230 219 210; /* #E6DBD2, same as panel2 - the redesign doesn't distinguish them */
-  --color-hover-bg: 240 231 224; /* #F0E7E0 */
-  --color-chat-bg: 247 241 236; /* #F7F1EC, same as app-bg - chat area uses a portrait overlay instead of a distinct bg */
+  --color-app-bg: 251 248 245; /* #FBF8F5 */
+  --color-panel-bg: 244 238 234; /* #F4EEEA */
+  --color-panel2-bg: 239 231 226; /* #EFE7E2 */
+  --color-panel3-bg: 255 255 255; /* #FFFFFF */
+  --color-hover-bg: 255 255 255; /* #FFFFFF */
+  --color-chat-bg: 246 240 235; /* #F6F0EB */
 
-  --color-text-main: 42 30 26; /* #2A1E1A */
-  --color-text-muted: 105 86 78; /* #69564E */
-  --color-text-faint: 115 99 92; /* #73635C */
+  --color-text-main: 33 26 23; /* #211A17 */
+  --color-text-muted: 92 80 74; /* #5C504A */
+  --color-text-faint: 107 94 88; /* #6B5E58 */
 
-  --color-primary: 182 62 27; /* #B63E1B */
-  --color-primary-hover: 148 53 27; /* #94351B */
-  --color-accent: 182 62 27; /* #B63E1B, same as primary */
-  --color-accent-2: 148 53 27; /* #94351B, same as primary-hover - used as the 2nd gradient stop */
-  --color-on-accent: 255 250 246; /* #FFFAF6 */
+  --color-primary: 160 70 31; /* #A0461F, the canvas's primary-text: #B0502C is 3.98:1 on its own 10% chip */
+  --color-primary-hover: 154 68 36; /* #9A4424 */
+  --color-accent: 160 70 31; /* #A0461F */
+  --color-accent-2: 154 68 36; /* #9A4424 */
+  --color-on-accent: 255 255 255; /* #FFFFFF */
 
-  --color-secondary: 240 231 224; /* #F0E7E0 - a neutral surface, not a distinct brand hue */
-  --color-secondary-hover: 230 219 210; /* #E6DBD2 */
-  --color-on-secondary: 42 30 26; /* #2A1E1A */
+  --color-secondary: 255 255 255; /* #FFFFFF */
+  --color-secondary-hover: 239 231 226; /* #EFE7E2 */
+  --color-on-secondary: 33 26 23; /* #211A17 */
 
-  --color-border-main: 214 199 188; /* #D6C7BC */
+  --color-border-main: 232 223 217; /* #E8DFD9 */
 
   /* ============================================================
-     shadcn/ui canonical tokens (light) - bridged to the palette above
+     shadcn/ui canonical tokens - bridged to the palette above
      ============================================================ */
   --background: var(--color-app-bg);
   --foreground: var(--color-text-main);
   --card: var(--color-panel-bg);
   --card-foreground: var(--color-text-main);
-  --popover: var(--color-panel-bg);
+  --popover: 255 255 255; /* #FFFFFF */
   --popover-foreground: var(--color-text-main);
   --primary: var(--color-primary);
   --primary-foreground: var(--color-on-accent);
@@ -98,56 +99,81 @@
   --muted-foreground: var(--color-text-muted);
   --accent: var(--color-panel3-bg);
   --accent-foreground: var(--color-text-main);
-  --destructive: 200 50 55; /* no existing app token for this */
-  --destructive-foreground: 255 255 255;
-  --success: 80 150 40; /* no existing app token for this */
-  --success-foreground: 255 255 255;
-  --overlay: 60 40 32; /* modal-backdrop tint - no existing app token for this */
+  --destructive: 194 54 47; /* #C2362F */
+  --destructive-foreground: 255 255 255; /* #FFFFFF */
+  --success: 47 138 78; /* #2F8A4E */
+  --success-foreground: 255 255 255; /* #FFFFFF */
+  --overlay: 33 26 23; /* #211A17 */
   --subtle: var(--color-text-faint);
   --border: var(--color-border-main);
   --input: var(--color-border-main);
-  --ring: var(--color-primary);
-  --radius: 0.5rem;
-  --shadow-soft: rgba(60, 36, 24, 0.1);
-  --shadow-mid: rgba(60, 36, 24, 0.16);
-  --shadow-strong: rgba(60, 36, 24, 0.22);
+  --ring: var(--focus);
+  --radius: 10px;
+
+  /* ============================================================
+     Semantic tokens (#148), named as on the canvas
+     ============================================================ */
+  --surface: var(--color-panel-bg);
+  --raised: 255 255 255; /* #FFFFFF */
+  --sunken: 239 231 226; /* #EFE7E2 */
+  --border-strong: 214 202 194; /* #D6CAC2 */
+  --primary-text: 160 70 31; /* #A0461F */
+  --bubble-in: 255 255 255; /* #FFFFFF */
+  --bubble-in-text: var(--color-text-main);
+  --bubble-out: 246 223 210; /* #F6DFD2 */
+  --bubble-out-text: 42 26 18; /* #2A1A12 */
+  --bubble-meta: 107 94 88; /* #6B5E58 */
+  --bubble-out-meta: 102 82 72; /* #665248 */
+  --tick: 141 127 120; /* #8D7F78 */
+  --tick-read: 176 80 44; /* #B0502C */
+  --warning: 156 106 0; /* #9C6A00 */
+  --info: 47 99 196; /* #2F63C4 */
+  --focus: 176 80 44; /* #B0502C */
+  --scrim-opacity: 0.38;
+  --sh-1: 0 1px 2px rgba(60,35,20,.08);
+  --sh-2: 0 8px 24px rgba(60,35,20,.12), 0 1px 2px rgba(60,35,20,.08);
+  --sh-3: 0 24px 64px rgba(60,35,20,.18), 0 2px 6px rgba(60,35,20,.08);
+  --shadow-soft: rgba(60, 35, 20, 0.1);
+  --shadow-mid: rgba(60, 35, 20, 0.16);
+  --shadow-strong: rgba(60, 35, 20, 0.22);
 }
 
 .dark {
   /* ============================================================
-     App tokens - brand palette (dark)
+     App tokens - brand palette, from the "WhatsGemini UI revamp" canvas
+     (#148; design/canvas-system.css has the canvas's own values)
      ============================================================ */
-  --color-app-bg: 26 20 18; /* #1A1412 */
-  --color-panel-bg: 36 28 25; /* #241C19 */
-  --color-panel2-bg: 58 45 41; /* #3A2D29 */
-  --color-panel3-bg: 58 45 41; /* #3A2D29, same as panel2 - the redesign doesn't distinguish them */
-  --color-hover-bg: 46 36 33; /* #2E2421 */
-  --color-chat-bg: 26 20 18; /* #1A1412, same as app-bg - chat area uses a portrait overlay instead of a distinct bg */
+  --color-app-bg: 20 17 16; /* #141110 */
+  --color-panel-bg: 27 23 22; /* #1B1716 */
+  --color-panel2-bg: 46 40 37; /* #2E2825 */
+  --color-panel3-bg: 36 31 29; /* #241F1D */
+  --color-hover-bg: 36 31 29; /* #241F1D */
+  --color-chat-bg: 17 14 13; /* #110E0D */
 
-  --color-text-main: 244 235 228; /* #F4EBE4 */
-  --color-text-muted: 184 166 156; /* #B8A69C */
-  --color-text-faint: 155 140 132; /* #9B8C84 */
+  --color-text-main: 244 237 232; /* #F4EDE8 */
+  --color-text-muted: 194 181 174; /* #C2B5AE */
+  --color-text-faint: 163 149 144; /* #A39590 */
 
-  --color-primary: 242 103 63; /* #F2673F */
-  --color-primary-hover: 255 127 90; /* #FF7F5A */
-  --color-accent: 242 103 63; /* #F2673F, same as primary */
-  --color-accent-2: 255 127 90; /* #FF7F5A, same as primary-hover - used as the 2nd gradient stop */
-  --color-on-accent: 26 20 18; /* #1A1412 */
+  --color-primary: 238 133 89; /* #EE8559 */
+  --color-primary-hover: 244 154 115; /* #F49A73 */
+  --color-accent: 238 133 89; /* #EE8559 */
+  --color-accent-2: 244 154 115; /* #F49A73 */
+  --color-on-accent: 30 15 8; /* #1E0F08 */
 
-  --color-secondary: 46 36 33; /* #2E2421 - a neutral surface, not a distinct brand hue */
-  --color-secondary-hover: 58 45 41; /* #3A2D29 */
-  --color-on-secondary: 244 235 228; /* #F4EBE4 */
+  --color-secondary: 36 31 29; /* #241F1D */
+  --color-secondary-hover: 46 40 37; /* #2E2825 */
+  --color-on-secondary: 244 237 232; /* #F4EDE8 */
 
-  --color-border-main: 70 56 50; /* #463832 */
+  --color-border-main: 44 38 35; /* #2C2623 */
 
   /* ============================================================
-     shadcn/ui canonical tokens (dark) - bridged to the palette above
+     shadcn/ui canonical tokens - bridged to the palette above
      ============================================================ */
   --background: var(--color-app-bg);
   --foreground: var(--color-text-main);
   --card: var(--color-panel-bg);
   --card-foreground: var(--color-text-main);
-  --popover: 46 36 33; /* #2E2421 - one step up from --card, matches the canvas's popover token */
+  --popover: 46 40 37; /* #2E2825 */
   --popover-foreground: var(--color-text-main);
   --primary: var(--color-primary);
   --primary-foreground: var(--color-on-accent);
@@ -158,15 +184,39 @@
   --muted-foreground: var(--color-text-muted);
   --accent: var(--color-panel3-bg);
   --accent-foreground: var(--color-text-main);
-  --destructive: 231 83 88; /* no existing app token for this */
-  --destructive-foreground: 26 20 18;
-  --success: 143 209 79; /* no existing app token for this */
-  --success-foreground: 15 15 10;
-  --overlay: 16 12 11; /* modal-backdrop tint - no existing app token for this */
+  --destructive: 242 122 116; /* #F27A74 */
+  --destructive-foreground: 30 15 8; /* #1E0F08 */
+  --success: 120 203 147; /* #78CB93 */
+  --success-foreground: 15 26 18; /* #0F1A12 */
+  --overlay: 8 6 5; /* #080605 */
   --subtle: var(--color-text-faint);
   --border: var(--color-border-main);
   --input: var(--color-border-main);
-  --ring: var(--color-primary);
+  --ring: var(--focus);
+
+  /* ============================================================
+     Semantic tokens (#148), named as on the canvas
+     ============================================================ */
+  --surface: var(--color-panel-bg);
+  --raised: 36 31 29; /* #241F1D */
+  --sunken: 16 13 12; /* #100D0C */
+  --border-strong: 62 54 50; /* #3E3632 */
+  --primary-text: 244 160 124; /* #F4A07C */
+  --bubble-in: 33 28 26; /* #211C1A */
+  --bubble-in-text: var(--color-text-main);
+  --bubble-out: 59 37 27; /* #3B251B */
+  --bubble-out-text: 248 238 232; /* #F8EEE8 */
+  --bubble-meta: 168 151 142; /* #A8978E */
+  --bubble-out-meta: 184 167 158; /* #B8A79E */
+  --tick: 154 140 133; /* #9A8C85 */
+  --tick-read: 244 160 124; /* #F4A07C */
+  --warning: 232 188 95; /* #E8BC5F */
+  --info: 134 174 242; /* #86AEF2 */
+  --focus: 244 160 124; /* #F4A07C */
+  --scrim-opacity: 0.62;
+  --sh-1: 0 1px 2px rgba(0,0,0,.35);
+  --sh-2: 0 8px 24px rgba(0,0,0,.42), 0 1px 2px rgba(0,0,0,.4);
+  --sh-3: 0 24px 64px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.4);
   --shadow-soft: rgba(0, 0, 0, 0.35);
   --shadow-mid: rgba(0, 0, 0, 0.5);
   --shadow-strong: rgba(0, 0, 0, 0.65);
@@ -185,42 +235,103 @@
    `var(--color-primary...)`, so redefining just the --color-* tokens below
    is enough - no need to also touch the shadcn-bridge names directly. */
 :root:not([data-theme])[data-palette="sage"] {
-  --color-primary: 84 112 61; /* #54703D */
+  --color-primary: 74 99 54; /* #4A6336 (deepened for #148's tinted surfaces) */
   --color-primary-hover: 63 86 46; /* #3F562E */
-  --color-accent: 84 112 61;
+  --color-accent: 74 99 54;
   --color-accent-2: 63 86 46;
+  --primary-text: var(--color-primary);
+  --tick-read: var(--color-primary);
+  --focus: var(--color-primary);
+  --bubble-out: 233 233 226;
+  --bubble-out-meta: 92 80 74;
 }
 .dark:not([data-theme])[data-palette="sage"] {
   --color-primary: 143 191 107; /* #8FBF6B */
   --color-primary-hover: 166 212 133; /* #A6D485 */
   --color-accent: 143 191 107;
   --color-accent-2: 166 212 133;
+  --primary-text: var(--color-primary);
+  --tick-read: var(--color-primary);
+  --focus: var(--color-primary);
+  --bubble-out: 45 52 34;
+  --bubble-out-meta: 194 181 174;
 }
 
 :root:not([data-theme])[data-palette="plum"] {
-  --color-primary: 156 79 110; /* #9C4F6E */
+  --color-primary: 137 70 97; /* #894661 (deepened for #148's tinted surfaces) */
   --color-primary-hover: 126 63 88; /* #7E3F58 */
-  --color-accent: 156 79 110;
+  --color-accent: 137 70 97;
   --color-accent-2: 126 63 88;
+  --primary-text: var(--color-primary);
+  --tick-read: var(--color-primary);
+  --focus: var(--color-primary);
+  --bubble-out: 240 230 230;
+  --bubble-out-meta: 92 80 74;
 }
 .dark:not([data-theme])[data-palette="plum"] {
   --color-primary: 217 127 160; /* #D97FA0 */
   --color-primary-hover: 232 157 184; /* #E89DB8 */
   --color-accent: 217 127 160;
   --color-accent-2: 232 157 184;
+  --primary-text: var(--color-primary);
+  --tick-read: var(--color-primary);
+  --focus: var(--color-primary);
+  --bubble-out: 59 39 45;
+  --bubble-out-meta: 194 181 174;
 }
 
 :root:not([data-theme])[data-palette="honey"] {
-  --color-primary: 139 95 30; /* #8B5F1E */
+  --color-primary: 122 84 26; /* #7A541A (deepened for #148's tinted surfaces) */
   --color-primary-hover: 104 71 19; /* #684713 */
-  --color-accent: 139 95 30;
+  --color-accent: 122 84 26;
   --color-accent-2: 104 71 19;
+  --primary-text: var(--color-primary);
+  --tick-read: var(--color-primary);
+  --focus: var(--color-primary);
+  --bubble-out: 238 232 223;
+  --bubble-out-meta: 92 80 74;
 }
 .dark:not([data-theme])[data-palette="honey"] {
   --color-primary: 232 184 92; /* #E8B85C */
   --color-primary-hover: 240 203 133; /* #F0CB85 */
   --color-accent: 232 184 92;
   --color-accent-2: 240 203 133;
+  --primary-text: var(--color-primary);
+  --tick-read: var(--color-primary);
+  --focus: var(--color-primary);
+  --bubble-out: 62 50 31;
+  --bubble-out-meta: 194 181 174;
+}
+
+/* ================================================================
+   Semantic tokens for the other themes (#148)
+   ================================================================
+   Cozy (:root/.dark above) and Messenger ([data-theme="whatsapp"]) set
+   the canvas's semantic tokens to its own values. Every other theme gets
+   them from tokens it already defines, so new components look native
+   there without each theme block having to change. A theme can still set
+   any of them itself, in its own block (this selector is (0,2,0), so it
+   has to be beaten with an equally specific one, like
+   [data-theme="x"].dark or [data-theme="x"]:not(.y)). */
+[data-theme]:not([data-theme="whatsapp"]) {
+  --surface: var(--card);
+  --raised: var(--popover);
+  --sunken: var(--muted);
+  --border-strong: var(--border-bright, var(--border));
+  --primary-text: var(--primary);
+  --bubble-in: var(--card);
+  --bubble-in-text: var(--foreground);
+  --bubble-out: var(--secondary);
+  --bubble-out-text: var(--foreground);
+  --bubble-meta: var(--subtle);
+  --bubble-out-meta: var(--muted-foreground);
+  --tick: var(--subtle);
+  --tick-read: var(--primary);
+  --focus: var(--ring);
+  --scrim-opacity: 0.5;
+  --sh-1: 0 1px 2px var(--shadow-soft);
+  --sh-2: 0 8px 24px var(--shadow-mid), 0 1px 2px var(--shadow-soft);
+  --sh-3: 0 24px 64px var(--shadow-strong), 0 2px 6px var(--shadow-soft);
 }
 
 /* ================================================================
@@ -2121,125 +2232,196 @@ html[data-theme="terminal"] :focus-visible {
    `ticks`, `message-avatar`, `narration`, `room-event`; MessageInput's
    `composer` and `send-button`; Sidebar's aside and rows. */
 [data-theme="whatsapp"] {
-  --background: 240 242 245;      /* #F0F2F5 panel header grey */
-  --foreground: 17 27 33;         /* #111B21 */
-  --card: 255 255 255;
-  --card-foreground: 17 27 33;
-  --popover: 255 255 255;
-  --popover-foreground: 17 27 33;
-  --primary: 0 128 105;           /* #008069 WhatsApp teal (5:1 on white) */
-  --primary-foreground: 255 255 255;
-  --primary-hover: 0 110 90;
-  --secondary: 240 242 245;
-  --secondary-foreground: 17 27 33;
-  --muted: 240 242 245;
-  --muted-foreground: 84 101 111; /* #54656F */
-  --accent: 245 246 246;
-  --accent-foreground: 17 27 33;
-  --destructive: 234 0 56;        /* #EA0038 */
-  --destructive-foreground: 255 255 255;
-  --success: 0 128 105;
-  --success-foreground: 255 255 255;
-  --overlay: 11 20 26;
-  --subtle: 94 109 118;           /* #667781, nudged to 4.5:1 on grey */
-  --border: 209 215 219;          /* #D1D7DB */
-  --input: 209 215 219;
-  --ring: 0 168 132;
-  --radius: 8px;
-  --shadow-soft: rgba(11, 20, 26, 0.13);
-  --shadow-mid: rgba(11, 20, 26, 0.18);
-  --shadow-strong: rgba(11, 20, 26, 0.26);
-  --wa-green: 0 168 132;          /* #00A884 send button, unread badges */
-  --wa-chat-bg: 239 234 226;      /* #EFEAE2 */
-  --wa-out: 217 253 211;          /* #D9FDD3 */
-  --wa-in: 255 255 255;
-  --wa-tick: 83 189 235;          /* #53BDEB */
-  --wa-meta-out: 94 109 118;      /* time on an outgoing bubble */
-  --wa-system: 255 255 255;
+  /* ============================================================
+     App tokens - brand palette, from the "WhatsGemini UI revamp" canvas
+     (#148; design/canvas-system.css has the canvas's own values)
+     ============================================================ */
+  --color-app-bg: 255 255 255; /* #FFFFFF */
+  --color-panel-bg: 247 248 247; /* #F7F8F7 */
+  --color-panel2-bg: 240 242 241; /* #F0F2F1 */
+  --color-panel3-bg: 255 255 255; /* #FFFFFF */
+  --color-hover-bg: 255 255 255; /* #FFFFFF */
+  --color-chat-bg: 244 240 234; /* #F4F0EA */
+
+  --color-text-main: 16 26 31; /* #101A1F */
+  --color-text-muted: 69 84 91; /* #45545B */
+  --color-text-faint: 95 111 119; /* #5F6F77 */
+
+  --color-primary: 8 112 79; /* #08704F, the canvas's primary-text: #0A7B5C is 4.32:1 on its own 10% chip */
+  --color-primary-hover: 8 106 79; /* #086A4F */
+  --color-accent: 8 112 79; /* #08704F */
+  --color-accent-2: 8 106 79; /* #086A4F */
+  --color-on-accent: 255 255 255; /* #FFFFFF */
+
+  --color-secondary: 255 255 255; /* #FFFFFF */
+  --color-secondary-hover: 240 242 241; /* #F0F2F1 */
+  --color-on-secondary: 16 26 31; /* #101A1F */
+
+  --color-border-main: 231 234 232; /* #E7EAE8 */
+
+  /* ============================================================
+     shadcn/ui canonical tokens - bridged to the palette above
+     ============================================================ */
+  --background: var(--color-app-bg);
+  --foreground: var(--color-text-main);
+  --card: var(--color-panel-bg);
+  --card-foreground: var(--color-text-main);
+  --popover: 255 255 255; /* #FFFFFF */
+  --popover-foreground: var(--color-text-main);
+  --primary: var(--color-primary);
+  --primary-foreground: var(--color-on-accent);
+  --primary-hover: var(--color-primary-hover);
+  --secondary: var(--color-secondary);
+  --secondary-foreground: var(--color-on-secondary);
+  --muted: var(--color-panel2-bg);
+  --muted-foreground: var(--color-text-muted);
+  --accent: var(--color-panel3-bg);
+  --accent-foreground: var(--color-text-main);
+  --destructive: 197 53 43; /* #C5352B */
+  --destructive-foreground: 255 255 255; /* #FFFFFF */
+  --success: 10 123 92; /* #0A7B5C */
+  --success-foreground: 255 255 255; /* #FFFFFF */
+  --overlay: 16 26 31; /* #101A1F */
+  --subtle: var(--color-text-faint);
+  --border: var(--color-border-main);
+  --input: var(--color-border-main);
+  --ring: var(--focus);
+  --radius: 10px;
+  /* The theme's own hooks (bubbles, wallpaper, send button), mapped onto
+     the canvas tokens below. */
+  --wa-green: var(--color-primary);
+  --wa-chat-bg: var(--color-chat-bg);
+  --wa-out: var(--bubble-out);
+  --wa-in: var(--bubble-in);
+  --wa-tick: var(--tick-read);
+  --wa-meta-out: var(--bubble-out-meta);
+  --wa-system: var(--raised);
   --wa-wallpaper: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='224' height='224' viewBox='0 0 224 224'%3E%3Cg fill='none' stroke='%234a3f30' stroke-opacity='0.13' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E %3Cpath d='M28 34c-5-7-16-3-11 6l11 11 11-11c5-9-6-13-11-6z'/%3E %3Cpath d='M122 18l4 9 10 1-7 7 2 10-9-5-9 5 2-10-7-7 10-1z'/%3E %3Cpath d='M168 86h34a6 6 0 0 1 6 6v16a6 6 0 0 1-6 6h-22l-9 8v-8h-3a6 6 0 0 1-6-6v-16a6 6 0 0 1 6-6z'/%3E %3Cpath d='M58 118v-22l16-4v22'/%3E%3Ccircle cx='53' cy='118' r='5'/%3E%3Ccircle cx='69' cy='114' r='5'/%3E %3Cpath d='M196 26a12 12 0 1 0 10 18 10 10 0 1 1-10-18z'/%3E %3Cpath d='M98 172h30a8 8 0 0 0 0-16 11 11 0 0 0-21-3 8 8 0 0 0-9 19z'/%3E %3Ccircle cx='30' cy='186' r='12'/%3E%3Cpath d='M25 183h.01M35 183h.01M24 190c3 4 9 4 12 0'/%3E %3Cpath d='M150 196h18v12a9 9 0 0 1-18 0zM168 199h4a4 4 0 0 1 0 8h-4'/%3E %3Cpath d='M112 92l3 3m-6 0l3-3m0 0v0'/%3E%3Cpath d='M100 66c4 0 6-2 6-6 0 4 2 6 6 6-4 0-6 2-6 6 0-4-2-6-6-6z'/%3E %3Cpath d='M14 92c4 0 6-2 6-6 0 4 2 6 6 6-4 0-6 2-6 6 0-4-2-6-6-6z'/%3E %3Cpath d='M206 160c3 0 4-1 4-4 0 3 1 4 4 4-3 0-4 1-4 4 0-3-1-4-4-4z'/%3E %3Cpath d='M70 210l8-14 8 14z'/%3E%3Ccircle cx='140' cy='124' r='3'/%3E%3Ccircle cx='196' cy='212' r='2'/%3E %3C/g%3E%3C/svg%3E");
 
-  --color-app-bg: 240 242 245;
-  --color-panel-bg: 255 255 255;
-  --color-panel2-bg: 240 242 245;
-  --color-panel3-bg: 233 237 239;
-  --color-hover-bg: 240 242 245;
-  --color-chat-bg: 239 234 226;
-  --color-text-main: 17 27 33;
-  --color-text-muted: 84 101 111;
-  --color-text-faint: 94 109 118;
-  --color-primary: 0 128 105;
-  --color-primary-hover: 0 110 90;
-  --color-accent: 0 168 132;
-  --color-accent-2: 37 211 102;
-  --color-on-accent: 255 255 255;
-  --color-secondary: 240 242 245;
-  --color-secondary-hover: 233 237 239;
-  --color-on-secondary: 17 27 33;
-  --color-border-main: 209 215 219;
+  /* ============================================================
+     Semantic tokens (#148), named as on the canvas
+     ============================================================ */
+  --surface: var(--color-panel-bg);
+  --raised: 255 255 255; /* #FFFFFF */
+  --sunken: 240 242 241; /* #F0F2F1 */
+  --border-strong: 211 216 213; /* #D3D8D5 */
+  --primary-text: 8 112 79; /* #08704F */
+  --bubble-in: 255 255 255; /* #FFFFFF */
+  --bubble-in-text: var(--color-text-main);
+  --bubble-out: 220 246 208; /* #DCF6D0 */
+  --bubble-out-text: 15 26 18; /* #0F1A12 */
+  --bubble-meta: 95 111 104; /* #5F6F68 */
+  --bubble-out-meta: 79 95 87; /* #4F5F57 */
+  --tick: 122 138 132; /* #7A8A84 */
+  --tick-read: 31 134 209; /* #1F86D1 */
+  --warning: 154 103 0; /* #9A6700 */
+  --info: 31 111 192; /* #1F6FC0 */
+  --focus: 10 123 92; /* #0A7B5C */
+  --scrim-opacity: 0.36;
+  --sh-1: 0 1px 2px rgba(16,26,31,.08);
+  --sh-2: 0 8px 24px rgba(16,26,31,.10), 0 1px 2px rgba(16,26,31,.06);
+  --sh-3: 0 24px 64px rgba(16,26,31,.16), 0 2px 6px rgba(16,26,31,.06);
+  --shadow-soft: rgba(16, 26, 31, 0.1);
+  --shadow-mid: rgba(16, 26, 31, 0.16);
+  --shadow-strong: rgba(16, 26, 31, 0.24);
 }
 
 [data-theme="whatsapp"].dark {
-  --background: 17 27 33;         /* #111B21 */
-  --foreground: 233 237 239;      /* #E9EDEF */
-  --card: 17 27 33;
-  --card-foreground: 233 237 239;
-  --popover: 35 45 54;            /* #233138 */
-  --popover-foreground: 233 237 239;
-  --primary: 0 168 132;           /* #00A884 */
-  --primary-foreground: 17 27 33;
-  --primary-hover: 6 207 156;
-  --secondary: 32 44 51;          /* #202C33 */
-  --secondary-foreground: 233 237 239;
-  --muted: 32 44 51;
-  --muted-foreground: 174 186 193;/* #AEBAC1 */
-  --accent: 32 44 51;
-  --accent-foreground: 233 237 239;
-  --destructive: 241 92 109;
-  --destructive-foreground: 17 27 33;
-  --success: 0 168 132;
-  --success-foreground: 17 27 33;
-  --overlay: 0 0 0;
-  --subtle: 134 150 160;          /* #8696A0 */
-  --border: 52 66 75;
-  --input: 52 66 75;
-  --ring: 0 168 132;
+  /* ============================================================
+     App tokens - brand palette, from the "WhatsGemini UI revamp" canvas
+     (#148; design/canvas-system.css has the canvas's own values)
+     ============================================================ */
+  --color-app-bg: 14 20 23; /* #0E1417 */
+  --color-panel-bg: 19 27 31; /* #131B1F */
+  --color-panel2-bg: 34 45 51; /* #222D33 */
+  --color-panel3-bg: 27 37 42; /* #1B252A */
+  --color-hover-bg: 27 37 42; /* #1B252A */
+  --color-chat-bg: 11 16 19; /* #0B1013 */
+
+  --color-text-main: 233 238 240; /* #E9EEF0 */
+  --color-text-muted: 174 186 192; /* #AEBAC0 */
+  --color-text-faint: 138 154 162; /* #8A9AA2 */
+
+  --color-primary: 43 190 140; /* #2BBE8C */
+  --color-primary-hover: 69 204 156; /* #45CC9C */
+  --color-accent: 43 190 140; /* #2BBE8C */
+  --color-accent-2: 69 204 156; /* #45CC9C */
+  --color-on-accent: 4 32 26; /* #04201A */
+
+  --color-secondary: 27 37 42; /* #1B252A */
+  --color-secondary-hover: 34 45 51; /* #222D33 */
+  --color-on-secondary: 233 238 240; /* #E9EEF0 */
+
+  --color-border-main: 34 46 52; /* #222E34 */
+
+  /* ============================================================
+     shadcn/ui canonical tokens - bridged to the palette above
+     ============================================================ */
+  --background: var(--color-app-bg);
+  --foreground: var(--color-text-main);
+  --card: var(--color-panel-bg);
+  --card-foreground: var(--color-text-main);
+  --popover: 34 45 51; /* #222D33 */
+  --popover-foreground: var(--color-text-main);
+  --primary: var(--color-primary);
+  --primary-foreground: var(--color-on-accent);
+  --primary-hover: var(--color-primary-hover);
+  --secondary: var(--color-secondary);
+  --secondary-foreground: var(--color-on-secondary);
+  --muted: var(--color-panel2-bg);
+  --muted-foreground: var(--color-text-muted);
+  --accent: var(--color-panel3-bg);
+  --accent-foreground: var(--color-text-main);
+  --destructive: 242 117 108; /* #F2756C */
+  --destructive-foreground: 4 32 26; /* #04201A */
+  --success: 77 211 162; /* #4DD3A2 */
+  --success-foreground: 4 32 26; /* #04201A */
+  --overlay: 4 8 10; /* #04080A */
+  --subtle: var(--color-text-faint);
+  --border: var(--color-border-main);
+  --input: var(--color-border-main);
+  --ring: var(--focus);
+  /* The theme's own hooks (bubbles, wallpaper, send button), mapped onto
+     the canvas tokens below. */
+  --wa-green: var(--color-primary);
+  --wa-chat-bg: var(--color-chat-bg);
+  --wa-out: var(--bubble-out);
+  --wa-in: var(--bubble-in);
+  --wa-tick: var(--tick-read);
+  --wa-meta-out: var(--bubble-out-meta);
+  --wa-system: var(--raised);
+  --wa-wallpaper: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='224' height='224' viewBox='0 0 224 224'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.06' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E %3Cpath d='M28 34c-5-7-16-3-11 6l11 11 11-11c5-9-6-13-11-6z'/%3E %3Cpath d='M122 18l4 9 10 1-7 7 2 10-9-5-9 5 2-10-7-7 10-1z'/%3E %3Cpath d='M168 86h34a6 6 0 0 1 6 6v16a6 6 0 0 1-6 6h-22l-9 8v-8h-3a6 6 0 0 1-6-6v-16a6 6 0 0 1 6-6z'/%3E %3Cpath d='M58 118v-22l16-4v22'/%3E%3Ccircle cx='53' cy='118' r='5'/%3E%3Ccircle cx='69' cy='114' r='5'/%3E %3Cpath d='M196 26a12 12 0 1 0 10 18 10 10 0 1 1-10-18z'/%3E %3Cpath d='M98 172h30a8 8 0 0 0 0-16 11 11 0 0 0-21-3 8 8 0 0 0-9 19z'/%3E %3Ccircle cx='30' cy='186' r='12'/%3E%3Cpath d='M25 183h.01M35 183h.01M24 190c3 4 9 4 12 0'/%3E %3Cpath d='M150 196h18v12a9 9 0 0 1-18 0zM168 199h4a4 4 0 0 1 0 8h-4'/%3E %3Cpath d='M112 92l3 3m-6 0l3-3m0 0v0'/%3E%3Cpath d='M100 66c4 0 6-2 6-6 0 4 2 6 6 6-4 0-6 2-6 6 0-4-2-6-6-6z'/%3E %3Cpath d='M14 92c4 0 6-2 6-6 0 4 2 6 6 6-4 0-6 2-6 6 0-4-2-6-6-6z'/%3E %3Cpath d='M206 160c3 0 4-1 4-4 0 3 1 4 4 4-3 0-4 1-4 4 0-3-1-4-4-4z'/%3E %3Cpath d='M70 210l8-14 8 14z'/%3E%3Ccircle cx='140' cy='124' r='3'/%3E%3Ccircle cx='196' cy='212' r='2'/%3E %3C/g%3E%3C/svg%3E");
+
+  /* ============================================================
+     Semantic tokens (#148), named as on the canvas
+     ============================================================ */
+  --surface: var(--color-panel-bg);
+  --raised: 27 37 42; /* #1B252A */
+  --sunken: 10 15 18; /* #0A0F12 */
+  --border-strong: 51 66 74; /* #33424A */
+  --primary-text: 77 211 162; /* #4DD3A2 */
+  --bubble-in: 27 37 42; /* #1B252A */
+  --bubble-in-text: var(--color-text-main);
+  --bubble-out: 17 74 59; /* #114A3B */
+  --bubble-out-text: 234 246 241; /* #EAF6F1 */
+  --bubble-meta: 155 177 169; /* #9BB1A9 */
+  --bubble-out-meta: 179 198 191; /* #B3C6BF */
+  --tick: 138 154 162; /* #8A9AA2 */
+  --tick-read: 91 194 240; /* #5BC2F0 */
+  --warning: 232 188 95; /* #E8BC5F */
+  --info: 125 182 242; /* #7DB6F2 */
+  --focus: 77 211 162; /* #4DD3A2 */
+  --scrim-opacity: 0.62;
+  --sh-1: 0 1px 2px rgba(0,0,0,.35);
+  --sh-2: 0 8px 24px rgba(0,0,0,.45), 0 1px 2px rgba(0,0,0,.4);
+  --sh-3: 0 24px 64px rgba(0,0,0,.6), 0 2px 6px rgba(0,0,0,.4);
   --shadow-soft: rgba(0, 0, 0, 0.3);
   --shadow-mid: rgba(0, 0, 0, 0.45);
   --shadow-strong: rgba(0, 0, 0, 0.6);
-  --wa-chat-bg: 11 20 26;         /* #0B141A */
-  --wa-out: 0 92 75;              /* #005C4B */
-  --wa-in: 32 44 51;              /* #202C33 */
-  --wa-meta-out: 184 214 207;     /* 4.5:1 on #005C4B, WhatsApp's own is fainter */
-  --wa-system: 24 34 41;
-  --wa-wallpaper: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='224' height='224' viewBox='0 0 224 224'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.06' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E %3Cpath d='M28 34c-5-7-16-3-11 6l11 11 11-11c5-9-6-13-11-6z'/%3E %3Cpath d='M122 18l4 9 10 1-7 7 2 10-9-5-9 5 2-10-7-7 10-1z'/%3E %3Cpath d='M168 86h34a6 6 0 0 1 6 6v16a6 6 0 0 1-6 6h-22l-9 8v-8h-3a6 6 0 0 1-6-6v-16a6 6 0 0 1 6-6z'/%3E %3Cpath d='M58 118v-22l16-4v22'/%3E%3Ccircle cx='53' cy='118' r='5'/%3E%3Ccircle cx='69' cy='114' r='5'/%3E %3Cpath d='M196 26a12 12 0 1 0 10 18 10 10 0 1 1-10-18z'/%3E %3Cpath d='M98 172h30a8 8 0 0 0 0-16 11 11 0 0 0-21-3 8 8 0 0 0-9 19z'/%3E %3Ccircle cx='30' cy='186' r='12'/%3E%3Cpath d='M25 183h.01M35 183h.01M24 190c3 4 9 4 12 0'/%3E %3Cpath d='M150 196h18v12a9 9 0 0 1-18 0zM168 199h4a4 4 0 0 1 0 8h-4'/%3E %3Cpath d='M112 92l3 3m-6 0l3-3m0 0v0'/%3E%3Cpath d='M100 66c4 0 6-2 6-6 0 4 2 6 6 6-4 0-6 2-6 6 0-4-2-6-6-6z'/%3E %3Cpath d='M14 92c4 0 6-2 6-6 0 4 2 6 6 6-4 0-6 2-6 6 0-4-2-6-6-6z'/%3E %3Cpath d='M206 160c3 0 4-1 4-4 0 3 1 4 4 4-3 0-4 1-4 4 0-3-1-4-4-4z'/%3E %3Cpath d='M70 210l8-14 8 14z'/%3E%3Ccircle cx='140' cy='124' r='3'/%3E%3Ccircle cx='196' cy='212' r='2'/%3E %3C/g%3E%3C/svg%3E");
-
-  --color-app-bg: 17 27 33;
-  --color-panel-bg: 17 27 33;
-  --color-panel2-bg: 32 44 51;
-  --color-panel3-bg: 42 57 66;
-  --color-hover-bg: 42 57 66;     /* #2A3942 selected row */
-  --color-chat-bg: 11 20 26;
-  --color-text-main: 233 237 239;
-  --color-text-muted: 174 186 193;
-  --color-text-faint: 134 150 160;
-  --color-primary: 0 168 132;
-  --color-primary-hover: 6 207 156;
-  --color-accent: 0 168 132;
-  --color-accent-2: 37 211 102;
-  --color-on-accent: 17 27 33;
-  --color-secondary: 32 44 51;
-  --color-secondary-hover: 42 57 66;
-  --color-on-secondary: 233 237 239;
-  --color-border-main: 52 66 75;
 }
 
-/* WhatsApp Web's font stack, everywhere (Radix portals included). */
-html[data-theme="whatsapp"],
-[data-theme="whatsapp"] body,
-[data-theme="whatsapp"] .font-sans,
-[data-theme="whatsapp"] .font-serif {
-  font-family: "Segoe UI", "Helvetica Neue", Helvetica, "Lucida Grande", Arial, Ubuntu, Cantarell, "Fira Sans", sans-serif;
-}
+/* Messenger (#148) uses the app's own type (Figtree, Literata in
+   bubbles), as on the revamp canvas, instead of WhatsApp Web's stack. */
 
 /* Pill buttons in the green, flat. */
 [data-theme="whatsapp"] [data-slot="button"] {
@@ -2251,13 +2433,9 @@ html[data-theme="whatsapp"],
   border-color: transparent;
 }
 
-/* Header: the grey panel bar of WhatsApp Web (dark: #202C33). */
+/* Header: the surface colour, with the canvas's hairline below it. */
 [data-theme="whatsapp"] header {
-  background-color: rgb(var(--background));
-  border-bottom-color: transparent;
-}
-[data-theme="whatsapp"].dark header {
-  background-color: rgb(var(--secondary));
+  background-color: rgb(var(--surface));
 }
 
 /* Chat list: a white column with flat rows and hairline dividers; the

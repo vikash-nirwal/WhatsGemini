@@ -31,13 +31,13 @@ interface AppearanceSettingsProps {
 // glance - dark mode uses the same hues at different luminance, no need for
 // a second set here.
 const THEME_SWATCHES: Record<string, [string, string, string]> = {
-  cozy: ['#F7F1EC', '#E0562E', '#2A1E1A'],
+  cozy: ['#FBF8F5', '#B0502C', '#211A17'],
   neumorphic: ['#E8EAEC', '#268B68', '#22262B'],
   aurora: ['#F4F0FB', '#8B5CF6', '#1A1330'],
   terminal: ['#F2F1E9', '#0A6B78', '#08210F'],
   parchment: ['#F7F3EA', '#A32B38', '#2C2218'],
   material: ['#FEF7FF', '#6750A4', '#EADDFF'],
-  whatsapp: ['#EFEAE2', '#00A884', '#D9FDD3'],
+  whatsapp: ['#F4F0EA', '#0A7B5C', '#DCF6D0'],
 };
 
 // Every color theme's own accent-palette sub-choice - see tokens.css's

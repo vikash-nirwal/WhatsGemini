@@ -42,11 +42,31 @@ The user's idea, replacing circles: the app holds several worlds, each its own s
 - **#146 Worlds keep running (M).** Background life (texts first, statuses, channels, talk between characters, profile changes) runs in every world, not only the one on screen; each world has a "keep living while I'm elsewhere" switch (on by default, assumed). Notifications and toasts say which world they're from; the life dial (#131) and activity log cover all worlds.
 - **#147 Story time (M).** Optional per world: its own calendar and date ("Year 312, harvest month"), moving with real time or by time skips; prompts, schedules, statuses and "While you were away" (#130) use it instead of your clock.
 
+## UI revamp (#148–#157, picked 2026-10-25)
+
+A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp" (https://claude.ai/artifact/M3jbFgiyZEipQ2G5PS5HSt, 59 boards after two passes; its stylesheet is saved as `design/canvas-system.css`, and the briefs are in `design/`). The canvas shows cozy and Messenger, light and dark; the other five themes map onto the same tokens. Decisions (2026-10-25): no "Favourites" filter; the WhatsApp theme is called "Messenger"; all Drama settings stay per chat; forwarding and contact cards stay inside one world. Keep every feature: regroup and restyle, don't remove.
+
+**Wave 1: foundations and the chat screen**
+- **#148 Design tokens and type (M).** The canvas's semantic tokens (surface, raised, sunken, overlay, text-2/text-3, primary-soft/primary-text, chat-bg, bubble-in/out with their text and meta colours, tick/tick-read, focus, scrim, three shadows, radii 6/10/14/18/24, the 4/8 spacing scale) for cozy and Messenger, light and dark, mapped for the other five themes. Figtree for the UI, Literata for reading (the reading-comfort setting still picks). A focus ring on `:focus-visible`, 44 px hit areas on phones, reduced motion as on the accessibility board. The WhatsApp theme is shown as "Messenger" (its stored id stays, so saved choices keep working).
+- **#149 Core components (L).** Bubbles (corners tighten within a group, no avatar beside 1:1 messages, meta line inside the bubble, reactions reserve their own space, the 2/3 pager), cards inside bubbles (quote, forwarded, contact, view-once, poll, status quote), story elements (room event pill, beat divider, chapter and letter cards, choice chips, inner thought, typing dots), the composer (opaque, one row: tools, field, photo, budget ring that only speaks up near the limit, mic or send; reply strip, impersonate and silent modes), chat list row, setting row and collapsible group, bottom sheet, toast, empty state.
+- **#150 Navigation shell (L).** Desktop: a rail (Chats, Updates, Characters, Adventures; Settings and your persona at the bottom; room left for worlds, #143) next to a chat list that holds only chats (search, All / Unread / Groups, Archived row, rows); the status row, logo block, import and persona footer move out. Phone: the home list with bottom tabs in every theme (today only the WhatsApp theme has them). Updates becomes its own section.
+- **#151 Chat header, Contact info and the settings split (L).** The header becomes the avatar and name (opens Contact info), search, "Scene & story" and more. The chat panel holds only this chat: Scene, Story, Options, Group; it docks at 392 px, overlays under 1360 px and is a full-screen push on phones. A new Contact info page holds the character everywhere: Their life (with presets), Inner life, How they text, You and them, Social, Memory, Look, Details, then Block and Clear chat. The settings map on the IA board says where every option goes. Fixes the two group bugs (the first member's avatar shows the group's initials; the composer says "Message Aria…").
+
+**Wave 2: the other screens**
+- **#152 Updates (M).** Status list (yours, recent, viewed, "Mentioned you"), the status viewer (phone and desktop), posting your status and its views, likes and comments, channels (following, find, a channel page with reactions and no composer).
+- **#153 Message actions (M).** The phone long-press sheet (lifted bubble over a scrim, reactions row, Reply / Forward / Copy / Star tiles, then the action list) and the desktop hover toolbar; swipe to reply as in the interaction notes.
+- **#154 Character creation (L).** Quick create (one line and an optional photo give a draft preview, then chat) and the non-linear six-step editor (Who, Look, Personality, World and story, Their life with presets, Test) with a live preview and an Advanced group.
+- **#155 Characters, new chat and settings (M).** The characters gallery, new chat / new group, and Settings regrouped as You, AI, Chat and look, Care (desktop and phone).
+- **#156 Smaller screens (M).** Starred messages, message info, forward, poll creation, the adventures gallery and an adventure.
+
+**Wave 3: with the features they belong to**
+- **#157 Worlds UI (M, with #143 and #144).** The world rail and phone switcher, the Worlds page and the world wizard.
+- The canvas's boards for Peek (#145), blocking (#133), event invites (#134), disappearing messages (#136), stickers (#137), the activity log (#131), "where things stand" (#142) and "While you were away" (#130) are built with those items; they get no numbers of their own.
+
 ## Smaller follow-ups
 
 Leftovers noted while building the finished items. Pick them up alongside related work.
 
-- **For the UI revamp (user's call, 2026-10-25):** in group chats the first member's avatar shows the group's initials instead of theirs, and the composer says "Message Aria…" instead of naming the group. The revamp brief and screenshots are in `design/`.
 
 - **#113–#129 (2026-10-24):** not tried with real models or a real image provider: whether models use the new tags (`[Re: …]`, `[Fwd: …]`, `[Contact: …]`, `[Group name: …]`, `[Poll: …]`), the status, channel, About and poll-vote helper prompts, and photo statuses and profile photos. Swipe-to-reply has no UI test. Channels, your statuses' private replies and profile changes only happen while the app is open. You can't send view-once photos yourself yet. The phone shell is WhatsApp-theme only.
 

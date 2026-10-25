@@ -7,8 +7,11 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Outfit', '-apple-system', 'system-ui', 'sans-serif'],
-        serif: ['Lora', 'Georgia', 'serif'],
+        // #148: Figtree for the interface, Literata for reading (bubbles,
+        // prose). Themes with their own type (terminal, material) override
+        // these in tokens.css.
+        sans: ['Figtree', '-apple-system', 'system-ui', 'Segoe UI', 'sans-serif'],
+        serif: ['Literata', 'Georgia', 'Times New Roman', 'serif'],
         mono: ['Geist Mono', 'ui-monospace', 'monospace'],
       },
       colors: {
@@ -96,6 +99,30 @@ module.exports = {
         // Chat area background, distinct from --background - no bridge
         // counterpart, kept as its own token.
         chat: 'rgb(var(--color-chat-bg) / <alpha-value>)',
+
+        // #148: the revamp canvas's semantic tokens (see tokens.css). Every
+        // theme defines them, cozy and Messenger with the canvas's own values,
+        // the others derived from their existing tokens.
+        surface: 'rgb(var(--surface) / <alpha-value>)',
+        raised: 'rgb(var(--raised) / <alpha-value>)',
+        sunken: 'rgb(var(--sunken) / <alpha-value>)',
+        'border-strong': 'rgb(var(--border-strong) / <alpha-value>)',
+        'primary-text': 'rgb(var(--primary-text) / <alpha-value>)',
+        bubble: {
+          in: 'rgb(var(--bubble-in) / <alpha-value>)',
+          'in-text': 'rgb(var(--bubble-in-text) / <alpha-value>)',
+          out: 'rgb(var(--bubble-out) / <alpha-value>)',
+          'out-text': 'rgb(var(--bubble-out-text) / <alpha-value>)',
+          meta: 'rgb(var(--bubble-meta) / <alpha-value>)',
+          'out-meta': 'rgb(var(--bubble-out-meta) / <alpha-value>)',
+        },
+        tick: {
+          DEFAULT: 'rgb(var(--tick) / <alpha-value>)',
+          read: 'rgb(var(--tick-read) / <alpha-value>)',
+        },
+        warning: 'rgb(var(--warning) / <alpha-value>)',
+        info: 'rgb(var(--info) / <alpha-value>)',
+        focus: 'rgb(var(--focus) / <alpha-value>)',
       },
       // Tailwind's own borderColor theme (used by the bare `border` utility -
       // no color suffix) otherwise falls back to core's stock gray-200
@@ -107,8 +134,11 @@ module.exports = {
       borderColor: {
         DEFAULT: 'rgb(var(--border) / <alpha-value>)',
       },
+      // #148: chips 6, controls 10 (--radius), cards 14, bubbles 18, sheets 24.
       borderRadius: {
-        'bubble': '1.5rem',
+        'bubble': '18px',
+        card: '14px',
+        sheet: '24px',
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
@@ -117,6 +147,10 @@ module.exports = {
         soft: '0 14px 34px var(--shadow-soft)',
         mid: '0 20px 50px var(--shadow-mid)',
         strong: '0 30px 80px var(--shadow-strong)',
+        // #148: the canvas's three elevations.
+        bubble: 'var(--sh-1)',
+        popover: 'var(--sh-2)',
+        sheet: 'var(--sh-3)',
       },
       backgroundImage: {
         'gemini-gradient': 'linear-gradient(135deg, #10b981 0%, #3b82f6 50%, #8b5cf6 100%)',

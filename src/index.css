@@ -13,10 +13,54 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* A visible focus ring for keyboard users (#148): 2 px in the theme's
+     focus colour with a 2 px gap, only on :focus-visible so mouse and touch
+     don't show it. In the base layer so components that draw their own ring
+     (shadcn's focus-visible:ring-*) still win. */
+  :focus-visible {
+    outline: 2px solid rgb(var(--focus));
+    outline-offset: 2px;
+  }
 }
 
 ::selection {
-  background: rgba(242, 103, 63, 0.3);
+  background: rgb(var(--primary) / 0.3);
+}
+
+/* Touch targets (#148): on touch screens, icon buttons, small buttons,
+   switches, checkboxes and anything marked data-hit get an invisible hit
+   area of at least 44 x 44 px around their centre, so their visual size
+   can stay small. ::after, because some themes already draw on ::before. */
+@media (pointer: coarse) {
+  /* :where() so a button's own absolute/fixed positioning still wins. */
+  :where([data-slot="button"][data-size="icon"], [data-slot="button"][data-size="sm"], button[role="switch"], button[role="checkbox"], [data-hit]) {
+    position: relative;
+  }
+  :is([data-slot="button"]:is([data-size="icon"], [data-size="sm"]), button[role="switch"], button[role="checkbox"], [data-hit])::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* Reduced motion (#148): with the system setting on, CSS transitions and
+   animations finish at once (framer-motion follows the same setting through
+   MotionConfig in App.tsx). Status progress bars are information, not
+   decoration, so they keep moving (data-keep-motion). */
+@media (prefers-reduced-motion: reduce) {
+  *:not([data-keep-motion]),
+  *:not([data-keep-motion])::before,
+  *:not([data-keep-motion])::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 ::-webkit-scrollbar {
