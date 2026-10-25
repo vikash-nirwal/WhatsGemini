@@ -1,11 +1,11 @@
 {
   "files": {
     "main.css": "/WhatsGemini/static/css/main.e65aa784.css",
-    "main.js": "/WhatsGemini/static/js/main.200201c5.js",
+    "main.js": "/WhatsGemini/static/js/main.ac68aa22.js",
     "static/js/7372.da610030.chunk.js": "/WhatsGemini/static/js/7372.da610030.chunk.js",
     "static/js/3220.16882acf.chunk.js": "/WhatsGemini/static/js/3220.16882acf.chunk.js",
     "static/js/5664.3c280f2e.chunk.js": "/WhatsGemini/static/js/5664.3c280f2e.chunk.js",
-    "static/js/7599.0176030b.chunk.js": "/WhatsGemini/static/js/7599.0176030b.chunk.js",
+    "static/js/7599.086d7a81.chunk.js": "/WhatsGemini/static/js/7599.086d7a81.chunk.js",
     "static/js/9455.bdcdbb6b.chunk.js": "/WhatsGemini/static/js/9455.bdcdbb6b.chunk.js",
     "static/js/1083.755dec0a.chunk.js": "/WhatsGemini/static/js/1083.755dec0a.chunk.js",
     "static/js/3885.d42ff731.chunk.js": "/WhatsGemini/static/js/3885.d42ff731.chunk.js",
@@ -318,11 +318,11 @@
     "service-worker.js": "/WhatsGemini/service-worker.js",
     "index.html": "/WhatsGemini/index.html",
     "main.e65aa784.css.map": "/WhatsGemini/static/css/main.e65aa784.css.map",
-    "main.200201c5.js.map": "/WhatsGemini/static/js/main.200201c5.js.map",
+    "main.ac68aa22.js.map": "/WhatsGemini/static/js/main.ac68aa22.js.map",
     "7372.da610030.chunk.js.map": "/WhatsGemini/static/js/7372.da610030.chunk.js.map",
     "3220.16882acf.chunk.js.map": "/WhatsGemini/static/js/3220.16882acf.chunk.js.map",
     "5664.3c280f2e.chunk.js.map": "/WhatsGemini/static/js/5664.3c280f2e.chunk.js.map",
-    "7599.0176030b.chunk.js.map": "/WhatsGemini/static/js/7599.0176030b.chunk.js.map",
+    "7599.086d7a81.chunk.js.map": "/WhatsGemini/static/js/7599.086d7a81.chunk.js.map",
     "9455.bdcdbb6b.chunk.js.map": "/WhatsGemini/static/js/9455.bdcdbb6b.chunk.js.map",
     "1083.755dec0a.chunk.js.map": "/WhatsGemini/static/js/1083.755dec0a.chunk.js.map",
     "3885.d42ff731.chunk.js.map": "/WhatsGemini/static/js/3885.d42ff731.chunk.js.map",
@@ -635,6 +635,6 @@
   },
   "entrypoints": [
     "static/css/main.e65aa784.css",
-    "static/js/main.200201c5.js"
+    "static/js/main.ac68aa22.js"
   ]
 }
