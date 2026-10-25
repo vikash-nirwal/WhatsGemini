@@ -210,15 +210,6 @@ const CharacterPage = () => {
     return text.length > maxLength ? text.substring(0, maxLength) + "..." : text;
   };
 
-  const goBackOrHome = () => {
-    const idx = window.history.state?.idx;
-    if (typeof idx === 'number' && idx > 0) {
-      navigate(-1);
-    } else {
-      navigate('/', { replace: true });
-    }
-  };
-
   const filteredCharacters = useMemo(() => {
     const q = gallerySearch.trim().toLowerCase();
     if (!q) return characters;
@@ -272,10 +263,11 @@ const CharacterPage = () => {
 
   return (
     <div className="w-full h-dvh flex flex-col">
+      {/* A section of its own (#150): reached from the rail or the tabs, so
+          no back button. */}
       <Header
         title="Characters"
         subtitle="Craft a persona to embody, or open one you've already made."
-        onBack={goBackOrHome}
       />
       <div className="flex-1 overflow-auto p-4 md:p-8" style={shell ? { paddingBottom: TAB_BAR_HEIGHT + 16 } : undefined}>
       <div className="w-full max-w-[1180px] mx-auto">

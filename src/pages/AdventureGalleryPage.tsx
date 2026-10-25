@@ -1,3 +1,4 @@
+import { usePhoneShell, TAB_BAR_HEIGHT } from "src/hooks/usePhoneShell";
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaPlus, FaTrash, FaDiceD20, FaSearch, FaGlobe } from "react-icons/fa";
@@ -14,6 +15,7 @@ import Header from "src/components/organisms/Header";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 
 const AdventureGalleryPage = () => {
+  const shell = usePhoneShell();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { showConfirm } = useModal();
@@ -38,8 +40,10 @@ const AdventureGalleryPage = () => {
 
   return (
     <div className="w-full h-dvh flex flex-col">
-      <Header title="Adventures" subtitle="Guided roleplay stories, in worlds you build." onBack={() => navigate("/")} />
-      <div className="flex-1 overflow-auto p-4 md:p-8">
+      {/* A section of its own (#150): reached from the rail or the tabs. */}
+      <Header title="Adventures" subtitle="Guided roleplay stories, in worlds you build." />
+      {/* The phone shell's tab bar (#150) sits over the bottom of the page. */}
+      <div className="flex-1 overflow-auto p-4 md:p-8" style={shell ? { paddingBottom: TAB_BAR_HEIGHT + 16 } : undefined}>
         <div className="w-full max-w-[1180px] mx-auto">
 
           <div className="flex items-end justify-between gap-4 flex-wrap mb-6">
@@ -49,18 +53,20 @@ const AdventureGalleryPage = () => {
                 {loading ? "Loading..." : `${adventures.length} adventure${adventures.length === 1 ? "" : "s"}`}
               </p>
             </div>
-            <div className="flex gap-2">
+            {/* Fits a phone's width (#150): the search takes what's left, and
+                "New adventure" keeps only its icon there. */}
+            <div className="flex w-full gap-2 sm:w-auto">
               {adventures.length > 0 && (
-                <div className="relative">
+                <div className="relative min-w-0 flex-1 sm:flex-none">
                   <FaSearch size={12} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
-                  <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search adventures" aria-label="Search adventures" className="pl-8 text-[13px] w-[220px] bg-card" />
+                  <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search adventures" aria-label="Search adventures" className="pl-8 text-[13px] w-full sm:w-[220px] bg-card" />
                 </div>
               )}
-              <Button onClick={() => navigate("/worlds")} variant="outline">
+              <Button onClick={() => navigate("/worlds")} variant="outline" className="flex-shrink-0">
                 <FaGlobe size={12} /> Worlds
               </Button>
-              <Button onClick={() => navigate("/adventures/new")} variant="default">
-                <FaPlus size={12} /> New adventure
+              <Button onClick={() => navigate("/adventures/new")} variant="default" aria-label="New adventure" className="flex-shrink-0">
+                <FaPlus size={12} /> <span className="hidden sm:inline">New adventure</span>
               </Button>
             </div>
           </div>

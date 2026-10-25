@@ -1,16 +1,16 @@
 import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { MdOutlineChat, MdOutlineDonutLarge, MdOutlinePeopleAlt, MdOutlineSettings } from "react-icons/md";
+import { MdOutlineChat, MdOutlineDonutLarge, MdOutlinePeopleAlt, MdOutlineExplore } from "react-icons/md";
 import { cn } from "src/utils/cn";
 import { useAppSelector } from "src/store/hooks";
 import { TAB_BAR_PATHS, usePhoneShell } from "src/hooks/usePhoneShell";
 import { unreadCount } from "src/features/chat/chatList";
 import { hasUnseenStatus } from "src/features/character/statusUpdates";
 
-// The phone-style shell's tab bar (#114): Chats, Updates, Characters and
-// Settings, like WhatsApp's bottom bar (no Calls). Chats counts the chats
-// with unread replies (not muted or archived ones); Updates has a dot for
-// unseen statuses.
+// The phone shell's tab bar (#114, #150): the app's four sections - Chats,
+// Updates, Characters and Adventures - as on the revamp canvas; Settings is
+// your avatar on the chat list. Chats counts the chats with unread replies
+// (not muted or archived ones); Updates has a dot for unseen statuses.
 export const PhoneTabBar = () => {
   const shell = usePhoneShell();
   const { pathname } = useLocation();
@@ -24,30 +24,30 @@ export const PhoneTabBar = () => {
     { to: "/", label: "Chats", Icon: MdOutlineChat, badge: unreadChats },
     { to: "/updates", label: "Updates", Icon: MdOutlineDonutLarge, dot: newStatuses },
     { to: "/characters", label: "Characters", Icon: MdOutlinePeopleAlt },
-    { to: "/settings", label: "Settings", Icon: MdOutlineSettings },
+    { to: "/adventures", label: "Adventures", Icon: MdOutlineExplore },
   ];
 
   return (
-    <nav aria-label="Main" data-slot="tab-bar" className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-card pb-[env(safe-area-inset-bottom)]">
-      <ul className="flex h-16">
+    <nav aria-label="Main" data-slot="tab-bar" className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)]">
+      <ul className="grid h-16 grid-cols-4 px-2">
         {tabs.map(({ to, label, Icon, badge, dot }) => (
-          <li key={to} className="flex-1">
+          <li key={to}>
             <NavLink
               to={to}
               end
               aria-label={badge ? `${label}, ${badge} unread` : dot ? `${label}, new` : label}
-              className={({ isActive }) => cn("group flex h-full flex-col items-center justify-center gap-1 text-[12px] font-medium", isActive ? "text-foreground" : "text-muted-foreground")}
+              className={({ isActive }) => cn("group flex h-full flex-col items-center justify-center gap-1 text-[12px] font-semibold", isActive ? "text-foreground" : "text-muted-foreground")}
             >
               {({ isActive }) => (
                 <>
-                  <span className={cn("relative flex h-8 w-16 items-center justify-center rounded-full transition-colors", isActive && "bg-primary/15")}>
-                    <Icon aria-hidden size={22} className={isActive ? "text-primary" : undefined} />
+                  <span className={cn("relative flex h-8 w-14 items-center justify-center rounded-full transition-colors", isActive && "bg-primary/[0.14] text-primary-text")}>
+                    <Icon aria-hidden size={22} />
                     {badge ? (
-                      <span aria-hidden data-slot="unread-badge" className="absolute -top-1 right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10.5px] font-semibold flex items-center justify-center">
+                      <span aria-hidden data-slot="unread-badge" className="absolute -top-1 left-[calc(50%+6px)] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-bold text-primary-foreground">
                         {badge}
                       </span>
                     ) : dot ? (
-                      <span aria-hidden className="absolute top-0.5 right-4 h-2.5 w-2.5 rounded-full bg-primary" />
+                      <span aria-hidden className="absolute right-3 top-0.5 h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-surface" />
                     ) : null}
                   </span>
                   {label}

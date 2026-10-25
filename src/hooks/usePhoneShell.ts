@@ -6,10 +6,10 @@ const PHONE_QUERY = "(max-width: 1023.98px)";
 
 const matches = () => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia(PHONE_QUERY).matches;
 
-// The phone-style shell (#114): with the WhatsApp-style theme on a phone or
-// tablet, the chat list is the home screen with a tab bar under it, and a
-// chat's header goes back to it instead of opening the drawer. Other themes
-// keep their own phone layout.
+// The phone-style shell (#114, #150): on a phone or tablet the chat list is
+// the home screen with a tab bar under it, and a chat's header goes back to
+// it instead of opening the drawer. Every theme but terminal, whose shell
+// look keeps its own drawer.
 export const usePhoneShell = (): boolean => {
   const { is } = useColorTheme();
   const [narrow, setNarrow] = useState(matches);
@@ -21,9 +21,10 @@ export const usePhoneShell = (): boolean => {
     query.addEventListener?.("change", update);
     return () => query.removeEventListener?.("change", update);
   }, []);
-  return is("whatsapp") && narrow;
+  return !is("terminal") && narrow;
 };
 
-// Pages that show the tab bar: the shell's top-level screens.
-export const TAB_BAR_PATHS = ["/", "/updates", "/characters"];
+// Pages that show the tab bar: the shell's top-level screens, one per
+// section (#150).
+export const TAB_BAR_PATHS = ["/", "/updates", "/characters", "/adventures"];
 export const TAB_BAR_HEIGHT = 64;

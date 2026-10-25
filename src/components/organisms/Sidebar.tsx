@@ -5,7 +5,7 @@ import { fetchChats, deleteChat, addChat, importChat, updateChatPinned, updateCh
 import { selectActivePersona } from "../../features/settingsSlice";
 import { fetchCharacters } from "../../features/characterSlice";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { FaFileImport, FaPlus, FaSearch, FaThumbtack, FaPencilAlt, FaChevronRight, FaCheck, FaUsers, FaAngleDoubleLeft, FaAngleDoubleRight, FaArrowLeft, FaArchive, FaVolumeMute, FaChevronDown } from "react-icons/fa";
+import { FaFileImport, FaPlus, FaSearch, FaThumbtack, FaChevronRight, FaCheck, FaUsers, FaAngleDoubleLeft, FaAngleDoubleRight, FaArrowLeft, FaArchive, FaVolumeMute, FaChevronDown } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { useModal } from "../../contexts/ModalContext";
 import { useSidebar } from "../../contexts/SidebarContext";
@@ -22,12 +22,12 @@ import Logo from "src/components/atoms/Logo";
 import { useColorTheme } from "../../hooks/useColorTheme";
 import { stripLeakedBase64 } from "../../features/ai/utils/apiUtils";
 import { isNsfwCharacter } from "../../features/character/contentRating";
-import { StatusStrip } from "./StatusStrip";
 import { hasUnseenStatus } from "../../features/character/statusUpdates";
-import { useStatusReply } from "../../hooks/useStatusReply";
 import { lastPreview, splitArchived, unreadCount } from "../../features/chat/chatList";
 import { TAB_BAR_HEIGHT, usePhoneShell } from "../../hooks/usePhoneShell";
-import { MdOutlineAddComment, MdOutlineDonutLarge, MdOutlineStarBorder } from "react-icons/md";
+import { MdOutlineAddComment, MdOutlineDonutLarge, MdOutlineStarBorder, MdMoreHoriz } from "react-icons/md";
+import { sectionOf } from "./NavRail";
+import { DESKTOP_QUERY, useMediaQuery } from "../../hooks/useMediaQuery";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "src/components/molecules/dropdown-menu";
 
 const formatChatTime = (timestamp?: number) => {
@@ -96,6 +96,16 @@ const Sidebar = () => {
   // button in the corner; statuses move to the Updates tab.
   const shell = usePhoneShell();
   const home = shell && location.pathname === "/";
+  // #150: the rail does the collapsed sidebar's job everywhere but the
+  // terminal theme, which keeps its own collapsible sidebar; and on desktop
+  // the list only shows in the Chats section.
+  const railCollapsed = collapsed && terminal;
+  const outsideChats = !terminal && sectionOf(location.pathname) !== "chats";
+  // Outside Chats on desktop the list isn't shown at all, so it isn't
+  // rendered either (a hidden copy would still be found by screen readers'
+  // find and by tests).
+  const desktop = useMediaQuery(DESKTOP_QUERY);
+  const listHidden = outsideChats && desktop;
 
   const activeChatId = useMemo(() => {
     const match = location.pathname.match(/^\/chat\/(\d+)/);
@@ -154,14 +164,6 @@ const Sidebar = () => {
       close();
     }
   }, [dispatch, navigate, showConfirm, close]);
-
-  // Replying to a status (#8): the character's 1:1 chat, with the status
-  // quoted in the composer.
-  const statusCharacters = useMemo(
-    () => (showNsfwCharacters ? characters : characters.filter((c: Character) => !isNsfwCharacter(c))),
-    [characters, showNsfwCharacters]
-  );
-  const handleStatusReply = useStatusReply(close);
 
   const handleTogglePin = useCallback((chatId: number, pinned: boolean) => {
     dispatch(updateChatPinned({ chatId, pinned: !pinned }));
@@ -267,7 +269,7 @@ const Sidebar = () => {
   const viewingArchived = showArchived && archivedItems.length > 0 && !search.trim();
   // WhatsApp's filter chips on the home screen (#114): all, unread, groups.
   const [listFilter, setListFilter] = useState<"all" | "unread" | "groups">("all");
-  const filterOn = home && !viewingArchived ? listFilter : "all";
+  const filterOn = !terminal && !viewingArchived ? listFilter : "all";
   const visibleItems = (viewingArchived ? archivedItems : listedItems).filter((i) =>
     filterOn === "unread" ? unreadCount(i.chat) > 0 : filterOn === "groups" ? (i.chat.characterIds?.length || 0) > 1 : true
   );
@@ -291,17 +293,15 @@ const Sidebar = () => {
       {/* Sidebar - docked from lg (1024px) up, an off-canvas drawer below
           that. Docking it from md (768px) left a tablet's chat header so
           little room that the title shrank to "A.." under a row of icons. */}
-      <aside
+      {!listHidden && <aside
         className={cn(
           "fixed z-50 top-0 left-0 w-[300px] h-full flex flex-col transition-[transform,width] duration-200 transform lg:relative lg:translate-x-0",
-          // Canvas spec: "custom aside ... no shadcn Sidebar - its border-and-
-          // panel model fights the soft ground." Cozy keeps the bordered card
-          // look; neumorphic sits flush with the page instead.
-          neumorphic ? "bg-background" : "bg-card border-r border-border/40",
-          // Collapse is a desktop-only concept (an icon rail) - mobile always
-          // shows the full 300px drawer when opened regardless of this flag,
-          // so every `collapsed` class below is paired with `lg:`.
-          collapsed && "lg:w-[76px]",
+          // #150: the canvas's chat list column - the surface colour, 340 px
+          // beside the rail. Neumorphic sits flush with the page; terminal
+          // keeps its own 300 px sidebar.
+          neumorphic ? "bg-background" : "bg-surface border-r border-border",
+          !terminal && "lg:w-[340px]",
+          railCollapsed && "lg:w-[76px]",
           isOpen ? "translate-x-0" : "-translate-x-full",
           home && "!fixed !inset-x-0 !top-0 !w-full !h-auto !translate-x-0 z-30 border-r-0"
         )}
@@ -310,118 +310,96 @@ const Sidebar = () => {
         data-home={home ? "true" : undefined}
       >
         {home && (
-          <div className="h-[60px] px-4 flex items-center gap-2 flex-shrink-0" data-slot="home-title">
-            <h1 className="flex-1 text-[22px] font-bold tracking-tight text-primary">WhatsGemini</h1>
-            <Link to="/starred" title="Starred messages" aria-label="Starred messages" className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:bg-hover">
+          <div className="h-[60px] px-4 flex items-center gap-1 flex-shrink-0" data-slot="home-title">
+            {/* The app's name stands where the world switcher goes (#157). */}
+            <h1 className="flex-1 text-[22px] font-bold tracking-tight text-primary-text">WhatsGemini</h1>
+            <Link to="/starred" title="Starred messages" aria-label="Starred messages" className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:bg-raised">
               <MdOutlineStarBorder size={22} />
             </Link>
             <Button onClick={handleImportClick} variant="ghost" size="icon" title="Import chat" aria-label="Import chat" className="h-10 w-10 rounded-full text-muted-foreground">
               <FaFileImport size={16} />
             </Button>
-            <Link to="/settings/profile" aria-label="Your profile" title="Your profile" className="rounded-full">
+            {/* Settings live behind your avatar on phones (#150). */}
+            <Link to="/settings/profile" aria-label="Your profile" title="Your profile and settings" className="ml-1 rounded-full">
               <CharacterAvatar name={personaName || "You"} imageSrc={activePersona?.avatar} size={32} />
             </Link>
           </div>
         )}
-        {/* Logo header - h-[60px] to match Header.tsx so the border-b seam lines up */}
-        <div className={cn("h-[60px] px-4 flex items-center gap-3 border-b border-border/40 flex-shrink-0", collapsed && "lg:px-2.5", home && "hidden")}>
-          <Logo size={34} className="shadow-[0_6px_18px_rgb(var(--primary)/0.35)] rounded-full flex-shrink-0" />
-          {terminal ? (
-            <div className={cn("leading-tight flex-1 min-w-0", collapsed && "lg:hidden")}>
-              <div className="font-bold text-[12px] text-foreground truncate">whatsgemini@local</div>
-              <div className="text-[10px] text-muted-foreground truncate lowercase"># session: {personaName || "guest"}</div>
-            </div>
-          ) : (
-            <div className={cn("leading-tight flex-1 min-w-0", collapsed && "lg:hidden")}>
-              <div className="font-bold text-[16px] tracking-tight text-foreground">WhatsGemini</div>
-              <div className="text-[11px] text-subtle font-medium">Your characters, your stories</div>
-            </div>
-          )}
-          {/* Updates (#114, #117): statuses, yours included. The phone
-              shell has a tab for it; everywhere else it's this button. */}
-          {!terminal && (
-            <Link to="/updates" onClick={close} title="Updates" aria-label="Updates" className={cn("flex h-8 w-8 items-center justify-center rounded-lg text-subtle hover:bg-hover hover:text-foreground flex-shrink-0", collapsed && "lg:hidden")}>
-              <MdOutlineDonutLarge size={17} />
-            </Link>
-          )}
-          {/* Starred messages (#120), across every chat. */}
-          {!terminal && (
-            <Link to="/starred" onClick={close} title="Starred messages" aria-label="Starred messages" className={cn("flex h-8 w-8 items-center justify-center rounded-lg text-subtle hover:bg-hover hover:text-foreground flex-shrink-0", collapsed && "lg:hidden")}>
-              <MdOutlineStarBorder size={18} />
-            </Link>
-          )}
-          {/* Desktop-only icon-rail collapse toggle - mobile relies on the
-              overlay/Header hamburger instead, so this never shows there. */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                onClick={toggleCollapsed}
-                variant="ghost"
-                size="icon"
-                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-                className="hidden lg:inline-flex h-auto w-auto p-1.5 rounded-lg text-subtle hover:text-foreground flex-shrink-0"
-              >
-                {collapsed ? <FaAngleDoubleRight size={13} /> : <FaAngleDoubleLeft size={13} />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">{collapsed ? "Expand sidebar" : "Collapse sidebar"}</TooltipContent>
-          </Tooltip>
-        </div>
 
-        {/* New chat / Import */}
-        <div className={cn("px-4 pt-4 pb-2.5 flex gap-2 flex-shrink-0", collapsed && "lg:px-2.5 lg:justify-center", home && "hidden")}>
-          {terminal ? (
-            <Button
-              onClick={() => setIsNewChatModalOpen(true)}
-              variant="outline"
-              title="New chat"
-              aria-label="New chat"
-              className={cn("flex-1 h-auto py-[9px] text-[12px] border-border-bright text-foreground normal-case", collapsed && "lg:flex-none lg:px-[9px]")}
-            >
-              {collapsed ? "[+]" : "[+] new_chat.sh"}
+        {terminal ? (
+          <>
+            {/* Logo header - h-[60px] to match Header.tsx so the border-b seam lines up */}
+            <div className={cn("h-[60px] px-4 flex items-center gap-3 border-b border-border/40 flex-shrink-0", railCollapsed && "lg:px-2.5")}>
+              <Logo size={34} className="shadow-[0_6px_18px_rgb(var(--primary)/0.35)] rounded-full flex-shrink-0" />
+              <div className={cn("leading-tight flex-1 min-w-0", railCollapsed && "lg:hidden")}>
+                <div className="font-bold text-[12px] text-foreground truncate">whatsgemini@local</div>
+                <div className="text-[10px] text-muted-foreground truncate lowercase"># session: {personaName || "guest"}</div>
+              </div>
+              {/* Desktop-only collapse toggle - mobile relies on the
+                  overlay/Header hamburger instead, so this never shows there. */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={toggleCollapsed}
+                    variant="ghost"
+                    size="icon"
+                    aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                    className="hidden lg:inline-flex h-auto w-auto p-1.5 rounded-lg text-subtle hover:text-foreground flex-shrink-0"
+                  >
+                    {collapsed ? <FaAngleDoubleRight size={13} /> : <FaAngleDoubleLeft size={13} />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">{collapsed ? "Expand sidebar" : "Collapse sidebar"}</TooltipContent>
+              </Tooltip>
+            </div>
+            <div className={cn("px-4 pt-4 pb-2.5 flex gap-2 flex-shrink-0", railCollapsed && "lg:px-2.5 lg:justify-center")}>
+              <Button
+                onClick={() => setIsNewChatModalOpen(true)}
+                variant="outline"
+                title="New chat"
+                aria-label="New chat"
+                className={cn("flex-1 h-auto py-[9px] text-[12px] border-border-bright text-foreground normal-case", railCollapsed && "lg:flex-none lg:px-[9px]")}
+              >
+                {railCollapsed ? "[+]" : "[+] new_chat.sh"}
+              </Button>
+              <Button onClick={handleImportClick} variant="outline" title="Import chat" aria-label="Import chat" className={cn("h-auto py-[9px] px-3 text-[12px] flex-shrink-0", railCollapsed && "lg:hidden")}>
+                import
+              </Button>
+            </div>
+          </>
+        ) : !home && (
+          // #150: the canvas's "Chats" header - new chat, and a menu for the
+          // rarer things that used to crowd the top of the sidebar.
+          <div className="flex items-center gap-1 pl-5 pr-3 pt-4 pb-2 flex-shrink-0" data-slot="list-title">
+            <h2 className="flex-1 text-[20px] font-bold leading-[26px] tracking-tight text-foreground">Chats</h2>
+            <Button onClick={() => setIsNewChatModalOpen(true)} variant="ghost" size="icon" title="New chat" aria-label="New chat" className="h-10 w-10 rounded-[10px] text-muted-foreground hover:bg-raised hover:text-foreground">
+              <MdOutlineAddComment size={20} />
             </Button>
-          ) : (
-            <Button
-              onClick={() => setIsNewChatModalOpen(true)}
-              variant="default"
-              title="New chat"
-              aria-label="New chat"
-              className={cn(
-                "flex-1 h-auto py-[11px] text-[13.5px] font-semibold shadow-[0_8px_20px_rgb(var(--primary)/0.28)]",
-                collapsed && "lg:flex-none lg:w-[42px] lg:px-0 lg:justify-center"
-              )}
-            >
-              <FaPlus size={12} />
-              <span className={cn(collapsed && "lg:hidden")}>New chat</span>
-            </Button>
-          )}
-          {terminal ? (
-            <Button onClick={handleImportClick} variant="outline" title="Import chat" aria-label="Import chat" className={cn("h-auto py-[9px] px-3 text-[12px] flex-shrink-0", collapsed && "lg:hidden")}>
-              import
-            </Button>
-          ) : (
-          <Button
-            onClick={handleImportClick}
-            variant="panel"
-            size="icon"
-            title="Import chat"
-            aria-label="Import chat"
-            className={cn("h-auto w-[42px] py-[11px] text-muted-foreground hover:text-foreground flex-shrink-0", collapsed && "lg:hidden")}
-          >
-            <FaFileImport size={14} />
-          </Button>
-          )}
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            accept=".json"
-            style={{ display: "none" }}
-          />
-        </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" title="More" aria-label="More chat list options" className="h-10 w-10 rounded-[10px] text-muted-foreground hover:bg-raised hover:text-foreground">
+                  <MdMoreHoriz size={22} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onSelect={() => { navigate("/starred"); close(); }} className="gap-3"><MdOutlineStarBorder size={17} /> Starred messages</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => { navigate("/updates"); close(); }} className="gap-3"><MdOutlineDonutLarge size={16} /> Updates</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={handleImportClick} className="gap-3"><FaFileImport size={14} /> Import chat</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept=".json"
+          style={{ display: "none" }}
+        />
 
         {/* Search - dropped from the collapsed rail; expand to search again */}
-        <div className={cn("px-4 pb-3.5 flex-shrink-0", collapsed && "lg:hidden")}>
+        <div className={cn("flex-shrink-0", terminal ? "px-4 pb-3.5" : "px-4 pt-1 pb-3", railCollapsed && "lg:hidden")}>
           {terminal ? (
             <div className="flex items-center gap-2 border border-border px-2.5 text-[12px] focus-within:border-ring">
               <span className="text-muted-foreground flex-none">grep&gt;</span>
@@ -435,98 +413,90 @@ const Sidebar = () => {
             </div>
           ) : (
             <div className="relative">
-              <FaSearch size={12} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
+              <FaSearch size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search chats and messages"
                 aria-label="Search chats and messages"
-                className="pl-8 text-[12.5px] rounded-lg bg-background border-border/10 shadow-none"
+                className="h-10 pl-9 text-[14px] rounded-[10px] bg-sunken border-0 shadow-none"
               />
             </div>
           )}
         </div>
 
-        {home && !search.trim() && !viewingArchived && (
-          <div role="group" aria-label="Filter chats" className="px-4 pb-2.5 flex gap-2 flex-shrink-0">
-            {(["all", "unread", "groups"] as const).map((f) => (
-              <button
-                key={f}
-                type="button"
-                aria-pressed={listFilter === f}
-                onClick={() => setListFilter(f)}
-                className={cn("px-3.5 py-1.5 rounded-full text-[13.5px] font-medium transition-colors", listFilter === f ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground hover:text-foreground")}
-              >
-                {f === "all" ? "All" : f === "unread" ? "Unread" : "Groups"}
-              </button>
-            ))}
+        {!terminal && !search.trim() && !viewingArchived && (
+          <div role="group" aria-label="Filter chats" className="px-4 pb-3 flex gap-1.5 flex-shrink-0">
+            {(["all", "unread", "groups"] as const).map((f) => {
+              const unreadChats = listedItems.filter((i) => unreadCount(i.chat) > 0).length;
+              return (
+                <button
+                  key={f}
+                  type="button"
+                  aria-pressed={listFilter === f}
+                  onClick={() => setListFilter(f)}
+                  data-hit
+                  className={cn("h-[30px] px-3.5 rounded-full text-[13px] font-semibold transition-colors", listFilter === f ? "bg-primary/[0.14] text-foreground ring-1 ring-inset ring-primary/40" : "bg-raised text-muted-foreground ring-1 ring-inset ring-border hover:text-foreground")}
+                >
+                  {f === "all" ? "All" : f === "unread" ? <>Unread{unreadChats > 0 && <span aria-hidden> · {unreadChats}</span>}</> : "Groups"}
+                </button>
+              );
+            })}
           </div>
         )}
 
         {/* Chat list */}
-        <div className={cn("flex-1 overflow-y-auto px-2 pb-2.5", collapsed && "lg:px-1.5")}>
-          {/* Collapsing only applies from lg up, so below that the full row
-              shows even when the sidebar is set to collapsed. */}
-          {!terminal && !search.trim() && !home && (
-            <div className={cn(collapsed && "lg:hidden")}>
-              <StatusStrip characters={statusCharacters} onReply={handleStatusReply} />
-            </div>
-          )}
-          {collapsed && !terminal && !search.trim() && (
-            <div className="hidden lg:block">
-              <StatusStrip characters={statusCharacters} onReply={handleStatusReply} compact />
-            </div>
-          )}
+        <div className={cn("flex-1 overflow-y-auto pb-2.5", terminal ? "px-2" : "px-2", railCollapsed && "lg:px-1.5")}>
           {/* Archived chats (#115): one row at the top opens them. */}
           {!search.trim() && archivedItems.length > 0 && (
             viewingArchived ? (
-              <button type="button" onClick={() => setShowArchived(false)} className={cn("w-full flex items-center gap-3 px-3 py-2.5 text-[13.5px] font-semibold text-foreground hover:bg-hover rounded-lg", collapsed && "lg:hidden")} aria-label="Back to chats">
+              <button type="button" onClick={() => setShowArchived(false)} className={cn("w-full flex items-center gap-3 px-3 py-2.5 text-[14px] font-semibold text-foreground hover:bg-raised rounded-xl", railCollapsed && "lg:hidden")} aria-label="Back to chats">
                 <FaArrowLeft size={12} className="text-subtle" />
                 Archived
               </button>
             ) : (
-              <button type="button" onClick={() => setShowArchived(true)} className={cn("w-full flex items-center gap-3 px-3 py-2.5 text-[13.5px] text-foreground hover:bg-hover rounded-lg", collapsed && "lg:hidden")} aria-label={`Archived, ${archivedItems.length} ${archivedItems.length === 1 ? "chat" : "chats"}`}>
-                <FaArchive size={13} className="text-primary w-[34px]" />
-                <span className="flex-1 text-left font-medium">Archived</span>
-                <span className={cn("text-[12px]", archivedUnread > 0 ? "font-semibold text-primary" : "text-subtle")}>{archivedUnread > 0 ? archivedUnread : archivedItems.length}</span>
+              <button type="button" onClick={() => setShowArchived(true)} className={cn("w-full flex items-center gap-3 px-3 py-2 text-[14px] text-foreground hover:bg-raised rounded-xl", railCollapsed && "lg:hidden")} aria-label={`Archived, ${archivedItems.length} ${archivedItems.length === 1 ? "chat" : "chats"}`}>
+                <FaArchive size={14} className="text-subtle w-12" />
+                <span className="flex-1 text-left font-semibold">Archived</span>
+                <span className={cn("text-[12px]", archivedUnread > 0 ? "font-semibold text-primary-text" : "text-subtle")}>{archivedUnread > 0 ? archivedUnread : archivedItems.length}</span>
               </button>
             )
           )}
           {search.trim() && filteredChats.length === 0 ? (
-            <p className={cn("text-center text-subtle text-[12.5px] px-3 py-6", collapsed && "lg:hidden")}>No chats or messages match "{search.trim()}".</p>
-          ) : (
+            <p className={cn("text-center text-subtle text-[12.5px] px-3 py-6", railCollapsed && "lg:hidden")}>No chats or messages match "{search.trim()}".</p>
+          ) : terminal ? (
             <>
               {pinnedItems.length > 0 && (
                 <>
-                  <div className={cn("text-[10.5px] font-semibold tracking-[0.09em] uppercase text-subtle px-3 pt-2 pb-1.5", collapsed && "lg:hidden", home && "sr-only")}>
-                    {terminal ? <span className="normal-case tracking-normal font-normal text-[10px] text-muted-foreground"># pinned</span> : "Pinned"}
+                  <div className={cn("px-3 pt-2 pb-1.5", railCollapsed && "lg:hidden")}>
+                    <span className="normal-case tracking-normal font-normal text-[10px] text-muted-foreground"># pinned</span>
                   </div>
-                  <ChatList items={pinnedItems} characters={characters} onDeleteChat={handleDeleteChat} onTogglePin={handleTogglePin} onToggleMute={handleToggleMute} onToggleArchive={handleToggleArchive} onNavigate={close} query={search.trim()} activeChatId={activeChatId} pendingFollowups={pendingFollowups} collapsed={collapsed} />
+                  <ChatList items={pinnedItems} characters={characters} onDeleteChat={handleDeleteChat} onTogglePin={handleTogglePin} onToggleMute={handleToggleMute} onToggleArchive={handleToggleArchive} onNavigate={close} query={search.trim()} activeChatId={activeChatId} pendingFollowups={pendingFollowups} collapsed={railCollapsed} />
                 </>
               )}
               {unpinnedItems.length > 0 && (
                 <>
-                  <div className={cn("text-[10.5px] font-semibold tracking-[0.09em] uppercase text-subtle px-3 pt-2 pb-1.5", collapsed && "lg:hidden", home && "sr-only")}>
-                    {terminal ? (
-                      <span className="normal-case tracking-normal font-normal text-[10px] text-muted-foreground"># ls ~/chats -lt</span>
-                    ) : pinnedItems.length > 0 ? "Other chats" : "Recent"}
+                  <div className={cn("px-3 pt-2 pb-1.5", railCollapsed && "lg:hidden")}>
+                    <span className="normal-case tracking-normal font-normal text-[10px] text-muted-foreground"># ls ~/chats -lt</span>
                   </div>
-                  <ChatList items={unpinnedItems} characters={characters} onDeleteChat={handleDeleteChat} onTogglePin={handleTogglePin} onToggleMute={handleToggleMute} onToggleArchive={handleToggleArchive} onNavigate={close} query={search.trim()} activeChatId={activeChatId} pendingFollowups={pendingFollowups} collapsed={collapsed} />
+                  <ChatList items={unpinnedItems} characters={characters} onDeleteChat={handleDeleteChat} onTogglePin={handleTogglePin} onToggleMute={handleToggleMute} onToggleArchive={handleToggleArchive} onNavigate={close} query={search.trim()} activeChatId={activeChatId} pendingFollowups={pendingFollowups} collapsed={railCollapsed} />
                 </>
               )}
             </>
+          ) : (
+            // One list, pinned chats first (each marked with a pin), as on
+            // the canvas - no section headings.
+            <ChatList items={[...pinnedItems, ...unpinnedItems]} characters={characters} onDeleteChat={handleDeleteChat} onTogglePin={handleTogglePin} onToggleMute={handleToggleMute} onToggleArchive={handleToggleArchive} onNavigate={close} query={search.trim()} activeChatId={activeChatId} pendingFollowups={pendingFollowups} collapsed={false} />
           )}
         </div>
 
-        {/* Your persona - links into Settings' User Profile section; the
-            home screen has the avatar in its title row instead. */}
         {home ? (
           <Button
             onClick={() => setIsNewChatModalOpen(true)}
             title="New chat"
             aria-label="New chat"
             data-slot="new-chat-fab"
-            className="absolute right-4 bottom-4 h-14 w-14 rounded-2xl p-0 shadow-[0_4px_14px_rgb(0_0_0/0.25)]"
+            className="absolute right-4 bottom-4 h-14 w-14 rounded-2xl p-0 shadow-popover"
           >
             <MdOutlineAddComment size={24} />
           </Button>
@@ -534,10 +504,10 @@ const Sidebar = () => {
           <Link
             to="/settings/profile"
             onClick={close}
-            title={collapsed ? `whoami: ${personaName || "guest"}` : undefined}
+            title={railCollapsed ? `whoami: ${personaName || "guest"}` : undefined}
             className={cn(
               "flex-shrink-0 mx-4 mb-4 mt-2 flex items-center gap-2.5 p-2.5 border border-border hover:border-border-bright transition-colors",
-              collapsed && "lg:mx-2.5 lg:justify-center lg:px-2.5"
+              railCollapsed && "lg:mx-2.5 lg:justify-center lg:px-2.5"
             )}
           >
             <CharacterAvatar
@@ -546,35 +516,13 @@ const Sidebar = () => {
               size={24}
               className="rounded-none border border-border-bright text-[10px] font-extrabold"
             />
-            <div className={cn("flex-1 min-w-0 leading-tight", collapsed && "lg:hidden")}>
+            <div className={cn("flex-1 min-w-0 leading-tight", railCollapsed && "lg:hidden")}>
               <div className="text-[11px] font-bold text-foreground truncate lowercase">whoami: {personaName || "guest"}</div>
               <div className="text-[10px] text-muted-foreground truncate mt-0.5"># {activePersona?.bio?.trim() || "set up your name and bio"}</div>
             </div>
           </Link>
-        ) : (
-        <Link
-          to="/settings/profile"
-          onClick={close}
-          title={collapsed ? activePersona?.name?.trim() || "Your persona" : undefined}
-          className={cn(
-            "flex-shrink-0 flex items-center gap-3 px-4 py-3 group hover:bg-hover transition",
-            !neumorphic && "border-t border-border/40",
-            collapsed && "lg:justify-center lg:px-2.5"
-          )}
-        >
-          <CharacterAvatar name={activePersona?.name} imageSrc={activePersona?.avatar} size={34} />
-          <div className={cn("flex-1 min-w-0 leading-tight", collapsed && "lg:hidden")}>
-            <div className="text-[13px] font-semibold text-foreground truncate">
-              {activePersona?.name?.trim() || "Your persona"}
-            </div>
-            <div className="text-[11.5px] text-subtle truncate mt-0.5">
-              {activePersona?.bio?.trim() || "Set up your name and bio"}
-            </div>
-          </div>
-          <FaPencilAlt size={12} className={cn("text-subtle group-hover:text-foreground flex-shrink-0 transition", collapsed && "lg:hidden")} />
-        </Link>
-        )}
-      </aside>
+        ) : null}
+      </aside>}
 
       {/* Mobile Overlay */}
       <AnimatePresence>
@@ -753,11 +701,40 @@ const Sidebar = () => {
   );
 };
 
+// One row's menu (#115, #150): pin, mute, archive and delete. With a mouse
+// it opens from a chevron that shows on hover; on a touch screen the row is
+// long-pressed instead, with no permanent chevron, as on the canvas.
+const RowMenu = ({ chat, open, onOpenChange, onTogglePin, onToggleMute, onToggleArchive, onDeleteChat, className }: { chat: Chat; open: boolean; onOpenChange: (open: boolean) => void; onTogglePin: (id: number, pinned: boolean) => void; onToggleMute: (id: number, muted: boolean) => void; onToggleArchive: (id: number, archived: boolean) => void; onDeleteChat: (id: number) => void; className?: string }) => (
+  <DropdownMenu open={open} onOpenChange={onOpenChange}>
+    <DropdownMenuTrigger asChild>
+      <Button
+        // Inside the row's link: neither open the chat nor close the drawer.
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        variant="ghost"
+        size="icon"
+        className={className}
+        title="Chat options"
+        aria-label={`Chat options for ${chat.title}`}
+      >
+        <FaChevronDown size={11} />
+      </Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+      <DropdownMenuItem onSelect={() => onTogglePin(chat.id, Boolean(chat.pinned))}>{chat.pinned ? "Unpin chat" : "Pin chat"}</DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => onToggleMute(chat.id, Boolean(chat.muted))}>{chat.muted ? "Unmute" : "Mute"}</DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => onToggleArchive(chat.id, Boolean(chat.archived))}>{chat.archived ? "Unarchive chat" : "Archive chat"}</DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onSelect={() => onDeleteChat(chat.id)} className="text-destructive focus:text-destructive">Delete chat</DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
+);
+
 const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onToggleMute, onToggleArchive, onNavigate, query, activeChatId, pendingFollowups, collapsed }: { items: { chat: Chat; snippet?: string }[], characters: Character[], onDeleteChat: (id: number) => void, onTogglePin: (id: number, pinned: boolean) => void, onToggleMute: (id: number, muted: boolean) => void, onToggleArchive: (id: number, archived: boolean) => void, onNavigate: () => void, query: string, activeChatId: number | null, pendingFollowups: Record<number, number>, collapsed: boolean }) => {
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
   const terminal = is("terminal");
   const privacy = useAppSelector((state) => state.settings.privacy);
+  const [menuFor, setMenuFor] = useState<number | null>(null);
   return (
     <div className="flex-1 flex flex-col gap-0.5">
       {items.map(({ chat, snippet }) => {
@@ -791,30 +768,34 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onToggleMute, 
             to={`/chat/${chat.id}`}
             key={chat.id}
             onClick={onNavigate}
+            // A long-press (the browser's context menu on touch) opens the
+            // row's menu; a mouse right-click keeps the browser's own.
+            onContextMenu={(e) => {
+              if (terminal || !window.matchMedia?.("(hover: none)").matches) return;
+              e.preventDefault();
+              setMenuFor(chat.id);
+            }}
             title={collapsed ? chat.title : undefined}
             className={cn(
-              "relative flex items-center gap-3 p-2.5 rounded-lg cursor-pointer group transition",
+              "relative flex items-center cursor-pointer group transition",
               terminal
-                ? cn("gap-2.5 p-2", isActive ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-primary/10")
-                : // Canvas spec: "Active row is the only one with surface-sunken;
-                  // the rest are transparent."
-                  isActive ? (neumorphic ? "surface-sunken" : "bg-secondary") : "hover:bg-hover",
+                ? cn("gap-2.5 p-2 rounded-lg", isActive ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-primary/10")
+                : // #150: the canvas's row - 48 px avatar, 12 px corners; the
+                  // open chat is raised with a hairline, others raise on hover.
+                  cn("gap-3 px-3 py-2.5 rounded-xl", isActive ? (neumorphic ? "surface-sunken" : "bg-raised ring-1 ring-inset ring-border") : "hover:bg-raised"),
               collapsed && "lg:justify-center lg:px-0"
             )}
           >
-            {isActive && !terminal && (
-              <span className={cn("absolute left-[-8px] top-[14%] bottom-[14%] w-[3px] rounded-full bg-primary", collapsed && "lg:hidden")} />
-            )}
             {terminal ? (
               <span className="w-[26px] flex-none font-extrabold text-[11px]">{getInitials(character?.name || chat.title)}</span>
             ) : (
-              <span className={cn("rounded-full flex-shrink-0", character && hasUnseenStatus(character, Date.now()) && "ring-2 ring-primary ring-offset-2 ring-offset-card")}>
-                <CharacterAvatar name={character?.name || chat.title} accent={character?.accent} imageSrc={avatarSrc} size={34} />
+              <span className={cn("rounded-full flex-shrink-0", members.length <= 1 && character && hasUnseenStatus(character, Date.now()) && "ring-2 ring-primary ring-offset-2 ring-offset-surface")}>
+                <CharacterAvatar name={members.length > 1 ? chat.title : character?.name || chat.title} accent={character?.accent} imageSrc={members.length > 1 ? undefined : avatarSrc} size={48} />
               </span>
             )}
             <div className={cn("flex-1 flex flex-col overflow-hidden min-w-0", collapsed && "lg:hidden")}>
               <div className="flex items-center gap-1.5">
-                <span className={cn("flex-1 min-w-0 font-semibold text-[13.5px] truncate", terminal ? "text-[12px] font-bold" : "text-foreground")}>
+                <span className={cn("flex-1 min-w-0 truncate", terminal ? "text-[12px] font-bold" : "text-[15px] font-semibold leading-5 text-foreground")}>
                   <HighlightedText text={chat.title} query={query} />
                   {terminal && ".log"}
                 </span>
@@ -827,24 +808,24 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onToggleMute, 
                     {terminal ? "waiting" : "Waiting for you"}
                   </span>
                 ) : (
-                  <span className={cn("text-[10.5px] flex-shrink-0", terminal ? "text-[10px] opacity-75" : unread > 0 ? "font-semibold text-primary" : "text-ink-faint")}>{formatChatTime(chat.timestamp)}</span>
+                  <span className={cn("flex-shrink-0", terminal ? "text-[10px] opacity-75" : unread > 0 ? "text-[12px] font-semibold text-primary-text" : "text-[12px] text-subtle")}>{formatChatTime(chat.timestamp)}</span>
                 )}
               </div>
               <div className="flex items-center gap-1.5 min-w-0">
                 {snippet ? (
-                  <span className={cn("flex-1 min-w-0 text-xs truncate", terminal ? "text-[11px] opacity-75" : "text-muted-foreground")}>
+                  <span className={cn("flex-1 min-w-0 truncate", terminal ? "text-[11px] opacity-75" : "text-[13.5px] leading-[19px] text-muted-foreground")}>
                     {terminal && "# "}
                     <HighlightedText text={snippet} query={query} />
                   </span>
                 ) : preview ? (
-                  <span className={cn("flex-1 min-w-0 text-xs truncate", terminal ? "text-[11px] opacity-75" : unread > 0 ? "text-foreground" : "text-muted-foreground")} data-slot="chat-preview">
+                  <span className={cn("flex-1 min-w-0 truncate", terminal ? "text-[11px] opacity-75" : cn("text-[13.5px] leading-[19px]", unread > 0 ? "text-foreground" : "text-muted-foreground"))} data-slot="chat-preview">
                     {terminal && "# "}
                     {preview.fromYou && <span aria-label="You:" className="mr-1 tracking-[-0.2em] text-subtle" data-slot="ticks" data-state="delivered">✓✓</span>}
                     {previewSpeaker && <span className="font-medium">{previewSpeaker}: </span>}
                     {preview.text}
                   </span>
                 ) : character?.description && !hidePreview ? (
-                  <span className={cn("flex-1 min-w-0 text-xs truncate", terminal ? "text-[11px] opacity-75" : "text-muted-foreground")}>
+                  <span className={cn("flex-1 min-w-0 truncate", terminal ? "text-[11px] opacity-75" : "text-[13.5px] leading-[19px] text-muted-foreground")}>
                     {terminal && "# "}
                     {character.description}
                   </span>
@@ -855,41 +836,29 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onToggleMute, 
                   <span
                     data-slot="unread-badge"
                     aria-label={`${unread} unread`}
-                    className={cn("min-w-[19px] h-[19px] px-1.5 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] font-semibold", chat.muted ? "bg-subtle/30 text-foreground" : "bg-primary text-primary-foreground")}
+                    className={cn("min-w-[20px] h-5 px-1.5 rounded-full flex-shrink-0 flex items-center justify-center text-[12px] font-bold", chat.muted ? "bg-sunken text-muted-foreground ring-1 ring-inset ring-border" : "bg-primary text-primary-foreground")}
                   >
                     {unread}
                   </span>
                 )}
               </div>
             </div>
-            {/* Pin, mute, archive and delete (#115), in one menu per row: on
-                hover with a mouse, always on a touch screen. */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  // Inside the row's link: neither open the chat nor close the drawer.
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    "h-auto w-auto p-1.5 rounded-lg flex-shrink-0 text-ink-faint hover:text-foreground hover:bg-primary/10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 [@media(hover:none)]:opacity-100",
-                    terminal && isActive && "text-primary-foreground/80 hover:text-primary-foreground",
-                    collapsed && "lg:hidden"
-                  )}
-                  title="Chat options"
-                  aria-label={`Chat options for ${chat.title}`}
-                >
-                  <FaChevronDown size={11} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                <DropdownMenuItem onSelect={() => onTogglePin(chat.id, Boolean(chat.pinned))}>{chat.pinned ? "Unpin chat" : "Pin chat"}</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onToggleMute(chat.id, Boolean(chat.muted))}>{chat.muted ? "Unmute" : "Mute"}</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onToggleArchive(chat.id, Boolean(chat.archived))}>{chat.archived ? "Unarchive chat" : "Archive chat"}</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => onDeleteChat(chat.id)} className="text-destructive focus:text-destructive">Delete chat</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <RowMenu
+              chat={chat}
+              open={menuFor === chat.id}
+              onOpenChange={(open) => setMenuFor(open ? chat.id : null)}
+              onTogglePin={onTogglePin}
+              onToggleMute={onToggleMute}
+              onToggleArchive={onToggleArchive}
+              onDeleteChat={onDeleteChat}
+              className={cn(
+                "h-auto w-auto p-1.5 rounded-lg flex-shrink-0 text-ink-faint hover:text-foreground hover:bg-primary/10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100",
+                // Touch: no chevron (long-press instead); terminal keeps it.
+                terminal ? "[@media(hover:none)]:opacity-100" : "[@media(hover:none)]:absolute [@media(hover:none)]:right-3 [@media(hover:none)]:top-1/2 [@media(hover:none)]:opacity-0 [@media(hover:none)]:pointer-events-none",
+                terminal && isActive && "text-primary-foreground/80 hover:text-primary-foreground",
+                collapsed && "lg:hidden"
+              )}
+            />
           </Link>
         );
       })}

@@ -15,6 +15,7 @@ import { fetchAdventures } from "./features/adventureSlice";
 import { LS_FONT_SIZE, LS_FIRST_USED_AT, SAMPLE_CHARACTER } from "./utils/constants";
 
 import PhoneTabBar from "./components/organisms/PhoneTabBar";
+import NavRail from "src/components/organisms/NavRail";
 import Sidebar from "src/components/organisms/Sidebar";
 import Header from "src/components/organisms/Header";
 import ServiceWorkerUpdater from "src/components/molecules/ServiceWorkerUpdater";
@@ -234,6 +235,9 @@ const AppContent = () => {
         <ChannelPoster />
         <RumorMill />
         <div className="flex flex-1 overflow-hidden">
+          {/* #150: the section rail on desktop, then the chat list (only in
+              Chats there), then the page. */}
+          <NavRail />
           <Sidebar />
           <main className="app-main flex-1 bg-background relative z-1 min-w-0">
             <Suspense fallback={<PageLoader />}>
