@@ -87,8 +87,9 @@ export const useReplyEffects = ({
   // the quote, once the message it points at is found.
   // Forwarded (#123): something they passed along is kept the same way.
   // A shared contact card (#128) is kept on the reply too.
-  const applyReplyQuote = (payload: { replyQuote?: string; forward?: string; contact?: { name: string; about: string } } | undefined, allMessages: Message[]) => {
-    if (!chatIdNum || (!payload?.replyQuote && !payload?.forward && !payload?.contact)) return;
+  // An event invite (#134) too.
+  const applyReplyQuote = (payload: { replyQuote?: string; forward?: string; contact?: { name: string; about: string }; invite?: Message["invite"] } | undefined, allMessages: Message[]) => {
+    if (!chatIdNum || (!payload?.replyQuote && !payload?.forward && !payload?.contact && !payload?.invite)) return;
     const reply = [...allMessages].reverse().find((m) => m.role === AI && m.id);
     if (!reply?.id) return;
     const quoted = payload.replyQuote ? findQuotedMessage(allMessages, payload.replyQuote) : undefined;
@@ -96,6 +97,7 @@ export const useReplyEffects = ({
       ...(quoted ? { replyTo: { id: quoted.id, text: quoteTextOf(quoted), from: "you" as const } } : {}),
       ...(payload.forward ? { forward: { text: payload.forward } } : {}),
       ...(payload.contact ? { contactCard: payload.contact } : {}),
+      ...(payload.invite ? { invite: payload.invite } : {}),
     };
     if (Object.keys(patch).length > 0) void dispatch(updateChatMessage({ chatId: chatIdNum, messageId: reply.id, patch }));
   };

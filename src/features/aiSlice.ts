@@ -1,3 +1,4 @@
+import { extractInvite } from "./chat/invites";
 import { ActivityEntry, logActivity } from "./life/activityLog";
 import { estimateCallCost, isFreeProvider } from "./spending/spending";
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
@@ -66,6 +67,7 @@ export interface GenerateAIResponseResult {
   groupName?: string; // a member renamed the group (#124)
   poll?: { question: string; options: string[] }; // a member started a poll (#124)
   contact?: { name: string; about: string }; // a shared contact card (#128)
+  invite?: Message["invite"]; // an event invite (#134)
   gameOver?: GameOutcome; // the mini-game ended, and who won (#52)
   sceneState?: Partial<SceneState>; // the scene's state as the reply left it (#9)
   photoDescription?: string; // what a helper model saw in the user's photo (#48)
@@ -352,7 +354,9 @@ export const generateAIResponse = createAsyncThunk(
       const polled = extractPoll(renamed.text);
       // Shared contacts (#128): a [Contact: ...] card at the end.
       const carded = extractContact(polled.text);
-      const responseWithoutTags = carded.text;
+      // Event invites (#134): an [Invite: ...] card at the end.
+      const invited = extractInvite(carded.text);
+      const responseWithoutTags = invited.text;
       const contact = carded.contact;
       const groupName = renamed.groupName;
       const poll = polled.poll;
@@ -381,6 +385,7 @@ export const generateAIResponse = createAsyncThunk(
         groupName,
         poll,
         contact,
+        invite: invited.invite,
         gameOver,
         sceneState,
         // Only a plain text reply can be an out-of-character refusal; image/

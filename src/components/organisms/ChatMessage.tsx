@@ -68,6 +68,7 @@ interface ChatMessageProps {
   onVote?: (msg: Message, option: number) => void; // your vote in a poll (#124)
   voterName?: (voter: "you" | number) => string; // names on a poll's votes (#124)
   onOpenContact?: (msg: Message) => void; // message a shared contact (#128)
+  onAnswerInvite?: (msg: Message, answer: "accepted" | "declined") => void; // an event invite (#134)
   reactorName?: string; // who left msg.characterReaction, for its label
   // Texting mode (#6): show a reply as several bubbles. visibleParts limits
   // how many are shown while a new reply is being revealed; receipt is the
@@ -192,6 +193,7 @@ const ChatMessage = React.memo(({
   onVote,
   voterName,
   onOpenContact,
+  onAnswerInvite,
   reactorName,
   texting = false,
   visibleParts,
@@ -875,6 +877,30 @@ const ChatMessage = React.memo(({
                 <button type="button" onClick={() => onOpenContact(msg)} className="w-full border-t border-border py-2.5 text-[14px] font-semibold text-primary-text hover:bg-primary/5" aria-label={`Message ${msg.contactCard.name}`}>
                   Message
                 </button>
+              )}
+            </div>
+          )}
+          {/* An event invite (#134): what, when, where; accept or decline. */}
+          {msg.invite && (
+            <div data-slot="invite-card" role="group" aria-label={`Invite: ${msg.invite.what}`} className="mt-1.5 w-[290px] max-w-full overflow-hidden rounded-xl bg-foreground/[0.07] font-sans">
+              <div className="flex items-center gap-2.5 p-3">
+                <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-[10px] bg-sunken text-primary-text">
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
+                </span>
+                <div className="min-w-0">
+                  <div className="text-[14.5px] font-semibold leading-5">{msg.invite.what}</div>
+                  {(msg.invite.when || msg.invite.where) && <div className="text-[12.5px] opacity-80">{[msg.invite.when, msg.invite.where].filter(Boolean).join(" · ")}</div>}
+                </div>
+              </div>
+              {msg.invite.answer ? (
+                <div className={cn("border-t border-border px-3 py-2 text-[13px] font-semibold", msg.invite.answer === "accepted" ? "text-success" : "opacity-75")}>
+                  {msg.invite.answer === "accepted" ? "✓ You're going" : "You declined"}
+                </div>
+              ) : onAnswerInvite && (
+                <div className="grid grid-cols-2 gap-1.5 border-t border-border p-1.5">
+                  <Button type="button" variant="ghost" onClick={() => onAnswerInvite(msg, "declined")} className="h-10 rounded-[10px] ring-1 ring-inset ring-border-strong">Decline</Button>
+                  <Button type="button" onClick={() => onAnswerInvite(msg, "accepted")} className="h-10 rounded-[10px]">Accept</Button>
+                </div>
               )}
             </div>
           )}

@@ -583,6 +583,7 @@ export interface SceneContext {
   concernsNote?: string; // what's going on in the character's own life (#110)
   placeNote?: string; // where they live: local time, weather, holidays (#112)
   disappearingNote?: string; // disappearing messages are on (#136)
+  inviteNote?: string; // they may send an invite; your last answer (#134)
 }
 
 // The single function replacing the copy-pasted "build history + build system
@@ -620,7 +621,7 @@ export const buildTurnContext = (
     ...(scene?.giftsNote ? [scene.giftsNote] : []),
     ...(scene?.plansNote ? [scene.plansNote] : []),
     ...(scene?.secretsNote ? [scene.secretsNote] : []),
-    ...[scene?.whatIfNote, scene?.dayNote, scene?.dayMoodNote, scene?.moodNote, scene?.jokesNote, scene?.conflictNote, scene?.liesNote, scene?.jealousyNote, scene?.dreamNote, scene?.hookNote, scene?.slipsNote, scene?.callbackNote, scene?.concernsNote, scene?.placeNote, scene?.statusNote, scene?.quoteNote, scene?.groupNote, scene?.profileNote, scene?.disappearingNote].filter((n): n is string => Boolean(n)),
+    ...[scene?.whatIfNote, scene?.dayNote, scene?.dayMoodNote, scene?.moodNote, scene?.jokesNote, scene?.conflictNote, scene?.liesNote, scene?.jealousyNote, scene?.dreamNote, scene?.hookNote, scene?.slipsNote, scene?.callbackNote, scene?.concernsNote, scene?.placeNote, scene?.statusNote, scene?.quoteNote, scene?.groupNote, scene?.profileNote, scene?.disappearingNote, scene?.inviteNote].filter((n): n is string => Boolean(n)),
     ...(scene?.language ? [buildLanguageDirective(scene.language, activePersona?.name?.trim() || "The user")] : []),
     ...(scene?.coWriting && character ? [buildCoWritingDirective(character.name, activePersona?.name?.trim() || "the user")] : []),
     ...(scene?.stage ? [buildStageSection(scene.stage, activePersona?.name?.trim() || "the user")] : []),

@@ -70,6 +70,8 @@ export interface Message {
   poll?: Poll;
   // A shared contact (#128): who it is, and the character made from it.
   contactCard?: { name: string; about: string; characterId?: number };
+  // An event invite (#134): what, when, where, and your answer.
+  invite?: { what: string; when?: string; where?: string; answer?: "accepted" | "declined"; planId?: string };
   reaction?: string; // the user's emoji reaction to this message (#11)
   // The character's emoji reaction to this (user) message (#11), and who
   // reacted in a room.
