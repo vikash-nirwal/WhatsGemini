@@ -380,12 +380,12 @@ const ChatMessage = React.memo(({
     setActionsOpen(true);
   }, [cancelPress]);
 
-  const sheetActions: { label: string; icon: React.ComponentType<{ size?: number; className?: string }>; onSelect: () => void; disabled?: boolean; danger?: boolean }[] = [
+  const sheetActions: { label: string; icon: React.ComponentType<{ size?: number; className?: string }>; onSelect: () => void; disabled?: boolean; danger?: boolean; hint?: string }[] = [
     ...(canReply ? [{ label: "Reply", icon: FaReply, onSelect: handleReply }] : []),
     { label: "Copy", icon: FaCopy, onSelect: handleCopy },
     ...(onInfo && isUser ? [{ label: "Info", icon: FaInfoCircle, onSelect: onInfo }] : []),
     ...(onForward && canReply ? [{ label: "Forward", icon: FaShare, onSelect: () => onForward(msg) }] : []),
-    ...(!isUser && !msg.isImpersonated ? [{ label: "Regenerate", icon: FaRedo, onSelect: handleRegenerate, disabled: aiLoading }] : []),
+    ...(!isUser && !msg.isImpersonated ? [{ label: "Regenerate", icon: FaRedo, onSelect: handleRegenerate, disabled: aiLoading, hint: siblingInfo ? `${siblingInfo.index + 1} / ${siblingInfo.total}` : undefined }] : []),
     ...(!isUser && !msg.isImpersonated && isLastMessage && onContinue ? [{ label: "Continue", icon: FaForward, onSelect: handleContinue, disabled: aiLoading }] : []),
     ...(canReadAloud ? [{ label: readAloudLabel, icon: speaking ? FaStop : FaVolumeUp, onSelect: handleReadAloud }] : []),
     { label: "Edit", icon: FaEdit, onSelect: handleEdit, disabled: isUser && aiLoading },
@@ -395,25 +395,59 @@ const ChatMessage = React.memo(({
     ...(canFork ? [{ label: "Start a new chat from here", icon: FaCodeBranch, onSelect: handleFork, disabled: aiLoading }] : []),
     ...(onDeleteBranch ? [{ label: siblingInfo ? "Delete this variant" : "Delete message", icon: FaTrash, onSelect: handleDeleteBranch, disabled: aiLoading, danger: true }] : []),
   ];
+  // The phone's long-press sheet (#153), as on the canvas: reactions and the
+  // message lifted above it, the four everyday actions as tiles, the rest in
+  // a list, and Delete set apart.
+  const TILES = ["Reply", "Forward", "Copy", bookmarkLabel];
+  const tiles = TILES.map((label) => sheetActions.find((a) => a.label === label)).filter((a): a is (typeof sheetActions)[number] => Boolean(a));
+  const listed = sheetActions.filter((a) => !TILES.includes(a.label) && !a.danger);
+  const dangerous = sheetActions.filter((a) => a.danger);
+  const run = (action: (typeof sheetActions)[number]) => {
+    setActionsOpen(false);
+    action.onSelect();
+  };
   const actionSheet = (
     <Dialog open={actionsOpen} onOpenChange={setActionsOpen}>
-      <DialogContent aria-describedby={undefined} size="sheet">
+      <DialogContent aria-describedby={undefined} size="sheet" className="overflow-visible bg-popover px-3">
         <DialogTitle className="sr-only">Message actions</DialogTitle>
-        {canReact && <ReactionRow current={msg.reaction} onPick={(emoji) => { setActionsOpen(false); handleReact(emoji); }} />}
-        {/* Scrolls inside the sheet when the actions outgrow a short screen. */}
-        <div role="menu" aria-label="Message actions" className="flex flex-col max-h-[65dvh] overflow-y-auto">
-          {sheetActions.map((action) => (
-            <button
-              key={action.label}
-              type="button"
-              role="menuitem"
-              disabled={action.disabled}
-              onClick={() => { setActionsOpen(false); action.onSelect(); }}
-              className={cn(
-                "flex items-center gap-3 px-4 py-3.5 rounded-xl text-left text-[15px] font-sans disabled:opacity-50",
-                action.danger ? "text-destructive hover:bg-destructive/10" : "text-foreground hover:bg-raised"
-              )}
-            >
+        {/* The message, lifted above the sheet, with the reactions over it. */}
+        <div className="pointer-events-none absolute inset-x-3 bottom-full mb-3 flex flex-col gap-2.5">
+          {canReact && (
+            <div className="pointer-events-auto w-fit">
+              <ReactionRow current={msg.reaction} onPick={(emoji) => { setActionsOpen(false); handleReact(emoji); }} />
+            </div>
+          )}
+          <div aria-hidden className={cn("max-w-[86%] rounded-bubble px-3 py-2 font-serif text-[15px] leading-[22px] shadow-sheet line-clamp-5", isUser ? "self-end bg-bubble-out text-bubble-out-text" : "self-start bg-bubble-in text-bubble-in-text")}>
+            {msg.txt}
+          </div>
+        </div>
+        <div role="menu" aria-label="Message actions" className="flex max-h-[60dvh] flex-col gap-2 overflow-y-auto font-sans">
+          {tiles.length > 0 && (
+            <div className="grid gap-2 px-1 pb-1 pt-2" style={{ gridTemplateColumns: `repeat(${tiles.length}, minmax(0, 1fr))` }}>
+              {tiles.map((action) => (
+                <button key={action.label} type="button" role="menuitem" disabled={action.disabled} onClick={() => run(action)} aria-pressed={action.label === bookmarkLabel ? Boolean(msg.bookmarked) : undefined}
+                  className="flex h-[68px] flex-col items-center justify-center gap-1.5 rounded-card bg-sunken text-[12.5px] font-semibold text-foreground disabled:opacity-50">
+                  <action.icon size={17} className="text-muted-foreground" />
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {listed.length > 0 && (
+            <div className="overflow-hidden rounded-card bg-sunken">
+              {listed.map((action, i) => (
+                <button key={i} type="button" role="menuitem" disabled={action.disabled} onClick={() => run(action)}
+                  className={cn("flex h-12 w-full items-center gap-3.5 px-4 text-left text-[15px] font-medium text-foreground disabled:opacity-50", i > 0 && "border-t border-border")}>
+                  <action.icon size={15} className="flex-shrink-0 text-muted-foreground" />
+                  <span className="flex-1">{action.label}</span>
+                  {action.hint && <span aria-hidden className="text-[12px] text-subtle">{action.hint}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+          {dangerous.map((action) => (
+            <button key={action.label} type="button" role="menuitem" disabled={action.disabled} onClick={() => run(action)}
+              className="flex h-12 w-full items-center gap-3.5 rounded-card bg-sunken px-4 text-left text-[15px] font-semibold text-destructive disabled:opacity-50">
               <action.icon size={15} className="flex-shrink-0" />
               {action.label}
             </button>

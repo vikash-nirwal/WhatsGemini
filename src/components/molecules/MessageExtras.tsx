@@ -72,7 +72,7 @@ export const ReactionPicker = ({ current, onPick, className }: { current?: strin
 
 // The same choice inside the long-press action sheet on touch screens.
 export const ReactionRow = ({ current, onPick }: { current?: string; onPick: (emoji: string) => void }) => (
-  <div role="group" aria-label="React" className="flex justify-around px-2 pb-2 pt-1 border-b border-border mb-1">
+  <div role="group" aria-label="React" className="flex items-center gap-0.5 rounded-[28px] bg-popover p-1 shadow-sheet">
     {REACTION_EMOJIS.map((emoji) => (
       <button
         key={emoji}
@@ -80,7 +80,7 @@ export const ReactionRow = ({ current, onPick }: { current?: string; onPick: (em
         onClick={() => onPick(emoji)}
         aria-label={current === emoji ? `Remove ${emoji} reaction` : `React with ${emoji}`}
         aria-pressed={current === emoji}
-        className={cn("h-11 w-11 rounded-full text-2xl", current === emoji ? "bg-primary/15" : "hover:bg-secondary")}
+        className={cn("grid h-11 w-11 place-items-center rounded-full text-2xl", current === emoji ? "bg-primary/15" : "hover:bg-raised")}
       >
         {emoji}
       </button>
