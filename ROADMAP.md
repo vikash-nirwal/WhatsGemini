@@ -25,7 +25,7 @@ Picked by the user from the ideas after #113–#129. No voice features until the
 - **#139 Circles (L).** You set up circles of characters (a name, the members, how they know each other: "old school friends", "coworkers who can't stand the boss"), and members talk to each other on their own.
   - *When:* a background job, like the others: now and then two members, or the whole circle, have a short exchange about their own lives, plans among themselves, or you. Only while they're awake, a few a day at most, with the time and recent events so nothing goes stale.
   - *Cost limit:* each exchange is one helper call and at most **10 messages** by default, adjustable per circle (the user's choice, to keep API costs down). The life dial (#131) scales how often they happen.
-  - *What you see:* hidden by default, as on WhatsApp: you learn of it indirectly (a member brings it up, a status or comment refers to it, a rumor reaches you). A per-circle "Peek" switch shows their threads read-only. (Default proposed, not yet confirmed by the user.)
+  - *What you see:* hidden by default, as on WhatsApp: you learn of it indirectly (a member brings it up, a status or comment refers to it, a rumor reaches you). A per-circle "Peek" switch shows their threads read-only (confirmed by the user, 2026-10-25).
   - *How it feeds back:* each member's prompt gets a short note on recent circle talk; members comment on each other's statuses and share each other's contacts (#128); blocking (#133) uses circle members as the mutual contacts; the relationship map (#138) draws circles; now and then the circle invites you into a group chat ("we're planning Friday, you in?").
 
 ## Smaller follow-ups

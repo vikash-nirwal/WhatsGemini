@@ -25,7 +25,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #136 | Disappearing messages | todo |  |
 | #137 | Character stickers | todo |  |
 | #138 | Relationship map | todo |  |
-| #139 | Circles | todo | members talk on their own; at most 10 messages per exchange by default; hidden with a Peek switch (proposed) |
+| #139 | Circles | todo | members talk on their own; at most 10 messages per exchange by default; hidden, with a Peek switch to read their chats |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
 
