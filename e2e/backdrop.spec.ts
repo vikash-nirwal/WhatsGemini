@@ -30,7 +30,7 @@ const patch = (page: Page, store: "characters" | "chats", id: number, fields: Re
 
 test("an uploaded backdrop shows behind the chat, and can be removed", async ({ page }) => {
   await openChat(page);
-  await headerAction(page, "Scene & chat settings");
+  await headerAction(page, "Scene & story");
   await page.getByTestId("backdrop-input").setInputFiles({ name: "bg.png", mimeType: "image/png", buffer: Buffer.from(PNG, "base64") });
   await expect(page.locator('[data-slot="chat-backdrop"]')).toHaveCount(1);
   await page.getByRole("button", { name: "Remove", exact: true }).click();
@@ -52,7 +52,7 @@ test.describe("generated", () => {
     await page.reload();
     await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
 
-    await headerAction(page, "Scene & chat settings");
+    await headerAction(page, "Scene & story");
     await page.getByRole("button", { name: "Generate", exact: true }).click();
     await expect(page.locator('[data-slot="chat-backdrop"]')).toHaveCount(1, { timeout: 15_000 });
     expect(prompt).toContain("Wide atmospheric background scene: A rainy night in a small seaside town.; mood: noir.");
@@ -62,7 +62,7 @@ test.describe("generated", () => {
 
 test("without a setting, it says what to add first", async ({ page }) => {
   await openChat(page);
-  await headerAction(page, "Scene & chat settings");
+  await headerAction(page, "Scene & story");
   await page.getByRole("button", { name: "Generate", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Add a scenario, a world or setting tags first");
 });

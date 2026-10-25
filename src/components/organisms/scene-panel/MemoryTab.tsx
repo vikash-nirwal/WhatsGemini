@@ -198,7 +198,7 @@ const MemoryTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, ch
                 )
 
   return (
-          <div role="tabpanel" id="scene-tabpanel-memory" aria-labelledby="scene-tab-memory" className="flex flex-col gap-[22px]">
+          <div className="flex flex-col gap-[22px]">
           {/* Character growth (#60): accepted notes on how they've changed */}
           {!isRoom && character && (character.growth || []).length > 0 && (
             <div>

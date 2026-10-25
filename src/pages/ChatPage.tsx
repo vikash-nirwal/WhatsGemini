@@ -766,6 +766,7 @@ const ChatPage = () => {
   // scanning, and nothing fires once the tab/app is closed.
   const [isAutoReplyModalOpen, setIsAutoReplyModalOpen] = useState(false);
   const [sceneOpen, setSceneOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
   const [storyOpen, setStoryOpen] = useState(false);
   const [albumOpen, setAlbumOpen] = useState(false);
   const [scenarioOpen, setScenarioOpen] = useState(false);
@@ -2257,7 +2258,7 @@ const ChatPage = () => {
       ? [{ icon: FaCompressArrowsAlt, label: "Summarize and compress older messages to save tokens", onClick: handleCompress, disabled: aiCompressing }]
       : []),
     ...(messages.length > 0
-      ? [{ icon: FaBolt, label: isRoom ? "Make the next bot send a follow-up now" : `Make ${characterData?.name || "them"} send a follow-up now`, onClick: handleManualFollowup, disabled: aiLoading, primary: true, shortLabel: "follow-up" }]
+      ? [{ icon: FaBolt, label: isRoom ? "Make the next bot send a follow-up now" : `Make ${characterData?.name || "them"} send a follow-up now`, onClick: handleManualFollowup, disabled: aiLoading, shortLabel: "follow-up" }]
       : []),
     ...(messages.length > 0
       ? [
@@ -2288,9 +2289,14 @@ const ChatPage = () => {
       ? [{ icon: FaGamepad, label: "Play a game", onClick: () => setGameOpen(true), disabled: aiLoading || Boolean(currentChat?.game) }]
       : []),
     { icon: FaClock, label: "Auto follow-up settings", onClick: () => setIsAutoReplyModalOpen(true), active: autoReplySettings.enabled },
-    { icon: FaSlidersH, label: "Scene & chat settings", onClick: () => { setSceneOpen((v) => !v); setParticipantsOpen(false); }, active: sceneOpen, primary: true, shortLabel: "scene" },
+    // #151: the header keeps three things - the title (Contact info), this
+    // and "more"; the rest of these live in the more menu.
+    { icon: FaSlidersH, label: "Scene & story", onClick: () => { setSceneOpen((v) => !v); setParticipantsOpen(false); setContactOpen(false); }, active: sceneOpen, primary: true, labelled: true, shortLabel: "scene" },
     ...(roomCharacters.length > 0
-      ? [{ icon: FaUsers, label: isRoom ? "Participants" : "Invite someone", onClick: () => { setParticipantsOpen((v) => !v); setSceneOpen(false); }, active: participantsOpen, primary: true, shortLabel: "people" }]
+      ? [{ icon: FaUsers, label: isRoom ? "Participants" : "Invite someone", onClick: () => { setParticipantsOpen((v) => !v); setSceneOpen(false); setContactOpen(false); }, active: participantsOpen, shortLabel: "people" }]
+      : []),
+    ...(characterData
+      ? [{ icon: FaUserCircle, label: "View current portrait", onClick: () => setPortraitPreviewOpen(true) }]
       : []),
     ...(personas.length > 1
       ? [{ icon: FaUserCircle, label: `Persona: ${activePersona?.name || "None"}`, onClick: () => setIsPersonaModalOpen(true), active: Boolean(currentChat?.personaId) }]
@@ -2304,16 +2310,20 @@ const ChatPage = () => {
         subtitle={isRoom ? `With ${roomCharacters.map((c) => c.name).join(", ")}` : (presence?.label || characterData?.relationship || characterData?.description)}
         online={presence ? presence.online : true}
         avatar={
-          <button
-            type="button"
-            onClick={() => setPortraitPreviewOpen(true)}
-            className="rounded-full"
-            aria-label="View current portrait"
-            title="View current portrait"
-          >
-            <CharacterAvatar name={characterData?.name || character} accent={characterData?.accent} imageSrc={headerEmotionImageSrc} size={34} />
-          </button>
+          // A group shows its members' faces, so nobody's stands for all of
+          // them (#151, the "GG" bug's header half).
+          isRoom ? (
+            <span className="flex flex-shrink-0 -space-x-3">
+              {roomCharacters.slice(0, 3).map((c) => (
+                <CharacterAvatar key={c.id} name={c.name} accent={c.accent} imageSrc={avatarOf(c)} size={34} className="ring-2 ring-surface" />
+              ))}
+            </span>
+          ) : (
+            <CharacterAvatar name={characterData?.name || character} accent={characterData?.accent} imageSrc={headerEmotionImageSrc} size={40} />
+          )
         }
+        onTitleClick={isRoom ? () => { setParticipantsOpen(true); setSceneOpen(false); setContactOpen(false); } : characterData ? () => { setContactOpen((v) => !v); setSceneOpen(false); setParticipantsOpen(false); } : undefined}
+        titleLabel={isRoom ? "Open the group's members" : `Open ${characterData ? `${characterData.name}'s` : "their"} contact info`}
         actionGroups={[chatActions]}
       />
 
@@ -2396,7 +2406,7 @@ const ChatPage = () => {
             </div>
           </div>
         )}
-        <ChatWindow awayNote={awayNote} onFork={handleFork} stageSuggestion={currentChat?.stage && currentChat.stageSuggestion ? { from: currentChat.stage, to: currentChat.stageSuggestion } : undefined} onAcceptStage={acceptStage} onDismissStage={dismissStage} coWriting={!isRoom && Boolean(currentChat?.coWriting)} onSuggestNext={handleSuggestNext} onTranslate={currentChat?.language ? handleTranslate : undefined} onReplyToLetter={(letter) => setDraftInjection({ text: letterReplyDraft(letter), nonce: Date.now() })} arcSuggestion={currentChat?.arcSuggestion} onAcceptArc={acceptArc} onDismissArc={dismissArc} relationshipSuggestion={currentChat?.relationshipSuggestion} onAcceptRelationship={acceptRelationship} onDismissRelationship={dismissRelationship} game={currentChat?.game} gameScore={currentChat?.gameScore} onEndGame={() => chatIdNum && dispatch(updateChatOptions({ chatId: chatIdNum, patch: { game: undefined } }))} storyScript={currentChat?.storyScript} onEditStory={() => setStoryOpen(true)} onMoveBeat={moveStoryBeat} onReply={(m) => setReplyingTo(m)} onViewOnce={openViewOnce} onVote={votePoll} onOpenContact={(m) => void openContact(m)} recap={recap} onToggleBookmark={handleToggleBookmark} onUndoSummary={handleUndoSummary} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} />
+        <ChatWindow awayNote={awayNote} onFork={handleFork} stageSuggestion={currentChat?.stage && currentChat.stageSuggestion ? { from: currentChat.stage, to: currentChat.stageSuggestion } : undefined} onAcceptStage={acceptStage} onDismissStage={dismissStage} coWriting={!isRoom && Boolean(currentChat?.coWriting)} onSuggestNext={handleSuggestNext} onTranslate={currentChat?.language ? handleTranslate : undefined} onReplyToLetter={(letter) => setDraftInjection({ text: letterReplyDraft(letter), nonce: Date.now() })} arcSuggestion={currentChat?.arcSuggestion} onAcceptArc={acceptArc} onDismissArc={dismissArc} relationshipSuggestion={currentChat?.relationshipSuggestion} onAcceptRelationship={acceptRelationship} onDismissRelationship={dismissRelationship} game={currentChat?.game} gameScore={currentChat?.gameScore} onEndGame={() => chatIdNum && dispatch(updateChatOptions({ chatId: chatIdNum, patch: { game: undefined } }))} storyScript={currentChat?.storyScript} onEditStory={() => setStoryOpen(true)} onMoveBeat={moveStoryBeat} onReply={(m) => setReplyingTo(m)} onViewOnce={openViewOnce} onVote={votePoll} onOpenContact={(m) => void openContact(m)} recap={recap} onToggleBookmark={handleToggleBookmark} onUndoSummary={handleUndoSummary} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={characters} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} contactOpen={contactOpen} onCloseContact={() => setContactOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} />
         {inCall && characterData && (
           <CallScreen
             name={characterData.name}
@@ -2449,10 +2459,11 @@ const ChatPage = () => {
           terminal
             ? "relative flex-none w-full px-4 md:px-[26px] pt-3.5 pb-5 border-t border-border bg-background z-20"
             : cn(
-                "absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 transform -translate-x-1/2 w-full max-w-4xl px-4 z-20",
-                // With a side panel open as a column (xl and up, 300px), center
+                // #149: as wide as the message lane (ChatWindow), with its gutters.
+                "absolute bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 transform -translate-x-1/2 w-full max-w-[824px] px-3 md:px-8 z-20",
+                // With a side panel open as a column (from 1360px, 392px), center
                 // over the chat column only instead of running under the panel.
-                (sceneOpen || participantsOpen) && "xl:left-[calc(50%-150px)] xl:w-[calc(100%-300px)]"
+                (sceneOpen || participantsOpen || contactOpen) && "min-[1360px]:left-[calc(50%-196px)] min-[1360px]:w-[calc(100%-392px)]"
               )
         }
       >
@@ -2467,7 +2478,8 @@ const ChatPage = () => {
           onDraftActivity={handleDraftActivity}
           tokenCount={aiTokenCount}
           costEstimate={aiCostEstimate}
-          characterName={characterData?.name || character}
+          // A group's composer names the group, not its first member (#151).
+          characterName={isRoom ? "the group" : characterData?.name || character}
           contextTokens={contextTokenEstimate}
           maxContextTokens={maxContextTokens}
           totalChatTokens={currentChat?.totalTokensUsed}

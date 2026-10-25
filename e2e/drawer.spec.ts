@@ -4,6 +4,9 @@ import { expectDrawerClosed, expectDrawerOpen, usesDrawer } from "./layout";
 // U5: the off-canvas drawer must close on every route change, not only when
 // one of its own links is tapped - otherwise it covers the page you went to.
 test.describe("sidebar drawer", () => {
+  // Since #150 every other theme has the phone shell (the list is home, with
+  // tabs); the terminal theme keeps the drawer.
+  test.use({ localStorageOverrides: { color_theme: "terminal" } });
   test.beforeEach(async ({ page }) => {
     test.skip(!usesDrawer(page), "the sidebar is docked at this width");
   });
@@ -47,7 +50,7 @@ test.describe("sidebar drawer", () => {
   test("still closes from its own links", async ({ page }) => {
     await openRoute(page, "/characters");
     await openDrawer(page);
-    await page.getByRole("complementary", { name: "Sidebar" }).getByText("Aria", { exact: true }).first().click();
+    await page.getByRole("complementary", { name: "Sidebar" }).getByRole("link").filter({ hasText: "Aria.log" }).first().click();
     await expect(page).toHaveURL(/#\/chat\/1$/);
     await expectDrawerClosed(page);
   });

@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openChat, sendMessage, waitForReplyDone, messageBubble, PHONE_REDESIGN_SKIP } from "./fixtures";
+import { test, expect, openChat, sendMessage, waitForReplyDone, messageBubble, PHONE_REDESIGN_SKIP, messageAction } from "./fixtures";
 
 // Send them a photo (#48): a vision model gets the photo itself; otherwise
 // a vision-capable helper describes it; otherwise the character is told
@@ -44,7 +44,9 @@ test.describe("with a vision model", () => {
     await attachPhoto(page);
     await page.getByRole("button", { name: "Remove photo 1" }).click();
     await expect(page.getByRole("group", { name: "Attached photos" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Send Message" })).toBeDisabled();
+    // Nothing to send: Send is disabled, or the voice-note button has its
+    // place (#149).
+    await expect(page.getByRole("button", { name: "Send Message", disabled: false })).toHaveCount(0);
 
     await attachPhoto(page);
     await page.getByRole("button", { name: "Send Message" }).click();
@@ -107,14 +109,14 @@ test.describe("editing and regenerating", () => {
 
     const reply = messageBubble(page, "What a view!");
     await reply.hover();
-    await reply.getByRole("button", { name: "Regenerate" }).click();
+    await messageAction(page, reply, "Regenerate");
     await expect(messageBubble(page, "Gorgeous, where is it?")).toBeVisible();
     await waitForReplyDone(page);
     expect(Array.isArray(lastUserContent(mockAI.requests[1].messages))).toBe(true);
 
     const mine = messageBubble(page, "Look where I am");
     await mine.hover();
-    await mine.getByRole("button", { name: "Edit", exact: true }).click();
+    await messageAction(page, mine, "Edit", { exact: true });
     const dialog = page.getByRole("dialog", { name: "Edit Message" });
     await dialog.getByRole("textbox").fill("Look where I am now");
     await dialog.getByRole("button", { name: "Save Changes" }).click();

@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openChat, openRoute, sendMessage, waitForReplyDone, headerAction, messageBubble, MockAIRequest, chatMessages } from "./fixtures";
+import { test, expect, openChat, openRoute, sendMessage, waitForReplyDone, headerAction, messageBubble, MockAIRequest, chatMessages, openContactInfo } from "./fixtures";
 
 // Characters who feel alive between messages (#93-#96): they text first,
 // tell you their dreams, have off days, and pick up inside jokes.
@@ -17,11 +17,12 @@ const sendAndWait = async (page: Page, requests: MockAIRequest[], text: string) 
   await waitForReplyDone(page);
 };
 
-const openTab = async (page: Page, tab: "Chat" | "Story") => {
-  await headerAction(page, "Scene & chat settings");
+const openTab = async (page: Page, tab: "Options" | "Story") => {
+  await headerAction(page, "Scene & story");
   await page.getByRole("tab", { name: tab, exact: true }).click();
 };
 const closePanel = (page: Page) => page.getByRole("button", { name: "Close scene panel" }).click();
+const closeContact = (page: Page) => page.getByRole("button", { name: "Close contact info" }).click();
 
 const readRow = (page: Page, store: string, id: number) =>
   page.evaluate(
@@ -48,9 +49,9 @@ test("a character with the switch on texts first after a quiet spell", async ({ 
   await page.clock.install({ time: MORNING });
   mockAI.reply((req) => (req.prompt.includes("now you're messaging first") ? "saw a dog in a tiny raincoat and thought of you" : "Mock reply"));
   await openChat(page);
-  await openTab(page, "Chat");
+  await openContactInfo(page);
   await page.getByRole("switch", { name: "Aria texts first" }).click();
-  await closePanel(page);
+  await closeContact(page);
   // The seeded chat was last used months ago.
   await page.clock.fastForward(25_000);
 
@@ -123,9 +124,9 @@ test("on a morning, the first reply can open with a dream", async ({ page, mockA
   await page.clock.install({ time: MORNING });
   mockAI.reply("I dreamt the café was underwater and you were serving tea to fish.");
   await openChat(page);
-  await openTab(page, "Chat");
+  await openContactInfo(page);
   await page.getByRole("switch", { name: "Aria has dreams" }).click();
-  await closePanel(page);
+  await closeContact(page);
 
   await sendAndWait(page, mockAI.requests, "Morning!");
   expect(lastSystem(mockAI.requests)).toContain("Aria had a vivid dream last night");
@@ -143,12 +144,12 @@ test("on a morning, the first reply can open with a dream", async ({ page, mockA
 test("an off day can be picked for today, and the replies follow it", async ({ page, mockAI }) => {
   mockAI.reply("*yawns* Sorry, long night.");
   await openChat(page);
-  await openTab(page, "Chat");
+  await openContactInfo(page);
   await page.getByRole("switch", { name: "Aria has off days" }).click();
   await page.getByRole("combobox", { name: "Today's mood" }).click();
   await page.getByRole("option", { name: "tired" }).click();
   await expect(page.getByText("Today: tired")).toBeVisible();
-  await closePanel(page);
+  await closeContact(page);
 
   await sendAndWait(page, mockAI.requests, "You okay?");
   expect(lastSystem(mockAI.requests)).toContain("Today Aria is having an off day: tired");
@@ -184,10 +185,10 @@ test("a character can leave you on read and answer later", async ({ page, mockAI
   await page.clock.install({ time: MORNING });
   mockAI.reply("sorry, was buried in work. yes!");
   await openChat(page);
-  await openTab(page, "Chat");
+  await openContactInfo(page);
   await page.getByRole("combobox", { name: "Aria leaves you on read" }).click();
   await page.getByRole("option", { name: "Always" }).click();
-  await closePanel(page);
+  await closeContact(page);
 
   await sendMessage(page, "Coffee later?");
   await page.waitForTimeout(500);

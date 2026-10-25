@@ -14,8 +14,8 @@ test("the chat becomes one shared story, and ideas for what happens next fill th
       : "The train slowed as the snow thickened, and somewhere ahead a whistle cried out."
   );
   await openChat(page);
-  await headerAction(page, "Scene & chat settings");
-  await page.getByRole("tab", { name: "Chat", exact: true }).click();
+  await headerAction(page, "Scene & story");
+  await page.getByRole("tab", { name: "Options", exact: true }).click();
   await page.getByRole("switch", { name: "Co-writing mode" }).click();
   await page.getByRole("button", { name: "Close scene panel" }).click();
 

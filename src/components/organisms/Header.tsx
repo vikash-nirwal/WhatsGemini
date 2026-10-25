@@ -33,6 +33,9 @@ export interface HeaderAction {
   // collapses into the trailing "more" menu instead of a long flat row of
   // icons - same idea the mobile menu below already applies to everything.
   primary?: boolean;
+  // #151: a primary action shown as an icon with its words ("Scene &
+  // story"), not a bare icon.
+  labelled?: boolean;
 }
 
 interface HeaderProps {
@@ -43,6 +46,10 @@ interface HeaderProps {
   online?: boolean;
   avatar?: React.ReactNode;
   onBack?: () => void;
+  // #151: the avatar and title together open this (a chat's Contact info),
+  // with this accessible name.
+  onTitleClick?: () => void;
+  titleLabel?: string;
   // Page-specific action groups (e.g. Chat's Export/Compress/Follow-up),
   // rendered before the built-in App/Session groups, each separated by a divider.
   actionGroups?: HeaderAction[][];
@@ -63,7 +70,7 @@ export const iconBtnClass = "flex items-center justify-center w-9 h-9 rounded-fu
 const iconBtnActiveClass = "flex items-center justify-center w-9 h-9 rounded-full border-0 shadow-none bg-primary/[0.14] text-primary hover:bg-primary/[0.2] transition flex-shrink-0";
 const iconBtnDangerClass = "flex items-center justify-center w-9 h-9 rounded-full border-0 shadow-none surface-raised bg-transparent text-subtle hover:bg-destructive/10 hover:text-destructive transition flex-shrink-0";
 
-const Header: React.FC<HeaderProps> = ({ title, subtitle, online = true, avatar, onBack, actionGroups = [] }) => {
+const Header: React.FC<HeaderProps> = ({ title, subtitle, online = true, avatar, onBack, onTitleClick, titleLabel, actionGroups = [] }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { open } = useSidebar();
@@ -100,12 +107,15 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, online = true, avatar,
   // overflow there. Logging out lives in Settings (Text Generation Model -
   // it clears that provider's own API key) rather than as a global header
   // action.
+  // #150: outside the terminal theme the rail (desktop) and tabs (phones)
+  // reach the sections, so these sit in the "more" menu there.
+  const appPrimary = is("terminal");
   const appGroup: HeaderAction[] = [
-    { icon: isDark ? FaSun : FaMoon, label: "Toggle theme", shortLabel: isDark ? "light" : "dark", onClick: toggleTheme, primary: true },
-    { icon: FaQuestionCircle, label: "Keyboard shortcuts", shortLabel: "?", onClick: () => setShowShortcuts(true), primary: true },
-    { icon: FaUserFriends, label: "Characters", onClick: () => navigate("/characters"), active: isCharacters, primary: true },
-    { icon: FaHatWizard, label: "Adventures", onClick: () => navigate("/adventures"), active: isAdventures, primary: true },
-    { icon: FaCog, label: "Settings", onClick: () => navigate("/settings/profile"), active: isSettings, primary: true },
+    { icon: isDark ? FaSun : FaMoon, label: "Toggle theme", shortLabel: isDark ? "light" : "dark", onClick: toggleTheme, primary: appPrimary },
+    { icon: FaQuestionCircle, label: "Keyboard shortcuts", shortLabel: "?", onClick: () => setShowShortcuts(true), primary: appPrimary },
+    { icon: FaUserFriends, label: "Characters", onClick: () => navigate("/characters"), active: isCharacters, primary: appPrimary },
+    { icon: FaHatWizard, label: "Adventures", onClick: () => navigate("/adventures"), active: isAdventures, primary: appPrimary },
+    { icon: FaCog, label: "Settings", onClick: () => navigate("/settings/profile"), active: isSettings, primary: appPrimary },
   ];
 
   const groups = [...actionGroups, appGroup].filter((g) => g.length > 0);
@@ -194,7 +204,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, online = true, avatar,
   }
 
   return (
-    <header className="h-[60px] flex-shrink-0 border-b border-border/40 bg-card flex items-center gap-2.5 px-3 md:px-4 z-20">
+    <header className="h-16 flex-shrink-0 border-b border-border bg-surface flex items-center gap-2.5 px-3 md:px-4 z-20">
       {shell && avatar && !onBack ? (
         <Button onClick={() => navigate("/")} variant="outline" size="icon" title="Chats" aria-label="Back to chats" className={cn(iconBtnClass, "lg:hidden")} data-slot="back-to-chats">
           <FaArrowLeft size={15} />
@@ -217,18 +227,29 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, online = true, avatar,
         </Button>
       )}
 
-      <div className="flex items-center gap-2.5 min-w-0">
-        {avatar}
-        <div className="min-w-0 leading-tight">
-          <div className={cn("text-[15px] font-semibold truncate text-foreground", avatar ? "font-serif" : "font-sans")}>{title}</div>
-          {subtitle && (
-            <div className="text-[11.5px] text-muted-foreground truncate flex items-center gap-1.5">
-              {avatar && <span aria-hidden className={cn("w-[6px] h-[6px] rounded-full flex-shrink-0", online ? "bg-success" : "bg-subtle")} />}
-              {subtitle}
-            </div>
-          )}
-        </div>
-      </div>
+      {(() => {
+        const titleBlock = (
+          <>
+            {avatar}
+            <span className="min-w-0 leading-tight text-left">
+              <span className="block text-[16px] font-semibold truncate text-foreground">{title}</span>
+              {subtitle && (
+                <span className="text-[12px] text-muted-foreground truncate flex items-center gap-1.5">
+                  {avatar && <span aria-hidden className={cn("w-[6px] h-[6px] rounded-full flex-shrink-0", online ? "bg-success" : "bg-subtle")} />}
+                  <span className="truncate">{subtitle}</span>
+                </span>
+              )}
+            </span>
+          </>
+        );
+        return onTitleClick ? (
+          <button type="button" onClick={onTitleClick} aria-label={titleLabel} data-slot="header-title" className="flex min-w-0 items-center gap-3 rounded-xl py-1 pr-2 hover:bg-raised">
+            {titleBlock}
+          </button>
+        ) : (
+          <div className="flex items-center gap-2.5 min-w-0">{titleBlock}</div>
+        );
+      })()}
 
       <div className="flex-1" />
 
@@ -238,7 +259,20 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, online = true, avatar,
           docked sidebar their icon row squeezed the title down to "A..", and
           now that the sidebar is a drawer there the menu keeps it roomy. */}
       <div className="hidden lg:flex items-center gap-1">
-        {primaryActions.map((action, ai) => (
+        {primaryActions.map((action, ai) => action.labelled ? (
+          <Button
+            key={ai}
+            onClick={action.onClick}
+            disabled={action.disabled}
+            variant="ghost"
+            aria-label={action.label}
+            aria-pressed={action.active}
+            className={cn("h-10 gap-2 rounded-[10px] px-3 text-[14px] font-semibold", action.active ? "bg-primary/[0.14] text-primary-text hover:bg-primary/[0.2]" : "text-muted-foreground hover:bg-raised hover:text-foreground")}
+          >
+            <action.icon size={15} />
+            {action.label}
+          </Button>
+        ) : (
           <Tooltip key={ai}>
             <TooltipTrigger asChild>
               <Button

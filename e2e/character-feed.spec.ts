@@ -30,7 +30,11 @@ const withDb = <T,>(page: Page, id: number, fields?: Record<string, unknown>) =>
     { id, fields }
   ) as Promise<T>;
 
-test.skip(({ viewport }) => (viewport?.width ?? 0) < 1024, "the sidebar is always shown on wide screens; phones open it from the menu");
+// Statuses open from Updates (#150), on every screen size.
+const openStatus = async (page: Page) => {
+  await page.goto("./#/updates");
+  await page.getByRole("region", { name: "Recent updates" }).getByRole("button", { name: "Aria's status, new" }).click({ timeout: 30_000 });
+};
 
 const STATUS = { id: "s1", text: "Pottery class tonight!", createdAt: Date.now() - 60_000, likes: [KAI.id], comments: [{ id: "c1", from: KAI.id, text: "Don't break the wheel.", at: Date.now() - 30_000 }] };
 
@@ -41,7 +45,7 @@ test("a status shows likes and comments; you can like it and comment, and Aria a
   await page.reload();
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
 
-  await page.getByRole("button", { name: "Aria's status, new" }).click();
+  await openStatus(page);
   const viewer = page.getByRole("dialog", { name: "Aria's status" });
   await expect(viewer).toContainText("Liked by Kai");
   await expect(viewer.getByRole("list", { name: "Comments" })).toContainText("Kai Don't break the wheel.");
@@ -65,7 +69,9 @@ test("the feed lists every character's statuses, newest first", async ({ page })
   await withDb(page, KAI.id, { statuses: [{ id: "k1", text: "Rebuilt the carburettor. Again.", createdAt: Date.now() - 10_000 }] });
   await page.reload();
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
-  await page.getByRole("button", { name: "Feed", exact: true }).click();
+  // The feed opens from Updates (#150: the sidebar's status row is gone).
+  await page.goto("./#/updates");
+  await page.getByRole("button", { name: "All posts" }).click({ timeout: 30_000 });
   const feed = page.getByRole("dialog", { name: "Feed" });
   const posts = feed.getByRole("list", { name: "Statuses" }).locator(":scope > li");
   await expect(posts).toHaveCount(2);
@@ -83,10 +89,9 @@ test("after a post, the others react in character", async ({ page, mockAI }) => 
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
   await page.clock.fastForward(20_000);
 
-  await expect(page.getByRole("button", { name: "Aria's status, new" })).toBeVisible({ timeout: 15_000 });
-  await expect.poll(async () => (await withDb<any>(page, ARIA.id)).statuses?.[0]?.comments?.length ?? 0).toBe(1);
+  await expect.poll(async () => (await withDb<any>(page, ARIA.id)).statuses?.[0]?.comments?.length ?? 0, { timeout: 15_000 }).toBe(1);
   const reactions = mockAI.requests.find((r) => r.prompt.includes("Their friends who see it"))!;
   expect(reactions.prompt).toContain("- Kai:");
-  await page.getByRole("button", { name: "Aria's status, new" }).click();
+  await openStatus(page);
   await expect(page.getByRole("dialog", { name: "Aria's status" })).toContainText("Try not to glue your fingers again.");
 });

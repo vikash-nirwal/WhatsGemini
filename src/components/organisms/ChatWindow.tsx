@@ -25,6 +25,7 @@ import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import ChatMessage from "./ChatMessage";
 import PromptInspectorDialog from "./PromptInspectorDialog";
 import ForwardDialog from "./ForwardDialog";
+import ContactInfoPanel from "./ContactInfoPanel";
 import ScenePanel from "./ScenePanel";
 import ParticipantsPanel from "src/components/molecules/ParticipantsPanel";
 import EmotionSpritePanel from "src/components/molecules/EmotionSpritePanel";
@@ -103,6 +104,9 @@ interface ChatWindowProps {
   chatId?: number;
   sceneOpen?: boolean;
   onCloseScene?: () => void;
+  // Contact info (#151): the character everywhere, opened from the header.
+  contactOpen?: boolean;
+  onCloseContact?: () => void;
   authorNote?: string;
   worldTags?: string[];
   isRoom?: boolean; // whether this chat currently has 2+ characters - see ScenePanel's group-scoped memory/scenario
@@ -129,10 +133,19 @@ const TerminalCursorLine = ({ name, note }: { name?: string; note?: string }) =>
   </div>
 );
 
-const TypingIndicator = ({ charInitials, accent, imageSrc, recording }: { charInitials: string; accent?: [string, string]; imageSrc?: string; recording?: boolean }) => (
-  <div className="flex items-end gap-3 mb-6">
-    <CharacterAvatar name={charInitials} accent={accent} imageSrc={imageSrc} size={32} className="mt-1" />
-    <div className="flex items-center gap-1 px-4 py-3.5 bg-card/[0.88] border border-border/40 shadow-soft rounded-2xl rounded-tl-[5px]">
+// The pending-reply bubbles (#149): the canvas's typing bubble, in the
+// incoming bubble's colour with its tail. In a group the speaker's avatar
+// sits beside it, as beside their messages; a 1:1 chat shows none.
+const PendingRow = ({ charInitials, accent, imageSrc, showAvatar, children }: { charInitials: string; accent?: [string, string]; imageSrc?: string; showAvatar?: boolean; children: React.ReactNode }) => (
+  <div className="flex items-end gap-2 mt-3.5">
+    {showAvatar && <CharacterAvatar name={charInitials} accent={accent} imageSrc={imageSrc} size={32} />}
+    {children}
+  </div>
+);
+
+const TypingIndicator = ({ charInitials, accent, imageSrc, recording, showAvatar }: { charInitials: string; accent?: [string, string]; imageSrc?: string; recording?: boolean; showAvatar?: boolean }) => (
+  <PendingRow charInitials={charInitials} accent={accent} imageSrc={imageSrc} showAvatar={showAvatar}>
+    <div className="flex h-9 items-center gap-1 rounded-bubble rounded-bl-[6px] bg-bubble-in px-3.5 shadow-bubble" aria-label={recording ? "Recording audio" : "Typing"}>
       {recording && (
         <span className="mr-1.5 flex items-center gap-1.5 text-xs text-subtle">
           <FaMicrophone size={11} className="text-primary" /> recording audio...
@@ -141,33 +154,31 @@ const TypingIndicator = ({ charInitials, accent, imageSrc, recording }: { charIn
       {[0, 1, 2].map((i) => (
         <motion.span
           key={i}
-          className="w-1.5 h-1.5 rounded-full bg-subtle"
-          animate={{ y: [0, -4, 0], opacity: [0.5, 1, 0.5] }}
-          transition={{ duration: 1, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }}
+          className="h-1.5 w-1.5 rounded-full bg-subtle"
+          animate={{ opacity: [0.35, 1, 0.35] }}
+          transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }}
         />
       ))}
     </div>
-  </div>
+  </PendingRow>
 );
 
 // The reply as it streams in, in place of the typing dots once the first
 // visible text arrives.
-const StreamingBubble = ({ text, charInitials, accent, imageSrc }: { text: string; charInitials: string; accent?: [string, string]; imageSrc?: string }) => (
-  <div className="flex items-start gap-3 mb-6">
-    <CharacterAvatar name={charInitials} accent={accent} imageSrc={imageSrc} size={32} className="mt-1" />
-    <div className="max-w-[85%] px-4 py-3 bg-card/[0.88] border border-border/40 shadow-soft rounded-2xl rounded-tl-[5px] text-foreground">
+const StreamingBubble = ({ text, charInitials, accent, imageSrc, showAvatar }: { text: string; charInitials: string; accent?: [string, string]; imageSrc?: string; showAvatar?: boolean }) => (
+  <PendingRow charInitials={charInitials} accent={accent} imageSrc={imageSrc} showAvatar={showAvatar}>
+    <div className="max-w-[86%] md:max-w-[min(600px,78%)] rounded-bubble rounded-bl-[6px] bg-bubble-in px-3 py-2 font-serif text-bubble-in-text shadow-bubble" data-chat-text style={{ fontSize: "var(--chat-font-size, 16px)" }}>
       <MarkdownRenderer msgText={text} isUser={false} />
     </div>
-  </div>
+  </PendingRow>
 );
 
 // Shown while an autonomous follow-up's random delay is still counting down
 // - distinct from TypingIndicator (which means a reply is actually
 // generating) so the two are never shown at once.
-const FollowupIndicator = ({ charInitials, accent, imageSrc, note }: { charInitials: string; accent?: [string, string]; imageSrc?: string; note?: string }) => (
-  <div className="flex items-end gap-3 mb-6">
-    <CharacterAvatar name={charInitials} accent={accent} imageSrc={imageSrc} size={32} className="mt-1" />
-    <div className="flex items-center gap-1.5 px-4 py-3.5 bg-card/[0.88] border border-border/40 shadow-soft rounded-2xl rounded-tl-[5px]">
+const FollowupIndicator = ({ charInitials, accent, imageSrc, note, showAvatar }: { charInitials: string; accent?: [string, string]; imageSrc?: string; note?: string; showAvatar?: boolean }) => (
+  <PendingRow charInitials={charInitials} accent={accent} imageSrc={imageSrc} showAvatar={showAvatar}>
+    <div className="flex h-9 items-center gap-1.5 rounded-bubble rounded-bl-[6px] bg-bubble-in px-3.5 shadow-bubble">
       <motion.span
         animate={{ opacity: [0.4, 1, 0.4] }}
         transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
@@ -177,14 +188,12 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc, note }: { charIniti
       </motion.span>
       <span className="text-xs text-subtle">{note || "thinking of reaching out..."}</span>
     </div>
-  </div>
+  </PendingRow>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggestion, onAcceptStage, onDismissStage, coWriting = false, onSuggestNext, onTranslate, onReplyToLetter, arcSuggestion, onAcceptArc, onDismissArc, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, onReply, onViewOnce, onVote, onOpenContact, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggestion, onAcceptStage, onDismissStage, coWriting = false, onSuggestNext, onTranslate, onReplyToLetter, arcSuggestion, onAcceptArc, onDismissArc, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, onReply, onViewOnce, onVote, onOpenContact, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, contactOpen, onCloseContact, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
-  // The WhatsApp-style theme (#113) shows a time and ticks on every bubble.
-  const whatsapp = is("whatsapp");
   const chatEndRef = useRef<HTMLDivElement>(null);
   // Only this chat's own stream - the ai slice holds at most one, keyed by chat id.
   const streamingReply = useAppSelector((state) => state.ai.streamingReply);
@@ -579,6 +588,21 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
   };
   const charInitials = getInitials(characterName);
 
+  // Bubbles group by sender (#149): a run is consecutive messages from the
+  // same person with nothing between them (a room event, narration, a
+  // summary, a beat divider, a letter or a side-conversation card). A run
+  // gets space above it, and in a group the speaker's avatar and name.
+  const runs = useMemo(() => {
+    const senderOf = (m: Message) =>
+      m.isNarration || m.isRoomEvent || m.isCompressionSummary ? null : m.role === YOU ? "you" : `c${resolveSpeaker(m)?.id ?? "?"}`;
+    const starts = filteredMessages.map((m, i) => {
+      if (i === 0) return true;
+      const key = senderOf(m);
+      return key === null || key !== senderOf(filteredMessages[i - 1]) || beatStartIndexes.has(i) || Boolean(lettersAfter.get(i - 1)?.length) || Boolean(talksAfter.get(i - 1)?.length);
+    });
+    return { starts, ends: starts.map((_, i) => i === starts.length - 1 || starts[i + 1]) };
+  }, [filteredMessages, resolveSpeaker, beatStartIndexes, lettersAfter, talksAfter]);
+
   // Most recent AI message that reported an emotion - drives the "current
   // mood" portrait shown while a reply/follow-up is pending, distinct from
   // each individual message's own (historical) emotion below.
@@ -694,7 +718,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
         >
           <div
             ref={contentRef}
-            className={terminal ? "max-w-[760px] px-4 md:px-[26px] py-5" : coWriting ? "max-w-2xl mx-auto px-5 md:px-8 pt-8 pb-32" : "max-w-4xl mx-auto p-4 pb-32"}
+            className={terminal ? "max-w-[760px] px-4 md:px-[26px] py-5" : coWriting ? "max-w-2xl mx-auto px-5 md:px-8 pt-8 pb-32" : "max-w-[824px] mx-auto px-3 md:px-8 pt-3 pb-32"}
             // Room for the floating composer, sized to it rather than a fixed
             // pb-32 that a multi-line draft or the mode banners outgrew.
             style={!terminal && bottomInset > 0 ? { paddingBottom: bottomInset + 16 } : undefined}
@@ -779,15 +803,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
                 const message = (
                   <React.Fragment key={msg.id || i}>
                   {beatText !== undefined && (
-                    <div role="separator" aria-label={`Beat ${msg.beat}`} className="flex items-center gap-3 my-4 text-[11px] text-subtle">
-                      <span className="h-px flex-1 bg-border/60" />
-                      <span className="max-w-[70%] truncate"><span className="font-semibold uppercase tracking-[0.08em]">Beat {msg.beat}</span> · {beatText}</span>
-                      <span className="h-px flex-1 bg-border/60" />
+                    <div role="separator" aria-label={`Beat ${msg.beat}`} className="flex items-center gap-3 mt-5 mb-1.5 text-[12px] text-subtle">
+                      <span className="h-px flex-1 bg-border" />
+                      <span className="max-w-[70%] truncate"><span className="font-semibold uppercase tracking-[0.06em]">Beat {msg.beat}</span> · {beatText}</span>
+                      <span className="h-px flex-1 bg-border" />
                     </div>
                   )}
                   <ChatMessage
                     msg={msg}
-                    charInitials={speaker === character ? charInitials : getInitials(speaker?.name)}
+                    // In a group the chat's name isn't anyone's (#149: the
+                    // first member showed the group's initials).
+                    charInitials={speaker === character && !isRoom ? charInitials : getInitials(speaker?.name)}
                     speakerName={speaker?.name || characterName}
                     userName={userName}
                     accent={speaker?.accent}
@@ -824,7 +850,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
                     visibleParts={reveal && reveal.id === msg.id ? reveal.shown : undefined}
                     slips={msg.role === YOU ? undefined : speaker?.textingSlips}
                     userBurst={textingMode && msg.role !== YOU ? burstBefore(i) : undefined}
-                    receipt={(textingMode || whatsapp) && msg.role === YOU && !msg.isNarration ? (seenNoReply ? "read" : receiptFor(i, lastReplyIndex, filteredMessages.length - 1, Boolean(aiLoading))) : undefined}
+                    // Ticks on your messages in every theme (#149), the
+                    // terminal's prompt lines aside.
+                    receipt={!terminal && msg.role === YOU && !msg.isNarration ? (seenNoReply ? "read" : receiptFor(i, lastReplyIndex, filteredMessages.length - 1, Boolean(aiLoading))) : undefined}
+                    runStart={runs.starts[i]}
+                    runEnd={runs.ends[i]}
+                    inRoom={Boolean(isRoom)}
                     reactorName={msg.characterReaction ? resolveReactor(msg.characterReaction.speakerId) : undefined}
                     voice={msg.role === YOU ? undefined : speaker?.voice}
                   />
@@ -847,13 +878,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
                   return (
                     <React.Fragment key={msg.id || i}>
                       {message}
-                      <div role="group" aria-label="Reply suggestions" className="flex flex-wrap gap-2 -mt-3 mb-6 pl-11">
+                      <div role="group" aria-label="Reply suggestions" className="flex flex-wrap justify-end gap-2 mt-4">
                         {suggestions.map((text) => (
                           <button
                             key={text}
                             type="button"
                             onClick={() => onPickSuggestion(text)}
-                            className="min-h-8 px-3 py-1.5 rounded-full border border-primary/40 bg-primary/[0.08] text-[13px] text-foreground hover:bg-primary/[0.16] text-left"
+                            className="min-h-8 px-3.5 py-1.5 rounded-full bg-raised ring-1 ring-inset ring-border text-[13px] font-medium text-foreground hover:ring-primary/50 text-left"
                           >
                             {text}
                           </button>
@@ -877,13 +908,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
               const last = filteredMessages[filteredMessages.length - 1];
               if (!last || last.role === YOU || !last.choices?.length) return null;
               return (
-                <div role="group" aria-label="Choices" className="flex flex-wrap justify-center gap-2 mb-6">
+                <div role="group" aria-label="Choices" className="flex flex-wrap justify-center gap-2 mt-4 mb-2">
                   {last.choices.map((c) => (
                     <button
                       key={c.id}
                       type="button"
                       onClick={() => onSend(c.label)}
-                      className="min-h-9 px-3.5 py-1.5 rounded-xl border border-primary/50 bg-primary/[0.08] text-[13px] text-foreground hover:bg-primary/[0.16] text-left"
+                      className="min-h-9 px-3.5 py-1.5 rounded-full bg-raised ring-1 ring-inset ring-border text-[13.5px] font-medium text-foreground hover:ring-primary/50 text-left"
                     >
                       {c.label}
                     </button>
@@ -897,7 +928,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
               </div>
             )}
             {relationshipSuggestion && !aiLoading && onAcceptRelationship && onDismissRelationship && (
-              <section aria-label="Relationship update" className={cn("mb-6 mx-auto max-w-xl px-4 py-3 font-sans text-sm", terminal ? "border border-border" : "rounded-2xl border border-border/60 bg-card/[0.88] shadow-soft")}>
+              <section aria-label="Relationship update" className={cn(terminal ? "mb-6 mx-auto max-w-xl px-4 py-3 font-sans text-sm border border-border" : "my-4 mx-auto max-w-xl px-4 py-3 font-sans text-sm rounded-card bg-raised ring-1 ring-inset ring-border shadow-bubble")}>
                 <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-subtle mb-1">Your relationship has changed?</div>
                 <p className="text-foreground">
                   {relationshipSuggestion.from ? <><span className="text-muted-foreground line-through">{relationshipSuggestion.from}</span>{" → "}</> : null}
@@ -910,7 +941,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
               </section>
             )}
             {stageSuggestion && !aiLoading && onAcceptStage && onDismissStage && (
-              <section aria-label="Relationship stage" className={cn("mb-6 mx-auto max-w-xl px-4 py-3 font-sans text-sm", terminal ? "border border-border" : "rounded-2xl border border-border/60 bg-card/[0.88] shadow-soft")}>
+              <section aria-label="Relationship stage" className={cn(terminal ? "mb-6 mx-auto max-w-xl px-4 py-3 font-sans text-sm border border-border" : "my-4 mx-auto max-w-xl px-4 py-3 font-sans text-sm rounded-card bg-raised ring-1 ring-inset ring-border shadow-bubble")}>
                 <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-subtle mb-1">Move to the next stage?</div>
                 <p className="text-foreground">
                   <span className="text-muted-foreground line-through">{STAGE_LABELS[stageSuggestion.from]}</span>{" → "}<span className="font-medium">{STAGE_LABELS[stageSuggestion.to]}</span>
@@ -922,7 +953,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
               </section>
             )}
             {arcSuggestion && !aiLoading && onAcceptArc && onDismissArc && (
-              <section aria-label="Character growth" className={cn("mb-6 mx-auto max-w-xl px-4 py-3 font-sans text-sm", terminal ? "border border-border" : "rounded-2xl border border-border/60 bg-card/[0.88] shadow-soft")}>
+              <section aria-label="Character growth" className={cn(terminal ? "mb-6 mx-auto max-w-xl px-4 py-3 font-sans text-sm border border-border" : "my-4 mx-auto max-w-xl px-4 py-3 font-sans text-sm rounded-card bg-raised ring-1 ring-inset ring-border shadow-bubble")}>
                 <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-subtle mb-1">{characterName || "They"} has changed?</div>
                 <p className="text-foreground">{arcSuggestion}</p>
                 <div className="mt-2 flex gap-2">
@@ -944,11 +975,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
                 <TerminalCursorLine name={characterName} note={awayNote || "thinking of reaching out..."} />
               ) : null
             ) : aiLoading && streamingText && !textingMode && !recordingVoiceNote ? (
-              <StreamingBubble text={streamingText} charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} />
+              <StreamingBubble text={streamingText} charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} showAvatar={isRoom} />
             ) : aiLoading || (reveal && reveal.phase !== "paused") ? (
-              <TypingIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} recording={aiLoading && recordingVoiceNote} />
+              <TypingIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} recording={aiLoading && recordingVoiceNote} showAvatar={isRoom} />
             ) : awayNote || isFollowupPending ? (
-              <FollowupIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} note={awayNote || undefined} />
+              <FollowupIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} note={awayNote || undefined} showAvatar={isRoom} />
             ) : null}
             <div ref={chatEndRef} />
           </div>
@@ -995,6 +1026,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
           onEditStory={onEditStory}
           hasStoryScript={Boolean(storyScript)}
           onClose={onCloseScene || (() => {})}
+        />
+      )}
+
+      {contactOpen && chatId != null && character && !isRoom && (
+        <ContactInfoPanel
+          chatId={chatId}
+          character={character}
+          isRoom={false}
+          chatMemory={chatMemory}
+          chatPinnedMemory={chatPinnedMemory}
+          intensity={intensity}
+          onClose={onCloseContact || (() => {})}
         />
       )}
 

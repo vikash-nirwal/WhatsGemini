@@ -1,4 +1,4 @@
-import { test, expect, openChat, sendMessage, waitForReplyDone, chatMessages } from "./fixtures";
+import { test, expect, openChat, sendMessage, waitForReplyDone, chatMessages, messageAction } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // Lane B's pieces wired into the chat: "Show what was sent" on a reply
@@ -39,7 +39,7 @@ test("a reply's 'Show what was sent' opens the request behind it", async ({ page
     await page.getByRole("menu", { name: "Message actions" }).getByRole("menuitem", { name: "Show what was sent" }).click();
   } else {
     await bubble.hover();
-    await bubble.getByRole("button", { name: "Show what was sent" }).click();
+    await messageAction(page, bubble, "Show what was sent");
   }
   const dialog = page.getByRole("dialog", { name: "What was sent" });
   await expect(dialog).toBeVisible();

@@ -12,7 +12,7 @@ const isPlanCheck = (req: MockAIRequest) => req.prompt.includes("Did they just a
 const replies = (requests: MockAIRequest[]) => requests.filter((r) => r.stream);
 
 const openStoryTab = async (page: Page) => {
-  await headerAction(page, "Scene & chat settings");
+  await headerAction(page, "Scene & story");
   await page.getByRole("tab", { name: "Story", exact: true }).click();
 };
 const closePanel = (page: Page) => page.getByRole("button", { name: "Close scene panel" }).click();

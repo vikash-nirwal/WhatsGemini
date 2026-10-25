@@ -136,7 +136,7 @@ const SceneTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, cha
   const tagFg = tagColor || "rgb(var(--primary))";
 
   return (
-          <div role="tabpanel" id="scene-tabpanel-scene" aria-labelledby="scene-tab-scene" className="flex flex-col gap-[22px]">
+          <div className="flex flex-col gap-[22px]">
           <PanelGroup id="scene" title="The scene now">
           {/* Author's Note */}
           <div>

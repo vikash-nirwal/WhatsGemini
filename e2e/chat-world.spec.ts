@@ -28,7 +28,7 @@ test("a chat can use a World's setting and lore", async ({ page, mockAI }) => {
   await page.reload();
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
 
-  await headerAction(page, "Scene & chat settings");
+  await headerAction(page, "Scene & story");
   await page.getByRole("combobox", { name: "World for this chat" }).click();
   await page.getByRole("option", { name: "Eldoria" }).click();
   await page.getByRole("button", { name: "Close scene panel" }).click();

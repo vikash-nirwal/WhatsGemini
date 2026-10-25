@@ -66,7 +66,8 @@ test.describe("chat composer", () => {
 
     await page.getByRole("button", { name: "Composer options" }).click();
     await page.getByRole("menuitemcheckbox", { name: "Toggle impersonation mode" }).click();
-    await expect(page.getByText(/Impersonation on/)).toBeVisible();
+    // #149: impersonation is a mode of the composer, shown by a chip in it.
+    await expect(composer(page).or(page.locator('[data-mode="impersonate"]')).getByRole("button", { name: "Turn off impersonation" })).toBeVisible();
     await expectNoHorizontalScroll(page);
   });
 
@@ -77,13 +78,16 @@ test.describe("chat composer", () => {
     const bar = await box(composer(page));
     const text = await box(page.getByLabel("Message input"));
     expect(text.width).toBeGreaterThan(bar.width * 0.55);
-    const image = page.getByRole("button", { name: "Request an image with this message" });
-    await image.click();
-    await expect(image).toHaveAttribute("aria-pressed", "true");
+    // #149: only the photo button sits in the row; asking for an image is
+    // in the "+" menu with the other tools.
     await expect(page.getByRole("button", { name: "Send a photo" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Request an image with this message" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Toggle impersonation mode" })).toHaveCount(0);
     await page.getByRole("button", { name: "Composer options" }).click();
+    await page.getByRole("menuitemcheckbox", { name: "Request an image with this message" }).click();
+    await expect(page.getByText(/Image generation on/)).toBeVisible();
+    await page.getByRole("button", { name: "Composer options" }).click();
     await page.getByRole("menuitemcheckbox", { name: "Toggle impersonation mode" }).click();
-    await expect(page.getByText(/Impersonation on/)).toBeVisible();
+    await expect(page.locator('[data-mode="impersonate"]').getByRole("button", { name: "Turn off impersonation" })).toBeVisible();
   });
 });

@@ -9,8 +9,8 @@ const systemOf = (messages: { role: string; content: string }[]) => messages.fin
 test("a reply's options show as chips, and tapping one sends it", async ({ page, mockAI }) => {
   mockAI.replyOnce("*Thunder rolls outside.* The lights just went out.\n<<<CHOICES\n1. Light a candle\n2. Check the fuse box\nCHOICES>>>", "*You strike a match.* There, better.");
   await openChat(page);
-  await headerAction(page, "Scene & chat settings");
-  await page.getByRole("tab", { name: "Chat", exact: true }).click();
+  await headerAction(page, "Scene & story");
+  await page.getByRole("tab", { name: "Options", exact: true }).click();
   await page.getByRole("switch", { name: "Choice moments" }).click();
   await page.getByRole("button", { name: "Close scene panel" }).click();
 

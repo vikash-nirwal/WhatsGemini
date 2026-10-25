@@ -45,7 +45,7 @@ const StoryTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, onC
   };
 
   return (
-          <div role="tabpanel" id="scene-tabpanel-story" aria-labelledby="scene-tab-story" className="flex flex-col gap-[22px]">
+          <div className="flex flex-col gap-[22px]">
           {!isRoom && character && chat && <PlansSection chat={chat} characterName={character.name} />}
           {!isRoom && character && chat && <InsideJokesSection chat={chat} characterName={character.name} />}
           {!isRoom && character && chat && <LiesSection chat={chat} characterName={character.name} />}

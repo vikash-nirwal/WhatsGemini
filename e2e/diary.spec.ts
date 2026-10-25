@@ -1,4 +1,4 @@
-import { test, expect, openChat, openRoute, sendMessage, chatMessages } from "./fixtures";
+import { test, expect, openChat, openRoute, sendMessage, chatMessages, openContactInfo } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // Character diary (#5): with the diary on, crossing the 30-message mark gets
@@ -10,7 +10,7 @@ test.use({ seed: { messages: 28 } });
 const chatAction = async (page: Page, name: string | RegExp) => {
   const direct = page.getByRole("button", { name });
   if (await direct.first().isVisible()) return direct.first().click();
-  await page.getByRole("button", { name: /more/i }).last().click();
+  await page.getByRole("button", { name: "More options", exact: true }).last().click();
   await page.getByRole("menuitem", { name }).click();
 };
 
@@ -20,11 +20,10 @@ test("the character writes a diary entry you can read, and remembers it", async 
   mockAI.reply((req) => (req.stream ? "That's lovely to hear." : ENTRY));
   await openChat(page, 1);
 
-  await chatAction(page, "Scene & chat settings");
-  await page.getByRole("tab", { name: "Chat", exact: true }).click();
+  await openContactInfo(page);
   await page.getByRole("switch", { name: "Aria keeps a diary" }).click();
   await expect(page.getByRole("switch", { name: "Aria keeps a diary" })).toBeChecked();
-  await page.getByRole("button", { name: "Close scene panel" }).click();
+  await page.getByRole("button", { name: "Close contact info" }).click();
 
   // Message 29 from you, 30 from Aria: the diary is due.
   await sendMessage(page, "Want to hear a joke?");

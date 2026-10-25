@@ -1,4 +1,4 @@
-import { test, expect, openChat, openRoute } from "./fixtures";
+import { test, expect, openChat, openRoute, openContactInfo } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // Long-term memory in the Scene panel: facts grouped by what they're about
@@ -22,17 +22,8 @@ const writeMemory = (page: Page, memory: string[], memoryCategories?: Record<str
     db.close();
   }, { memory, memoryCategories });
 
-const openScene = async (page: Page) => {
-  const direct = page.getByRole("button", { name: "Scene & chat settings" });
-  if (await direct.isVisible()) {
-    await direct.click();
-  } else {
-    // Narrow headers keep their actions in the "more" menu.
-    await page.getByRole("button", { name: /more/i }).last().click();
-    await page.getByRole("menuitem", { name: "Scene & chat settings" }).click();
-  }
-  await page.getByRole("tab", { name: "Memory", exact: true }).click();
-};
+// A 1:1 chat's memory is about the character, in Contact info (#151).
+const openScene = (page: Page) => openContactInfo(page);
 
 test("memory is grouped by category and a fact's group can be changed", async ({ page }) => {
   await openChat(page);
@@ -46,18 +37,18 @@ test("memory is grouped by category and a fact's group can be changed", async ({
   await openScene(page);
 
   for (const heading of ["About you", "Relationship", "Story", "Other"]) {
-    await expect(page.getByRole("tabpanel").getByText(heading, { exact: true })).toBeVisible();
+    await expect(page.locator('[data-slot="side-panel"]').getByText(heading, { exact: true })).toBeVisible();
   }
 
   // "Arin collects maps." is unsorted; one click moves it to About you.
   await page.getByText("Arin collects maps.").locator("..").getByRole("button", { name: /Change group/ }).click();
-  await expect(page.getByRole("tabpanel").getByText("Other", { exact: true })).toBeHidden();
+  await expect(page.locator('[data-slot="side-panel"]').getByText("Other", { exact: true })).toBeHidden();
 
   await page.reload();
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
   await openScene(page);
   await expect(page.getByText("Arin collects maps.")).toBeVisible();
-  await expect(page.getByRole("tabpanel").getByText("Other", { exact: true })).toBeHidden();
+  await expect(page.locator('[data-slot="side-panel"]').getByText("Other", { exact: true })).toBeHidden();
 });
 
 test("an unsorted memory stays one plain list", async ({ page }) => {
@@ -68,7 +59,7 @@ test("an unsorted memory stays one plain list", async ({ page }) => {
   await openScene(page);
   await expect(page.getByText("Arin hates rain.")).toBeVisible();
   await expect(page.getByText("About you", { exact: true })).toBeHidden();
-  await expect(page.getByRole("tabpanel").getByText("Other", { exact: true })).toBeHidden();
+  await expect(page.locator('[data-slot="side-panel"]').getByText("Other", { exact: true })).toBeHidden();
 });
 
 const readCharacterMemory = (page: Page) =>

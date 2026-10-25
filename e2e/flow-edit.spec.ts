@@ -1,4 +1,4 @@
-import { test, expect, openChat, sendMessage, messageBubble, waitForReplyDone, PHONE_REDESIGN_SKIP, chatMessages } from "./fixtures";
+import { test, expect, openChat, sendMessage, messageBubble, waitForReplyDone, PHONE_REDESIGN_SKIP, chatMessages, messageAction } from "./fixtures";
 
 test.skip(({ isMobile }) => isMobile, PHONE_REDESIGN_SKIP);
 test.use({ seed: { messages: 3 } });
@@ -13,7 +13,7 @@ test("edit your last message and get a new reply to it", async ({ page, mockAI }
 
   const bubble = messageBubble(page, "Coffee or tea?");
   await bubble.hover();
-  await bubble.getByRole("button", { name: "Edit", exact: true }).click();
+  await messageAction(page, bubble, "Edit", { exact: true });
   const dialog = page.getByRole("dialog", { name: "Edit Message" });
   await expect(dialog).toBeVisible();
   const box = dialog.getByRole("textbox");

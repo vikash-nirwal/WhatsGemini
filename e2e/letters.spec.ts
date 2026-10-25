@@ -1,4 +1,4 @@
-import { test, expect, openChat, sendMessage, headerAction } from "./fixtures";
+import { test, expect, openChat, sendMessage, headerAction, openContactInfo } from "./fixtures";
 
 // Letters (#61): after a few days away, a character with letters on writes
 // one; it shows in the chat, can be answered, and the next reply knows it.
@@ -12,10 +12,9 @@ test("a letter arrives after an absence, and can be replied to", async ({ page, 
   await page.clock.install();
   mockAI.reply((req) => (req.prompt.includes("hasn't written in") ? LETTER : "I'm so glad you wrote back."));
   await openChat(page);
-  await headerAction(page, "Scene & chat settings");
-  await page.getByRole("tab", { name: "Chat", exact: true }).click();
+  await openContactInfo(page);
   await page.getByRole("switch", { name: "Aria writes letters" }).click();
-  await page.getByRole("button", { name: "Close scene panel" }).click();
+  await page.getByRole("button", { name: "Close contact info" }).click();
   // The seeded chat was last used months ago.
   await page.clock.fastForward(30_000);
 

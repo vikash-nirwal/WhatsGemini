@@ -8,7 +8,7 @@ test.use({ seed: { messages: 6 } });
 const chatAction = async (page: Page, name: string | RegExp) => {
   const direct = page.getByRole("button", { name });
   if (await direct.first().isVisible()) return direct.first().click();
-  await page.getByRole("button", { name: /more/i }).last().click();
+  await page.getByRole("button", { name: "More options", exact: true }).last().click();
   await page.getByRole("menuitem", { name }).click();
 };
 
@@ -42,7 +42,7 @@ test("Surprise me asks the next reply for a twist", async ({ page, mockAI }) => 
 test("author's note presets add and remove their line, and reach the next reply", async ({ page, mockAI }) => {
   mockAI.reply("Mock reply");
   await openChat(page, 1);
-  await chatAction(page, "Scene & chat settings");
+  await chatAction(page, "Scene & story");
   const slowBurn = page.getByRole("button", { name: "Slow burn" });
   await slowBurn.click();
   await expect(slowBurn).toHaveAttribute("aria-pressed", "true");
@@ -55,7 +55,7 @@ test("author's note presets add and remove their line, and reach the next reply"
   await expect(chatMessages(page).getByText("Mock reply")).toBeVisible();
   expect(mockAI.requests.filter((r) => r.stream).pop()!.prompt).toContain("Pace the relationship slowly");
 
-  await chatAction(page, "Scene & chat settings");
+  await chatAction(page, "Scene & story");
   await page.getByRole("button", { name: "Slow burn" }).click();
   await expect(note).toHaveValue("");
 });
@@ -63,8 +63,8 @@ test("author's note presets add and remove their line, and reach the next reply"
 test("reply suggestions appear after a reply and fill the box when tapped", async ({ page, mockAI }) => {
   mockAI.reply((req) => (req.stream ? "Shall we go to the market?" : req.prompt.includes("Suggest 3") ? "1. Yes, let's go!\n2. Only if you're buying.\n3. What's at the market?" : "NONE"));
   await openChat(page, 1);
-  await chatAction(page, "Scene & chat settings");
-  await page.getByRole("tab", { name: "Chat", exact: true }).click();
+  await chatAction(page, "Scene & story");
+  await page.getByRole("tab", { name: "Options", exact: true }).click();
   await page.getByRole("switch", { name: "Suggest replies" }).click();
   await page.getByRole("button", { name: "Close scene panel" }).click();
 

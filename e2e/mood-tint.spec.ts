@@ -8,8 +8,8 @@ test("the chat takes the colour of the character's latest mood", async ({ page, 
   mockAI.reply("[Emotion: sad] I really missed you today.");
   await openChat(page);
   await expect(page.locator('[data-slot="mood-tint"]')).toHaveCount(0);
-  await headerAction(page, "Scene & chat settings");
-  await page.getByRole("tab", { name: "Chat", exact: true }).click();
+  await headerAction(page, "Scene & story");
+  await page.getByRole("tab", { name: "Options", exact: true }).click();
   await page.getByRole("switch", { name: "Tint the chat with the mood" }).click();
   await page.getByRole("button", { name: "Close scene panel" }).click();
 

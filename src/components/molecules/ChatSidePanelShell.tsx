@@ -7,6 +7,8 @@ import { useColorTheme } from "src/hooks/useColorTheme";
 
 interface ChatSidePanelShellProps {
   title: React.ReactNode;
+  // A quiet line under the title, like the panel's scope ("This chat only").
+  subtitle?: React.ReactNode;
   onClose: () => void;
   closeLabel: string;
   children: React.ReactNode;
@@ -16,25 +18,28 @@ interface ChatSidePanelShellProps {
 // Participants) - was a byte-identical <aside> + header duplicated in both
 // ScenePanel and ParticipantsPanel; extracted here so the shape only exists
 // once.
-export const ChatSidePanelShell: React.FC<ChatSidePanelShellProps> = ({ title, onClose, closeLabel, children }) => {
+export const ChatSidePanelShell: React.FC<ChatSidePanelShellProps> = ({ title, subtitle, onClose, closeLabel, children }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   return (
-    // Phones: a full-screen sheet. Tablets and small laptops: a 300px panel
-    // over the right of the chat. A column beside the chat only from xl
-    // (1280px), where both still have room - narrower, a column left the
-    // chat (and its composer) cramped.
+    // #151, as on the canvas: phones get a full-screen push; up to 1360px a
+    // 392px panel over the right of the chat, below the header so its
+    // buttons stay reachable; from 1360px a column beside it.
     <aside
+      data-slot="side-panel"
       className={cn(
-        "fixed inset-y-0 right-0 z-40 w-full md:w-[300px] md:shadow-2xl bg-card xl:static xl:z-auto xl:shadow-none xl:bg-card/70 flex-none md:border-l border-border/40 backdrop-blur-md flex flex-col overflow-hidden",
-        terminal && "bg-background xl:bg-background border-border"
+        "fixed inset-y-0 md:top-16 right-0 z-40 w-full md:w-[392px] md:shadow-sheet bg-surface min-[1360px]:static min-[1360px]:z-auto min-[1360px]:shadow-none flex-none md:border-l border-border flex flex-col overflow-hidden",
+        terminal && "bg-background min-[1360px]:bg-background border-border"
       )}
     >
-      <div className={cn("h-[52px] flex-shrink-0 flex items-center justify-between px-[18px] border-b border-border/40", terminal && "border-border")}>
+      <div className={cn("h-16 flex-shrink-0 flex items-center justify-between gap-3 px-[18px] border-b border-border", terminal && "h-[52px]")}>
         {terminal ? (
           <span className="text-[11px] text-muted-foreground lowercase"># {title}</span>
         ) : (
-          <span className="font-semibold text-sm">{title}</span>
+          <span className="min-w-0">
+            <span className="block truncate text-[17px] font-semibold leading-[22px]">{title}</span>
+            {subtitle && <span className="block truncate text-[12.5px] text-subtle">{subtitle}</span>}
+          </span>
         )}
         {terminal ? (
           <TermLink label="x" onClick={onClose} title={closeLabel} aria-label={closeLabel} />

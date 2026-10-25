@@ -1,4 +1,4 @@
-import { test, expect, openChat, sendMessage, messageBubble, waitForReplyDone, PHONE_REDESIGN_SKIP, chatMessages } from "./fixtures";
+import { test, expect, openChat, sendMessage, messageBubble, waitForReplyDone, PHONE_REDESIGN_SKIP, chatMessages, messageAction } from "./fixtures";
 
 test.skip(({ isMobile }) => isMobile, PHONE_REDESIGN_SKIP);
 test.use({ seed: { messages: 3 } });
@@ -13,7 +13,7 @@ test("regenerate a reply, then page between the two variants", async ({ page, mo
 
   const first = messageBubble(page, "The first take on it.");
   await first.hover();
-  await first.getByRole("button", { name: "Regenerate" }).click();
+  await messageAction(page, first, "Regenerate");
   await expect(chatMessages(page).getByText("A second, different take.")).toBeVisible();
   await expect(chatMessages(page).getByText("The first take on it.")).toHaveCount(0);
   await waitForReplyDone(page);

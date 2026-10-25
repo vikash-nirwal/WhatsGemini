@@ -25,13 +25,16 @@ const PanelGroup: React.FC<{ id: string; title: string; hint?: string; children:
     }
   };
   return (
-    <details open={open} onToggle={toggle} className="group/panel" data-slot="panel-group" data-group={id}>
-      <summary className="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
-        <FaChevronRight aria-hidden size={9} className="text-subtle transition-transform group-open/panel:rotate-90" />
-        <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">{title}</span>
-        {hint && <span className="truncate text-[11px] text-subtle/80">{hint}</span>}
+    // #151: the canvas's setting group - a rounded card whose title folds it.
+    <details open={open} onToggle={toggle} className="group/panel rounded-card bg-raised px-4 ring-1 ring-inset ring-border" data-slot="panel-group" data-group={id}>
+      <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-3 py-3 [&::-webkit-details-marker]:hidden">
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span data-slot="section-title" className="text-[15px] font-semibold leading-5 text-foreground">{title}</span>
+          {hint && <span className="truncate text-[12.5px] text-subtle">{hint}</span>}
+        </span>
+        <FaChevronRight aria-hidden size={11} className="flex-none text-subtle transition-transform group-open/panel:rotate-90" />
       </summary>
-      <div className="mt-3 flex flex-col gap-[18px] pl-[17px]">{children}</div>
+      <div className="flex flex-col gap-[18px] border-t border-border pb-4 pt-3.5">{children}</div>
     </details>
   );
 };

@@ -7,19 +7,22 @@ import { test, expect, openChat } from "./fixtures";
 test.use({ seed: { messages: 4, room: true } });
 
 const sidebar = (page: Page) => page.getByRole("complementary", { name: "Sidebar" });
-// Below 1024px the list is a drawer behind the header's menu button.
+// Below 1024px the list is the home screen (#150): a chat goes back to it.
 const showList = async (page: Page) => {
-  const menu = page.locator("header").first().getByRole("button", { name: "Open menu" });
-  if (await menu.isVisible()) await menu.click();
+  const back = page.locator("header").first().getByRole("button", { name: "Back to chats" });
+  if (await back.isVisible()) await back.click();
   await expect(sidebar(page)).toBeInViewport();
 };
 const row = (page: Page, title: string) => sidebar(page).getByRole("link").filter({ hasText: title });
 // Aria's own 1:1 chat, not the group chat "Aria & Kai".
 const ariaRow = (page: Page) => row(page, "Aria").filter({ hasNotText: "Kai" });
 // Picks from a row's menu, once the last menu has finished closing.
+// A mouse opens it from the row's chevron; a touch screen long-presses the
+// row (#150).
 const pick = async (page: Page, rowLocator: ReturnType<typeof row>, title: string, item: string) => {
   await expect(page.getByRole("menu")).toHaveCount(0);
-  await rowLocator.getByRole("button", { name: `Chat options for ${title}` }).click();
+  if (await page.evaluate(() => window.matchMedia("(hover: none)").matches)) await rowLocator.dispatchEvent("contextmenu");
+  else await rowLocator.getByRole("button", { name: `Chat options for ${title}` }).click();
   await page.getByRole("menuitem", { name: item }).click();
 };
 

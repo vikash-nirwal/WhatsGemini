@@ -20,7 +20,7 @@ test("a map is uploaded, places pinned, and the chat shows where the scene is", 
   await expect(page).toHaveURL(/#\/worlds$/);
 
   await openChat(page);
-  await headerAction(page, "Scene & chat settings");
+  await headerAction(page, "Scene & story");
   await page.getByRole("combobox", { name: "World for this chat" }).click();
   await page.getByRole("option", { name: "Eldoria" }).click();
   await page.getByRole("switch", { name: "Track the scene" }).click();

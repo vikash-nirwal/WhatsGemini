@@ -21,15 +21,15 @@ const replyByRequest = (mockAI: MockAI, who: string) => {
   });
 };
 
-const openRoomPanel = async (page: Page, tab: "Scene" | "Chat") => {
-  await headerAction(page, "Scene & chat settings");
+const openRoomPanel = async (page: Page, tab: "Scene" | "Group") => {
+  await headerAction(page, "Scene & story");
   await page.getByRole("tab", { name: tab, exact: true }).click();
 };
 
 test("natural turns: the helper picks who answers, in order", async ({ page, mockAI }) => {
   replyByRequest(mockAI, "Kai, Aria");
   await openChat(page, 2);
-  await openRoomPanel(page, "Chat");
+  await openRoomPanel(page, "Group");
   await page.getByRole("button", { name: "Natural", exact: true }).click();
   await page.getByRole("button", { name: "Close scene panel" }).click();
 
@@ -44,7 +44,7 @@ test("natural turns: the helper picks who answers, in order", async ({ page, moc
 test("natural turns: nobody may answer", async ({ page, mockAI }) => {
   replyByRequest(mockAI, "NONE");
   await openChat(page, 2);
-  await openRoomPanel(page, "Chat");
+  await openRoomPanel(page, "Group");
   await page.getByRole("button", { name: "Natural", exact: true }).click();
   await page.getByRole("button", { name: "Close scene panel" }).click();
 
@@ -56,7 +56,7 @@ test("natural turns: nobody may answer", async ({ page, mockAI }) => {
 test("everyone answers, then the narrator adds a line", async ({ page, mockAI }) => {
   replyByRequest(mockAI, "");
   await openChat(page, 2);
-  await openRoomPanel(page, "Chat");
+  await openRoomPanel(page, "Group");
   await page.getByRole("button", { name: "Everyone", exact: true }).click();
   await page.getByRole("switch", { name: "Narrator" }).click();
   await page.getByRole("button", { name: "Close scene panel" }).click();
@@ -96,7 +96,7 @@ test("a member's feelings about another go only into their own prompt", async ({
 test("a member speaking up on their own gets the rest of the round too", async ({ page, mockAI }) => {
   replyByRequest(mockAI, "");
   await openChat(page, 2);
-  await openRoomPanel(page, "Chat");
+  await openRoomPanel(page, "Group");
   await page.getByRole("button", { name: "Everyone", exact: true }).click();
   await page.getByRole("switch", { name: "Narrator" }).click();
   await page.getByRole("button", { name: "Close scene panel" }).click();
@@ -110,7 +110,7 @@ test("a member speaking up on their own gets the rest of the round too", async (
 test("natural turns after a member spoke up ask about the others only", async ({ page, mockAI }) => {
   replyByRequest(mockAI, "NONE");
   await openChat(page, 2);
-  await openRoomPanel(page, "Chat");
+  await openRoomPanel(page, "Group");
   await page.getByRole("button", { name: "Natural", exact: true }).click();
   await page.getByRole("button", { name: "Close scene panel" }).click();
 
@@ -124,7 +124,7 @@ test("natural turns after a member spoke up ask about the others only", async ({
 test("room-wide inner thoughts and member diaries are switched on in the Chat tab", async ({ page, mockAI }) => {
   replyByRequest(mockAI, "");
   await openChat(page, 2);
-  await openRoomPanel(page, "Chat");
+  await openRoomPanel(page, "Group");
   await page.getByRole("switch", { name: "Show everyone's inner thoughts" }).click();
   await page.getByRole("switch", { name: "Kai keeps a diary" }).click();
   await expect(page.getByRole("switch", { name: "Kai keeps a diary" })).toBeChecked();
@@ -173,7 +173,7 @@ test("members talk while you're away, and the next replies know it", async ({ pa
     return speaker ? `${speaker} says hello back.` : "OK";
   });
   await openChat(page, 2);
-  await openRoomPanel(page, "Chat");
+  await openRoomPanel(page, "Group");
   await page.getByRole("switch", { name: "Members talk while you're away" }).click();
   await page.getByRole("button", { name: "Close scene panel" }).click();
   // The seeded room was last used months ago, so a talk is due at the first check.

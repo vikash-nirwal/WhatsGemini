@@ -10,8 +10,8 @@ const systemOf = (messages: { role: string; content: string }[]) => messages.fin
 test("the stage shapes replies, and moving on is suggested and accepted", async ({ page, mockAI }) => {
   mockAI.reply((req) => (req.prompt.includes("Their relationship is at the stage") ? "NEXT" : "*She smiles.* You again."));
   await openChat(page);
-  await headerAction(page, "Scene & chat settings");
-  await page.getByRole("tab", { name: "Chat", exact: true }).click();
+  await headerAction(page, "Scene & story");
+  await page.getByRole("tab", { name: "Story", exact: true }).click();
   await page.getByRole("switch", { name: "Relationship stage" }).click();
   const ladder = page.getByRole("list", { name: "Relationship stages" });
   await ladder.getByRole("button", { name: "Flirting" }).click();

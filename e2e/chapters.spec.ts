@@ -10,7 +10,7 @@ test.use({ seed: { messages: 6 } });
 const chatAction = async (page: Page, name: string | RegExp) => {
   const direct = page.getByRole("button", { name });
   if (await direct.first().isVisible()) return direct.first().click();
-  await page.getByRole("button", { name: /more/i }).last().click();
+  await page.getByRole("button", { name: "More options", exact: true }).last().click();
   await page.getByRole("menuitem", { name }).click();
   // The long menu leaves the pointer near the top, where the next toast
   // appears; a hovered toast never closes, and would cover the header.
@@ -30,7 +30,7 @@ test("ending a chapter titles it, recaps it, and the next reply starts from it",
   await expect(page.getByText("Aria and the user talked through a long, ordinary day.")).toBeVisible();
 
   // The chapter is listed in the Scene panel and can be renamed.
-  await chatAction(page, "Scene & chat settings");
+  await chatAction(page, "Scene & story");
   await page.getByRole("tab", { name: "Story", exact: true }).click();
   await expect(page.getByText("1. The Long Day")).toBeVisible();
   await page.getByRole("button", { name: "Rename chapter 1" }).click();

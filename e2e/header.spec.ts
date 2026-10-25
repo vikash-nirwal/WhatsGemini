@@ -19,7 +19,8 @@ test.describe("chat header", () => {
     // Every visible control sits inside the header, clear of the title and of each other.
     const headerBox = await box(header);
     const titleBox = await box(title);
-    const controls = header.locator("button:visible");
+    // The title button (#151, opens Contact info) is the title itself.
+    const controls = header.locator('button:visible:not([data-slot="header-title"])');
     const boxes = [];
     for (let i = 0; i < (await controls.count()); i++) {
       const b = await box(controls.nth(i));
@@ -41,7 +42,7 @@ test.describe("chat header", () => {
     expect(roomEnd - titleBox.x, "room for the title").toBeGreaterThanOrEqual(120);
   });
 
-  test("tablet: the sidebar is a drawer and the header actions are in one menu", async ({ page }) => {
+  test("tablet: the chat list is home and the header actions are in one menu", async ({ page }) => {
     const width = viewportWidth(page);
     test.skip(width < 700 || width >= 1024, "tablet widths only");
     await openChat(page, 1);
@@ -49,9 +50,10 @@ test.describe("chat header", () => {
     await expectDrawerClosed(page);
 
     const header = page.locator("header").first();
-    await expect(header.getByRole("button", { name: "Open menu" })).toBeVisible();
+    // #150: the phone shell - a chat goes back to the chat list.
+    await expect(header.getByRole("button", { name: "Back to chats" })).toBeVisible();
     await expect(header.getByRole("button", { name: "More options" })).toBeVisible();
-    // Only a handful of controls remain: menu, back/avatar, more.
+    // Only a handful of controls remain: back, avatar, more.
     expect(await header.locator("button:visible").count()).toBeLessThanOrEqual(4);
 
     // The chat gets the whole width.

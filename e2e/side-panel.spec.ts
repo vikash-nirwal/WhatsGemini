@@ -2,20 +2,22 @@ import { test, expect, openChat } from "./fixtures";
 import { box, overlaps, viewportWidth } from "./layout";
 import type { Page } from "@playwright/test";
 
-// The chat's side panels (Scene, Participants): a full-screen sheet on
-// phones, a panel over the right of the chat on tablets, a column beside
-// the chat from 1280px - and the floating composer never runs under it.
+// The chat's side panels (Scene, Contact info, Participants): a full-screen
+// sheet on phones, a 392px panel over the right of the chat up to 1360px, a
+// column beside the chat from there (#151) - and the floating composer never
+// runs under it.
 
 const PHONE_MAX_WIDTH = 768; // below Tailwind `md`
-const PANEL_COLUMN_MIN_WIDTH = 1280; // Tailwind `xl`
+const PANEL_COLUMN_MIN_WIDTH = 1360;
+const PANEL_WIDTH = 392;
 
 const openScene = async (page: Page) => {
-  const direct = page.getByRole("button", { name: "Scene & chat settings" });
+  const direct = page.getByRole("button", { name: "Scene & story" });
   if (await direct.isVisible()) {
     await direct.click();
   } else {
-    await page.getByRole("button", { name: /more/i }).last().click();
-    await page.getByRole("menuitem", { name: "Scene & chat settings" }).click();
+    await page.getByRole("button", { name: "More options", exact: true }).last().click();
+    await page.getByRole("menuitem", { name: "Scene & story" }).click();
   }
   const panel = page.locator("aside").filter({ has: page.getByRole("button", { name: "Close scene panel" }) });
   await expect(panel).toBeVisible();
@@ -44,9 +46,8 @@ test("phones: the scene panel fills the screen and closes again", async ({ page 
   const b = await box(panel);
   expect(b.x).toBeLessThanOrEqual(0.5);
   expect(b.width).toBeGreaterThanOrEqual(viewportWidth(page) - 0.5);
-  // Nothing from the chat (like the composer's Send button) is on top of it.
-  const send = page.getByRole("button", { name: "Send Message" });
-  const sendBox = await box(send);
+  // Nothing from the chat (like the composer) is on top of it.
+  const sendBox = await box(page.locator('[data-slot="composer"]'));
   const topmost = await page.evaluate(({ x, y }) => {
     const el = document.elementFromPoint(x, y);
     return el?.closest("aside") ? "panel" : "chat";
@@ -58,15 +59,17 @@ test("phones: the scene panel fills the screen and closes again", async ({ page 
   await expect(page.getByLabel("Message input")).toBeVisible();
 });
 
-test("tablets: the scene panel slides over the right of the chat, on top of it", async ({ page }) => {
+test("tablets and laptops: the scene panel slides over the right of the chat, on top of it", async ({ page }) => {
   const width = viewportWidth(page);
-  test.skip(width < PHONE_MAX_WIDTH || width >= PANEL_COLUMN_MIN_WIDTH, "tablet widths only");
+  test.skip(width < PHONE_MAX_WIDTH || width >= PANEL_COLUMN_MIN_WIDTH, "overlay widths only");
   await openChat(page);
   const panel = await openScene(page);
   const b = await box(panel);
   expect(b.x + b.width).toBeGreaterThanOrEqual(width - 0.5);
-  expect(b.width).toBeLessThan(width / 2);
-  expect(b.height).toBeGreaterThanOrEqual(page.viewportSize()!.height - 0.5);
+  expect(b.width).toBeLessThanOrEqual(PANEL_WIDTH + 0.5);
+  // It starts below the header (#151), so the header's buttons stay reachable.
+  expect(b.y + b.height).toBeGreaterThanOrEqual(page.viewportSize()!.height - 0.5);
+  expect(b.y).toBeLessThanOrEqual(64.5);
   const topmost = await page.evaluate(({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest("aside")), { x: b.x + b.width / 2, y: b.y + b.height - 40 });
   expect(topmost).toBe(true);
 });

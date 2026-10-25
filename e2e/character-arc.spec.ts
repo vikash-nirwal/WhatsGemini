@@ -1,4 +1,4 @@
-import { test, expect, openChat, sendMessage, waitForReplyDone, headerAction } from "./fixtures";
+import { test, expect, openChat, sendMessage, waitForReplyDone, openContactInfo } from "./fixtures";
 
 // Character arc suggestions (#60): every 40 messages a cheap check may
 // suggest how the character has grown; a kept note joins every prompt.
@@ -21,7 +21,6 @@ test("a growth note is suggested, kept, and shapes the next replies", async ({ p
   await sendMessage(page, "How are you feeling?");
   await expect.poll(() => systemOf(mockAI.requests.filter((r) => r.stream).pop()?.messages || [])).toContain("How Aria has changed over the story so far");
 
-  await headerAction(page, "Scene & chat settings");
-  await page.getByRole("tab", { name: "Memory", exact: true }).click();
+  await openContactInfo(page);
   await expect(page.getByRole("list", { name: "How Aria has grown" })).toContainText("More open about her past");
 });

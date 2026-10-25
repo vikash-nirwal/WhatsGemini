@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openChat, sendMessage, waitForReplyDone, headerAction, messageBubble, MockAIRequest, ARIA, KAI } from "./fixtures";
+import { test, expect, openChat, sendMessage, waitForReplyDone, headerAction, messageBubble, MockAIRequest, ARIA, KAI, openContactInfo } from "./fixtures";
 
 // Drama and conflict (#97-#100): fights that need making up, rumors that get
 // around, jealousy over other chats, and lies.
@@ -17,11 +17,12 @@ const sendAndWait = async (page: Page, requests: MockAIRequest[], text: string) 
   await waitForReplyDone(page);
 };
 
-const openTab = async (page: Page, tab: "Chat" | "Story") => {
-  await headerAction(page, "Scene & chat settings");
+const openTab = async (page: Page, tab: "Options" | "Story") => {
+  await headerAction(page, "Scene & story");
   await page.getByRole("tab", { name: tab, exact: true }).click();
 };
 const closePanel = (page: Page) => page.getByRole("button", { name: "Close scene panel" }).click();
+const closeContact = (page: Page) => page.getByRole("button", { name: "Close contact info" }).click();
 
 const putRow = (page: Page, store: string, row: Record<string, unknown>) =>
   page.evaluate(
@@ -46,7 +47,7 @@ const putRow = (page: Page, store: string, row: Record<string, unknown>) =>
 test("a fight lasts until you make up", async ({ page, mockAI }) => {
   mockAI.replyOnce("That really hurt, you know.\n[Upset: you mocked my painting]");
   await openChat(page);
-  await openTab(page, "Chat");
+  await openTab(page, "Options");
   await page.getByRole("switch", { name: "Fights that need making up" }).click();
   await closePanel(page);
   await sendAndWait(page, mockAI.requests, "Your painting looks like a toddler did it.");
@@ -73,7 +74,7 @@ test("a fight lasts until you make up", async ({ page, mockAI }) => {
 test("a lie keeps its truth hidden until you ask, and can be caught", async ({ page, mockAI }) => {
   mockAI.replyOnce("I was home all night, reading.\n[Lie: she was at Kai's party]");
   await openChat(page);
-  await openTab(page, "Chat");
+  await openTab(page, "Options");
   await page.getByRole("switch", { name: "Aria can lie" }).click();
   await closePanel(page);
   await sendAndWait(page, mockAI.requests, "Where were you last night?");
@@ -107,7 +108,7 @@ test("after a lot of time in other chats, the character can notice", async ({ pa
   });
   await page.reload();
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
-  await openTab(page, "Chat");
+  await openTab(page, "Options");
   await page.getByRole("switch", { name: "Aria notices other chats" }).click();
   await closePanel(page);
 
@@ -127,9 +128,9 @@ test.describe("rumors", () => {
         : "Rome?! You're leaving?\n[Rumor raised]"
     );
     await openChat(page, 1);
-    await openTab(page, "Chat");
+    await openContactInfo(page);
     await page.getByRole("switch", { name: "What you tell Aria can get around" }).click();
-    await closePanel(page);
+    await closeContact(page);
     await page.clock.fastForward(40_000);
     await expect.poll(() => mockAI.requests.filter((r) => r.prompt.includes("lets something from it slip")).length, { timeout: 15_000 }).toBe(1);
 

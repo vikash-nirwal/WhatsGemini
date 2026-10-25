@@ -26,7 +26,7 @@ test("a time skip writes a transition, moves the tracked time and place on, and 
       : "Coffee? *She slides a mug over.*"
   );
   await openChat(page);
-  await headerAction(page, "Scene & chat settings");
+  await headerAction(page, "Scene & story");
   await page.getByRole("switch", { name: "Track the scene" }).click();
   await page.getByRole("button", { name: "Close scene panel" }).click();
 

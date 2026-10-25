@@ -1,4 +1,4 @@
-import { test, expect, openChat, headerAction, sendMessage, waitForReplyDone, messageBubble } from "./fixtures";
+import { test, expect, openChat, headerAction, sendMessage, waitForReplyDone, messageBubble, openContactInfo } from "./fixtures";
 
 // Scene state HUD (#9): with the tracker on, a reply's hidden <state> block
 // updates a strip under the header and is fed back on the next turn.
@@ -9,7 +9,7 @@ const systemOf = (messages: { role: string; content: string }[]) => messages.fin
 
 test("the tracker shows the scene's state and keeps the model consistent", async ({ page, mockAI }) => {
   await openChat(page);
-  await headerAction(page, "Scene & chat settings");
+  await headerAction(page, "Scene & story");
   await page.getByRole("switch", { name: "Track the scene" }).click();
   await page.getByRole("button", { name: "Close scene panel" }).click();
 
@@ -38,15 +38,17 @@ test("the tracker shows the scene's state and keeps the model consistent", async
 
 test("a chat's own meters replace affection and trust, and boldness reaches the prompt", async ({ page, mockAI }) => {
   await openChat(page);
-  await headerAction(page, "Scene & chat settings");
+  await headerAction(page, "Scene & story");
   await page.getByRole("switch", { name: "Track the scene" }).click();
   const meters = page.getByPlaceholder(/e\.g\. tension/);
   await meters.fill("tension");
   await meters.press("Enter");
-  await page.getByRole("tab", { name: "Chat", exact: true }).click();
+  // How forward they are is about them, in Contact info (#151).
+  await page.getByRole("button", { name: "Close scene panel" }).click();
+  await openContactInfo(page);
   await page.getByRole("combobox", { name: "Boldness" }).click();
   await page.getByRole("option", { name: "Very shy" }).click();
-  await page.getByRole("button", { name: "Close scene panel" }).click();
+  await page.getByRole("button", { name: "Close contact info" }).click();
 
   mockAI.reply("*She looks away, cheeks warm.*\n<state>location: the balcony; tension: 64</state>");
   await sendMessage(page, "Hey you.");

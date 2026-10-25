@@ -334,19 +334,54 @@ export const sendMessage = async (page: Page, text: string) => {
 // Waits until the AI has finished replying: the composer's Stop button gives
 // way to Send again, so the message actions are enabled.
 export const waitForReplyDone = async (page: Page) => {
+  // A reply can start a moment after the send (a fake clock, a busy
+  // machine): give it a second to show the Stop button before waiting for
+  // it to go, so "done" never means "not started yet".
+  await page.getByRole("button", { name: "Stop Generating" }).waitFor({ timeout: 1000 }).catch(() => {});
   await expect(page.getByRole("button", { name: "Stop Generating" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Send Message" })).toBeVisible();
+  // An empty composer shows the voice-note button where Send goes (#149),
+  // so wait for the box to take input again rather than for Send.
+  await expect(page.getByLabel("Message input")).toBeEnabled();
 };
 
 // The chat bubble holding `text`, so a message action ("Edit", "Regenerate",
-// "Previous variant"...) is clicked on that message and not another one. The
-// footer actions only fade in on hover, so hover the bubble before clicking.
+// "Previous variant"...) is clicked on that message and not another one (see
+// messageAction for the actions behind the hover toolbar).
 // The chat's message list. Message text also shows in the chat list's
 // previews (#115), so look for it here rather than on the whole page.
 export const chatMessages = (page: Page) => page.getByRole("region", { name: "Messages" });
 
 export const messageBubble = (page: Page, text: string) =>
   page.locator('[data-slot="message-bubble"]').filter({ hasText: text });
+
+// Runs one of a message's actions (#149). A touch screen opens the
+// long-press sheet; with a mouse, React and Reply sit in the toolbar that
+// appears beside a hovered bubble and everything else is in its "More"
+// menu. `bubble` is the bubble's locator, or text inside it.
+export const messageAction = async (page: Page, bubble: Locator | string, name: string, options: { exact?: boolean } = {}) => {
+  const target = typeof bubble === "string" ? messageBubble(page, bubble).last() : bubble;
+  if (await page.evaluate(() => window.matchMedia("(hover: none)").matches)) {
+    await target.dispatchEvent("contextmenu");
+    await page.getByRole("menu", { name: "Message actions" }).getByRole("menuitem", { name, exact: options.exact }).click();
+    return;
+  }
+  await target.hover();
+  const toolbar = target.locator('[data-slot="message-toolbar"]');
+  const direct = toolbar.getByRole("button", { name, exact: options.exact });
+  if ((await direct.count()) > 0) {
+    await direct.first().click();
+    return;
+  }
+  await toolbar.getByRole("button", { name: "More message actions" }).click();
+  await page.getByRole("menuitem", { name, exact: options.exact }).click();
+};
+
+// Contact info (#151): the character everywhere - their life, inner life,
+// how you two are, memory and look - opened from the chat header's title.
+export const openContactInfo = async (page: Page) => {
+  await page.locator("header").first().getByRole("button", { name: /contact info$/ }).click();
+  await expect(page.getByRole("button", { name: "Close contact info" })).toBeVisible();
+};
 
 // Flows that use the composer's tool buttons or per-message action buttons
 // skip phones for now: both are being redesigned there (a "+" tool menu and

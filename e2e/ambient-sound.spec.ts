@@ -7,8 +7,8 @@ import { test, expect, openChat, headerAction } from "./fixtures";
 test.use({ seed: { messages: 4 } });
 
 const openChatTab = async (page: Page) => {
-  await headerAction(page, "Scene & chat settings");
-  await page.getByRole("tab", { name: "Chat", exact: true }).click();
+  await headerAction(page, "Scene & story");
+  await page.getByRole("tab", { name: "Options", exact: true }).click();
 };
 
 const patchChat = (page: Page, fields: Record<string, unknown>) =>

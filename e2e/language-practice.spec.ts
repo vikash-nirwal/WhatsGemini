@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openChat, sendMessage, waitForReplyDone, messageBubble, headerAction } from "./fixtures";
+import { test, expect, openChat, sendMessage, waitForReplyDone, messageBubble, headerAction, messageAction } from "./fixtures";
 
 // Language practice (#67): replies in the language you're learning, a
 // correction under your message, and a translation on request.
@@ -12,8 +12,8 @@ const isTouch = (page: Page) => page.evaluate(() => window.matchMedia("(hover: n
 test("replies come in Spanish, your mistakes get corrected, and a reply can be translated", async ({ page, mockAI }) => {
   mockAI.reply((req) => (req.prompt.startsWith("Translate this message into") ? "How nice! Why are you so happy?" : "¡Qué bien! ¿Por qué estás tan feliz?\n<fix>Yo soy feliz - \"ser\", not \"es\", with yo</fix>"));
   await openChat(page);
-  await headerAction(page, "Scene & chat settings");
-  await page.getByRole("tab", { name: "Chat", exact: true }).click();
+  await headerAction(page, "Scene & story");
+  await page.getByRole("tab", { name: "Options", exact: true }).click();
   await page.getByRole("combobox", { name: "Practice language" }).click();
   await page.getByRole("option", { name: "Spanish", exact: true }).click();
   await page.getByRole("button", { name: "Close scene panel" }).click();
@@ -31,7 +31,7 @@ test("replies come in Spanish, your mistakes get corrected, and a reply can be t
     await page.getByRole("menuitem", { name: "Translate" }).click();
   } else {
     await reply.hover();
-    await reply.getByRole("button", { name: "Translate" }).click();
+    await messageAction(page, reply, "Translate");
   }
   await expect(page.getByLabel("Translation")).toContainText("How nice! Why are you so happy?");
 });

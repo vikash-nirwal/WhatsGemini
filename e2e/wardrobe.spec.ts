@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openChat, openRoute, headerAction, sendMessage, ARIA, openDetails } from "./fixtures";
+import { test, expect, openChat, openRoute, headerAction, sendMessage, ARIA, openDetails, openContactInfo } from "./fixtures";
 
 // Wardrobe (#50): named outfits; the one being worn goes into pictures after
 // the locked look, and the character knows what they have on.
@@ -77,8 +77,7 @@ test("the worn outfit reaches the prompt and pictures, and is switched in the Sc
   expect(JSON.stringify(mockAI.requests[0].messages)).toContain("What you're wearing right now: Work clothes (charcoal blazer, white shirt)");
   expect(mockAI.requests[1].prompt).toContain("silver hair, violet eyes; outfit: charcoal blazer, white shirt");
 
-  await headerAction(page, "Scene & chat settings");
-  await page.getByRole("tab", { name: "Chat", exact: true }).click();
+  await openContactInfo(page);
   const outfit = page.getByRole("combobox", { name: "Aria's outfit" });
   await expect(outfit).toHaveText(/Work clothes/);
   await outfit.click();

@@ -24,8 +24,8 @@ test("album photos are blurred until tapped, and a locked one opens at its stage
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
 
-  await headerAction(page, "Scene & chat settings");
-  await page.getByRole("tab", { name: "Chat", exact: true }).click();
+  await headerAction(page, "Scene & story");
+  await page.getByRole("tab", { name: "Story", exact: true }).click();
   await page.getByRole("switch", { name: "Relationship stage" }).click();
   await page.getByRole("list", { name: "Relationship stages" }).getByRole("button", { name: "Dating" }).click();
   await page.getByRole("button", { name: "Close scene panel" }).click();

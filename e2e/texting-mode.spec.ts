@@ -47,8 +47,8 @@ test.describe("per chat", () => {
   test("a chat can turn texting mode on while the app setting is off", async ({ page, mockAI }) => {
     mockAI.reply(REPLY);
     await openChat(page);
-    await headerAction(page, "Scene & chat settings");
-    await page.getByRole("tab", { name: "Chat", exact: true }).click();
+    await headerAction(page, "Scene & story");
+    await page.getByRole("tab", { name: "Options", exact: true }).click();
     await expect(page.getByRole("button", { name: "App setting (off)" })).toBeVisible();
     await page.getByRole("button", { name: "On", exact: true }).click();
     await expect.poll(() =>

@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openChat, sendMessage, waitForReplyDone, headerAction, ARIA, KAI } from "./fixtures";
+import { test, expect, openChat, sendMessage, waitForReplyDone, headerAction, ARIA, KAI, openContactInfo } from "./fixtures";
 
 // Intimacy profile (#73): only in romantic scenes. Characters know about
 // each other (#74): a character can know about your other bonds.
@@ -48,10 +48,9 @@ test("a character can know about your bond with another", async ({ page, mockAI 
   await page.reload();
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
 
-  await headerAction(page, "Scene & chat settings");
-  await page.getByRole("tab", { name: "Chat", exact: true }).click();
+  await openContactInfo(page);
   await page.getByRole("switch", { name: "Aria knows about Kai" }).click();
-  await page.getByRole("button", { name: "Close scene panel" }).click();
+  await page.getByRole("button", { name: "Close contact info" }).click();
 
   await sendMessage(page, "I saw Kai yesterday.");
   await expect.poll(() => systemOf(mockAI.requests[0]?.messages || [])).toContain("Aria knows the user is also close to others:\n- Kai (Rival): they've talked now and then this week.");

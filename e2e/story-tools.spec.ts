@@ -1,4 +1,4 @@
-import { test, expect, openChat } from "./fixtures";
+import { test, expect, openChat, messageAction } from "./fixtures";
 import type { Page } from "@playwright/test";
 import fs from "fs";
 
@@ -9,11 +9,10 @@ test.use({ seed: { messages: 30 } });
 const chatAction = async (page: Page, name: string | RegExp) => {
   const direct = page.getByRole("button", { name });
   if (await direct.first().isVisible()) return direct.first().click();
-  await page.getByRole("button", { name: /more/i }).last().click();
+  await page.getByRole("button", { name: "More options", exact: true }).last().click();
   await page.getByRole("menuitem", { name }).click();
 };
 
-const isTouch = (page: Page) => page.evaluate(() => window.matchMedia("(hover: none)").matches);
 
 test("Export as story downloads readable Markdown", async ({ page }) => {
   await openChat(page, 1);
@@ -30,18 +29,12 @@ test("Export as story downloads readable Markdown", async ({ page }) => {
 test("a starred message is listed in the Scene panel and can be jumped to", async ({ page }) => {
   await openChat(page, 1);
   const bubble = page.locator('[data-slot="message-bubble"]').filter({ hasText: "User message 28: it was fine, thanks." });
-  if (await isTouch(page)) {
-    await bubble.dispatchEvent("contextmenu");
-    await page.getByRole("menu", { name: "Message actions" }).getByRole("menuitem", { name: "Star", exact: true }).click();
-  } else {
-    await bubble.hover();
-    await bubble.getByRole("button", { name: "Star", exact: true }).click();
-  }
+  await messageAction(page, bubble, "Star", { exact: true });
   await expect(bubble.getByLabel("Starred")).toBeVisible();
 
   // Scroll away, then jump back from the Scene panel.
   await page.getByText("Aria message 1: how was your day?").scrollIntoViewIfNeeded();
-  await chatAction(page, "Scene & chat settings");
+  await chatAction(page, "Scene & story");
   await page.getByRole("tab", { name: "Story", exact: true }).click();
   await page.getByRole("button", { name: /^Jump to: User message 28/ }).click();
   await expect(bubble).toBeInViewport();
@@ -52,13 +45,7 @@ test("a starred message is listed in the Scene panel and can be jumped to", asyn
 test("starred messages are listed across chats and open at the message", async ({ page }) => {
   await openChat(page, 1);
   const bubble = page.locator('[data-slot="message-bubble"]').filter({ hasText: "User message 6: it was fine, thanks." });
-  if (await isTouch(page)) {
-    await bubble.dispatchEvent("contextmenu");
-    await page.getByRole("menu", { name: "Message actions" }).getByRole("menuitem", { name: "Star", exact: true }).click();
-  } else {
-    await bubble.hover();
-    await bubble.getByRole("button", { name: "Star", exact: true }).click();
-  }
+  await messageAction(page, bubble, "Star", { exact: true });
   await expect(bubble.getByLabel("Starred")).toBeVisible();
   await page.goto("./#/starred");
   const list = page.getByRole("list", { name: "Starred messages" });

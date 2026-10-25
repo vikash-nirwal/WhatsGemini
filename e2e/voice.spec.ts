@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openChat, openRoute, sendMessage, waitForReplyDone, messageBubble, ARIA } from "./fixtures";
+import { test, expect, openChat, openRoute, sendMessage, waitForReplyDone, messageBubble, messageAction, ARIA } from "./fixtures";
 import { installSpeechFakes, say, spoken } from "./speechFakes";
 
 // Voice (#12) and voice notes (#44). The browser's speechSynthesis and
@@ -43,19 +43,6 @@ const patchDb = async (page: Page, patch: { voice?: object; voiceNoteMessage?: {
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
 };
 
-// The message's own actions: the hover footer on a mouse, the long-press
-// sheet on a touch screen.
-const messageAction = async (page: Page, bubbleText: string, name: string) => {
-  const bubble = messageBubble(page, bubbleText);
-  if (await isTouch(page)) {
-    await bubble.dispatchEvent("contextmenu");
-    await page.getByRole("menuitem", { name }).click();
-  } else {
-    await bubble.hover();
-    await bubble.getByRole("button", { name }).click();
-  }
-};
-
 const holdToRecord = async (page: Page, words: string) => {
   const button = page.getByRole("button", { name: "Hold to record a voice note" });
   const box = (await button.boundingBox())!;
@@ -84,7 +71,12 @@ test("Read aloud speaks a reply in the character's voice, without the actions, a
   await messageAction(page, "I'm right here, always.", "Stop reading");
   await expect.poll(() => page.evaluate(() => (window as any).__speech.cancels)).toBeGreaterThan(0);
   if (!(await isTouch(page))) {
-    await expect(messageBubble(page, "I'm right here, always.").getByRole("button", { name: "Read aloud" })).toBeVisible();
+    // Back to "Read aloud" once it has stopped (#149: in the More menu).
+    const bubble = messageBubble(page, "I'm right here, always.");
+    await bubble.hover();
+    await bubble.getByRole("button", { name: "More message actions" }).click();
+    await expect(page.getByRole("menuitem", { name: "Read aloud" })).toBeVisible();
+    await page.keyboard.press("Escape");
   }
 });
 

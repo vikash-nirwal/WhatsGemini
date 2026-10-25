@@ -51,10 +51,11 @@ test("a status with a photo shows the picture", async ({ page }) => {
   await expect(viewer).toContainText("Golden hour at the docks");
 });
 
-test.describe("on wide screens", () => {
-test.skip(({ viewport }) => (viewport?.width ?? 0) < 1024, "the sidebar is always shown on wide screens; phones open it from the menu");
+// Statuses live in Updates (#150: the sidebar's status row is gone), on
+// every screen size.
+test.describe("in Updates", () => {
 
-test("a character with statuses on posts one, shown in the sidebar", async ({ page, mockAI }) => {
+test("a character with statuses on posts one, shown in Updates", async ({ page, mockAI }) => {
   await page.clock.install();
   mockAI.reply("Long shift, but the rain made the cafe cozy ☔");
   await openChat(page);
@@ -63,7 +64,9 @@ test("a character with statuses on posts one, shown in the sidebar", async ({ pa
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
   await page.clock.fastForward(20_000);
 
-  await expect(page.getByRole("button", { name: "Aria's status, new" })).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => mockAI.requests.length, { timeout: 15_000 }).toBeGreaterThan(0);
+  await page.goto("./#/updates");
+  await expect(page.getByRole("region", { name: "Recent updates" }).getByRole("button", { name: "Aria's status, new" })).toBeVisible({ timeout: 15_000 });
   expect(mockAI.requests[0].prompt).toContain("Write one short status update that Aria posts");
 });
 
@@ -73,7 +76,8 @@ test("a status is seen once opened, and replying quotes it in the chat", async (
   await page.reload();
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
 
-  await page.getByRole("button", { name: "Aria's status, new" }).click();
+  await page.goto("./#/updates");
+  await page.getByRole("region", { name: "Recent updates" }).getByRole("button", { name: "Aria's status, new" }).click({ timeout: 30_000 });
   const viewer = page.getByRole("dialog", { name: "Aria's status" });
   await expect(viewer).toContainText("Pottery class tonight!");
   await viewer.getByRole("button", { name: "Reply" }).click();
@@ -81,37 +85,12 @@ test("a status is seen once opened, and replying quotes it in the chat", async (
   // The status is quoted above the composer (#129), and on the sent message.
   await expect(page.getByRole("group", { name: "Replying to Aria · Status" })).toContainText("Pottery class tonight!");
   await expect(page.getByLabel("Message input")).toHaveValue("");
-  await expect(page.getByRole("button", { name: "Aria's status", exact: true })).toBeVisible();
   await sendMessage(page, "So jealous!");
   await expect(messageBubble(page, "So jealous!").locator('[data-slot="quoted-status"]')).toContainText("Pottery class tonight!");
   await expect.poll(() => mockAI.requests.filter((r) => r.stream).length).toBe(1);
   expect(mockAI.requests.filter((r) => r.stream)[0].prompt).toContain('(replying to your status: "Pottery class tonight!") So jealous!');
+  // Opened, so it's under Viewed now.
+  await page.goto("./#/updates");
+  await expect(page.getByRole("region", { name: "Viewed updates" }).getByRole("button", { name: "Aria's status", exact: true })).toBeVisible({ timeout: 30_000 });
 });
-
-test("the collapsed sidebar still shows who posted", async ({ page }) => {
-  await openChat(page);
-  await patchAria(page, { statuses: [{ id: "s1", text: "Pottery class tonight!", createdAt: Date.now() - 60_000 }] });
-  await page.reload();
-  await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
-  await page.getByRole("button", { name: "Collapse sidebar" }).click();
-  await page.getByRole("button", { name: "Aria's status, new" }).click();
-  await expect(page.getByRole("dialog", { name: "Aria's status" })).toContainText("Pottery class tonight!");
-});
-});
-
-test.describe("on phones and tablets", () => {
-  test.skip(({ viewport }) => (viewport?.width ?? 0) >= 1024, "wide screens are covered above");
-
-  test("the status row is in the menu, and replying closes it and quotes the status", async ({ page }) => {
-    await openChat(page);
-    await patchAria(page, { statuses: [{ id: "s1", text: "Pottery class tonight!", createdAt: Date.now() - 60_000 }] });
-    await page.reload();
-    await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
-    await page.getByRole("button", { name: "Open menu" }).click();
-    await page.getByRole("button", { name: "Aria's status, new" }).click();
-    const viewer = page.getByRole("dialog", { name: "Aria's status" });
-    await viewer.getByRole("button", { name: "Reply" }).click();
-    await expect(viewer).toBeHidden();
-    await expect(page.getByRole("group", { name: "Replying to Aria · Status" })).toContainText("Pottery class tonight!");
-  });
 });

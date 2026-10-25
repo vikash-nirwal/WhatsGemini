@@ -20,8 +20,14 @@ import { AliveSection, DramaSection, MisremembersRow, MoodCarryRows, TextingSlip
 // The Chat tab: per-chat switches (texting, room turns, stages, co-writing,
 // language practice, suggestions...), per-character ones (statuses,
 // letters, diary, thoughts, outfit) and the app-wide mood display.
-const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, intensity }) => {
+// The groups this tab holds, which #151 shows in different places: the
+// chat panel's Options, Story and Group tabs (this chat) and Contact info
+// (the character, everywhere).
+export type ChatTabGroup = "messaging" | "texting" | "room" | "alive" | "inner" | "stage" | "relationship" | "drama" | "modes" | "look";
+
+const ChatTab: React.FC<ScenePanelTabProps & { groups?: ChatTabGroup[] }> = ({ chatId, character, isRoom, intensity, groups }) => {
   const dispatch = useAppDispatch();
+  const show = (id: ChatTabGroup) => !groups || groups.includes(id);
 
   // App-wide display preferences, not per-chat data like everything else in
   // this panel - surfaced here anyway (rather than the global Settings page)
@@ -53,8 +59,8 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
   const members = (chat?.characterIds || []).map((id) => allCharacters.find((c) => c.id === id)).filter((c): c is Character => Boolean(c));
 
   return (
-          <div role="tabpanel" id="scene-tabpanel-chat" aria-labelledby="scene-tab-chat" className="flex flex-col gap-[22px]">
-          <PanelGroup id="messaging" title="Messaging & display">
+          <div className="flex flex-col gap-[22px]">
+          {show("messaging") && <PanelGroup id="messaging" title="Messaging">
           {/* Texting mode (#6), per chat: this chat's own choice or the app's */}
           <div className="flex flex-col gap-2">
             <div className="min-w-0">
@@ -73,7 +79,6 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
           </div>
 
           {/* How they text (#108) - per character */}
-        {!isRoom && character && <TextingSlipsRow character={character} />}
 
           {/* Reply suggestions (#16) - per chat */}
           <div className="flex items-center justify-between gap-3">
@@ -149,9 +154,16 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
               )}
             </div>
           </div>
-          </PanelGroup>
+          </PanelGroup>}
 
-          {isRoom && (
+          {!isRoom && character && show("texting") && (
+          <PanelGroup id="texting" title="How they text">
+          {/* Texting imperfections (#108): how they type, everywhere */}
+          <TextingSlipsRow character={character} />
+          </PanelGroup>
+          )}
+
+          {isRoom && show("room") && (
           <PanelGroup id="room" title="Group chat">
           {/* Group chats (#22, #23): who answers, and an optional narrator */}
           {isRoom && (
@@ -241,8 +253,8 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
           </PanelGroup>
           )}
 
-          {!isRoom && character && (
-          <PanelGroup id="alive" title="Alive between messages">
+          {!isRoom && character && show("alive") && (
+          <PanelGroup id="alive" title="Their life">
           {/* Alive between messages (#93-#95, #98, #107, #110) - per character */}
         {!isRoom && character && <AliveSection character={character} />}
 
@@ -307,7 +319,7 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
           </PanelGroup>
           )}
 
-          {!isRoom && character && (
+          {!isRoom && character && show("inner") && (
           <PanelGroup id="inner" title="Inner life">
           {/* Inner thoughts (#10) - also per character */}
           {!isRoom && character && (
@@ -345,16 +357,14 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
             </div>
           )}
 
-          {/* Moods linger (#106) - per chat */}
-        {!isRoom && character && chat && <MoodCarryRows chat={chat} character={character} />}
 
           {/* Misremembers (#109) - per character */}
         {!isRoom && character && <MisremembersRow character={character} />}
           </PanelGroup>
           )}
 
-          {!isRoom && character && (
-          <PanelGroup id="relationship" title="Relationship">
+          {!isRoom && character && show("stage") && (
+          <PanelGroup id="stage" title="Relationship stage">
           {/* Relationship stages (#70) - 1:1 chats, opt-in */}
           {!isRoom && character && (
             <div className="flex flex-col gap-2">
@@ -394,6 +404,11 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
             </div>
           )}
 
+          </PanelGroup>
+          )}
+
+          {!isRoom && character && show("relationship") && (
+          <PanelGroup id="relationship" title="You and them">
           {/* Relationship that evolves (#30) */}
         {!isRoom && character && (
           <div className="flex items-center justify-between gap-3">
@@ -455,14 +470,16 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
           </PanelGroup>
           )}
 
-          {!isRoom && character && (
+          {!isRoom && character && show("drama") && (
           <PanelGroup id="drama" title="Drama">
           {/* Drama and conflict (#97, #99, #100) - per chat */}
+          {/* Moods linger (#106) - per chat */}
+        {!isRoom && character && chat && <MoodCarryRows chat={chat} character={character} />}
         {!isRoom && character && chat && <DramaSection chat={chat} character={character} />}
           </PanelGroup>
           )}
 
-          <PanelGroup id="modes" title="This story">
+          {show("modes") && <PanelGroup id="modes" title="This story">
           {/* Co-writing mode (#68) - 1:1 chats */}
           {!isRoom && character && (
             <div className="flex items-center justify-between gap-3">
@@ -516,6 +533,10 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
             )}
           </div>
 
+          </PanelGroup>}
+
+          {!isRoom && character && character.wardrobe && character.wardrobe.length > 0 && show("look") && (
+          <PanelGroup id="look" title="Look">
           {/* Wardrobe (#50): what the character is wearing in this story */}
           {!isRoom && character && character.wardrobe && character.wardrobe.length > 0 && (
             <div className="flex items-center justify-between gap-3">
@@ -540,6 +561,7 @@ const ChatTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, inte
             </div>
           )}
           </PanelGroup>
+          )}
 
           </div>
   );

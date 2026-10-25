@@ -1,5 +1,4 @@
 import { test, expect, openRoute, openChat, openDetails } from "./fixtures";
-import { viewportWidth } from "./layout";
 import type { Page } from "@playwright/test";
 
 // Consistent looks (#34, #35): the locked look is drafted, edited and saved
@@ -79,12 +78,9 @@ test("a chat picture request carries the locked look word for word", async ({ pa
   await page.reload();
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
 
-  if (viewportWidth(page) < 640) {
-    await page.getByRole("button", { name: "Composer options" }).click();
-    await page.getByRole("menuitemcheckbox", { name: "Request an image with this message" }).click();
-  } else {
-    await page.getByRole("button", { name: "Request an image with this message" }).click();
-  }
+  // #149: asking for an image is in the composer's "+" menu at every width.
+  await page.getByRole("button", { name: "Composer options" }).click();
+  await page.getByRole("menuitemcheckbox", { name: "Request an image with this message" }).click();
   await page.getByLabel("Message input").fill("Send me a picture of you!");
   await page.getByRole("button", { name: "Send Message" }).click();
 

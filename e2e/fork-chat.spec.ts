@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openChat, messageBubble, chatMessages } from "./fixtures";
+import { test, expect, openChat, messageBubble, chatMessages, messageAction } from "./fixtures";
 
 // Fork into a new chat (#86): a new chat that starts at the chosen message.
 
@@ -15,7 +15,7 @@ test("a new chat starts from a message, and the original stays as it was", async
     await page.getByRole("menuitem", { name: "Start a new chat from here" }).click();
   } else {
     await bubble.hover();
-    await bubble.getByRole("button", { name: "Start a new chat from here" }).click();
+    await messageAction(page, bubble, "Start a new chat from here");
   }
   await expect(page).toHaveURL(/#\/chat\/(?!1$)\d+$/);
   await expect(chatMessages(page).getByText("Aria message 3: how was your day?")).toBeVisible();

@@ -77,12 +77,23 @@ test.describe("message actions", () => {
     await expect(page.getByRole("menu", { name: "Message actions" })).toBeHidden();
   });
 
-  test("mouse: the footer actions are there on hover", async ({ page }) => {
+  test("mouse: a toolbar beside the bubble on hover, with the rest under More", async ({ page }) => {
     await openChat(page);
     test.skip(await isTouch(page), "mouse/trackpad only");
-    await userBubble(page).hover();
-    await expect(userBubble(page).getByRole("button", { name: "Edit" })).toBeVisible();
+    // #149: nothing is reserved under a bubble; hovering shows React, Reply
+    // and More beside it, clear of the text.
     await aiBubble(page).hover();
-    await expect(aiBubble(page).getByRole("button", { name: "Regenerate" })).toBeVisible();
+    const toolbar = aiBubble(page).locator('[data-slot="message-toolbar"]');
+    await expect(toolbar.getByRole("button", { name: "Reply" })).toBeVisible();
+    await expect(toolbar.getByRole("button", { name: "React" })).toBeVisible();
+    expect(overlaps(await box(toolbar), await box(aiBubble(page).getByText("Aria message 29: how was your day?")))).toBe(false);
+    await toolbar.getByRole("button", { name: "More message actions" }).click();
+    await expect(page.getByRole("menuitem", { name: "Regenerate" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu")).toHaveCount(0);
+
+    await userBubble(page).hover();
+    await userBubble(page).locator('[data-slot="message-toolbar"]').getByRole("button", { name: "More message actions" }).click();
+    await expect(page.getByRole("menuitem", { name: "Edit", exact: true })).toBeVisible();
   });
 });

@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openChat, openRoute, sendMessage, waitForReplyDone, headerAction, MockAIRequest } from "./fixtures";
+import { test, expect, openChat, openRoute, sendMessage, waitForReplyDone, headerAction, openContactInfo, MockAIRequest } from "./fixtures";
 
 // More lifelike characters (#106-#108): moods that carry over, one consistent
 // day, and texting imperfections.
@@ -17,11 +17,14 @@ const sendAndWait = async (page: Page, requests: MockAIRequest[], text: string) 
   await waitForReplyDone(page);
 };
 
-const openChatTab = async (page: Page) => {
-  await headerAction(page, "Scene & chat settings");
-  await page.getByRole("tab", { name: "Chat", exact: true }).click();
+// #151: moods lingering is this chat's (the panel's Options); how they
+// text, their day and their memory slips are about them (Contact info).
+const openOptions = async (page: Page) => {
+  await headerAction(page, "Scene & story");
+  await page.getByRole("tab", { name: "Options", exact: true }).click();
 };
 const closePanel = (page: Page) => page.getByRole("button", { name: "Close scene panel" }).click();
+const closeContact = (page: Page) => page.getByRole("button", { name: "Close contact info" }).click();
 
 // A weekday at ten in the morning, when the day's account is due.
 const MORNING = new Date(2026, 9, 21, 10, 0, 0);
@@ -29,7 +32,7 @@ const MORNING = new Date(2026, 9, 21, 10, 0, 0);
 test("a mood lingers after a reply and colours the next one, until cleared (#106)", async ({ page, mockAI }) => {
   mockAI.reply("[Emotion: sad] I really didn't expect that from you.");
   await openChat(page);
-  await openChatTab(page);
+  await openOptions(page);
   await page.getByRole("switch", { name: "Moods linger" }).click();
   const moodLine = page.getByTestId("lingering-mood");
   await expect(moodLine).toHaveText(/Nothing hanging over/);
@@ -38,7 +41,7 @@ test("a mood lingers after a reply and colours the next one, until cleared (#106
   await sendAndWait(page, mockAI.requests, "I forgot your birthday");
   // The reply is asked to report its emotion, even without emotion portraits.
   expect(lastSystem(mockAI.requests)).toContain("[Emotion: <word>]");
-  await openChatTab(page);
+  await openOptions(page);
   await expect(moodLine).toHaveText(/Still sad · since/);
   await closePanel(page);
 
@@ -49,7 +52,7 @@ test("a mood lingers after a reply and colours the next one, until cleared (#106
   expect(system).toContain("Aria was sad, after");
   expect(system).toContain('"I forgot your birthday"');
 
-  await openChatTab(page);
+  await openOptions(page);
   await moodLine.getByRole("button", { name: "Clear" }).click();
   await expect(moodLine).toHaveText(/Nothing hanging over/);
 });
@@ -58,17 +61,17 @@ test("one account of the day is written once and reaches the reply's prompt (#10
   await page.clock.install({ time: MORNING });
   mockAI.reply((req) => (req.prompt.includes("day has been like so far") ? "Aria opened the café at seven and the espresso machine gave up by nine." : "Mock reply"));
   await openChat(page);
-  await openChatTab(page);
+  await openContactInfo(page);
   await page.getByRole("switch", { name: "Aria has one consistent day" }).click();
   const dayLog = page.getByTestId("day-log");
   await expect(dayLog).toContainText("Not written yet today");
-  await closePanel(page);
+  await closeContact(page);
 
   // The writer's first check comes a few seconds after load.
   await page.clock.fastForward(10_000);
-  await openChatTab(page);
+  await openContactInfo(page);
   await expect(dayLog).toContainText("espresso machine gave up", { timeout: 15_000 });
-  await closePanel(page);
+  await closeContact(page);
   const written = mockAI.requests.filter((r) => r.prompt.includes("day has been like so far")).length;
   expect(written).toBe(1);
 
@@ -82,26 +85,29 @@ test("one account of the day is written once and reaches the reply's prompt (#10
 
 test("a sloppy texter's prompt loosens up in texting mode, and the setting is kept (#108)", async ({ page, mockAI }) => {
   await openChat(page);
-  await openChatTab(page);
+  // Texting mode is this chat's (Options); how they text is theirs (#151).
+  await openOptions(page);
   await page.getByRole("button", { name: "On", exact: true }).click();
+  await closePanel(page);
+  await openContactInfo(page);
   await page.getByRole("combobox", { name: "How Aria texts" }).click();
   await page.getByRole("option", { name: "Plenty of slips" }).click();
-  await closePanel(page);
+  await closeContact(page);
 
   await sendAndWait(page, mockAI.requests, "hey");
   expect(lastSystem(mockAI.requests)).toContain("Aria texts fast and loose");
 
   await page.reload();
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
-  await openChatTab(page);
+  await openContactInfo(page);
   await expect(page.getByRole("combobox", { name: "How Aria texts" })).toHaveText("Plenty of slips");
-  await closePanel(page);
+  await closeContact(page);
 
   // A clean texter gets no such note.
-  await openChatTab(page);
+  await openContactInfo(page);
   await page.getByRole("combobox", { name: "How Aria texts" }).click();
   await page.getByRole("option", { name: "Clean" }).click();
-  await closePanel(page);
+  await closeContact(page);
   await sendAndWait(page, mockAI.requests, "ok");
   expect(lastSystem(mockAI.requests)).not.toContain("fast and loose");
 });
@@ -154,12 +160,12 @@ test("facts show when they were learned, reach the prompt dated, and one from a 
   await page.reload();
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
 
-  await headerAction(page, "Scene & chat settings");
-  await page.getByRole("tab", { name: "Memory", exact: true }).click();
+  // Memory is about them, in Contact info (#151).
+  await openContactInfo(page);
   await expect(page.getByText("learned 12 Mar")).toBeVisible();
   await expect(page.getByText("Sam likes jazz.")).toBeVisible();
   await expect(page.getByText("Sam likes jazz.")).not.toContainText("learned");
-  await closePanel(page);
+  await closeContact(page);
 
   await sendAndWait(page, mockAI.requests, "hey");
   const system = lastSystem(mockAI.requests);
@@ -180,9 +186,9 @@ test("a character who misremembers is told to, in a sentence (#109)", async ({ p
   await writeMemoryDates(page, ["Sam likes jazz."], {});
   await page.reload();
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
-  await openChatTab(page);
+  await openContactInfo(page);
   await page.getByRole("switch", { name: "Aria sometimes misremembers" }).click();
-  await closePanel(page);
+  await closeContact(page);
   await sendAndWait(page, mockAI.requests, "hey");
   expect(lastSystem(mockAI.requests)).toContain("corrects themselves in the same reply");
 });
@@ -191,20 +197,20 @@ test("a character's own preoccupations are written weekly and reach the reply's 
   await page.clock.install({ time: MORNING });
   mockAI.reply((req) => (req.prompt.includes("in their own life this week") ? "NEW: Aria's landlord wants to inspect the flat on Friday.\nNEW: Aria wants to try pottery." : "Mock reply"));
   await openChat(page);
-  await openChatTab(page);
+  await openContactInfo(page);
   await page.getByRole("switch", { name: "Aria has their own preoccupations" }).click();
   const list = page.getByTestId("preoccupations");
   await expect(list).toContainText("Nothing written yet this week");
-  await closePanel(page);
+  await closeContact(page);
 
   await page.clock.fastForward(14_000);
-  await openChatTab(page);
+  await openContactInfo(page);
   await expect(list).toContainText("inspect the flat on Friday", { timeout: 15_000 });
   await expect(list).toContainText("try pottery");
   // One can be dropped by hand.
   await list.getByRole("button", { name: "Drop: Aria wants to try pottery." }).click();
   await expect(list).not.toContainText("try pottery");
-  await closePanel(page);
+  await closeContact(page);
 
   await sendAndWait(page, mockAI.requests, "hey");
   const system = lastSystem(mockAI.requests);

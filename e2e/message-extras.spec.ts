@@ -1,4 +1,4 @@
-import { test, expect, openChat, sendMessage, waitForReplyDone, messageBubble, chatMessages, PHONE_REDESIGN_SKIP } from "./fixtures";
+import { test, expect, openChat, sendMessage, waitForReplyDone, messageBubble, chatMessages, PHONE_REDESIGN_SKIP, messageAction } from "./fixtures";
 
 // WhatsApp-style message extras. Quoted replies (#119): reply to one message with its quote above yours,
 // and a character can quote one of yours with [Re: ...].
@@ -48,16 +48,19 @@ test("message info shows when your message was delivered and read", async ({ pag
   await openChat(page);
   const mine = messageBubble(page, "User message 2: it was fine, thanks.");
   await mine.hover();
-  await mine.getByRole("button", { name: "Info" }).click();
+  await messageAction(page, mine, "Info");
   const dialog = page.getByRole("dialog", { name: "Message info" });
   await expect(dialog.getByRole("list", { name: "Read by" })).toContainText("Read");
   await expect(dialog.getByRole("list", { name: "Read by" })).toContainText("Delivered");
   await expect(dialog.getByRole("list", { name: "Read by" })).not.toContainText("Not yet");
-  await page.keyboard.press("Escape");
+  // The More menu fades out first; until it's gone it still takes Escape.
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await dialog.press("Escape");
+  await expect(dialog).toHaveCount(0);
   // Your last message hasn't been answered yet.
   const last = messageBubble(page, "User message 4: it was fine, thanks.");
   await last.hover();
-  await last.getByRole("button", { name: "Info" }).click();
+  await messageAction(page, last, "Info");
   await expect(page.getByRole("dialog", { name: "Message info" })).toContainText("Not yet");
 });
 
@@ -114,7 +117,7 @@ test.describe("forwarding", () => {
     await openChat(page);
     const source = messageBubble(page, "Aria message 3: how was your day?");
     await source.hover();
-    await source.getByRole("button", { name: "Forward" }).click();
+    await messageAction(page, source, "Forward");
     await page.getByRole("dialog", { name: "Forward to…" }).getByRole("button", { name: "Aria & Kai" }).click();
     await expect(page).toHaveURL(/#\/chat\/2$/);
     await expect(page.locator('[data-slot="forwarded"]').filter({ hasText: "Aria message 3: how was your day?" })).toBeVisible();
