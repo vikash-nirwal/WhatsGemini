@@ -6,10 +6,14 @@ interface LogoProps {
   className?: string;
 }
 
-// A four-point "sparkle" mark on the app's accent gradient - same visual
-// language as Gemini's own icon, standing in for the previous placeholder
-// "G" letter tile. Colors are CSS custom properties so it stays correct
-// across the light/dark themes without a separate dark-mode variant.
+// Kindred's mark: two speech bubbles, one typing, on the app's accent
+// gradient. Colors are CSS custom properties so it stays correct across the
+// themes without a separate dark-mode variant. The PNG icons in public/ are
+// the same drawing in the cozy theme's colours (scripts/make-icons.js).
+// The bubbles stay cream in every theme, as on the app icon: some themes'
+// "on accent" colour is dark, which turned them black.
+const BUBBLE = "#FFF4EC";
+
 const Logo: React.FC<LogoProps> = ({ size = 36, className }) => {
   const { is } = useColorTheme();
   if (is("terminal")) {
@@ -20,7 +24,7 @@ const Logo: React.FC<LogoProps> = ({ size = 36, className }) => {
         className="flex-none flex items-center justify-center border border-border-bright text-foreground font-extrabold"
         style={{ width: size * 0.76, height: size * 0.76, fontSize: size * 0.38 }}
       >
-        W
+        K
       </div>
     );
   }
@@ -41,9 +45,16 @@ const Logo: React.FC<LogoProps> = ({ size = 36, className }) => {
     </defs>
     <rect width="36" height="36" rx="11" fill="url(#wg-logo-gradient)" />
     <path
-      d="M18 6C18 12.6 12.6 18 6 18C12.6 18 18 23.4 18 30C18 23.4 23.4 18 30 18C23.4 18 18 12.6 18 6Z"
-      style={{ fill: "rgb(var(--color-on-accent))" }}
+      d="M10.5 10h11a4.5 4.5 0 0 1 4.5 4.5v4a4.5 4.5 0 0 1-4.5 4.5h-6.2l-3.8 3v-3.1A4.5 4.5 0 0 1 6 18.5v-4A4.5 4.5 0 0 1 10.5 10z"
+      style={{ fill: BUBBLE, opacity: 0.55 }}
     />
+    <path
+      d="M14.5 15h11a4.5 4.5 0 0 1 4.5 4.5v3a4.5 4.5 0 0 1-4.5 4.5H25v3.2l-4-3.2h-6.5a4.5 4.5 0 0 1-4.5-4.5v-3a4.5 4.5 0 0 1 4.5-4.5z"
+      style={{ fill: BUBBLE }}
+    />
+    {[16.5, 20.5, 24.5].map((cx) => (
+      <circle key={cx} cx={cx} cy={21} r={1.3} style={{ fill: "rgb(var(--color-accent))" }} />
+    ))}
   </svg>
   );
 };

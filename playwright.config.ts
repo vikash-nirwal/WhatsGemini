@@ -5,7 +5,7 @@ import { defineConfig, devices } from "@playwright/test";
 // existing server" would quietly test the other checkout's code.
 const port = Number(process.env.E2E_PORT || 3000);
 // The app is served under the `homepage` path from package.json, in dev too.
-const baseURL = `http://localhost:${port}/Kindred/`;
+const baseURL = `http://localhost:${port}/WhatsGemini/`;
 
 export default defineConfig({
   testDir: "./e2e",

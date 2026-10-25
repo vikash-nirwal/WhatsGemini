@@ -248,7 +248,7 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
-- 2026-10-25 (night, rename): The app is now **Kindred** (was WhatsGemini): names in the app, docs and tests; the GitHub repo is vikash-nirwal/Kindred and the site https://vikash-nirwal.github.io/Kindred/. Storage keys, the database name, the backup type marker and the cards' `whatsgemini` extension keep the old name so data and old files carry over. Fixed a flaky while-away test (its threshold assumed a later catch-up time than the job picks). Suites: 1050 unit, 1109 UI, 18 screenshot.
+- 2026-10-25 (night, rename): The app is now **Kindred** (was WhatsGemini): names and a new logo in the app and docs. The repo and site address stay vikash-nirwal/WhatsGemini and /WhatsGemini/ for now (the user's call); renaming them later means updating package.json's homepage and playwright.config.ts's baseURL. Storage keys, the database name, the backup type marker and the cards' `whatsgemini` extension keep the old name so data and old files carry over. Fixed a flaky while-away test (its threshold assumed a later catch-up time than the job picks). Suites: 1050 unit, 1109 UI, 18 screenshot.
 
 - 2026-10-25 (late night, 2): Revamp waves 2 and 3: #152 Updates (status viewer, tiles, composer, channel cards), #153 message action sheet, #154 quick create and the six-step editor with Their life presets, #155 character cards, new chat and grouped Settings, #156 poll, message info, multi-chat forward, starred, adventures, #157 world rail, current-world hero and the wizard's connections preview. Editor tests now go through the editorStep helper. Suites: 1050 unit, 1109 UI (187 skipped), 18 screenshot (gallery baselines updated). Pushed and deployed.
 
