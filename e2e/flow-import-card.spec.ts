@@ -26,7 +26,7 @@ test("import a character card and chat with the result", async ({ page }) => {
 
   // The new character is in the gallery and its greeting opens the chat.
   await expect(page.getByRole("heading", { name: "Captain Mira Vale" })).toBeVisible();
-  await page.getByRole("button", { name: "Chat", exact: true }).click();
+  await page.getByRole("button", { name: /^(Message|Start chat)$/ }).click();
   await expect(page.getByLabel("Message input")).toBeVisible();
   await expect(page.getByText("Mind the puddle, traveller. Tea's on the house while the storm lasts.")).toBeVisible();
 });

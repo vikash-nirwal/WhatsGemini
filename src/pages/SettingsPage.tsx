@@ -1,4 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, useContext } from "react";
+import { CHAT_PROVIDER_META } from "../features/ai/providers/registry";
+import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
+import { CostMarker } from "src/components/molecules/SettingRow";
+import { SegmentedControl } from "src/components/molecules/SegmentedControl";
+import { LIFE_HINT, LIFE_LEVELS, LifeLevel, loadLifeDial, saveLifeDial } from "../features/life/lifeDial";
+import { useMediaQuery } from "src/hooks/useMediaQuery";
+import { useCurrentWorld } from "src/hooks/useWorld";
 import { useNavigate, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { RootState } from "../store/store";
@@ -13,7 +20,7 @@ import {
   setChatProvider, setImageProvider, setOllamaBaseUrl,
   setEmotionPanelEnabled, setEmotionPopupEnabled, setEmotionPopupDuration, setAlwaysShowInitials, setTextingMode, setRecapAfterDays,
 } from "../features/settingsSlice";
-import { FaInfoCircle, FaUser, FaMicrochip, FaImage, FaComments, FaShieldAlt, FaDatabase, FaPalette, FaLock, FaWallet } from "react-icons/fa";
+import { FaUser, FaMicrochip, FaImage, FaComments, FaShieldAlt, FaDatabase, FaPalette, FaLock, FaWallet, FaChevronRight, FaGlobe } from "react-icons/fa";
 import Header from "src/components/organisms/Header";
 import { toast } from "sonner";
 import { useColorTheme } from "../hooks/useColorTheme";
@@ -451,6 +458,9 @@ const SettingsPage = () => {
   }, [dispatch, imageModel]);
 
   const selectedSection = SECTION_IDS.includes(section as any) ? (section as string) : "profile";
+  const desktopSettings = useMediaQuery("(min-width: 768px)");
+  const [lifeLevel, setLifeLevel] = useState<LifeLevel>(() => loadLifeDial());
+  const { name: worldTitle } = useCurrentWorld();
   const setSelectedSection = (id: string) => navigate(`/settings/${id}`);
   const [lastBackupAt, setLastBackupAt] = useState<number>(() => Number(localStorage.getItem(LS_LAST_BACKUP_AT) || 0));
 
@@ -787,71 +797,104 @@ const SettingsPage = () => {
   };
 
   // `conf` names the section under the terminal theme's `$ cat <conf>.conf` title.
-  const sections: { id: string; icon: React.ReactNode; title: string; subtitle: string; conf: string }[] = [
-    { id: "profile", icon: <FaUser size={13} />, title: "User Profile", subtitle: "Your name and bio", conf: "user_profile" },
-    { id: "text", icon: <FaMicrochip size={13} />, title: "Text Generation Model", subtitle: "Provider, model, temperature, tokens", conf: "text_model" },
-    { id: "image", icon: <FaImage size={13} />, title: "Image Generation Settings", subtitle: "Provider, model, ratio, count", conf: "image_model" },
-    { id: "chat", icon: <FaComments size={13} />, title: "Chat Interface Settings", subtitle: "System prompt, bubbles, notifications", conf: "chat_ui" },
-    { id: "appearance", icon: <FaPalette size={13} />, title: "Appearance", subtitle: "Color theme", conf: "appearance" },
-    { id: "privacy", icon: <FaLock size={13} />, title: "Privacy", subtitle: "Blur, discreet list, app lock", conf: "privacy" },
-    { id: "safety", icon: <FaShieldAlt size={13} />, title: "Safety Settings", subtitle: chatProvider === "gemini" ? "Content filtering thresholds" : "Gemini only - not used by other providers", conf: "safety" },
-    { id: "spending", icon: <FaWallet size={13} />, title: "Spending", subtitle: "Life dial, activity log, costs and a monthly limit", conf: "spending" },
-    { id: "data", icon: <FaDatabase size={13} />, title: "Data & Import/Export", subtitle: "Import / export conversations", conf: "data_io" },
+  // #155: grouped as You, AI, Chat and look, and Care, as on the canvas.
+  const sections: { id: string; icon: React.ReactNode; title: string; subtitle: string; conf: string; group: string; value?: string }[] = [
+    { id: "profile", icon: <FaUser size={13} />, title: "Profile and personas", subtitle: "Who you are in your chats", conf: "user_profile", group: "You" },
+    { id: "text", icon: <FaMicrochip size={13} />, title: "Text model", subtitle: "Provider, model, temperature, tokens", conf: "text_model", group: "AI", value: CHAT_PROVIDER_META.find((p) => p.id === chatProvider)?.label },
+    { id: "image", icon: <FaImage size={13} />, title: "Images and voice", subtitle: "Provider, model, ratio, count", conf: "image_model", group: "AI" },
+    { id: "chat", icon: <FaComments size={13} />, title: "Chat defaults", subtitle: "System prompt, bubbles, notifications", conf: "chat_ui", group: "Chat and look", value: textingMode ? "Texting on" : undefined },
+    { id: "appearance", icon: <FaPalette size={13} />, title: "Appearance", subtitle: "Theme and reading comfort", conf: "appearance", group: "Chat and look" },
+    { id: "privacy", icon: <FaLock size={13} />, title: "Privacy", subtitle: "Blur, discreet list, app lock", conf: "privacy", group: "Care" },
+    { id: "safety", icon: <FaShieldAlt size={13} />, title: "Safety", subtitle: chatProvider === "gemini" ? "Content filtering thresholds" : "Gemini only - not used by other providers", conf: "safety", group: "Care" },
+    { id: "spending", icon: <FaWallet size={13} />, title: "Spending and life", subtitle: "Life dial, activity log, costs and a monthly limit", conf: "spending", group: "Care", value: lifeLevel[0].toUpperCase() + lifeLevel.slice(1) },
+    { id: "data", icon: <FaDatabase size={13} />, title: "Data and backup", subtitle: "Import / export conversations", conf: "data_io", group: "Care", value: lastBackupAt ? formatRelativeTime(lastBackupAt) : undefined },
   ];
+  const groups = ["You", "AI", "Chat and look", "Care"].map((g) => ({ title: g, items: sections.filter((s) => s.group === g) }));
+  const activePersona = personas.find((p) => p.id === activePersonaId) || personas[0];
+  const personaCard = (big: boolean) => (
+    <button type="button" onClick={() => setSelectedSection("profile")} className={cn("flex w-full items-center gap-3 rounded-card bg-raised text-left ring-1 ring-inset ring-border", big ? "p-3.5" : "p-3")}>
+      <CharacterAvatar name={activePersona?.name || "You"} imageSrc={activePersona?.avatar} size={big ? 56 : 40} />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className={cn("font-bold text-foreground", big ? "text-[17px]" : "text-[14px]")}>{activePersona?.name?.trim() || "You"}</span>
+        {big && activePersona?.bio && <span className="truncate text-[12.5px] text-muted-foreground">{activePersona.bio}</span>}
+        <span className="truncate text-[12px] text-subtle">Persona in {worldTitle}</span>
+      </span>
+    </button>
+  );
+  // Phones (#155): /settings is a list of everything; each section opens on
+  // its own screen, with Back to the list.
+  const phoneList = !desktopSettings && !section;
   const activeSection = sections.find((s) => s.id === selectedSection) || sections[0];
 
   return (
     <div className="w-full h-dvh flex flex-col">
-      <Header title="Settings" subtitle="Providers, chat behavior, and data" onBack={goBackOrHome} />
+      <Header title={phoneList || desktopSettings ? "Settings" : activeSection.title} subtitle={phoneList || desktopSettings ? undefined : "Settings"} onBack={!desktopSettings && section ? () => navigate("/settings") : goBackOrHome} />
       <div className="flex-1 overflow-auto p-4 md:p-8 flex justify-center">
       <div className="w-full max-w-5xl bg-transparent">
 
-        {!terminal && (
-          <div className="mb-6 flex items-center justify-between">
-            <h1 className="text-xl font-semibold tracking-tight text-foreground">AI Provider Settings</h1>
-            <FaInfoCircle className="text-muted-foreground" size={18} />
+        {phoneList && (
+          <div className="flex flex-col gap-3.5">
+            {personaCard(true)}
+            <div className="flex flex-col gap-2.5 rounded-card bg-card p-3.5 ring-1 ring-inset ring-border">
+              <div className="flex items-center gap-2"><CostMarker /><span className="flex-1 text-[15px] font-bold text-foreground">Life in the background</span><button type="button" onClick={() => setSelectedSection("spending")} className="text-[13.5px] font-bold text-primary-text">Activity log</button></div>
+              <SegmentedControl aria-label="Life dial" value={lifeLevel} onChange={(v) => { saveLifeDial(v as LifeLevel); setLifeLevel(v as LifeLevel); }} options={LIFE_LEVELS.map((l) => ({ value: l, label: l[0].toUpperCase() + l.slice(1) }))} className="w-full [&>*]:flex-1" />
+              <span className="text-[12px] text-subtle">{LIFE_HINT[lifeLevel]}</span>
+            </div>
+            {groups.map((g) => (
+              <nav key={g.title} aria-label={g.title} className="rounded-card bg-card px-1 ring-1 ring-inset ring-border">
+                {g.items.map((item, i) => (
+                  <button key={item.id} type="button" onClick={() => setSelectedSection(item.id)} className={cn("flex min-h-[52px] w-full items-center gap-3.5 px-3 text-left", i > 0 && "border-t border-border")}>
+                    <span className="grid h-8 w-8 flex-none place-items-center rounded-[9px] bg-sunken text-muted-foreground">{item.icon}</span>
+                    <span className="flex-1 text-[15px] font-semibold text-foreground">{item.title}</span>
+                    {item.value && <span className="text-[12px] text-subtle">{item.value}</span>}
+                    <FaChevronRight size={11} className="text-subtle" />
+                  </button>
+                ))}
+                {g.title === "Care" && (
+                  <button type="button" onClick={() => navigate("/worlds")} className="flex min-h-[52px] w-full items-center gap-3.5 border-t border-border px-3 text-left">
+                    <span className="grid h-8 w-8 flex-none place-items-center rounded-[9px] bg-sunken text-muted-foreground"><FaGlobe size={13} /></span>
+                    <span className="flex-1 text-[15px] font-semibold text-foreground">Worlds</span>
+                    <FaChevronRight size={11} className="text-subtle" />
+                  </button>
+                )}
+              </nav>
+            ))}
           </div>
         )}
 
+        {!phoneList && (
         <div className="flex flex-col md:flex-row gap-8 items-start">
-          <nav className={cn("w-full md:w-60 flex-none flex flex-col gap-0.5", terminal && "gap-2")}>
-            {sections.map((s, i) => {
-              const active = s.id === selectedSection;
-              if (terminal) {
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setSelectedSection(s.id)}
-                    className={cn(
-                      "px-3.5 py-2 text-[11px] font-bold text-left border transition-colors",
-                      active
-                        ? "bg-primary text-primary-foreground border-border-bright"
-                        : "border-border text-foreground hover:border-border-bright"
-                    )}
-                  >
-                    [{i + 1}] {s.title}
-                  </button>
-                );
-              }
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setSelectedSection(s.id)}
-                  className={cn(
-                    "flex items-center gap-3 h-11 px-3 rounded-lg text-sm text-left transition-colors",
-                    active
-                      ? "bg-card text-foreground font-semibold"
-                      : "text-muted-foreground font-normal hover:bg-card/60"
-                  )}
-                >
-                  <span className={cn("w-2 h-2 rounded-full flex-none", active ? "bg-primary" : "bg-muted")} />
-                  {s.title}
-                </button>
-              );
-            })}
-
+          {(desktopSettings || terminal) && (
+          <nav aria-label="Settings sections" className={cn("w-full md:w-[264px] flex-none flex flex-col gap-0.5", terminal && "gap-2")}>
+            {!terminal && <div className="mb-3">{personaCard(false)}</div>}
+            {terminal ? sections.map((s, i) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setSelectedSection(s.id)}
+                className={cn(
+                  "px-3.5 py-2 text-[11px] font-bold text-left border transition-colors",
+                  s.id === selectedSection ? "bg-primary text-primary-foreground border-border-bright" : "border-border text-foreground hover:border-border-bright"
+                )}
+              >
+                [{i + 1}] {s.title}
+              </button>
+            )) : groups.map((g) => (
+              <div key={g.title} className="flex flex-col gap-0.5 pb-2">
+                <span className="px-3 pb-1 pt-2 text-[11.5px] font-bold uppercase tracking-[0.06em] text-subtle">{g.title}</span>
+                {g.items.map((s) => {
+                  const active = s.id === selectedSection;
+                  return (
+                    <button key={s.id} type="button" onClick={() => setSelectedSection(s.id)} aria-current={active ? "page" : undefined}
+                      className={cn("flex h-11 items-center gap-3 rounded-[10px] px-3 text-left text-[14px] font-semibold transition-colors", active ? "bg-primary/15 text-foreground ring-1 ring-inset ring-primary/40" : "text-foreground hover:bg-raised")}>
+                      <span className={cn("flex-none", active ? "text-foreground" : "text-muted-foreground")}>{s.icon}</span>
+                      <span className="flex-1">{s.title}</span>
+                      {s.value && <span className={cn("text-[12px] font-normal", active ? "text-foreground" : "text-subtle")}>{s.value}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
             <div className="mt-5 p-3.5 rounded-lg bg-card border border-border/50 text-xs text-muted-foreground leading-relaxed">
               {terminal && "# "}
               <span className="text-foreground font-semibold">Everything lives in this browser.</span>{" "}
@@ -861,6 +904,7 @@ const SettingsPage = () => {
               </button>
             </div>
           </nav>
+          )}
 
           <div className="flex-1 min-w-0 max-w-[720px] flex flex-col gap-5">
             {terminal ? (
@@ -1044,6 +1088,7 @@ const SettingsPage = () => {
             </>
           </div>
         </div>
+        )}
       </div>
       </div>
     </div>

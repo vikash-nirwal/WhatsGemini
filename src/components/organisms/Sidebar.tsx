@@ -6,7 +6,7 @@ import { fetchChats, deleteChat, addChat, importChat, updateChatPinned, updateCh
 import { selectActivePersona } from "../../features/settingsSlice";
 import { fetchCharacters } from "../../features/characterSlice";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { FaFileImport, FaPlus, FaSearch, FaThumbtack, FaChevronRight, FaCheck, FaUsers, FaAngleDoubleLeft, FaAngleDoubleRight, FaArrowLeft, FaArchive, FaEye, FaVolumeMute, FaChevronDown } from "react-icons/fa";
+import { FaFileImport, FaPlus, FaSearch, FaThumbtack, FaTimes, FaCheck, FaUsers, FaAngleDoubleLeft, FaAngleDoubleRight, FaArrowLeft, FaArchive, FaEye, FaVolumeMute, FaChevronDown } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { useModal } from "../../contexts/ModalContext";
 import { useSidebar } from "../../contexts/SidebarContext";
@@ -121,7 +121,7 @@ const Sidebar = () => {
   const characters = useAppSelector((state) => state.character.characters);
   // The new-chat picker offers only people in the world on screen (#143).
   const worldCharacters = useWorldCharacters();
-  const { worlds, currentWorldId } = useCurrentWorld();
+  const { worlds, currentWorldId, name: worldTitle } = useCurrentWorld();
   const [worldPrefs] = useWorldPrefs(currentWorldId);
   const peekThreads = useMemo(() => (worldPrefs.peek ? worldThreads(characters, worlds, currentWorldId).length : 0), [worldPrefs.peek, characters, worlds, currentWorldId]);
   const showNsfwCharacters = useAppSelector((state) => state.settings.showNsfwCharacters);
@@ -565,8 +565,8 @@ const Sidebar = () => {
           setIsNewChatModalOpen(false);
           resetNewChatModal();
         }}
-        title={newChatMode === "group" ? "Start a group chat" : "Who do you want to talk to?"}
-        subtitle={newChatMode === "group" ? "Pick everyone who should be in the room." : "Pick a character to start a new chat."}
+        title={newChatMode === "group" ? "New group" : "New chat"}
+        subtitle={newChatMode === "group" ? `${selectedCharacterIds.length} of up to 6 selected` : "Who do you want to talk to?"}
       >
         {worldCharacters.length === 0 ? (
           <div className="text-center py-4">
@@ -574,7 +574,7 @@ const Sidebar = () => {
             <Button
               onClick={() => {
                 setIsNewChatModalOpen(false);
-                navigate("/characters/new");
+                navigate("/characters/quick");
               }}
               variant="default"
               size="sm"
@@ -593,32 +593,46 @@ const Sidebar = () => {
                   setSelectedCharacterIds([]);
                 }}
                 options={[
-                  { value: "single", label: "1:1 chat" },
-                  { value: "group", label: <span className="inline-flex items-center gap-1.5"><FaUsers size={11} /> Group chat</span> },
+                  { value: "single", label: "Chat" },
+                  { value: "group", label: <span className="inline-flex items-center gap-1.5"><FaUsers size={11} /> Group</span> },
                 ]}
-                className="self-start"
+                className="w-full [&>*]:flex-1"
               />
             )}
             <div className="relative">
-              <FaSearch size={12} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
+              <FaSearch size={12} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-subtle" />
               <Input
                 value={characterSearch}
                 onChange={(e) => setCharacterSearch(e.target.value)}
-                placeholder="Search your cast"
+                placeholder="Search characters"
                 aria-label="Search your cast"
-                className="pl-8 text-[13px] bg-background border-border/10 shadow-none"
+                className="h-11 rounded-full bg-raised pl-9 text-[14px] shadow-none"
                 autoFocus
               />
             </div>
+            {/* Who's picked for the group, each removable (#155). */}
+            {newChatMode === "group" && selectedCharacterIds.length > 0 && (
+              <div className="flex gap-3.5 overflow-x-auto py-1">
+                {worldCharacters.filter((c) => selectedCharacterIds.includes(c.id)).map((c) => (
+                  <div key={c.id} className="relative flex flex-none flex-col items-center gap-1">
+                    <CharacterAvatar name={c.name} accent={c.accent} imageSrc={avatarOf(c)} size={52} />
+                    <span className="max-w-[60px] truncate text-[12px] text-foreground">{c.name}</span>
+                    <button type="button" aria-label={`Remove ${c.name}`} onClick={() => toggleCharacterSelection(c.id)} className="absolute -right-1 -top-0.5 grid h-[22px] w-[22px] place-items-center rounded-full bg-subtle text-background ring-2 ring-popover"><FaTimes size={9} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
             {filteredCharacters.length === 0 ? (
               <p className="text-muted-foreground text-center py-4 text-sm">No characters match "{characterSearch.trim()}".</p>
             ) : (
-              <div className="max-h-[280px] overflow-y-auto flex flex-col gap-2">
+              <div className="flex max-h-[320px] flex-col overflow-y-auto">
+                <span className="px-3 pb-1 pt-2 text-[11.5px] font-bold uppercase tracking-[0.06em] text-subtle">In {worldTitle}</span>
                 {filteredCharacters.map((char: Character) => {
                   const isSelected = selectedCharacterIds.includes(char.id);
                   return (
-                    <Button
+                    <button
                       key={char.id}
+                      type="button"
                       onClick={() => {
                         if (newChatMode === "group") {
                           toggleCharacterSelection(char.id);
@@ -628,40 +642,29 @@ const Sidebar = () => {
                         resetNewChatModal();
                         handleCharacterClick(char.id, char.name);
                       }}
-                      variant="ghost"
-                      className={cn(
-                        "w-full h-auto justify-start gap-3 p-3 rounded-lg text-left font-normal",
-                        newChatMode === "group" && isSelected && "bg-primary/10"
-                      )}
+                      aria-pressed={newChatMode === "group" ? isSelected : undefined}
+                      className="flex min-h-16 w-full items-center gap-3 rounded-xl px-3 py-2 text-left hover:bg-raised"
                     >
+                      <CharacterAvatar name={char.name} accent={char.accent} imageSrc={avatarOf(char)} size={48} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[15px] font-semibold text-foreground">{char.name}</span>
+                        <span className="block truncate text-[12.5px] text-subtle">{[char.relationship, char.description].filter(Boolean).join(" · ")}</span>
+                      </span>
                       {newChatMode === "group" && (
-                        <span
-                          className={cn(
-                            "flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition",
-                            isSelected ? "bg-primary border-primary" : "border-border"
-                          )}
-                        >
-                          {isSelected && <FaCheck size={10} className="text-primary-foreground" />}
+                        <span className={cn("grid h-6 w-6 flex-none place-items-center rounded-full", isSelected ? "bg-primary text-primary-foreground" : "ring-2 ring-inset ring-border-strong")}>
+                          {isSelected && <FaCheck size={10} />}
                         </span>
                       )}
-                      <CharacterAvatar name={char.name} accent={char.accent} imageSrc={avatarOf(char)} size={40} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-[14.5px] text-foreground truncate">{char.name}</h3>
-                          {char.relationship && (
-                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary flex-shrink-0">
-                              {char.relationship}
-                            </span>
-                          )}
-                        </div>
-                        {char.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{char.description}</p>
-                        )}
-                      </div>
-                      {newChatMode === "single" && <FaChevronRight size={13} className="text-subtle flex-shrink-0" />}
-                    </Button>
+                    </button>
                   );
                 })}
+                <button type="button" onClick={() => { setIsNewChatModalOpen(false); navigate("/characters/quick"); }} className="flex min-h-16 w-full items-center gap-3 rounded-xl px-3 py-2 text-left hover:bg-raised">
+                  <span className="grid h-12 w-12 flex-none place-items-center rounded-full bg-primary/15 text-primary-text"><FaPlus size={15} /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] font-semibold text-foreground">New character</span>
+                    <span className="block text-[12.5px] text-subtle">{newChatMode === "group" ? "Create someone to add" : "Describe them in a line"}</span>
+                  </span>
+                </button>
               </div>
             )}
 
@@ -695,24 +698,6 @@ const Sidebar = () => {
             {newChatMode === "group" && selectedCharacterIds.length === 1 && (
               <p className="text-xs text-subtle text-center pt-1">Pick at least one more character to start a group chat.</p>
             )}
-          </div>
-        )}
-        {worldCharacters.length > 0 && newChatMode === "single" && (
-          <div className="flex items-center gap-2 pt-3 mt-1 border-t border-border/40 text-[13px] text-muted-foreground">
-            <FaPlus size={12} className="text-primary flex-shrink-0" />
-            <span>
-              Someone new?{" "}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsNewChatModalOpen(false);
-                  navigate("/characters/new");
-                }}
-                className="font-medium text-primary hover:underline"
-              >
-                Create a character
-              </button>
-            </span>
           </div>
         )}
       </Modal>

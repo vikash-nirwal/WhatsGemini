@@ -30,7 +30,6 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 **Wave 1 (#148–#151) is built** (2026-10-25; see PROGRESS.md). Left from it for later items: the life dial and presets in Contact info's "Their life" (with #131), Block and Clear chat there (with #133), search inside a chat (not built yet), and docking the composer below the messages instead of floating it (#152–#156 can pick it up).
 
 **Wave 2: the other screens**
-- **#155 Characters, new chat and settings (M).** The characters gallery, new chat / new group, and Settings regrouped as You, AI, Chat and look, Care (desktop and phone).
 - **#156 Smaller screens (M).** Starred messages, message info, forward, poll creation, the adventures gallery and an adventure.
 
 **Wave 3: with the features they belong to**

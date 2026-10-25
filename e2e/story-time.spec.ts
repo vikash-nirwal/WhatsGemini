@@ -32,7 +32,7 @@ test("a world's calendar is set, skipped ahead, and used in replies", async ({ p
   await page.getByRole("button", { name: "From another world" }).click();
   await page.getByRole("button", { name: "Add Aria" }).click();
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Chat", exact: true }).first().click();
+  await page.getByRole("button", { name: /^(Message|Start chat)$/ }).first().click();
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
   await sendMessage(page, "what day is it?");
   await waitForReplyDone(page);

@@ -1,6 +1,7 @@
 import { FaProjectDiagram } from "react-icons/fa";
 import RelationshipMap from "src/components/organisms/RelationshipMap";
 import { JoinWorldDialog } from "src/components/organisms/JoinWorldDialog";
+import { LIFE_PRESETS, lifeOf, presetOf } from "../features/character/lifePresets";
 import { ResetDialog } from "src/components/organisms/ResetDialog";
 import { resetCharacterLife } from "../features/life/reset";
 import React, { useState, useMemo, useRef } from "react";
@@ -9,7 +10,7 @@ import { useColorTheme } from "../hooks/useColorTheme";
 import { addCharacter, deleteCharacter } from "../features/characterSlice";
 import { addChat, fetchChats } from "../features/chatSlice";
 import { useNavigate } from "react-router-dom";
-import { FaTrash, FaEdit, FaDownload, FaImages, FaPlus, FaComment, FaEllipsisV, FaSearch, FaCopy, FaFileImage, FaUpload, FaBook, FaUndo } from "react-icons/fa";
+import { FaTrash, FaEdit, FaDownload, FaImages, FaPlus, FaEllipsisV, FaSearch, FaCopy, FaFileImage, FaUpload, FaBook, FaUndo } from "react-icons/fa";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "src/components/molecules/dropdown-menu";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { setShowNsfwCharacters } from "../features/settingsSlice";
@@ -22,7 +23,6 @@ import { useModal } from "../contexts/ModalContext";
 import { DisplayImage } from "src/components/molecules/DisplayImage";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { Button } from "src/components/atoms/button";
-import { Badge } from "src/components/atoms/badge";
 import { Card } from "src/components/atoms/card";
 import { Input } from "src/components/atoms/input";
 import { TermLink } from "src/components/atoms/TermLink";
@@ -33,7 +33,7 @@ import { characterToCardV2, parseCharacterCardText, buildCharacterCardPng, extra
 import ImportReviewDialog from "src/components/organisms/ImportReviewDialog";
 import { Dialog, DialogContent, DialogTitle, DialogClose } from "src/components/molecules/dialog";
 import { parseSize, resolveImageSrcToUrl, autoCoverCropToBlob, generatePlaceholderPortraitBlob, blobToDataUrl } from "../features/ai/utils/portraitUtils";
-import { useWorldChats, useWorldCharacters } from "src/hooks/useWorld";
+import { useWorldCharacters } from "src/hooks/useWorld";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -46,7 +46,13 @@ const CharacterPage = () => {
   const shell = usePhoneShell();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const allCharacters = useWorldCharacters();
+  // #155: this world's people, or everyone across your worlds.
+  const worldCharacters = useWorldCharacters();
+  const everyone = useAppSelector((state) => state.character.characters);
+  const worldTotal = useAppSelector((state) => state.world.worlds.length);
+  const [scope, setScope] = useState<"world" | "all">("world");
+  const [sort, setSort] = useState<"recent" | "name">("recent");
+  const allCharacters = scope === "world" ? worldCharacters : everyone;
   const showNsfwCharacters = useAppSelector((state) => state.settings.showNsfwCharacters);
   const blurNsfwMedia = useAppSelector((state) => state.settings.privacy.blurNsfwMedia);
   const hasNsfwCharacters = useMemo(() => allCharacters.some(isNsfwCharacter), [allCharacters]);
@@ -54,7 +60,7 @@ const CharacterPage = () => {
     () => (showNsfwCharacters ? allCharacters : allCharacters.filter((c) => !isNsfwCharacter(c))),
     [allCharacters, showNsfwCharacters]
   );
-  const chats = useWorldChats();
+  const chats = useAppSelector((state) => state.chat.chats);
   const loading = useAppSelector((state) => state.character.loading);
   const { showConfirm, showAlert } = useModal();
   const { is } = useColorTheme();
@@ -216,17 +222,15 @@ const CharacterPage = () => {
     }
   };
 
-  const truncateText = (text: string, maxLength = 100) => {
-    return text.length > maxLength ? text.substring(0, maxLength) + "..." : text;
-  };
-
   const filteredCharacters = useMemo(() => {
     const q = gallerySearch.trim().toLowerCase();
-    if (!q) return characters;
-    return characters.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.description?.toLowerCase().includes(q)
+    const found = !q ? characters : characters.filter(
+      (c) => c.name.toLowerCase().includes(q) || c.description?.toLowerCase().includes(q) || c.relationship?.toLowerCase().includes(q) || (c.tags || []).some((t) => t.toLowerCase().includes(q))
     );
-  }, [characters, gallerySearch]);
+    // Recently chatted first (the canvas's default), or by name.
+    const lastChat = (id: number) => Math.max(0, ...chats.filter((c) => c.characterIds?.includes(id)).map((c) => c.content?.[c.content.length - 1]?.timestamp || c.timestamp || 0));
+    return [...found].sort((a, b) => (sort === "name" ? a.name.localeCompare(b.name) : lastChat(b.id) - lastChat(a.id)));
+  }, [characters, gallerySearch, sort, chats]);
 
   const chattedThisWeek = useMemo(() => {
     const cutoff = Date.now() - WEEK_MS;
@@ -320,7 +324,7 @@ const CharacterPage = () => {
                 <Input
                   value={gallerySearch}
                   onChange={(e) => setGallerySearch(e.target.value)}
-                  placeholder="Search characters"
+                  placeholder="Search by name or tag"
                   aria-label="Search characters"
                   className="pl-8 text-[13px] w-[220px] bg-card"
                 />
@@ -388,6 +392,25 @@ const CharacterPage = () => {
           </div>
         </div>
 
+        {!terminal && (everyone.length > 0) && (
+          <div className="-mt-2 mb-5 flex flex-wrap items-center gap-2">
+            {worldTotal > 0 && (
+              <div role="group" aria-label="Whose characters" className="flex gap-2">
+                <button type="button" aria-pressed={scope === "world"} onClick={() => setScope("world")} className={cn("h-9 rounded-full px-3.5 text-[13px] font-semibold", scope === "world" ? "bg-primary/15 text-primary-text ring-1 ring-inset ring-primary" : "bg-raised text-foreground ring-1 ring-inset ring-border")}>In this world · {worldCharacters.length}</button>
+                <button type="button" aria-pressed={scope === "all"} onClick={() => setScope("all")} className={cn("h-9 rounded-full px-3.5 text-[13px] font-semibold", scope === "all" ? "bg-primary/15 text-primary-text ring-1 ring-inset ring-primary" : "bg-raised text-foreground ring-1 ring-inset ring-border")}>All worlds · {everyone.length}</button>
+              </div>
+            )}
+            <span className="flex-1" />
+            <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
+              Sort
+              <select aria-label="Sort characters" value={sort} onChange={(e) => setSort(e.target.value as "recent" | "name")} className="h-9 rounded-lg bg-raised px-2 text-[13px] font-semibold text-foreground ring-1 ring-inset ring-border">
+                <option value="recent">Recently chatted</option>
+                <option value="name">Name</option>
+              </select>
+            </label>
+          </div>
+        )}
+
         {!loading && characters.length === 0 ? (
           <Card className={cn("p-6 text-center flex flex-col items-center gap-3", neumorphic && "surface-sunken")}>
             <p className="text-muted-foreground">{allCharacters.length > 0 ? "Your characters are all NSFW and hidden. Turn on Show NSFW to see them." : "No characters created yet."}</p>
@@ -407,7 +430,7 @@ const CharacterPage = () => {
         ) : filteredCharacters.length === 0 ? (
           <Card className="p-6 text-center text-muted-foreground text-sm">No characters match "{gallerySearch}".</Card>
         ) : (
-          <div className="grid gap-5" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${terminal ? 170 : 230}px, 1fr))` }}>
+          <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${terminal ? 170 : 200}px, 1fr))` }}>
             {filteredCharacters.map((char) => {
               const charAccent = char.accent ?? CHARACTER_SWATCHES[0];
               const cardImageSrc = alwaysShowInitials ? undefined : avatarOf(char);
@@ -449,67 +472,37 @@ const CharacterPage = () => {
                   </div>
                 );
               }
+              // #155: the canvas's card - a colour (or their portrait) up top
+              // with a status badge, then who they are, their life, and Message.
+              const main = chats.find((c) => c.characterIds?.length === 1 && c.characterIds[0] === char.id && !c.whatIf);
+              const badge = !main ? "Not met" : main.archived ? "Archived" : main.muted ? "Muted" : undefined;
+              const life = LIFE_PRESETS.find((p) => p.id === presetOf(lifeOf(char)))?.name || "Custom life";
               return (
-              <Card
-                key={char.id}
-                className="relative overflow-hidden rounded-xl border border-transparent hover:border-primary/40 transition shadow-soft flex flex-col justify-end"
-                style={{ aspectRatio: "3 / 3.9" }}
-              >
-                <div className="absolute inset-0">
+              <article key={char.id} aria-label={char.name} className="flex flex-col overflow-hidden rounded-card bg-card shadow-soft ring-1 ring-inset ring-border transition hover:ring-primary/40">
+                <div className="relative flex h-[120px] items-end p-3" style={{ background: charAccent[0] }}>
                   {cardImageSrc ? (
-                    <NsfwBlur active={blurNsfwMedia && isNsfwCharacter(char)} className="w-full h-full"><DisplayImage srcContext={cardImageSrc} alt={char.name} className="w-full h-full object-cover" /></NsfwBlur>
+                    <NsfwBlur active={blurNsfwMedia && isNsfwCharacter(char)} className="absolute inset-0"><DisplayImage srcContext={cardImageSrc} alt={char.name} className="h-full w-full object-cover" /></NsfwBlur>
                   ) : (
-                    <div
-                      className="w-full h-full flex items-center justify-center"
-                      style={{ background: `linear-gradient(135deg, ${charAccent[0]}26, ${charAccent[1]}26)` }}
-                    >
-                      <CharacterAvatar name={char.name} accent={char.accent} size={72} />
-                    </div>
+                    <span aria-hidden className="text-[64px] font-bold leading-none tracking-[-0.03em] text-white/90">{char.name.trim().charAt(0).toUpperCase()}</span>
                   )}
+                  {badge && <span className="absolute right-2.5 top-2.5 rounded-md bg-black/45 px-2 py-0.5 text-[11.5px] font-bold text-white">{badge}</span>}
                 </div>
-                <div
-                  className="absolute inset-0 pointer-events-none"
-                  style={{ background: "linear-gradient(180deg, transparent 20%, rgb(var(--background) / 0.7) 55%, rgb(var(--background) / 0.98) 100%)" }}
-                />
-                <div
-                  className="absolute top-3 right-3 w-2.5 h-2.5 rounded-full"
-                  style={{ background: charAccent[0], boxShadow: `0 0 0 3px rgb(var(--background) / 0.6), 0 0 14px ${charAccent[0]}` }}
-                />
-                <div className="relative flex flex-col gap-1.5 p-4">
-                  {char.relationship && (
-                    <Badge variant="outline" className="self-start max-w-full truncate border-primary/20 bg-primary/10 font-medium text-primary text-[11px]">
-                      {char.relationship}
-                    </Badge>
-                  )}
-                  <h4 className="font-serif font-semibold text-xl text-foreground truncate leading-tight">{char.name}</h4>
-                  <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
-                    {truncateText(char.description, 140)}
-                  </p>
-                  <div className="flex gap-1.5 mt-2">
-                    <Button
-                      onClick={() => handleChatWithCharacter(char)}
-                      className="flex-1 h-9 text-xs font-semibold bg-foreground text-background hover:bg-foreground/90 shadow-none"
-                    >
-                      <FaComment size={11} /> Chat
+                <div className="flex flex-1 flex-col gap-1.5 px-3.5 pb-3.5 pt-3">
+                  <div className="flex min-w-0 flex-col">
+                    <h4 className="truncate text-[15px] font-bold text-foreground">{char.name}</h4>
+                    <span className="truncate text-[12.5px] text-muted-foreground">{[char.relationship, char.description].filter(Boolean).join(" · ")}</span>
+                  </div>
+                  <span className="truncate text-[12px] text-subtle">{life}</span>
+                  <div className="mt-auto flex gap-1.5 pt-1">
+                    <Button onClick={() => handleChatWithCharacter(char)} variant="secondary" size="sm" className="h-9 flex-1 font-semibold">
+                      {main ? "Message" : "Start chat"}
                     </Button>
-                    <Button
-                      onClick={() => navigate(`/characters/${char.id}/edit`)}
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9 bg-card/70 hover:border-primary hover:text-primary"
-                      title="Edit Character"
-                    >
+                    <Button onClick={() => navigate(`/characters/${char.id}/edit`)} variant="ghost" size="icon" className="h-9 w-9" title="Edit character" aria-label={`Edit ${char.name}`}>
                       <FaEdit size={13} />
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-9 w-9 bg-card/70 hover:bg-hover hover:text-foreground"
-                          title="More options"
-                          aria-label={`More options for ${char.name}`}
-                        >
+                        <Button variant="ghost" size="icon" className="h-9 w-9" title="More options" aria-label={`More options for ${char.name}`}>
                           <FaEllipsisV size={13} />
                         </Button>
                       </DropdownMenuTrigger>
@@ -517,7 +510,7 @@ const CharacterPage = () => {
                     </DropdownMenu>
                   </div>
                 </div>
-              </Card>
+              </article>
             )})}
             {terminal ? (
               <button
@@ -531,25 +524,12 @@ const CharacterPage = () => {
             ) : (
             <button
               type="button"
-              onClick={() => navigate("/characters/new")}
-              className={cn(
-                "rounded-xl flex flex-col items-center justify-center gap-3 text-subtle hover:text-primary transition-colors",
-                neumorphic
-                  ? "surface-sunken hover:surface-sunken"
-                  : "border-[1.5px] border-dashed border-border hover:border-primary"
-              )}
-              style={{ aspectRatio: "3 / 3.9" }}
+              onClick={() => navigate("/characters/quick")}
+              className="flex min-h-[250px] flex-col items-center justify-center gap-2.5 rounded-card text-muted-foreground ring-[1.5px] ring-inset ring-border-strong transition-colors hover:ring-primary"
             >
-              <span
-                className={cn(
-                  "w-[52px] h-[52px] rounded-full grid place-items-center",
-                  neumorphic ? "surface-raised" : "border-[1.5px] border-dashed border-current"
-                )}
-              >
-                <FaPlus size={18} />
-              </span>
-              <span className="font-semibold text-sm text-foreground">New character</span>
-              <span className="text-xs text-center max-w-[160px] leading-relaxed">Define who Gemini becomes</span>
+              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-primary/15 text-primary-text"><FaPlus size={18} /></span>
+              <span className="text-[15px] font-bold text-foreground">New character</span>
+              <span className="max-w-[180px] text-center text-[12.5px] text-subtle">Describe them in a line, chat in a minute</span>
             </button>
             )}
           </div>

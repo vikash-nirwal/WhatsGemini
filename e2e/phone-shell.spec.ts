@@ -49,7 +49,7 @@ test("the chat list is home, with tabs, and a chat goes back to it", async ({ pa
   await expect(chatRows).toHaveCount(2);
 
   await list.getByRole("button", { name: "New chat" }).click();
-  await expect(page.getByRole("dialog", { name: "Who do you want to talk to?" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "New chat" })).toBeVisible();
   await page.keyboard.press("Escape");
 
   await tabs.getByRole("link", { name: "Characters" }).click();

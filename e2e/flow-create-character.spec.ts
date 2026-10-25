@@ -25,7 +25,7 @@ test("create a character in the editor and start a chat with it", async ({ page,
   // Back in the gallery, the new card opens a 1:1 chat.
   await expect(page).toHaveURL(/#\/characters$/);
   await expect(page.getByText("Nell the Navigator", { exact: true }).locator("visible=true").first()).toBeVisible();
-  await page.getByRole("button", { name: "Chat", exact: true }).click();
+  await page.getByRole("button", { name: /^(Message|Start chat)$/ }).click();
   await expect(page).toHaveURL(/#\/chat\/\d+$/);
   await expect(page.getByLabel("Message input")).toBeVisible();
   await expect(page.locator("header").first()).toContainText("Nell the Navigator");
