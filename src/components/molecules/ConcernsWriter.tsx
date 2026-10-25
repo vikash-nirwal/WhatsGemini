@@ -1,12 +1,13 @@
 import { useEffect, useRef } from "react";
 import { AppDispatch } from "src/store/store";
-import { useAppDispatch, useAppSelector } from "src/store/hooks";
+import { useAppDispatch } from "src/store/hooks";
 import { generateAssistText } from "src/features/aiSlice";
 import { updateCharacter } from "src/features/characterSlice";
 import { applyConcerns, buildConcernsPrompt, concernsDue, openConcerns, parseConcerns } from "src/features/character/preoccupations";
 import { buildScheduleSection } from "src/features/character/schedule";
 import { dayLogText } from "src/features/character/dayLog";
 import { Character } from "src/types";
+import { useLivingCharacters } from "src/hooks/useWorld";
 
 const CHECK_EVERY_MS = 60 * 60 * 1000;
 // After the day log (8 s), so this week's list can lean on today's account.
@@ -38,7 +39,7 @@ export const writeConcerns = async (dispatch: AppDispatch, character: Character,
 // character with the switch on gets this week's list, one per check.
 const ConcernsWriter = () => {
   const dispatch = useAppDispatch();
-  const characters = useAppSelector((state) => state.character.characters);
+  const characters = useLivingCharacters();
   const charactersRef = useRef(characters);
   charactersRef.current = characters;
   const busy = useRef(false);

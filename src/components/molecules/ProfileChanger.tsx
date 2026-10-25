@@ -9,6 +9,7 @@ import { awakeAt } from "src/features/character/firstTexts";
 import { dayMoodFor } from "src/features/character/badDays";
 import { concernsLine } from "src/features/character/preoccupations";
 import { dayLogText } from "src/features/character/dayLog";
+import { useLivingCharacters } from "src/hooks/useWorld";
 
 const CHECK_EVERY_MS = 60 * 60 * 1000;
 const FIRST_CHECK_MS = 25 * 1000;
@@ -19,7 +20,7 @@ const FIRST_CHECK_MS = 25 * 1000;
 // provider); the chat gets a notice. One character per check.
 const ProfileChanger = () => {
   const dispatch = useAppDispatch();
-  const characters = useAppSelector((state) => state.character.characters);
+  const characters = useLivingCharacters();
   const chats = useAppSelector((state) => state.chat.chats);
   const latest = useRef({ characters, chats });
   latest.current = { characters, chats };

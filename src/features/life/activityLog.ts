@@ -12,6 +12,7 @@ export interface ActivityEntry {
   characterId?: number;
   name?: string; // the character's name, for the row's avatar
   cost?: number; // estimated USD; undefined on a free or local provider
+  world?: string; // the character's world (#146); unset in My world
 }
 
 export const LS_ACTIVITY_LOG = "activity_log";

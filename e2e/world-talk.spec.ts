@@ -72,3 +72,26 @@ test("characters who know each other text on their own, and Peek shows it", asyn
   const system = mockAI.requests.filter((r) => r.stream).pop()!.messages.find((m) => m.role === "system")?.content || "";
   expect(system).toContain("Recently you texted Kai:\nAria: you up?");
 });
+
+// Worlds keep running (#146): life goes on in a world you've left, unless
+// its "keep living" switch is off.
+test("a world you've left keeps living unless it's switched off", async ({ page, mockAI }) => {
+  await page.clock.install({ time: new Date(2026, 9, 21, 10, 0, 0) });
+  mockAI.reply((req) => (req.prompt.includes("Write a text conversation between") ? TALK : "Mock reply"));
+  await openRoute(page, "/worlds/new");
+  await page.locator("#world-name").fill("Elsewhere");
+  await page.locator("#world-premise").fill("Somewhere else entirely.");
+  await page.getByRole("button", { name: "Create World" }).click();
+  await page.getByRole("group", { name: "Life in My world" }).getByText("Keep living while I'm elsewhere").click();
+  await page.getByRole("button", { name: "Switch to Elsewhere" }).click();
+  await patchCharacter(page, ARIA.id, { knowsAbout: [KAI.id] });
+  await page.reload();
+  await page.clock.fastForward(40_000);
+  await page.clock.fastForward(60 * 60_000);
+  expect(mockAI.requests.some((r) => r.prompt.includes("Write a text conversation between"))).toBe(false);
+
+  await openRoute(page, "/worlds");
+  await page.getByRole("group", { name: "Life in My world" }).getByText("Keep living while I'm elsewhere").click();
+  await page.clock.fastForward(60 * 60_000);
+  await expect.poll(() => talksInDb(page), { timeout: 15_000 }).toHaveLength(1);
+});

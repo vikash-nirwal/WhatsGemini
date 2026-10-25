@@ -10,6 +10,7 @@ import { worldOf } from "src/features/world/currentWorld";
 import { awakeAt } from "src/features/character/firstTexts";
 import { lifeScaled } from "src/features/life/lifeDial";
 import { catchUpTime } from "src/features/life/away";
+import { useLivingCharacters } from "src/hooks/useWorld";
 
 const CHECK_EVERY_MS = 45 * 60 * 1000;
 const FIRST_CHECK_MS = 35 * 1000;
@@ -19,7 +20,7 @@ const FIRST_CHECK_MS = 35 * 1000;
 // the helper model. You only see it through Peek.
 const WorldTalker = () => {
   const dispatch = useAppDispatch();
-  const characters = useAppSelector((state) => state.character.characters);
+  const characters = useLivingCharacters();
   const worlds = useAppSelector((state) => state.world.worlds);
   const persona = useAppSelector(selectActivePersona);
   const latest = useRef({ characters, worlds, persona });

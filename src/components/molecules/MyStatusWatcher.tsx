@@ -9,6 +9,7 @@ import { isNsfwCharacter } from "src/features/character/contentRating";
 import { notifyChatMessage } from "src/features/notifications/notifications";
 import { AI } from "src/utils/constants";
 import { Chat } from "src/types";
+import { useElsewhereName, useLivingCharacters } from "src/hooks/useWorld";
 
 const CHECK_EVERY_MS = 30 * 1000;
 const FIRST_CHECK_MS = 5 * 1000;
@@ -22,10 +23,11 @@ const MyStatusWatcher = () => {
   const location = useLocation();
   const statuses = useAppSelector((state) => state.myStatus.statuses);
   const chats = useAppSelector((state) => state.chat.chats);
-  const characters = useAppSelector((state) => state.character.characters);
+  const characters = useLivingCharacters();
   const privacy = useAppSelector((state) => state.settings.privacy);
-  const latest = useRef({ statuses, chats, characters, privacy, path: location.pathname });
-  latest.current = { statuses, chats, characters, privacy, path: location.pathname };
+  const elsewhere = useElsewhereName();
+  const latest = useRef({ statuses, chats, characters, privacy, path: location.pathname, elsewhere });
+  latest.current = { statuses, chats, characters, privacy, path: location.pathname, elsewhere };
   const busy = useRef(false);
 
   useEffect(() => {
@@ -35,7 +37,7 @@ const MyStatusWatcher = () => {
   useEffect(() => {
     const check = async () => {
       if (busy.current) return;
-      const { statuses, chats, characters, privacy, path } = latest.current;
+      const { statuses, chats, characters, privacy, path, elsewhere } = latest.current;
       const due = dueReplies(statuses, Date.now());
       if (due.length === 0) return;
       busy.current = true;
@@ -51,10 +53,11 @@ const MyStatusWatcher = () => {
           if (!chat?.id) continue;
           await dispatch(addMessage({ chatId: chat.id, role: AI, text: reply.text, speakerId: character.id, noGreeting: true, quotedStatus: { owner: "you", text: status.text, photo: Boolean(status.image) } }));
           await dispatch(fetchChats());
-          const shown = await notifyChatMessage({ chatId: chat.id, speaker: character, text: reply.text, isNsfwChat: isNsfwCharacter(character), privacy, muted: chat.muted });
+          const world = elsewhere(character); // from another world (#146)
+          const shown = await notifyChatMessage({ chatId: chat.id, speaker: character, text: reply.text, isNsfwChat: isNsfwCharacter(character), privacy, muted: chat.muted, world });
           if (!shown && !chat.muted && path !== `/chat/${chat.id}`) {
             const chatId = chat.id;
-            toast.message(`${character.name} replied to your status`, { description: reply.text, action: { label: "Open", onClick: () => navigate(`/chat/${chatId}`) } });
+            toast.message(world ? `${character.name} replied to your status in ${world}` : `${character.name} replied to your status`, { description: reply.text, action: { label: "Open", onClick: () => navigate(`/chat/${chatId}`) } });
           }
         }
       } catch (err) {

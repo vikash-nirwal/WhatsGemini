@@ -7,6 +7,7 @@ import { addTalk, buildOffscreenTalkPrompt, parseOffscreenTalk, pickPair, talkDu
 import { formatTranscript } from "src/features/ai/utils/chatHistoryUtils";
 import { trimToLatestSummary } from "src/features/ai/utils/transcript";
 import { Character } from "src/types";
+import { useLivingCharacters, useLivingChats } from "src/hooks/useWorld";
 
 const CHECK_EVERY_MS = 30 * 60 * 1000;
 const FIRST_CHECK_MS = 20 * 1000;
@@ -17,8 +18,8 @@ const FIRST_CHECK_MS = 20 * 1000;
 // cheaper helper model.
 const OffscreenTalker = () => {
   const dispatch = useAppDispatch();
-  const chats = useAppSelector((state) => state.chat.chats);
-  const characters = useAppSelector((state) => state.character.characters);
+  const chats = useLivingChats();
+  const characters = useLivingCharacters();
   const persona = useAppSelector(selectActivePersona);
   const latest = useRef({ chats, characters, persona });
   latest.current = { chats, characters, persona };

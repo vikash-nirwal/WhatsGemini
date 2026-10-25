@@ -646,7 +646,10 @@ export const generateAssistText = createAsyncThunk(
         const result = await helper.adapter.generateOnce(instruction, helper.model, helper.config);
         if (activity) {
           const cost = isFreeProvider(helper.providerId) ? undefined : estimateCallCost({ kind: "text", providerId: helper.providerId, model: helper.model, usage: result.usage });
-          logActivity({ ...activity, cost });
+          // Which world it happened in (#146), for the log's rows and filter.
+          const who = state.character.characters.find((c) => c.id === activity.characterId);
+          const world = who?.worldId ? state.world.worlds.find((w) => w.id === who.worldId)?.name : undefined;
+          logActivity({ ...activity, cost, ...(world ? { world } : {}) });
         }
         return result.text.trim();
       }

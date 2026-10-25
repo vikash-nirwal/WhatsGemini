@@ -38,3 +38,8 @@ export const saveWorldPrefs = (worldId: number | null, patch: WorldPrefs): World
 
 export const talkLengthFor = (worldId: number | null) =>
   Math.min(MAX_TALK_LENGTH, Math.max(2, loadWorldPrefs(worldId).talkLength || DEFAULT_TALK_LENGTH));
+
+// Whether a world's background life runs (#146): the one on screen always
+// does; others unless their "keep living" switch is off.
+export const livingIn = (worldId: number | null, currentWorldId: number | null) =>
+  worldId === currentWorldId || loadWorldPrefs(worldId).keepLiving !== false;

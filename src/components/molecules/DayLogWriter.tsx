@@ -1,12 +1,13 @@
 import { useEffect, useRef } from "react";
 import { AppDispatch } from "src/store/store";
-import { useAppDispatch, useAppSelector } from "src/store/hooks";
+import { useAppDispatch } from "src/store/hooks";
 import { generateAssistText } from "src/features/aiSlice";
 import { updateCharacter } from "src/features/characterSlice";
 import { buildDayLogPrompt, cleanDayLog, dayLogDue } from "src/features/character/dayLog";
 import { buildScheduleSection } from "src/features/character/schedule";
 import { dayKey, dayMoodFor } from "src/features/character/badDays";
 import { Character } from "src/types";
+import { useLivingCharacters } from "src/hooks/useWorld";
 
 const CHECK_EVERY_MS = 20 * 60 * 1000;
 // Before the status poster (15 s) and the first texter (20 s), so their first
@@ -41,7 +42,7 @@ export const writeDayLog = async (dispatch: AppDispatch, character: Character, l
 // with the switch on gets today's account written, one character per check.
 const DayLogWriter = () => {
   const dispatch = useAppDispatch();
-  const characters = useAppSelector((state) => state.character.characters);
+  const characters = useLivingCharacters();
   const charactersRef = useRef(characters);
   charactersRef.current = characters;
   const busy = useRef(false);

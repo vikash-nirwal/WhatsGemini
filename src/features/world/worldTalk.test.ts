@@ -58,3 +58,13 @@ describe("life inside a world (#145)", () => {
     expect(talkLengthFor(null)).toBe(10);
   });
 });
+
+describe("worlds keep running (#146)", () => {
+  it("the world on screen always lives; others unless switched off", () => {
+    const { livingIn } = jest.requireActual("./worldPrefs");
+    saveWorldPrefs(7, { keepLiving: false });
+    expect(livingIn(7, null)).toBe(false);
+    expect(livingIn(7, 7)).toBe(true);
+    expect(livingIn(8, null)).toBe(true);
+  });
+});

@@ -22,6 +22,7 @@ import { isNsfwCharacter } from "src/features/character/contentRating";
 import { notifyChatMessage } from "src/features/notifications/notifications";
 import { AI } from "src/utils/constants";
 import { MessageNote } from "src/types";
+import { useElsewhereName, useLivingCharacters } from "src/hooks/useWorld";
 
 const CHECK_EVERY_MS = 20 * 60 * 1000;
 const FIRST_CHECK_MS = 20 * 1000;
@@ -37,11 +38,12 @@ const FirstTexter = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const chats = useAppSelector((state) => state.chat.chats);
-  const characters = useAppSelector((state) => state.character.characters);
+  const characters = useLivingCharacters();
   const persona = useAppSelector(selectActivePersona);
   const privacy = useAppSelector((state) => state.settings.privacy);
-  const latest = useRef({ chats, characters, persona, privacy, path: location.pathname });
-  latest.current = { chats, characters, persona, privacy, path: location.pathname };
+  const elsewhere = useElsewhereName();
+  const latest = useRef({ chats, characters, persona, privacy, path: location.pathname, elsewhere });
+  latest.current = { chats, characters, persona, privacy, path: location.pathname, elsewhere };
   const busy = useRef(false);
 
   useEffect(() => {
@@ -101,10 +103,12 @@ const FirstTexter = () => {
         const notes: MessageNote[] = dreaming ? ["texted-first", "dream"] : ["texted-first"];
         await dispatch(addMessage({ chatId: chat.id, role: AI, text, speakerId: texter.id, notes, noGreeting: firstContact, at: at }));
         await dispatch(fetchChats());
-        const shown = await notifyChatMessage({ chatId: chat.id, speaker: texter, text, isNsfwChat: isNsfwCharacter(texter), privacy: latest.current.privacy, muted: chat.muted });
+        // From another world (#146): the notification and toast say which.
+        const world = latest.current.elsewhere(texter);
+        const shown = await notifyChatMessage({ chatId: chat.id, speaker: texter, text, isNsfwChat: isNsfwCharacter(texter), privacy: latest.current.privacy, muted: chat.muted, world });
         // In the app but in another chat: a toast instead (not for a muted chat).
         if (!shown && !chat.muted && latest.current.path !== `/chat/${chat.id}`) {
-          toast.message(`${texter.name} texted you`, { description: text.length > 90 ? `${text.slice(0, 87)}...` : text, action: { label: "Open", onClick: () => navigate(`/chat/${chat.id}`) } });
+          toast.message(world ? `${texter.name} texted you in ${world}` : `${texter.name} texted you`, { description: text.length > 90 ? `${text.slice(0, 87)}...` : text, action: { label: "Open", onClick: () => navigate(`/chat/${chat.id}`) } });
         }
       } catch (err) {
         console.warn("First text failed (non-fatal):", err);

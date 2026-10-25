@@ -71,7 +71,7 @@ const LifeSettings = () => {
                     <CharacterAvatar name={e.name || "?"} size={32} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[13.5px] font-medium text-foreground">{e.text}</div>
-                      <div className="text-[12px] text-subtle">{new Date(e.at).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}</div>
+                      <div className="text-[12px] text-subtle">{new Date(e.at).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}{e.world ? ` · ${e.world}` : ""}</div>
                     </div>
                     <span className="text-[12px] tabular-nums text-muted-foreground">{e.cost ? formatUSD(e.cost) : "1 call"}</span>
                   </div>

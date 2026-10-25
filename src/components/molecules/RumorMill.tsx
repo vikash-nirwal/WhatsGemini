@@ -6,6 +6,7 @@ import { selectActivePersona } from "src/features/settingsSlice";
 import { addRumor, buildRumorPrompt, newRumorId, parseRumorReply, pickListener, rumorDue, rumorListenersFor } from "src/features/character/rumors";
 import { formatTranscript } from "src/features/ai/utils/chatHistoryUtils";
 import { trimToLatestSummary } from "src/features/ai/utils/transcript";
+import { useLivingCharacters } from "src/hooks/useWorld";
 
 const CHECK_EVERY_MS = 30 * 60 * 1000;
 const FIRST_CHECK_MS = 35 * 1000;
@@ -16,7 +17,7 @@ const FIRST_CHECK_MS = 35 * 1000;
 const RumorMill = () => {
   const dispatch = useAppDispatch();
   const chats = useAppSelector((state) => state.chat.chats);
-  const characters = useAppSelector((state) => state.character.characters);
+  const characters = useLivingCharacters();
   const persona = useAppSelector(selectActivePersona);
   const latest = useRef({ chats, characters, persona });
   latest.current = { chats, characters, persona };

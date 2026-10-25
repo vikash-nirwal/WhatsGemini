@@ -10,6 +10,7 @@ import { formatTranscript } from "src/features/ai/utils/chatHistoryUtils";
 import { trimToLatestSummary } from "src/features/ai/utils/transcript";
 import { cleanFirstText } from "src/features/character/firstTexts";
 import { AI } from "src/utils/constants";
+import { useLivingCharacters } from "src/hooks/useWorld";
 
 const CHECK_EVERY_MS = 30 * 60 * 1000;
 const FIRST_CHECK_MS = 40 * 1000;
@@ -22,7 +23,7 @@ const GoBetween = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const chats = useAppSelector((state) => state.chat.chats);
-  const characters = useAppSelector((state) => state.character.characters);
+  const characters = useLivingCharacters();
   const persona = useAppSelector(selectActivePersona);
   const latest = useRef({ chats, characters, persona });
   latest.current = { chats, characters, persona };

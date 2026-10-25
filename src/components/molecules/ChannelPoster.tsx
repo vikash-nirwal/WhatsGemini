@@ -6,6 +6,7 @@ import { changeChannels, loadChannels } from "src/features/channelSlice";
 import { addChannelPost, buildCharacterChannelPrompt, buildWorldChannelPrompt, channelPostDue, cleanChannelPost, newChannelPostId } from "src/features/channels/channels";
 import { dayLogText } from "src/features/character/dayLog";
 import { concernsLine } from "src/features/character/preoccupations";
+import { useLivingCharacters } from "src/hooks/useWorld";
 
 const CHECK_EVERY_MS = 30 * 60 * 1000;
 const FIRST_CHECK_MS = 20 * 1000;
@@ -16,7 +17,7 @@ const FIRST_CHECK_MS = 20 * 1000;
 const ChannelPoster = () => {
   const dispatch = useAppDispatch();
   const channels = useAppSelector((state) => state.channels.channels);
-  const characters = useAppSelector((state) => state.character.characters);
+  const characters = useLivingCharacters();
   const worlds = useAppSelector((state) => state.world.worlds);
   const latest = useRef({ channels, characters, worlds });
   latest.current = { channels, characters, worlds };

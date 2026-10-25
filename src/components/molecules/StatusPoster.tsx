@@ -17,6 +17,7 @@ import { placeLine } from "src/features/character/realWorld";
 import { formatTranscript } from "src/features/ai/utils/chatHistoryUtils";
 import { trimToLatestSummary } from "src/features/ai/utils/transcript";
 import { annotateFacts } from "src/features/ai/utils/memoryTime";
+import { useLivingCharacters } from "src/hooks/useWorld";
 
 const CHECK_EVERY_MS = 30 * 60 * 1000;
 const FIRST_CHECK_MS = 15 * 1000;
@@ -27,7 +28,7 @@ const FIRST_CHECK_MS = 15 * 1000;
 // in the feed (#85), in one more helper call.
 const StatusPoster = () => {
   const dispatch = useAppDispatch();
-  const characters = useAppSelector((state) => state.character.characters);
+  const characters = useLivingCharacters();
   const charactersRef = useRef(characters);
   charactersRef.current = characters;
   const chats = useAppSelector((state) => state.chat.chats);

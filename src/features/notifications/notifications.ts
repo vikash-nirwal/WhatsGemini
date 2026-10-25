@@ -83,6 +83,7 @@ export interface ChatNotificationInput {
   isNsfwChat: boolean;
   privacy: PrivacySettings;
   muted?: boolean; // a muted chat (#115) never alerts
+  world?: string; // from a world you're not in (#146), named in the title
 }
 
 export interface ChatNotificationContent {
@@ -110,7 +111,7 @@ export const buildNotificationContent = (input: ChatNotificationInput): ChatNoti
   const preview = previewText(text) || (hasImages ? "Sent a photo" : "");
   const avatar = isNsfwChat && privacy.blurNsfwMedia ? undefined : usableAvatar(speaker.appearanceImages?.[0]);
   return {
-    title: speaker.name || GENERIC_TITLE,
+    title: speaker.name ? (input.world ? `${speaker.name} · ${input.world}` : speaker.name) : GENERIC_TITLE,
     body: preview || undefined,
     icon: avatar || appIcon(),
     tag,

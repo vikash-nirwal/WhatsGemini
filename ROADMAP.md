@@ -19,7 +19,6 @@ Picked by the user from the ideas after #113–#129. No voice features until the
 
 The user's idea, replacing circles: the app holds several worlds, each its own space with its own people, chats, news and social life; you switch between them like accounts. Decisions (asked one by one, 2026-10-25): a character can join several worlds with separate memory in each; you're part of every world, with a persona per world or your default; other worlds keep running, with a per-world switch; worlds can have optional story time; the existing Worlds gallery becomes the world manager.
 
-- **#146 Worlds keep running (M).** Background life (texts first, statuses, channels, talk between characters, profile changes) runs in every world, not only the one on screen; each world has a "keep living while I'm elsewhere" switch (on by default, assumed). Notifications and toasts say which world they're from; the life dial (#131) and activity log cover all worlds.
 - **#147 Story time (M).** Optional per world: its own calendar and date ("Year 312, harvest month"), moving with real time or by time skips; prompts, schedules, statuses and "While you were away" (#130) use it instead of your clock.
 
 ## Reset (#158, the user's request, 2026-10-25)

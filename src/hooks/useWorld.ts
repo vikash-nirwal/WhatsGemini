@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { loadWorldPrefs, saveWorldPrefs, WorldPrefs } from "src/features/world/worldPrefs";
+import { livingIn, loadWorldPrefs, saveWorldPrefs, WorldPrefs } from "src/features/world/worldPrefs";
 import { useAppSelector } from "src/store/hooks";
-import { inWorld, worldName } from "src/features/world/currentWorld";
+import { inWorld, worldName, worldOf } from "src/features/world/currentWorld";
 import { Channel } from "src/types";
 
 // Worlds as spaces (#143): the world on screen and what's in it. Lists you
@@ -47,4 +47,47 @@ export const useWorldPrefs = (worldId: number | null): [WorldPrefs, (patch: Worl
     return () => window.removeEventListener("world-prefs", sync);
   }, [worldId]);
   return [prefs, (patch) => setPrefs(saveWorldPrefs(worldId, patch))];
+};
+
+// Background jobs (#146) see the people (and group chats) of every world
+// that's still living: the one on screen, and others unless switched off.
+const usePrefsVersion = () => {
+  const [version, setVersion] = useState(0);
+  useEffect(() => {
+    const bump = () => setVersion((v) => v + 1);
+    window.addEventListener("world-prefs", bump);
+    return () => window.removeEventListener("world-prefs", bump);
+  }, []);
+  return version;
+};
+
+export const useLivingCharacters = () => {
+  const characters = useAppSelector((state) => state.character.characters);
+  const { worlds, currentWorldId } = useCurrentWorld();
+  const version = usePrefsVersion();
+  return useMemo(
+    () => characters.filter((c) => livingIn(worldOf(c, worlds), currentWorldId)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [characters, worlds, currentWorldId, version]
+  );
+};
+
+export const useLivingChats = () => {
+  const chats = useAppSelector((state) => state.chat.chats);
+  const { worlds, currentWorldId } = useCurrentWorld();
+  const version = usePrefsVersion();
+  return useMemo(
+    () => chats.filter((c) => livingIn(worldOf(c, worlds), currentWorldId)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [chats, worlds, currentWorldId, version]
+  );
+};
+
+// The name of a world you're not in, for notifications and toasts (#146).
+export const useElsewhereName = () => {
+  const { worlds, currentWorldId } = useCurrentWorld();
+  return (item: { worldId?: number }) => {
+    const id = worldOf(item, worlds);
+    return id === currentWorldId ? undefined : worldName(id, worlds);
+  };
 };

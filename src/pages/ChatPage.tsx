@@ -44,6 +44,8 @@ import { useReplyEffects } from "./chat/useReplyEffects";
 import { knowsNoteFor, recentLetterNote, roomContextFor } from "./chat/promptNotes";
 import { tiesNoteFor } from "../features/world/worldWizard";
 import { worldTalkNoteFor } from "../features/world/worldTalk";
+import { worldOf } from "../features/world/currentWorld";
+import { switchWorld } from "../features/worldSlice";
 import { buildMyStatusNote } from "../features/status/myStatuses";
 import { buildForwardDirective, buildQuoteDirective, quoteTextOf } from "../features/chat/replyQuotes";
 import { buildGroupDirective } from "../features/chat/groupLife";
@@ -219,6 +221,13 @@ const ChatPage = () => {
   );
   const worlds = useAppSelector((state) => state.world.worlds);
   const worldPersonaId = worlds.find((w) => w.id === currentChat?.worldId)?.personaId; // who you are in this chat's world (#143)
+  // A chat opened from another world (a notification, a toast, a link)
+  // takes you to that world (#146), so the list beside it matches.
+  const currentWorldId = useAppSelector((state) => state.world.currentWorldId);
+  const chatWorldId = currentChat ? worldOf(currentChat, worlds) : undefined;
+  useEffect(() => {
+    if (chatWorldId !== undefined && chatWorldId !== (worlds.some((w) => w.id === currentWorldId) ? currentWorldId : null)) dispatch(switchWorld(chatWorldId));
+  }, [chatWorldId, currentWorldId, worlds, dispatch]);
   const myStatuses = useAppSelector((state) => state.myStatus.statuses);
   // A phone call (#56): replies are spoken, and what you say is sent as voice messages.
   const [inCall, setInCall] = useState(false);
