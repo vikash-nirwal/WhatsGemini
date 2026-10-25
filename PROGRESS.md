@@ -18,7 +18,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 |---|------|--------|-------|
 | #130 | While you were away | todo |  |
 | #131 | Life dial and activity log | todo |  |
-| #132 | Real-model tuning pass | blocked | needs the user's API key |
+| #132 | Real-model tuning pass | blocked | the user tests with their key and reports; Claude fixes |
 | #133 | Blocking, both ways | todo | they block you, or you block them and they ask a common contact to talk you round |
 | #134 | Event invites | todo |  |
 | #135 | Location sharing | skipped | dropped by the user (2026-10-25) |
@@ -27,6 +27,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #138 | Relationship map | todo |  |
 | #139 | Circles | todo | members talk on their own; at most 10 messages per exchange by default; hidden, with a Peek switch to read their chats |
 | #140 | How long a status lasts | todo | a day of 1-24 hours (default 24) set in Settings; the Feed follows it too |
+| #141 | Texting mode everywhere | todo | terminal theme and novel view too |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
 
@@ -165,6 +166,8 @@ Choices a later session shouldn't revisit. Add the date.
 
 - 2026-10-25 (user): no new voice features (voice statuses, voice-based anything) until the app has an AI voice model; the browser's speech engine isn't good enough. Calls were left out of #113–#129 for the same reason.
 - 2026-10-25: "Your own WhatsApp, part 2" (#130–#138) was picked by the user, all but voice statuses; the user then dropped #135 (location sharing) and made #133 blocking two-way. #139 (circles, 10-message cap per exchange) added the same day. Not to be built until the user says so. #132 (tuning with a real model) needs the user's API key and is theirs to run.
+
+- 2026-10-25 (user): part 2 (#130–#141) stays on hold until the user says go; then build all of it, one after another or in parallel lanes. The SillyTavern lorebook fields (cooldown, delay, regex keys, case-sensitive matching, insertion position, groups) are skipped. Drive backup waits for the user to add a client ID.
 
 ## Working notes
 
