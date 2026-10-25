@@ -20,14 +20,27 @@ export const dayLogText = (character: Pick<Character, "dayLog"> | undefined, now
 // failing model isn't asked again all day.
 export const DAY_LOG_FROM_HOUR = 9;
 
-export const dayLogDue = (character: Pick<Character, "dayLogs" | "dayLog"> | undefined, now: number): boolean =>
-  Boolean(character?.dayLogs) && new Date(now).getHours() >= DAY_LOG_FROM_HOUR && !dayLogFor(character, now);
+// Rewritten every six hours while the day goes on (until 10 pm), so what
+// was "still ahead" in the morning moves into the past instead of staying
+// the one true account all day.
+export const DAY_LOG_REFRESH_MS = 6 * 60 * 60 * 1000;
+const DAY_LOG_UNTIL_HOUR = 22;
+
+export const dayLogDue = (character: Pick<Character, "dayLogs" | "dayLog"> | undefined, now: number): boolean => {
+  if (!character?.dayLogs) return false;
+  const hour = new Date(now).getHours();
+  if (hour < DAY_LOG_FROM_HOUR) return false;
+  const today = dayLogFor(character, now);
+  if (!today) return true;
+  return Boolean(today.text) && hour < DAY_LOG_UNTIL_HOUR && now - (today.writtenAt || 0) >= DAY_LOG_REFRESH_MS;
+};
 
 export interface DayLogContext {
   routine?: string; // the schedule section (#7), if they have a routine
   dayMood?: string; // bad days (#95): "under the weather"
   facts: string[];
   yesterday?: string; // yesterday's log, for a thread between days
+  earlier?: string; // today's earlier account, when it's being brought up to date
 }
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -39,7 +52,7 @@ export const buildDayLogPrompt = (character: Pick<Character, "name" | "descripti
   return `Write what ${character.name}'s day has been like so far today (${WEEKDAYS[d.getDay()]} ${timeOfDay(d.getHours())}), and how the rest of it looks.
 
 About ${character.name}: ${[character.description, character.prompt].filter(Boolean).join(" ").slice(0, 600)}
-${ctx.routine ? `${ctx.routine}\n` : ""}${ctx.dayMood ? `Today they're ${ctx.dayMood}, and it shows.\n` : ""}${ctx.yesterday ? `Yesterday: ${ctx.yesterday}\n` : ""}${ctx.facts.length > 0 ? `Things going on in their life lately:\n- ${ctx.facts.slice(0, 8).join("\n- ")}\n` : ""}
+${ctx.routine ? `${ctx.routine}\n` : ""}${ctx.dayMood ? `Today they're ${ctx.dayMood}, and it shows.\n` : ""}${ctx.yesterday ? `Yesterday: ${ctx.yesterday}\n` : ""}${ctx.earlier ? `Earlier today it went like this: ${ctx.earlier}\nBring it up to date: keep what already happened, move what was still ahead into the past if its time has come, and say what's ahead now.\n` : ""}${ctx.facts.length > 0 ? `Things going on in their life lately:\n- ${ctx.facts.slice(0, 8).join("\n- ")}\n` : ""}
 - Three or four short sentences, third person, present tense ("${character.name} ...").
 - Where they went or are, who they ran into or talked to, one small concrete thing that happened (good, dull or annoying), and what's still ahead today.
 - Ordinary, specific and in keeping with their routine and world. Nothing dramatic, nothing about the person they text.

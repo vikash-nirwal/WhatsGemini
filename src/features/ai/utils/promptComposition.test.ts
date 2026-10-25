@@ -322,6 +322,17 @@ describe("reactions and inner thoughts (#10, #11)", () => {
     }).text || "";
     expect(both).toContain("<thoughts>...</thoughts>");
     expect(both).toContain("[React: <emoji>]");
+    // In a group, a member answering another member has nothing of yours to react to.
+    const afterMember = buildSystemInstruction(makeCharacter(), undefined, undefined, undefined, [msg(YOU, "hi"), msg(AI, "Hey", 1)], ["Kai"], undefined, undefined, {
+      roleplayStyle: { ...DEFAULT_ROLEPLAY_STYLE, characterReactions: true },
+    }).text || "";
+    expect(afterMember).not.toContain("[React:");
+  });
+
+  it("tells a group member who the others are", () => {
+    const text = buildSystemInstruction(makeCharacter(), undefined, undefined, undefined, undefined, ["Kai"], undefined, undefined, { roomOthersAbout: "Who else is in this group:\n- Kai: A mechanic." }).text || "";
+    expect(text).toContain("Also present: Kai.");
+    expect(text).toContain("- Kai: A mechanic.");
   });
 });
 

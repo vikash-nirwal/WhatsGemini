@@ -260,7 +260,9 @@ const ChatPage = () => {
   // A 1:1 chat that keeps its own memory (Chat.memoryScope) - rooms always do.
   const chatScopedMemory = isRoom || currentChat?.memoryScope === "chat";
   const scene: SceneContext = {
-    authorNote: currentChat?.authorNote,
+    // In a group with no scenario, the author's note is the
+    // group's scene and goes in the system prompt instead (roomContextFor).
+    authorNote: isRoom && !currentChat?.scenario ? undefined : currentChat?.authorNote,
     worldTags: currentChat?.worldTags,
     hardLimits: currentChat?.hardLimits,
     intensity: currentChat?.intensity,
@@ -649,7 +651,7 @@ const ChatPage = () => {
         await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { leftOnReadUntil: undefined } }));
         const lastYours = [...messages].reverse().find((m) => m.role === YOU);
         const minutes = lastYours?.timestamp ? (Date.now() - lastYours.timestamp) / 60_000 : 0;
-        await sendCharacterFollowup(undefined, buildLateReplyDirective(characterData.name, activePersona?.name?.trim() || "the user", minutes));
+        await sendCharacterFollowup(undefined, buildLateReplyDirective(characterData.name, activePersona?.name?.trim() || "the user", minutes), { answering: true });
       } finally {
         lateReplyRef.current = false;
       }
@@ -813,7 +815,11 @@ const ChatPage = () => {
   // `extraDirective`: a one-turn instruction riding along with this reply
   // ("Surprise me" uses it for a plot twist).
   // Resolves to the character who spoke, or false when nothing was sent.
-  const sendCharacterFollowup = async (forcedSpeakerId?: number, extraDirective?: string): Promise<Character | false> => {
+  // `answering`: this reply answers what was just said (the next member in a
+  // group round, or a late reply after leaving you on read), so it doesn't
+  // get the "unprompted follow-up" framing; in a group its prompt is the
+  // last line said, not a stand-in "continue".
+  const sendCharacterFollowup = async (forcedSpeakerId?: number, extraDirective?: string, { answering = false }: { answering?: boolean } = {}): Promise<Character | false> => {
     if (!chatIdNum || !currentChat || roomCharacters.length === 0) return false;
 
     // Read the chat fresh from the DB rather than trusting the component's local
@@ -856,7 +862,7 @@ const ChatPage = () => {
     // entirely, leaving the forced speaker with nothing to go on. Threading it
     // through as the prompt here mirrors handleSend and keeps it in context.
     const lastMessage = freshMessages[freshMessages.length - 1];
-    const followupPrompt = lastMessage?.role === YOU && lastMessage.txt?.trim()
+    let followupPrompt = lastMessage?.role === YOU && lastMessage.txt?.trim()
       ? promptTextFor(lastMessage)
       : FOLLOWUP_CONTINUATION_PROMPT;
 
@@ -867,8 +873,12 @@ const ChatPage = () => {
     const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = turnContextFor(
       compressedFreshMessages,
       speaker,
-      extraDirective ? [AUTO_REPLY_DIRECTIVE, extraDirective] : [AUTO_REPLY_DIRECTIVE]
+      answering ? (extraDirective ? [extraDirective] : []) : extraDirective ? [AUTO_REPLY_DIRECTIVE, extraDirective] : [AUTO_REPLY_DIRECTIVE]
     );
+    // Answering another member: the last labeled line in the history is what
+    // they're answering, sent as the prompt (buildValidHistory drops the copy).
+    const lastLine = history[history.length - 1];
+    if (answering && followupPrompt === FOLLOWUP_CONTINUATION_PROMPT && lastLine?.role === "user" && lastLine.text?.trim()) followupPrompt = lastLine.text;
     const followupVoiceNote = rollReplyVoiceNote(speaker, includeImage || includeVideo);
     const aiResponse = await dispatch(generateAIResponse({
       prompt: followupPrompt,
@@ -956,7 +966,7 @@ const ChatPage = () => {
         followers = ((await pickNaturalSpeakers(getOrBuildTree(fresh).content, others, starter)) || []).slice(0, MAX_CHAIN - 1);
       }
       for (const follower of followers) {
-        if (!(await sendCharacterFollowup(follower.id, CHAIN_DIRECTIVE))) break;
+        if (!(await sendCharacterFollowup(follower.id, CHAIN_DIRECTIVE, { answering: true }))) break;
       }
     }
     await maybeNarrate();
@@ -1418,7 +1428,7 @@ const ChatPage = () => {
 
         // The rest of the room's answers (#22), then the narrator (#23).
         for (const follower of followers) {
-          if (!(await sendCharacterFollowup(follower.id, CHAIN_DIRECTIVE))) break;
+          if (!(await sendCharacterFollowup(follower.id, CHAIN_DIRECTIVE, { answering: true }))) break;
         }
         await maybeNarrate();
       }

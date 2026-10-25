@@ -38,7 +38,7 @@ const ChannelPoster = () => {
         let instruction: string;
         if (due.kind === "character") {
           const character = characters.find((x) => x.id === due.refId)!;
-          instruction = buildCharacterChannelPrompt(character, recent, { dayLog: dayLogText(character, now), concerns: concernsLine(character.concerns) });
+          instruction = buildCharacterChannelPrompt(character, recent, { dayLog: dayLogText(character, now), concerns: concernsLine(character.concerns), now });
         } else {
           const world = worlds.find((w) => w.id === due.refId)!;
           instruction = buildWorldChannelPrompt(world, (world.map?.pins || []).map((p) => p.name), recent);

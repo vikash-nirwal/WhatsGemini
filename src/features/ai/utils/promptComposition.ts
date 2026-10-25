@@ -162,6 +162,7 @@ export const FOLLOWUP_CONTINUATION_PROMPT =
 // Optional extras for buildSystemInstruction, kept in one object instead of
 // growing its positional parameter list further.
 export interface PromptOptions {
+  roomOthersAbout?: string; // room only: who every other member is
   roleplayStyle?: RoleplayStyle;
   worldTags?: string[]; // Chat.worldTags - short setting/genre tags for this chat
   roomLoreEntries?: LoreEntry[]; // every OTHER room member's lorebook, matched alongside the speaker's own
@@ -305,6 +306,7 @@ export const buildSystemInstruction = (
       `write your own dialogue/actions directly, with NO leading "${character.name}:" name label of your own, and ` +
       `never write dialogue, actions, or narration for the user or for any other character present.`
     );
+    if (options.roomOthersAbout) sections.push(options.roomOthersAbout);
   }
 
   const ownRating = effectiveContentRating(character);
@@ -426,7 +428,10 @@ export const buildSystemInstruction = (
   if (character.emotionPortraits?.enabled || options.emotionTag) {
     sections.push(buildEmotionDirective(character.emotionPortraits?.customEmotions));
   }
-  if (options.roleplayStyle?.characterReactions) sections.push(buildReactionDirective());
+  // A reaction is to your message, so only when you spoke last (in a group,
+  // a member answering another member has nothing of yours to react to).
+  const lastSpoken = (recentMessages || []).filter((m) => !m.isSystem && !m.isNarration && !m.isRoomEvent && !m.isCompressionSummary).pop();
+  if (options.roleplayStyle?.characterReactions && (!lastSpoken || lastSpoken.role === YOU)) sections.push(buildReactionDirective());
   if (character.innerThoughts || options.roomThoughts) sections.push(buildThoughtsDirective());
   if (extraDirectives && extraDirectives.length > 0) {
     sections.push(...extraDirectives);
@@ -517,6 +522,7 @@ export interface RoomContext {
   relationshipNotes?: string; // what this speaker feels about the others (#24)
   thoughts?: boolean; // the room shows every member's inner thoughts (#10)
   offscreenTalk?: string; // what two members said while the user was away (#58)
+  othersAbout?: string; // who every OTHER member is, so they don't talk like strangers
 }
 
 // Per-chat scene settings and app-wide style, shared by 1:1 chats and rooms.
@@ -624,6 +630,7 @@ export const buildTurnContext = (
       roomRelationshipNotes: roomContext?.relationshipNotes,
       roomThoughts: roomContext?.thoughts,
       roomOffscreenTalk: roomContext?.offscreenTalk,
+      roomOthersAbout: roomContext?.othersAbout,
       emotionTag: scene?.moodCarry,
       memoryDates: scene?.memoryDates,
       misremembers: scene?.misremembers,

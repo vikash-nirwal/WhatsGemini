@@ -44,10 +44,10 @@ export const fetchChatById = createAsyncThunk("chat/fetchById", async (id: numbe
 
 export const addChat = createAsyncThunk(
   "chat/add",
-  async ({ title, characterIds, authorNote }: { title: string; characterIds?: number[]; authorNote?: string }, { rejectWithValue }) => {
+  async ({ title, characterIds, authorNote, scenario }: { title: string; characterIds?: number[]; authorNote?: string; scenario?: string }, { rejectWithValue }) => {
     try {
       const timestamp = Date.now();
-      const newChat = { title, timestamp, content: [], characterIds: characterIds || [], authorNote };
+      const newChat = { title, timestamp, content: [], characterIds: characterIds || [], authorNote, ...(scenario ? { scenario } : {}) };
       const id = await dbService.addChat(newChat);
       return { id, ...newChat };
     } catch (error) {

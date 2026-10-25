@@ -1,6 +1,6 @@
 import { Character } from "../../types";
 import { dayKey } from "./badDays";
-import { buildDayLogPrompt, buildDayLogSection, cleanDayLog, dayLogDue, dayLogFor, dayLogText } from "./dayLog";
+import { buildDayLogPrompt, buildDayLogSection, cleanDayLog, dayLogDue, dayLogFor, dayLogText, DAY_LOG_REFRESH_MS } from "./dayLog";
 
 const HOUR = 60 * 60 * 1000;
 // A Wednesday, 10 am local time.
@@ -43,5 +43,20 @@ describe("one consistent day (#107)", () => {
     expect(cleanDayLog('```\n"Aria opened the café at seven.\nThe regulars came in late."\n```')).toBe("Aria opened the café at seven. The regulars came in late.");
     expect(cleanDayLog("Sure!")).toBeUndefined();
     expect(cleanDayLog("x".repeat(800))).toHaveLength(700);
+  });
+});
+
+describe("a day log kept up to date", () => {
+  it("is written again every six hours until 10 pm, not after a failed try", () => {
+    expect(dayLogDue(aria({ dayLogs: true, dayLog: today }), MORNING + DAY_LOG_REFRESH_MS - 1)).toBe(false);
+    expect(dayLogDue(aria({ dayLogs: true, dayLog: today }), MORNING + DAY_LOG_REFRESH_MS)).toBe(true);
+    expect(dayLogDue(aria({ dayLogs: true, dayLog: { ...today, text: "" } }), MORNING + DAY_LOG_REFRESH_MS)).toBe(false);
+    expect(dayLogDue(aria({ dayLogs: true, dayLog: today }), new Date(2026, 9, 21, 22, 30).getTime())).toBe(false);
+  });
+
+  it("continues the earlier account, moving what was ahead into the past", () => {
+    const prompt = buildDayLogPrompt(aria(), MORNING + 8 * HOUR, { facts: [], earlier: "Aria opened the café; a delivery is due at four." });
+    expect(prompt).toContain("Earlier today it went like this: Aria opened the café; a delivery is due at four.");
+    expect(prompt).toContain("move what was still ahead into the past");
   });
 });

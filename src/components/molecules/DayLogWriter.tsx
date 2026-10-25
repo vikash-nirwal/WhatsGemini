@@ -18,11 +18,14 @@ const FIRST_CHECK_MS = 8 * 1000;
 // log, if that's what's there, gives the day a thread to pick up.
 export const writeDayLog = async (dispatch: AppDispatch, character: Character, latest: () => Character | undefined, now = Date.now()): Promise<void> => {
   const yesterday = character.dayLog?.date === dayKey(now - 24 * 60 * 60 * 1000) ? character.dayLog.text || undefined : undefined;
+  // Later in the day, today's earlier account is brought up to date.
+  const earlier = character.dayLog?.date === dayKey(now) ? character.dayLog.text || undefined : undefined;
   const prompt = buildDayLogPrompt(character, now, {
     routine: buildScheduleSection(character.schedule, now),
     dayMood: dayMoodFor(character, now)?.label,
     facts: [...(character.pinnedMemory || []), ...(character.memory || [])].slice(-8),
     yesterday,
+    earlier,
   });
   let text = "";
   try {

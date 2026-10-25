@@ -25,6 +25,16 @@ describe("prompt notes", () => {
     expect(ctx.otherParticipantImages).toEqual([{ name: "Aria", images: ["a.png"] }]);
     expect(ctx.groupScenario).toBe("A garage");
     expect(ctx.relationshipNotes).toContain("- Aria: Admires her");
+    expect(ctx.othersAbout).toBe("Who else is in this group:\n- Aria");
+  });
+
+  it("says who the other members are, and uses an older group's note as its scene", () => {
+    const aria = char(1, "Aria", { description: "A mechanic who restores old bikes.", relationship: "Best friend" });
+    const kai = char(2, "Kai", { prompt: "You are Kai, a pilot." });
+    const ctx = roomContextFor(kai, [aria, kai], chatWith([], { authorNote: "Rainy night in the garage" }));
+    expect(ctx.othersAbout).toBe("Who else is in this group:\n- Aria: A mechanic who restores old bikes. (with the user: Best friend)");
+    expect(ctx.groupScenario).toBe("Rainy night in the garage");
+    expect(roomContextFor(kai, [aria, kai], chatWith([], { scenario: "Garage", authorNote: "Note" })).groupScenario).toBe("Garage");
   });
 
   it("summarises the other bonds a character knows about", () => {

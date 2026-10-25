@@ -202,7 +202,8 @@ const Sidebar = () => {
       const result = await dispatch(addChat({
         title,
         characterIds: selectedCharacterIds,
-        authorNote: roomScenario.trim() || undefined,
+        // The group's scene, shared by every member (in the system prompt).
+        scenario: roomScenario.trim() || undefined,
       }));
       if (result.payload && (result.payload as Chat).id) {
         navigate(`/chat/${(result.payload as Chat).id}`);

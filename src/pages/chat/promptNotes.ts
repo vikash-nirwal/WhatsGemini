@@ -65,12 +65,27 @@ export const roomContextFor = (speaker: Character, members: Character[], chat: C
       .map((c) => ({ name: c.name, images: c.appearanceImages! })),
     otherLoreEntries: others.flatMap((c) => c.loreEntries || []),
     othersAllowNsfw: others.every((c) => effectiveContentRating(c) === "nsfw"),
-    groupScenario: chat?.scenario,
+    // New groups keep their scene in `scenario`; older ones kept it in the
+    // author's note (the new-group dialog's "Scenario" field), so that
+    // stands in when there's no scenario.
+    groupScenario: chat?.scenario || chat?.authorNote,
     groupMemory: chat?.memory,
     groupPinnedMemory: chat?.pinnedMemory,
     otherAppearanceLocks: appearanceLocksFor(others),
     relationshipNotes: buildRelationshipNotes(speaker.id, chat?.roomRelationships, namesById),
     thoughts: chat?.innerThoughts,
     offscreenTalk: recentOffscreenTalk(chat, members),
+    othersAbout: buildOthersAbout(others),
   };
+};
+
+// Who the other members are: a line each, from their description (or the
+// start of their prompt) and how they stand with the user.
+export const buildOthersAbout = (others: Character[]): string | undefined => {
+  const lines = others.map((c) => {
+    const about = (c.description || c.prompt || "").replace(/\s+/g, " ").trim();
+    const short = about.length > 220 ? `${about.slice(0, 217).trimEnd()}...` : about;
+    return `- ${c.name}${short ? `: ${short}` : ""}${c.relationship ? ` (with the user: ${c.relationship})` : ""}`;
+  });
+  return lines.length > 0 ? `Who else is in this group:\n${lines.join("\n")}` : undefined;
 };

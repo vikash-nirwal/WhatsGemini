@@ -1,4 +1,4 @@
-import { addStatus, buildStatusPrompt, cleanStatus, hasUnseenStatus, liveStatuses, markSeen, statusDue, mentionsUser, STATUS_GAP_MS, STATUS_LIFETIME_MS, photoStatusDue, statusPhotoScene } from "./statusUpdates";
+import { addStatus, buildStatusPrompt, cleanStatus, hasUnseenStatus, liveStatuses, markSeen, statusDue, mentionsUser, nowLine, STATUS_GAP_MS, STATUS_LIFETIME_MS, photoStatusDue, statusPhotoScene } from "./statusUpdates";
 
 const NOW = Date.UTC(2026, 9, 21, 12);
 const status = (hoursAgo: number, seen = false) => ({ id: `s${hoursAgo}`, text: `status ${hoursAgo}`, createdAt: NOW - hoursAgo * 3_600_000, seen });
@@ -58,5 +58,16 @@ describe("photo statuses (#118)", () => {
 
   it("describe a phone photo that fits the status", () => {
     expect(statusPhotoScene("Aria", "Rainy cafe shift")).toContain('Aria posts a photo with their status: "Rainy cafe shift"');
+  });
+});
+
+describe("statuses keep to the timeline", () => {
+  it("know the time and the latest messages, which have already happened", () => {
+    const at = new Date(2026, 9, 21, 19, 5).getTime();
+    const prompt = buildStatusPrompt({ name: "Ravi", description: "", prompt: "" }, undefined, [], [], undefined, undefined, undefined, undefined, undefined, { now: at, userName: "Sam", recentChat: "Sam: see you at the café at 5\nRavi: on my way!\nSam: that was fun" });
+    expect(prompt).toContain(nowLine(at));
+    expect(prompt).toContain("Their latest messages with Sam (all of this has already happened):\nSam: see you at the café at 5");
+    expect(prompt).toContain("Never post about a plan, trip or meeting as still ahead");
+    expect(nowLine(at)).toMatch(/^It's Wednesday, /);
   });
 });

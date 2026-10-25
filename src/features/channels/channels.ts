@@ -1,4 +1,5 @@
 import { Channel, ChannelPost, Character, World } from "../../types";
+import { nowLine } from "../character/statusUpdates";
 
 // Channels (#127): follow-only feeds, like WhatsApp Channels. A character's
 // channel posts about their life and work; a world's channel is its news
@@ -39,9 +40,9 @@ export const crowdReactions = (postId: string): Record<string, number> => {
   return out;
 };
 
-export const buildCharacterChannelPrompt = (character: Pick<Character, "name" | "description" | "prompt">, recent: string[], context: { dayLog?: string; concerns?: string }): string =>
+export const buildCharacterChannelPrompt = (character: Pick<Character, "name" | "description" | "prompt">, recent: string[], context: { dayLog?: string; concerns?: string; now?: number }): string =>
   `${character.name} runs a broadcast channel for followers, like a WhatsApp Channel: short updates about their life, their work or what they make, to many people at once.
-
+${context.now ? `${nowLine(context.now)} Keep to it: what their day says already happened is in the past.\n` : ""}
 About ${character.name}: ${[character.description, character.prompt].filter(Boolean).join(" ").slice(0, 600)}
 ${context.dayLog ? `Their day (keep to it): ${context.dayLog}\n` : ""}${context.concerns ? `On their mind: ${context.concerns}\n` : ""}${recent.length ? `Their last posts (don't repeat them):\n- ${recent.join("\n- ")}\n` : ""}
 Write their next channel post: one to three sentences, to followers (not to one person), in their own voice. An emoji or two is fine, no hashtags, no links. Reply with only the post.`;

@@ -13,6 +13,9 @@ import { dayMoodFor } from "src/features/character/badDays";
 import { dayLogText } from "src/features/character/dayLog";
 import { concernsLine } from "src/features/character/preoccupations";
 import { placeLine } from "src/features/character/realWorld";
+import { formatTranscript } from "src/features/ai/utils/chatHistoryUtils";
+import { trimToLatestSummary } from "src/features/ai/utils/transcript";
+import { annotateFacts } from "src/features/ai/utils/memoryTime";
 
 const CHECK_EVERY_MS = 30 * 60 * 1000;
 const FIRST_CHECK_MS = 15 * 1000;
@@ -48,7 +51,14 @@ const StatusPoster = () => {
         const userName = userNameRef.current;
         const knowsYou = chatsRef.current.some((c) => c.characterIds?.length === 1 && c.characterIds[0] === due.id);
         const mention = userName && knowsYou && Math.random() < 1 / 3 ? userName : undefined;
-        const prompt = buildStatusPrompt(due, currentBlock(due.schedule, now)?.activity, (due.memory || []).slice(-8), liveStatuses(due, now).map((s) => s.text), dayMoodFor(due, now)?.label, dayLogText(due, now), concernsLine(due.concerns), placeLine(due.home, now), mention);
+        // The timeline: the time now, their latest messages with you, and
+        // memories with the dates they were learned, so nothing that already
+        // happened gets posted as still ahead.
+        const mainChat = chatsRef.current.find((c) => c.characterIds?.length === 1 && c.characterIds[0] === due.id && !c.whatIf);
+        const recent = trimToLatestSummary(mainChat?.content || []).filter((m) => !m.isSystem && !m.isRoomEvent).slice(-12);
+        const recentChat = recent.length > 0 ? formatTranscript(recent, { userName: userName || "User", charName: due.name }) : undefined;
+        const facts = annotateFacts((due.memory || []).slice(-8), due.memoryDates, now);
+        const prompt = buildStatusPrompt(due, currentBlock(due.schedule, now)?.activity, facts, liveStatuses(due, now).map((s) => s.text), dayMoodFor(due, now)?.label, dayLogText(due, now), concernsLine(due.concerns), placeLine(due.home, now), mention, { now, userName, recentChat });
         const text = cleanStatus(await dispatch(generateAssistText({ instruction: prompt, background: true })).unwrap());
         if (text) {
           const latest = charactersRef.current.find((c) => c.id === due.id) || due;
