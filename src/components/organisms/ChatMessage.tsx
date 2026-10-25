@@ -540,7 +540,17 @@ const ChatMessage = React.memo(({
           style={CHAT_TEXT_STYLE}
         >
           {oocLabel}
-          {voiceNote || <MarkdownRenderer msgText={stripImageContextTag(msg.txt || "")} isUser={isUser} />}
+          {/* Texting mode (#141): the terminal shows a reply's texts as
+              separate lines too, revealed one at a time like the bubbles. */}
+          {voiceNote || (textParts ? (
+            <div className="flex flex-col gap-1" data-slot="terminal-texts">
+              {textParts.slice(0, shownParts).map((part, i) => (
+                <div key={i} className={cn(part.kind === "deleted" && "italic text-muted-foreground")}>
+                  {part.kind === "deleted" ? `# ${part.text}` : <MarkdownRenderer msgText={part.text} isUser={false} />}
+                </div>
+              ))}
+            </div>
+          ) : <MarkdownRenderer msgText={stripImageContextTag(msg.txt || "")} isUser={isUser} />)}
           {refusalNotice}
           {thoughtsBlock}
           {languageBlock}

@@ -23,7 +23,6 @@ Picked by the user from the ideas after #113–#129. No voice features until the
 - **#137 Character stickers (M).** A small sticker set per character, drawn once with their locked look; they send one now and then instead of an emoji.
 - **#138 Relationship map (M).** A picture of who knows whom (#74), the room feelings between them (#24), and how each bond with you has changed.
 - **#139 Circles.** Folded into worlds (#145): the world is the circle.
-- **#141 Texting mode everywhere (S).** Replies split into separate texts in the terminal theme and the novel view too (today only the normal chat view).
 - **#142 "Where things stand" memory paragraph (M).** The memory update (every 12 messages) also writes, in the same helper call, one short paragraph from all the character's facts and the recent conversation: what's true now, what already happened (finished plans read as finished), what's coming. Replies get that paragraph instead of the 30 word-matched facts, so memory works by meaning, not shared words.
   - The fact list stays the source of truth (Memory tab: edit, pin, date); pinned facts are still sent word for word; with no paragraph yet (or a failed one), replies fall back to the 30-fact list.
   - Rewritten with each memory update and when you come back to a chat after a long gap; not per reply (cost).

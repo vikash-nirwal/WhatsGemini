@@ -358,7 +358,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
   // A chat's own choice wins over the app setting (Scene panel > Chat).
   const appTextingMode = useAppSelector((state) => state.settings.textingMode);
   const chatTextingMode = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.textingMode);
-  const textingMode = (chatTextingMode ?? appTextingMode) && !terminal;
+  // Every theme, the terminal's prompt lines included (#141).
+  const textingMode = Boolean(chatTextingMode ?? appTextingMode);
   // Reading aloud stops when you leave the chat.
   useEffect(() => () => stopSpeaking(), [chatId]);
 

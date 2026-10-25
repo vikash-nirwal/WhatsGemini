@@ -1,3 +1,4 @@
+import { splitIntoTexts } from "src/features/ai/utils/textingMode";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo, FaImage, FaSyncAlt, FaTimes, FaPalette, FaBookOpen, FaComments, FaFont, FaShieldAlt, FaCompressArrowsAlt, FaDiceD20, FaListUl, FaBrain, FaBookmark, FaMap } from "react-icons/fa";
@@ -54,6 +55,9 @@ const AdventurePage = () => {
   // otherwise whichever persona is globally active - same rule ChatPage uses.
   const persona = personas.find((p) => p.id === (adventure?.personaId || globalActivePersonaId)) || personas[0];
 
+  // Texting mode (#141), the app's setting: the chat view splits the
+  // narrator's turns into texts, like a chat's replies.
+  const textingMode = useAppSelector((state) => state.settings.textingMode);
   // View mode: novel (storybook) vs chat (bubbles)
   const [viewMode, setViewMode] = useState<"chat" | "novel">(() => {
     try {
@@ -684,7 +688,18 @@ const AdventurePage = () => {
                           />
                         ))
                       )}
-                      <MarkdownRenderer msgText={msg.txt || ""} isUser={false} />
+                      {/* Texting mode (#141): the narrator's turn as separate texts. */}
+                      {textingMode && splitIntoTexts(msg.txt || "").length > 1 ? (
+                        <div className="flex flex-col items-start gap-1" data-slot="adventure-texts">
+                          {splitIntoTexts(msg.txt || "").map((part, k) => (
+                            <div key={k} className="max-w-[86%] rounded-bubble bg-bubble-in px-3 py-2 text-bubble-in-text shadow-bubble">
+                              <MarkdownRenderer msgText={part} isUser={false} />
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <MarkdownRenderer msgText={msg.txt || ""} isUser={false} />
+                      )}
                       {msg.gameChanges && <GameChanges changes={msg.gameChanges} />}
                       {msg.castEmotions && (
                         <div className="flex flex-wrap items-center gap-2">

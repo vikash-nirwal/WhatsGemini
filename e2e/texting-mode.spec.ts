@@ -73,3 +73,19 @@ test.describe("per chat", () => {
     await expect(page.locator('[data-slot="text-bubble"]')).toHaveCount(2);
   });
 });
+
+// Texting mode everywhere (#141): the terminal theme splits a reply into
+// separate lines too, one after another.
+test.describe("in the terminal theme", () => {
+  test.use({ localStorageOverrides: { texting_mode: "true", color_theme: "terminal" } });
+
+  test("a reply arrives as separate lines", async ({ page, mockAI }) => {
+    mockAI.reply(REPLY);
+    await openChat(page);
+    await sendMessage(page, "I'm back");
+    const lines = page.locator('[data-slot="terminal-texts"]').last().locator(":scope > div");
+    await expect(lines.first()).toHaveText("Hey you!");
+    await expect(lines).toHaveCount(3, { timeout: 10_000 });
+    await expect(lines.last()).toHaveText("Tell me everything.");
+  });
+});
