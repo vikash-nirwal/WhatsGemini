@@ -1,4 +1,4 @@
-import { test, expect, openRoute, openChat, openDetails } from "./fixtures";
+import { test, expect, openRoute, openChat, openDetails, editorStep } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // Consistent looks (#34, #35): the locked look is drafted, edited and saved
@@ -48,6 +48,7 @@ test("draft the locked look from the appearance, edit it and save it", async ({ 
   mockAI.reply(`Visual traits: ${TAGS}`);
   await openRoute(page, "/characters/1/edit");
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
+  await editorStep(page, "Look");
   await page.getByPlaceholder(/Character Appearance/).fill("A pale young elf with long silver hair and violet eyes, scar over her left brow.");
   await page.getByRole("button", { name: /Draft from appearance/ }).click();
   const field = page.getByLabel("Locked look for pictures");
@@ -64,6 +65,7 @@ test("the main reference can be changed", async ({ page }) => {
   await patchCharacter(page, { appearanceImages: [PIXEL, `${PIXEL}#second`] });
   await page.reload();
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
+  await editorStep(page, "Look");
   await expect(page.getByText("Main", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Make reference 2 the main reference" }).click();
   await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -92,7 +94,7 @@ test("a chat picture request carries the locked look word for word", async ({ pa
 test("local image settings are saved with the character", async ({ page }) => {
   await openRoute(page, "/characters/1/edit");
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
-  for (let i = 0; i < 5; i++) await page.getByRole("button", { name: "Next" }).click();
+  await editorStep(page, "Advanced");
   const section = page.locator("details").filter({ has: page.locator("summary", { hasText: "Local image settings" }) });
   await openDetails(section);
   await section.getByLabel("Seed").fill("1234");

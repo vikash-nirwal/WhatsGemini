@@ -5,7 +5,7 @@ import { expectNoHorizontalScroll, expectNothingCutOffHorizontally, viewportWidt
 // steps off at the edge. Where the full row doesn't fit, a compact
 // "Step n of N · Label" line with a progress bar replaces it.
 const wizards = [
-  { name: "character editor", route: "/characters/new", steps: 6, first: "Identity", last: "Test & Finalize" },
+  { name: "character editor", route: "/characters/new", steps: 6, first: "Who they are", last: "Test and finish" },
   { name: "adventure wizard", route: "/adventures/new", steps: 5, first: "World", last: "Review" },
 ];
 
@@ -22,7 +22,12 @@ for (const wizard of wizards) {
       await expect(compact).toContainText(`Step 1 of ${wizard.steps} · ${wizard.first}`);
       await expect(page.getByRole("progressbar", { name: "Wizard progress" })).toHaveAttribute("aria-valuenow", "1");
     }
-    if (!(await compact.isVisible())) {
+    // The character editor (#154) lists its steps down the side on desktop.
+    const sideList = page.getByRole("navigation", { name: "Editor sections" });
+    if (await sideList.isVisible()) {
+      await expect(sideList.getByRole("button", { name: wizard.first })).toBeInViewport({ ratio: 1 });
+      await expect(sideList.getByRole("button", { name: wizard.last })).toBeInViewport({ ratio: 1 });
+    } else if (!(await compact.isVisible())) {
       // Full row: the first and last steps are fully on screen. Step buttons
       // are named by their number and label, e.g. "1 Identity".
       await expect(page.getByRole("button", { name: `1 ${wizard.first}`, exact: true })).toBeInViewport({ ratio: 1 });

@@ -1,4 +1,4 @@
-import { test, expect, openRoute, sendMessage, chatMessages } from "./fixtures";
+import { test, expect, openRoute, sendMessage, chatMessages, editorStep } from "./fixtures";
 
 // An empty database, so the new character is the only one in the gallery.
 test.use({ seed: false });
@@ -7,24 +7,24 @@ test("create a character in the editor and start a chat with it", async ({ page,
   mockAI.replyOnce("Ahoy! Nell here, glad you came by.");
   await openRoute(page, "/characters/new");
 
-  // Step 1, Identity: a name is the only requirement.
+  // Step 1, Who they are: a name is the only requirement.
   const name = page.getByRole("textbox", { name: "Character Name" });
   await expect(name).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Next" }).click();
   await expect(page.getByText("Give this character a name first.")).toBeVisible();
   await name.fill("Nell the Navigator");
   await page.getByRole("textbox", { name: "Description (Optional)" }).fill("A cheerful map-maker.");
-  await page.getByRole("button", { name: "Next" }).click();
+  await editorStep(page, "Personality");
 
-  // Step 2, Personality: the prompt is required.
+  // Step 3, Personality: the prompt is required.
   await page.getByRole("textbox", { name: "Character Prompt (Personality, Style, etc.)" }).fill("You are Nell, a cheerful map-maker who loves puns.");
-  // Steps 3-5 are optional.
-  for (let i = 0; i < 4; i++) await page.getByRole("button", { name: "Next" }).click();
+  // The rest is optional.
+  await editorStep(page, "Test and finish");
   await page.getByRole("button", { name: "Create Character" }).click();
 
   // Back in the gallery, the new card opens a 1:1 chat.
   await expect(page).toHaveURL(/#\/characters$/);
-  await expect(page.getByText("Nell the Navigator", { exact: true })).toBeVisible();
+  await expect(page.getByText("Nell the Navigator", { exact: true }).locator("visible=true").first()).toBeVisible();
   await page.getByRole("button", { name: "Chat", exact: true }).click();
   await expect(page).toHaveURL(/#\/chat\/\d+$/);
   await expect(page.getByLabel("Message input")).toBeVisible();

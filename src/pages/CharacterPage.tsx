@@ -381,7 +381,7 @@ const CharacterPage = () => {
                 + new character
               </Button>
             ) : (
-              <Button onClick={() => navigate("/characters/new")} variant="default">
+              <Button onClick={() => navigate("/characters/quick")} variant="default">
                 <FaPlus size={12} /> New character
               </Button>
             )}

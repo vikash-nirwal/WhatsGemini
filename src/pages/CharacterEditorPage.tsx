@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "rea
 import { useColorTheme } from "../hooks/useColorTheme";
 import { addCharacter, updateCharacter } from "../features/characterSlice";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { FaUpload, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaCrop } from "react-icons/fa";
+import { FaUpload, FaEdit, FaPlus, FaArrowLeft, FaArrowRight, FaCheck, FaCrop, FaSlidersH } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Character, CharacterSchedule, CharacterHome, CharacterVoice, WritingStyle, LoreEntry, ArtStyle, ContentRating, LocalImageSettings, ImportantDate, Outfit, IntimacyProfile, CharacterSecret } from "../types";
 import { dbService } from "../services/dbService";
@@ -17,6 +17,10 @@ import { cn } from "../utils/cn";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import Header from "src/components/organisms/Header";
 import { WizardSteps } from "src/components/molecules/WizardSteps";
+import LifeStep from "./CharacterEditorPage/steps/LifeStep";
+import { backgroundCallsPerDay, LIFE_PRESETS, lifeOf, LifeValues, presetOf } from "../features/character/lifePresets";
+import { CostMarker } from "src/components/molecules/SettingRow";
+
 import { CHARACTER_SWATCHES, MAX_MEMORY_ENTRIES, DEFAULT_AUTO_SELFIE_FREQUENCY, EMOTIONS, DEFAULT_ART_STYLE, RELATIONSHIP_PRESETS, TAG_PRESETS, PERSONALITY_TRAIT_PRESETS } from "../utils/constants";
 import { estimateTokens } from "../features/ai/utils/tokenEstimator";
 import AvatarGenerateButton from "src/components/molecules/AvatarGenerateButton";
@@ -90,7 +94,9 @@ const findSwatchIndex = (accent?: [string, string]) => {
   return idx === -1 ? 0 : idx;
 };
 
-const STEPS = ["Identity", "Personality", "Scenario & Greeting", "Example Dialogues", "Lorebook", "Test & Finalize"];
+// #154: the canvas's six steps; Advanced sits apart, after them.
+const STEPS = ["Who they are", "Look", "Personality", "World and story", "Their life", "Test and finish"];
+const ADVANCED_STEP = STEPS.length;
 
 const makeLoreEntryId = () => `lore_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
 
@@ -125,7 +131,6 @@ const CharacterEditorPage = () => {
   const dispatch = useAppDispatch();
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
-  const terminal = is("terminal");
   const { showAlert } = useModal();
   const navigate = useNavigate();
   const location = useLocation();
@@ -143,6 +148,8 @@ const CharacterEditorPage = () => {
   // Seeded once from a "Duplicate" action on the gallery card - a real
   // character to copy fields from, but this is still a create (no id yet).
   const duplicateFrom = (location.state as { duplicateFrom?: Character } | null)?.duplicateFrom;
+  // A quick-create draft (#154) opened in the full editor: filled in, not a copy.
+  const draftFrom = (location.state as { draftFrom?: Character } | null)?.draftFrom;
   // Set by the gallery's "Create from an idea" button: open the idea dialog
   // straight away (#45).
   const fromIdea = Boolean((location.state as { fromIdea?: boolean } | null)?.fromIdea);
@@ -185,6 +192,7 @@ const CharacterEditorPage = () => {
   const [home, setHome] = useState<CharacterHome | undefined>(undefined); // #112
   const [textsFirst, setTextsFirst] = useState({ enabled: false, limit: 1 }); // #93
   const [profile, setProfile] = useState({ about: "", changes: false }); // #125
+  const [life, setLife] = useState<LifeValues>(() => lifeOf({})); // #154: Their life
   // Character from one line (#45).
   const [ideaDialogOpen, setIdeaDialogOpen] = useState(false);
   const [ideaDraftRequest, setIdeaDraftRequest] = useState<CharacterDraftRequest | null>(null);
@@ -201,14 +209,14 @@ const CharacterEditorPage = () => {
   // used to leave the previous character's data (and wizard step) sitting
   // in the "new" form instead of a blank one.
   useEffect(() => {
-    const source = editCharacter || duplicateFrom;
+    const source = editCharacter || duplicateFrom || draftFrom;
     setStep(0);
     setIdeaDialogOpen(!source && fromIdea);
     setIdeaDraftRequest(null);
     setIdeaDraftName("");
     setIdeaDraftError(null);
     if (source) {
-      setName(editCharacter ? source.name : `${source.name} (Copy)`);
+      setName(editCharacter || !duplicateFrom ? source.name : `${source.name} (Copy)`);
       setDescription(source.description);
       setTags(source.tags || []);
       setPrompt(source.prompt);
@@ -246,6 +254,7 @@ const CharacterEditorPage = () => {
       setHome(source.home);
       setTextsFirst({ enabled: Boolean(source.textsFirst), limit: source.firstTextLimit || 1 });
       setProfile({ about: source.about || "", changes: Boolean(source.profileChanges) });
+      setLife(lifeOf(source));
     } else {
       setName("");
       setDescription("");
@@ -283,6 +292,7 @@ const CharacterEditorPage = () => {
       setHome(undefined);
       setTextsFirst({ enabled: false, limit: 1 });
       setProfile({ about: "", changes: false });
+      setLife(lifeOf({}));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [characterId]);
@@ -483,7 +493,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
       return;
     }
     if (!checkContentRating()) return;
-    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), writingStyle: cleanWritingStyle(writingStyle), home, importantDates: cleanDates(importantDates), secrets: cleanSecrets(secrets), ...cleanWardrobe(wardrobe, currentOutfitId), schedule: cleanSchedule(schedule), intimacy, textsFirst: textsFirst.enabled || undefined, firstTextLimit: textsFirst.limit > 1 ? textsFirst.limit : undefined, about: profile.about.trim() || undefined, profileChanges: profile.changes || undefined }));
+    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), writingStyle: cleanWritingStyle(writingStyle), home, importantDates: cleanDates(importantDates), secrets: cleanSecrets(secrets), ...cleanWardrobe(wardrobe, currentOutfitId), schedule: cleanSchedule(schedule), intimacy, ...life, firstTextLimit: life.textsFirst && textsFirst.limit > 1 ? textsFirst.limit : undefined, about: profile.about.trim() || undefined }));
     navigate("/characters");
   };
 
@@ -501,7 +511,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     // Spread the stored record first: db.put replaces the whole row, so any
     // field this form doesn't own (memory, pinnedMemory, avatar, creatorNotes)
     // was being wiped on every save.
-    dispatch(updateCharacter({ ...editCharacter, id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), writingStyle: cleanWritingStyle(writingStyle), home, importantDates: cleanDates(importantDates), secrets: cleanSecrets(secrets), ...cleanWardrobe(wardrobe, currentOutfitId), schedule: cleanSchedule(schedule), intimacy, textsFirst: textsFirst.enabled || undefined, firstTextLimit: textsFirst.limit > 1 ? textsFirst.limit : undefined, about: profile.about.trim() || undefined, profileChanges: profile.changes || undefined }));
+    dispatch(updateCharacter({ ...editCharacter, id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), writingStyle: cleanWritingStyle(writingStyle), home, importantDates: cleanDates(importantDates), secrets: cleanSecrets(secrets), ...cleanWardrobe(wardrobe, currentOutfitId), schedule: cleanSchedule(schedule), intimacy, ...life, firstTextLimit: life.textsFirst && textsFirst.limit > 1 ? textsFirst.limit : undefined, about: profile.about.trim() || undefined }));
     if (options?.stay) {
       toast.success("Character saved");
     } else {
@@ -911,7 +921,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
   // inline rather than via alert() so it doesn't block on a native dialog.
   const stepError = (i: number): string | null => {
     if (i === 0 && !name.trim()) return "Give this character a name first.";
-    if (i === 1 && !prompt.trim()) return "Personality / instructions are required.";
+    if (i === 2 && !prompt.trim()) return "Personality / instructions are required.";
     return null;
   };
   const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
@@ -951,71 +961,124 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     setStep(i);
   };
 
+  // #154: the steps as on the canvas, with what each holds.
+  const stepInfo: Record<number, { title: string; sub: string; intro: string }> = {
+    0: { title: "Who they are", sub: "Name, tagline, About line, avatar", intro: "The basics: who they are to you, and how they show up in your chat list." },
+    1: { title: "Look", sub: "Appearance, art style, wardrobe", intro: "What they look like, for every picture of them." },
+    2: { title: "Personality", sub: "Traits, prompt, how they write", intro: "How they think, talk and write." },
+    3: { title: "World and story", sub: "Scenario, greeting, home, routine", intro: "Where they live, their days, and how your story starts." },
+    4: { title: "Their life", sub: "Presets and behaviour", intro: "" },
+    5: { title: "Test and finish", sub: "Test chat, memory, review", intro: "Try them out before you save." },
+    [ADVANCED_STEP]: { title: "Advanced", sub: "Model, local images, intimacy, lorebook", intro: "Model override, local image settings, the intimacy profile and the lorebook." },
+  };
+  const current = stepInfo[step];
+  const lifeCalls = backgroundCallsPerDay(life);
+  const presetName = LIFE_PRESETS.find((p) => p.id === presetOf(life))?.name || "Custom";
+  const save = () => {
+    // Non-linear (#154): any step can be open when you save, so the required
+    // fields are checked here and you're taken to the first one missing.
+    for (const s of [0, 2]) {
+      const error = stepError(s);
+      if (error) {
+        setBlockedMessage(error);
+        setStep(s);
+        return;
+      }
+    }
+    if (editCharacter) handleSaveEdit();
+    else handleCreateCharacter();
+  };
+
   return (
     <div className="w-full h-dvh flex flex-col">
       <Header
-        title={editCharacter ? "Edit character" : "New character"}
-        subtitle={editCharacter ? "Update who Gemini becomes" : "Define who Gemini becomes"}
+        title={editCharacter ? `Edit character · ${editCharacter.name}` : "New character"}
+        subtitle={step === ADVANCED_STEP ? "Advanced" : `Step ${step + 1} of ${STEPS.length} · ${current.title}`}
         onBack={() => navigate("/characters")}
       />
-      <div className="flex-1 overflow-auto p-4 md:p-8">
-      <div className="w-full max-w-[1180px] mx-auto">
-
-        {/* Step indicator */}
-        <WizardSteps steps={STEPS} current={step}>
-          {STEPS.map((label, i) => terminal ? (
-            <React.Fragment key={label}>
-              <button
-                type="button"
-                onClick={() => goToStep(i)}
-                className={cn(
-                  "flex-none text-[11px] whitespace-nowrap hover:underline underline-offset-2",
-                  i === step ? "font-bold text-foreground" : "text-muted-foreground"
-                )}
-              >
-                [{i < step ? "x" : "\u00a0"}] {i + 1}. {label}
-              </button>
-              {i < STEPS.length - 1 && <div className="h-px flex-1 min-w-[18px] mx-2 bg-border" />}
-            </React.Fragment>
-          ) : (
-            <React.Fragment key={label}>
-              <button
-                type="button"
-                onClick={() => goToStep(i)}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors",
-                  i === step
-                    ? "bg-primary text-primary-foreground"
-                    : i < step
-                    ? "bg-secondary text-foreground hover:bg-accent"
-                    : "text-subtle hover:text-foreground"
-                )}
-              >
-                <span className={cn(
-                  "flex items-center justify-center w-5 h-5 rounded-full text-[10px]",
-                  i === step ? "bg-primary-foreground/20" : i < step ? "bg-primary/20 text-primary" : "bg-muted"
-                )}>
-                  {i < step ? <FaCheck size={9} /> : i + 1}
+      <div className="flex min-h-0 flex-1">
+        {/* The steps, in any order (#154). */}
+        <nav aria-label="Editor sections" className="hidden w-[264px] flex-none flex-col gap-0.5 overflow-y-auto border-r border-border bg-surface px-3 py-5 lg:flex">
+          {STEPS.map((label, i) => {
+            const done = i !== step && !stepError(i) && i < step;
+            return (
+              <button key={label} type="button" onClick={() => goToStep(i)} aria-current={i === step ? "step" : undefined}
+                className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-left", i === step ? "bg-raised" : "hover:bg-raised/60")}>
+                <span className={cn("grid h-[26px] w-[26px] flex-none place-items-center rounded-full text-[12px] font-bold", i === step ? "bg-primary text-primary-foreground" : done ? "bg-primary/15 text-primary-text" : "bg-sunken text-muted-foreground")}>
+                  {done ? <FaCheck size={10} /> : i + 1}
                 </span>
-                {label}
+                <span className="flex min-w-0 flex-col">
+                  <span className="text-[13.5px] font-bold text-foreground">{label}</span>
+                  <span className="truncate text-[12px] text-subtle">{stepInfo[i].sub}</span>
+                </span>
               </button>
-              {i < STEPS.length - 1 && <div className="h-px flex-1 min-w-[12px] bg-border" />}
-            </React.Fragment>
-          ))}
-        </WizardSteps>
+            );
+          })}
+          <span className="mx-2 my-3.5 h-px bg-border" />
+          <button type="button" onClick={() => goToStep(ADVANCED_STEP)} aria-current={step === ADVANCED_STEP ? "step" : undefined}
+            className={cn("flex items-center gap-2 rounded-xl px-3 py-2 text-left text-[13.5px] font-bold", step === ADVANCED_STEP ? "bg-raised text-foreground" : "text-muted-foreground hover:bg-raised/60")}>
+            <FaSlidersH size={12} /> Advanced
+          </button>
+          <p className="pl-9 pr-3 text-[12px] text-subtle">{stepInfo[ADVANCED_STEP].sub}</p>
+        </nav>
 
-        {blockedMessage && (
-          <div className="mb-4 px-4 py-2.5 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
-            {blockedMessage}
-          </div>
-        )}
+        <div data-slot="editor-form" className="min-w-0 flex-1 overflow-y-auto px-4 py-5 md:px-8 lg:px-10 lg:py-7">
+          <div className="mx-auto flex w-full max-w-[860px] flex-col gap-6">
+            {/* Phones and tablets: the steps as a strip, Advanced beside it. */}
+            <div className="flex flex-col gap-2 lg:hidden">
+              {step === ADVANCED_STEP ? (
+                <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => goToStep(STEPS.length - 1)}><FaArrowLeft size={11} /> Back to the steps</Button>
+              ) : (
+                <>
+                  <WizardSteps steps={STEPS} current={step} className="mb-0">
+                    {STEPS.map((label, i) => (
+                      <React.Fragment key={label}>
+                        <button type="button" onClick={() => goToStep(i)}
+                          className={cn("flex items-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-colors", i === step ? "bg-primary text-primary-foreground" : "text-subtle hover:text-foreground")}>
+                          <span className={cn("flex h-5 w-5 items-center justify-center rounded-full text-[10px]", i === step ? "bg-primary-foreground/20" : "bg-muted")}>{i + 1}</span>
+                          {label}
+                        </button>
+                        {i < STEPS.length - 1 && <div className="h-px min-w-[12px] flex-1 bg-border" />}
+                      </React.Fragment>
+                    ))}
+                  </WizardSteps>
+                  <Button type="button" variant="ghost" size="sm" className="self-end" onClick={() => goToStep(ADVANCED_STEP)}><FaSlidersH size={11} /> Advanced</Button>
+                </>
+              )}
+            </div>
 
-        <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-1">
+              {step !== ADVANCED_STEP && <span className="text-[11.5px] font-bold uppercase tracking-[0.06em] text-subtle">Step {step + 1} of {STEPS.length}</span>}
+              <h2 className="text-[26px] font-bold tracking-tight text-foreground">{current.title}</h2>
+              {current.intro && <p className="text-[13.5px] text-muted-foreground">{current.intro}</p>}
+            </div>
 
-          {/* Persistent avatar strip: portrait + accent/auto-selfie, shared
-              across every step - per the redesign's spec, a single horizontal
-              card (not a tall sidebar) whose controls flex-wrap on narrow
-              widths instead of overflowing. */}
+            {blockedMessage && (
+              <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive">{blockedMessage}</div>
+            )}
+
+            <Suspense fallback={<StepLoader />}>
+              {step === 0 && (
+                <>
+                  {!editCharacter && (
+              <IdeaDraftSection
+                lastRequest={ideaDraftRequest}
+                drafting={draftingFromIdea}
+                error={ideaDraftError}
+                dialogOpen={ideaDialogOpen}
+                onDialogOpenChange={(open) => { setIdeaDraftError(null); setIdeaDialogOpen(open); }}
+                onDraft={(request) => handleDraftFromIdea(request)}
+                onTryAnother={() => ideaDraftRequest && handleDraftFromIdea(ideaDraftRequest, true)}
+                contentRating={contentRating}
+                adultsConfirmed={adultsConfirmed}
+                artStyle={artStyle}
+                name={name}
+                appearance={appearance}
+                visualTags={visualTags}
+                localImageSettings={cleanLocalImageSettings(localImageSettings)}
+                onPortraitGenerated={handleAvatarGenerated}
+              />
+            )}
           <Card className="p-6">
             <div className="flex flex-wrap gap-6">
               <div className="flex gap-3 flex-1 basis-[220px] min-w-0">
@@ -1094,54 +1157,9 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
 
             </div>
 
-            <div className="mt-6 pt-6 border-t border-border/30">
-              <ToggleSwitch
-                checked={autoSelfieEnabled}
-                onChange={setAutoSelfieEnabled}
-                label="Sends selfies on their own"
-                title="Let this character spontaneously attach a selfie-style picture to their replies, without you asking for one."
-              />
-              {autoSelfieEnabled && (
-                <div className="mt-3 max-w-sm">
-                  <div className="flex justify-between text-xs text-muted-foreground mb-2">
-                    <span>Frequency</span>
-                    <span className="font-mono">{autoSelfieFrequency}%</span>
-                  </div>
-                  <Slider value={autoSelfieFrequency} min={5} max={100} step={5} onChange={setAutoSelfieFrequency} />
-                  <p className="text-xs text-subtle mt-1.5">Chance each of their replies includes a spontaneous selfie - lower saves AI credits.</p>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-6 pt-6 border-t border-border/30">
-              <VoiceSection name={name} value={voice} onChange={setVoice} />
-            </div>
           </Card>
-
-          {/* Stepped field cards */}
-          <div className="flex flex-col gap-6">
-            {!editCharacter && step === 0 && (
-              <IdeaDraftSection
-                lastRequest={ideaDraftRequest}
-                drafting={draftingFromIdea}
-                error={ideaDraftError}
-                dialogOpen={ideaDialogOpen}
-                onDialogOpenChange={(open) => { setIdeaDraftError(null); setIdeaDialogOpen(open); }}
-                onDraft={(request) => handleDraftFromIdea(request)}
-                onTryAnother={() => ideaDraftRequest && handleDraftFromIdea(ideaDraftRequest, true)}
-                contentRating={contentRating}
-                adultsConfirmed={adultsConfirmed}
-                artStyle={artStyle}
-                name={name}
-                appearance={appearance}
-                visualTags={visualTags}
-                localImageSettings={cleanLocalImageSettings(localImageSettings)}
-                onPortraitGenerated={handleAvatarGenerated}
-              />
-            )}
-            <Suspense fallback={<StepLoader />}>
-              {step === 0 && (
-                <IdentityStep
+                  <IdentityStep
+                    part="who"
                   editCharacter={editCharacter}
                   surprising={surprising}
                   handleSurpriseMe={handleSurpriseMe}
@@ -1197,9 +1215,97 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   handleGenerateAllEmotions={handleGenerateAllEmotions}
                   emotionGenError={emotionGenError}
                 />
+                  <Card className="p-6">
+                    <ProfileSection name={name} about={profile.about} changes={Boolean(life.profileChanges)} onChange={(v) => { setProfile(v); setLife((l) => ({ ...l, profileChanges: v.changes || undefined })); }} />
+                  </Card>
+                </>
               )}
 
               {step === 1 && (
+                <>
+                  <IdentityStep
+                    part="look"
+                  editCharacter={editCharacter}
+                  surprising={surprising}
+                  handleSurpriseMe={handleSurpriseMe}
+                  surpriseHint={surpriseHint}
+                  setSurpriseHint={setSurpriseHint}
+                  assistError={assistError}
+                  name={name}
+                  setName={setName}
+                  relationship={relationship}
+                  setRelationship={setRelationship}
+                  description={description}
+                  setDescription={setDescription}
+                  tags={tags}
+                  setTags={setTags}
+                  contentRating={contentRating}
+                  adultsConfirmed={adultsConfirmed}
+                  minorIndicators={minorIndicators}
+                  onContentRatingChange={(rating, confirmed) => { setContentRating(rating); setAdultsConfirmed(confirmed); }}
+                  appearance={appearance}
+                  setAppearance={setAppearance}
+                  visualTags={visualTags}
+                  setVisualTags={setVisualTags}
+                  onDraftVisualTags={handleDraftVisualTags}
+                  draftingVisualTags={draftingVisualTags}
+                  visualTagsError={visualTagsError}
+                  onMakeMainReference={handleMakeMainReference}
+                  onGenerateReferenceSheet={handleGenerateReferenceSheet}
+                  generatingSheetView={generatingSheetView}
+                  sheetError={sheetError}
+                  artStyle={artStyle}
+                  setArtStyle={setArtStyle}
+                  appearanceImages={appearanceImages}
+                  imageInputRef={imageInputRef}
+                  handleImageUpload={handleImageUpload}
+                  removeAppearanceImage={removeAppearanceImage}
+                  neumorphic={neumorphic}
+                  emotionPortraitsEnabled={emotionPortraitsEnabled}
+                  setEmotionPortraitsEnabled={setEmotionPortraitsEnabled}
+                  emotionHint={emotionHint}
+                  setEmotionHint={setEmotionHint}
+                  customEmotions={customEmotions}
+                  emotionPortraitImages={emotionPortraitImages}
+                  generatingEmotion={generatingEmotion}
+                  generatingAllEmotions={generatingAllEmotions}
+                  handleGenerateEmotion={handleGenerateEmotion}
+                  handleTriggerEmotionUpload={handleTriggerEmotionUpload}
+                  handleRemoveCustomEmotion={handleRemoveCustomEmotion}
+                  newCustomEmotion={newCustomEmotion}
+                  setNewCustomEmotion={setNewCustomEmotion}
+                  handleAddCustomEmotion={handleAddCustomEmotion}
+                  emotionUploadInputRef={emotionUploadInputRef}
+                  handleEmotionFileSelected={handleEmotionFileSelected}
+                  handleGenerateAllEmotions={handleGenerateAllEmotions}
+                  emotionGenError={emotionGenError}
+                />
+          <Card className="p-6">
+              <ToggleSwitch
+                checked={autoSelfieEnabled}
+                onChange={setAutoSelfieEnabled}
+                label="Sends selfies on their own"
+                title="Let this character spontaneously attach a selfie-style picture to their replies, without you asking for one."
+              />
+              {autoSelfieEnabled && (
+                <div className="mt-3 max-w-sm">
+                  <div className="flex justify-between text-xs text-muted-foreground mb-2">
+                    <span>Frequency</span>
+                    <span className="font-mono">{autoSelfieFrequency}%</span>
+                  </div>
+                  <Slider value={autoSelfieFrequency} min={5} max={100} step={5} onChange={setAutoSelfieFrequency} />
+                  <p className="text-xs text-subtle mt-1.5">Chance each of their replies includes a spontaneous selfie - lower saves AI credits.</p>
+                </div>
+              )}
+          </Card>
+                  <Card className="p-6">
+                    <WardrobeSection outfits={wardrobe} currentId={currentOutfitId} onChange={(outfits, id) => { setWardrobe(outfits); setCurrentOutfitId(id); }} />
+                  </Card>
+                </>
+              )}
+
+              {step === 2 && (
+                <>
                 <PersonalityStep
                   promptTokens={promptTokens}
                   personalityTraits={personalityTraits}
@@ -1210,9 +1316,23 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   expanding={expanding}
                   assistError={assistError}
                 />
+                  <ExampleDialoguesStep
+                    name={name}
+                    mesExample={mesExample}
+                    setMesExample={setMesExample}
+                    handleGenerateExampleDialogue={handleGenerateExampleDialogue}
+                    generatingExample={generatingExample}
+                    assistError={assistError}
+                  />
+                  <WritingStyleSection name={name} value={writingStyle} onChange={setWritingStyle} />
+                  <Card className="p-6">
+                    <VoiceSection name={name} value={voice} onChange={setVoice} />
+                  </Card>
+                </>
               )}
 
-              {step === 2 && (
+              {step === 3 && (
+                <>
                 <ScenarioGreetingStep
                   scenario={scenario}
                   setScenario={setScenario}
@@ -1226,33 +1346,28 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   generatingGreeting={generatingGreeting}
                   assistError={assistError}
                 />
-              )}
-
-              {step === 3 && (
-                <>
-                  <ExampleDialoguesStep
-                    name={name}
-                    mesExample={mesExample}
-                    setMesExample={setMesExample}
-                    handleGenerateExampleDialogue={handleGenerateExampleDialogue}
-                    generatingExample={generatingExample}
-                    assistError={assistError}
-                  />
-                  <WritingStyleSection name={name} value={writingStyle} onChange={setWritingStyle} />
+                  <Card className="p-6">
+                    <HomeSection value={home} onChange={setHome} />
+                    <div className="mt-4 border-t border-border pt-4">
+                      <ScheduleSection value={schedule} onChange={setSchedule} />
+                    </div>
+                    <div className="mt-4 border-t border-border pt-4">
+                      <ImportantDatesSection value={importantDates} onChange={setImportantDates} memory={editCharacter?.memory} />
+                    </div>
+                    <div className="mt-4 border-t border-border pt-4">
+                      <SecretsSection value={secrets} onChange={setSecrets} />
+                    </div>
+                  </Card>
                 </>
               )}
 
               {step === 4 && (
-                <LorebookStep
-                  loreEntries={loreEntries}
-                  handleUpdateLoreEntry={handleUpdateLoreEntry}
-                  handleRemoveLoreEntry={handleRemoveLoreEntry}
-                  handleExpandLoreEntry={handleExpandLoreEntry}
-                  expandingLoreId={expandingLoreId}
-                  handleAddLoreEntry={handleAddLoreEntry}
-                  assistError={assistError}
-                  neumorphic={neumorphic}
-                />
+                <>
+                  <LifeStep name={name} values={life} onChange={setLife} />
+                  <Card className="p-6">
+                    <TextsFirstSection name={name} enabled={Boolean(life.textsFirst)} limit={textsFirst.limit} onChange={(v) => { setTextsFirst(v); setLife((l) => ({ ...l, textsFirst: v.enabled || undefined })); }} />
+                  </Card>
+                </>
               )}
 
               {step === 5 && (
@@ -1287,42 +1402,31 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   commitNewFact={commitNewFact}
                 />
               )}
-            </Suspense>
 
-            {/* On the last step, next to the test chat: picking a model is
-                part of finishing a character, and most never change it. */}
-            {step === STEPS.length - 1 && (
-              <Card className="p-6">
-                <ModelOverrideSection value={modelOverride} onChange={setModelOverride} />
-                <div className="mt-4 border-t border-border pt-4">
-                  <LocalImageSettingsSection value={localImageSettings} onChange={setLocalImageSettings} />
-                </div>
-                <div className="mt-4 border-t border-border pt-4">
-                  <ImportantDatesSection value={importantDates} onChange={setImportantDates} memory={editCharacter?.memory} />
-                </div>
-                <div className="mt-4 border-t border-border pt-4">
-                  <SecretsSection value={secrets} onChange={setSecrets} />
-                </div>
-                <div className="mt-4 border-t border-border pt-4">
-                  <WardrobeSection outfits={wardrobe} currentId={currentOutfitId} onChange={(outfits, id) => { setWardrobe(outfits); setCurrentOutfitId(id); }} />
-                </div>
-                <div className="mt-4 border-t border-border pt-4">
-                  <ScheduleSection value={schedule} onChange={setSchedule} />
-                </div>
-                <div className="mt-4 border-t border-border pt-4">
-                  <HomeSection value={home} onChange={setHome} />
-                </div>
-                <div className="mt-4 border-t border-border pt-4">
-                  <TextsFirstSection name={name} enabled={textsFirst.enabled} limit={textsFirst.limit} onChange={setTextsFirst} />
-                </div>
-                <div className="mt-4 border-t border-border pt-4">
-                  <ProfileSection name={name} about={profile.about} changes={profile.changes} onChange={setProfile} />
-                </div>
-                <div className="mt-4 border-t border-border pt-4">
-                  <IntimacySection value={intimacy} onChange={setIntimacy} />
-                </div>
-              </Card>
-            )}
+              {step === ADVANCED_STEP && (
+                <>
+                  <Card className="p-6">
+                    <ModelOverrideSection value={modelOverride} onChange={setModelOverride} />
+                    <div className="mt-4 border-t border-border pt-4">
+                      <LocalImageSettingsSection value={localImageSettings} onChange={setLocalImageSettings} />
+                    </div>
+                    <div className="mt-4 border-t border-border pt-4">
+                      <IntimacySection value={intimacy} onChange={setIntimacy} />
+                    </div>
+                  </Card>
+                <LorebookStep
+                  loreEntries={loreEntries}
+                  handleUpdateLoreEntry={handleUpdateLoreEntry}
+                  handleRemoveLoreEntry={handleRemoveLoreEntry}
+                  handleExpandLoreEntry={handleExpandLoreEntry}
+                  expandingLoreId={expandingLoreId}
+                  handleAddLoreEntry={handleAddLoreEntry}
+                  assistError={assistError}
+                  neumorphic={neumorphic}
+                />
+                </>
+              )}
+            </Suspense>
 
             <input
               type="file"
@@ -1333,7 +1437,32 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
             />
           </div>
         </div>
-      </div>
+
+        {/* Live preview (#154): how they'll look in your chat list. */}
+        <aside aria-label="Live preview" className="hidden w-[320px] flex-none flex-col gap-4 overflow-y-auto border-l border-border bg-surface px-5 py-6 xl:flex">
+          <span className="text-[11.5px] font-bold uppercase tracking-[0.06em] text-subtle">Live preview</span>
+          <div className="flex flex-col items-center gap-1.5 rounded-card bg-card px-4 py-5 text-center ring-1 ring-inset ring-border">
+            {appearanceImages[0] ? (
+              <DisplayImage srcContext={appearanceImages[0]} alt="" className="h-[72px] w-[72px] rounded-full object-cover" />
+            ) : (
+              <CharacterAvatar name={name || "?"} accent={accent} size={72} />
+            )}
+            <span className="mt-1.5 text-[17px] font-bold text-foreground">{name || "Unnamed"}</span>
+            {(profile.about || description) && <span className="line-clamp-2 text-[12.5px] text-muted-foreground">{profile.about || description}</span>}
+            <span className="mt-1 rounded-md bg-raised px-2 py-0.5 text-[11.5px] font-semibold text-muted-foreground">{presetName}{relationship ? ` · ${relationship}` : ""}</span>
+          </div>
+          {firstMes.trim() && (
+            <div className="rounded-card bg-background px-3 py-3">
+              <div className="max-w-full rounded-bubble rounded-tl-[5px] bg-bubble-in px-3 py-2 font-serif text-[14px] leading-[21px] text-bubble-in-text line-clamp-6">{firstMes}</div>
+            </div>
+          )}
+          {lifeCalls > 0 && (
+            <div className="flex items-start gap-2.5 rounded-xl bg-sunken p-3">
+              <CostMarker />
+              <p className="text-[12px] text-muted-foreground">About {lifeCalls} background calls a day on your key. The life dial in Settings scales it; the activity log shows what ran.</p>
+            </div>
+          )}
+        </aside>
       </div>
 
       {/* Step navigation, docked under the scrolling form rather than sticky
@@ -1379,7 +1508,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   <FaCheck size={12} /> Save
                 </Button>
               )}
-              {step < STEPS.length - 1 ? (
+              {step < STEPS.length - 1 && step !== ADVANCED_STEP ? (
                 <Button
                   onClick={goNext}
                   variant="default"
@@ -1389,7 +1518,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                 </Button>
               ) : (
                 <Button
-                  onClick={() => (editCharacter ? handleSaveEdit() : handleCreateCharacter())}
+                  onClick={save}
                   variant="default"
                   className="h-auto px-5 py-2.5 font-semibold"
                   disabled={loading}

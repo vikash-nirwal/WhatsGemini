@@ -1,3 +1,4 @@
+import { editorStep } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { test, expect, openChat, openRoute, sendMessage, waitForReplyDone, headerAction, messageBubble, MockAIRequest, chatMessages, openContactInfo } from "./fixtures";
 
@@ -75,7 +76,7 @@ test.describe("someone you've never chatted with", () => {
     );
     await openRoute(page, "/characters/2/edit");
     await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Kai", { timeout: 30_000 });
-    for (let i = 0; i < 5; i++) await page.getByRole("button", { name: "Next" }).click();
+    await editorStep(page, "Their life");
     const section = page.locator("details").filter({ has: page.locator("summary", { hasText: "Texts first" }) });
     await expect(async () => {
       if ((await section.getAttribute("open")) === null) await section.locator("summary").click();

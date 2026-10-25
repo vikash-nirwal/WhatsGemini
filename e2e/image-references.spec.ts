@@ -1,5 +1,5 @@
 import { Page, Request } from "@playwright/test";
-import { test, expect, openChat, openRoute, sendMessage, waitForReplyDone, ARIA, chatMessages } from "./fixtures";
+import { test, expect, openChat, openRoute, editorStep, sendMessage, waitForReplyDone, ARIA, chatMessages } from "./fixtures";
 import { mockComfyUI } from "./comfyui";
 
 // #36-#41: a character's appearance photo reaches each image provider as a
@@ -251,7 +251,9 @@ test.describe("Reference sheet", () => {
       db.close();
     }, ARIA.id);
     await page.reload();
-    await expect(page.getByLabel("Locked look for pictures")).toHaveValue("silver hair, violet eyes", { timeout: 30_000 });
+    await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
+    await editorStep(page, "Look");
+    await expect(page.getByLabel("Locked look for pictures")).toHaveValue("silver hair, violet eyes");
     await page.getByRole("button", { name: /Generate reference sheet/ }).click();
     await expect(page.getByRole("button", { name: /Generate reference sheet/ })).toBeEnabled({ timeout: 20_000 });
 

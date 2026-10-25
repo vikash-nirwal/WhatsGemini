@@ -1,4 +1,4 @@
-import { test, expect, openRoute, openChat, sendMessage, waitForReplyDone, chatMessages } from "./fixtures";
+import { test, expect, openRoute, openChat, sendMessage, waitForReplyDone, chatMessages, editorStep } from "./fixtures";
 
 // Profile changes (#125): a character's About line, set in the editor, and
 // changed by them every few days, with a notice in your chat.
@@ -10,7 +10,7 @@ test("a character changes their About line, and the chat shows it", async ({ pag
   mockAI.reply((req) => (req.prompt.includes('is updating the "About" line') ? "Fixing things, mostly myself 🔧" : "Mock reply"));
   await openRoute(page, "/characters/1/edit");
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
-  for (let i = 0; i < 5; i++) await page.getByRole("button", { name: "Next" }).click();
+  await editorStep(page, "Who they are");
   const section = page.locator("details").filter({ has: page.locator("summary", { hasText: /^Profile/ }) });
   await expect(async () => {
     if ((await section.getAttribute("open")) === null) await section.locator("summary").click();

@@ -1,3 +1,4 @@
+import { editorStep } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { test, expect, openChat, openRoute, sendMessage, waitForReplyDone, messageBubble, ARIA, openDetails } from "./fixtures";
 
@@ -39,7 +40,7 @@ const SECRETS = [
 test("secrets are set in the editor", async ({ page }) => {
   await openRoute(page, `/characters/${ARIA.id}/edit`);
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
-  for (let i = 0; i < 5; i++) await page.getByRole("button", { name: "Next" }).click();
+  await editorStep(page, "World and story");
   const section = page.locator("details").filter({ has: page.locator("summary", { hasText: "Secrets" }) });
   await openDetails(section);
   await section.getByRole("button", { name: "Add a secret" }).click();

@@ -1,4 +1,4 @@
-import { test, expect, openChat, openRoute, openContactInfo } from "./fixtures";
+import { test, expect, openChat, openRoute, openContactInfo, editorStep } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // Long-term memory in the Scene panel: facts grouped by what they're about
@@ -114,7 +114,7 @@ test("the character editor's memory card groups facts the same way", async ({ pa
   });
   await page.reload();
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
-  for (let i = 0; i < 5; i++) await page.getByRole("button", { name: "Next" }).click();
+  await editorStep(page, "Test and finish");
 
   await expect(page.getByRole("group", { name: "About you" })).toContainText("Arin hates rain.");
   await expect(page.getByRole("group", { name: "Story" })).toContainText("The inn burned down.");

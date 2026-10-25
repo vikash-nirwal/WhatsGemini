@@ -1,3 +1,4 @@
+import { editorStep } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { test, expect, openChat, openRoute, sendMessage, messageBubble, ARIA, openDetails } from "./fixtures";
 
@@ -32,7 +33,7 @@ const ALL_DAY_WORK = { blocks: [{ start: 0, end: 24, activity: "at work", status
 test("a routine is started from a typical day in the editor and saved", async ({ page }) => {
   await openRoute(page, `/characters/${ARIA.id}/edit`);
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
-  for (let i = 0; i < 5; i++) await page.getByRole("button", { name: "Next" }).click();
+  await editorStep(page, "World and story");
   const section = page.locator("details").filter({ has: page.locator("summary", { hasText: "Daily routine" }) });
   // Retried until it's really open: a click while the step is still
   // settling can be lost.

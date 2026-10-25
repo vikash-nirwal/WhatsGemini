@@ -12,6 +12,7 @@ import { EMOTIONS, ART_STYLES, RELATIONSHIP_PRESETS, TAG_PRESETS } from "../../.
 import { SegmentedControl } from "src/components/molecules/SegmentedControl";
 
 interface IdentityStepProps {
+  part: "who" | "look"; // #154: "Who they are" or "Look"
   editCharacter: Character | null;
   surprising: boolean;
   handleSurpriseMe: () => void;
@@ -127,8 +128,10 @@ const IdentityStep: React.FC<IdentityStepProps> = ({
   handleEmotionFileSelected,
   handleGenerateAllEmotions,
   emotionGenError,
+  part,
 }) => (
   <>
+    {part === "who" && (
     <Card className="p-6 flex flex-col gap-5">
       <div className="flex items-center justify-between gap-4">
         <h3 data-slot="section-title" className="font-semibold text-[15px] text-foreground">Identity</h3>
@@ -197,11 +200,14 @@ const IdentityStep: React.FC<IdentityStepProps> = ({
         onChange={onContentRatingChange}
       />
 
-      {/* Appearance fields live in this same card, not a separate
-          one - a lighter sub-heading marks the shift in topic
-          instead of a full second card's worth of chrome. */}
-      <div className="flex items-center gap-1.5 pt-2 mt-1 border-t border-border/30">
-        <h4 data-slot="section-title" className="text-xs font-semibold uppercase tracking-wide text-subtle">Appearance</h4>
+    </Card>
+    )}
+    {/* #154: the look is its own step, "Look". */}
+    {part === "look" && (
+    <>
+    <Card className="p-6 flex flex-col gap-5">
+      <div className="flex items-center gap-1.5">
+        <h3 data-slot="section-title" className="font-semibold text-[15px] text-foreground">Appearance</h3>
         <InfoTooltip hint="Given to image-capable models to keep generated looks consistent" />
       </div>
       <TextArea
@@ -408,6 +414,8 @@ const IdentityStep: React.FC<IdentityStepProps> = ({
         </div>
       )}
     </Card>
+    </>
+    )}
   </>
 );
 

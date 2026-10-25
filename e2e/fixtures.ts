@@ -396,3 +396,25 @@ export const openDetails = async (section: Locator) => {
     await expect(section).toHaveAttribute("open", "", { timeout: 1000 });
   }).toPass();
 };
+
+// The character editor's steps (#154), by title: the side list on desktop,
+// Next and Back on smaller screens (Advanced has its own button there).
+const EDITOR_STEPS = ["Who they are", "Look", "Personality", "World and story", "Their life", "Test and finish"];
+export const editorStep = async (page: Page, name: string) => {
+  const title = page.locator('[data-slot="editor-form"] h2').first();
+  const nav = page.getByRole("navigation", { name: "Editor sections" });
+  if (await nav.isVisible()) {
+    await nav.getByRole("button", { name }).first().click();
+  } else if (name === "Advanced") {
+    await page.getByRole("button", { name: "Advanced", exact: true }).click();
+  } else {
+    if ((await title.textContent()) === "Advanced") await page.getByRole("button", { name: "Back to the steps" }).click();
+    for (let i = 0; i < 7; i++) {
+      const at = EDITOR_STEPS.indexOf((await title.textContent()) || "");
+      const want = EDITOR_STEPS.indexOf(name);
+      if (at === want) break;
+      await page.getByRole("button", { name: at < want ? "Next" : "Back", exact: true }).last().click();
+    }
+  }
+  await expect(title).toHaveText(name);
+};

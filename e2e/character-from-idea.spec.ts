@@ -1,4 +1,4 @@
-import { test, expect, openRoute, MockAIRequest } from "./fixtures";
+import { test, expect, openRoute, MockAIRequest, editorStep } from "./fixtures";
 
 // Character from one line (#45): an idea goes to the AI in one call, the
 // JSON draft fills the editor, and the user reviews and saves it as usual.
@@ -45,7 +45,6 @@ const savedCharacters = (page: import("@playwright/test").Page) =>
     return rows;
   });
 
-const next = (page: import("@playwright/test").Page) => page.getByRole("button", { name: "Next" }).click();
 
 test("draft a character from one line, edit it and save it", async ({ page, mockAI }) => {
   // The first reply isn't JSON, so the dialog shows an error with a retry.
@@ -74,6 +73,7 @@ test("draft a character from one line, edit it and save it", async ({ page, mock
   const name = page.getByRole("textbox", { name: "Character Name" });
   await expect(name).toHaveValue(BARNABY.name);
   await expect(page.getByRole("textbox", { name: "Description (Optional)" })).toHaveValue(BARNABY.description);
+  await editorStep(page, "Look");
   await expect(page.getByRole("textbox", { name: /Character Appearance/ })).toHaveValue(BARNABY.appearance);
   await expect(page.getByRole("textbox", { name: "Locked look for pictures" })).toHaveValue(BARNABY.visualTags);
   // No image provider is set up in tests, so no portrait is offered.
@@ -81,18 +81,17 @@ test("draft a character from one line, edit it and save it", async ({ page, mock
   expect(await savedCharacters(page)).toHaveLength(0);
 
   // The user edits the draft before saving.
+  await editorStep(page, "Who they are");
   await name.fill("Barnaby the Poet");
-  await next(page);
+  await editorStep(page, "Personality");
 
   await expect(page.getByRole("textbox", { name: "Character Prompt (Personality, Style, etc.)" })).toHaveValue(BARNABY.prompt);
-  await next(page);
+  await expect(page.getByRole("textbox", { name: /^Example Dialogues/ })).toHaveValue(BARNABY.exampleDialogue);
+  await editorStep(page, "World and story");
   await expect(page.getByRole("textbox", { name: /^Scenario/ })).toHaveValue(BARNABY.scenario);
   await expect(page.getByRole("textbox", { name: "First Message / Greeting (Optional)" })).toHaveValue(BARNABY.firstMessage);
   await expect(page.getByRole("textbox", { name: "Alternate greeting 1" })).toHaveValue(BARNABY.alternateGreetings[0]);
-  await next(page);
-  await expect(page.getByRole("textbox", { name: /^Example Dialogues/ })).toHaveValue(BARNABY.exampleDialogue);
-  await next(page);
-  await next(page);
+  await editorStep(page, "Test and finish");
   await page.getByRole("button", { name: "Create Character" }).click();
   await expect(page).toHaveURL(/#\/characters$/);
 

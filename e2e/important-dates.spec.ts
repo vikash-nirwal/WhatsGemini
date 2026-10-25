@@ -1,3 +1,4 @@
+import { editorStep } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { test, expect, openChat, openRoute, messageBubble, ARIA, openDetails } from "./fixtures";
 
@@ -43,7 +44,7 @@ const readAria = (page: Page) =>
 
 const openDates = async (page: Page) => {
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
-  for (let i = 0; i < 5; i++) await page.getByRole("button", { name: "Next" }).click();
+  await editorStep(page, "World and story");
   const section = page.locator("details").filter({ has: page.locator("summary", { hasText: "Dates that matter" }) });
   await openDetails(section);
   return section;

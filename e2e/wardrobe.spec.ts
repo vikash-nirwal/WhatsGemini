@@ -1,3 +1,4 @@
+import { editorStep } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { test, expect, openChat, openRoute, headerAction, sendMessage, ARIA, openDetails, openContactInfo } from "./fixtures";
 
@@ -49,7 +50,7 @@ const WARDROBE = [
 test("outfits are added in the editor, and one is worn", async ({ page }) => {
   await openRoute(page, `/characters/${ARIA.id}/edit`);
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
-  for (let i = 0; i < 5; i++) await page.getByRole("button", { name: "Next" }).click();
+  await editorStep(page, "Look");
   const section = page.locator("details").filter({ has: page.locator("summary", { hasText: "Wardrobe" }) });
   await openDetails(section);
   await section.getByRole("button", { name: "Add an outfit" }).click();

@@ -52,6 +52,7 @@ const UpdatesPage = lazy(() => import("./pages/UpdatesPage"));
 const StarredPage = lazy(() => import("./pages/StarredPage"));
 const ChannelPage = lazy(() => import("./pages/ChannelPage"));
 const CharacterEditorPage = lazy(() => import("./pages/CharacterEditorPage"));
+const QuickCreatePage = lazy(() => import("./pages/QuickCreatePage"));
 const CharacterGalleryPage = lazy(() => import("./pages/CharacterGalleryPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const WorldGalleryPage = lazy(() => import("./pages/WorldGalleryPage"));
@@ -253,6 +254,7 @@ const AppContent = () => {
                 <Route path="/chat/:chatId" element={<ChatPage />} />
                 <Route path="/characters" element={<CharacterPage />} />
                 <Route path="/characters/new" element={<CharacterEditorPage />} />
+                <Route path="/characters/quick" element={<QuickCreatePage />} />
                 <Route path="/characters/:characterId/edit" element={<CharacterEditorPage />} />
                 <Route path="/characters/:characterId/gallery" element={<CharacterGalleryPage />} />
                 <Route path="/worlds" element={<WorldGalleryPage />} />

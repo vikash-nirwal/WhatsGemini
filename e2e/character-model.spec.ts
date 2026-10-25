@@ -1,4 +1,4 @@
-import { test, expect, openRoute, openDetails } from "./fixtures";
+import { test, expect, openRoute, openDetails, editorStep } from "./fixtures";
 
 // #32: a character can pin its own provider and model. The section sits on
 // the editor's last step, collapsed by default, and is saved with the character.
@@ -10,7 +10,7 @@ const openEditor = async (page: import("@playwright/test").Page, { reload = fals
   if (reload) await page.reload();
   else await openRoute(page, "/characters/1/edit");
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
-  for (let i = 0; i < 5; i++) await page.getByRole("button", { name: "Next" }).click();
+  await editorStep(page, "Advanced");
   return page.locator("details").filter({ has: page.locator("summary", { hasText: "Model for this character" }) });
 };
 

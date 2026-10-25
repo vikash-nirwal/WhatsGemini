@@ -1,3 +1,4 @@
+import { editorStep } from "./fixtures";
 import { Page } from "@playwright/test";
 import { test, expect, openRoute, openChat, sendMessage, waitForReplyDone } from "./fixtures";
 
@@ -10,7 +11,7 @@ const LORE = "The Ember Blade burns with a fire that never goes out.";
 const openLorebookStep = async (page: Page) => {
   await openRoute(page, "/characters/1/edit");
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
-  for (let i = 0; i < 4; i++) await page.getByRole("button", { name: "Next" }).click();
+  await editorStep(page, "Advanced");
   await expect(page.getByRole("heading", { name: /Lorebook/ })).toBeVisible();
 };
 
@@ -54,7 +55,7 @@ test("advanced lore settings are saved and survive a reload", async ({ page }) =
 
   await page.reload();
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
-  for (let i = 0; i < 4; i++) await page.getByRole("button", { name: "Next" }).click();
+  await editorStep(page, "Advanced");
   // The collapsed summary says something is set before it's opened.
   await expect(advanced(page)).toContainText("5 settings changed");
   await advanced(page).click();
@@ -71,7 +72,7 @@ test("advanced lore settings are saved and survive a reload", async ({ page }) =
   await save(page);
   await page.reload();
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
-  for (let i = 0; i < 4; i++) await page.getByRole("button", { name: "Next" }).click();
+  await editorStep(page, "Advanced");
   await expect(advanced(page)).toContainText("4 settings changed");
 });
 

@@ -1,3 +1,4 @@
+import { editorStep } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { test, expect, openChat, openRoute, sendMessage, waitForReplyDone, headerAction, openContactInfo, MockAIRequest } from "./fixtures";
 
@@ -226,7 +227,7 @@ test("a character's own preoccupations are written weekly and reach the reply's 
 test("a writing profile set in the editor is saved and kept to in every prompt (#111)", async ({ page, mockAI }) => {
   await openRoute(page, "/characters/1/edit");
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
-  for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Next" }).click();
+  await editorStep(page, "Personality");
   const section = page.locator("details").filter({ has: page.locator("summary", { hasText: "How Aria writes" }) });
   await expect(async () => {
     if ((await section.getAttribute("open")) === null) await section.locator("summary").click();
@@ -247,7 +248,7 @@ test("a writing profile set in the editor is saved and kept to in every prompt (
   // Saved on the character: the editor shows it again.
   await openRoute(page, "/characters/1/edit");
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
-  for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Next" }).click();
+  await editorStep(page, "Personality");
   await expect(section.locator("summary")).toContainText("3 habits");
 });
 
@@ -262,7 +263,7 @@ test("a home city gives the character the local time, weather and holidays (#112
 
   await openRoute(page, "/characters/1/edit");
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
-  for (let i = 0; i < 5; i++) await page.getByRole("button", { name: "Next" }).click();
+  await editorStep(page, "World and story");
   const section = page.locator("details").filter({ has: page.locator("summary", { hasText: "Where they live" }) });
   await expect(async () => {
     if ((await section.getAttribute("open")) === null) await section.locator("summary").click();

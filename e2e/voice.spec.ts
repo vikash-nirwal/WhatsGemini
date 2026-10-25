@@ -1,3 +1,4 @@
+import { editorStep } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { test, expect, openChat, openRoute, sendMessage, waitForReplyDone, messageBubble, messageAction, ARIA } from "./fixtures";
 import { installSpeechFakes, say, spoken } from "./speechFakes";
@@ -148,6 +149,7 @@ test("pick a voice, speed and voice notes in the character editor, with a previe
   await installSpeechFakes(page);
   await openRoute(page, "/characters/1/edit");
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
+  await editorStep(page, "Personality");
   const section = page.locator("details").filter({ has: page.locator("summary", { hasText: "Voice" }) });
   await expect(section.locator("summary")).toContainText("Browser default, voice notes off");
 
@@ -164,6 +166,7 @@ test("pick a voice, speed and voice notes in the character editor, with a previe
   await expect(page.getByText("Character saved")).toBeVisible();
   await page.reload();
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
+  await editorStep(page, "Personality");
   await expect(section.locator("summary")).toContainText("Test Bruno, voice notes often");
 });
 
