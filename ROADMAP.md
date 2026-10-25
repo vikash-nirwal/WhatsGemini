@@ -22,7 +22,6 @@ The user's idea, replacing circles: the app holds several worlds, each its own s
 
 ## Reset (#158, the user's request, 2026-10-25)
 
-- **#158 Reset a character or a world (M).** A Reset button for a character and for a world puts it back to how it started: a character loses every memory and fact, the "where things stand" paragraph, statuses, day logs, letters, first texts, moods, diaries and the rest of what built up (its card stays: name, look, personality, prompt); a world loses its progress (story time, news, talk between characters). Confirmed first; can't be undone. Before the part 2 and worlds deploy.
 
 ## UI revamp (#148–#157, picked 2026-10-25)
 

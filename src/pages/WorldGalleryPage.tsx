@@ -7,6 +7,8 @@ import { MY_WORLD, worldOf } from "../features/world/currentWorld";
 import { formatStoryDate } from "../features/world/storyTime";
 import { useCurrentWorld } from "../hooks/useWorld";
 import { WorldLifeControls } from "src/components/organisms/WorldLifeControls";
+import { ResetDialog } from "src/components/organisms/ResetDialog";
+import { resetWorldLife } from "../features/life/reset";
 import { useModal } from "../contexts/ModalContext";
 import { useColorTheme } from "../hooks/useColorTheme";
 import { cn } from "../utils/cn";
@@ -36,6 +38,8 @@ const WorldGalleryPage = () => {
     dispatch(switchWorld(id));
     navigate("/");
   };
+  // Reset (#158): which world's progress is about to go.
+  const [resetting, setResetting] = useState<{ id: number | null; name: string } | null>(null);
   const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
   const loading = useAppSelector((state) => state.world.loading);
   const [search, setSearch] = useState("");
@@ -56,6 +60,16 @@ const WorldGalleryPage = () => {
 
   return (
     <div className="w-full h-dvh flex flex-col">
+      <ResetDialog
+        open={Boolean(resetting)}
+        onOpenChange={(open) => !open && setResetting(null)}
+        title={`Reset ${resetting?.name || ""}?`}
+        description="Its progress goes: story time back to its start, its news and what its people texted each other."
+        options={[{ id: "people", label: "Also reset everyone who lives here", defaultOn: true }, { id: "chats", label: "Also delete your chats here" }]}
+        onReset={async (choices) => {
+          if (resetting) await dispatch(resetWorldLife({ worldId: resetting.id, people: choices.people, deleteChats: choices.people && choices.chats }));
+        }}
+      />
       <Header title="Worlds" subtitle="Each world is its own space, with its own people and chats." onBack={() => navigate("/adventures")} />
       <div className="flex-1 overflow-auto p-4 md:p-8">
         <div className="w-full max-w-[1180px] mx-auto">
@@ -96,6 +110,7 @@ const WorldGalleryPage = () => {
                 )}
                 </div>
                 <WorldLifeControls worldId={null} name={MY_WORLD} />
+                <Button onClick={() => setResetting({ id: null, name: MY_WORLD })} variant="ghost" size="sm" className="self-start text-muted-foreground" aria-label={`Reset ${MY_WORLD}`}>Reset...</Button>
               </Card>
             );
           })()}
@@ -159,6 +174,7 @@ const WorldGalleryPage = () => {
                       </Button>
                     </div>
                     <WorldLifeControls worldId={world.id} name={world.name} />
+                    <Button onClick={() => setResetting({ id: world.id, name: world.name })} variant="ghost" size="sm" className="self-start text-muted-foreground" aria-label={`Reset ${world.name}`}>Reset...</Button>
                   </Card>
                 );
               })}

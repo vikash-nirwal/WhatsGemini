@@ -1,13 +1,15 @@
 import { FaProjectDiagram } from "react-icons/fa";
 import RelationshipMap from "src/components/organisms/RelationshipMap";
 import { JoinWorldDialog } from "src/components/organisms/JoinWorldDialog";
+import { ResetDialog } from "src/components/organisms/ResetDialog";
+import { resetCharacterLife } from "../features/life/reset";
 import React, { useState, useMemo, useRef } from "react";
 import { avatarOf } from "../features/character/profileChanges";
 import { useColorTheme } from "../hooks/useColorTheme";
 import { addCharacter, deleteCharacter } from "../features/characterSlice";
 import { addChat, fetchChats } from "../features/chatSlice";
 import { useNavigate } from "react-router-dom";
-import { FaTrash, FaEdit, FaDownload, FaImages, FaPlus, FaComment, FaEllipsisV, FaSearch, FaCopy, FaFileImage, FaUpload, FaBook } from "react-icons/fa";
+import { FaTrash, FaEdit, FaDownload, FaImages, FaPlus, FaComment, FaEllipsisV, FaSearch, FaCopy, FaFileImage, FaUpload, FaBook, FaUndo } from "react-icons/fa";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "src/components/molecules/dropdown-menu";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { setShowNsfwCharacters } from "../features/settingsSlice";
@@ -39,6 +41,7 @@ const CharacterPage = () => {
   // The phone-style shell's tab bar (#114) sits over the bottom of the page.
   const [mapOpen, setMapOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
+  const [resetting, setResetting] = useState<Character | null>(null); // Reset (#158)
   const worldCount = useAppSelector((state) => state.world.worlds.length);
   const shell = usePhoneShell();
   const dispatch = useAppDispatch();
@@ -258,6 +261,10 @@ const CharacterPage = () => {
         <FaCopy className="mr-2 h-4 w-4" />
         <span>Duplicate</span>
       </DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => setResetting(char)}>
+        <FaUndo className="mr-2 h-4 w-4" />
+        <span>Reset...</span>
+      </DropdownMenuItem>
       <DropdownMenuItem
         onSelect={() => handleDeleteCharacter(char.id)}
         className="text-destructive focus:text-destructive"
@@ -346,6 +353,16 @@ const CharacterPage = () => {
               </Button>
             )}
             <JoinWorldDialog open={joinOpen} onOpenChange={setJoinOpen} />
+            <ResetDialog
+              open={Boolean(resetting)}
+              onOpenChange={(open) => !open && setResetting(null)}
+              title={`Reset ${resetting?.name || ""}?`}
+              description={`${resetting?.name || "They"} forget everything: memories and facts, statuses, letters, gifts, moods and diary. Their card (look, personality, prompt) stays.`}
+              options={[{ id: "chats", label: `Also delete your chats with ${resetting?.name || "them"}` }]}
+              onReset={async (choices) => {
+                if (resetting) await dispatch(resetCharacterLife({ characterId: resetting.id, deleteChats: choices.chats }));
+              }}
+            />
             <Dialog open={mapOpen} onOpenChange={setMapOpen}>
               <DialogContent size="lg" className="overflow-y-auto">
                 <DialogTitle>Relationship map</DialogTitle>

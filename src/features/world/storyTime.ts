@@ -7,7 +7,7 @@ import { StoryTime } from "../../types";
 export const DAY_MS = 24 * 60 * 60 * 1000;
 export const DEFAULT_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-export const newStoryTime = (now: number): StoryTime => ({ yearLabel: "Year", year: 1, months: DEFAULT_MONTHS, daysPerMonth: 30, day: 0, anchorAt: now, moves: true });
+export const newStoryTime = (now: number): StoryTime => ({ yearLabel: "Year", year: 1, months: DEFAULT_MONTHS, daysPerMonth: 30, day: 0, anchorAt: now, moves: true, start: { year: 1, day: 0 } });
 
 // Days since the calendar's start, today.
 export const storyDayAt = (st: StoryTime, now: number) => st.day + (st.moves ? Math.max(0, Math.floor((now - st.anchorAt) / DAY_MS)) : 0);
@@ -47,7 +47,8 @@ export const setStoryDate = (st: StoryTime, { year, monthIndex, day }: { year: n
   const perMonth = Math.max(1, st.daysPerMonth);
   const m = Math.min(Math.max(0, monthIndex), months.length - 1);
   const d = Math.min(Math.max(1, day), perMonth);
-  return { ...st, year, day: m * perMonth + (d - 1), anchorAt: now };
+  // A date set by hand is where the story starts, for Reset (#158); skips aren't.
+  return { ...st, year, day: m * perMonth + (d - 1), anchorAt: now, start: { year, day: m * perMonth + (d - 1) } };
 };
 
 export const storyDaysBetween = (st: StoryTime, from: number, to: number) => storyDayAt(st, to) - storyDayAt(st, from);

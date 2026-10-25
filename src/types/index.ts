@@ -929,6 +929,7 @@ export interface StoryTime {
   day: number;
   anchorAt: number;
   moves: boolean;
+  start?: { year: number; day: number }; // the date it was set to, for Reset (#158)
 }
 
 // A place pinned on a World's map; x and y are percent of the picture.
