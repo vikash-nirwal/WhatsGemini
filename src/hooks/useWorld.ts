@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { loadWorldPrefs, saveWorldPrefs, WorldPrefs } from "src/features/world/worldPrefs";
 import { useAppSelector } from "src/store/hooks";
 import { inWorld, worldName } from "src/features/world/currentWorld";
 import { Channel } from "src/types";
@@ -34,4 +35,16 @@ export const useInWorldChannel = () => {
     const owner = characters.find((c) => c.id === channel.refId);
     return !owner || inWorld(currentWorldId, worlds)(owner);
   };
+};
+
+// A world's switches (#145, #146), kept in step across the app.
+export const useWorldPrefs = (worldId: number | null): [WorldPrefs, (patch: WorldPrefs) => void] => {
+  const [prefs, setPrefs] = useState(() => loadWorldPrefs(worldId));
+  useEffect(() => {
+    setPrefs(loadWorldPrefs(worldId));
+    const sync = () => setPrefs(loadWorldPrefs(worldId));
+    window.addEventListener("world-prefs", sync);
+    return () => window.removeEventListener("world-prefs", sync);
+  }, [worldId]);
+  return [prefs, (patch) => setPrefs(saveWorldPrefs(worldId, patch))];
 };

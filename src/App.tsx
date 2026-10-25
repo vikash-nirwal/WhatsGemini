@@ -30,6 +30,7 @@ import DayLogWriter from "src/components/molecules/DayLogWriter";
 import ConcernsWriter from "src/components/molecules/ConcernsWriter";
 import WeatherRefresher from "src/components/molecules/WeatherRefresher";
 import OffscreenTalker from "src/components/molecules/OffscreenTalker";
+import WorldTalker from "src/components/molecules/WorldTalker";
 import LetterWriter from "src/components/molecules/LetterWriter";
 import FirstTexter from "src/components/molecules/FirstTexter";
 import MyStatusWatcher from "src/components/molecules/MyStatusWatcher";
@@ -56,6 +57,7 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const WorldGalleryPage = lazy(() => import("./pages/WorldGalleryPage"));
 const WorldEditorPage = lazy(() => import("./pages/WorldEditorPage"));
 const WorldWizardPage = lazy(() => import("./pages/WorldWizardPage"));
+const PeekPage = lazy(() => import("./pages/PeekPage"));
 const AdventureGalleryPage = lazy(() => import("./pages/AdventureGalleryPage"));
 const AdventureWizardPage = lazy(() => import("./pages/AdventureWizardPage"));
 const AdventurePage = lazy(() => import("./pages/AdventurePage"));
@@ -232,6 +234,7 @@ const AppContent = () => {
         <WeatherRefresher />
         <StatusPoster />
         <OffscreenTalker />
+        <WorldTalker />
         <LetterWriter />
         <FirstTexter />
         <MyStatusWatcher />
@@ -255,6 +258,8 @@ const AppContent = () => {
                 <Route path="/worlds" element={<WorldGalleryPage />} />
                 <Route path="/worlds/new" element={<WorldEditorPage />} />
                 <Route path="/worlds/wizard" element={<WorldWizardPage />} />
+                <Route path="/peek" element={<PeekPage />} />
+                <Route path="/peek/:a/:b" element={<PeekPage />} />
                 <Route path="/worlds/:worldId/edit" element={<WorldEditorPage />} />
                 <Route path="/adventures" element={<AdventureGalleryPage />} />
                 <Route path="/adventures/new" element={<AdventureWizardPage />} />

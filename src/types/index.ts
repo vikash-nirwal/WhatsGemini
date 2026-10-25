@@ -800,6 +800,7 @@ export interface Character {
   // How they're tied to others in their world (#144): "your older brother",
   // "your rival at the shipyard". Set by the world wizard; per world.
   ties?: { withId: number; tie: string }[];
+  talks?: WorldTalk[]; // their own conversations with others in their world (#145), kept on the lower id of the two
   modelOverride?: {
     provider?: string; // chat provider id (a CHAT_PROVIDERS key)
     model?: string;
@@ -827,6 +828,14 @@ export interface LoreEntry {
   sticky?: number; // stays active for this many messages after it triggers
   scanDepth?: number; // how many recent messages to scan; LORE_SCAN_MESSAGE_COUNT when unset
   probability?: number; // 0-100 chance of firing once triggered; 100 when unset
+}
+
+// Two characters in a world texting each other on their own (#145).
+export interface WorldTalk {
+  id: string;
+  withId: number; // the other character; the talk is stored on the lower id of the two
+  at: number;
+  lines: { speakerId: number; text: string }[];
 }
 
 // One user persona - "Myself", "Elven Mage", etc. The active one (see

@@ -56,7 +56,7 @@ ${transcript}
 - Don't resolve big plot points or decide anything for ${userName}. Plain text, no stage directions in brackets.`;
 
 // "Name: line" rows, kept only for the two who talk.
-export const parseOffscreenTalk = (reply: string, pair: [Character, Character]): { speakerId: number; text: string }[] => {
+export const parseOffscreenTalk = (reply: string, pair: [Character, Character], max = 10): { speakerId: number; text: string }[] => {
   const lines: { speakerId: number; text: string }[] = [];
   for (const raw of reply.split("\n")) {
     const m = raw.replace(/^[\s*_-]+/, "").match(/^([^:]{1,40}):\s*(.+)$/);
@@ -66,7 +66,7 @@ export const parseOffscreenTalk = (reply: string, pair: [Character, Character]):
     // "**Kai:** text" leaves the closing asterisks on the line.
     const text = m[2].replace(/^[*_\s]+/, "").trim().replace(/^["“]|["”]$/g, "");
     if (who && text) lines.push({ speakerId: who.id, text: text.slice(0, 400) });
-    if (lines.length >= 10) break;
+    if (lines.length >= max) break;
   }
   return lines;
 };

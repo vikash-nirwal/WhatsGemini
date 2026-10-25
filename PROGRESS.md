@@ -32,7 +32,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #142 | Where things stand (memory paragraph) | done | 2026-10-25 |
 | #143 | Worlds as spaces | done | 2026-10-25 |
 | #144 | World creation wizard | done | 2026-10-25 |
-| #145 | Life inside a world | todo | replaces circles: characters talk, Peek, 10 messages per exchange |
+| #145 | Life inside a world | done | 2026-10-25 |
 | #146 | Worlds keep running | todo | background life in every world, per-world switch |
 | #147 | Story time | todo | optional world calendar |
 | #158 | Reset a character or a world | todo | the user asked 2026-10-25; before the deploy |
@@ -60,6 +60,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+#145 life inside a world: features/world/worldTalk.ts (knowEachOther via knowsAbout or ties, pickWorldTalk, buildWorldTalkPrompt, addWorldTalk on the lower id's Character.talks, worldThreads, worldTalkNoteFor -> scene.worldTalkNote), WorldTalker job (45 min, life dial, catch-up 'world-talk'), features/world/worldPrefs.ts (world_prefs: peek, talkLength default 10 up to 20, keepLiving) with WorldLifeControls on each Worlds card, PeekPage at /peek and /peek/:a/:b, a Peek row in the chat list. Left: their talk feeds only their prompts so far, not statuses, contacts, blocking or group invites.
 #144 world wizard: pages/WorldWizardPage.tsx at /worlds/wizard (Worlds › New world, switcher › New world): world (name, premise, tone, World.era), cast (people you have join as copies; new ones drafted with castIdea + the #45 draft prompt), connections (buildConnectionsPrompt/parseConnections in features/world/worldWizard.ts, editable; applyTies writes Character.ties both ways plus knowsAbout), who they are to you, your persona. tiesNoteFor goes in the prompt (scene.tiesNote); the era line in the chat world section; ties show on the relationship map. The old editor stays at /worlds/new and for edits.
 #143 worlds as spaces: features/world/currentWorld.ts (MY_WORLD = no worldId, worldOf, inWorld; current_world in localStorage, worldSlice.currentWorldId + switchWorld), hooks/useWorld.ts (useCurrentWorld, useWorldChats, useWorldCharacters, useInWorldChannel) scope the chat list, Characters, Updates, channels, starred, forward and the map; background jobs still see every world. features/character/card.ts: CARD_FIELDS, worldCopy (linked copy, Character.worldId + cardOf), withCard (updateCharacter syncs card edits to copies), resetCharacter for #158. WorldSwitcher (rail top, phone title row), Worlds page is the manager (My world card, Switch), JoinWorldDialog (Characters › From another world), World.personaId (addChat stamps it). New chats and characters take the world on screen. Left: terminal theme switches only from the Worlds page; a chat's own world picker (#28) now moves that chat into the world.
 #138 relationship map: features/character/relationshipMap.ts (buildRelationshipMap, circleLayout), organisms/RelationshipMap.tsx, Characters › Relationship map dialog; Character.relationshipHistory recorded on accepted changes.

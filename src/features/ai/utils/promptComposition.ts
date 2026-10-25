@@ -560,6 +560,7 @@ export interface SceneContext {
   boldness?: 1 | 2 | 3 | 4 | 5; // how forward the character is (#72)
   knowsNote?: string; // what this character knows of the user's other relationships (#74)
   tiesNote?: string; // who they're tied to in their world (#144)
+  worldTalkNote?: string; // their latest texts with someone in their world (#145)
   onThisDayNote?: string; // a month, 100 days or a year since your first chat or a chapter (#83)
   giftsNote?: string; // gifts given both ways (#82)
   plansNote?: string; // plans made together (#84)
@@ -622,6 +623,7 @@ export const buildTurnContext = (
     ...(character && intimacyInScope(scene?.stage, fullMessages) ? [buildIntimacySection(character, activePersona)].filter((x): x is string => Boolean(x)) : []),
     ...(scene?.knowsNote ? [scene.knowsNote] : []),
     ...(scene?.tiesNote ? [scene.tiesNote] : []),
+    ...(scene?.worldTalkNote ? [scene.worldTalkNote] : []),
     ...(scene?.choiceMoments ? [CHOICE_MOMENT_DIRECTIVE] : []),
     ...(scene?.letterNote ? [scene.letterNote] : []),
     ...(scene?.onThisDayNote ? [scene.onThisDayNote] : []),

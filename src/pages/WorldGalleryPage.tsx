@@ -5,6 +5,7 @@ import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { deleteWorld, switchWorld } from "../features/worldSlice";
 import { MY_WORLD, worldOf } from "../features/world/currentWorld";
 import { useCurrentWorld } from "../hooks/useWorld";
+import { WorldLifeControls } from "src/components/organisms/WorldLifeControls";
 import { useModal } from "../contexts/ModalContext";
 import { useColorTheme } from "../hooks/useColorTheme";
 import { cn } from "../utils/cn";
@@ -81,7 +82,8 @@ const WorldGalleryPage = () => {
           {(() => {
             const mine = countIn(null);
             return (
-              <Card className="p-5 mb-5 flex flex-wrap items-center gap-3" aria-label={MY_WORLD}>
+              <Card className="p-5 mb-5 flex flex-col gap-3" aria-label={MY_WORLD}>
+                <div className="flex flex-wrap items-center gap-3">
                 <div className="flex-1 min-w-[180px]">
                   <h4 className="font-serif font-semibold text-lg text-foreground leading-tight flex items-center gap-2"><FaGlobe size={13} className="text-subtle" /> {MY_WORLD}</h4>
                   <p className="text-[11px] text-subtle mt-1">Everyone from before worlds, and anyone you haven't put in one. {plural(mine.people, "person").replace("persons", "people")}, {plural(mine.chats, "chat")}.</p>
@@ -91,6 +93,8 @@ const WorldGalleryPage = () => {
                 ) : (
                   <Button onClick={() => goTo(null)} variant="outline" className="h-9 text-xs font-semibold" aria-label={`Switch to ${MY_WORLD}`}>Switch</Button>
                 )}
+                </div>
+                <WorldLifeControls worldId={null} name={MY_WORLD} />
               </Card>
             );
           })()}
@@ -152,6 +156,7 @@ const WorldGalleryPage = () => {
                         <FaTrash size={13} />
                       </Button>
                     </div>
+                    <WorldLifeControls worldId={world.id} name={world.name} />
                   </Card>
                 );
               })}

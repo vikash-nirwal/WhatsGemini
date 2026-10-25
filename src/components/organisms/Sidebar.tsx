@@ -6,7 +6,7 @@ import { fetchChats, deleteChat, addChat, importChat, updateChatPinned, updateCh
 import { selectActivePersona } from "../../features/settingsSlice";
 import { fetchCharacters } from "../../features/characterSlice";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { FaFileImport, FaPlus, FaSearch, FaThumbtack, FaChevronRight, FaCheck, FaUsers, FaAngleDoubleLeft, FaAngleDoubleRight, FaArrowLeft, FaArchive, FaVolumeMute, FaChevronDown } from "react-icons/fa";
+import { FaFileImport, FaPlus, FaSearch, FaThumbtack, FaChevronRight, FaCheck, FaUsers, FaAngleDoubleLeft, FaAngleDoubleRight, FaArrowLeft, FaArchive, FaEye, FaVolumeMute, FaChevronDown } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { useModal } from "../../contexts/ModalContext";
 import { useSidebar } from "../../contexts/SidebarContext";
@@ -30,7 +30,8 @@ import { MdOutlineAddComment, MdOutlineDonutLarge, MdOutlineStarBorder, MdMoreHo
 import { sectionOf } from "./NavRail";
 import { DESKTOP_QUERY, useMediaQuery } from "../../hooks/useMediaQuery";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "src/components/molecules/dropdown-menu";
-import { useWorldChats, useWorldCharacters } from "src/hooks/useWorld";
+import { useCurrentWorld, useWorldChats, useWorldCharacters, useWorldPrefs } from "src/hooks/useWorld";
+import { worldThreads } from "src/features/world/worldTalk";
 import { WorldSwitcher } from "src/components/molecules/WorldSwitcher";
 
 const formatChatTime = (timestamp?: number) => {
@@ -120,6 +121,9 @@ const Sidebar = () => {
   const characters = useAppSelector((state) => state.character.characters);
   // The new-chat picker offers only people in the world on screen (#143).
   const worldCharacters = useWorldCharacters();
+  const { worlds, currentWorldId } = useCurrentWorld();
+  const [worldPrefs] = useWorldPrefs(currentWorldId);
+  const peekThreads = useMemo(() => (worldPrefs.peek ? worldThreads(characters, worlds, currentWorldId).length : 0), [worldPrefs.peek, characters, worlds, currentWorldId]);
   const showNsfwCharacters = useAppSelector((state) => state.settings.showNsfwCharacters);
   const activePersona = useAppSelector(selectActivePersona);
   const personaName = activePersona?.name?.trim();
@@ -454,6 +458,14 @@ const Sidebar = () => {
         {/* Chat list */}
         <div className={cn("flex-1 overflow-y-auto pb-2.5", terminal ? "px-2" : "px-2", railCollapsed && "lg:px-1.5")}>
           {!terminal && !search.trim() && !viewingArchived && <AwayCard />}
+          {/* Peek (#145): their own texts, when it's on for this world. */}
+          {!search.trim() && !viewingArchived && peekThreads > 0 && (
+            <Link to="/peek" onClick={close} className={cn("w-full flex items-center gap-3 px-3 py-2 text-[14px] text-foreground hover:bg-raised rounded-xl", railCollapsed && "lg:hidden")} aria-label={`Peek, ${peekThreads} ${peekThreads === 1 ? "thread" : "threads"}`}>
+              <FaEye size={14} className="text-subtle w-12" />
+              <span className="flex-1 text-left font-semibold">Peek</span>
+              <span className="text-[12px] text-subtle">{peekThreads}</span>
+            </Link>
+          )}
           {/* Archived chats (#115): one row at the top opens them. */}
           {!search.trim() && archivedItems.length > 0 && (
             viewingArchived ? (
