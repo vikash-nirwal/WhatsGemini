@@ -82,7 +82,10 @@ export const buildAdventureSystemInstruction = (
   if (adventure.storyScript) sections.push(buildStoryScriptSection(adventure.storyScript, { beforeChoices: true }));
 
   // Long-term memory: what the story has established, most relevant first.
-  const facts = adventure.rules?.memoryOff ? [] : selectRelevantFacts(adventure.memory || [], recentMessages);
+  // Where the story stands (#142), when written, instead of matched facts.
+  const standing = adventure.rules?.memoryOff ? undefined : adventure.memoryStanding?.text;
+  if (standing) sections.push(`Where the story stands (what's true now, what already happened, what's still coming):\n${standing}`);
+  const facts = adventure.rules?.memoryOff || standing ? [] : selectRelevantFacts(adventure.memory || [], recentMessages);
   if (facts.length > 0) {
     sections.push(`What has been established in this story so far (keep it consistent):\n- ${facts.join("\n- ")}`);
   }

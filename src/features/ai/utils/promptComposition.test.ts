@@ -395,3 +395,17 @@ describe("an attached World (#28)", () => {
     expect(text).toContain("The Sky Council has nine seats, one per island.");
   });
 });
+
+describe("where things stand in the prompt (#142)", () => {
+  it("replaces the matched facts, keeps pinned ones, and falls back without it", () => {
+    const facts = { memory: ["Sam likes jazz.", "Sam has a sister."], pinnedMemory: ["Sam is allergic to cats."] };
+    const withStanding = buildSystemInstruction(makeCharacter({ ...facts, memoryStanding: { text: "Sam and Aria are close; the jazz night already happened.", at: 1 } })).text;
+    expect(withStanding).toContain("Where things stand, from everything you remember");
+    expect(withStanding).toContain("the jazz night already happened");
+    expect(withStanding).toContain("Sam is allergic to cats.");
+    expect(withStanding).not.toContain("Sam has a sister.");
+    const without = buildSystemInstruction(makeCharacter(facts)).text;
+    expect(without).not.toContain("Where things stand");
+    expect(without).toContain("Sam has a sister.");
+  });
+});

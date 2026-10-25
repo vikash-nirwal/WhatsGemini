@@ -269,7 +269,7 @@ const ChatPage = () => {
     intensity: currentChat?.intensity,
     roleplayStyle,
     memoryOverride: !isRoom && chatScopedMemory
-      ? { memory: currentChat?.memory || [], pinned: currentChat?.pinnedMemory || [] }
+      ? { memory: currentChat?.memory || [], pinned: currentChat?.pinnedMemory || [], standing: currentChat?.memoryStanding?.text }
       : undefined,
     storyScript: currentChat?.storyScript,
     game: currentChat?.game,

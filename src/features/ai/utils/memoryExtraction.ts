@@ -14,6 +14,10 @@ export interface MemoryChanges {
   reinforced: number[]; // known facts that came up again and still matter
   // Category the model gave each added or updated fact, keyed by its text.
   categories?: Record<string, MemoryCategory>;
+  // "Where things stand" (#142): one short paragraph from all the facts and
+  // the recent conversation, written in the same call. Replies get it
+  // instead of a word-matched list of facts.
+  standing?: string;
 }
 
 export interface MemoryExtractionResult {
@@ -61,7 +65,9 @@ STILL TRUE: <numbers>     (known facts that came up again in this conversation a
 
 [category] is one of [user] (about ${user}), [relationship] (between ${char} and ${user}) or [story] (events, plans, places, items).
 
-Never add a fact that repeats a known or pinned one; update it instead. If nothing changed, reply with exactly NONE.`;
+Never add a fact that repeats a known or pinned one; update it instead. If nothing changed, write NONE on that line.
+
+Then, on its own last line, write where things stand, starting with "STANDING:" - one short paragraph (3 to 6 sentences, from ${char}'s side, naming ${user}) built from all the facts, known, pinned and new, and the recent conversation: what is true now between them and in the story, what has already happened (a plan that was carried out is finished, not still ahead), and what is still coming. Plain sentences, no list.`;
 };
 
 const CATEGORY_TAGS: Record<string, MemoryCategory> = { user: "user", relationship: "relationship", story: "story" };
@@ -77,9 +83,17 @@ const splitCategory = (raw: string): { fact: string; category?: MemoryCategory }
 // Reads the model's reply back into MemoryChanges, ignoring anything that
 // doesn't fit one of the forms (preambles, numbers out of range, pinned
 // facts it was told not to touch).
+// The "STANDING:" paragraph (#142), from its marker to the end of the reply.
+export const parseStanding = (reply: string): string | undefined => {
+  const match = reply.match(/(?:^|\n)\s*[*_]*standing[*_]*\s*:\s*([\s\S]+)$/i);
+  const text = match?.[1].replace(/\s+/g, " ").trim();
+  return text ? text.slice(0, 1200) : undefined;
+};
+
 export const parseMemoryChanges = (reply: string, memoryLength: number): MemoryChanges => {
-  const text = reply.trim();
-  if (!text || /^none\.?$/i.test(text)) return NO_MEMORY_CHANGES;
+  const standing = parseStanding(reply);
+  const text = reply.replace(/(?:^|\n)\s*[*_]*standing[*_]*\s*:[\s\S]*$/i, "").trim();
+  if (!text || /^none\.?$/i.test(text)) return standing ? { ...NO_MEMORY_CHANGES, standing } : NO_MEMORY_CHANGES;
 
   const inRange = (n: number) => Number.isInteger(n) && n >= 1 && n <= memoryLength;
   const changes: MemoryChanges = { added: [], updated: [], forgotten: [], reinforced: [] };
@@ -120,6 +134,7 @@ export const parseMemoryChanges = (reply: string, memoryLength: number): MemoryC
     }
   }
   if (Object.keys(categories).length > 0) changes.categories = categories;
+  if (standing) changes.standing = standing;
   return changes;
 };
 

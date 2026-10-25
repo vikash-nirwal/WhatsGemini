@@ -1,3 +1,4 @@
+import { formatRelativeTime } from "src/utils/formatRelativeTime";
 import React, { useState } from "react";
 import { FaTimes, FaPlus, FaPencilAlt, FaThumbtack, FaTag } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
@@ -197,8 +198,20 @@ const MemoryTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, ch
                   </div>
                 )
 
+  // "Where things stand" (#142): written with each memory update; replies
+  // get it instead of a list of facts. The facts below stay the source.
+  const standing = chatScoped ? chat?.memoryStanding : character?.memoryStanding;
   return (
           <div className="flex flex-col gap-[22px]">
+          {standing && (
+            <section aria-label="Where things stand" className="rounded-card bg-raised px-4 py-3 ring-1 ring-inset ring-border">
+              <div className="flex items-baseline justify-between gap-2">
+                <h3 className="text-[15px] font-semibold text-foreground">Where things stand</h3>
+                <span className="text-[12px] text-subtle">{formatRelativeTime(standing.at)}</span>
+              </div>
+              <p className="mt-1.5 font-serif text-[14px] leading-[21px] text-muted-foreground">{standing.text}</p>
+            </section>
+          )}
           {/* Character growth (#60): accepted notes on how they've changed */}
           {!isRoom && character && (character.growth || []).length > 0 && (
             <div>

@@ -576,7 +576,7 @@ export const updateChatGreeting = createAsyncThunk(
 export const updateChatMemory = createAsyncThunk(
   "chat/updateChatMemory",
   async (
-    { chatId, memory, pinnedMemory, memoryCategories, memoryDates }: { chatId: number; memory: Chat["memory"]; pinnedMemory?: Chat["pinnedMemory"]; memoryCategories?: Chat["memoryCategories"] | null; memoryDates?: Chat["memoryDates"] | null },
+    { chatId, memory, pinnedMemory, memoryCategories, memoryDates, memoryStanding }: { chatId: number; memory: Chat["memory"]; pinnedMemory?: Chat["pinnedMemory"]; memoryCategories?: Chat["memoryCategories"] | null; memoryDates?: Chat["memoryDates"] | null; memoryStanding?: Chat["memoryStanding"] },
     { rejectWithValue }
   ) => {
     try {
@@ -586,8 +586,9 @@ export const updateChatMemory = createAsyncThunk(
       // undefined leaves the categories alone; null clears them.
       if (memoryCategories !== undefined) chat.memoryCategories = memoryCategories || undefined;
       if (memoryDates !== undefined) chat.memoryDates = memoryDates || undefined;
+      if (memoryStanding) chat.memoryStanding = memoryStanding;
       await dbService.updateChat(chat);
-      return { chatId, memory, pinnedMemory: chat.pinnedMemory, memoryCategories: chat.memoryCategories, memoryDates: chat.memoryDates };
+      return { chatId, memory, pinnedMemory: chat.pinnedMemory, memoryCategories: chat.memoryCategories, memoryDates: chat.memoryDates, memoryStanding: chat.memoryStanding };
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
@@ -944,6 +945,7 @@ const chatSlice = createSlice({
           chat.pinnedMemory = action.payload.pinnedMemory;
           chat.memoryCategories = action.payload.memoryCategories;
           chat.memoryDates = action.payload.memoryDates;
+          chat.memoryStanding = action.payload.memoryStanding;
         }
       })
       .addCase(updateChatMemoryScope.fulfilled, (state, action) => {

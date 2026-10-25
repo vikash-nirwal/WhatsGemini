@@ -29,7 +29,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #139 | Circles | skipped | folded into worlds (#145) |
 | #140 | How long a status lasts | done | 2026-10-25 |
 | #141 | Texting mode everywhere | done | 2026-10-25 |
-| #142 | Where things stand (memory paragraph) | todo | written with each memory update; facts stay the source; pinned facts verbatim; fallback to the 30-fact list |
+| #142 | Where things stand (memory paragraph) | done | 2026-10-25 |
 | #143 | Worlds as spaces | todo | selector, scoping, default world, shared card with per-world memory, persona per world |
 | #144 | World creation wizard | todo | world, cast (pick or generate), connections, your persona |
 | #145 | Life inside a world | todo | replaces circles: characters talk, Peek, 10 messages per exchange |
@@ -59,6 +59,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **Where things stand (#142):** the memory update's prompt asks for a closing `STANDING:` paragraph (`parseStanding`, `MemoryChanges.standing`); saved as `memoryStanding` ({text, at}) on the character, the chat (chat-scoped memory and groups) or the adventure. buildSystemInstruction sends it with the pinned facts instead of `selectRelevantFacts` (and `groupStanding` for groups; adventurePrompt likewise), falling back to the facts without one. Rewritten on reopening a chat after 6 hours (useBackgroundUpdates, existing paragraphs only); shown at the top of Memory in Contact info.
 - **Disappearing messages (#136):** `Chat.disappearing` ({after: day|week, since}); `setDisappearing` (chatSlice) sets it with a notice; `pruneDisappeared` (features/chat/disappearing.ts, with `removeNodes` in messageTree) drops expired messages from content and tree, run by ChatPage on open and every minute; `buildDisappearingNote` tells the character; memory extraction skips while it is on; a timer mark in the bubble meta (`disappears`) and "Disappearing · 1 day" in the header. Setting: Scene & story > Options.
 - **Texting mode everywhere (#141):** the terminal theme now splits replies too (`terminal-texts` in ChatMessage, revealed by ChatWindow's usual `reveal`); an adventure's chat view splits the narrator's turns into text bubbles when the app's texting mode is on (AdventurePage). The storybook (novel) view already shows each paragraph on its own, so it is unchanged.
 - **How long a status lasts (#140):** `statusLifetimeMs()` (statusUpdates.ts) reads the day length (1-24 h, `status_day_hours` in localStorage, Settings › Chat "How long a day is"); `liveStatuses`, `hasUnseenStatus`, `liveMyStatuses` and `feedItems(characters, now)` follow it, and `statusDue` scales the 10-hour gap with the day.

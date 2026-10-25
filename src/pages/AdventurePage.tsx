@@ -211,8 +211,9 @@ const AdventurePage = () => {
           pinnedMemory: [],
           names: { userName: persona?.name?.trim() || undefined, charName: "Narrator" },
         })).unwrap();
-        if (changes.added.length + changes.updated.length + changes.forgotten.length + changes.reinforced.length > 0) {
-          await dispatch(updateAdventureMemory({ adventureId: adventure.id, memory: applyMemoryChanges(existing, changes, []) }));
+        // Where the story stands (#142) comes with every update.
+        if (changes.added.length + changes.updated.length + changes.forgotten.length + changes.reinforced.length > 0 || changes.standing) {
+          await dispatch(updateAdventureMemory({ adventureId: adventure.id, memory: applyMemoryChanges(existing, changes, []), memoryStanding: changes.standing ? { text: changes.standing, at: Date.now() } : undefined }));
         }
       } catch (err) {
         console.warn("Adventure memory extraction failed (non-fatal):", err);

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useAppDispatch } from "../../store/hooks";
 import { extractCharacterMemory, generateAssistText, writeDiaryEntry } from "../../features/aiSlice";
@@ -37,6 +37,9 @@ export interface BackgroundUpdateDeps {
 // suggestions, long-term memory, the diary, and the checks that may suggest
 // a new relationship label, a growth note or a stage change (with their
 // accept and dismiss handlers). Every step is best-effort.
+// Coming back after this long rewrites "where things stand" (#142).
+const STANDING_REFRESH_GAP_MS = 6 * 60 * 60 * 1000;
+
 export const useBackgroundUpdates = ({
   chatIdNum,
   currentChat,
@@ -68,9 +71,12 @@ export const useBackgroundUpdates = ({
   // could step over its multiple and go quiet for dozens of messages (or
   // re-fire on every regenerate that landed on one).
   const memoryBaselineRef = useRef<Record<number, number>>({});
-  const maybeExtractMemory = async (allMessages: Message[], speaker = characterData) => {
+  const maybeExtractMemory = async (allMessages: Message[], speaker = characterData, force = false) => {
     if (!speaker || !chatIdNum || allMessages.length === 0) return;
     const count = allMessages.length;
+    // `force`: coming back after a long gap (#142) rewrites "where things
+    // stand" from the latest messages, whatever the count.
+    if (force) memoryBaselineRef.current[chatIdNum] = Math.max(0, count - MEMORY_EXTRACTION_INTERVAL);
     let baseline = memoryBaselineRef.current[chatIdNum];
     // First call this session: assume the last multiple of the interval
     // strictly below `count` was already handled, so a chat reaching exactly
@@ -98,14 +104,16 @@ export const useBackgroundUpdates = ({
       ).unwrap();
 
       const hasChanges = changes.added.length + changes.updated.length + changes.forgotten.length + changes.reinforced.length > 0;
-      if (hasChanges) {
+      // "Where things stand" (#142) comes with every update, changes or not.
+      const memoryStanding = changes.standing ? { text: changes.standing, at: Date.now() } : undefined;
+      if (hasChanges || memoryStanding) {
         // Applied to the same snapshot the model was shown, since the
         // changes refer to its facts by position.
         const merged = applyMemoryChanges(existingMemory, changes, pinned);
         if (chatScopedMemory && chatIdNum) {
           const memoryCategories = carryMemoryCategories(merged, pinned, currentChat?.memoryCategories, existingMemory, changes);
           const memoryDates = carryMemoryDates(merged, pinned, currentChat?.memoryDates, existingMemory, changes, Date.now());
-          await dispatch(updateChatMemory({ chatId: chatIdNum, memory: merged, memoryCategories: memoryCategories ?? null, memoryDates: memoryDates ?? null }));
+          await dispatch(updateChatMemory({ chatId: chatIdNum, memory: merged, memoryCategories: memoryCategories ?? null, memoryDates: memoryDates ?? null, memoryStanding }));
         } else {
           // Re-read the character before writing: `speaker` was captured
           // before the extraction call, and saving it whole would undo
@@ -113,7 +121,7 @@ export const useBackgroundUpdates = ({
           const fresh = (await dispatch(fetchCharacterById(speaker.id)).unwrap().catch(() => speaker)) || speaker;
           const memoryCategories = carryMemoryCategories(merged, pinned, fresh.memoryCategories, existingMemory, changes);
           const memoryDates = carryMemoryDates(merged, pinned, fresh.memoryDates, existingMemory, changes, Date.now());
-          await dispatch(updateCharacter({ ...fresh, memory: merged, memoryCategories, memoryDates }));
+          await dispatch(updateCharacter({ ...fresh, memory: merged, memoryCategories, memoryDates, ...(memoryStanding ? { memoryStanding } : {}) }));
         }
       }
     } catch (err) {
@@ -121,6 +129,23 @@ export const useBackgroundUpdates = ({
       warnBackgroundFailure("memory", typeof err === "string" ? err : (err as Error)?.message);
     }
   };
+
+  // "Where things stand" (#142) is also rewritten when you come back to a
+  // chat after a long gap, once per opening, so it reads the time between.
+  const refreshedRef = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    if (!chatIdNum || !currentChat || refreshedRef.current.has(chatIdNum) || currentChat.disappearing) return;
+    const messages = currentChat.content || [];
+    const last = messages[messages.length - 1]?.timestamp;
+    const standingAt = (chatScopedMemory ? currentChat.memoryStanding : characterData?.memoryStanding)?.at || 0;
+    // Rewrites an existing paragraph; the first one comes with the regular
+    // update every MEMORY_EXTRACTION_INTERVAL messages.
+    if (!standingAt || !last || messages.length < 4 || Date.now() - last < STANDING_REFRESH_GAP_MS || standingAt > last) return;
+    refreshedRef.current.add(chatIdNum);
+    void maybeExtractMemory(messages, characterData, true);
+    // Only when the chat changes; the rest is read at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatIdNum, currentChat?.id]);
 
   // Diary (#5): every DIARY_INTERVAL messages a character with the diary on
   // writes a private first-person entry about the recent conversation: in a

@@ -261,12 +261,13 @@ export const updateAdventureStoryScript = createAsyncThunk(
 // The story's long-term memory: replaces the whole list.
 export const updateAdventureMemory = createAsyncThunk(
   "adventure/updateMemory",
-  async ({ adventureId, memory }: { adventureId: number; memory: string[] }, { rejectWithValue }) => {
+  async ({ adventureId, memory, memoryStanding }: { adventureId: number; memory: string[]; memoryStanding?: Adventure["memoryStanding"] }, { rejectWithValue }) => {
     try {
       const adventure = await dbService.getAdventureById(adventureId);
       adventure.memory = memory.length > 0 ? memory : undefined;
+      if (memoryStanding) adventure.memoryStanding = memoryStanding;
       await dbService.updateAdventure(adventure);
-      return { adventureId, memory: adventure.memory };
+      return { adventureId, memory: adventure.memory, memoryStanding: adventure.memoryStanding };
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
@@ -411,7 +412,10 @@ const adventureSlice = createSlice({
       })
       .addCase(updateAdventureMemory.fulfilled, (state, action) => {
         const adventure = state.adventures.find((a) => a.id === action.payload.adventureId);
-        if (adventure) adventure.memory = action.payload.memory;
+        if (adventure) {
+          adventure.memory = action.payload.memory;
+          adventure.memoryStanding = action.payload.memoryStanding;
+        }
       })
       .addCase(updateAdventureRules.rejected, (state, action) => {
         state.error = action.payload as string;

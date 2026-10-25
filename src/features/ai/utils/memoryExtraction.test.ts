@@ -133,3 +133,14 @@ describe("memory groups", () => {
     expect(nextMemoryCategory("story")).toBeUndefined();
   });
 });
+
+describe("where things stand (#142)", () => {
+  it("asks for the paragraph and reads it, changes or not", () => {
+    expect(buildMemoryExtractionPrompt("Sam: hi", [], [], { userName: "Sam", charName: "Aria" })).toContain('starting with "STANDING:"');
+    const reply = "[story] They went to the fair.\nSTANDING: Sam and Aria went to the fair on Saturday; that's done.\nThey still plan the beach trip.";
+    const changes = parseMemoryChanges(reply, 0);
+    expect(changes.added).toEqual(["They went to the fair."]);
+    expect(changes.standing).toBe("Sam and Aria went to the fair on Saturday; that's done. They still plan the beach trip.");
+    expect(parseMemoryChanges("NONE\nSTANDING: Nothing new; still friends.", 2)).toEqual({ ...NO_MEMORY_CHANGES, standing: "Nothing new; still friends." });
+  });
+});

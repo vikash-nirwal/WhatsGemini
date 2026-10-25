@@ -154,6 +154,14 @@ export interface MessageNode {
   childIds: string[];
 }
 
+// "Where things stand" (#142): one short paragraph written with each memory
+// update, from all the facts and the recent conversation. Replies get it
+// instead of a list of word-matched facts; the facts stay the source.
+export interface MemoryStanding {
+  text: string;
+  at: number;
+}
+
 export interface ConversationTree {
   nodes: Record<string, MessageNode>;
 }
@@ -510,6 +518,7 @@ export interface Chat {
   scenario?: string;
   memory?: string[];
   pinnedMemory?: string[]; // room equivalent of Character.pinnedMemory
+  memoryStanding?: MemoryStanding; // "where things stand" for this chat's own memory (#142)
   memoryCategories?: Record<string, MemoryCategory>; // see Character.memoryCategories
   memoryDates?: Record<string, MemoryFactDates>; // see Character.memoryDates (#109)
   callbackAt?: number; // when a fact from a while back was last offered to a reply (#109)
@@ -741,6 +750,7 @@ export interface Character {
   contentRating?: ContentRating;
   adultsConfirmed?: boolean; // author confirmed every character in the card is 18+
   memory?: string[]; // durable facts about the user/relationship, extracted over time
+  memoryStanding?: MemoryStanding; // "where things stand" (#142), from the facts and the latest conversation
   pinnedMemory?: string[]; // facts the user pinned: always injected, never evicted by the MAX_MEMORY_ENTRIES cap
   // What each fact (memory or pinned, keyed by its text) is about - for
   // grouping in the Scene panel. Facts with no entry show as "Other".
@@ -937,5 +947,6 @@ export interface Adventure {
   // Facts established in the story, pulled out every few turns like a
   // chat's memory, so a long adventure stays consistent.
   memory?: string[];
+  memoryStanding?: MemoryStanding; // where the story stands (#142)
   storyScript?: StoryScript; // the user's own story for the narrator to follow (#57)
 }

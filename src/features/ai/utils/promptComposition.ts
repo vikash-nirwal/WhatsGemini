@@ -167,13 +167,14 @@ export interface PromptOptions {
   worldTags?: string[]; // Chat.worldTags - short setting/genre tags for this chat
   roomLoreEntries?: LoreEntry[]; // every OTHER room member's lorebook, matched alongside the speaker's own
   groupPinnedMemory?: string[]; // Chat.pinnedMemory, room only
+  groupStanding?: string; // the room's "where things stand" (#142)
   // Room only: whether every OTHER member is also effectively NSFW. A room is
   // only as permissive as its most restrictive member.
   roomAllowsNsfw?: boolean;
   now?: number; // injectable clock for the time-awareness section (tests)
   // A 1:1 chat that keeps its own memory (Chat.memoryScope "chat"): these
   // facts replace the character's own in the prompt.
-  memoryOverride?: { memory: string[]; pinned: string[] };
+  memoryOverride?: { memory: string[]; pinned: string[]; standing?: string };
   world?: World; // a World attached to this chat (#28)
   roomRelationshipNotes?: string; // the speaker's feelings about the others (#24)
   roomThoughts?: boolean; // inner thoughts switched on for the whole room (#10)
@@ -384,8 +385,13 @@ export const buildSystemInstruction = (
   }
   // Pinned facts always go in; the rest are picked by relevance once the
   // list is longer than MEMORY_PROMPT_LIMIT.
-  const ownMemory = options.memoryOverride || { memory: character.memory || [], pinned: character.pinnedMemory || [] };
-  const personalFacts = [...ownMemory.pinned, ...selectRelevantFacts(ownMemory.memory, recentMessages)];
+  const ownMemory = options.memoryOverride || { memory: character.memory || [], pinned: character.pinnedMemory || [], standing: character.memoryStanding?.text };
+  // "Where things stand" (#142): when there is one, it replaces the
+  // word-matched facts (it was written from all of them); pinned facts
+  // still go in word for word.
+  const standing = ownMemory.standing?.trim();
+  const personalFacts = standing ? ownMemory.pinned : [...ownMemory.pinned, ...selectRelevantFacts(ownMemory.memory, recentMessages)];
+  if (standing) sections.push(`Where things stand, from everything you remember (what's true now, what already happened, what's still coming):\n${standing}`);
   if (personalFacts.length > 0) {
     // With dates (#109) each fact says when it was learned.
     const listed = annotateFacts(personalFacts, options.memoryDates, options.now ?? Date.now());
@@ -397,7 +403,9 @@ export const buildSystemInstruction = (
   // conversation (Chat.memory), on top of - never instead of - the speaker's
   // own personal memory above. Never written back to any participant's own
   // Character.memory, so it stays scoped to this one room.
-  const groupFacts = isRoomTurn ? [...(options.groupPinnedMemory || []), ...selectRelevantFacts(groupMemory || [], recentMessages)] : [];
+  const groupStanding = isRoomTurn ? options.groupStanding?.trim() : undefined;
+  if (groupStanding) sections.push(`Where things stand in this group, from everything remembered here:\n${groupStanding}`);
+  const groupFacts = isRoomTurn ? [...(options.groupPinnedMemory || []), ...(groupStanding ? [] : selectRelevantFacts(groupMemory || [], recentMessages))] : [];
   if (groupFacts.length > 0) {
     sections.push(`Facts learned during this group conversation, shared by everyone here:\n- ${groupFacts.join("\n- ")}`);
   }
@@ -518,6 +526,7 @@ export interface RoomContext {
   groupScenario?: string; // the room's own Chat.scenario - shared by every participant, replaces the speaker's personal one
   groupMemory?: string[]; // the room's own Chat.memory - facts learned in this room, shared by every participant
   groupPinnedMemory?: string[]; // the room's own Chat.pinnedMemory
+  groupStanding?: string; // the room's "where things stand" (#142)
   otherAppearanceLocks?: AppearanceLock[]; // every OTHER member's locked look (#34)
   relationshipNotes?: string; // what this speaker feels about the others (#24)
   thoughts?: boolean; // the room shows every member's inner thoughts (#10)
@@ -625,6 +634,7 @@ export const buildTurnContext = (
       worldTags: scene?.worldTags,
       roomLoreEntries: roomContext?.otherLoreEntries,
       groupPinnedMemory: roomContext?.groupPinnedMemory,
+      groupStanding: roomContext?.groupStanding,
       roomAllowsNsfw: roomContext?.othersAllowNsfw,
       memoryOverride: scene?.memoryOverride,
       world: scene?.world,

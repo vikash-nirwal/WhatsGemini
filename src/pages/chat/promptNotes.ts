@@ -71,6 +71,7 @@ export const roomContextFor = (speaker: Character, members: Character[], chat: C
     groupScenario: chat?.scenario || chat?.authorNote,
     groupMemory: chat?.memory,
     groupPinnedMemory: chat?.pinnedMemory,
+    groupStanding: chat?.memoryStanding?.text,
     otherAppearanceLocks: appearanceLocksFor(others),
     relationshipNotes: buildRelationshipNotes(speaker.id, chat?.roomRelationships, namesById),
     thoughts: chat?.innerThoughts,
