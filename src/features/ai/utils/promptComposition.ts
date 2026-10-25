@@ -19,6 +19,7 @@ import { buildAvoidNote, findRepeatedOpening, findRepeatedPhrases } from "./anti
 import { buildDatesSection } from "../../character/importantDates";
 import { buildScheduleSection } from "../../character/schedule";
 import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
+import { buildStoryTimeSection } from "../../world/storyTime";
 import { applyMacros } from "./macros";
 import { countProtectedPrefix, trimToLatestSummary } from "./transcript";
 import { selectRelevantFacts } from "./memoryRelevance";
@@ -206,16 +207,19 @@ const JUST_SENT_MS = 2 * 60 * 1000;
 // days" instead of carrying on as if no time passed. Worded as pacing-only
 // context so a fantasy/sci-fi story with its own calendar isn't dragged into
 // the real date.
-export const buildTimeSection = (messages: Message[], now: number): string => {
+// How long passed before the message being answered (see buildTimeSection).
+export const messageGap = (messages: Message[], now: number): number | undefined => {
   const stamped = messages.filter((m) => typeof m.timestamp === "number" && !m.isSystem);
   const last = stamped[stamped.length - 1];
-  let gap: number | undefined;
-  if (last) {
-    const justSent = last.role === YOU && now - last.timestamp! < JUST_SENT_MS;
-    const prev = justSent ? stamped[stamped.length - 2] : last;
-    const reference = justSent ? last.timestamp! : now;
-    if (prev) gap = reference - prev.timestamp!;
-  }
+  if (!last) return undefined;
+  const justSent = last.role === YOU && now - last.timestamp! < JUST_SENT_MS;
+  const prev = justSent ? stamped[stamped.length - 2] : last;
+  const reference = justSent ? last.timestamp! : now;
+  return prev ? reference - prev.timestamp! : undefined;
+};
+
+export const buildTimeSection = (messages: Message[], now: number): string => {
+  const gap = messageGap(messages, now);
 
   const date = new Date(now).toLocaleString(undefined, {
     weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit",
@@ -426,7 +430,11 @@ export const buildSystemInstruction = (
   // How they write (#111): the habits, after the example dialogue.
   const writing = buildWritingStyleSection(character.name, character.writingStyle);
   if (writing) sections.push(writing);
-  if (options.roleplayStyle?.timeAwareness && recentMessages) {
+  // A world with its own calendar (#147) replaces your clock, always: the
+  // date is part of the world, not a pacing aid.
+  if (options.world?.storyTime) {
+    sections.push(buildStoryTimeSection(options.world.storyTime, options.world.name, options.now ?? Date.now(), recentMessages ? messageGap(recentMessages, options.now ?? Date.now()) : undefined));
+  } else if (options.roleplayStyle?.timeAwareness && recentMessages) {
     sections.push(buildTimeSection(recentMessages, options.now ?? Date.now()));
   }
   // The character's routine (#7): what they're doing right now.

@@ -916,6 +916,19 @@ export interface World {
   map?: WorldMap; // a picture of the world with its places pinned (#66)
   personaId?: string; // who you are in this world (#143); unset = your active persona
   era?: string; // era or technology (#144), e.g. "Medieval: news travels by letter"
+  storyTime?: StoryTime; // the world's own calendar (#147); unset = your clock
+}
+
+// A world's calendar (#147). `day` counts days from the start of `year`'s
+// first month, as of `anchorAt`; when `moves`, a real day adds a story day.
+export interface StoryTime {
+  yearLabel?: string; // "Year", "Age of Ash"
+  year: number;
+  months: string[];
+  daysPerMonth: number;
+  day: number;
+  anchorAt: number;
+  moves: boolean;
 }
 
 // A place pinned on a World's map; x and y are percent of the picture.

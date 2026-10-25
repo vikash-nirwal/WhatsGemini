@@ -4,8 +4,9 @@ import { FaMagic, FaCheck, FaPlus, FaGlobe, FaMap } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { addWorld, updateWorld } from "../features/worldSlice";
 import { Select } from "src/components/molecules/form-controls/FormSelect";
+import { StoryTimeEditor } from "src/components/organisms/StoryTimeEditor";
 import { generateAssistText, generateWorldMapImage } from "../features/aiSlice";
-import { LoreEntry, WorldMap } from "../types";
+import { LoreEntry, StoryTime, WorldMap } from "../types";
 import { WorldMapView } from "src/components/molecules/WorldMapView";
 import { readPhoto } from "../features/chat/photoAttachments";
 import { dataUrlToBlob, savePortraitBlob } from "../features/ai/utils/portraitUtils";
@@ -38,6 +39,7 @@ const WorldEditorPage = () => {
   const [loreEntries, setLoreEntries] = useState<LoreEntry[]>([]);
   const [map, setMap] = useState<WorldMap | undefined>(undefined);
   const [personaId, setPersonaId] = useState(""); // who you are here (#143); "" = your active persona
+  const [storyTime, setStoryTime] = useState<StoryTime | undefined>(undefined);
   const personas = useAppSelector((state) => state.settings.personas);
 
   useEffect(() => {
@@ -50,6 +52,7 @@ const WorldEditorPage = () => {
       setLoreEntries(editWorld.loreEntries || []);
       setMap(editWorld.map);
       setPersonaId(editWorld.personaId || "");
+      setStoryTime(editWorld.storyTime);
     } else {
       setName("");
       setPremise("");
@@ -59,6 +62,7 @@ const WorldEditorPage = () => {
       setLoreEntries([]);
       setMap(undefined);
       setPersonaId("");
+      setStoryTime(undefined);
     }
   }, [editWorld]);
 
@@ -138,7 +142,7 @@ const WorldEditorPage = () => {
       return;
     }
     setSaveError(null);
-    const payload = { name: name.trim(), premise: premise.trim(), settingDetails: settingDetails.trim() || undefined, tone: tone.trim() || undefined, tags, loreEntries, map, personaId: personaId || undefined };
+    const payload = { name: name.trim(), premise: premise.trim(), settingDetails: settingDetails.trim() || undefined, tone: tone.trim() || undefined, tags, loreEntries, map, personaId: personaId || undefined, storyTime };
     if (editWorld) {
       await dispatch(updateWorld({ ...editWorld, ...payload }));
     } else {
@@ -222,6 +226,8 @@ const WorldEditorPage = () => {
             </div>
             {assistError && <p className="text-xs text-destructive">{assistError}</p>}
           </Card>
+
+          <StoryTimeEditor value={storyTime} onChange={setStoryTime} />
 
           <Card className="p-6 flex flex-col gap-4">
             <h3 className="font-semibold text-[15px] text-foreground flex items-center gap-2">

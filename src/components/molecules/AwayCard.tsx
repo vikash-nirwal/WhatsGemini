@@ -4,6 +4,8 @@ import { FaTimes } from "react-icons/fa";
 import { CharacterAvatar } from "./CharacterAvatar";
 import { awaySession, wasAway } from "src/features/life/away";
 import { ActivityEntry, loadActivity, onActivity } from "src/features/life/activityLog";
+import { formatStoryDate, storyDaysBetween } from "src/features/world/storyTime";
+import { useCurrentWorld } from "src/hooks/useWorld";
 
 // While you were away (#130): on the chat list after an absence, what
 // happened meanwhile, from the catch-up turns in the activity log.
@@ -13,11 +15,16 @@ export const awayEntries = (entries: ActivityEntry[], lastSeen: number, openedAt
 export const AwayCard = () => {
   const [entries, setEntries] = useState<ActivityEntry[]>(() => loadActivity());
   const [dismissed, setDismissed] = useState(false);
+  const { current } = useCurrentWorld();
   useEffect(() => onActivity(() => setEntries(loadActivity())), []);
   if (dismissed || !wasAway()) return null;
   const { lastSeen, openedAt } = awaySession();
   const away = awayEntries(entries, lastSeen, openedAt);
-  if (away.length === 0) return null;
+  // Story time (#147): how far this world's own calendar moved meanwhile.
+  const story = current?.storyTime;
+  const storyDays = story ? storyDaysBetween(story, lastSeen, openedAt) : 0;
+  const storyLine = story && storyDays > 0 ? `In ${current!.name}, ${storyDays} ${storyDays === 1 ? "day" : "days"} passed. It's now ${formatStoryDate(story, openedAt)}.` : undefined;
+  if (away.length === 0 && !storyLine) return null;
   const names = Array.from(new Set(away.map((e) => e.name).filter(Boolean))) as string[];
   return (
     <section aria-label="While you were away" data-slot="away-card" className="mx-2 mb-2 flex items-start gap-3 rounded-card bg-raised p-3 ring-1 ring-inset ring-border">
@@ -26,6 +33,7 @@ export const AwayCard = () => {
       </span>
       <div className="min-w-0 flex-1">
         <div className="text-[13.5px] font-semibold text-foreground">While you were away</div>
+        {storyLine && <p className="text-[12.5px] leading-[17px] text-foreground">{storyLine}</p>}
         <p className="line-clamp-2 text-[12.5px] leading-[17px] text-muted-foreground">{away.slice(0, 3).map((e) => e.text).join(" · ")}{away.length > 3 ? ` · ${away.length - 3} more` : ""}</p>
         <Link to="/settings/spending" className="mt-1 inline-block text-[12.5px] font-semibold text-primary-text hover:underline">See everything</Link>
       </div>

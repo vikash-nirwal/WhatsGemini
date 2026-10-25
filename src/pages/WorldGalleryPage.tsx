@@ -4,6 +4,7 @@ import { FaPlus, FaEdit, FaTrash, FaGlobe, FaSearch } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { deleteWorld, switchWorld } from "../features/worldSlice";
 import { MY_WORLD, worldOf } from "../features/world/currentWorld";
+import { formatStoryDate } from "../features/world/storyTime";
 import { useCurrentWorld } from "../hooks/useWorld";
 import { WorldLifeControls } from "src/components/organisms/WorldLifeControls";
 import { useModal } from "../contexts/ModalContext";
@@ -126,6 +127,7 @@ const WorldGalleryPage = () => {
                       </Badge>
                     )}
                     <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{world.premise}</p>
+                    {world.storyTime && <p className="text-xs text-foreground">Today here: {formatStoryDate(world.storyTime, Date.now())}</p>}
                     {world.tags && world.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
                         {world.tags.slice(0, 4).map((tag) => (
