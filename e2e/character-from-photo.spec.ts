@@ -1,3 +1,4 @@
+import { editorStep } from "./fixtures";
 import { test, expect, openRoute, MockAIRequest } from "./fixtures";
 
 // Character from a photo (#92): a picture goes with the idea dialog's draft
@@ -54,7 +55,10 @@ test.describe("with a vision model", () => {
 
     await expect(page.getByText("Drafted from your photo")).toBeVisible();
     await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue(NELL.name);
+    // The look has its own step (#154); the portrait button is on the first.
+    await editorStep(page, "Look");
     await expect(page.getByRole("textbox", { name: "Locked look for pictures" })).toHaveValue(NELL.visualTags);
+    await editorStep(page, "Who they are");
 
     await page.getByRole("button", { name: "Use the photo as the portrait" }).click();
     await expect(page.getByRole("dialog", { name: "Crop Portrait" })).toBeVisible();

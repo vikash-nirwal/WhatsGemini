@@ -8,8 +8,9 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 - **State:** every roadmap item is built. Everything through #129 and the 2026-10-25 timeline and group-prompt fixes is pushed and deployed (last deploy 2026-10-25, gh-pages 3dec559).
 - **Your own WhatsApp (#113–#129, 2026-10-24):** all seventeen are built, each committed on its own (see "What's built"), plus a texts-first change the user asked for (editor switch, first contact, unanswered limit). Calls were left out at the user's request. Suite results are in the session log. Pushed (9a12173) and deployed (gh-pages 736778e).
-- **UI revamp (#148–#157):** wave 1 (#148–#151) is built, pushed and deployed. Wave 2 (#152–#156) is next, then wave 3 (#157, the worlds UI, which now has working screens to restyle).
-- **Part 2, worlds and Reset (#130–#147, #158):** all built, pushed and deployed on 2026-10-25, each committed on its own (see "What's built"). Next up: revamp waves 2 and 3.
+- **UI revamp (#148–#157):** all three waves built, pushed and deployed (2026-10-25).
+- **Part 2, worlds and Reset (#130–#147, #158):** all built, pushed and deployed on 2026-10-25, each committed on its own (see "What's built").
+- **Next up:** nothing queued. #132 (real-model tuning) waits on the user's testing; Drive backup (#54) waits on their OAuth client ID.
 - **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
 - **How the new-ideas run went:** #42, #43, #12+#44 and #45 ran in fresh sessions; from #46 on they were built in the coordinating session, because new sessions can't be started over Remote Control. Each item was committed only after every suite passed.
 
@@ -246,6 +247,8 @@ Facts that save the next session time.
 ## Session log
 
 Newest first. One or two lines per session.
+
+- 2026-10-25 (late night, 2): Revamp waves 2 and 3: #152 Updates (status viewer, tiles, composer, channel cards), #153 message action sheet, #154 quick create and the six-step editor with Their life presets, #155 character cards, new chat and grouped Settings, #156 poll, message info, multi-chat forward, starred, adventures, #157 world rail, current-world hero and the wizard's connections preview. Editor tests now go through the editorStep helper. Suites: 1050 unit, 1109 UI (187 skipped), 18 screenshot (gallery baselines updated). Pushed and deployed.
 
 - 2026-10-25 (late night): Built the features before the revamp, at the user's request: #140, #141, #136, #142, #131, #130, #134, #137, #133, #138, #143, #144, #145, #146, #147 and #158 (Reset, added by the user before the deploy). Worlds use linked character copies (card shared via CARD_FIELDS, life per world). Suites: 1048 unit tests, 1101 UI tests (187 skipped), 18 screenshot tests (character gallery baselines updated for the new toolbar). Pushed (9a12173) and deployed (gh-pages 736778e).
 
