@@ -1,4 +1,4 @@
-# WhatsGemini roadmap
+# Kindred roadmap
 
 What's still to build. Finished work is summarized in [PROGRESS.md](PROGRESS.md), and the details are in the git history. Item numbers stay the same as in earlier versions of this file, so old commits and notes still match.
 

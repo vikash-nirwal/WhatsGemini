@@ -32,7 +32,7 @@ const ServiceWorkerUpdater: React.FC = () => {
   return (
     <Card className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-3 px-4 py-3 rounded-xl shadow-strong">
       <span className="w-2 h-2 rounded-full bg-success shadow-[0_0_10px_rgb(var(--success))] flex-shrink-0" />
-      <span className="text-sm font-medium text-foreground">A new version of WhatsGemini is ready.</span>
+      <span className="text-sm font-medium text-foreground">A new version of Kindred is ready.</span>
       <Button onClick={applyUpdate} variant="outline" className="h-auto px-3 py-1.5 flex-shrink-0">
         Reload
       </Button>

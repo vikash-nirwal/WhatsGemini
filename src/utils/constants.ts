@@ -465,6 +465,8 @@ export const DEFAULT_EMOTION_POPUP_DURATION = 1500;
 export const LS_ALWAYS_SHOW_INITIALS = "always_show_initials";
 export const LS_TEXTING_MODE = "texting_mode";
 export const LS_RECAP_AFTER_DAYS = "recap_after_days";
+// The app was called WhatsGemini before Kindred; storage keys keep that name
+// so everyone's saved personas and settings carry over.
 export const LS_USER_PROFILE = "whatsgemini_user_profile"; // legacy single-persona shape, read only for migration
 export const LS_USER_PERSONAS = "whatsgemini_user_personas";
 export const LS_ACTIVE_PERSONA_ID = "whatsgemini_active_persona_id";

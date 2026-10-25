@@ -101,13 +101,13 @@ const EmptyChatState = () => {
 
   return (
     <div className="flex flex-col w-full h-dvh">
-      <Header title="WhatsGemini" subtitle={isFirstRun ? "Welcome!" : "Select a chat to get started"} />
+      <Header title="Kindred" subtitle={isFirstRun ? "Welcome!" : "Select a chat to get started"} />
       <div className="flex-1 flex flex-col items-center justify-center gap-4 text-muted-foreground px-6 text-center">
         {isFirstRun ? (
           <>
             <Logo size={48} className="shadow-lg shadow-primary/30 rounded-[13px] mb-1" />
             <div>
-              <h2 className="text-lg font-bold text-foreground mb-1.5">Welcome to WhatsGemini</h2>
+              <h2 className="text-lg font-bold text-foreground mb-1.5">Welcome to Kindred</h2>
               <p className="text-sm max-w-[360px]">
                 Create a character - a persona for Gemini to embody - then start chatting. Not sure where to start?
               </p>

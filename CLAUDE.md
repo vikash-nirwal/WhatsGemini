@@ -1,4 +1,4 @@
-# WhatsGemini
+# Kindred
 
 Client-side AI roleplay app (React 19, Redux Toolkit, TypeScript, Tailwind, Dexie/IndexedDB). No backend. See README.md for features and structure.
 

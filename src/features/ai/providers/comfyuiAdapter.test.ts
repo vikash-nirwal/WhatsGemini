@@ -51,7 +51,7 @@ describe("comfyuiAdapter", () => {
     const promptCall = fake.calls.find((c) => c.path === "/prompt")!;
     expect(JSON.parse(String(promptCall.init?.body)).client_id).toEqual(expect.any(String));
     const viewCall = fake.calls.find((c) => c.path.startsWith("/view"))!;
-    expect(viewCall.path).toBe("/view?filename=WhatsGemini_00001_.png&subfolder=&type=output");
+    expect(viewCall.path).toBe("/view?filename=Kindred_00001_.png&subfolder=&type=output");
   });
 
   it("runs Klein by default with a reference: the photo, the edit wording, one size for latent and scheduler, the seed on RandomNoise", async () => {

@@ -45,7 +45,7 @@ test.describe("ComfyUI adapter against a mocked server", () => {
       "GET /view",
     ]);
     const upload = comfy.requests[0];
-    expect(upload.uploadName).toMatch(/^whatsgemini-ref-[0-9a-f]{8}-\w+\.png$/);
+    expect(upload.uploadName).toMatch(/^kindred-ref-[0-9a-f]{8}-\w+\.png$/);
     const workflow = comfy.queuedWorkflow();
     expect(workflow["9"].inputs.image).toBe(upload.uploadName);
     expect(workflow["11"].class_type).toBe("IPAdapterFaceID");

@@ -38,7 +38,7 @@ const AgeGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <>
             <h1 className="text-lg font-bold">Adults only</h1>
             <p className="text-sm text-muted-foreground">
-              WhatsGemini can be used for mature fiction, including sexual content between adult characters. Confirm you are 18 or older (or the age of majority where you live) to continue.
+              Kindred can be used for mature fiction, including sexual content between adult characters. Confirm you are 18 or older (or the age of majority where you live) to continue.
             </p>
             <div className="flex gap-3">
               <Button variant="outline" onClick={() => setDeclined(true)}>I'm under 18</Button>

@@ -23,7 +23,7 @@ describe("backup encryption", () => {
   it("refuses a wrong passphrase and a file that isn't a backup", async () => {
     const sealed = await encryptBackup(text("secret"), "right");
     await expect(decryptBackup(sealed, "wrong")).rejects.toBeInstanceOf(WrongPassphraseError);
-    await expect(decryptBackup(new Uint8Array([1, 2, 3]), "right")).rejects.toThrow("isn't a WhatsGemini Drive backup");
+    await expect(decryptBackup(new Uint8Array([1, 2, 3]), "right")).rejects.toThrow("isn't a Kindred Drive backup");
   });
 
   it("uses a fresh salt and IV every time", async () => {

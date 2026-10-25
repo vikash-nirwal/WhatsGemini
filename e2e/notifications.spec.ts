@@ -88,7 +88,7 @@ test.beforeEach(async ({ page }, testInfo) => {
 test("iPhone: Settings explains that notifications need the Home Screen app", async ({ page }) => {
   await openRoute(page, "/settings/chat");
   await expect(page.getByRole("switch", { name: "Notify me of new messages" })).toBeDisabled({ timeout: 30_000 });
-  await expect(page.getByRole("status").filter({ hasText: "add WhatsGemini to your Home Screen" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "add Kindred to your Home Screen" })).toBeVisible();
 });
 
 test("a reply that lands in a hidden tab notifies, and the click opens the chat", async ({ page, mockAI }) => {

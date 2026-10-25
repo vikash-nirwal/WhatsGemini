@@ -84,7 +84,7 @@ const SPENDING_STORAGE = {
 const pages: PageCase[] = [
   // First run (empty database) gets the welcome screen; once there are
   // characters, home is a "select a chat" placeholder.
-  { name: "home (first run)", route: "/", seed: false, ready: (p) => expect(p.getByRole("heading", { name: "Welcome to WhatsGemini" })).toBeVisible({ timeout: 30_000 }) },
+  { name: "home (first run)", route: "/", seed: false, ready: (p) => expect(p.getByRole("heading", { name: "Welcome to Kindred" })).toBeVisible({ timeout: 30_000 }) },
   { name: "home", route: "/", ready: (p) => expect(p.getByText("Select a chat from the sidebar to continue a conversation.")).toBeVisible({ timeout: 30_000 }) },
   { name: "chat", route: "/chat/1", ready: (p) => expect(p.getByText("Aria message 29: how was your day?")).toBeVisible({ timeout: 30_000 }) },
   { name: "character gallery", route: "/characters", ready: (p) => expect(p.getByRole("heading", { name: "Aria" })).toBeVisible({ timeout: 30_000 }) },

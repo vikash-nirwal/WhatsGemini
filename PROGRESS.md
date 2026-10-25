@@ -248,6 +248,8 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
+- 2026-10-25 (night, rename): The app is now **Kindred** (was WhatsGemini): names in the app, docs and tests; the GitHub repo is vikash-nirwal/Kindred and the site https://vikash-nirwal.github.io/Kindred/. Storage keys, the database name, the backup type marker and the cards' `whatsgemini` extension keep the old name so data and old files carry over. Fixed a flaky while-away test (its threshold assumed a later catch-up time than the job picks). Suites: 1050 unit, 1109 UI, 18 screenshot.
+
 - 2026-10-25 (late night, 2): Revamp waves 2 and 3: #152 Updates (status viewer, tiles, composer, channel cards), #153 message action sheet, #154 quick create and the six-step editor with Their life presets, #155 character cards, new chat and grouped Settings, #156 poll, message info, multi-chat forward, starred, adventures, #157 world rail, current-world hero and the wizard's connections preview. Editor tests now go through the editorStep helper. Suites: 1050 unit, 1109 UI (187 skipped), 18 screenshot (gallery baselines updated). Pushed and deployed.
 
 - 2026-10-25 (late night): Built the features before the revamp, at the user's request: #140, #141, #136, #142, #131, #130, #134, #137, #133, #138, #143, #144, #145, #146, #147 and #158 (Reset, added by the user before the deploy). Worlds use linked character copies (card shared via CARD_FIELDS, life per world). Suites: 1048 unit tests, 1101 UI tests (187 skipped), 18 screenshot tests (character gallery baselines updated for the new toolbar). Pushed (9a12173) and deployed (gh-pages 736778e).

@@ -8,7 +8,7 @@
     "scenario": "You walk into her tea house during a thunderstorm.",
     "first_mes": "Mind the puddle, traveller. Tea's on the house while the storm lasts.",
     "mes_example": "<START>\n{{user}}: Were you really a pirate?\n{{char}}: Privateer, dear. The paperwork matters.",
-    "creator_notes": "Fixture for the WhatsGemini import flow test.",
+    "creator_notes": "Fixture for the Kindred import flow test.",
     "system_prompt": "",
     "post_history_instructions": "",
     "alternate_greetings": [],

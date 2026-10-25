@@ -11,7 +11,7 @@ cd "$ROOT" || exit 1
 size() { [ -e "$1" ] && du -sh "$1" 2>/dev/null | cut -f1 || echo "-"; }
 row() { printf "  %-46s %8s  %s\n" "$1" "$2" "$3"; }
 
-echo "WhatsGemini disk usage ($(date '+%Y-%m-%d %H:%M'))"
+echo "Kindred disk usage ($(date '+%Y-%m-%d %H:%M'))"
 echo
 echo "Project folder total: $(size .)"
 echo

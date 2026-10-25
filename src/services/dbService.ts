@@ -2,7 +2,7 @@ import Dexie, { Table } from "dexie";
 import { DB_NAME } from "../utils/constants";
 import { Chat, Character, World, Adventure } from "../types";
 
-class WhatsGeminiDB extends Dexie {
+class KindredDB extends Dexie {
   chats!: Table<Chat, number>;
   characters!: Table<Character, number>;
   worlds!: Table<World, number>;
@@ -49,7 +49,7 @@ class WhatsGeminiDB extends Dexie {
   }
 }
 
-export const db = new WhatsGeminiDB();
+export const db = new KindredDB();
 
 export const dbService = {
   // Settings (e.g. Directory Handle)

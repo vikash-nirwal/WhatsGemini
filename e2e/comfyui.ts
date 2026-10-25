@@ -78,7 +78,7 @@ export const mockComfyUI = async (page: Page, options: MockComfyOptions = {}) =>
       if (polls <= (options.pendingPolls ?? 1)) return json(route, {});
       return json(route, {
         [PROMPT_ID]: {
-          outputs: { "8": { images: [{ filename: "WhatsGemini_00001_.png", subfolder: "", type: "output" }] } },
+          outputs: { "8": { images: [{ filename: "Kindred_00001_.png", subfolder: "", type: "output" }] } },
           status: { status_str: "success", completed: true, messages: [] },
         },
       });

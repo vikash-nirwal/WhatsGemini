@@ -289,7 +289,7 @@ export const test = base.extend<Fixtures>({
         await page.goto("./");
         // The home screen only renders once Dexie has opened the database
         // and the (empty) character list has loaded.
-        await expect(page.getByRole("heading", { name: "Welcome to WhatsGemini" })).toBeVisible({ timeout: 30_000 });
+        await expect(page.getByRole("heading", { name: "Welcome to Kindred" })).toBeVisible({ timeout: 30_000 });
         await writeSeed(page, data);
         await page.goto("about:blank");
       }

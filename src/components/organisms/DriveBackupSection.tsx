@@ -70,7 +70,7 @@ const DriveBackupSection: React.FC<DriveBackupSectionProps> = ({ buildBackup, re
     run("backup", async (token) => {
       const zip = await buildBackup();
       const sealed = await encryptBackup(await zip.arrayBuffer(), passphrase);
-      const name = `whatsgemini_backup_${new Date().toISOString().replace(/[:.]/g, "-")}.wgbk`;
+      const name = `kindred_backup_${new Date().toISOString().replace(/[:.]/g, "-")}.wgbk`;
       await uploadDriveBackup(token, sealed, name);
       const removed = await pruneDriveBackups(token).catch(() => 0);
       onBackedUp();

@@ -60,7 +60,7 @@ const REACTOR: CustomNodePack = {
 };
 
 const SDXL_CHECKPOINT = "sd_xl_base_1.0.safetensors";
-const SAVE_PREFIX = "WhatsGemini";
+const SAVE_PREFIX = "Kindred";
 
 const CHECKPOINT_SOURCE: ModelSource = { classType: "CheckpointLoaderSimple", input: "ckpt_name" };
 const LORA_SOURCE: ModelSource = { classType: "LoraLoader", input: "lora_name" };

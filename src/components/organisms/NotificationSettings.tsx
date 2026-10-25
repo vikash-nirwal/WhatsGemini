@@ -16,7 +16,7 @@ const STATUS_HINT: Partial<Record<NotificationStatus, string>> = {
   denied:
     "Your browser has blocked notifications for this site. To use them, allow notifications in the browser's site settings (usually the icon next to the address bar), then come back and turn this on.",
   unsupported:
-    "This browser can't show notifications. On an iPhone or iPad, add WhatsGemini to your Home Screen first (Share › Add to Home Screen) and open it from there.",
+    "This browser can't show notifications. On an iPhone or iPad, add Kindred to your Home Screen first (Share › Add to Home Screen) and open it from there.",
 };
 
 const NotificationSettings: React.FC = () => {
@@ -67,7 +67,7 @@ const NotificationSettings: React.FC = () => {
       </div>
       <SettingsRow
         label="Notify me of new messages"
-        hint="When a character reaches out on its own, or a reply arrives while WhatsGemini is in the background. With the app lock on, or discreet mode for NSFW chats, the notification only says “New message”."
+        hint="When a character reaches out on its own, or a reply arrives while Kindred is in the background. With the app lock on, or discreet mode for NSFW chats, the notification only says “New message”."
         align="start"
       >
         <ToggleSwitch

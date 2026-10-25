@@ -523,7 +523,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     fileInputRef.current?.click();
   };
 
-  // Accepts WhatsGemini's own native export, a V2 Character Card, or a
+  // Accepts Kindred's own native export, a V2 Character Card, or a
   // flat/legacy V1 card (see parseCharacterCardJson) - whichever a
   // "character file" JSON turns out to be.
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {

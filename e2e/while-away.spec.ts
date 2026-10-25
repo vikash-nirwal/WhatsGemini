@@ -36,14 +36,15 @@ test("after hours away, a status is filled in back then and summed up", async ({
 
   const card = page.getByRole("region", { name: "While you were away" });
   await expect(card).toContainText("Aria posted a status", { timeout: 40_000 });
-  // Stamped back then, not now.
+  // Stamped back then, not now: catch-up turns land between a quarter and
+  // 85% of the way through the absence, so at least 45 minutes before now.
   const createdAt = await page.evaluate(async ({ id }) => {
     const db: IDBDatabase = await new Promise((resolve) => { const req = indexedDB.open("ChatAppDB"); req.onsuccess = () => resolve(req.result); });
     const row: any = await new Promise((resolve) => { const get = db.transaction("characters").objectStore("characters").get(id); get.onsuccess = () => resolve(get.result); });
     db.close();
     return row.statuses[row.statuses.length - 1].createdAt;
   }, { id: ARIA.id });
-  expect(Date.now() - createdAt).toBeGreaterThan(60 * 60 * 1000);
+  expect(Date.now() - createdAt).toBeGreaterThan(40 * 60 * 1000);
   await card.getByRole("button", { name: "Dismiss" }).click();
   await expect(card).toHaveCount(0);
 });

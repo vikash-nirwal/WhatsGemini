@@ -30,7 +30,7 @@ test("the chat list is home, with tabs, and a chat goes back to it", async ({ pa
   await openRoute(page, "/");
   const tabs = page.getByRole("navigation", { name: "Main" });
   await expect(tabs).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole("heading", { name: "WhatsGemini" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Kindred" })).toBeVisible();
 
   const list = page.getByRole("complementary", { name: "Sidebar" });
   await list.getByRole("link").filter({ hasText: "Aria" }).filter({ hasNotText: "Kai" }).click();

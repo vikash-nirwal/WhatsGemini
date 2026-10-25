@@ -16,7 +16,7 @@ const Logo: React.FC<LogoProps> = ({ size = 36, className }) => {
     return (
       <div
         role="img"
-        aria-label="WhatsGemini logo"
+        aria-label="Kindred logo"
         className="flex-none flex items-center justify-center border border-border-bright text-foreground font-extrabold"
         style={{ width: size * 0.76, height: size * 0.76, fontSize: size * 0.38 }}
       >
@@ -31,7 +31,7 @@ const Logo: React.FC<LogoProps> = ({ size = 36, className }) => {
     viewBox="0 0 36 36"
     className={className}
     role="img"
-    aria-label="WhatsGemini logo"
+    aria-label="Kindred logo"
   >
     <defs>
       <linearGradient id="wg-logo-gradient" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">

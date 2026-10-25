@@ -64,7 +64,7 @@ const Login = () => {
           className="rounded-2xl shadow-[0_10px_26px_rgb(var(--primary)/0.4)] mx-auto mb-5 block"
         />
         <h2 className="text-xl font-bold text-center text-foreground mb-1.5">
-          Welcome to WhatsGemini
+          Welcome to Kindred
         </h2>
         <p className="text-sm text-muted-foreground text-center mb-4">
           Chat with characters powered by your choice of AI provider.

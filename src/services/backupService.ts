@@ -3,6 +3,7 @@ import { dbService } from "./dbService";
 import { Chat, Character, Message, ConversationTree, UserProfile } from "../types";
 import { LS_USER_PERSONAS } from "../utils/constants";
 
+// The old app name, kept so backups made before the rename to Kindred restore.
 export const BACKUP_FILE_TYPE = "whatsgemini-backup";
 export const BACKUP_FILE_VERSION = 1;
 export const BACKUP_ZIP_JSON_ENTRY = "backup.json";
@@ -184,7 +185,7 @@ export const parseBackupFile = async (file: File): Promise<ParsedBackup> => {
 
     const data = JSON.parse(await jsonEntry.async("string"));
     if (data.type !== BACKUP_FILE_TYPE || !Array.isArray(data.chats) || !Array.isArray(data.characters)) {
-      throw new Error("Not a WhatsGemini backup file");
+      throw new Error("Not a Kindred backup file");
     }
 
     const imageFilenames: string[] = [];
@@ -197,7 +198,7 @@ export const parseBackupFile = async (file: File): Promise<ParsedBackup> => {
 
   const data = JSON.parse(await file.text());
   if (data.type !== BACKUP_FILE_TYPE || !Array.isArray(data.chats) || !Array.isArray(data.characters)) {
-    throw new Error("Not a WhatsGemini backup file");
+    throw new Error("Not a Kindred backup file");
   }
   return { data, imageFilenames: [] };
 };

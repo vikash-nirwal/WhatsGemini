@@ -1,6 +1,6 @@
-# WhatsGemini
+# Kindred
 
-WhatsGemini is a client-side AI roleplay and chat app built with **React, Redux Toolkit, TypeScript and Tailwind CSS**. Everything (characters, chats, API keys) is stored locally in your browser; there is no backend.
+Kindred (formerly WhatsGemini) is a client-side app for chatting with AI characters who have lives of their own: worlds they live in, people they know, statuses, letters and texts that arrive while you're away. It's built with **React, Redux Toolkit, TypeScript and Tailwind CSS**. Everything (characters, chats, API keys) is stored locally in your browser; there is no backend.
 
 ## 🚀 Features
 
@@ -55,8 +55,8 @@ WhatsGemini is a client-side AI roleplay and chat app built with **React, Redux 
 
 ### **1️⃣ Clone the Repository**
 ```sh
-git clone https://github.com/vikash-nirwal/WhatsGemini.git
-cd WhatsGemini
+git clone https://github.com/vikash-nirwal/Kindred.git
+cd Kindred
 ```
 
 ### **2️⃣ Install Dependencies**

@@ -32,7 +32,7 @@ const hashData = (data: string): string => {
 };
 
 export const referenceFileName = (image: NormalizedImage): string =>
-  `whatsgemini-ref-${hashData(image.data)}-${image.data.length.toString(36)}.${EXTENSIONS[image.mimeType] || "png"}`;
+  `kindred-ref-${hashData(image.data)}-${image.data.length.toString(36)}.${EXTENSIONS[image.mimeType] || "png"}`;
 
 // ComfyUI's loaders want the file name with its extension.
 const loraFileName = (name: string): string => (/\.(safetensors|pt|ckpt)$/i.test(name) ? name : `${name}.safetensors`);
@@ -40,7 +40,7 @@ const loraFileName = (name: string): string => (/\.(safetensors|pt|ckpt)$/i.test
 const makeClientId = (): string =>
   typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
     ? crypto.randomUUID()
-    : `whatsgemini-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    : `kindred-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
 // The replying character's photos come first in referenceImages. In a group
 // picture referenceCharacters may be all there is; its first entry is still

@@ -1,6 +1,6 @@
 # Adding a new color theme
 
-WhatsGemini has two independent visual axes:
+Kindred has two independent visual axes:
 
 1. **Light/dark mode** — `theme`/`toggleTheme` in `src/contexts/ThemeContext.tsx`,
    toggles the `.dark` class on `<html>`. Not what this doc is about.

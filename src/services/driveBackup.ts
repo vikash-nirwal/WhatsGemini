@@ -52,7 +52,7 @@ export class WrongPassphraseError extends Error {
 
 export const decryptBackup = async (bytes: Uint8Array, passphrase: string): Promise<ArrayBuffer> => {
   const header = bytes.slice(0, MAGIC.length);
-  if (header.length !== MAGIC.length || header.some((b, i) => b !== MAGIC[i])) throw new Error("This isn't a WhatsGemini Drive backup.");
+  if (header.length !== MAGIC.length || header.some((b, i) => b !== MAGIC[i])) throw new Error("This isn't a Kindred Drive backup.");
   const salt = bytes.slice(MAGIC.length, MAGIC.length + 16);
   const iv = bytes.slice(MAGIC.length + 16, MAGIC.length + 28);
   const key = await deriveKey(passphrase, salt);

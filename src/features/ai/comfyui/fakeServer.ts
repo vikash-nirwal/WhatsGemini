@@ -34,7 +34,7 @@ export const createFakeComfy = (options: FakeComfyOptions = {}) => {
   const calls: FakeCall[] = [];
   let polls = 0;
   const historyEntry = options.historyEntry ?? {
-    outputs: { "8": { images: [{ filename: "WhatsGemini_00001_.png", subfolder: "", type: "output" }] } },
+    outputs: { "8": { images: [{ filename: "Kindred_00001_.png", subfolder: "", type: "output" }] } },
     status: { status_str: "success", completed: true, messages: [] },
   };
 

@@ -3,8 +3,8 @@ import { readPngTextChunk, writePngTextChunk } from "../../utils/pngTextChunk";
 
 // Community-standard "Character Card V2" (TavernAI/SillyTavern) shape -
 // https://github.com/malfoyslastname/character-card-spec-v2. Supporting it
-// lets characters move between WhatsGemini and any other app that reads
-// this format, instead of being locked into WhatsGemini's own JSON shape.
+// lets characters move between Kindred and any other app that reads
+// this format, instead of being locked into Kindred's own JSON shape.
 export interface CharacterCardV2 {
   spec: "chara_card_v2";
   spec_version: "2.0";
@@ -23,10 +23,12 @@ export interface CharacterCardV2 {
     creator: string;
     character_version: string;
     // The spec reserves `extensions` for exactly this - app-specific data
-    // other readers are expected to ignore. WhatsGemini fields with no V2
+    // other readers are expected to ignore. Kindred fields with no V2
     // equivalent ride along here so a round-trip export/import back into
-    // WhatsGemini isn't lossy, without breaking portability elsewhere.
+    // Kindred isn't lossy, without breaking portability elsewhere.
     extensions: {
+      // Named for the app's old name (WhatsGemini), kept so cards exported
+      // before the rename to Kindred still import with everything.
       whatsgemini?: {
         relationship?: string;
         appearance?: string;
@@ -43,7 +45,7 @@ export interface CharacterCardV2 {
     // actually populate and read, unlike the whatsgemini-only extension
     // above. Exporting our loreEntries here too (in addition to the
     // extension, which round-trips `enabled` etc. losslessly) is what makes
-    // WhatsGemini characters carry their lore into other apps.
+    // Kindred characters carry their lore into other apps.
     character_book?: {
       extensions: Record<string, unknown>;
       entries: CharacterBookEntry[];
@@ -53,7 +55,7 @@ export interface CharacterCardV2 {
 
 // One `character_book` entry as the V2 spec and SillyTavern write it. The
 // advanced trigger fields are optional in the spec and only written when the
-// WhatsGemini entry sets them, so a plain lorebook exports as it always has.
+// Kindred entry sets them, so a plain lorebook exports as it always has.
 export interface CharacterBookEntry {
   id: number;
   keys: string[];
@@ -141,7 +143,7 @@ export const characterToCardV2 = (char: Character): CharacterCardV2 => ({
 });
 
 // Converts a standard V2/V3 `character_book.entries` array (SillyTavern's
-// "keys", not our "keywords") into WhatsGemini's own LoreEntry shape. Each
+// "keys", not our "keywords") into Kindred's own LoreEntry shape. Each
 // entry gets a fresh id since the spec's own `id` is an optional number
 // scoped to that one card, not a stable cross-app identifier.
 //
@@ -207,7 +209,7 @@ const withDefaults = (partial: Partial<ParsedCharacterCard> & { name: string; pr
 });
 
 // Accepts whichever shape a "character file" JSON turns out to be:
-// WhatsGemini's own native export (always has a `prompt` field), a V2 or V3
+// Kindred's own native export (always has a `prompt` field), a V2 or V3
 // card (`{ spec: "chara_card_v2"|"chara_card_v3", data: {...} }` - V3 is a
 // superset of V2's fields, so the same extraction covers both), or a
 // flat/legacy V1 card (same fields as V2's `data`, no wrapper - what most
@@ -222,7 +224,7 @@ export const parseCharacterCardJson = (parsed: any): ParsedCharacterCard => {
     if (!d.name) throw new Error("Invalid character card: missing name.");
     const ext = d.extensions?.whatsgemini || {};
     // Prefer our own extension's loreEntries (a lossless round-trip of a
-    // WhatsGemini-authored card) and only fall back to the standard
+    // Kindred-authored card) and only fall back to the standard
     // character_book - what chub.ai/SillyTavern cards actually carry - when
     // that extension isn't present.
     const bookEntries = Array.isArray(d.character_book?.entries) ? d.character_book.entries : undefined;
@@ -262,7 +264,7 @@ export const parseCharacterCardJson = (parsed: any): ParsedCharacterCard => {
     });
   }
 
-  // WhatsGemini's own native export always carries a `prompt` field - card
+  // Kindred's own native export always carries a `prompt` field - card
   // formats use `personality` instead, which is the cheapest reliable way
   // to tell the two apart.
   if (typeof parsed.prompt === "string") {

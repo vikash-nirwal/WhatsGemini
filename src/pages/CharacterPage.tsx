@@ -144,7 +144,7 @@ const CharacterPage = () => {
 
   // Community-standard "Character Card V2" export (TavernAI/SillyTavern) -
   // separate from handleExportCharacter's native format above, which stays
-  // the full-fidelity round-trip option within WhatsGemini itself.
+  // the full-fidelity round-trip option within Kindred itself.
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -177,7 +177,7 @@ const CharacterPage = () => {
     }
   };
 
-  // Import: JSON (WhatsGemini native, V2 card, or flat/legacy V1 card) or a
+  // Import: JSON (Kindred native, V2 card, or flat/legacy V1 card) or a
   // PNG card (a normal portrait PNG with the card JSON tucked into a tEXt
   // chunk). A PNG card's own image becomes the imported character's
   // reference portrait.
@@ -342,7 +342,7 @@ const CharacterPage = () => {
               onClick={() => importCardInputRef.current?.click()}
               variant="outline"
               disabled={importingCard}
-              title="Import a Character Card (V2 JSON or PNG) or a WhatsGemini export"
+              title="Import a Character Card (V2 JSON or PNG) or a Kindred export"
             >
               <FaUpload size={12} /> {importingCard ? "Importing..." : "Import Card"}
             </Button>

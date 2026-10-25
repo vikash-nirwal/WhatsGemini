@@ -321,7 +321,7 @@ const Sidebar = () => {
         {home && (
           <div className="h-[60px] px-4 flex items-center gap-1 flex-shrink-0" data-slot="home-title">
             {/* The world switcher stands in the title row (#143). */}
-            <h1 className="sr-only">WhatsGemini</h1>
+            <h1 className="sr-only">Kindred</h1>
             <div className="flex-1 min-w-0"><WorldSwitcher variant="title" /></div>
             <Link to="/starred" title="Starred messages" aria-label="Starred messages" className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:bg-raised">
               <MdOutlineStarBorder size={22} />
@@ -342,7 +342,7 @@ const Sidebar = () => {
             <div className={cn("h-[60px] px-4 flex items-center gap-3 border-b border-border/40 flex-shrink-0", railCollapsed && "lg:px-2.5")}>
               <Logo size={34} className="shadow-[0_6px_18px_rgb(var(--primary)/0.35)] rounded-full flex-shrink-0" />
               <div className={cn("leading-tight flex-1 min-w-0", railCollapsed && "lg:hidden")}>
-                <div className="font-bold text-[12px] text-foreground truncate">whatsgemini@local</div>
+                <div className="font-bold text-[12px] text-foreground truncate">kindred@local</div>
                 <div className="text-[10px] text-muted-foreground truncate lowercase"># session: {personaName || "guest"}</div>
               </div>
               {/* Desktop-only collapse toggle - mobile relies on the

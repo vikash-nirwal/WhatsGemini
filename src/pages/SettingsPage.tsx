@@ -615,7 +615,7 @@ const SettingsPage = () => {
   };
 
   const handleExportSettings = () => {
-    downloadJson(buildSettingsExport(), "whatsgemini_settings.json");
+    downloadJson(buildSettingsExport(), "kindred_settings.json");
   };
 
   const handleImportSettingsClick = () => {
@@ -714,7 +714,7 @@ const SettingsPage = () => {
       const { getFullBackupZip } = await import("../services/backupService");
       const { blob, chats, characters, imagesIncluded, imagesSkipped } = await getFullBackupZip(buildSettingsExport());
       const dateStr = new Date().toISOString().slice(0, 10);
-      downloadBlob(blob, `whatsgemini_backup_${dateStr}.zip`);
+      downloadBlob(blob, `kindred_backup_${dateStr}.zip`);
 
       let message = `Backed up ${chats.length} chat(s) and ${characters.length} character(s)`;
       message += imagesIncluded > 0 ? `, including ${imagesIncluded} image(s).` : ".";
