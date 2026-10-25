@@ -1,3 +1,4 @@
+import { catchUpTime } from "src/features/life/away";
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -39,9 +40,10 @@ const StatusPoster = () => {
   const busy = useRef(false);
 
   useEffect(() => {
-    const check = async () => {
+    // `at`: a catch-up turn back in your absence (#130), stamped with it.
+    const check = async (at?: number) => {
       if (busy.current) return;
-      const now = Date.now();
+      const now = at ?? Date.now();
       const due = charactersRef.current.find((c) => statusDue(c, now));
       if (!due) return;
       busy.current = true;
@@ -59,7 +61,7 @@ const StatusPoster = () => {
         const recentChat = recent.length > 0 ? formatTranscript(recent, { userName: userName || "User", charName: due.name }) : undefined;
         const facts = annotateFacts((due.memory || []).slice(-8), due.memoryDates, now);
         const prompt = buildStatusPrompt(due, currentBlock(due.schedule, now)?.activity, facts, liveStatuses(due, now).map((s) => s.text), dayMoodFor(due, now)?.label, dayLogText(due, now), concernsLine(due.concerns), placeLine(due.home, now), mention, { now, userName, recentChat });
-        const text = cleanStatus(await dispatch(generateAssistText({ instruction: prompt, background: true, activity: { kind: "status", text: `${due.name} posted a status`, characterId: due.id, name: due.name } })).unwrap());
+        const text = cleanStatus(await dispatch(generateAssistText({ instruction: prompt, background: true, activity: { at: now, kind: "status", text: `${due.name} posted a status`, characterId: due.id, name: due.name } })).unwrap());
         if (text) {
           const latest = charactersRef.current.find((c) => c.id === due.id) || due;
           // A photo status (#118): drawn before posting, so it appears with
@@ -80,7 +82,7 @@ const StatusPoster = () => {
           // The feed (#85): the others who know them like it and comment.
           const peers = feedPeersFor(latest, charactersRef.current, chatsRef.current);
           if (peers.length > 0) {
-            const reply = await dispatch(generateAssistText({ instruction: buildFeedReactionsPrompt(latest, status, peers), background: true, activity: { kind: "status", text: `Friends reacted to ${latest.name}'s status`, characterId: latest.id, name: latest.name } })).unwrap();
+            const reply = await dispatch(generateAssistText({ instruction: buildFeedReactionsPrompt(latest, status, peers), background: true, activity: { at: now, kind: "status", text: `Friends reacted to ${latest.name}'s status`, characterId: latest.id, name: latest.name } })).unwrap();
             const { likes, comments } = parseFeedReactions(reply, peers, Date.now());
             const posted = charactersRef.current.find((c) => c.id === due.id);
             if (posted && (likes.length > 0 || comments.length > 0)) {
@@ -94,7 +96,9 @@ const StatusPoster = () => {
         busy.current = false;
       }
     };
-    const first = window.setTimeout(check, FIRST_CHECK_MS);
+    // The catch-up turn is claimed when the timer fires, not at mount (a
+    // remount would otherwise lose it).
+    const first = window.setTimeout(() => check(catchUpTime("status")), FIRST_CHECK_MS);
     const timer = window.setInterval(check, CHECK_EVERY_MS);
     return () => {
       window.clearTimeout(first);

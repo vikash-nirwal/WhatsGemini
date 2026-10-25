@@ -1,3 +1,4 @@
+import { catchUpTime } from "src/features/life/away";
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -44,9 +45,10 @@ const FirstTexter = () => {
   const busy = useRef(false);
 
   useEffect(() => {
-    const check = async () => {
+    // `at`: a catch-up turn back in your absence (#130), stamped with it.
+    const check = async (at?: number) => {
       if (busy.current) return;
-      const now = Date.now();
+      const now = at ?? Date.now();
       const { chats, characters, persona } = latest.current;
       // The character's main 1:1 chat: not a what-if or a chat with its own memory.
       const chatFor = (id: number) => chats.find((c) => c.characterIds?.length === 1 && c.characterIds[0] === id && c.memoryScope !== "chat" && !c.whatIf);
@@ -84,7 +86,7 @@ const FirstTexter = () => {
             dream: dreaming ? buildDreamDirective(texter.name, userName, dreamIngredients(texter, chat!)) : undefined,
           }),
           background: true,
-          activity: { kind: dreaming ? "dream" : "first-text", text: dreaming ? `${texter.name} told you a dream` : `${texter.name} texted you first`, characterId: texter.id, name: texter.name },
+          activity: { at: now, kind: dreaming ? "dream" : "first-text", text: dreaming ? `${texter.name} told you a dream` : `${texter.name} texted you first`, characterId: texter.id, name: texter.name },
           
         })).unwrap();
         const text = cleanFirstText(reply);
@@ -96,7 +98,7 @@ const FirstTexter = () => {
         if (!chat?.id) chat = await dispatch(addChat({ title: texter.name, characterIds: [texter.id] })).unwrap();
         if (!chat?.id) return;
         const notes: MessageNote[] = dreaming ? ["texted-first", "dream"] : ["texted-first"];
-        await dispatch(addMessage({ chatId: chat.id, role: AI, text, speakerId: texter.id, notes, noGreeting: firstContact }));
+        await dispatch(addMessage({ chatId: chat.id, role: AI, text, speakerId: texter.id, notes, noGreeting: firstContact, at: at }));
         await dispatch(fetchChats());
         const shown = await notifyChatMessage({ chatId: chat.id, speaker: texter, text, isNsfwChat: isNsfwCharacter(texter), privacy: latest.current.privacy, muted: chat.muted });
         // In the app but in another chat: a toast instead (not for a muted chat).
@@ -109,7 +111,9 @@ const FirstTexter = () => {
         busy.current = false;
       }
     };
-    const first = window.setTimeout(check, FIRST_CHECK_MS);
+    // The catch-up turn is claimed when the timer fires, not at mount (a
+    // remount would otherwise lose it).
+    const first = window.setTimeout(() => check(catchUpTime("first-text")), FIRST_CHECK_MS);
     const timer = window.setInterval(check, CHECK_EVERY_MS);
     return () => {
       window.clearTimeout(first);

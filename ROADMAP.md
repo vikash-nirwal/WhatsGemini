@@ -12,7 +12,6 @@ Items up to #129 are built (the last batch, #113–#129 "Your own WhatsApp", on 
 
 Picked by the user from the ideas after #113–#129. No voice features until the app has an AI voice model (see PROGRESS.md › Decisions).
 
-- **#130 While you were away (M).** When the app opens after hours closed, fill in what would plausibly have happened meanwhile, within each job's own limits: texts first, statuses, channel posts, profile changes, timestamped in the past.
 - **#132 Real-model tuning pass (S).** The user tries #81 onward and the latest fixes with their own key and reports what's off; Claude fixes it. Watch: how often the tags (`[Re:]`, `[Fwd:]`, `[Contact:]`, `[Poll:]`, `[Group name:]`, story tags) are used, the helper prompts' output, statuses keeping to the timeline, group rounds.
 - **#133 Blocking, both ways (L).** Either side can block the other.
   - *They block you:* after a bad enough fight (#97), a character blocks you. Their photo, About and status disappear for you, your messages get one grey tick and no reply, and you can't see when they're online. To make up you go through someone who knows you both (a group, or a character who knows them, #74).
@@ -33,6 +32,10 @@ The user's idea, replacing circles: the app holds several worlds, each its own s
 - **#145 Life inside a world (L).** Replaces circles (#139): characters in the same world talk to each other on their own, following "who knows whom" (a big world doesn't mean everyone talks to everyone). Each exchange is one helper call, at most 10 messages by default (adjustable per world). Hidden by default; a Peek switch shows their threads read-only. Members' prompts get a note on recent talk; it feeds statuses, contacts (#128), blocking (#133) and group invites.
 - **#146 Worlds keep running (M).** Background life (texts first, statuses, channels, talk between characters, profile changes) runs in every world, not only the one on screen; each world has a "keep living while I'm elsewhere" switch (on by default, assumed). Notifications and toasts say which world they're from; the life dial (#131) and activity log cover all worlds.
 - **#147 Story time (M).** Optional per world: its own calendar and date ("Year 312, harvest month"), moving with real time or by time skips; prompts, schedules, statuses and "While you were away" (#130) use it instead of your clock.
+
+## Reset (#158, the user's request, 2026-10-25)
+
+- **#158 Reset a character or a world (M).** A Reset button for a character and for a world puts it back to how it started: a character loses every memory and fact, the "where things stand" paragraph, statuses, day logs, letters, first texts, moods, diaries and the rest of what built up (its card stays: name, look, personality, prompt); a world loses its progress (story time, news, talk between characters). Confirmed first; can't be undone. Before the part 2 and worlds deploy.
 
 ## UI revamp (#148–#157, picked 2026-10-25)
 

@@ -1,3 +1,4 @@
+import { catchUpTime } from "src/features/life/away";
 import { useEffect, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { generateAssistText } from "src/features/aiSlice";
@@ -26,9 +27,10 @@ const ChannelPoster = () => {
   }, [dispatch]);
 
   useEffect(() => {
-    const check = async () => {
+    // `at`: a catch-up turn back in your absence (#130), stamped with it.
+    const check = async (at?: number) => {
       if (busy.current) return;
-      const now = Date.now();
+      const now = at ?? Date.now();
       const { channels, characters, worlds } = latest.current;
       const due = channels.find((c) => channelPostDue(c, now) && (c.kind === "character" ? characters.some((x) => x.id === c.refId) : worlds.some((w) => w.id === c.refId)));
       if (!due) return;
@@ -44,7 +46,7 @@ const ChannelPoster = () => {
           const world = worlds.find((w) => w.id === due.refId)!;
           instruction = buildWorldChannelPrompt(world, (world.map?.pins || []).map((p) => p.name), recent);
         }
-        const text = cleanChannelPost(await dispatch(generateAssistText({ instruction, background: true, activity: { kind: "channel", text: `${channelName} posted to its channel`, characterId: due.kind === "character" ? due.refId : undefined, name: channelName } })).unwrap());
+        const text = cleanChannelPost(await dispatch(generateAssistText({ instruction, background: true, activity: { at: now, kind: "channel", text: `${channelName} posted to its channel`, characterId: due.kind === "character" ? due.refId : undefined, name: channelName } })).unwrap());
         // Recorded even when nothing usable came back, so it isn't retried every check.
         await dispatch(changeChannels((list) => list.map((c) => (c.id === due.id ? { ...c, lastPostAt: now, posts: text ? addChannelPost(c.posts, { id: newChannelPostId(), text, at: now }) : c.posts } : c))));
       } catch (err) {
@@ -53,7 +55,9 @@ const ChannelPoster = () => {
         busy.current = false;
       }
     };
-    const first = window.setTimeout(check, FIRST_CHECK_MS);
+    // The catch-up turn is claimed when the timer fires, not at mount (a
+    // remount would otherwise lose it).
+    const first = window.setTimeout(() => check(catchUpTime("channel")), FIRST_CHECK_MS);
     const timer = window.setInterval(check, CHECK_EVERY_MS);
     return () => {
       window.clearTimeout(first);

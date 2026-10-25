@@ -1,3 +1,4 @@
+import { catchUpTime } from "src/features/life/away";
 import { useEffect, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { generateAssistText, generateAvatarImage } from "src/features/aiSlice";
@@ -25,9 +26,10 @@ const ProfileChanger = () => {
   const busy = useRef(false);
 
   useEffect(() => {
-    const check = async () => {
+    // `at`: a catch-up turn back in your absence (#130), stamped with it.
+    const check = async (at?: number) => {
       if (busy.current) return;
-      const now = Date.now();
+      const now = at ?? Date.now();
       const { characters, chats } = latest.current;
       const chatFor = (id: number) => chats.find((c) => c.characterIds?.length === 1 && c.characterIds[0] === id && !c.whatIf);
       const changer = characters.find((c) => profileChangeDue(c, now) && awakeAt(c, now) && chatFor(c.id));
@@ -37,7 +39,7 @@ const ProfileChanger = () => {
         const about = cleanAbout(await dispatch(generateAssistText({
           instruction: buildAboutPrompt(changer, { dayMood: dayMoodFor(changer, now)?.label, concerns: concernsLine(changer.concerns), dayLog: dayLogText(changer, now) }),
           background: true,
-          activity: { kind: "profile", text: `${changer.name} changed their About`, characterId: changer.id, name: changer.name },
+          activity: { at: now, kind: "profile", text: `${changer.name} changed their About`, characterId: changer.id, name: changer.name },
         })).unwrap());
         let photo: string | undefined;
         if (about && photoChangeDue(changer)) {
@@ -66,7 +68,9 @@ const ProfileChanger = () => {
         busy.current = false;
       }
     };
-    const first = window.setTimeout(check, FIRST_CHECK_MS);
+    // The catch-up turn is claimed when the timer fires, not at mount (a
+    // remount would otherwise lose it).
+    const first = window.setTimeout(() => check(catchUpTime("profile")), FIRST_CHECK_MS);
     const timer = window.setInterval(check, CHECK_EVERY_MS);
     return () => {
       window.clearTimeout(first);

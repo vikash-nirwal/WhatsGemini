@@ -17,7 +17,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| #130 | While you were away | todo |  |
+| #130 | While you were away | done | 2026-10-25 |
 | #131 | Life dial and activity log | done | 2026-10-25 |
 | #132 | Real-model tuning pass | blocked | the user tests with their key and reports; Claude fixes |
 | #133 | Blocking, both ways | todo | they block you, or you block them and they ask a common contact to talk you round |
@@ -35,6 +35,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #145 | Life inside a world | todo | replaces circles: characters talk, Peek, 10 messages per exchange |
 | #146 | Worlds keep running | todo | background life in every world, per-world switch |
 | #147 | Story time | todo | optional world calendar |
+| #158 | Reset a character or a world | todo | the user asked 2026-10-25; before the deploy |
 | #148 | Revamp: design tokens and type | done | 2026-10-25 |
 | #149 | Revamp: core components | done | 2026-10-25 |
 | #150 | Revamp: navigation shell | done | 2026-10-25; terminal keeps its drawer and sidebar |
@@ -59,6 +60,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **While you were away (#130):** `features/life/away.ts` keeps "last seen" (`LastSeenTracker`: every minute, on hide and close); after 2+ hours away `catchUpTime(job)` gives FirstTexter, StatusPoster, ChannelPoster and ProfileChanger one turn at a moment inside the absence (claimed when their first timer fires), checked against their own due rules and stamped with it (`addMessage({ at })`, activity `at`). `AwayCard` on the chat list sums up those entries.
 - **Life dial and activity log (#131):** `features/life/lifeDial.ts` (Quiet / Normal / Lively, `life_dial` in localStorage) scales every background job's waiting time through `lifeScaled()` in its due check (status, channel, preoccupations, day log, first texts, letters, talk between members, profile, rumors, dreams). `generateAssistText({ ..., activity })` logs a background job's call with its estimated cost (`features/life/activityLog.ts`, last 300 entries); Settings > Spending shows the dial and the log (`LifeSettings`).
 - **Where things stand (#142):** the memory update's prompt asks for a closing `STANDING:` paragraph (`parseStanding`, `MemoryChanges.standing`); saved as `memoryStanding` ({text, at}) on the character, the chat (chat-scoped memory and groups) or the adventure. buildSystemInstruction sends it with the pinned facts instead of `selectRelevantFacts` (and `groupStanding` for groups; adventurePrompt likewise), falling back to the facts without one. Rewritten on reopening a chat after 6 hours (useBackgroundUpdates, existing paragraphs only); shown at the top of Memory in Contact info.
 - **Disappearing messages (#136):** `Chat.disappearing` ({after: day|week, since}); `setDisappearing` (chatSlice) sets it with a notice; `pruneDisappeared` (features/chat/disappearing.ts, with `removeNodes` in messageTree) drops expired messages from content and tree, run by ChatPage on open and every minute; `buildDisappearingNote` tells the character; memory extraction skips while it is on; a timer mark in the bubble meta (`disappears`) and "Disappearing · 1 day" in the header. Setting: Scene & story > Options.

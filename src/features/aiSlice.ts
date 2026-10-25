@@ -620,7 +620,7 @@ export const generateAssistText = createAsyncThunk(
   // for helpers like reply suggestions that run after every reply.
   // `activity` (#131): a background job's call, noted in the activity log
   // with its estimated cost.
-  async ({ instruction, background = false, activity }: { instruction: string; background?: boolean; activity?: Omit<ActivityEntry, "id" | "at" | "cost"> }, { getState, rejectWithValue }) => {
+  async ({ instruction, background = false, activity }: { instruction: string; background?: boolean; activity?: Omit<ActivityEntry, "id" | "at" | "cost"> & { at?: number } }, { getState, rejectWithValue }) => {
     try {
       const state = getState() as RootState;
       const settings = state.settings;

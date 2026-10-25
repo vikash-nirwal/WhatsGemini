@@ -16,6 +16,7 @@ import { LS_FONT_SIZE, LS_FIRST_USED_AT, SAMPLE_CHARACTER } from "./utils/consta
 
 import PhoneTabBar from "./components/organisms/PhoneTabBar";
 import NavRail from "src/components/organisms/NavRail";
+import LastSeenTracker from "src/components/molecules/LastSeenTracker";
 import Sidebar from "src/components/organisms/Sidebar";
 import Header from "src/components/organisms/Header";
 import ServiceWorkerUpdater from "src/components/molecules/ServiceWorkerUpdater";
@@ -223,6 +224,7 @@ const AppContent = () => {
         <BackupReminderBanner />
         <SpendingAlerts />
         <WebLLMProgress />
+        <LastSeenTracker />
         <DayLogWriter />
         <ConcernsWriter />
         <WeatherRefresher />

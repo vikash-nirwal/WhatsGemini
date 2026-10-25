@@ -1,3 +1,4 @@
+import { AwayCard } from "src/components/molecules/AwayCard";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { avatarOf } from "../../features/character/profileChanges";
 import { motion, AnimatePresence } from "framer-motion";
@@ -447,6 +448,7 @@ const Sidebar = () => {
 
         {/* Chat list */}
         <div className={cn("flex-1 overflow-y-auto pb-2.5", terminal ? "px-2" : "px-2", railCollapsed && "lg:px-1.5")}>
+          {!terminal && !search.trim() && !viewingArchived && <AwayCard />}
           {/* Archived chats (#115): one row at the top opens them. */}
           {!search.trim() && archivedItems.length > 0 && (
             viewingArchived ? (

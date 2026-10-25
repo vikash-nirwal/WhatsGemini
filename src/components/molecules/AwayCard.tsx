@@ -1,0 +1,39 @@
+import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { FaTimes } from "react-icons/fa";
+import { CharacterAvatar } from "./CharacterAvatar";
+import { awaySession, wasAway } from "src/features/life/away";
+import { ActivityEntry, loadActivity, onActivity } from "src/features/life/activityLog";
+
+// While you were away (#130): on the chat list after an absence, what
+// happened meanwhile, from the catch-up turns in the activity log.
+export const awayEntries = (entries: ActivityEntry[], lastSeen: number, openedAt: number): ActivityEntry[] =>
+  entries.filter((e) => e.at > lastSeen && e.at < openedAt);
+
+export const AwayCard = () => {
+  const [entries, setEntries] = useState<ActivityEntry[]>(() => loadActivity());
+  const [dismissed, setDismissed] = useState(false);
+  useEffect(() => onActivity(() => setEntries(loadActivity())), []);
+  if (dismissed || !wasAway()) return null;
+  const { lastSeen, openedAt } = awaySession();
+  const away = awayEntries(entries, lastSeen, openedAt);
+  if (away.length === 0) return null;
+  const names = Array.from(new Set(away.map((e) => e.name).filter(Boolean))) as string[];
+  return (
+    <section aria-label="While you were away" data-slot="away-card" className="mx-2 mb-2 flex items-start gap-3 rounded-card bg-raised p-3 ring-1 ring-inset ring-border">
+      <span className="flex flex-shrink-0 -space-x-2.5 pt-0.5">
+        {names.slice(0, 3).map((n) => <CharacterAvatar key={n} name={n} size={28} className="ring-2 ring-raised" />)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="text-[13.5px] font-semibold text-foreground">While you were away</div>
+        <p className="line-clamp-2 text-[12.5px] leading-[17px] text-muted-foreground">{away.slice(0, 3).map((e) => e.text).join(" · ")}{away.length > 3 ? ` · ${away.length - 3} more` : ""}</p>
+        <Link to="/settings/spending" className="mt-1 inline-block text-[12.5px] font-semibold text-primary-text hover:underline">See everything</Link>
+      </div>
+      <button type="button" onClick={() => setDismissed(true)} aria-label="Dismiss" data-hit className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-lg text-subtle hover:bg-sunken hover:text-foreground">
+        <FaTimes size={11} />
+      </button>
+    </section>
+  );
+};
+
+export default AwayCard;
