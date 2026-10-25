@@ -57,7 +57,8 @@ const FirstTexter = () => {
       const hasOneToOne = (id: number) => chats.some((c) => c.characterIds?.length === 1 && c.characterIds[0] === id);
       const texter = characters.find((c) => {
         const main = chatFor(c.id);
-        return (main || !hasOneToOne(c.id)) && firstTextDue(c, main, now);
+        // Blocked either way (#133): no first texts.
+        return (main || !hasOneToOne(c.id)) && !main?.blocked && firstTextDue(c, main, now);
       });
       if (!texter) return;
       busy.current = true;

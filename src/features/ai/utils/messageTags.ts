@@ -7,6 +7,7 @@ import { stripStreamingGroupTags } from "../../chat/groupLife";
 import { stripStreamingContact } from "../../chat/sharedContacts";
 import { stripStreamingInvite } from "../../chat/invites";
 import { stripStreamingSticker } from "../../character/stickers";
+import { stripStreamingBlockTags } from "../../chat/blocking";
 import { stripStreamingGameTag } from "../../chat/miniGames";
 import { stripStreamingState } from "../../chat/sceneState";
 
@@ -92,7 +93,7 @@ export const stripStreamingTags = (text: string): string => {
   const unclosed = out.match(THOUGHTS_UNCLOSED);
   if (unclosed) out = out.slice(0, unclosed.index);
   // A tag still being typed at the very end, including a story beat tag (#57).
-  return stripStreamingSticker(stripStreamingInvite(stripStreamingContact(stripStreamingGroupTags(stripStreamingStoryTags(stripStreamingSecretTag(stripStreamingChoices(stripStreamingCorrection(stripStreamingGameTag(stripStreamingBeatTag(stripStreamingState(out.replace(/<\s*t?h?o?u?g?h?t?s?\s*$/i, "").trimEnd())))))))))));
+  return stripStreamingBlockTags(stripStreamingSticker(stripStreamingInvite(stripStreamingContact(stripStreamingGroupTags(stripStreamingStoryTags(stripStreamingSecretTag(stripStreamingChoices(stripStreamingCorrection(stripStreamingGameTag(stripStreamingBeatTag(stripStreamingState(out.replace(/<\s*t?h?o?u?g?h?t?s?\s*$/i, "").trimEnd()))))))))))));
 };
 
 // Language practice (#67): the correction of the user's last message.

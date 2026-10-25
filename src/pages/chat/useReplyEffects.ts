@@ -1,7 +1,10 @@
 import { toast } from "sonner";
 import { useAppDispatch } from "../../store/hooks";
 import { generateAssistText } from "../../features/aiSlice";
-import { addMessage, fetchChatById, updateChatMessage, updateChatOptions } from "../../features/chatSlice";
+import { addMessage, fetchChatById, setBlocked, updateChatMessage, updateChatOptions } from "../../features/chatSlice";
+import { blockedByThem, mainChatWith } from "../../features/chat/blocking";
+import { useAppSelector } from "../../store/hooks";
+import { useRef } from "react";
 import { formatTranscript, TranscriptNames } from "../../features/ai/utils/chatHistoryUtils";
 import { trimToLatestSummary } from "../../features/ai/utils/transcript";
 import { NARRATIVE_CONTEXT_MESSAGES, parseReplySuggestions } from "../../features/ai/utils/narrativeTools";
@@ -53,6 +56,11 @@ export const useReplyEffects = ({
   setReplySuggestions,
 }: ReplyEffectDeps) => {
   const dispatch = useAppDispatch();
+  // Every chat and character, for a patch-up in another chat (#133).
+  const allChats = useAppSelector((state) => state.chat.chats);
+  const allCharacters = useAppSelector((state) => state.character.characters);
+  const latestStore = useRef({ chats: allChats, characters: allCharacters });
+  latestStore.current = { chats: allChats, characters: allCharacters };
 
   // Story script (#57): saved on the chat; a reply that reports reaching the
   // current beat moves the story on to the next one. One without the tag
@@ -88,7 +96,13 @@ export const useReplyEffects = ({
   // Forwarded (#123): something they passed along is kept the same way.
   // A shared contact card (#128) is kept on the reply too.
   // An event invite (#134) too.
-  const applyReplyQuote = (payload: { replyQuote?: string; forward?: string; contact?: { name: string; about: string }; invite?: Message["invite"]; sticker?: string } | undefined, allMessages: Message[]) => {
+  const applyReplyQuote = (payload: { replyQuote?: string; forward?: string; contact?: { name: string; about: string }; invite?: Message["invite"]; sticker?: string; blocks?: boolean; patchedUp?: string } | undefined, allMessages: Message[]) => {
+    // Blocking (#133), from the same reply: they blocked you, or a friend
+    // patched it up with whoever did.
+    if (chatIdNum && payload?.blocks && !isRoom && characterData && !currentChat?.blocked) {
+      void dispatch(setBlocked({ chatId: chatIdNum, blocked: { by: "them", at: Date.now() }, notice: `${characterData.name} blocked you` }));
+    }
+    if (payload?.patchedUp) void patchUp(payload.patchedUp);
     if (!chatIdNum || (!payload?.replyQuote && !payload?.forward && !payload?.contact && !payload?.invite && !payload?.sticker)) return;
     const reply = [...allMessages].reverse().find((m) => m.role === AI && m.id);
     if (!reply?.id) return;
@@ -101,6 +115,16 @@ export const useReplyEffects = ({
       ...(payload.sticker ? { sticker: payload.sticker } : {}),
     };
     if (Object.keys(patch).length > 0) void dispatch(updateChatMessage({ chatId: chatIdNum, messageId: reply.id, patch }));
+  };
+  // A friend patched it up (#133): whoever blocked you (by name) unblocks
+  // you, with a notice in your chat with them.
+  const patchUp = async (name: string) => {
+    const { chats, characters } = latestStore.current;
+    const blocker = characters.find((c) => c.name.toLowerCase() === name.trim().toLowerCase());
+    const chat = blocker ? mainChatWith(chats, blocker.id) : undefined;
+    if (!blocker || !chat?.id || !blockedByThem(chat)) return;
+    await dispatch(setBlocked({ chatId: chat.id, blocked: null, notice: `${blocker.name} unblocked you` }));
+    toast.success(`${blocker.name} unblocked you`);
   };
   // View-once photos (#122): with the switch on, about half the photos a
   // character sends open only once.

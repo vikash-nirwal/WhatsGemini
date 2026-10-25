@@ -598,6 +598,9 @@ export interface Chat {
   // Disappearing messages (#136): messages sent from `since` on vanish
   // `after` (a day or a week) after they were sent; the character knows.
   disappearing?: { after: "day" | "week"; since: number };
+  // Blocking (#133): who blocked whom, when; when a friend last brought up
+  // a block of yours, and who.
+  blocked?: { by: "you" | "them"; at: number; nudgedAt?: number; nudgedBy?: number };
 }
 
 // Art style used to compose every character-related image generation prompt

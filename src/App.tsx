@@ -17,6 +17,7 @@ import { LS_FONT_SIZE, LS_FIRST_USED_AT, SAMPLE_CHARACTER } from "./utils/consta
 import PhoneTabBar from "./components/organisms/PhoneTabBar";
 import NavRail from "src/components/organisms/NavRail";
 import LastSeenTracker from "src/components/molecules/LastSeenTracker";
+import GoBetween from "src/components/molecules/GoBetween";
 import Sidebar from "src/components/organisms/Sidebar";
 import Header from "src/components/organisms/Header";
 import ServiceWorkerUpdater from "src/components/molecules/ServiceWorkerUpdater";
@@ -236,6 +237,7 @@ const AppContent = () => {
         <ProfileChanger />
         <ChannelPoster />
         <RumorMill />
+        <GoBetween />
         <div className="flex flex-1 overflow-hidden">
           {/* #150: the section rail on desktop, then the chat list (only in
               Chats there), then the page. */}

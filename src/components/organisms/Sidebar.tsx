@@ -819,6 +819,9 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onToggleMute, 
                     {terminal && "# "}
                     <HighlightedText text={snippet} query={query} />
                   </span>
+                ) : chat.blocked?.by === "you" ? (
+                  // You blocked them (#133).
+                  <span className="flex-1 min-w-0 truncate text-[13.5px] leading-[19px] text-subtle" data-slot="chat-preview">You blocked {chat.title} · open to unblock</span>
                 ) : preview ? (
                   <span className={cn("flex-1 min-w-0 truncate", terminal ? "text-[11px] opacity-75" : cn("text-[13.5px] leading-[19px]", unread > 0 ? "text-foreground" : "text-muted-foreground"))} data-slot="chat-preview">
                     {terminal && "# "}
@@ -832,6 +835,7 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onToggleMute, 
                     {character.description}
                   </span>
                 ) : <span className="flex-1" />}
+                {chat.blocked?.by === "you" && <span className="flex-shrink-0 rounded-md bg-destructive/10 px-1.5 py-0.5 text-[11px] font-semibold text-destructive">Blocked</span>}
                 {chat.muted && <FaVolumeMute size={11} className="flex-shrink-0 text-subtle" aria-label="Muted" />}
                 {chat.pinned && !terminal && <FaThumbtack size={10} className="flex-shrink-0 text-subtle" aria-label="Pinned" />}
                 {unread > 0 && (

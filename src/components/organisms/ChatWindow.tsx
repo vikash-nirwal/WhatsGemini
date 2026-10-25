@@ -1,4 +1,5 @@
 import { stickerFor } from "../../features/character/stickers";
+import { sentWhileBlocked } from "../../features/chat/blocking";
 import { DISAPPEAR_LABEL, willDisappear } from "../../features/chat/disappearing";
 import React, { useRef, useEffect, useCallback, useMemo, useState } from "react";
 import { avatarOf } from "../../features/character/profileChanges";
@@ -362,6 +363,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
   const appTextingMode = useAppSelector((state) => state.settings.textingMode);
   const chatTextingMode = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.textingMode);
   const disappearing = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.disappearing);
+  const blocked = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.blocked);
   // Every theme, the terminal's prompt lines included (#141).
   const textingMode = Boolean(chatTextingMode ?? appTextingMode);
   // Reading aloud stops when you leave the chat.
@@ -859,7 +861,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
                     userBurst={textingMode && msg.role !== YOU ? burstBefore(i) : undefined}
                     // Ticks on your messages in every theme (#149), the
                     // terminal's prompt lines aside.
-                    receipt={!terminal && msg.role === YOU && !msg.isNarration ? (seenNoReply ? "read" : receiptFor(i, lastReplyIndex, filteredMessages.length - 1, Boolean(aiLoading))) : undefined}
+                    // Sent after they blocked you (#133): one grey tick, ever.
+                    receipt={!terminal && msg.role === YOU && !msg.isNarration ? (sentWhileBlocked({ blocked }, msg) ? "sent" : seenNoReply ? "read" : receiptFor(i, lastReplyIndex, filteredMessages.length - 1, Boolean(aiLoading))) : undefined}
                     runStart={runs.starts[i]}
                     runEnd={runs.ends[i]}
                     inRoom={Boolean(isRoom)}

@@ -20,7 +20,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #130 | While you were away | done | 2026-10-25 |
 | #131 | Life dial and activity log | done | 2026-10-25 |
 | #132 | Real-model tuning pass | blocked | the user tests with their key and reports; Claude fixes |
-| #133 | Blocking, both ways | todo | they block you, or you block them and they ask a common contact to talk you round |
+| #133 | Blocking, both ways | done | 2026-10-25 |
 | #134 | Event invites | done | 2026-10-25 |
 | #135 | Location sharing | skipped | dropped by the user (2026-10-25) |
 | #136 | Disappearing messages | done | 2026-10-25 |
@@ -60,6 +60,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **Blocking, both ways (#133):** `Chat.blocked` ({by: you|them, at, nudgedAt, nudgedBy}); `setBlocked` (chatSlice) with a notice. You block: Contact info or the chat menu (confirm), a blocked bar replaces the composer, "Blocked" in the header and list; statuses (UpdatesPage) and first texts stop (`blockedEitherWay`). `GoBetween` job: after 12 h, then every 2 days, a mutual friend (`mutualFriends`) brings it up in your chat with them (`buildGoBetweenPrompt`, notice "X is talking about Y"), and `blockNotesFor` briefs their replies. They block you: during a fight `buildBlockDirective` allows `[Block]`; your messages then get one tick (`sentWhileBlocked`) and no reply; a friend may end a reply with `[Patched up: Name]` (applied in useReplyEffects `patchUp`). Logic in `features/chat/blocking.ts`.
 - **Character stickers (#137):** `Character.stickers` ({id, mood, image}); `StickerSet` in Contact info > Look draws the missing moods (`STICKER_MOODS`, `stickerHint`) with generateAvatarImage in their locked look. With a set, `buildStickerDirective` (scene.stickerNote) lets a reply end with `[Sticker: mood]`, extracted to `Message.sticker`; ChatWindow resolves the image (`stickerFor`), and a sticker-only reply shows without a bubble.
 - **Event invites (#134):** `features/chat/invites.ts`: a reply may end with `[Invite: what | when | where]` (`buildInviteDirective` in `scene.inviteNote`, 1:1 main chats), extracted in aiSlice to `Message.invite` (via applyReplyQuote); ChatMessage shows the card with Accept / Decline (`onAnswerInvite` -> ChatPage `answerInvite`): accepting adds a SharedPlan and a notice; `buildInviteAnswerNote` gives your answer to the next reply.
 - **While you were away (#130):** `features/life/away.ts` keeps "last seen" (`LastSeenTracker`: every minute, on hide and close); after 2+ hours away `catchUpTime(job)` gives FirstTexter, StatusPoster, ChannelPoster and ProfileChanger one turn at a moment inside the absence (claimed when their first timer fires), checked against their own due rules and stamped with it (`addMessage({ at })`, activity `at`). `AwayCard` on the chat list sums up those entries.

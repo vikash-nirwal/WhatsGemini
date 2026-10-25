@@ -1,3 +1,4 @@
+import { blockedEitherWay } from "src/features/chat/blocking";
 import React, { useState } from "react";
 import { avatarOf } from "../features/character/profileChanges";
 import Header from "src/components/organisms/Header";
@@ -36,7 +37,9 @@ const UpdatesPage = () => {
   const [feedOpen, setFeedOpen] = useState(false);
   const reply = useStatusReply(() => { setViewing(null); setFeedOpen(false); });
   const now = Date.now();
-  const visible = showNsfw ? characters : characters.filter((c) => !isNsfwCharacter(c));
+  // Blocked either way (#133): their statuses don't reach you.
+  const chats = useAppSelector((state) => state.chat.chats);
+  const visible = (showNsfw ? characters : characters.filter((c) => !isNsfwCharacter(c))).filter((c) => !blockedEitherWay(chats, c.id));
   const posting = visible
     .filter((c) => liveStatuses(c, now).length > 0)
     .map((c) => ({ character: c, latest: Math.max(...liveStatuses(c, now).map((s) => s.createdAt)), unseen: hasUnseenStatus(c, now), mentions: liveStatuses(c, now).some((s) => s.mentionsYou) }))

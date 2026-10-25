@@ -1,3 +1,5 @@
+import { FaBan } from "react-icons/fa";
+import { blockedByThem, blockedByYou, blockNotesFor, buildBlockDirective } from "../features/chat/blocking";
 import { buildStickerDirective } from "../features/character/stickers";
 import { buildInviteAnswerNote, buildInviteDirective } from "../features/chat/invites";
 import { newPlanId } from "../features/chat/sharedPlans";
@@ -5,7 +7,7 @@ import { buildDisappearingNote, DISAPPEAR_LABEL, pruneDisappeared } from "../fea
 import { useEffect, useState, useMemo, useRef } from "react";
 import { avatarOf } from "../features/character/profileChanges";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { addChatNotice, fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, insertCompressionSummary, removeCompressionSummary, forkChat, updateChatMessage, updateChatOptions, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatGreeting, setPendingFollowupAt, addPreparedChat, addChat } from "../features/chatSlice";
+import { addChatNotice, setBlocked, fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, insertCompressionSummary, removeCompressionSummary, forkChat, updateChatMessage, updateChatOptions, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatGreeting, setPendingFollowupAt, addPreparedChat, addChat } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter, addCharacter } from "../features/characterSlice";
 import { generateAIResponse, compressChatHistory, autoCompressChat, generateAvatarImage, summarizeChapter, generateAssistText, generateBackdropImage } from "../features/aiSlice";
 import { parseSlashCommand, SLASH_COMMANDS } from "../features/chat/slashCommands";
@@ -352,6 +354,11 @@ const ChatPage = () => {
   scene.inviteNote = !isRoom && characterData && mainStory ? [buildInviteDirective(characterData.name, userNameForNotes), buildInviteAnswerNote(currentChat?.content || [], characterData.name, userNameForNotes)].filter(Boolean).join("\n") : undefined;
   // Stickers (#137): with a set drawn, now and then one instead of an emoji.
   scene.stickerNote = !isRoom && characterData?.stickers?.length ? buildStickerDirective(characterData.name, characterData.stickers.map((st) => st.mood)) : undefined;
+  // Blocking (#133): a fight can end in a block; a friend of someone who
+  // blocked you can patch it up; a friend asked to put in a word for
+  // someone you blocked can talk it through.
+  if (!isRoom && characterData && currentChat?.conflict) scene.conflictNote = [scene.conflictNote, buildBlockDirective(characterData.name, userNameForNotes)].filter(Boolean).join("\n");
+  scene.blockNote = !isRoom && characterData ? blockNotesFor(characterData, characters, chats, userNameForNotes) : undefined;
   // Group chats (#124): members may rename the group or start a poll.
   scene.groupNote = isRoom ? buildGroupDirective(userNameForNotes) : undefined;
   // Quoted replies (#119): in texting mode they may quote an older message.
@@ -1327,6 +1334,12 @@ const ChatPage = () => {
         }
       }
 
+      // Blocked by them (#133): it goes out with one grey tick, no reply.
+      if (!isRoom && blockedByThem(currentChat)) {
+        dispatch(fetchChats());
+        return;
+      }
+
       if (silentSend) {
         // Add the user's own turn but stop there - no AI reply this time,
         // so the next send (typically an impersonated one) can supply the
@@ -2258,6 +2271,22 @@ const ChatPage = () => {
     }
   };
 
+  // Blocking (#133): yours to set and lift; theirs only a friend can patch up.
+  const blockCharacter = async () => {
+    if (!chatIdNum || !characterData) return;
+    const name = characterData.name;
+    const confirmed = await showConfirm(
+      `Block ${name}?`,
+      `${name} can't text you, and their statuses stop reaching you. They aren't told, but friends you share may notice and bring it up.`
+    );
+    if (!confirmed) return;
+    await dispatch(setBlocked({ chatId: chatIdNum, blocked: { by: "you", at: Date.now() }, notice: `You blocked ${name}` }));
+  };
+  const unblockCharacter = () => {
+    if (!chatIdNum || !characterData) return;
+    void dispatch(setBlocked({ chatId: chatIdNum, blocked: null, notice: `You unblocked ${characterData.name}` }));
+  };
+
   const chatActions: HeaderAction[] = [
     { icon: FaBookOpen, label: "Export as story (Markdown)", onClick: handleExportStory },
     ...(!isRoom && characterData ? [{ icon: FaImages, label: `${characterData.name}'s album`, onClick: () => setAlbumOpen(true) }] : []),
@@ -2335,6 +2364,11 @@ const ChatPage = () => {
     ...(characterData
       ? [{ icon: FaUserCircle, label: "View current portrait", onClick: () => setPortraitPreviewOpen(true) }]
       : []),
+    ...(!isRoom && characterData && !blockedByThem(currentChat)
+      ? [blockedByYou(currentChat)
+          ? { icon: FaBan, label: `Unblock ${characterData.name}`, onClick: unblockCharacter }
+          : { icon: FaBan, label: `Block ${characterData.name}`, onClick: () => void blockCharacter(), danger: true }]
+      : []),
     ...(personas.length > 1
       ? [{ icon: FaUserCircle, label: `Persona: ${activePersona?.name || "None"}`, onClick: () => setIsPersonaModalOpen(true), active: Boolean(currentChat?.personaId) }]
       : []),
@@ -2344,8 +2378,8 @@ const ChatPage = () => {
     <div className="flex flex-col w-full h-dvh relative">
       <Header
         title={character || "Chat"}
-        subtitle={isRoom ? `With ${roomCharacters.map((c) => c.name).join(", ")}` : currentChat?.disappearing ? `Disappearing · ${DISAPPEAR_LABEL[currentChat.disappearing.after]}` : (presence?.label || characterData?.relationship || characterData?.description)}
-        online={presence ? presence.online : true}
+        subtitle={isRoom ? `With ${roomCharacters.map((c) => c.name).join(", ")}` : blockedByYou(currentChat) ? "Blocked" : blockedByThem(currentChat) ? undefined : currentChat?.disappearing ? `Disappearing · ${DISAPPEAR_LABEL[currentChat.disappearing.after]}` : (presence?.label || characterData?.relationship || characterData?.description)}
+        online={blockedByThem(currentChat) ? false : presence ? presence.online : true}
         avatar={
           // A group shows its members' faces, so nobody's stands for all of
           // them (#151, the "GG" bug's header half).
@@ -2356,7 +2390,8 @@ const ChatPage = () => {
               ))}
             </span>
           ) : (
-            <CharacterAvatar name={characterData?.name || character} accent={characterData?.accent} imageSrc={headerEmotionImageSrc} size={40} />
+            // They blocked you (#133): their photo is gone for you.
+            <CharacterAvatar name={characterData?.name || character} accent={blockedByThem(currentChat) ? undefined : characterData?.accent} imageSrc={blockedByThem(currentChat) ? undefined : headerEmotionImageSrc} size={40} />
           )
         }
         onTitleClick={isRoom ? () => { setParticipantsOpen(true); setSceneOpen(false); setContactOpen(false); } : characterData ? () => { setContactOpen((v) => !v); setSceneOpen(false); setParticipantsOpen(false); } : undefined}
@@ -2504,7 +2539,14 @@ const ChatPage = () => {
               )
         }
       >
-        <MessageInput
+{blockedByYou(currentChat) && characterData ? (
+          // You blocked them (#133): no composer, just the way back.
+          <div role="status" data-slot="blocked-bar" className="flex flex-col items-center gap-3 rounded-card bg-surface px-4 py-3 text-center shadow-popover ring-1 ring-inset ring-border">
+            <p className="text-[13.5px] text-muted-foreground">You blocked {characterData.name}. They can't message you, and you can't message them.</p>
+            <Button type="button" onClick={unblockCharacter} className="h-10 rounded-[10px] px-5">Unblock</Button>
+          </div>
+        ) : (
+                <MessageInput
           replyPreview={replyingToStatus ? { name: `${roomCharacters.find((c) => c.id === replyingToStatus.owner)?.name || characterData?.name || "Their"} · Status`, text: `${replyingToStatus.photo ? "📷 " : ""}${replyingToStatus.text || "Photo"}` } : replyingTo ? { name: replyingTo.role === YOU ? "You" : roomCharacters.find((c) => c.id === replyingTo.speakerId)?.name || characterData?.name || "Them", text: quoteTextOf(replyingTo) } : undefined}
           onCancelReply={() => { setReplyingTo(null); setReplyingToStatus(null); }}
           placeholderText={swap && characterData ? `Write as ${characterData.name}…` : !isRoom && currentChat?.coWriting ? "Write the next part of the story…" : undefined}
@@ -2527,6 +2569,7 @@ const ChatPage = () => {
           onDraftReply={characterData ? handleDraftReply : undefined}
           draftInjection={draftInjection}
         />
+        )}
       </div>
     </div>
   );
