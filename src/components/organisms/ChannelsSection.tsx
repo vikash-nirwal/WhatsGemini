@@ -9,6 +9,7 @@ import { channelId, channelName, unreadPosts } from "src/features/channels/chann
 import { avatarOf } from "src/features/character/profileChanges";
 import { isNsfwCharacter } from "src/features/character/contentRating";
 import { Channel } from "src/types";
+import { useInWorldChannel, useWorldCharacters } from "src/hooks/useWorld";
 
 // Channels (#127) on the Updates page: the ones you follow, newest post
 // first, and "Find channels" to follow a character's or a world's.
@@ -18,17 +19,20 @@ export const ChannelsSection = () => {
   const channels = useAppSelector((state) => state.channels.channels);
   const characters = useAppSelector((state) => state.character.characters);
   const worlds = useAppSelector((state) => state.world.worlds);
+  // Only this world's channels (#143): its people's, and its own news.
+  const worldCharacters = useWorldCharacters();
+  const inThisWorld = useInWorldChannel();
   const showNsfw = useAppSelector((state) => state.settings.showNsfwCharacters);
   const [finding, setFinding] = useState(false);
 
   const subjectOf = (c: Pick<Channel, "kind" | "refId">) => (c.kind === "character" ? characters.find((x) => x.id === c.refId) : worlds.find((w) => w.id === c.refId));
-  const followed = channels.filter((c) => subjectOf(c)).sort((a, b) => (b.posts[b.posts.length - 1]?.at || b.followedAt) - (a.posts[a.posts.length - 1]?.at || a.followedAt));
+  const followed = channels.filter((c) => subjectOf(c) && inThisWorld(c)).sort((a, b) => (b.posts[b.posts.length - 1]?.at || b.followedAt) - (a.posts[a.posts.length - 1]?.at || a.followedAt));
   const isFollowed = (kind: Channel["kind"], refId: number) => channels.some((c) => c.id === channelId(kind, refId));
   const follow = (kind: Channel["kind"], refId: number) =>
     dispatch(changeChannels((list) => (list.some((c) => c.id === channelId(kind, refId)) ? list : [...list, { id: channelId(kind, refId), kind, refId, followedAt: Date.now(), posts: [] }])));
   const candidates = [
-    ...(showNsfw ? characters : characters.filter((c) => !isNsfwCharacter(c))).map((c) => ({ kind: "character" as const, refId: c.id, name: channelName("character", c), image: avatarOf(c), accent: c.accent, about: c.description })),
-    ...worlds.map((w) => ({ kind: "world" as const, refId: w.id, name: channelName("world", w), image: w.coverImage, accent: undefined, about: w.premise })),
+    ...(showNsfw ? worldCharacters : worldCharacters.filter((c) => !isNsfwCharacter(c))).map((c) => ({ kind: "character" as const, refId: c.id, name: channelName("character", c), image: avatarOf(c), accent: c.accent, about: c.description })),
+    ...worlds.filter((w) => inThisWorld({ kind: "world", refId: w.id } as Channel)).map((w) => ({ kind: "world" as const, refId: w.id, name: channelName("world", w), image: w.coverImage, accent: undefined, about: w.premise })),
   ];
 
   const avatar = (c: Pick<Channel, "kind" | "refId">, size: number) => {

@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { dbService } from "../services/dbService";
 import { LS_INITIAL_MESSAGES, YOU, AI } from "../utils/constants";
-import { Character, Chat, Message, ConversationTree } from "../types";
+import { Character, Chat, Message, ConversationTree, World } from "../types";
 import { buildFork } from "./chat/forkChat";
 import { addChildNode, flattenPath, generateNodeId, removeSummaryFromConversation, spliceSummaryIntoConversation } from "./chat/messageTree";
 import { applyMacros, getGreetings } from "./ai/utils/macros";
@@ -44,10 +44,16 @@ export const fetchChatById = createAsyncThunk("chat/fetchById", async (id: numbe
 
 export const addChat = createAsyncThunk(
   "chat/add",
-  async ({ title, characterIds, authorNote, scenario }: { title: string; characterIds?: number[]; authorNote?: string; scenario?: string }, { rejectWithValue }) => {
+  async ({ title, characterIds, authorNote, scenario }: { title: string; characterIds?: number[]; authorNote?: string; scenario?: string }, { getState, rejectWithValue }) => {
     try {
       const timestamp = Date.now();
-      const newChat = { title, timestamp, content: [], characterIds: characterIds || [], authorNote, ...(scenario ? { scenario } : {}) };
+      // A chat lives in its characters' world (#143), or the one on screen
+      // when it has none yet, and you're that world's persona there.
+      const state = getState() as { character?: { characters: Character[] }; world?: { worlds: World[]; currentWorldId: number | null } };
+      const first = state.character?.characters.find((c) => c.id === characterIds?.[0]);
+      const worldId = first ? first.worldId : state.world?.currentWorldId ?? undefined;
+      const personaId = state.world?.worlds.find((w) => w.id === worldId)?.personaId;
+      const newChat = { title, timestamp, content: [], characterIds: characterIds || [], authorNote, ...(scenario ? { scenario } : {}), ...(worldId ? { worldId } : {}), ...(personaId ? { personaId } : {}) };
       const id = await dbService.addChat(newChat);
       return { id, ...newChat };
     } catch (error) {

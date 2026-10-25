@@ -791,6 +791,12 @@ export interface Character {
   // Per-character model (#32): this character's replies use these instead of
   // the app-wide text model settings. Every field is optional and unset falls
   // back to the app setting; see resolveTurnModel in modelResolution.ts.
+  // Worlds (#143): the world this character lives in (unset = "My world"),
+  // and, for a character who joined from another world, the id of the one
+  // they were copied from. Copies share the card (see CARD_FIELDS) and keep
+  // their own memory and life.
+  worldId?: number;
+  cardOf?: number;
   modelOverride?: {
     provider?: string; // chat provider id (a CHAT_PROVIDERS key)
     model?: string;
@@ -896,6 +902,7 @@ export interface World {
   coverImage?: string; // local:/data: ref, same shape as Character.avatar
   tags?: string[]; // discoverability tags, mirrors Character.tags
   map?: WorldMap; // a picture of the world with its places pinned (#66)
+  personaId?: string; // who you are in this world (#143); unset = your active persona
 }
 
 // A place pinned on a World's map; x and y are percent of the picture.

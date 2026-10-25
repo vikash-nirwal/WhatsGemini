@@ -1,5 +1,6 @@
 import { FaProjectDiagram } from "react-icons/fa";
 import RelationshipMap from "src/components/organisms/RelationshipMap";
+import { JoinWorldDialog } from "src/components/organisms/JoinWorldDialog";
 import React, { useState, useMemo, useRef } from "react";
 import { avatarOf } from "../features/character/profileChanges";
 import { useColorTheme } from "../hooks/useColorTheme";
@@ -30,16 +31,19 @@ import { characterToCardV2, parseCharacterCardText, buildCharacterCardPng, extra
 import ImportReviewDialog from "src/components/organisms/ImportReviewDialog";
 import { Dialog, DialogContent, DialogTitle, DialogClose } from "src/components/molecules/dialog";
 import { parseSize, resolveImageSrcToUrl, autoCoverCropToBlob, generatePlaceholderPortraitBlob, blobToDataUrl } from "../features/ai/utils/portraitUtils";
+import { useWorldChats, useWorldCharacters } from "src/hooks/useWorld";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 const CharacterPage = () => {
   // The phone-style shell's tab bar (#114) sits over the bottom of the page.
   const [mapOpen, setMapOpen] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
+  const worldCount = useAppSelector((state) => state.world.worlds.length);
   const shell = usePhoneShell();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const allCharacters = useAppSelector((state) => state.character.characters);
+  const allCharacters = useWorldCharacters();
   const showNsfwCharacters = useAppSelector((state) => state.settings.showNsfwCharacters);
   const blurNsfwMedia = useAppSelector((state) => state.settings.privacy.blurNsfwMedia);
   const hasNsfwCharacters = useMemo(() => allCharacters.some(isNsfwCharacter), [allCharacters]);
@@ -47,7 +51,7 @@ const CharacterPage = () => {
     () => (showNsfwCharacters ? allCharacters : allCharacters.filter((c) => !isNsfwCharacter(c))),
     [allCharacters, showNsfwCharacters]
   );
-  const chats = useAppSelector((state) => state.chat.chats);
+  const chats = useWorldChats();
   const loading = useAppSelector((state) => state.character.loading);
   const { showConfirm, showAlert } = useModal();
   const { is } = useColorTheme();
@@ -335,6 +339,13 @@ const CharacterPage = () => {
             <Button onClick={() => setMapOpen(true)} variant="outline">
               <FaProjectDiagram size={12} /> Relationship map
             </Button>
+            {/* Worlds (#143): bring someone in from another world. */}
+            {worldCount > 0 && (
+              <Button onClick={() => setJoinOpen(true)} variant="outline">
+                <FaPlus size={12} /> From another world
+              </Button>
+            )}
+            <JoinWorldDialog open={joinOpen} onOpenChange={setJoinOpen} />
             <Dialog open={mapOpen} onOpenChange={setMapOpen}>
               <DialogContent size="lg" className="overflow-y-auto">
                 <DialogTitle>Relationship map</DialogTitle>

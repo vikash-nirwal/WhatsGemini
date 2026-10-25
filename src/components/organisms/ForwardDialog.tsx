@@ -9,6 +9,7 @@ import { addMessage, fetchChats } from "src/features/chatSlice";
 import { quoteTextOf } from "src/features/chat/replyQuotes";
 import { YOU } from "src/utils/constants";
 import { Message } from "src/types";
+import { useWorldChats } from "src/hooks/useWorld";
 
 // Forwarding (#123): pass a message on to another chat, as WhatsApp does.
 // It lands there as your message, marked "Forwarded", without asking for a
@@ -16,7 +17,7 @@ import { Message } from "src/types";
 const ForwardDialog = ({ message, onClose }: { message: Message | null; onClose: () => void }) => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const chats = useAppSelector((state) => state.chat.chats);
+  const chats = useWorldChats();
   const characters = useAppSelector((state) => state.character.characters);
   const [query, setQuery] = useState("");
   const shown = chats.filter((c) => !c.archived && c.title.toLowerCase().includes(query.trim().toLowerCase()));

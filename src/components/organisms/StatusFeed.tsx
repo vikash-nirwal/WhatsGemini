@@ -14,6 +14,7 @@ import { DisplayImage } from "src/components/molecules/DisplayImage";
 import { NsfwBlur } from "src/components/molecules/NsfwBlur";
 import { isNsfwCharacter } from "src/features/character/contentRating";
 import { Character, CharacterStatus } from "src/types";
+import { useWorldCharacters } from "src/hooks/useWorld";
 
 interface StatusFeedProps {
   items: { character: Character; status: CharacterStatus }[];
@@ -26,7 +27,7 @@ interface StatusFeedProps {
 // the chat with the status quoted.
 export const StatusFeed: React.FC<StatusFeedProps> = ({ items, onReply, showPoster = false }) => {
   const dispatch = useAppDispatch();
-  const characters = useAppSelector((state) => state.character.characters);
+  const characters = useWorldCharacters();
   const personas = useAppSelector((state) => state.settings.personas);
   const activePersonaId = useAppSelector((state) => state.settings.activePersonaId);
   const userName = (personas.find((p) => p.id === activePersonaId) || personas[0])?.name?.trim() || "You";

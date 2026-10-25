@@ -17,6 +17,7 @@ import { feedItems } from "src/features/character/statusFeed";
 import { useStatusReply } from "src/hooks/useStatusReply";
 import { usePhoneShell, TAB_BAR_HEIGHT } from "src/hooks/usePhoneShell";
 import { Character } from "src/types";
+import { useWorldChats, useWorldCharacters } from "src/hooks/useWorld";
 
 const timeOf = (at: number) => {
   const date = new Date(at);
@@ -31,14 +32,14 @@ const timeOf = (at: number) => {
 const UpdatesPage = () => {
   const dispatch = useAppDispatch();
   const shell = usePhoneShell();
-  const characters = useAppSelector((state) => state.character.characters);
+  const characters = useWorldCharacters();
   const showNsfw = useAppSelector((state) => state.settings.showNsfwCharacters);
   const [viewing, setViewing] = useState<Character | null>(null);
   const [feedOpen, setFeedOpen] = useState(false);
   const reply = useStatusReply(() => { setViewing(null); setFeedOpen(false); });
   const now = Date.now();
   // Blocked either way (#133): their statuses don't reach you.
-  const chats = useAppSelector((state) => state.chat.chats);
+  const chats = useWorldChats();
   const visible = (showNsfw ? characters : characters.filter((c) => !isNsfwCharacter(c))).filter((c) => !blockedEitherWay(chats, c.id));
   const posting = visible
     .filter((c) => liveStatuses(c, now).length > 0)

@@ -1,4 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { cardChanged, linkedCopies, withCard } from "./character/card";
 import { dbService } from "../services/dbService";
 import { CHARACTER } from "../utils/constants";
 import { Character } from "../types";
@@ -37,8 +38,12 @@ export const fetchCharacterById = createAsyncThunk(
 
 export const addCharacter = createAsyncThunk(
   "character/add",
-  async (character: Omit<Character, "id">, { rejectWithValue }) => {
+  async (character: Omit<Character, "id">, { getState, rejectWithValue }) => {
     try {
+      // A new character joins the world on screen (#143) unless they come
+      // with one (a copy for another world).
+      const currentWorldId = (getState() as { world?: { currentWorldId: number | null } }).world?.currentWorldId;
+      if (character.worldId === undefined && currentWorldId) character = { ...character, worldId: currentWorldId };
       if (!character.name.trim() || !character.prompt.trim()) {
         throw new Error("Character name and prompt are required.");
       }
@@ -73,10 +78,15 @@ export const deleteCharacter = createAsyncThunk(
 
 export const updateCharacter = createAsyncThunk(
   "character/update",
-  async (character: Character, { rejectWithValue }) => {
+  async (character: Character, { getState, rejectWithValue }) => {
     try {
       await dbService.updateCharacter(character);
-      return character;
+      // A card edit reaches the character's copies in other worlds (#143).
+      const all = (getState() as { character: CharacterState }).character.characters;
+      const before = all.find((c) => c.id === character.id);
+      const copies = before && cardChanged(before, character) ? linkedCopies(all, character).map((copy) => withCard(copy, character)) : [];
+      for (const copy of copies) await dbService.updateCharacter(copy);
+      return { character, copies };
     } catch (error) {
       return rejectWithValue("Failed to update character.");
     }
@@ -136,8 +146,10 @@ const characterSlice = createSlice({
         // updates from ScenePanel/ChatPage) persists to IndexedDB fine but
         // the rest of the running app keeps showing the pre-edit character
         // until something else happens to refetch it.
-        const idx = state.characters.findIndex((c) => c.id === action.payload.id);
-        if (idx !== -1) state.characters[idx] = action.payload;
+        for (const updated of [action.payload.character, ...action.payload.copies]) {
+          const idx = state.characters.findIndex((c) => c.id === updated.id);
+          if (idx !== -1) state.characters[idx] = updated;
+        }
       })
       .addCase(updateCharacter.rejected, (state, action) => {
         state.error = action.payload as string;

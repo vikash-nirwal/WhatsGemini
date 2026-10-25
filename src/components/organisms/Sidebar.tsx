@@ -30,6 +30,8 @@ import { MdOutlineAddComment, MdOutlineDonutLarge, MdOutlineStarBorder, MdMoreHo
 import { sectionOf } from "./NavRail";
 import { DESKTOP_QUERY, useMediaQuery } from "../../hooks/useMediaQuery";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "src/components/molecules/dropdown-menu";
+import { useWorldChats, useWorldCharacters } from "src/hooks/useWorld";
+import { WorldSwitcher } from "src/components/molecules/WorldSwitcher";
 
 const formatChatTime = (timestamp?: number) => {
   if (!timestamp) return "";
@@ -113,9 +115,11 @@ const Sidebar = () => {
     return match ? Number(match[1]) : null;
   }, [location.pathname]);
 
-  const chats = useAppSelector((state) => state.chat.chats);
+  const chats = useWorldChats();
   const pendingFollowups = useAppSelector((state) => state.chat.pendingFollowups);
   const characters = useAppSelector((state) => state.character.characters);
+  // The new-chat picker offers only people in the world on screen (#143).
+  const worldCharacters = useWorldCharacters();
   const showNsfwCharacters = useAppSelector((state) => state.settings.showNsfwCharacters);
   const activePersona = useAppSelector(selectActivePersona);
   const personaName = activePersona?.name?.trim();
@@ -281,13 +285,13 @@ const Sidebar = () => {
   // The new-chat picker honors the gallery's "Show NSFW" switch; the chat
   // list above still resolves every chat's character regardless.
   const filteredCharacters = useMemo(() => {
-    const visible = showNsfwCharacters ? characters : characters.filter((c: Character) => !isNsfwCharacter(c));
+    const visible = showNsfwCharacters ? worldCharacters : worldCharacters.filter((c: Character) => !isNsfwCharacter(c));
     const q = characterSearch.trim().toLowerCase();
     if (!q) return visible;
     return visible.filter((c: Character) =>
       c.name.toLowerCase().includes(q) || (c.description || "").toLowerCase().includes(q)
     );
-  }, [characters, characterSearch, showNsfwCharacters]);
+  }, [worldCharacters, characterSearch, showNsfwCharacters]);
 
   return (
     <>
@@ -312,8 +316,9 @@ const Sidebar = () => {
       >
         {home && (
           <div className="h-[60px] px-4 flex items-center gap-1 flex-shrink-0" data-slot="home-title">
-            {/* The app's name stands where the world switcher goes (#157). */}
-            <h1 className="flex-1 text-[22px] font-bold tracking-tight text-primary-text">WhatsGemini</h1>
+            {/* The world switcher stands in the title row (#143). */}
+            <h1 className="sr-only">WhatsGemini</h1>
+            <div className="flex-1 min-w-0"><WorldSwitcher variant="title" /></div>
             <Link to="/starred" title="Starred messages" aria-label="Starred messages" className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:bg-raised">
               <MdOutlineStarBorder size={22} />
             </Link>
@@ -551,7 +556,7 @@ const Sidebar = () => {
         title={newChatMode === "group" ? "Start a group chat" : "Who do you want to talk to?"}
         subtitle={newChatMode === "group" ? "Pick everyone who should be in the room." : "Pick a character to start a new chat."}
       >
-        {characters.length === 0 ? (
+        {worldCharacters.length === 0 ? (
           <div className="text-center py-4">
             <p className="text-muted-foreground mb-3">No characters available yet.</p>
             <Button
@@ -568,7 +573,7 @@ const Sidebar = () => {
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            {characters.length > 1 && (
+            {worldCharacters.length > 1 && (
               <SegmentedControl
                 value={newChatMode}
                 onChange={(v) => {
@@ -653,7 +658,7 @@ const Sidebar = () => {
                 <Input
                   value={roomName}
                   onChange={(e) => setRoomName(e.target.value)}
-                  placeholder={characters.filter((c) => selectedCharacterIds.includes(c.id)).map((c) => c.name).join(", ")}
+                  placeholder={worldCharacters.filter((c) => selectedCharacterIds.includes(c.id)).map((c) => c.name).join(", ")}
                   aria-label="Room name"
                   className="text-[13px] bg-background border-border/10 shadow-none"
                 />
@@ -680,7 +685,7 @@ const Sidebar = () => {
             )}
           </div>
         )}
-        {characters.length > 0 && newChatMode === "single" && (
+        {worldCharacters.length > 0 && newChatMode === "single" && (
           <div className="flex items-center gap-2 pt-3 mt-1 border-t border-border/40 text-[13px] text-muted-foreground">
             <FaPlus size={12} className="text-primary flex-shrink-0" />
             <span>

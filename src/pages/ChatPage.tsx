@@ -216,6 +216,7 @@ const ChatPage = () => {
     [currentChat?.mutedParticipantIds, currentChat?.sceneTracker, currentChat?.sceneState, isRoom, roomCharacters]
   );
   const worlds = useAppSelector((state) => state.world.worlds);
+  const worldPersonaId = worlds.find((w) => w.id === currentChat?.worldId)?.personaId; // who you are in this chat's world (#143)
   const myStatuses = useAppSelector((state) => state.myStatus.statuses);
   // A phone call (#56): replies are spoken, and what you say is sent as voice messages.
   const [inCall, setInCall] = useState(false);
@@ -322,8 +323,8 @@ const ChatPage = () => {
     };
   }, [terminal]);
   const activePersona = useMemo(
-    () => personas.find((p) => p.id === (currentChat?.personaId || globalActivePersonaId)) || personas[0],
-    [personas, currentChat?.personaId, globalActivePersonaId]
+    () => personas.find((p) => p.id === (currentChat?.personaId || worldPersonaId || globalActivePersonaId)) || personas[0],
+    [personas, currentChat?.personaId, worldPersonaId, globalActivePersonaId]
   );
   // Set here rather than in `scene` above: they need the persona's name.
   // A flashback or another world (#102, #104) isn't the main story, so the

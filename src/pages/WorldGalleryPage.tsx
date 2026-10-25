@@ -2,7 +2,9 @@ import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaPlus, FaEdit, FaTrash, FaGlobe, FaSearch } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { deleteWorld } from "../features/worldSlice";
+import { deleteWorld, switchWorld } from "../features/worldSlice";
+import { MY_WORLD, worldOf } from "../features/world/currentWorld";
+import { useCurrentWorld } from "../hooks/useWorld";
 import { useModal } from "../contexts/ModalContext";
 import { useColorTheme } from "../hooks/useColorTheme";
 import { cn } from "../utils/cn";
@@ -20,6 +22,19 @@ const WorldGalleryPage = () => {
   const neumorphic = is("neumorphic");
   const worlds = useAppSelector((state) => state.world.worlds);
   const adventures = useAppSelector((state) => state.adventure.adventures);
+  const characters = useAppSelector((state) => state.character.characters);
+  const chats = useAppSelector((state) => state.chat.chats);
+  const { currentWorldId } = useCurrentWorld();
+  // Who and what lives in each world (#143), for the cards.
+  const countIn = (id: number | null) => ({
+    people: characters.filter((c) => worldOf(c, worlds) === id).length,
+    chats: chats.filter((c) => worldOf(c, worlds) === id).length,
+  });
+  const goTo = (id: number | null) => {
+    dispatch(switchWorld(id));
+    navigate("/");
+  };
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
   const loading = useAppSelector((state) => state.world.loading);
   const [search, setSearch] = useState("");
 
@@ -32,14 +47,14 @@ const WorldGalleryPage = () => {
   const handleDelete = async (worldId: number, name: string) => {
     const confirmed = await showConfirm(
       "Delete world",
-      `Delete "${name}"? Any adventures set here keep their own history - they just lose the shared world reference.`
+      `Delete "${name}"? Its people and chats move to ${MY_WORLD}, and adventures set here keep their own history.`
     );
     if (confirmed) dispatch(deleteWorld(worldId));
   };
 
   return (
     <div className="w-full h-dvh flex flex-col">
-      <Header title="Worlds" subtitle="Settings and universes your adventures can share." onBack={() => navigate("/adventures")} />
+      <Header title="Worlds" subtitle="Each world is its own space, with its own people and chats." onBack={() => navigate("/adventures")} />
       <div className="flex-1 overflow-auto p-4 md:p-8">
         <div className="w-full max-w-[1180px] mx-auto">
 
@@ -63,10 +78,27 @@ const WorldGalleryPage = () => {
             </div>
           </div>
 
+          {(() => {
+            const mine = countIn(null);
+            return (
+              <Card className="p-5 mb-5 flex flex-wrap items-center gap-3" aria-label={MY_WORLD}>
+                <div className="flex-1 min-w-[180px]">
+                  <h4 className="font-serif font-semibold text-lg text-foreground leading-tight flex items-center gap-2"><FaGlobe size={13} className="text-subtle" /> {MY_WORLD}</h4>
+                  <p className="text-[11px] text-subtle mt-1">Everyone from before worlds, and anyone you haven't put in one. {plural(mine.people, "person").replace("persons", "people")}, {plural(mine.chats, "chat")}.</p>
+                </div>
+                {currentWorldId === null ? (
+                  <Badge variant="secondary">You're here</Badge>
+                ) : (
+                  <Button onClick={() => goTo(null)} variant="outline" className="h-9 text-xs font-semibold" aria-label={`Switch to ${MY_WORLD}`}>Switch</Button>
+                )}
+              </Card>
+            );
+          })()}
+
           {!loading && worlds.length === 0 ? (
             <Card className={cn("p-6 text-center flex flex-col items-center gap-3", neumorphic && "surface-sunken")}>
               <p className="text-muted-foreground">No worlds yet.</p>
-              <p className="text-sm text-muted-foreground">Create a setting once, then set as many adventures in it as you like.</p>
+              <p className="text-sm text-muted-foreground">A world is its own space: its own people, chats and news. Adventures can be set in one too.</p>
               <Button onClick={() => navigate("/worlds/new")} variant="default" className="h-auto px-4 py-2.5 font-semibold text-sm">
                 Create a world
               </Button>
@@ -97,8 +129,15 @@ const WorldGalleryPage = () => {
                         ))}
                       </div>
                     )}
-                    <p className="text-[11px] text-subtle mt-auto">{adventureCount} adventure{adventureCount === 1 ? "" : "s"} set here</p>
+                    <p className="text-[11px] text-subtle mt-auto">
+                      {plural(countIn(world.id).people, "person").replace("persons", "people")}, {plural(countIn(world.id).chats, "chat")}, {plural(adventureCount, "adventure")}
+                    </p>
                     <div className="flex gap-1.5">
+                      {currentWorldId === world.id ? (
+                        <Badge variant="secondary" className="h-9 px-3">You're here</Badge>
+                      ) : (
+                        <Button onClick={() => goTo(world.id)} variant="default" className="h-9 text-xs font-semibold" aria-label={`Switch to ${world.name}`}>Switch</Button>
+                      )}
                       <Button onClick={() => navigate(`/worlds/${world.id}/edit`)} variant="outline" className="flex-1 h-9 text-xs font-semibold">
                         <FaEdit size={11} /> Edit
                       </Button>

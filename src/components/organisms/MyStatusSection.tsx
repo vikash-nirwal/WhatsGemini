@@ -12,6 +12,7 @@ import { generateAssistText } from "src/features/aiSlice";
 import { readPhoto } from "src/features/chat/photoAttachments";
 import { addMyStatus, buildMyStatusReactionsPrompt, happened, liveMyStatuses, newMyStatusId, parseMyStatusReactions, statusViewersFor } from "src/features/status/myStatuses";
 import { MyStatus } from "src/types";
+import { useWorldChats, useWorldCharacters } from "src/hooks/useWorld";
 
 const MAX_STATUS = 700;
 const timeOf = (at: number) => new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -22,8 +23,8 @@ export const MyStatusSection = () => {
   const dispatch = useAppDispatch();
   const persona = useAppSelector(selectActivePersona);
   const statuses = useAppSelector((state) => state.myStatus.statuses);
-  const characters = useAppSelector((state) => state.character.characters);
-  const chats = useAppSelector((state) => state.chat.chats);
+  const characters = useWorldCharacters();
+  const chats = useWorldChats();
   const [composing, setComposing] = useState(false);
   const [viewing, setViewing] = useState(false);
   const [text, setText] = useState("");

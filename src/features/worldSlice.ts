@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { dbService } from "../services/dbService";
 import { WORLD } from "../utils/constants";
 import { World } from "../types";
+import { loadCurrentWorld, saveCurrentWorld } from "./world/currentWorld";
 
 // Helper function to handle database errors
 const handleDbError = (error: unknown, rejectWithValue: any) => {
@@ -37,12 +38,14 @@ export const fetchWorldById = createAsyncThunk(
 
 export const addWorld = createAsyncThunk(
   "world/add",
-  async ({ name, premise, settingDetails, tone, loreEntries, coverImage, tags, map }: Omit<World, "id">, { rejectWithValue }) => {
+  async (world: Omit<World, "id">, { rejectWithValue }) => {
     try {
-      if (!name.trim() || !premise.trim()) {
+      if (!world.name.trim() || !world.premise.trim()) {
         throw new Error("World name and premise are required.");
       }
-      const newWorld = { name, premise, settingDetails, tone, loreEntries, coverImage, tags, map };
+      // Every field is kept, like addCharacter, so later additions (a persona,
+      // story time) aren't dropped on creation.
+      const { id: _ignoredId, ...newWorld } = world as World;
       const id = await dbService.addWorld(newWorld);
       return { id, ...newWorld } as World;
     } catch (error) {
@@ -78,12 +81,14 @@ export const deleteWorld = createAsyncThunk(
 
 interface WorldState {
   worlds: World[];
+  currentWorldId: number | null; // the world on screen (#143); null = "My world"
   loading: boolean;
   error: string | null;
 }
 
 const initialState: WorldState = {
   worlds: [],
+  currentWorldId: loadCurrentWorld(),
   loading: false,
   error: null,
 };
@@ -91,7 +96,12 @@ const initialState: WorldState = {
 const worldSlice = createSlice({
   name: WORLD,
   initialState,
-  reducers: {},
+  reducers: {
+    switchWorld: (state, action: { payload: number | null }) => {
+      state.currentWorldId = action.payload;
+      saveCurrentWorld(action.payload);
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchWorlds.pending, (state) => {
@@ -129,6 +139,10 @@ const worldSlice = createSlice({
       })
       .addCase(deleteWorld.fulfilled, (state, action) => {
         state.worlds = state.worlds.filter((world) => world.id !== action.payload);
+        if (state.currentWorldId === action.payload) {
+          state.currentWorldId = null;
+          saveCurrentWorld(null);
+        }
       })
       .addCase(deleteWorld.rejected, (state, action) => {
         state.error = action.payload as string;
@@ -136,4 +150,5 @@ const worldSlice = createSlice({
   },
 });
 
+export const { switchWorld } = worldSlice.actions;
 export default worldSlice.reducer;

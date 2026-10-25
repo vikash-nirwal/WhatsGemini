@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { FaMagic, FaCheck, FaPlus, FaGlobe, FaMap } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { addWorld, updateWorld } from "../features/worldSlice";
+import { Select } from "src/components/molecules/form-controls/FormSelect";
 import { generateAssistText, generateWorldMapImage } from "../features/aiSlice";
 import { LoreEntry, WorldMap } from "../types";
 import { WorldMapView } from "src/components/molecules/WorldMapView";
@@ -36,6 +37,8 @@ const WorldEditorPage = () => {
   const [tags, setTags] = useState<string[]>([]);
   const [loreEntries, setLoreEntries] = useState<LoreEntry[]>([]);
   const [map, setMap] = useState<WorldMap | undefined>(undefined);
+  const [personaId, setPersonaId] = useState(""); // who you are here (#143); "" = your active persona
+  const personas = useAppSelector((state) => state.settings.personas);
 
   useEffect(() => {
     if (editWorld) {
@@ -46,6 +49,7 @@ const WorldEditorPage = () => {
       setTags(editWorld.tags || []);
       setLoreEntries(editWorld.loreEntries || []);
       setMap(editWorld.map);
+      setPersonaId(editWorld.personaId || "");
     } else {
       setName("");
       setPremise("");
@@ -54,6 +58,7 @@ const WorldEditorPage = () => {
       setTags([]);
       setLoreEntries([]);
       setMap(undefined);
+      setPersonaId("");
     }
   }, [editWorld]);
 
@@ -133,7 +138,7 @@ const WorldEditorPage = () => {
       return;
     }
     setSaveError(null);
-    const payload = { name: name.trim(), premise: premise.trim(), settingDetails: settingDetails.trim() || undefined, tone: tone.trim() || undefined, tags, loreEntries, map };
+    const payload = { name: name.trim(), premise: premise.trim(), settingDetails: settingDetails.trim() || undefined, tone: tone.trim() || undefined, tags, loreEntries, map, personaId: personaId || undefined };
     if (editWorld) {
       await dispatch(updateWorld({ ...editWorld, ...payload }));
     } else {
@@ -205,6 +210,16 @@ const WorldEditorPage = () => {
             </div>
             <PresetSelectField label="Tone" value={tone} onChange={setTone} presets={WORLD_TONE_PRESETS} customPlaceholder="e.g. Whimsical fairy-tale horror" />
             <ChipSelectField label="Tags" value={tags} onChange={setTags} presets={TAG_PRESETS} placeholder="Add a tag..." />
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="world-persona" className="text-sm font-medium text-foreground">You in this world</label>
+              <Select id="world-persona" aria-label="You in this world" value={personaId} onChange={(e) => setPersonaId(e.target.value)}>
+                <option value="">Your active persona</option>
+                {personas.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name || "Unnamed"}</option>
+                ))}
+              </Select>
+              <p className="text-xs text-subtle">Characters here know you as this persona.</p>
+            </div>
             {assistError && <p className="text-xs text-destructive">{assistError}</p>}
           </Card>
 

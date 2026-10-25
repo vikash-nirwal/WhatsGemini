@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogTitle, DialogClose } from "src/components/
 import Header from "src/components/organisms/Header";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { Button } from "src/components/atoms/button";
+import { useWorldChats, useWorldCharacters } from "src/hooks/useWorld";
 
 const CharacterGalleryPage = () => {
   const { characterId } = useParams();
@@ -19,11 +20,11 @@ const CharacterGalleryPage = () => {
 
   const characterIdNum = characterId ? Number(characterId) : null;
 
-  const characters = useAppSelector((state) => state.character.characters);
+  const characters = useWorldCharacters();
   const character = characters.find(c => c.id === characterIdNum);
   const loading = useAppSelector((state) => state.character.loading);
   const blurNsfwMedia = useAppSelector((state) => state.settings.privacy.blurNsfwMedia);
-  const chats = useAppSelector((state) => state.chat.chats);
+  const chats = useWorldChats();
 
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 

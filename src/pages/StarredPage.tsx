@@ -7,6 +7,7 @@ import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { useAppSelector } from "src/store/hooks";
 import { quoteTextOf } from "src/features/chat/replyQuotes";
 import { YOU } from "src/utils/constants";
+import { useWorldChats } from "src/hooks/useWorld";
 
 const when = (at?: number) => {
   if (!at) return "";
@@ -18,7 +19,7 @@ const when = (at?: number) => {
 // first, like WhatsApp's list; tapping one opens its chat at that message.
 const StarredPage = () => {
   const navigate = useNavigate();
-  const chats = useAppSelector((state) => state.chat.chats);
+  const chats = useWorldChats();
   const characters = useAppSelector((state) => state.character.characters);
   const items = useMemo(
     () =>

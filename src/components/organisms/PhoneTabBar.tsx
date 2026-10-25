@@ -2,10 +2,10 @@ import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { MdOutlineChat, MdOutlineDonutLarge, MdOutlinePeopleAlt, MdOutlineExplore } from "react-icons/md";
 import { cn } from "src/utils/cn";
-import { useAppSelector } from "src/store/hooks";
 import { TAB_BAR_PATHS, usePhoneShell } from "src/hooks/usePhoneShell";
 import { unreadCount } from "src/features/chat/chatList";
 import { hasUnseenStatus } from "src/features/character/statusUpdates";
+import { useWorldChats, useWorldCharacters } from "src/hooks/useWorld";
 
 // The phone shell's tab bar (#114, #150): the app's four sections - Chats,
 // Updates, Characters and Adventures - as on the revamp canvas; Settings is
@@ -14,8 +14,8 @@ import { hasUnseenStatus } from "src/features/character/statusUpdates";
 export const PhoneTabBar = () => {
   const shell = usePhoneShell();
   const { pathname } = useLocation();
-  const chats = useAppSelector((state) => state.chat.chats);
-  const characters = useAppSelector((state) => state.character.characters);
+  const chats = useWorldChats();
+  const characters = useWorldCharacters();
   if (!shell || !TAB_BAR_PATHS.includes(pathname)) return null;
 
   const unreadChats = chats.filter((c) => !c.archived && !c.muted && unreadCount(c) > 0).length;

@@ -8,7 +8,8 @@ import { useColorTheme } from "src/hooks/useColorTheme";
 import { hasUnseenStatus } from "src/features/character/statusUpdates";
 import { unreadCount } from "src/features/chat/chatList";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
-import Logo from "src/components/atoms/Logo";
+import { useWorldChats, useWorldCharacters } from "src/hooks/useWorld";
+import { WorldSwitcher } from "src/components/molecules/WorldSwitcher";
 
 // The app's sections, which part of the app a path belongs to (#150).
 export type Section = "chats" | "updates" | "characters" | "adventures" | "settings" | "other";
@@ -29,14 +30,14 @@ const SECTIONS: { section: Section; to: string; label: string; Icon: React.Compo
 ];
 
 // The desktop rail (#150), as on the revamp canvas: the sections, then
-// Settings and your persona at the bottom. The top is where worlds go
-// (#157); until then it's the app's mark, which goes home. Not in the
+// Settings and your persona at the bottom, the world switcher (#143) at
+// the top. Not in the
 // terminal theme, whose sidebar is its own shell.
 export const NavRail = () => {
   const { is } = useColorTheme();
   const { pathname } = useLocation();
-  const chats = useAppSelector((state) => state.chat.chats);
-  const characters = useAppSelector((state) => state.character.characters);
+  const chats = useWorldChats();
+  const characters = useWorldCharacters();
   const persona = useAppSelector(selectActivePersona);
   if (is("terminal")) return null;
 
@@ -47,9 +48,7 @@ export const NavRail = () => {
 
   return (
     <nav aria-label="Sections" data-slot="nav-rail" className="hidden lg:flex w-[72px] flex-none flex-col items-center gap-1 border-r border-border bg-surface py-3">
-      <Link to="/" aria-label="WhatsGemini, home" title="WhatsGemini" className="mb-1 rounded-[14px]">
-        <Logo size={44} className="rounded-[14px]" />
-      </Link>
+      <WorldSwitcher variant="rail" />
       <span aria-hidden className="my-2 h-px w-8 bg-border" />
       {SECTIONS.map(({ section, to, label, Icon }) => {
         const active = current === section;

@@ -3,14 +3,15 @@ import { useAppSelector } from "src/store/hooks";
 import { selectActivePersona } from "src/features/settingsSlice";
 import { buildRelationshipMap, circleLayout } from "src/features/character/relationshipMap";
 import { getInitials } from "src/components/molecules/CharacterAvatar";
+import { useWorldChats, useWorldCharacters } from "src/hooks/useWorld";
 
 // The relationship map (#138): you in the middle, your characters around
 // you; lines between characters who know each other (thicker when they
 // have feelings about each other in a group), and each bond with you named
 // on the line to you. A list below says the same in words.
 export const RelationshipMap = () => {
-  const characters = useAppSelector((state) => state.character.characters);
-  const chats = useAppSelector((state) => state.chat.chats);
+  const characters = useWorldCharacters();
+  const chats = useWorldChats();
   const persona = useAppSelector(selectActivePersona);
   const { nodes, links } = useMemo(() => buildRelationshipMap(characters, chats), [characters, chats]);
   const size = 360;
