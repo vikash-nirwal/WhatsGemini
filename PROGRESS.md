@@ -40,7 +40,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #149 | Revamp: core components | done | 2026-10-25 |
 | #150 | Revamp: navigation shell | done | 2026-10-25; terminal keeps its drawer and sidebar |
 | #151 | Revamp: chat header, Contact info, settings split | done | 2026-10-25; fixes the two group bugs |
-| #152 | Revamp: Updates | todo | wave 2 |
+| #152 | Revamp: Updates | done | 2026-10-25 |
 | #153 | Revamp: message actions | todo | wave 2 |
 | #154 | Revamp: character creation | todo | wave 2 |
 | #155 | Revamp: characters, new chat, settings | todo | wave 2 |
@@ -60,6 +60,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+#152 Updates revamp: StatusViewer (organisms/StatusViewer.tsx: full screen on a phone, story card + comments panel on desktop; segments, tap/arrow to move on, no timer; like, comment, Reply to X), useStatusActions hook (shared with StatusFeed), status colours in features/status/statusLook.ts; Updates: tile strip on phones, Recent/Viewed rows on desktop; MyStatusSection variant tile|row, full-screen composer (colour swatches, Aa font, photo; MyStatus.bg/font) and a views sheet with Seen by / Liked by / Comments tabs; channels list restyled with Suggested cards; ChannelPage post cards, day separators, Message X.
 #158 reset: features/life/reset.ts (resetCharacterLife: resetCharacter keeps CARD_FIELDS and the starting relationship, others' talk with them goes, their own chats lose memory/stage/plans/etc. via withoutProgress or are deleted if asked; resetWorldLife: story time back to StoryTime.start, the world's news channel emptied, its people reset or only their talk cleared). ResetDialog (confirm, options, can't be undone): Characters › menu › Reset..., Worlds › Reset... on each card.
 #147 story time: features/world/storyTime.ts (World.storyTime: yearLabel, year, months, daysPerMonth, day + anchorAt, moves; storyParts, formatStoryDate, skipStoryTime, setStoryDate, buildStoryTimeSection). A chat in that world gets the in-world date in place of the real clock (promptComposition, messageGap); StoryTimeEditor card in the world editor (calendar, today's date, moves with real time, skip a day/week/month); the date shows on Worlds cards and in While you were away. Left: schedules and statuses still use your clock's hours (the same as story hours while it moves with real time).
 #146 worlds keep running: livingIn in worldPrefs (the world on screen always; others unless keepLiving is false), useLivingCharacters/useLivingChats feed all 12 background jobs; notifications and toasts from another world name it (ChatNotificationInput.world, useElsewhereName); opening a chat from another world switches to it (ChatPage); activity entries carry the world. Left: world news channels post whatever the switch says.

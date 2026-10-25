@@ -26,10 +26,10 @@ test("a status you post is seen, liked and replied to in private", async ({ page
   await page.clock.fastForward(45 * 60_000);
   await mine.getByRole("button", { name: "View my status" }).click();
   const viewer = page.getByRole("dialog", { name: "My status" });
-  await expect(viewer.getByText("Seen by 1")).toBeVisible();
-  await viewer.getByText("Seen by 1").click();
+  await viewer.getByRole("tab", { name: "Seen by 1" }).click();
   await expect(viewer.getByRole("list", { name: "Seen by" })).toContainText("Aria");
   await expect(viewer.getByLabel("liked it")).toBeVisible();
+  await viewer.getByRole("tab", { name: "Comments 1" }).click();
   await expect(viewer.getByRole("list", { name: "Comments" })).toContainText("Looks amazing!");
   await page.keyboard.press("Escape");
 

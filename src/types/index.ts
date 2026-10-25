@@ -239,6 +239,8 @@ export interface MyStatus {
   text: string;
   image?: string; // a shrunk data: URL
   createdAt: number;
+  bg?: string; // a text status's colour (#152), from STATUS_COLORS
+  font?: "serif" | "sans"; // its typeface (#152); serif when unset
   views?: { characterId: number; at: number }[];
   likes?: { characterId: number; at: number }[];
   comments?: StatusComment[];

@@ -5,16 +5,13 @@ import { cn } from "src/utils/cn";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { Button } from "src/components/atoms/button";
 import { Input } from "src/components/atoms/input";
-import { useAppDispatch, useAppSelector } from "src/store/hooks";
-import { fetchCharacterById, updateCharacter } from "src/features/characterSlice";
-import { generateAssistText } from "src/features/aiSlice";
-import { buildCommentReplyPrompt, cleanCommentReply, newCommentId, toggleLike, updateStatus, withComment } from "src/features/character/statusFeed";
+import { useAppSelector } from "src/store/hooks";
+import { useStatusActions } from "src/hooks/useStatusActions";
 import { formatRelativeTime } from "src/utils/formatRelativeTime";
 import { DisplayImage } from "src/components/molecules/DisplayImage";
 import { NsfwBlur } from "src/components/molecules/NsfwBlur";
 import { isNsfwCharacter } from "src/features/character/contentRating";
 import { Character, CharacterStatus } from "src/types";
-import { useWorldCharacters } from "src/hooks/useWorld";
 
 interface StatusFeedProps {
   items: { character: Character; status: CharacterStatus }[];
@@ -26,41 +23,13 @@ interface StatusFeedProps {
 // like one, comment (the poster answers), or reply in private, which opens
 // the chat with the status quoted.
 export const StatusFeed: React.FC<StatusFeedProps> = ({ items, onReply, showPoster = false }) => {
-  const dispatch = useAppDispatch();
-  const characters = useWorldCharacters();
-  const personas = useAppSelector((state) => state.settings.personas);
-  const activePersonaId = useAppSelector((state) => state.settings.activePersonaId);
-  const userName = (personas.find((p) => p.id === activePersonaId) || personas[0])?.name?.trim() || "You";
+  const { like, comment: postComment, answering, nameOf } = useStatusActions();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [answering, setAnswering] = useState<string | null>(null);
   const blurMedia = useAppSelector((state) => state.settings.privacy.blurNsfwMedia);
-  const nameOf = (from: number | "you") => (from === "you" ? "You" : characters.find((c) => c.id === from)?.name || "Someone");
-
-  // Always change the latest copy of the poster, so a like and a comment
-  // (or the poster's answer) never overwrite each other.
-  const change = async (posterId: number, statusId: string, fn: (s: CharacterStatus) => CharacterStatus) => {
-    const latest = characters.find((c) => c.id === posterId);
-    if (latest) await dispatch(updateCharacter({ ...latest, statuses: updateStatus(latest.statuses, statusId, fn) }));
-  };
-
-  const comment = async (poster: Character, status: CharacterStatus) => {
-    const text = (drafts[status.id] || "").trim();
-    if (!text) return;
+  const comment = (poster: Character, status: CharacterStatus) => {
+    const text = drafts[status.id] || "";
     setDrafts((d) => ({ ...d, [status.id]: "" }));
-    await change(poster.id, status.id, (s) => withComment(s, { id: newCommentId(), from: "you", text, at: Date.now() }));
-    setAnswering(status.id);
-    try {
-      const reply = cleanCommentReply(await dispatch(generateAssistText({ instruction: buildCommentReplyPrompt(poster, status, text, userName), background: true })).unwrap());
-      if (reply) {
-        // Re-read: the store has your comment by now.
-        const base: Character = (await dispatch(fetchCharacterById(poster.id)).unwrap().catch(() => poster)) || poster;
-        await dispatch(updateCharacter({ ...base, statuses: updateStatus(base.statuses, status.id, (s) => withComment(s, { id: newCommentId(), from: poster.id, text: reply, at: Date.now() })) }));
-      }
-    } catch (err) {
-      console.warn("Status comment reply failed (non-fatal):", err);
-    } finally {
-      setAnswering(null);
-    }
+    return postComment(poster, status, text);
   };
 
   return (
@@ -94,7 +63,7 @@ export const StatusFeed: React.FC<StatusFeedProps> = ({ items, onReply, showPost
                   size="sm"
                   aria-pressed={Boolean(status.likedByYou)}
                   aria-label={status.likedByYou ? "Unlike" : "Like"}
-                  onClick={() => change(character.id, status.id, toggleLike)}
+                  onClick={() => like(character, status)}
                   className={cn("h-8 px-2", status.likedByYou ? "text-primary" : "text-muted-foreground")}
                 >
                   {status.likedByYou ? <FaHeart size={13} /> : <FaRegHeart size={13} />}

@@ -1,36 +1,54 @@
 import React, { useEffect, useRef, useState } from "react";
-import { FaCamera, FaHeart, FaPlus, FaTimes } from "react-icons/fa";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { FaChevronDown, FaEye, FaGlobe, FaHeart, FaImage, FaPlus, FaRegComment, FaTimes, FaTrash, FaArrowRight } from "react-icons/fa";
 import { cn } from "src/utils/cn";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "src/components/molecules/dialog";
-import { Button } from "src/components/atoms/button";
-import { Textarea } from "src/components/atoms/textarea";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { selectActivePersona } from "src/features/settingsSlice";
 import { changeMyStatuses } from "src/features/myStatusSlice";
 import { generateAssistText } from "src/features/aiSlice";
 import { readPhoto } from "src/features/chat/photoAttachments";
 import { addMyStatus, buildMyStatusReactionsPrompt, happened, liveMyStatuses, newMyStatusId, parseMyStatusReactions, statusViewersFor } from "src/features/status/myStatuses";
+import { STATUS_COLORS } from "src/features/status/statusLook";
 import { MyStatus } from "src/types";
-import { useWorldChats, useWorldCharacters } from "src/hooks/useWorld";
+import { useCurrentWorld, useWorldChats, useWorldCharacters } from "src/hooks/useWorld";
 
 const MAX_STATUS = 700;
 const timeOf = (at: number) => new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
-// Your own statuses (#117) at the top of Updates: "My status", posting a
-// new one, and each one's viewers, likes and comments as they come in.
-export const MyStatusSection = () => {
+// A full-screen layer for the composer and your status's views (#152).
+const FullScreen = ({ open, onOpenChange, title, background, children }: { open: boolean; onOpenChange: (open: boolean) => void; title: string; background: string; children: React.ReactNode }) => (
+  <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+    <DialogPrimitive.Portal>
+      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80" />
+      <DialogPrimitive.Content aria-describedby={undefined} className="fixed inset-0 z-50 mx-auto flex max-w-[480px] flex-col text-white outline-none lg:my-6 lg:overflow-hidden lg:rounded-[20px]" style={{ background }}>
+        <DialogPrimitive.Title className="sr-only">{title}</DialogPrimitive.Title>
+        {children}
+      </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
+  </DialogPrimitive.Root>
+);
+
+// Your own statuses (#117) at the top of Updates: "My status" (a tile on a
+// phone, a row on desktop), the full-screen composer, and who saw each one,
+// liked it and commented, in a sheet under it (#152).
+export const MyStatusSection = ({ variant }: { variant: "tile" | "row" }) => {
   const dispatch = useAppDispatch();
   const persona = useAppSelector(selectActivePersona);
   const statuses = useAppSelector((state) => state.myStatus.statuses);
   const characters = useWorldCharacters();
   const chats = useWorldChats();
+  const { name: worldName } = useCurrentWorld();
   const [composing, setComposing] = useState(false);
   const [viewing, setViewing] = useState(false);
   const [text, setText] = useState("");
   const [photo, setPhoto] = useState<string | undefined>(undefined);
+  const [bg, setBg] = useState(STATUS_COLORS[0].value);
+  const [font, setFont] = useState<"serif" | "sans">("serif");
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [index, setIndex] = useState(0);
+  const [tab, setTab] = useState<"views" | "likes" | "comments">("views");
   const fileRef = useRef<HTMLInputElement>(null);
   // Re-renders every half minute, so views and comments appear as their
   // time comes.
@@ -45,6 +63,8 @@ export const MyStatusSection = () => {
   const latest = live[live.length - 1];
   const userName = persona?.name?.trim() || "You";
   const nameOf = (id: number) => characters.find((c) => c.id === id)?.name || "Someone";
+  const latestViews = latest ? happened(latest.views, now).length : 0;
+  const latestLikes = latest ? happened(latest.likes, now).length : 0;
 
   const pickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -61,7 +81,7 @@ export const MyStatusSection = () => {
     const body = text.trim();
     if (!body && !photo) return;
     setPosting(true);
-    const status: MyStatus = { id: newMyStatusId(), text: body, image: photo, createdAt: Date.now() };
+    const status: MyStatus = { id: newMyStatusId(), text: body, image: photo, createdAt: Date.now(), ...(photo ? {} : { bg, font }) };
     try {
       await dispatch(changeMyStatuses((list) => addMyStatus(list, status)));
       setComposing(false);
@@ -80,115 +100,186 @@ export const MyStatusSection = () => {
     }
   };
 
-  const remove = (id: string) => dispatch(changeMyStatuses((list) => list.filter((s) => s.id !== id)));
+  const remove = (id: string) => {
+    dispatch(changeMyStatuses((list) => list.filter((s) => s.id !== id)));
+    if (live.length <= 1) setViewing(false);
+    else setIndex((i) => Math.max(0, i - 1));
+  };
+
+  const openViews = () => {
+    setIndex(Math.max(0, live.length - 1));
+    setTab("views");
+    setViewing(true);
+  };
+
+  const shown = live[Math.min(index, live.length - 1)];
+  const views = shown ? happened(shown.views, now) : [];
+  const likes = shown ? happened(shown.likes, now) : [];
+  const comments = shown ? happened(shown.comments, now) : [];
 
   return (
-    <section aria-label="My status" className="pt-1">
-      <div className="flex items-center gap-3.5 px-4 py-2.5">
-        <button
-          type="button"
-          onClick={() => (latest ? setViewing(true) : setComposing(true))}
-          className="flex min-w-0 flex-1 items-center gap-3.5 text-left"
-          aria-label={latest ? "View my status" : "Add a status"}
-        >
-          <span className={cn("relative rounded-full", latest && "p-[2px] ring-2 ring-primary ring-offset-2 ring-offset-background")}>
-            <CharacterAvatar name={userName} imageSrc={persona?.avatar} size={46} />
-            {!latest && (
-              <span aria-hidden className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-background">
-                <FaPlus size={9} />
-              </span>
-            )}
+    <section aria-label="My status" className={variant === "tile" ? "flex-none" : "px-2"}>
+      {variant === "tile" ? (
+        <div className="relative flex h-[152px] w-24 flex-col items-center justify-center gap-2 rounded-2xl bg-raised ring-1 ring-inset ring-border">
+          <button type="button" onClick={() => (latest ? openViews() : setComposing(true))} aria-label={latest ? "View my status" : "Add a status"} className="absolute inset-0 rounded-2xl" />
+          <span className={cn("pointer-events-none rounded-full", latest && "shadow-[0_0_0_2px_rgb(var(--raised)),0_0_0_4px_rgb(var(--primary))]")}>
+            <CharacterAvatar name={userName} imageSrc={persona?.avatar} size={48} />
           </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[16px] font-medium text-foreground">My status</span>
-            <span className="block text-[13px] text-muted-foreground">{latest ? `Today, ${timeOf(latest.createdAt)}` : "Tap to add a status update"}</span>
-          </span>
-        </button>
-        {latest && (
-          <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-full" aria-label="Add a status" title="Add a status" onClick={() => setComposing(true)}>
-            <FaPlus size={13} />
-          </Button>
-        )}
-      </div>
+          <span className="pointer-events-none text-[12.5px] font-bold text-foreground">My status</span>
+          {latest && (
+            <span className="pointer-events-none flex items-center gap-1 text-[12px] text-subtle">
+              <FaEye aria-hidden size={11} />{latestViews} · <FaHeart aria-hidden size={10} />{latestLikes}
+            </span>
+          )}
+          {latest && (
+            <button type="button" onClick={() => setComposing(true)} aria-label="Add a status" className="absolute right-1.5 top-1.5 grid h-[26px] w-[26px] place-items-center rounded-full bg-primary text-primary-foreground">
+              <FaPlus size={11} />
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-center gap-1">
+          <button type="button" onClick={() => (latest ? openViews() : setComposing(true))} className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-raised" aria-label={latest ? "View my status" : "Add a status"}>
+            <span className={cn("relative rounded-full", latest && "p-[2px] ring-2 ring-primary ring-offset-2 ring-offset-surface")}>
+              <CharacterAvatar name={userName} imageSrc={persona?.avatar} size={40} />
+              {!latest && (
+                <span aria-hidden className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-surface"><FaPlus size={9} /></span>
+              )}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-semibold text-foreground">My status</span>
+              <span className="block text-[12.5px] text-subtle">{latest ? `${timeOf(latest.createdAt)} · ${latestViews} ${latestViews === 1 ? "view" : "views"} · ${latestLikes} ${latestLikes === 1 ? "like" : "likes"}` : "Add a status update"}</span>
+            </span>
+          </button>
+          {latest && (
+            <button type="button" className="grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:bg-raised" aria-label="Add a status" title="Add a status" onClick={() => setComposing(true)}>
+              <FaPlus size={13} />
+            </button>
+          )}
+        </div>
+      )}
 
-      <Dialog open={composing} onOpenChange={(o) => !posting && setComposing(o)}>
-        <DialogContent>
-          <DialogTitle>New status</DialogTitle>
-          <DialogDescription>Characters you chat with will see it over the next half hour. It lasts a day.</DialogDescription>
-          <Textarea aria-label="Status text" value={text} maxLength={MAX_STATUS} onChange={(e) => setText(e.target.value)} placeholder="What's on your mind?" className="min-h-[96px] resize-none" />
+      {/* The composer: your words big on a colour, or a photo. */}
+      <FullScreen open={composing} onOpenChange={(o) => !posting && setComposing(o)} title="New status" background={photo ? "#0B0908" : bg}>
+        <header className="flex flex-none items-center gap-1 px-2 pt-[max(8px,env(safe-area-inset-top))]">
+          <DialogPrimitive.Close aria-label="Discard" className="grid h-11 w-11 place-items-center"><FaTimes size={18} /></DialogPrimitive.Close>
+          <span className="flex-1" />
+          {!photo && (
+            <button type="button" aria-label="Change font" onClick={() => setFont((f) => (f === "serif" ? "sans" : "serif"))} className={cn("grid h-11 w-11 place-items-center rounded-full bg-black/20 text-[18px]", font === "serif" ? "font-serif" : "font-sans font-bold")}>Aa</button>
+          )}
+          <button type="button" aria-label={photo ? "Change photo" : "Add a photo"} onClick={() => fileRef.current?.click()} className="grid h-11 w-11 place-items-center rounded-full bg-black/20"><FaImage size={16} /></button>
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pickPhoto} aria-label="Status photo" />
+        </header>
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-6">
           {photo && (
-            <div className="relative w-fit">
-              <img src={photo} alt="Your status" className="max-h-48 rounded-lg" />
-              <Button type="button" variant="destructive" className="absolute right-1 top-1 h-auto w-auto rounded-full p-1" aria-label="Remove photo" onClick={() => setPhoto(undefined)}>
-                <FaTimes size={10} />
-              </Button>
+            <div className="relative">
+              <img src={photo} alt="Your status" className="max-h-[50dvh] rounded-xl" />
+              <button type="button" aria-label="Remove photo" onClick={() => setPhoto(undefined)} className="absolute right-2 top-2 grid h-9 w-9 place-items-center rounded-full bg-black/60"><FaTimes size={12} /></button>
             </div>
           )}
-          {error && <p className="text-[12px] text-destructive">{error}</p>}
-          <div className="flex items-center justify-between gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
-              <FaCamera size={12} /> {photo ? "Change photo" : "Add a photo"}
-            </Button>
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pickPhoto} aria-label="Status photo" />
-            <Button type="button" onClick={() => void post()} disabled={posting || (!text.trim() && !photo)}>
-              {posting ? "Posting..." : "Post"}
-            </Button>
+          <textarea
+            aria-label="Status text"
+            autoFocus
+            value={text}
+            maxLength={MAX_STATUS}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={photo ? "Add a caption" : "Type a status"}
+            rows={photo ? 2 : 4}
+            className={cn("w-full resize-none bg-transparent text-center text-white placeholder:text-white/60 outline-none [text-wrap:balance]", photo ? "text-[17px]" : "text-[30px] leading-10", !photo && (font === "serif" ? "font-serif" : "font-sans font-semibold"))}
+          />
+          {error && <p className="text-[13px] text-white">{error}</p>}
+        </div>
+        {!photo && (
+          <div role="radiogroup" aria-label="Background colour" className="flex flex-none justify-center gap-2.5 pb-4">
+            {STATUS_COLORS.map((c) => (
+              <button
+                key={c.value}
+                type="button"
+                role="radio"
+                aria-checked={bg === c.value}
+                aria-label={c.name}
+                onClick={() => setBg(c.value)}
+                className="h-8 w-8 rounded-full"
+                style={{ background: c.value, boxShadow: bg === c.value ? `0 0 0 3px ${c.value}, 0 0 0 5px #fff` : "inset 0 0 0 2px rgba(255,255,255,.5)" }}
+              />
+            ))}
           </div>
-        </DialogContent>
-      </Dialog>
+        )}
+        <div className="flex flex-none items-center gap-2.5 bg-black/25 px-3 pb-[max(16px,env(safe-area-inset-bottom))] pt-3">
+          <span className="flex min-h-[44px] flex-1 items-center gap-2 rounded-full bg-black/25 px-3 text-[13.5px] font-semibold">
+            <FaGlobe aria-hidden size={13} /> Everyone in {worldName} <FaChevronDown aria-hidden size={10} className="opacity-0" />
+          </span>
+          <button type="button" aria-label="Post" onClick={() => void post()} disabled={posting || (!text.trim() && !photo)} className="grid h-[52px] w-[52px] place-items-center rounded-full bg-white disabled:opacity-60" style={{ color: photo ? "#0B0908" : bg }}>
+            <FaArrowRight size={18} />
+          </button>
+        </div>
+      </FullScreen>
 
-      <Dialog open={viewing} onOpenChange={setViewing}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
-          <DialogTitle>My status</DialogTitle>
-          <DialogDescription className="sr-only">Your statuses from the last day, with who saw them</DialogDescription>
-          <ol className="flex flex-col gap-4">
-            {[...live].reverse().map((s) => {
-              const views = happened(s.views, now);
-              const likes = happened(s.likes, now);
-              const comments = happened(s.comments, now);
-              return (
-                <li key={s.id} className="flex flex-col gap-2" aria-label={`Status from ${timeOf(s.createdAt)}`}>
-                  {s.image && <img src={s.image} alt="Your status" className="max-h-72 w-full rounded-lg object-cover" />}
-                  {s.text && (
-                    <p className={cn("rounded-lg px-4 py-3 text-[15px]", s.image ? "text-foreground" : "bg-primary text-primary-foreground text-center text-[17px] py-6")}>{s.text}</p>
-                  )}
-                  <div className="flex items-center justify-between text-[12px] text-muted-foreground">
-                    <span>Today, {timeOf(s.createdAt)}</span>
-                    <button type="button" className="text-destructive hover:underline" onClick={() => void remove(s.id)}>Delete</button>
-                  </div>
-                  <details className="rounded-lg bg-secondary/60 px-3 py-2 text-[13px]">
-                    <summary className="cursor-pointer font-medium text-foreground">Seen by {views.length}</summary>
-                    {views.length === 0 ? (
-                      <p className="pt-1 text-muted-foreground">No views yet.</p>
-                    ) : (
-                      <ul className="pt-1.5 flex flex-col gap-1" aria-label="Seen by">
-                        {views.map((v) => (
-                          <li key={v.characterId} className="flex items-center justify-between gap-2">
-                            <span>
-                              {nameOf(v.characterId)}
-                              {likes.some((l) => l.characterId === v.characterId) && <FaHeart aria-label="liked it" size={10} className="ml-1.5 inline text-red-500" />}
-                            </span>
-                            <span className="text-muted-foreground">{timeOf(v.at)}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </details>
-                  {comments.length > 0 && (
-                    <ul className="flex flex-col gap-1.5 text-[13px]" aria-label="Comments">
+      {/* Your status, with who saw it, liked it and commented, in a sheet. */}
+      <FullScreen open={viewing && Boolean(shown)} onOpenChange={setViewing} title="My status" background={shown?.image ? "#0B0908" : shown?.bg || STATUS_COLORS[0].value}>
+        {shown && (
+          <>
+            <div className="flex gap-1 px-2.5 pt-[max(12px,env(safe-area-inset-top))]" role="progressbar" aria-label={`Status ${index + 1} of ${live.length}`} aria-valuenow={index + 1} aria-valuemin={1} aria-valuemax={live.length}>
+              {live.map((s, i) => <span key={s.id} className={cn("h-[3px] flex-1 rounded-full", i <= index ? "bg-white" : "bg-white/35")} />)}
+            </div>
+            <div className="flex items-center gap-2.5 py-2.5 pl-3.5 pr-1">
+              <CharacterAvatar name={userName} imageSrc={persona?.avatar} size={36} />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="text-[14px] font-bold">My status</span>
+                <span className="text-[12px] opacity-85">{timeOf(shown.createdAt)} · Everyone in {worldName}</span>
+              </div>
+              <button type="button" aria-label="Delete status" onClick={() => remove(shown.id)} className="grid h-11 w-11 place-items-center"><FaTrash size={14} /></button>
+              <DialogPrimitive.Close aria-label="Close" className="grid h-11 w-11 place-items-center"><FaTimes size={16} /></DialogPrimitive.Close>
+            </div>
+            <div className="relative flex min-h-[200px] flex-1 items-center justify-center px-8">
+              {live.length > 1 && <button type="button" aria-label="Previous status" disabled={index === 0} onClick={() => setIndex((i) => Math.max(0, i - 1))} className="absolute inset-y-0 left-0 w-1/4" />}
+              {shown.image && <img src={shown.image} alt="Your status" className="max-h-[36dvh] rounded-xl" />}
+              {shown.text && !shown.image && <p className={cn("text-center text-[24px] leading-8", shown.font === "sans" ? "font-sans font-semibold" : "font-serif")}>{shown.text}</p>}
+              {live.length > 1 && <button type="button" aria-label="Next status" disabled={index === live.length - 1} onClick={() => setIndex((i) => Math.min(live.length - 1, i + 1))} className="absolute inset-y-0 right-0 w-1/4" />}
+            </div>
+            {shown.text && shown.image && <p className="px-6 pb-3 text-center text-[15px]">{shown.text}</p>}
+            <div className="flex max-h-[52%] min-h-[40%] flex-col rounded-t-[24px] bg-popover text-foreground">
+              <span aria-hidden className="mx-auto mb-1 mt-2 h-1 w-9 rounded-full bg-border-strong" />
+              <div role="tablist" aria-label="Who saw your status" className="grid grid-cols-3 border-b border-border px-2">
+                {([["views", "Seen by", views.length, <FaEye key="i" size={14} />], ["likes", "Liked by", likes.length, <FaHeart key="i" size={13} />], ["comments", "Comments", comments.length, <FaRegComment key="i" size={14} />]] as const).map(([id, label, count, icon]) => (
+                  <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={cn("flex h-11 items-center justify-center gap-1.5 border-b-2 text-[13.5px] font-semibold", tab === id ? "border-primary text-foreground" : "border-transparent text-muted-foreground")}>
+                    {icon}<span>{label} {count}</span>
+                  </button>
+                ))}
+              </div>
+              <div role="tabpanel" className="flex-1 overflow-y-auto px-2 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
+                {tab === "comments" ? (
+                  comments.length === 0 ? <p className="px-3 py-4 text-[13.5px] text-muted-foreground">No comments yet.</p> : (
+                    <ul aria-label="Comments" className="flex flex-col gap-1">
                       {comments.map((c) => (
-                        <li key={c.id}>
-                          <span className="font-semibold">{typeof c.from === "number" ? nameOf(c.from) : "You"}</span> {c.text}
+                        <li key={c.id} className="flex items-start gap-3 rounded-xl px-3 py-2">
+                          <CharacterAvatar name={typeof c.from === "number" ? nameOf(c.from) : userName} size={32} />
+                          <span className="min-w-0 text-[14px]"><b>{typeof c.from === "number" ? nameOf(c.from) : "You"}</b> {c.text}</span>
                         </li>
                       ))}
                     </ul>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
-        </DialogContent>
-      </Dialog>
+                  )
+                ) : (tab === "views" ? views : likes).length === 0 ? (
+                  <p className="px-3 py-4 text-[13.5px] text-muted-foreground">{tab === "views" ? "No views yet." : "No likes yet."}</p>
+                ) : (
+                  <ul aria-label={tab === "views" ? "Seen by" : "Liked by"} className="flex flex-col">
+                    {(tab === "views" ? views : likes).map((v) => (
+                      <li key={v.characterId} className="flex min-h-14 items-center gap-3 rounded-xl px-3">
+                        <CharacterAvatar name={nameOf(v.characterId)} size={40} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[15px] font-semibold">{nameOf(v.characterId)}</span>
+                          <span className="block text-[12.5px] text-subtle">Today {timeOf(v.at)}</span>
+                        </span>
+                        {(tab === "likes" || likes.some((l) => l.characterId === v.characterId)) && <FaHeart aria-label="liked it" role="img" size={14} className="text-destructive" />}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </FullScreen>
     </section>
   );
 };

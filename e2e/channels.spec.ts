@@ -21,7 +21,7 @@ test("follow a channel, read its first post and react", async ({ page, mockAI })
   await row.click();
   const posts = page.getByRole("list", { name: "Posts" });
   await expect(posts).toContainText("New shop hours: open till 9 this week!");
-  await expect(page.getByText("Only Aria posts here. You can react.")).toBeVisible();
+  await expect(page.getByText("Only Aria posts here. You can react, or talk to Aria in your chat.")).toBeVisible();
   await expect(page.getByLabel("Message input")).toHaveCount(0);
 
   await posts.getByRole("button", { name: "React" }).click();

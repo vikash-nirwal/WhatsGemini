@@ -54,6 +54,9 @@ test("a status shows likes and comments; you can like it and comment, and Aria a
   await expect(viewer.getByRole("button", { name: "Unlike" })).toHaveAttribute("aria-pressed", "true");
   await expect(viewer).toContainText("Liked by you, Kai");
 
+  // On a phone the comment box opens from the Comment button (#152).
+  const toggle = viewer.getByRole("button", { name: "Comment", exact: true });
+  if (await toggle.isVisible()) await toggle.click();
   await viewer.getByRole("textbox", { name: "Comment on Aria's status" }).fill("Have fun!");
   await viewer.getByRole("button", { name: "Post" }).click();
   const comments = viewer.getByRole("list", { name: "Comments" });

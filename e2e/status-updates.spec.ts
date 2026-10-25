@@ -33,7 +33,7 @@ test("a status that mentions you stands out", async ({ page }) => {
   await page.goto("./#/updates");
   await page.reload();
   const row = page.getByRole("region", { name: "Recent updates" }).getByRole("button", { name: "Aria's status, new" });
-  await expect(row).toContainText("Mentioned you", { timeout: 30_000 });
+  await expect(row).toContainText(/Mention(ed|s) you/i, { timeout: 30_000 });
   await row.click();
   await expect(page.getByRole("dialog", { name: "Aria's status" }).locator('[data-slot="mention"]')).toHaveText("@Sam");
 });
@@ -80,7 +80,7 @@ test("a status is seen once opened, and replying quotes it in the chat", async (
   await page.getByRole("region", { name: "Recent updates" }).getByRole("button", { name: "Aria's status, new" }).click({ timeout: 30_000 });
   const viewer = page.getByRole("dialog", { name: "Aria's status" });
   await expect(viewer).toContainText("Pottery class tonight!");
-  await viewer.getByRole("button", { name: "Reply" }).click();
+  await viewer.getByRole("button", { name: "Reply to Aria" }).click();
   await expect(viewer).toBeHidden();
   // The status is quoted above the composer (#129), and on the sent message.
   await expect(page.getByRole("group", { name: "Replying to Aria · Status" })).toContainText("Pottery class tonight!");

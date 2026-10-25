@@ -9,7 +9,8 @@ import { channelId, channelName, unreadPosts } from "src/features/channels/chann
 import { avatarOf } from "src/features/character/profileChanges";
 import { isNsfwCharacter } from "src/features/character/contentRating";
 import { Channel } from "src/types";
-import { useInWorldChannel, useWorldCharacters } from "src/hooks/useWorld";
+import { useCurrentWorld, useInWorldChannel, useWorldCharacters } from "src/hooks/useWorld";
+import { cn } from "src/utils/cn";
 
 // Channels (#127) on the Updates page: the ones you follow, newest post
 // first, and "Find channels" to follow a character's or a world's.
@@ -45,16 +46,24 @@ export const ChannelsSection = () => {
     );
   };
 
+  // Up to four not yet followed, as cards under the list (#152).
+  const suggested = candidates.filter((c) => !isFollowed(c.kind, c.refId)).slice(0, 4);
+  const { name: worldTitle } = useCurrentWorld();
+  const timeOf = (at: number) => {
+    const d = new Date(at);
+    return d.toDateString() === new Date().toDateString() ? d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : d.toLocaleDateString([], { month: "short", day: "numeric" });
+  };
+
   return (
     <section aria-label="Channels" className="pt-6">
-      <div className="flex items-center justify-between px-4">
-        <h2 className="text-[20px] font-bold text-foreground">Channels</h2>
-        <Button type="button" variant="ghost" size="sm" onClick={() => setFinding(true)}>Find channels</Button>
+      <div className="flex items-baseline justify-between px-4 pb-1">
+        <h2 className="text-[17px] font-bold text-foreground">Channels</h2>
+        <button type="button" onClick={() => setFinding(true)} className="text-[13.5px] font-bold text-primary-text hover:underline">Find channels</button>
       </div>
       {followed.length === 0 ? (
-        <p className="px-4 py-3 text-[13.5px] text-muted-foreground">Follow a character's or a world's channel for their updates and news.</p>
+        <p className="px-4 py-2 text-[13.5px] text-muted-foreground">Follow a character's or a world's channel for their updates and news.</p>
       ) : (
-        <ul className="pt-1">
+        <ul className="px-2">
           {followed.map((c) => {
             const last = c.posts[c.posts.length - 1];
             const unread = unreadPosts(c);
@@ -62,18 +71,40 @@ export const ChannelsSection = () => {
             const name = channelName(c.kind, subject);
             return (
               <li key={c.id}>
-                <button type="button" onClick={() => navigate(`/channels/${c.id}`)} className="flex w-full items-center gap-3.5 px-4 py-2.5 text-left hover:bg-hover" aria-label={`${name}${unread ? `, ${unread} new` : ""}`}>
-                  {avatar(c, 46)}
+                <button type="button" onClick={() => navigate(`/channels/${c.id}`)} className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-raised" aria-label={`${name}${unread ? `, ${unread} new` : ""}`}>
+                  {avatar(c, 48)}
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[16px] font-medium text-foreground">{name}</span>
-                    <span className="block truncate text-[13px] text-muted-foreground">{last ? last.text : "No posts yet"}</span>
+                    <span className="flex items-baseline justify-between gap-2">
+                      <span className="truncate text-[15.5px] font-semibold text-foreground">{name}</span>
+                      {last && <span className={cn("flex-none text-[12px]", unread ? "font-semibold text-primary-text" : "text-subtle")}>{timeOf(last.at)}</span>}
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-[13.5px] text-muted-foreground">{last ? last.text : "No posts yet"}</span>
+                      {unread > 0 && <span data-slot="unread-badge" className="flex h-[19px] min-w-[19px] items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">{unread}</span>}
+                    </span>
                   </span>
-                  {unread > 0 && <span data-slot="unread-badge" className="min-w-[19px] h-[19px] px-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold flex items-center justify-center">{unread}</span>}
                 </button>
               </li>
             );
           })}
         </ul>
+      )}
+      {suggested.length > 0 && (
+        <div className="flex flex-col gap-2.5 px-4 pt-4">
+          <span className="text-[11.5px] font-bold uppercase tracking-[0.06em] text-subtle">Suggested in {worldTitle}</span>
+          <ul aria-label="Suggested channels" className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+            {suggested.map((c) => (
+              <li key={`${c.kind}-${c.refId}`} className="flex flex-col items-center gap-2 rounded-card bg-card p-3.5 text-center ring-1 ring-inset ring-border">
+                <CharacterAvatar name={c.name} accent={c.accent} imageSrc={c.image} size={48} className="rounded-[14px]" />
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate text-[13.5px] font-bold text-foreground">{c.name}</span>
+                  {c.about && <span className="line-clamp-1 text-[12px] text-subtle">{c.about}</span>}
+                </span>
+                <Button type="button" variant="secondary" size="sm" className="h-9 w-full" onClick={() => void follow(c.kind, c.refId)} aria-label={`Follow ${c.name}`}>Follow</Button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       <Dialog open={finding} onOpenChange={setFinding}>
