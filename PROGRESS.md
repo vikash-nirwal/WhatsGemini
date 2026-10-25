@@ -26,6 +26,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #137 | Character stickers | todo |  |
 | #138 | Relationship map | todo |  |
 | #139 | Circles | todo | members talk on their own; at most 10 messages per exchange by default; hidden, with a Peek switch to read their chats |
+| #140 | How long a status lasts | todo | a day of 1-24 hours (default 24) set in Settings; the Feed follows it too |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
 

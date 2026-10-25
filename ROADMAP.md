@@ -8,7 +8,7 @@ Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
 Items up to #129 are built (the last batch, #113–#129 "Your own WhatsApp", on 2026-10-24). New ideas get the next free numbers.
 
-## Your own WhatsApp, part 2 (#130–#139, picked 2026-10-25)
+## Your own WhatsApp, part 2 (#130–#140, picked 2026-10-25)
 
 Picked by the user from the ideas after #113–#129. No voice features until the app has an AI voice model (see PROGRESS.md › Decisions).
 
@@ -27,6 +27,7 @@ Picked by the user from the ideas after #113–#129. No voice features until the
   - *Cost limit:* each exchange is one helper call and at most **10 messages** by default, adjustable per circle (the user's choice, to keep API costs down). The life dial (#131) scales how often they happen.
   - *What you see:* hidden by default, as on WhatsApp: you learn of it indirectly (a member brings it up, a status or comment refers to it, a rumor reaches you). A per-circle "Peek" switch shows their threads read-only (confirmed by the user, 2026-10-25).
   - *How it feeds back:* each member's prompt gets a short note on recent circle talk; members comment on each other's statuses and share each other's contacts (#128); blocking (#133) uses circle members as the mutual contacts; the relationship map (#138) draws circles; now and then the circle invites you into a group chat ("we're planning Friday, you in?").
+- **#140 How long a status lasts (S).** A status lasts one "day", and the user sets how long a day is: a number field, 1 to 24 hours, default 24 (Settings). Everything follows it: the status rings, Updates, your own statuses, and the Feed ("All posts"), which today still shows expired statuses (the user's call, 2026-10-25).
 
 ## Smaller follow-ups
 
