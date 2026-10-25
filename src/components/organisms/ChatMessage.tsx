@@ -87,6 +87,8 @@ interface ChatMessageProps {
   runStart?: boolean;
   runEnd?: boolean;
   inRoom?: boolean;
+  // Disappearing messages (#136): how long until this one vanishes ("1 day").
+  disappears?: string;
 }
 
 // The chat's text size. `data-chat-text` lets a reading font or line
@@ -200,6 +202,7 @@ const ChatMessage = React.memo(({
   runStart = true,
   runEnd = true,
   inRoom = false,
+  disappears,
 }: ChatMessageProps) => {
   const isUser = msg.role === YOU;
   const { is } = useColorTheme();
@@ -690,7 +693,7 @@ const ChatMessage = React.memo(({
       : "bg-bubble-in text-bubble-in-text";
   const metaTone = isUser ? "text-bubble-out-meta" : "text-bubble-meta";
   const hasReaction = Boolean((!isUser && msg.reaction) || (isUser && msg.characterReaction));
-  const showMeta = Boolean(msg.timestamp || receipt || siblingInfo);
+  const showMeta = Boolean(msg.timestamp || receipt || siblingInfo || disappears);
 
   const meta = showMeta ? (
     <div
@@ -727,6 +730,11 @@ const ChatMessage = React.memo(({
         </span>
       )}
       {msg.bookmarked && <FaStar size={10} className="text-warning" aria-label="Starred" data-slot="star" />}
+      {disappears && (
+        <svg role="img" aria-label={`Disappears ${disappears} after it was sent`} viewBox="0 0 24 24" className="h-3 w-3 flex-none" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" data-slot="disappears">
+          <circle cx="12" cy="13" r="8" /><path d="M12 9v4l2 2M10 2h4" />
+        </svg>
+      )}
       {msg.timestamp && <span>{formatTime(msg.timestamp)}</span>}
       {receipt && <Ticks state={receipt} />}
     </div>

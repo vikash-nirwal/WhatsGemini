@@ -1,6 +1,7 @@
 import React from "react";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
-import { updateChatOptions } from "src/features/chatSlice";
+import { setDisappearing, updateChatOptions } from "src/features/chatSlice";
+import { DISAPPEARING_OFF_NOTICE, disappearingNotice } from "src/features/chat/disappearing";
 import { Select } from "src/components/molecules/form-controls";
 import { SegmentedControl } from "src/components/molecules/SegmentedControl";
 import { updateCharacter } from "src/features/characterSlice";
@@ -61,6 +62,29 @@ const ChatTab: React.FC<ScenePanelTabProps & { groups?: ChatTabGroup[] }> = ({ c
   return (
           <div className="flex flex-col gap-[22px]">
           {show("messaging") && <PanelGroup id="messaging" title="Messaging">
+          {/* Disappearing messages (#136), 1:1 chats */}
+          {!isRoom && character && (
+            <div className="flex flex-col gap-2">
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-medium text-foreground">Disappearing messages</div>
+                <div className="text-[11px] text-subtle">New messages vanish after this long, from the chat and from what {character.name} remembers. {character.name} knows it's on.</div>
+              </div>
+              <SegmentedControl
+                aria-label="Disappearing messages"
+                value={chat?.disappearing?.after || "off"}
+                onChange={(v) => {
+                  const after = v === "off" ? null : (v as "day" | "week");
+                  if ((chat?.disappearing?.after || null) === after) return;
+                  dispatch(setDisappearing({ chatId, after, notice: after ? disappearingNotice(after, character.name) : DISAPPEARING_OFF_NOTICE }));
+                }}
+                options={[
+                  { value: "off", label: "Off" },
+                  { value: "day", label: "1 day" },
+                  { value: "week", label: "1 week" },
+                ]}
+              />
+            </div>
+          )}
           {/* Texting mode (#6), per chat: this chat's own choice or the app's */}
           <div className="flex flex-col gap-2">
             <div className="min-w-0">

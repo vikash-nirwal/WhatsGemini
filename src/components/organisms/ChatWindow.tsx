@@ -1,3 +1,4 @@
+import { DISAPPEAR_LABEL, willDisappear } from "../../features/chat/disappearing";
 import React, { useRef, useEffect, useCallback, useMemo, useState } from "react";
 import { avatarOf } from "../../features/character/profileChanges";
 import { FaCheck, FaTimes, FaArrowDown, FaClock, FaMicrophone } from "react-icons/fa";
@@ -358,6 +359,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
   // A chat's own choice wins over the app setting (Scene panel > Chat).
   const appTextingMode = useAppSelector((state) => state.settings.textingMode);
   const chatTextingMode = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.textingMode);
+  const disappearing = useAppSelector((state) => state.chat.chats.find((c) => c.id === chatId)?.disappearing);
   // Every theme, the terminal's prompt lines included (#141).
   const textingMode = Boolean(chatTextingMode ?? appTextingMode);
   // Reading aloud stops when you leave the chat.
@@ -857,6 +859,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
                     runStart={runs.starts[i]}
                     runEnd={runs.ends[i]}
                     inRoom={Boolean(isRoom)}
+                    disappears={disappearing && willDisappear({ disappearing }, msg) ? DISAPPEAR_LABEL[disappearing.after] : undefined}
                     reactorName={msg.characterReaction ? resolveReactor(msg.characterReaction.speakerId) : undefined}
                     voice={msg.role === YOU ? undefined : speaker?.voice}
                   />

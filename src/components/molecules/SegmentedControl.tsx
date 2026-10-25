@@ -13,6 +13,8 @@ interface SegmentedControlProps {
   options: SegmentedOption[];
   disabled?: boolean;
   className?: string;
+  // Names the group for screen readers (role="group").
+  "aria-label"?: string;
 }
 
 // A pill-group toggle replacing a <select> for short enumerated choices
@@ -29,7 +31,7 @@ interface SegmentedControlProps {
 // gradient instead of a flat color - a genuine DOM-shape difference (not
 // just a class swap), so this whole component stays a JS branch rather than
 // static classes - see src/styles/THEMING.md.
-export const SegmentedControl: React.FC<SegmentedControlProps> = ({ value, onChange, options, disabled, className }) => {
+export const SegmentedControl: React.FC<SegmentedControlProps> = ({ value, onChange, options, disabled, className, "aria-label": ariaLabel }) => {
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
   const aurora = is("aurora");
@@ -39,6 +41,8 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({ value, onCha
   const material = is("material");
   return (
     <div
+      role={ariaLabel ? "group" : undefined}
+      aria-label={ariaLabel}
       className={cn(
         "inline-flex flex-wrap gap-0.5 p-[3px] rounded-lg bg-background border border-input",
         neumorphic && "bg-transparent border-0 gap-2 p-0",

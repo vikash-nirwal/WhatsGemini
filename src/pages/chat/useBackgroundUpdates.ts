@@ -80,6 +80,8 @@ export const useBackgroundUpdates = ({
     memoryBaselineRef.current[chatIdNum] = baseline;
     if (count - baseline < MEMORY_EXTRACTION_INTERVAL) return;
     memoryBaselineRef.current[chatIdNum] = count;
+    // Disappearing messages (#136): nothing said while they're on is kept.
+    if (currentChat?.disappearing) return;
 
     try {
       const recentMessages = allMessages.slice(-Math.min(count - baseline, MEMORY_EXTRACTION_INTERVAL * 2));

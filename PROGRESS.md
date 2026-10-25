@@ -23,7 +23,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #133 | Blocking, both ways | todo | they block you, or you block them and they ask a common contact to talk you round |
 | #134 | Event invites | todo |  |
 | #135 | Location sharing | skipped | dropped by the user (2026-10-25) |
-| #136 | Disappearing messages | todo |  |
+| #136 | Disappearing messages | done | 2026-10-25 |
 | #137 | Character stickers | todo |  |
 | #138 | Relationship map | todo |  |
 | #139 | Circles | skipped | folded into worlds (#145) |
@@ -59,6 +59,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **Disappearing messages (#136):** `Chat.disappearing` ({after: day|week, since}); `setDisappearing` (chatSlice) sets it with a notice; `pruneDisappeared` (features/chat/disappearing.ts, with `removeNodes` in messageTree) drops expired messages from content and tree, run by ChatPage on open and every minute; `buildDisappearingNote` tells the character; memory extraction skips while it is on; a timer mark in the bubble meta (`disappears`) and "Disappearing · 1 day" in the header. Setting: Scene & story > Options.
 - **Texting mode everywhere (#141):** the terminal theme now splits replies too (`terminal-texts` in ChatMessage, revealed by ChatWindow's usual `reveal`); an adventure's chat view splits the narrator's turns into text bubbles when the app's texting mode is on (AdventurePage). The storybook (novel) view already shows each paragraph on its own, so it is unchanged.
 - **How long a status lasts (#140):** `statusLifetimeMs()` (statusUpdates.ts) reads the day length (1-24 h, `status_day_hours` in localStorage, Settings › Chat "How long a day is"); `liveStatuses`, `hasUnseenStatus`, `liveMyStatuses` and `feedItems(characters, now)` follow it, and `statusDue` scales the 10-hour gap with the day.
 - **Revamp shell, header and settings split (#150, #151):** `NavRail` (desktop sections, `sectionOf(path)`), `PhoneTabBar` (Chats, Updates, Characters, Adventures) and `usePhoneShell` (now every theme but terminal) make the shell; the Sidebar is a "Chats" column shown only in Chats on desktop (not rendered elsewhere, `useMediaQuery(DESKTOP_QUERY)`), with chips, an Archived row and rows whose menu opens by long-press on touch; the status row (`StatusStrip`) is gone, statuses live in Updates. Header: the title button opens Contact info (`onTitleClick`), "Scene & story" is the one labelled action (`labelled`), the rest and the app items are in More. `ScenePanel` tabs: Scene, Story (+ relationship stage), Options (messaging, drama incl. moods linger, co-writing, language), Group (rooms: group settings + group memory). `ContactInfoPanel`: card, how they text, their life, inner life, you and them, look, memory. `ChatTab` takes `groups` to show a subset. Side panels are 392 px, over the chat below the header up to 1360 px, a column from there.

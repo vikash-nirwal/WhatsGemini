@@ -583,6 +583,9 @@ export interface Chat {
   // so compressing old messages away doesn't erase what was already spent.
   totalTokensUsed?: number;
   totalCostEstimate?: number;
+  // Disappearing messages (#136): messages sent from `since` on vanish
+  // `after` (a day or a week) after they were sent; the character knows.
+  disappearing?: { after: "day" | "week"; since: number };
 }
 
 // Art style used to compose every character-related image generation prompt

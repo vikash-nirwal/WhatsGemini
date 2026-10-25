@@ -265,7 +265,7 @@ export const updateChatMessage = createAsyncThunk(
 // Updates simple per-chat switches, leaving content and tree untouched.
 export const updateChatOptions = createAsyncThunk(
   "chat/updateChatOptions",
-  async ({ chatId, patch }: { chatId: number; patch: Partial<Pick<Chat, "replySuggestions" | "textingMode" | "worldId" | "backdrop" | "relationshipSuggestions" | "relationshipCheckedAt" | "relationshipSuggestion" | "sceneTracker" | "sceneState" | "recap" | "storyScript" | "game" | "gameScore" | "turnMode" | "narrator" | "roomRelationships" | "innerThoughts" | "offscreenTalk" | "offscreenTalks" | "arcCheckedAt" | "arcSuggestion" | "language" | "coWriting" | "stage" | "stageCheckedAt" | "stageSuggestion" | "meters" | "boldness" | "choiceMoments" | "moodTint" | "plans" | "planTracking" | "revealedSecrets" | "ambient" | "insideJokes" | "jokeTracking" | "jokesCheckedAt" | "conflicts" | "conflict" | "jealousy" | "lies" | "toldLies" | "whatIf" | "pendingHook" | "roleSwap" | "moodCarry" | "mood" | "callbackAt" | "readAt" | "muted" | "archived" | "leftOnReadUntil">> }, { rejectWithValue }) => {
+  async ({ chatId, patch }: { chatId: number; patch: Partial<Pick<Chat, "replySuggestions" | "textingMode" | "worldId" | "backdrop" | "relationshipSuggestions" | "relationshipCheckedAt" | "relationshipSuggestion" | "sceneTracker" | "sceneState" | "recap" | "storyScript" | "game" | "gameScore" | "turnMode" | "narrator" | "roomRelationships" | "innerThoughts" | "offscreenTalk" | "offscreenTalks" | "arcCheckedAt" | "arcSuggestion" | "language" | "coWriting" | "stage" | "stageCheckedAt" | "stageSuggestion" | "meters" | "boldness" | "choiceMoments" | "moodTint" | "plans" | "planTracking" | "revealedSecrets" | "ambient" | "insideJokes" | "jokeTracking" | "jokesCheckedAt" | "conflicts" | "conflict" | "jealousy" | "lies" | "toldLies" | "whatIf" | "pendingHook" | "roleSwap" | "moodCarry" | "mood" | "callbackAt" | "readAt" | "muted" | "archived" | "leftOnReadUntil" | "disappearing">> }, { rejectWithValue }) => {
     try {
       await dbService.patchChat(chatId, patch);
       return { chatId, patch };
@@ -383,6 +383,22 @@ export const addChatNotice = createAsyncThunk(
       pushRoomEvent(chat, text);
       await dbService.updateChat(chat);
       return { chatId, content: chat.content, tree: chat.tree, activeLeafId: chat.activeLeafId };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
+// Disappearing messages (#136): on (a day or a week) or off, with a notice.
+export const setDisappearing = createAsyncThunk(
+  "chat/setDisappearing",
+  async ({ chatId, after, notice }: { chatId: number; after: "day" | "week" | null; notice: string }, { rejectWithValue }) => {
+    try {
+      const chat = await dbService.getChatById(chatId);
+      chat.disappearing = after ? { after, since: Date.now() } : undefined;
+      pushRoomEvent(chat, notice);
+      await dbService.updateChat(chat);
+      return { chatId, content: chat.content, tree: chat.tree, activeLeafId: chat.activeLeafId, disappearing: chat.disappearing };
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
@@ -883,6 +899,15 @@ const chatSlice = createSlice({
           chat.content = action.payload.content;
           chat.tree = action.payload.tree;
           chat.activeLeafId = action.payload.activeLeafId;
+        }
+      })
+      .addCase(setDisappearing.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c.id === action.payload.chatId);
+        if (chat) {
+          chat.content = action.payload.content;
+          chat.tree = action.payload.tree;
+          chat.activeLeafId = action.payload.activeLeafId;
+          chat.disappearing = action.payload.disappearing;
         }
       })
       .addCase(renameGroupChat.fulfilled, (state, action) => {

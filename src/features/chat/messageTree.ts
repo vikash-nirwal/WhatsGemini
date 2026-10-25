@@ -222,3 +222,21 @@ export const findDefaultLeafFrom = (tree: ConversationTree, nodeId: string): str
     current = node.childIds[node.childIds.length - 1];
   }
 };
+
+// Takes messages out of the tree (#136), keeping everything else: a removed
+// message's children move up to its nearest kept ancestor, in their order.
+export const removeNodes = (tree: ConversationTree, ids: Set<string>): ConversationTree => {
+  const keptParent = (id: string | null): string | null => {
+    let current = id;
+    while (current && ids.has(current)) current = tree.nodes[current]?.parentId ?? null;
+    return current;
+  };
+  const nodes: Record<string, MessageNode> = {};
+  for (const [id, node] of Object.entries(tree.nodes)) {
+    if (!ids.has(id)) nodes[id] = { ...node, parentId: keptParent(node.parentId), childIds: [] };
+  }
+  for (const [id, node] of Object.entries(nodes)) {
+    if (node.parentId && nodes[node.parentId]) nodes[node.parentId].childIds.push(id);
+  }
+  return { nodes };
+};

@@ -1,3 +1,4 @@
+import { buildDisappearingNote, DISAPPEAR_LABEL, pruneDisappeared } from "../features/chat/disappearing";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { avatarOf } from "../features/character/profileChanges";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -342,6 +343,8 @@ const ChatPage = () => {
   const textingOn = Boolean(currentChat?.textingMode ?? appTextingMode);
   // Their own About line (#125).
   scene.profileNote = mainStory && characterData ? buildProfileNote(characterData.name, characterData.about) : undefined;
+  // Disappearing messages (#136): the character knows they're on.
+  scene.disappearingNote = !isRoom && characterData && currentChat?.disappearing ? buildDisappearingNote(currentChat.disappearing.after, characterData.name, userNameForNotes) : undefined;
   // Group chats (#124): members may rename the group or start a poll.
   scene.groupNote = isRoom ? buildGroupDirective(userNameForNotes) : undefined;
   // Quoted replies (#119): in texting mode they may quote an older message.
@@ -767,6 +770,20 @@ const ChatPage = () => {
   const [isAutoReplyModalOpen, setIsAutoReplyModalOpen] = useState(false);
   const [sceneOpen, setSceneOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
+  // Disappearing messages (#136): expired ones leave the chat while it's
+  // open, checked every minute (and when it opens).
+  useEffect(() => {
+    if (!currentChat?.disappearing || chatIdNum == null) return;
+    const prune = () => {
+      const result = pruneDisappeared(currentChat, Date.now());
+      if (!result) return;
+      if (result.tree) dispatch(updateChatTree({ chatId: chatIdNum, content: result.content, tree: result.tree, activeLeafId: result.activeLeafId ?? null }));
+      else dispatch(updateMessages({ chatId: chatIdNum, newMessages: result.content }));
+    };
+    prune();
+    const timer = window.setInterval(prune, 60_000);
+    return () => window.clearInterval(timer);
+  }, [currentChat, chatIdNum, dispatch]);
   const [storyOpen, setStoryOpen] = useState(false);
   const [albumOpen, setAlbumOpen] = useState(false);
   const [scenarioOpen, setScenarioOpen] = useState(false);
@@ -2307,7 +2324,7 @@ const ChatPage = () => {
     <div className="flex flex-col w-full h-dvh relative">
       <Header
         title={character || "Chat"}
-        subtitle={isRoom ? `With ${roomCharacters.map((c) => c.name).join(", ")}` : (presence?.label || characterData?.relationship || characterData?.description)}
+        subtitle={isRoom ? `With ${roomCharacters.map((c) => c.name).join(", ")}` : currentChat?.disappearing ? `Disappearing · ${DISAPPEAR_LABEL[currentChat.disappearing.after]}` : (presence?.label || characterData?.relationship || characterData?.description)}
         online={presence ? presence.online : true}
         avatar={
           // A group shows its members' faces, so nobody's stands for all of
