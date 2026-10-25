@@ -118,7 +118,9 @@ test.describe("forwarding", () => {
     const source = messageBubble(page, "Aria message 3: how was your day?");
     await source.hover();
     await messageAction(page, source, "Forward");
-    await page.getByRole("dialog", { name: "Forward to…" }).getByRole("button", { name: "Aria & Kai" }).click();
+    const dialog = page.getByRole("dialog", { name: "Forward to…" });
+    await dialog.getByRole("button", { name: /Aria & Kai/ }).click();
+    await dialog.getByRole("button", { name: "Forward", exact: true }).click();
     await expect(page).toHaveURL(/#\/chat\/2$/);
     await expect(page.locator('[data-slot="forwarded"]').filter({ hasText: "Aria message 3: how was your day?" })).toBeVisible();
   });

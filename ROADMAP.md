@@ -30,7 +30,6 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 **Wave 1 (#148–#151) is built** (2026-10-25; see PROGRESS.md). Left from it for later items: the life dial and presets in Contact info's "Their life" (with #131), Block and Clear chat there (with #133), search inside a chat (not built yet), and docking the composer below the messages instead of floating it (#152–#156 can pick it up).
 
 **Wave 2: the other screens**
-- **#156 Smaller screens (M).** Starred messages, message info, forward, poll creation, the adventures gallery and an adventure.
 
 **Wave 3: with the features they belong to**
 - **#157 Worlds UI (M, with #143 and #144).** The world rail and phone switcher, the Worlds page and the world wizard.

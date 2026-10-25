@@ -1139,28 +1139,37 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
 
       <ForwardDialog message={forwarding} onClose={() => setForwarding(null)} />
 
-      {/* Message info (#121): sent, delivered and read times. */}
+      {/* Message info (#121): sent, delivered and read times - the canvas's
+          layout (#156): the message on the chat's background, then who read
+          it and when it was delivered. */}
       <Dialog open={info != null} onOpenChange={(open) => !open && setInfoIndex(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogTitle>Message info</DialogTitle>
+        <DialogContent size="sheet" className="bg-surface px-0">
+          <DialogTitle className="px-4 pb-1 text-[17px]">Message info</DialogTitle>
           {info && infoIndex != null && (
-            <div className="flex flex-col gap-3 font-sans text-[13.5px]">
-              <p className="rounded-lg bg-primary/[0.12] px-3 py-2 text-foreground line-clamp-3">{filteredMessages[infoIndex]?.txt}</p>
-              <ul aria-label="Read by" className="flex flex-col gap-2">
-                {info.reads.map((r, k) => (
-                  <li key={k} className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-2">
-                      <span aria-hidden data-slot="ticks" data-state={r.readAt ? "read" : "sent"} className={cn("tracking-[-0.2em] font-semibold", r.readAt ? "text-primary" : "text-subtle")}>✓✓</span>
-                      {info.reads.length > 1 ? namesById[r.speakerId ?? -1] || "Someone" : "Read"}
-                    </span>
-                    <span className="text-muted-foreground">{r.readAt ? timeLabel(r.readAt) : "Not yet"}</span>
+            <div className="flex min-h-0 flex-col overflow-y-auto font-sans">
+              <div className="border-b border-border bg-background px-3 pb-5 pt-4">
+                <div className="ml-auto w-fit max-w-[85%] rounded-bubble rounded-tr-[5px] bg-bubble-out px-3 py-2 font-serif text-[15px] leading-[22px] text-bubble-out-text line-clamp-4">{filteredMessages[infoIndex]?.txt}</div>
+              </div>
+              <div className="flex flex-col gap-4 px-4 py-5">
+                {filteredMessages[infoIndex]?.timestamp && (
+                  <span className="text-[12px] text-subtle">In {characterName || "this chat"} · {new Date(filteredMessages[infoIndex].timestamp!).toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" })}</span>
+                )}
+                <ul aria-label="Read by" className="flex flex-col rounded-card bg-card px-4 py-1 ring-1 ring-inset ring-border">
+                  {info.reads.map((r, k) => (
+                    <li key={k} className="flex min-h-[52px] items-center gap-3 [&+&]:border-t [&+&]:border-border">
+                      <span aria-hidden data-slot="ticks" data-state={r.readAt ? "read" : "sent"} className={cn("w-5 tracking-[-0.2em] font-semibold", r.readAt ? "text-primary" : "text-subtle")}>✓✓</span>
+                      <span className="flex-1 text-[15px] font-semibold text-foreground">{info.reads.length > 1 ? namesById[r.speakerId ?? -1] || "Someone" : "Read"}</span>
+                      <span className="text-[13.5px] tabular-nums text-muted-foreground">{r.readAt ? timeLabel(r.readAt) : "Not yet"}</span>
+                    </li>
+                  ))}
+                  <li className="flex min-h-[52px] items-center gap-3 border-t border-border">
+                    <span aria-hidden className="w-5 tracking-[-0.2em] font-semibold text-subtle">✓✓</span>
+                    <span className="flex-1 text-[15px] font-semibold text-foreground">Delivered</span>
+                    <span className="text-[13.5px] tabular-nums text-muted-foreground">{info.deliveredAt ? timeLabel(info.deliveredAt) : ""}</span>
                   </li>
-                ))}
-                <li className="flex items-center justify-between gap-3 border-t border-border/50 pt-2">
-                  <span className="flex items-center gap-2"><span aria-hidden className="tracking-[-0.2em] font-semibold text-subtle">✓✓</span>Delivered</span>
-                  <span className="text-muted-foreground">{info.deliveredAt ? timeLabel(info.deliveredAt) : ""}</span>
-                </li>
-              </ul>
+                </ul>
+                <p className="text-center text-[12px] text-subtle">Read receipts follow each character's texting habits. Someone who leaves you on read shows as read with no reply.</p>
+              </div>
             </div>
           )}
         </DialogContent>

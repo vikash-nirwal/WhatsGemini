@@ -44,7 +44,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #153 | Revamp: message actions | done | 2026-10-25 |
 | #154 | Revamp: character creation | done | 2026-10-25 |
 | #155 | Revamp: characters, new chat, settings | done | 2026-10-25 |
-| #156 | Revamp: smaller screens | todo | wave 2 |
+| #156 | Revamp: smaller screens | done | 2026-10-25 |
 | #157 | Revamp: worlds UI | todo | wave 3, with #143 and #144 |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
@@ -60,6 +60,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+#156 smaller screens: PollDialog as the canvas's sheet (Cancel / New poll, question, option rows, Add option, Send poll); Message info as a sheet with the bubble on the chat background, a Read by card and the receipts note; ForwardDialog picks several chats (round checks, quoted message, world note, To: line, optional message, Forward); Starred with chat filter chips and bubble-style items; Adventures gallery with a Continue card for the latest story and rows; adventure choices one per row.
 #155 characters, new chat, settings: character cards as on the canvas (colour or portrait, Not met/Muted/Archived badge, life preset line, Message or Start chat, edit and menu), In this world / All worlds chips, sort by recent or name, search by tag; the new tile goes to quick create. New chat/new group sheet in Sidebar (Chat/Group, selected avatars with remove, In <world>, round checks, a New character row). Settings grouped You / AI / Chat and look / Care with values; phones get a list at /settings with the persona card and the life dial, each section on its own screen.
 #154 character creation: QuickCreatePage at /characters/quick (Characters › New character): a line and an optional photo give a draft preview, a life preset, Start chatting; Full editor opens /characters/new with state.draftFrom. The editor has the canvas's six steps (Who they are, Look, Personality, World and story, Their life, Test and finish) plus Advanced (model, local images, intimacy, lorebook), a step list on desktop, a live preview at xl, non-linear with required fields checked on save; IdentityStep part who|look; LifeStep with presets and switches (features/character/lifePresets.ts). Tests navigate with the editorStep helper in e2e/fixtures.ts.
 #153 message actions: the phone long-press sheet in ChatMessage (reactions pill and the message lifted above the sheet, Reply/Forward/Copy/Star tiles, the rest as a grouped list with hints like Regenerate's variant count, Delete apart; still one role=menu 'Message actions'); ReactionRow restyled as the floating pill. The desktop hover toolbar and swipe to reply were already in place (#149).

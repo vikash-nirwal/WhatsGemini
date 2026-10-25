@@ -1,7 +1,7 @@
 import { usePhoneShell, TAB_BAR_HEIGHT } from "src/hooks/usePhoneShell";
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaPlus, FaTrash, FaDiceD20, FaSearch, FaGlobe } from "react-icons/fa";
+import { FaPlus, FaTrash, FaSearch, FaGlobe } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { deleteAdventure } from "../features/adventureSlice";
 import { useModal } from "../contexts/ModalContext";
@@ -9,10 +9,12 @@ import { useColorTheme } from "../hooks/useColorTheme";
 import { cn } from "../utils/cn";
 import { Button } from "src/components/atoms/button";
 import { Card } from "src/components/atoms/card";
-import { Badge } from "src/components/atoms/badge";
 import { Input } from "src/components/atoms/input";
 import Header from "src/components/organisms/Header";
-import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
+
+// A steady colour per adventure for its tile (#156), from the canvas's set.
+const TILE_COLORS = ["#2B3A55", "#4A3B5C", "#8A4A22", "#2F5F55", "#5B3F9E", "#A0396B"];
+const tileColor = (id: number) => TILE_COLORS[Math.abs(id) % TILE_COLORS.length];
 
 const AdventureGalleryPage = () => {
   const shell = usePhoneShell();
@@ -33,6 +35,8 @@ const AdventureGalleryPage = () => {
     return adventures.filter((a) => a.title.toLowerCase().includes(q) || a.premise?.toLowerCase().includes(q));
   }, [adventures, search]);
 
+  // The most recent story still being played leads the page.
+  const hero = !search.trim() ? [...adventures].filter((a) => a.status !== "completed").sort((a, b) => (b.content[b.content.length - 1]?.timestamp || b.timestamp) - (a.content[a.content.length - 1]?.timestamp || a.timestamp))[0] : undefined;
   const handleDelete = async (adventureId: number, title: string) => {
     const confirmed = await showConfirm("Delete adventure", `Delete "${title}"? This can't be undone.`);
     if (confirmed) dispatch(deleteAdventure(adventureId));
@@ -82,54 +86,59 @@ const AdventureGalleryPage = () => {
           ) : filteredAdventures.length === 0 ? (
             <Card className="p-6 text-center text-muted-foreground text-sm">No adventures match "{search}".</Card>
           ) : (
-            <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
-              {filteredAdventures.map((adventure) => {
-                const world = worlds.find((w) => w.id === adventure.worldId);
-                const cast = characters.filter((c) => adventure.characterIds.includes(c.id));
+            // #156: the latest unfinished story as a "Continue" card, then
+            // the rest as rows, as on the canvas.
+            <div className="flex flex-col gap-4">
+              {hero && (() => {
+                const world = worlds.find((w) => w.id === hero.worldId);
+                const state = [...hero.content].reverse().find((m) => m.gameState)?.gameState;
+                const last = [...hero.content].reverse().find((m) => m.role !== "you")?.txt?.replace(/\s+/g, " ");
                 return (
-                  <Card
-                    key={adventure.id}
-                    className="p-5 flex flex-col gap-3 cursor-pointer hover:border-primary/40 border border-transparent transition"
-                    onClick={() => navigate(`/adventures/${adventure.id}`)}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-serif font-semibold text-lg text-foreground truncate leading-tight flex items-center gap-2">
-                        <FaDiceD20 size={13} className="text-subtle flex-shrink-0" /> {adventure.title}
-                      </h4>
-                      {adventure.status === "completed" && <Badge variant="secondary" className="text-[10px] flex-shrink-0">Completed</Badge>}
-                    </div>
-                    {world && (
-                      <Badge variant="outline" className="self-start max-w-full truncate border-primary/20 bg-primary/10 font-medium text-primary text-[11px]">
-                        <FaGlobe size={9} className="mr-1" /> {world.name}
-                      </Badge>
-                    )}
-                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{adventure.premise || "No premise set yet."}</p>
-                    {cast.length > 0 && (
-                      <div className="flex items-center -space-x-2 mt-1">
-                        {cast.slice(0, 5).map((c) => (
-                          <CharacterAvatar key={c.id} name={c.name} accent={c.accent} imageSrc={c.appearanceImages?.[0]} size={26} className="border-2 border-card" />
-                        ))}
-                        {cast.length > 5 && <span className="text-[10px] text-subtle pl-3">+{cast.length - 5}</span>}
-                      </div>
-                    )}
-                    <div className="flex gap-1.5 mt-auto pt-1">
-                      <Button onClick={(e) => { e.stopPropagation(); navigate(`/adventures/${adventure.id}`); }} className="flex-1 h-9 text-xs font-semibold bg-foreground text-background hover:bg-foreground/90 shadow-none">
-                        Open
-                      </Button>
+                  <button type="button" onClick={() => navigate(`/adventures/${hero.id}`)} aria-label={`Continue ${hero.title}`}
+                    className="flex flex-col overflow-hidden rounded-[20px] bg-raised text-left shadow-soft ring-1 ring-inset ring-border">
+                    <span className="flex h-[132px] flex-col justify-between p-3.5" style={{ background: tileColor(hero.id) }}>
+                      <span className="w-fit rounded-md bg-black/40 px-2 py-0.5 text-[12px] font-bold text-white">Continue</span>
+                      <span className="font-serif text-[24px] leading-7 text-white">{hero.title}</span>
+                    </span>
+                    <span className="flex flex-col gap-2.5 px-3.5 pb-3.5 pt-3">
+                      <span className="line-clamp-2 text-[13.5px] text-muted-foreground">{last || hero.premise || "No premise set yet."}</span>
+                      <span className="flex flex-wrap gap-1.5">
+                        {world && <span className="rounded-md bg-sunken px-2 py-0.5 text-[12px] font-semibold text-muted-foreground">{world.name}</span>}
+                        {state && <span className="rounded-md bg-sunken px-2 py-0.5 text-[12px] font-semibold text-muted-foreground">HP {state.hp}/{state.maxHp}</span>}
+                        {state && <span className="rounded-md bg-sunken px-2 py-0.5 text-[12px] font-semibold text-muted-foreground">{state.gold} gold</span>}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })()}
+              <ul aria-label="Adventures" className="flex flex-col gap-2.5">
+                {filteredAdventures.filter((a) => a.id !== hero?.id).map((adventure) => {
+                  const world = worlds.find((w) => w.id === adventure.worldId);
+                  const cast = characters.filter((c) => adventure.characterIds.includes(c.id));
+                  return (
+                    <li key={adventure.id} className="flex items-center gap-3 rounded-card bg-card p-2.5 ring-1 ring-inset ring-border">
+                      <button type="button" onClick={() => navigate(`/adventures/${adventure.id}`)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                        <span aria-hidden className="grid h-16 w-16 flex-none place-items-center rounded-xl font-serif text-[26px] text-white/90" style={{ background: tileColor(adventure.id) }}>{adventure.title.trim().charAt(0).toUpperCase()}</span>
+                        <span className="flex min-w-0 flex-col gap-0.5">
+                          <span className="truncate text-[15px] font-bold text-foreground">{adventure.title}</span>
+                          <span className="truncate text-[12.5px] text-muted-foreground">{adventure.premise || "No premise set yet."}</span>
+                          <span className="truncate text-[12px] text-subtle">{[adventure.status === "completed" ? "Completed" : undefined, world?.name, cast.length ? `with ${cast.map((c) => c.name).join(", ")}` : "solo"].filter(Boolean).join(" · ")}</span>
+                        </span>
+                      </button>
                       <Button
-                        onClick={(e) => { e.stopPropagation(); handleDelete(adventure.id, adventure.title); }}
-                        variant="outline"
+                        onClick={() => handleDelete(adventure.id, adventure.title)}
+                        variant="ghost"
                         size="icon"
-                        className="h-9 w-9 hover:border-destructive hover:text-destructive"
+                        className="h-9 w-9 flex-none hover:text-destructive"
                         title="Delete adventure"
                         aria-label="Delete adventure"
                       >
                         <FaTrash size={13} />
                       </Button>
-                    </div>
-                  </Card>
-                );
-              })}
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           )}
         </div>

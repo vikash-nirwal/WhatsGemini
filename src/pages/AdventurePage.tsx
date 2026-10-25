@@ -868,9 +868,10 @@ const AdventurePage = () => {
       ) : (
         <div className="flex-shrink-0 border-t border-border/40">
           {activeChoices && activeChoices.length > 0 && (
-            <div className="flex flex-wrap gap-2 px-4 md:px-8 pt-3">
+            // #156: one choice per row, tall enough to tap, as on the canvas.
+            <div className="mx-auto flex w-full max-w-[720px] flex-col gap-2 px-4 pt-3 md:px-8">
               {activeChoices.map((choice) => (
-                <Button key={choice.id} onClick={() => handleSend(choice.label, choice.id)} disabled={generating} variant="outline" className="h-auto py-2 px-3.5 text-left text-xs font-medium whitespace-normal">
+                <Button key={choice.id} onClick={() => handleSend(choice.label, choice.id)} disabled={generating} variant="outline" className="h-auto min-h-11 w-full justify-start gap-2 whitespace-normal rounded-card px-3.5 py-2.5 text-left text-[14px] font-medium">
                   {choice.label}
                   {choice.check && skillChecks && <CheckChip check={choice.check} />}
                 </Button>
