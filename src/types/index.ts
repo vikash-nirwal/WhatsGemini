@@ -241,6 +241,9 @@ export interface MyStatus {
   createdAt: number;
   bg?: string; // a text status's colour (#152), from STATUS_COLORS
   font?: "serif" | "sans"; // its typeface (#152); serif when unset
+  worldId?: number; // the world it was posted in; its people see it (unset = My world)
+  decidedAt?: number; // when who-sees-it was decided; unset = still to do (retried)
+  tries?: number; // failed attempts at deciding it
   views?: { characterId: number; at: number }[];
   likes?: { characterId: number; at: number }[];
   comments?: StatusComment[];

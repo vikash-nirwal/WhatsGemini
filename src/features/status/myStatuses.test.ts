@@ -1,4 +1,4 @@
-import { addMyStatus, buildMyStatusNote, buildMyStatusReactionsPrompt, dueReplies, happened, liveMyStatuses, parseMyStatusReactions, statusViewersFor } from "./myStatuses";
+import { addMyStatus, buildMyStatusNote, buildMyStatusReactionsPrompt, dueReplies, happened, liveMyStatuses, parseMyStatusReactions, statusViewersFor, fallbackReactions, undecidedStatuses } from "./myStatuses";
 import { Character, Chat, MyStatus } from "../../types";
 
 const MINUTE = 60_000;
@@ -51,5 +51,38 @@ describe("your own statuses (#117)", () => {
     const status: MyStatus = { id: "s", text: "Beach day", createdAt: NOW - 2 * 60 * MINUTE, views: [{ characterId: 1, at: NOW - 100 * MINUTE }] };
     expect(buildMyStatusNote("Sam", [status], 1, NOW)).toBe('Sam posted a status 2 hours ago, and you\'ve seen it: "Beach day". Bring it up only if it fits.');
     expect(buildMyStatusNote("Sam", [status], 2, NOW)).toBeUndefined();
+  });
+});
+
+describe("reading real models' answers (status reactions)", () => {
+  const people = [{ id: 1, name: "Aria Vega" }, { id: 2, name: "Kai" }] as any[];
+  const T = 1_000_000;
+  const half = () => 0.5;
+
+  it("accepts string booleans, first names, fences, chatter and trailing commas", () => {
+    const reply = 'Sure! Here you go:\n```json\n[{"name": "Aria", "view": "true", "like": "yes", "comment": "",},\n {"name": "kai", "view": 1, "reply": "where is that?"},]\n```';
+    const r = parseMyStatusReactions(reply, people, T, half);
+    expect(r.views!.map((v) => v.characterId)).toEqual([1, 2]);
+    expect(r.likes!.map((v) => v.characterId)).toEqual([1]);
+    expect(r.replies!.map((v) => v.text)).toEqual(["where is that?"]);
+  });
+
+  it("finds the list inside an object, or a single answer", () => {
+    expect(parseMyStatusReactions('{"reactions": [{"name": "Kai", "view": true}]}', people, T, half).views).toHaveLength(1);
+    expect(parseMyStatusReactions('{"name": "Aria Vega", "view": true}', people, T, half).views).toHaveLength(1);
+    expect(parseMyStatusReactions("I can't help with that.", people, T, half).views).toHaveLength(0);
+  });
+
+  it("falls back to plain views, and knows which statuses still need deciding", () => {
+    const fb = fallbackReactions(people, T, () => 0.1);
+    expect(fb.views).toHaveLength(2);
+    expect(fb.likes).toEqual([]);
+    const now = T + 60_000;
+    const statuses = [
+      { id: "new", text: "x", createdAt: T },
+      { id: "old-decided", text: "x", createdAt: T, views: [] },
+      { id: "done", text: "x", createdAt: T, decidedAt: T },
+    ] as any[];
+    expect(undecidedStatuses(statuses, now).map((s) => s.id)).toEqual(["new"]);
   });
 });

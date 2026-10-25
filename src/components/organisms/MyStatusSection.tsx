@@ -6,12 +6,12 @@ import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { selectActivePersona } from "src/features/settingsSlice";
 import { changeMyStatuses } from "src/features/myStatusSlice";
-import { generateAssistText } from "src/features/aiSlice";
 import { readPhoto } from "src/features/chat/photoAttachments";
-import { addMyStatus, buildMyStatusReactionsPrompt, happened, liveMyStatuses, newMyStatusId, parseMyStatusReactions, statusViewersFor } from "src/features/status/myStatuses";
+import { addMyStatus, happened, liveMyStatuses, newMyStatusId } from "src/features/status/myStatuses";
+import { decideMyStatusReactions } from "src/features/status/decideReactions";
 import { STATUS_COLORS } from "src/features/status/statusLook";
 import { MyStatus } from "src/types";
-import { useCurrentWorld, useWorldChats, useWorldCharacters } from "src/hooks/useWorld";
+import { useCurrentWorld, useWorldCharacters } from "src/hooks/useWorld";
 
 const MAX_STATUS = 700;
 const timeOf = (at: number) => new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -37,8 +37,7 @@ export const MyStatusSection = ({ variant }: { variant: "tile" | "row" }) => {
   const persona = useAppSelector(selectActivePersona);
   const statuses = useAppSelector((state) => state.myStatus.statuses);
   const characters = useWorldCharacters();
-  const chats = useWorldChats();
-  const { name: worldName } = useCurrentWorld();
+  const { name: worldName, currentWorldId } = useCurrentWorld();
   const [composing, setComposing] = useState(false);
   const [viewing, setViewing] = useState(false);
   const [text, setText] = useState("");
@@ -81,20 +80,17 @@ export const MyStatusSection = ({ variant }: { variant: "tile" | "row" }) => {
     const body = text.trim();
     if (!body && !photo) return;
     setPosting(true);
-    const status: MyStatus = { id: newMyStatusId(), text: body, image: photo, createdAt: Date.now(), ...(photo ? {} : { bg, font }) };
+    const status: MyStatus = { id: newMyStatusId(), text: body, image: photo, createdAt: Date.now(), ...(photo ? {} : { bg, font }), ...(currentWorldId ? { worldId: currentWorldId } : {}) };
     try {
       await dispatch(changeMyStatuses((list) => addMyStatus(list, status)));
       setComposing(false);
       setText("");
       setPhoto(undefined);
-      // Who sees it and what they do, decided once, on the helper model.
-      const viewers = statusViewersFor(characters, chats);
-      if (viewers.length === 0) return;
-      const reply = await dispatch(generateAssistText({ instruction: buildMyStatusReactionsPrompt(persona?.name?.trim() || "the user", status, viewers), background: true })).unwrap();
-      const reactions = parseMyStatusReactions(reply, viewers, status.createdAt);
-      await dispatch(changeMyStatuses((list) => list.map((s) => (s.id === status.id ? { ...s, ...reactions } : s))));
+      // Who sees it and what they do, decided on the helper model; retried
+      // in the background if this doesn't get through.
+      void dispatch(decideMyStatusReactions(status.id));
     } catch (err) {
-      console.warn("Status reactions failed (non-fatal):", err);
+      setError((err as Error).message);
     } finally {
       setPosting(false);
     }

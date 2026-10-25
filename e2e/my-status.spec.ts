@@ -57,3 +57,31 @@ test("your About line is on your profile and in the prompt", async ({ page, mock
   const system = mockAI.requests.filter((r) => r.stream)[0].messages.find((m) => m.role === "system")?.content || "";
   expect(system).toContain('User\'s About line on their profile: "Busy, coffee first".');
 });
+
+// A model's answer that isn't usable no longer leaves a status unseen: the
+// watcher tries again, and reads the loose shapes real models write.
+test("a status whose first decision failed is retried, and still seen", async ({ page, mockAI }) => {
+  await page.clock.install({ time: new Date(2026, 9, 21, 9, 0, 0) });
+  let asked = 0;
+  mockAI.reply((req) => {
+    if (!req.prompt.includes("just posted a status")) return "Mock reply";
+    asked += 1;
+    return asked === 1 ? "Sorry, I can't do that right now." : 'Here:\n```json\n[{"name": "aria", "view": "true", "like": "yes"},]\n```';
+  });
+  await openRoute(page, "/updates");
+  const mine = page.getByRole("region", { name: "My status" });
+  await mine.getByRole("button", { name: "Add a status" }).click();
+  const dialog = page.getByRole("dialog", { name: "New status" });
+  await dialog.getByLabel("Status text").fill("Rainy Sunday");
+  await dialog.getByRole("button", { name: "Post" }).click();
+  await expect.poll(() => asked).toBe(1);
+  // The watcher picks it up again within a minute.
+  await page.clock.fastForward(60_000);
+  await expect.poll(() => asked, { timeout: 15_000 }).toBe(2);
+  await page.clock.fastForward(45 * 60_000);
+  await mine.getByRole("button", { name: "View my status" }).click();
+  const viewer = page.getByRole("dialog", { name: "My status" });
+  await viewer.getByRole("tab", { name: "Seen by 1" }).click();
+  await expect(viewer.getByRole("list", { name: "Seen by" })).toContainText("Aria");
+  await expect(viewer.getByLabel("liked it")).toBeVisible();
+});

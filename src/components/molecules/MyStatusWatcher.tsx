@@ -4,7 +4,8 @@ import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { addChat, addMessage, fetchChats } from "src/features/chatSlice";
 import { changeMyStatuses, loadMyStatuses } from "src/features/myStatusSlice";
-import { dueReplies } from "src/features/status/myStatuses";
+import { dueReplies, undecidedStatuses } from "src/features/status/myStatuses";
+import { decideMyStatusReactions } from "src/features/status/decideReactions";
 import { isNsfwCharacter } from "src/features/character/contentRating";
 import { notifyChatMessage } from "src/features/notifications/notifications";
 import { AI } from "src/utils/constants";
@@ -14,8 +15,8 @@ import { useElsewhereName, useLivingCharacters } from "src/hooks/useWorld";
 const CHECK_EVERY_MS = 30 * 1000;
 const FIRST_CHECK_MS = 5 * 1000;
 
-// Your own statuses (#117): loads them, and delivers a character's private
-// reply to one when its time comes, into your chat with them (made if
+// Your own statuses (#117): loads them, retries deciding who sees any still
+// undecided, and delivers a character's private reply to one when its time comes, into your chat with them (made if
 // needed), quoting the status. Only while the app is open.
 const MyStatusWatcher = () => {
   const dispatch = useAppDispatch();
@@ -29,6 +30,7 @@ const MyStatusWatcher = () => {
   const latest = useRef({ statuses, chats, characters, privacy, path: location.pathname, elsewhere });
   latest.current = { statuses, chats, characters, privacy, path: location.pathname, elsewhere };
   const busy = useRef(false);
+  const deciding = useRef(false);
 
   useEffect(() => {
     dispatch(loadMyStatuses());
@@ -38,6 +40,13 @@ const MyStatusWatcher = () => {
     const check = async () => {
       if (busy.current) return;
       const { statuses, chats, characters, privacy, path, elsewhere } = latest.current;
+      // A status nobody's reactions were decided for yet - the call failed,
+      // or the app closed right after posting - gets another go.
+      const undecided = undecidedStatuses(statuses, Date.now())[0];
+      if (undecided && !deciding.current) {
+        deciding.current = true;
+        void dispatch(decideMyStatusReactions(undecided.id)).finally(() => { deciding.current = false; });
+      }
       const due = dueReplies(statuses, Date.now());
       if (due.length === 0) return;
       busy.current = true;
