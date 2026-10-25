@@ -46,7 +46,7 @@ The user's idea, replacing circles: the app holds several worlds, each its own s
 
 Leftovers noted while building the finished items. Pick them up alongside related work.
 
-- **For the UI revamp (user's call, 2026-10-25):** in group chats the first member's avatar shows the group's initials instead of theirs, and the composer says "Message Aria…" instead of naming the group. The revamp brief and screenshots are in `design/` (not committed).
+- **For the UI revamp (user's call, 2026-10-25):** in group chats the first member's avatar shows the group's initials instead of theirs, and the composer says "Message Aria…" instead of naming the group. The revamp brief and screenshots are in `design/`.
 
 - **#113–#129 (2026-10-24):** not tried with real models or a real image provider: whether models use the new tags (`[Re: …]`, `[Fwd: …]`, `[Contact: …]`, `[Group name: …]`, `[Poll: …]`), the status, channel, About and poll-vote helper prompts, and photo statuses and profile photos. Swipe-to-reply has no UI test. Channels, your statuses' private replies and profile changes only happen while the app is open. You can't send view-once photos yourself yet. The phone shell is WhatsApp-theme only.
 
