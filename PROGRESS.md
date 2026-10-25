@@ -25,10 +25,15 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #136 | Disappearing messages | todo |  |
 | #137 | Character stickers | todo |  |
 | #138 | Relationship map | todo |  |
-| #139 | Circles | todo | members talk on their own; at most 10 messages per exchange by default; hidden, with a Peek switch to read their chats |
+| #139 | Circles | skipped | folded into worlds (#145) |
 | #140 | How long a status lasts | todo | a day of 1-24 hours (default 24) set in Settings; the Feed follows it too |
 | #141 | Texting mode everywhere | todo | terminal theme and novel view too |
 | #142 | Where things stand (memory paragraph) | todo | written with each memory update; facts stay the source; pinned facts verbatim; fallback to the 30-fact list |
+| #143 | Worlds as spaces | todo | selector, scoping, default world, shared card with per-world memory, persona per world |
+| #144 | World creation wizard | todo | world, cast (pick or generate), connections, your persona |
+| #145 | Life inside a world | todo | replaces circles: characters talk, Peek, 10 messages per exchange |
+| #146 | Worlds keep running | todo | background life in every world, per-world switch |
+| #147 | Story time | todo | optional world calendar |
 
 Smaller follow-ups are listed at the end of ROADMAP.md.
 
@@ -169,6 +174,8 @@ Choices a later session shouldn't revisit. Add the date.
 - 2026-10-25: "Your own WhatsApp, part 2" (#130–#138) was picked by the user, all but voice statuses; the user then dropped #135 (location sharing) and made #133 blocking two-way. #139 (circles, 10-message cap per exchange) added the same day. Not to be built until the user says so. #132 (tuning with a real model) needs the user's API key and is theirs to run.
 
 - 2026-10-25 (user): part 2 (#130–#142) stays on hold until the user says go; then build all of it, one after another or in parallel lanes. The SillyTavern lorebook fields (cooldown, delay, regex keys, case-sensitive matching, insertion position, groups) are skipped. Drive backup waits for the user to add a client ID.
+
+- 2026-10-25 (user): worlds replace circles (#143–#147). A character can join several worlds with separate memory per world; the user is in every world (a persona per world, else the default); other worlds keep running, with a per-world switch; optional story time per world; the Worlds gallery becomes the world manager. On hold with part 2.
 
 ## Working notes
 
