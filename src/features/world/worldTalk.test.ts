@@ -119,3 +119,19 @@ test("people in the same made world know each other; in My world only by ties", 
   expect(knowEachOther({ id: 1, name: "A" }, { id: 2, name: "B" })).toBe(false);
   expect(knowEachOther({ id: 1, name: "A", worldId: 3 }, { id: 2, name: "B", worldId: 4 })).toBe(false);
 });
+
+describe("strangers become friends (#181)", () => {
+  const { becameFriends, buildWorldTalkPrompt } = require("./worldTalk");
+  const talk = (id: string) => ({ id, withId: 2, at: 1, lines: [{ speakerId: 1, text: "hi" }] });
+  test("untied neighbours talk as acquaintances", () => {
+    const prompt = buildWorldTalkPrompt({ id: 1, name: "A", worldId: 3 }, { id: 2, name: "B", worldId: 3 }, { userName: "Sam", maxLines: 6 });
+    expect(prompt).toContain("They only know each other a little");
+  });
+  test("three talks without a tie make them friends", () => {
+    const a = { id: 1, name: "A", talks: [talk("1"), talk("2"), talk("3")] };
+    const b = { id: 2, name: "B" };
+    expect(becameFriends([a, b], a, b)).toBe(true);
+    expect(becameFriends([{ ...a, talks: [talk("1")] }, b], { ...a, talks: [talk("1")] }, b)).toBe(false);
+    expect(becameFriends([a, b], { ...a, ties: [{ withId: 2, tie: "your rival" }] }, b)).toBe(false);
+  });
+});

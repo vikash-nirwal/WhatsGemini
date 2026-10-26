@@ -141,7 +141,10 @@ export const buildWorldTalkPrompt = (
     `What it's about this time: ${TOPIC_ASK(topic, a, b, userName, world?.name, news)}`,
     "",
     `- 2 to ${maxLines} short texts, each starting with the sender's name and a colon, like "${a.name}: ...". Not strictly alternating: people double-text, trail off, reply late.`,
-    `- Text the way ${tie ? `a ${tie} and ` : "people "}who know each other this well do: siblings bicker, exes are careful, old friends use shorthand, new acquaintances are polite.`,
+    tie || a.knowsAbout?.includes(b.id) || b.knowsAbout?.includes(a.id)
+      ? `- Text the way ${tie ? `a ${tie} and ` : "people "}who know each other this well do: siblings bicker, exes are careful, old friends use shorthand, new acquaintances are polite.`
+      // Neighbours in the same world who've never been connected (#181).
+      : `- They only know each other a little, as people in the same place do: polite, curious, a bit careful - no shared history unless it comes up here.`,
     topic === "user" ? "" : `- ${userName} can come up in passing if it's natural, but it's not the point.`,
     "- Plain text, in character, no stage directions. Don't settle big story points or decide anything for " + userName + ".",
     askTie ? `- Only if this conversation really changes how they stand with each other (a falling-out, making up, getting together, breaking up, becoming friends), end with one more line: TIE: <what ${b.name} is to ${a.name} now> | <what ${a.name} is to ${b.name} now>. Most conversations change nothing; then leave it out.` : "",
@@ -161,6 +164,12 @@ export const parseTieChange = (reply: string): { bToA: string; aToB: string } | 
   if (!bToA || bToA.length > 60 || (aToB && aToB.length > 60)) return undefined;
   return { bToA, aToB: aToB || bToA };
 };
+
+// Strangers become friends (#181): after a few talks, two people with no
+// tie get one, so neighbours grow into friends even with drift switched off.
+export const FRIENDS_AFTER_TALKS = 3;
+export const becameFriends = (characters: Character[], a: Character, b: Character) =>
+  !a.ties?.some((t) => t.withId === b.id) && !b.ties?.some((t) => t.withId === a.id) && talksBetween(characters, a.id, b.id).filter((t) => t.lines.length).length >= FRIENDS_AFTER_TALKS;
 
 export const addWorldTalk = (holder: Character, talk: WorldTalk): Character => ({
   ...holder,

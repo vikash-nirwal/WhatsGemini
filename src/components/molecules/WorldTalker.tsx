@@ -4,7 +4,7 @@ import { generateAssistText } from "src/features/aiSlice";
 import { updateCharacter } from "src/features/characterSlice";
 import { selectActivePersona } from "src/features/settingsSlice";
 import { parseOffscreenTalk } from "src/features/chat/offscreenTalk";
-import { addWorldTalk, buildWorldTalkPrompt, parseTieChange, pickTalkTopic, tieMayChange, pickWorldTalk, recencyOf, talksBetween, UserKnowledge, WORLD_TALK_GAP_MS } from "src/features/world/worldTalk";
+import { addWorldTalk, becameFriends, buildWorldTalkPrompt, parseTieChange, pickTalkTopic, tieMayChange, pickWorldTalk, recencyOf, talksBetween, UserKnowledge, WORLD_TALK_GAP_MS } from "src/features/world/worldTalk";
 import { channelId } from "src/features/channels/channels";
 import { logToTimeline } from "src/features/world/timeline";
 import { activeEvents } from "src/features/world/worldEvents";
@@ -76,6 +76,15 @@ const WorldTalker = () => {
         const w = worlds.find((x) => x.id === worldId);
         if (topic === "user" && lines.length) {
           void logToTimeline(worldId, { kind: "talk", text: `${a.name} and ${b.name} talked about you`, characterIds: [a.id, b.id], at: now }, w?.storyTime);
+        }
+        // Strangers become friends (#181), after a few talks.
+        const nowA = latest.current.characters.find((c) => c.id === a.id);
+        const nowB = latest.current.characters.find((c) => c.id === b.id);
+        if (nowA && nowB && becameFriends(latest.current.characters, nowA, nowB)) {
+          const [na, nb] = withTie(nowA, nowB, "your friend", "your friend");
+          await dispatch(updateCharacter(na));
+          await dispatch(updateCharacter(nb));
+          void logToTimeline(worldId, { kind: "tie", text: `${a.name} and ${b.name} became friends`, characterIds: [a.id, b.id], at: now }, w?.storyTime);
         }
         // Relationships that drift (#163): the talk changed how they stand.
         const change = askTie && lines.length ? parseTieChange(reply) : undefined;
