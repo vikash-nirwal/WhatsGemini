@@ -16,7 +16,7 @@ const BEAT_2 = "A storm stops the train in the mountains.";
 const writeScript = async (page: Page) => {
   await page.getByRole("button", { name: "Write the story" }).click();
   const dialog = page.getByRole("dialog", { name: "Story script" });
-  await dialog.getByLabel("Premise").fill(PREMISE);
+  await dialog.getByRole("textbox", { name: "Premise", exact: true }).fill(PREMISE);
   await dialog.getByLabel("Beat 1", { exact: true }).fill(BEAT_1);
   await dialog.getByRole("button", { name: "Add beat" }).click();
   await dialog.getByLabel("Beat 2", { exact: true }).fill(BEAT_2);
@@ -106,7 +106,7 @@ test("a pasted story is split into beats, and a script can be saved as a templat
   await dialog.getByText("Paste a story or script").click();
   await dialog.getByLabel("Story to split into beats").fill("Three thieves rob the opera house during the premiere and escape by boat.");
   await dialog.getByRole("button", { name: "Split into beats" }).click();
-  await expect(dialog.getByLabel("Premise")).toHaveValue("A heist at the opera.");
+  await expect(dialog.getByRole("textbox", { name: "Premise", exact: true })).toHaveValue("A heist at the opera.");
   await expect(dialog.getByLabel("Beat 3", { exact: true })).toHaveValue("Escape by boat");
 
   await dialog.getByLabel("Template name").fill("Opera heist");
@@ -120,5 +120,5 @@ test("a pasted story is split into beats, and a script can be saved as a templat
   await dialog.getByRole("button", { name: "Remove script" }).click();
   await page.getByRole("button", { name: "Write the story" }).click();
   await dialog.getByRole("group", { name: "Load a template" }).getByRole("button", { name: "Opera heist" }).click();
-  await expect(dialog.getByLabel("Premise")).toHaveValue("A heist at the opera.");
+  await expect(dialog.getByRole("textbox", { name: "Premise", exact: true })).toHaveValue("A heist at the opera.");
 });

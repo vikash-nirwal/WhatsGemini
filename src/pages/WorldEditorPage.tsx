@@ -4,6 +4,10 @@ import { FaMagic, FaCheck, FaPlus, FaGlobe, FaMap } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { addWorld, updateWorld } from "../features/worldSlice";
 import { Select } from "src/components/molecules/form-controls/FormSelect";
+import SuggestField from "src/components/molecules/SuggestField";
+import { WorldCastCard } from "src/components/organisms/WorldCastCard";
+import { useWorldAssist } from "../hooks/useWorldAssist";
+import { addPersona } from "../features/settingsSlice";
 import { StoryTimeEditor } from "src/components/organisms/StoryTimeEditor";
 import { generateAssistText, generateWorldMapImage } from "../features/aiSlice";
 import { LoreEntry, StoryTime, WorldMap } from "../types";
@@ -14,11 +18,13 @@ import { useColorTheme } from "../hooks/useColorTheme";
 import { Button } from "src/components/atoms/button";
 import { Card } from "src/components/atoms/card";
 import Header from "src/components/organisms/Header";
-import { TextInput, TextArea, FieldLabel, ChipSelectField, PresetSelectField } from "src/components/molecules/form-controls";
+import { TextInput, ChipSelectField } from "src/components/molecules/form-controls";
 import LorebookStep from "./CharacterEditorPage/steps/LorebookStep";
-import { TAG_PRESETS, WORLD_TONE_PRESETS } from "../utils/constants";
+import { TAG_PRESETS, WORLD_ERA_PRESETS, WORLD_TONE_PRESETS } from "../utils/constants";
 
 const makeLoreEntryId = () => `lore_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
+
+const NEW_PERSONA = "__new_persona";
 
 const WorldEditorPage = () => {
   const dispatch = useAppDispatch();
@@ -35,6 +41,7 @@ const WorldEditorPage = () => {
   const [premise, setPremise] = useState("");
   const [settingDetails, setSettingDetails] = useState("");
   const [tone, setTone] = useState("");
+  const [era, setEra] = useState(""); // era or technology (#144)
   const [tags, setTags] = useState<string[]>([]);
   const [loreEntries, setLoreEntries] = useState<LoreEntry[]>([]);
   const [map, setMap] = useState<WorldMap | undefined>(undefined);
@@ -48,6 +55,7 @@ const WorldEditorPage = () => {
       setPremise(editWorld.premise);
       setSettingDetails(editWorld.settingDetails || "");
       setTone(editWorld.tone || "");
+      setEra(editWorld.era || "");
       setTags(editWorld.tags || []);
       setLoreEntries(editWorld.loreEntries || []);
       setMap(editWorld.map);
@@ -58,6 +66,7 @@ const WorldEditorPage = () => {
       setPremise("");
       setSettingDetails("");
       setTone("");
+      setEra("");
       setTags([]);
       setLoreEntries([]);
       setMap(undefined);
@@ -90,26 +99,38 @@ const WorldEditorPage = () => {
     }
   };
 
-  const [expanding, setExpanding] = useState(false);
   const [assistError, setAssistError] = useState<string | null>(null);
-
-  const handleExpandPremise = async () => {
-    if (!premise.trim()) {
-      setAssistError("Write a short idea first, then expand it.");
-      return;
-    }
+  // AI help on every field (#144), and filling the rest at once.
+  const assist = useWorldAssist();
+  const residents = useAppSelector((state) => state.character.characters).filter((c) => editWorld && c.worldId === editWorld.id);
+  const draftWorld = { name, premise, tone, era, details: settingDetails };
+  const [filling, setFilling] = useState(false);
+  const fillRest = async () => {
+    setFilling(true);
     setAssistError(null);
-    setExpanding(true);
     try {
-      const instruction = `Expand this short setting idea into a vivid 3-5 sentence premise for a roleplay adventure world, written for a narrator/game-master to draw on. Stay grounded in the original idea. Output only the expanded premise, no preamble.\n\nIdea: ${premise}`;
-      const text = await dispatch(generateAssistText({ instruction })).unwrap();
-      if (text) setPremise(text);
-    } catch (err: any) {
-      setAssistError(typeof err === "string" ? err : "Failed to expand premise. Check your API key in Settings.");
+      const f = await assist.fillWorld(draftWorld, residents);
+      if (f.name && !name.trim()) setName(f.name);
+      if (f.premise && !premise.trim()) setPremise(f.premise);
+      if (f.tone && !tone.trim()) setTone(f.tone);
+      if (f.era && !era.trim()) setEra(f.era);
+      if (f.details && !settingDetails.trim()) setSettingDetails(f.details);
+    } catch (err) {
+      setAssistError(err instanceof Error ? err.message : "Couldn't fill in the world.");
     } finally {
-      setExpanding(false);
+      setFilling(false);
     }
   };
+  const [newPersona, setNewPersona] = useState("");
+  const pendingPersona = useRef<string | null>(null);
+  useEffect(() => {
+    const made = pendingPersona.current && personas.find((p) => p.name === pendingPersona.current);
+    if (made) {
+      pendingPersona.current = null;
+      setPersonaId(made.id);
+      setNewPersona("");
+    }
+  }, [personas]);
 
   const handleAddLoreEntry = () => setLoreEntries((prev) => [...prev, { id: makeLoreEntryId(), keywords: [], content: "", enabled: true }]);
   const handleUpdateLoreEntry = (id: string, patch: Partial<LoreEntry>) => setLoreEntries((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
@@ -142,7 +163,7 @@ const WorldEditorPage = () => {
       return;
     }
     setSaveError(null);
-    const payload = { name: name.trim(), premise: premise.trim(), settingDetails: settingDetails.trim() || undefined, tone: tone.trim() || undefined, tags, loreEntries, map, personaId: personaId || undefined, storyTime };
+    const payload = { name: name.trim(), premise: premise.trim(), settingDetails: settingDetails.trim() || undefined, tone: tone.trim() || undefined, era: era.trim() || undefined, tags, loreEntries, map, personaId: personaId && personaId !== NEW_PERSONA ? personaId : undefined, storyTime };
     if (editWorld) {
       await dispatch(updateWorld({ ...editWorld, ...payload }));
     } else {
@@ -168,51 +189,17 @@ const WorldEditorPage = () => {
           )}
 
           <Card className="p-6 flex flex-col gap-5">
-            <h3 className="font-semibold text-[15px] text-foreground flex items-center gap-2">
-              <FaGlobe size={13} className="text-subtle" /> Setting
-            </h3>
-            <div>
-              <FieldLabel htmlFor="world-name">Name</FieldLabel>
-              <TextInput id="world-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. The Silver Court" />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-semibold text-[15px] text-foreground flex items-center gap-2">
+                <FaGlobe size={13} className="text-subtle" /> Setting
+              </h3>
+              <Button type="button" variant="outline" size="sm" onClick={() => void fillRest()} disabled={filling}><FaMagic size={11} /> {filling ? "Filling in..." : "Fill the rest with AI"}</Button>
             </div>
-            <div>
-              <FieldLabel
-                htmlFor="world-premise"
-                hint="Always in scope - the short pitch every adventure in this world starts from."
-                action={
-                  <button
-                    type="button"
-                    onClick={handleExpandPremise}
-                    disabled={expanding}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
-                  >
-                    <FaMagic size={10} /> {expanding ? "Expanding..." : "Expand with AI"}
-                  </button>
-                }
-              >
-                Premise
-              </FieldLabel>
-              <TextArea
-                id="world-premise"
-                value={premise}
-                onChange={(e) => setPremise(e.target.value)}
-                placeholder="A one-paragraph pitch for this world - where it is, what's unusual about it, what kind of stories happen here."
-                className="resize-none min-h-[90px]"
-              />
-            </div>
-            <div>
-              <FieldLabel htmlFor="world-details" hint="Longer background - history, factions, rules of the world. Not always in scope; for your own reference and future lore.">
-                Setting details (optional)
-              </FieldLabel>
-              <TextArea
-                id="world-details"
-                value={settingDetails}
-                onChange={(e) => setSettingDetails(e.target.value)}
-                placeholder="History, factions, magic/tech rules, geography..."
-                className="resize-none min-h-[100px]"
-              />
-            </div>
-            <PresetSelectField label="Tone" value={tone} onChange={setTone} presets={WORLD_TONE_PRESETS} customPlaceholder="e.g. Whimsical fairy-tale horror" />
+            <SuggestField id="world-name" label="Name" value={name} onChange={setName} placeholder="e.g. The Silver Court" onSuggest={() => assist.suggestField("name", draftWorld, residents)} />
+            <SuggestField id="world-premise" label="Premise" multiline value={premise} onChange={setPremise} hint="Always in scope - the short pitch every chat and adventure in this world starts from." placeholder="A one-paragraph pitch for this world - where it is, what's unusual about it, what kind of stories happen here." onSuggest={() => assist.suggestField("premise", draftWorld, residents)} />
+            <SuggestField id="world-details" label="Setting details (optional)" multiline value={settingDetails} onChange={setSettingDetails} hint="Longer background - history, factions, rules of the world." placeholder="History, factions, magic/tech rules, geography..." onSuggest={() => assist.suggestField("details", draftWorld, residents)} />
+            <SuggestField id="world-tone" label="Tone" value={tone} onChange={setTone} options={WORLD_TONE_PRESETS} placeholder="e.g. Whimsical fairy-tale horror" onSuggest={() => assist.suggestField("tone", draftWorld, residents)} />
+            <SuggestField id="world-era" label="Era or technology" value={era} onChange={setEra} options={WORLD_ERA_PRESETS} hint="A medieval world can still 'text': messages stand for letters or messengers." placeholder="e.g. Today, phones and all" onSuggest={() => assist.suggestField("era", draftWorld, residents)} />
             <ChipSelectField label="Tags" value={tags} onChange={setTags} presets={TAG_PRESETS} placeholder="Add a tag..." />
             <div className="flex flex-col gap-1.5">
               <label htmlFor="world-persona" className="text-sm font-medium text-foreground">You in this world</label>
@@ -221,11 +208,20 @@ const WorldEditorPage = () => {
                 {personas.map((p) => (
                   <option key={p.id} value={p.id}>{p.name || "Unnamed"}</option>
                 ))}
+                <option value={NEW_PERSONA}>New persona…</option>
               </Select>
+              {personaId === NEW_PERSONA && (
+                <div className="flex gap-2">
+                  <TextInput aria-label="New persona's name" value={newPersona} onChange={(e) => setNewPersona(e.target.value)} placeholder="Who you are here" className="flex-1" />
+                  <Button type="button" disabled={!newPersona.trim()} onClick={() => { pendingPersona.current = newPersona.trim(); dispatch(addPersona({ name: newPersona.trim(), bio: "" })); }}>Create</Button>
+                </div>
+              )}
               <p className="text-xs text-subtle">Characters here know you as this persona.</p>
             </div>
             {assistError && <p className="text-xs text-destructive">{assistError}</p>}
           </Card>
+
+          {editWorld && <WorldCastCard world={{ ...editWorld, name: name || editWorld.name, premise: premise || editWorld.premise, tone, era }} />}
 
           <StoryTimeEditor value={storyTime} onChange={setStoryTime} />
 

@@ -214,7 +214,7 @@ test("an adventure can follow a story script, beat by beat", async ({ page, mock
   await openAdventure(page);
   await headerAction(page, "Story script");
   const dialog = page.getByRole("dialog", { name: "Story script" });
-  await dialog.getByLabel("Premise").fill("A thief hunts a map in a flooded library.");
+  await dialog.getByRole("textbox", { name: "Premise", exact: true }).fill("A thief hunts a map in a flooded library.");
   await dialog.getByLabel("Beat 1", { exact: true }).fill("Find the reading room.");
   await dialog.getByRole("button", { name: "Add beat" }).click();
   await dialog.getByLabel("Beat 2", { exact: true }).fill("The guardian wakes.");

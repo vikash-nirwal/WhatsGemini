@@ -1,11 +1,14 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaArrowLeft, FaArrowRight, FaCheck, FaGlobe, FaMagic, FaPlus, FaTimes, FaUserFriends, FaLink, FaUser } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { addWorld, switchWorld } from "../features/worldSlice";
 import { addCharacter, updateCharacter } from "../features/characterSlice";
 import { generateAssistText } from "../features/aiSlice";
-import { selectActivePersona } from "../features/settingsSlice";
+import { addPersona, selectActivePersona } from "../features/settingsSlice";
+import { useWorldAssist } from "../hooks/useWorldAssist";
+import { CastSuggestion, mirrorTie } from "../features/world/worldAssist";
+import SuggestField from "src/components/molecules/SuggestField";
 import { buildCharacterDraftPrompt, CharacterDraft, parseCharacterDraft } from "../features/character/characterDraft";
 import { rootOf, worldCopy } from "../features/character/card";
 import { applyTies, buildConnectionsPrompt, castIdea, CastMember, parseConnections, WorldTie } from "../features/world/worldWizard";
@@ -14,15 +17,16 @@ import { circleLayout } from "../features/character/relationshipMap";
 import { avatarOf } from "../features/character/profileChanges";
 import { Character } from "../types";
 import { cn } from "../utils/cn";
-import { CHARACTER_SWATCHES, WORLD_TONE_PRESETS } from "../utils/constants";
+import { CHARACTER_SWATCHES, RELATIONSHIP_PRESETS, TIE_PRESETS, WORLD_ERA_PRESETS, WORLD_TONE_PRESETS } from "../utils/constants";
 import { Button } from "src/components/atoms/button";
 import { Card } from "src/components/atoms/card";
 import Header from "src/components/organisms/Header";
 import { WizardSteps } from "src/components/molecules/WizardSteps";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
-import { TextInput, TextArea, FieldLabel, Select, PresetSelectField } from "src/components/molecules/form-controls";
+import { TextInput, FieldLabel, Select } from "src/components/molecules/form-controls";
 
 const STEPS = ["World", "Cast", "Connections", "You"];
+const NEW_PERSONA = "__new_persona";
 
 // Someone in the new world's cast: a person from another world (joining as a
 // copy) or one drafted for this world.
@@ -95,6 +99,23 @@ const WorldWizardPage = () => {
   const [ties, setTies] = useState<WorldTie[]>([]);
   const [proposing, setProposing] = useState(false);
   const [personaId, setPersonaId] = useState("");
+  // AI help (#144): field suggestions, filling the rest, suggested people.
+  const assist = useWorldAssist();
+  const [filling, setFilling] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestions, setSuggestions] = useState<CastSuggestion[]>([]);
+  const [adding, setAdding] = useState<string | null>(null);
+  const [newPersona, setNewPersona] = useState("");
+  const pendingPersona = useRef<string | null>(null);
+  // A persona made here is picked as soon as it exists.
+  useEffect(() => {
+    const made = pendingPersona.current && personas.find((p) => p.name === pendingPersona.current);
+    if (made) {
+      pendingPersona.current = null;
+      setPersonaId(made.id);
+      setNewPersona("");
+    }
+  }, [personas]);
   const [creating, setCreating] = useState(false);
   const userName = (personas.find((p) => p.id === personaId) || activePersona)?.name?.trim() || "the user";
 
@@ -156,12 +177,70 @@ const WorldWizardPage = () => {
   };
 
   const nameOf = (key: string) => cast.find((m) => m.key === key)?.name || "";
+  const draftWorld = { name, premise, tone, era };
+
+  const fillRest = async () => {
+    setFilling(true);
+    setError(null);
+    try {
+      const f = await assist.fillWorld(draftWorld);
+      if (f.name && !name.trim()) setName(f.name);
+      if (f.premise && !premise.trim()) setPremise(f.premise);
+      if (f.tone && !tone.trim()) setTone(f.tone);
+      if (f.era && !era.trim()) setEra(f.era);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't fill in the world.");
+    } finally {
+      setFilling(false);
+    }
+  };
+
+  const suggestPeople = async () => {
+    setSuggesting(true);
+    setError(null);
+    try {
+      const found = await assist.suggestCast(world, cast.map((m) => ({ name: m.name, description: m.description, relationship: m.withYou })), suggestions.map((x) => x.name));
+      if (!found.length) setError("No suggestions came back. Try again.");
+      setSuggestions(found);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't suggest anyone.");
+    } finally {
+      setSuggesting(false);
+    }
+  };
+
+  // A suggested person joins the cast, drafted in full, tied to whoever
+  // they were suggested for.
+  const addSuggestion = async (sg: CastSuggestion) => {
+    setAdding(sg.name);
+    try {
+      const draft = parseCharacterDraft(await dispatch(generateAssistText({ instruction: buildCharacterDraftPrompt({ idea: castIdea(`${sg.name}: ${sg.idea}`, world) }) })).unwrap());
+      const key = `n${Date.now()}`;
+      setCast((list) => [...list, { key, kind: "new", draft: { ...draft, name: sg.name }, name: sg.name, description: draft.description || sg.idea, withYou: draft.relationship || "" }]);
+      const other = cast.find((m) => m.name === sg.tieWith);
+      if (other && sg.tie) setTies((list) => [...list, { a: other.key, b: key, aToB: `your ${sg.tie}`, bToA: `your ${mirrorTie(sg.tie!)}` }]);
+      setSuggestions((list) => list.filter((x) => x.name !== sg.name));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Couldn't add ${sg.name}.`);
+    } finally {
+      setAdding(null);
+    }
+  };
+
+  // A new connection starts with the first pair not yet connected.
+  const addConnection = () => {
+    for (const a of cast) for (const b of cast) {
+      if (a.key === b.key || ties.some((t) => (t.a === a.key && t.b === b.key) || (t.a === b.key && t.b === a.key))) continue;
+      setTies((list) => [...list, { a: a.key, b: b.key, aToB: "your friend", bToA: "your friend" }]);
+      return;
+    }
+  };
   const setTie = (i: number, patch: Partial<WorldTie>) => setTies((list) => list.map((t, j) => (j === i ? { ...t, ...patch } : t)));
 
   const create = async () => {
     setCreating(true);
     try {
-      const saved = await dispatch(addWorld({ ...world, personaId: personaId || undefined })).unwrap();
+      const saved = await dispatch(addWorld({ ...world, personaId: personaId && personaId !== NEW_PERSONA ? personaId : undefined })).unwrap();
       const idOf: Record<string, number> = {};
       const made: Character[] = [];
       for (const m of cast) {
@@ -209,20 +288,14 @@ const WorldWizardPage = () => {
 
           {step === 0 && (
             <Card className="p-6 flex flex-col gap-4">
-              <h3 className="font-semibold text-[15px] text-foreground flex items-center gap-2"><FaGlobe size={13} className="text-subtle" /> The world</h3>
-              <div>
-                <FieldLabel htmlFor="wizard-name">Name</FieldLabel>
-                <TextInput id="wizard-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Harbour Town" />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-semibold text-[15px] text-foreground flex items-center gap-2"><FaGlobe size={13} className="text-subtle" /> The world</h3>
+                <Button type="button" variant="outline" size="sm" onClick={() => void fillRest()} disabled={filling}><FaMagic size={11} /> {filling ? "Filling in..." : "Fill the rest with AI"}</Button>
               </div>
-              <div>
-                <FieldLabel htmlFor="wizard-premise" hint="Every chat in this world gets it.">Premise</FieldLabel>
-                <TextArea id="wizard-premise" value={premise} onChange={(e) => setPremise(e.target.value)} placeholder="Where it is, what's unusual about it, what life is like there." className="resize-none min-h-[90px]" />
-              </div>
-              <PresetSelectField label="Tone" value={tone} onChange={setTone} presets={WORLD_TONE_PRESETS} customPlaceholder="e.g. Cosy small-town drama" />
-              <div>
-                <FieldLabel htmlFor="wizard-era" hint="A medieval world can still 'text': messages stand for letters or messengers.">Era or technology</FieldLabel>
-                <TextInput id="wizard-era" value={era} onChange={(e) => setEra(e.target.value)} placeholder="e.g. Today, phones and all / Medieval, news travels by letter" />
-              </div>
+              <SuggestField id="wizard-name" label="Name" value={name} onChange={setName} placeholder="e.g. Harbour Town" onSuggest={() => assist.suggestField("name", draftWorld)} />
+              <SuggestField id="wizard-premise" label="Premise" multiline value={premise} onChange={setPremise} hint="Every chat in this world gets it." placeholder="Where it is, what's unusual about it, what life is like there." onSuggest={() => assist.suggestField("premise", draftWorld)} />
+              <SuggestField id="wizard-tone" label="Tone" value={tone} onChange={setTone} options={WORLD_TONE_PRESETS} placeholder="e.g. Cozy small-town drama" onSuggest={() => assist.suggestField("tone", draftWorld)} />
+              <SuggestField id="wizard-era" label="Era or technology" value={era} onChange={setEra} options={WORLD_ERA_PRESETS} hint="A medieval world can still 'text': messages stand for letters or messengers." placeholder="e.g. Today, phones and all" onSuggest={() => assist.suggestField("era", draftWorld)} />
             </Card>
           )}
 
@@ -266,6 +339,28 @@ const WorldWizardPage = () => {
                   <p className="mt-2 text-xs text-subtle">They join as themselves, with no memories from other worlds.</p>
                 </div>
               )}
+              <div className="flex flex-col gap-2 border-t border-border pt-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-foreground">People who'd fit in</p>
+                  <Button type="button" variant="outline" size="sm" onClick={() => void suggestPeople()} disabled={suggesting}><FaMagic size={11} /> {suggesting ? "Thinking..." : suggestions.length ? "Suggest others" : "Suggest people"}</Button>
+                </div>
+                <p className="text-xs text-subtle">Based on the world and who's in it: their family, friends, exes, rivals. Add the ones you like.</p>
+                {suggestions.length > 0 && (
+                  <ul aria-label="Suggested people" className="flex flex-col gap-1.5">
+                    {suggestions.map((sg) => (
+                      <li key={sg.name} className="flex flex-wrap items-center gap-3 rounded-xl bg-raised px-3 py-2">
+                        <CharacterAvatar name={sg.name} size={32} />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[14px] font-semibold text-foreground">{sg.name}{sg.tieWith && <span className="font-normal text-muted-foreground"> · {sg.tieWith}'s {sg.tie}</span>}</div>
+                          <div className="text-[12.5px] text-muted-foreground">{sg.idea}</div>
+                        </div>
+                        <Button type="button" size="sm" disabled={adding === sg.name} onClick={() => void addSuggestion(sg)} aria-label={`Add ${sg.name}`}>{adding === sg.name ? "Adding..." : "Add"}</Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setSuggestions((list) => list.filter((x) => x.name !== sg.name))} aria-label={`Skip ${sg.name}`}>Skip</Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </Card>
           )}
 
@@ -279,24 +374,33 @@ const WorldWizardPage = () => {
               <ul aria-label="Connections" className="flex flex-col gap-2">
                 {ties.map((t, i) => (
                   <li key={`${t.a}-${t.b}-${i}`} className="flex flex-wrap items-center gap-2 rounded-xl bg-raised px-3 py-2 text-[13.5px]">
-                    <span className="font-semibold">{nameOf(t.b)}</span> is {nameOf(t.a)}'s
-                    <TextInput aria-label={`What ${nameOf(t.b)} is to ${nameOf(t.a)}`} value={t.aToB.replace(/^your\s+/i, "")} onChange={(e) => setTie(i, { aToB: `your ${e.target.value}` })} className="h-8 w-[180px]" />
+                    <Select aria-label={`Connection ${i + 1}, first person`} value={t.b} onChange={(e) => setTie(i, { b: e.target.value })} className="h-8 w-[140px]">
+                      {cast.filter((m) => m.key !== t.a).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
+                    </Select>
+                    <span>is</span>
+                    <Select aria-label={`Connection ${i + 1}, second person`} value={t.a} onChange={(e) => setTie(i, { a: e.target.value })} className="h-8 w-[140px]">
+                      {cast.filter((m) => m.key !== t.b).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
+                    </Select>
+                    <span>'s</span>
+                    <TextInput list="tie-choices" aria-label={`What ${nameOf(t.b)} is to ${nameOf(t.a)}`} value={t.aToB.replace(/^your\s+/i, "")} onChange={(e) => setTie(i, { aToB: `your ${e.target.value}` })} className="h-8 w-[160px]" />
                     <span className="text-subtle">and {nameOf(t.a)} is their</span>
-                    <TextInput aria-label={`What ${nameOf(t.a)} is to ${nameOf(t.b)}`} value={t.bToA.replace(/^your\s+/i, "")} onChange={(e) => setTie(i, { bToA: `your ${e.target.value}` })} className="h-8 w-[180px]" />
+                    <TextInput list="tie-choices" aria-label={`What ${nameOf(t.a)} is to ${nameOf(t.b)}`} value={t.bToA.replace(/^your\s+/i, "")} onChange={(e) => setTie(i, { bToA: `your ${e.target.value}` })} className="h-8 w-[160px]" />
                     <Button type="button" variant="ghost" size="icon" aria-label="Remove connection" onClick={() => setTies((list) => list.filter((_, j) => j !== i))}><FaTimes size={12} /></Button>
                   </li>
                 ))}
               </ul>
               {cast.length > 1 && (
-                <Button type="button" variant="ghost" className="self-start" onClick={() => setTies((list) => [...list, { a: cast[0].key, b: cast[1].key, aToB: "your friend", bToA: "your friend" }])}><FaPlus size={11} /> Add a connection</Button>
+                <Button type="button" variant="ghost" className="self-start" onClick={addConnection}><FaPlus size={11} /> Add a connection</Button>
               )}
+              <datalist id="tie-choices">{TIE_PRESETS.map((t) => <option key={t} value={t} />)}</datalist>
+              <datalist id="you-choices">{RELATIONSHIP_PRESETS.map((t) => <option key={t} value={t} />)}</datalist>
               <div>
                 <p className="mb-2 text-sm font-medium text-foreground">Who they are to you</p>
                 <ul className="flex flex-col gap-2">
                   {cast.map((m) => (
                     <li key={m.key} className="flex items-center gap-3">
                       <span className="w-[120px] truncate text-[13.5px] font-semibold">{m.name}</span>
-                      <TextInput aria-label={`${m.name} to you`} value={m.withYou} onChange={(e) => setCast((list) => list.map((x) => (x.key === m.key ? { ...x, withYou: e.target.value } : x)))} placeholder="e.g. Neighbour you've never spoken to" className="flex-1" />
+                      <TextInput list="you-choices" aria-label={`${m.name} to you`} value={m.withYou} onChange={(e) => setCast((list) => list.map((x) => (x.key === m.key ? { ...x, withYou: e.target.value } : x)))} placeholder="e.g. Neighbour you've never spoken to" className="flex-1" />
                     </li>
                   ))}
                 </ul>
@@ -314,7 +418,14 @@ const WorldWizardPage = () => {
                 <Select id="wizard-persona" aria-label="You in this world" value={personaId} onChange={(e) => setPersonaId(e.target.value)}>
                   <option value="">Your active persona</option>
                   {personas.map((p) => <option key={p.id} value={p.id}>{p.name || "Unnamed"}</option>)}
+                  <option value={NEW_PERSONA}>New persona…</option>
                 </Select>
+                {personaId === NEW_PERSONA && (
+                  <div className="mt-2 flex gap-2">
+                    <TextInput aria-label="New persona's name" value={newPersona} onChange={(e) => setNewPersona(e.target.value)} placeholder="Who you are here, e.g. Sam the baker" className="flex-1" />
+                    <Button type="button" disabled={!newPersona.trim()} onClick={() => { pendingPersona.current = newPersona.trim(); dispatch(addPersona({ name: newPersona.trim(), bio: "" })); }}>Create</Button>
+                  </div>
+                )}
               </div>
               <p className="text-sm text-muted-foreground">{world.name} starts with {cast.length} {cast.length === 1 ? "person" : "people"} and {ties.length} {ties.length === 1 ? "connection" : "connections"}. You'll switch to it when it's made.</p>
             </Card>

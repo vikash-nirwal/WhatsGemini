@@ -267,6 +267,18 @@ export const WORLD_TONE_PRESETS = [
   "Lighthearted Adventure", "Modern Mystery", "Romantic Drama", "Historical",
   "Pirates & High Seas", "Superhero", "Steampunk",
 ];
+// A world's era or technology (#144), same "pick or type your own" pattern.
+export const WORLD_ERA_PRESETS = [
+  "Today, phones and all", "The 1990s, landlines and pagers", "The 1920s, letters and telegrams",
+  "Victorian, letters by post", "Medieval, news travels by letter", "Ancient, messengers on foot",
+  "Near future, smart everything", "Far future, across the stars", "Fantasy, messages by magic",
+];
+// What one character is to another (ties, #144), for the same pattern.
+export const TIE_PRESETS = [
+  "older sister", "younger sister", "older brother", "younger brother", "mother", "father", "daughter", "son",
+  "cousin", "best friend", "friend", "ex", "partner", "crush", "rival", "coworker", "boss", "neighbour",
+  "roommate", "mentor", "student", "enemy",
+];
 export const MIN_ADVENTURE_CHOICES = 2;
 export const MAX_ADVENTURE_CHOICES = 5;
 

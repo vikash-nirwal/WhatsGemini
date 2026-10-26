@@ -36,9 +36,9 @@ test("a world is made with its cast and connections, and you land in it", async 
   // Step 1 can't be skipped without a name and premise.
   await page.getByRole("button", { name: "Next" }).click();
   await expect(page.getByRole("alert")).toContainText("Give the world a name and a premise.");
-  await page.getByLabel("Name").fill("Harbour Town");
-  await page.getByLabel("Premise").fill("A rainy port where everyone knows everyone.");
-  await page.getByLabel("Era or technology").fill("Today, phones and all");
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Harbour Town");
+  await page.getByRole("textbox", { name: "Premise", exact: true }).fill("A rainy port where everyone knows everyone.");
+  await page.getByRole("combobox", { name: "Era or technology", exact: true }).fill("Today, phones and all");
   await page.getByRole("button", { name: "Next" }).click();
 
   // Step 2: Aria from My world, and Bram drafted from one line.

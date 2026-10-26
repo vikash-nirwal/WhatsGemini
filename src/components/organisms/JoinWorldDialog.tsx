@@ -11,11 +11,16 @@ import { useCurrentWorld } from "src/hooks/useWorld";
 import { Character } from "src/types";
 
 // Membership (#143): bring someone from another world into this one. They
-// arrive as a linked copy: the same card, none of what happened elsewhere.
-export const JoinWorldDialog = ({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) => {
+// arrive as their own copy: the same card to start, none of what happened
+// elsewhere, and edited or deleted on its own from then on.
+// `target`: a world other than the one on screen (the world editor's cast).
+export const JoinWorldDialog = ({ open, onOpenChange, target }: { open: boolean; onOpenChange: (open: boolean) => void; target?: { id: number; name: string } }) => {
   const dispatch = useAppDispatch();
   const characters = useAppSelector((state) => state.character.characters);
-  const { worlds, currentWorldId, name } = useCurrentWorld();
+  const onScreen = useCurrentWorld();
+  const worlds = onScreen.worlds;
+  const currentWorldId = target ? target.id : onScreen.currentWorldId;
+  const name = target ? target.name : onScreen.name;
 
   const candidates = useMemo(() => {
     const here = new Set(characters.filter((c) => worldOf(c, worlds) === currentWorldId).map(rootOf));
@@ -34,7 +39,7 @@ export const JoinWorldDialog = ({ open, onOpenChange }: { open: boolean; onOpenC
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="sheet" className="overflow-y-auto">
         <DialogTitle>Add someone to {name}</DialogTitle>
-        <DialogDescription>They keep their look and personality. Their memories and life here start fresh.</DialogDescription>
+        <DialogDescription>A copy of them joins: same look and personality, a fresh life here. Change or delete the copy without touching the original.</DialogDescription>
         {candidates.length === 0 ? (
           <p className="py-4 text-sm text-muted-foreground">Everyone from your other worlds is already here.</p>
         ) : (

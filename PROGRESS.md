@@ -248,6 +248,8 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
+- 2026-10-26: Worlds, the user's four asks: (1) a copy from another world is its own character (updateCharacter no longer syncs the card; withCard/linkedCopies removed); (2) relationships for everyone: the wizard's connections pick both people, and the world editor has a Cast and relationships card (organisms/WorldCastCard.tsx: residents with edit/delete/"to you", connections, Suggest connections); (3) Suggest people from the cast (features/world/worldAssist.ts buildCastSuggestionsPrompt/parseCastSuggestions, tie included) in the wizard and editor; (4) AI help on every world field and Fill the rest (SuggestField, hooks/useWorldAssist.ts), lists you can type past (WORLD_ERA_PRESETS, TIE_PRESETS, datalists), New persona… in both. World.era is now in the editor. Suites: 1057 unit, 1129 UI, 18 screenshot.
+
 - 2026-10-26: Fixed the chat shifting up with a blank strip below: with a tall side panel open (Contact info), ChatPage's message wrapper (a flex-1 column child without min-h-0) grew past the screen, and each new message's scrollIntoView scrolled it. Now min-h-0, the side panel is h-full in column mode and scrolls inside, the outer boxes are overflow-clip, and ChatWindow scrolls only its list (scrollToEnd). e2e/chat-layout.spec.ts fails on the old code.
 
 - 2026-10-26: Relationships between characters are editable any time: a Relationships section in Contact info (organisms/RelationshipsSection.tsx; features/character/ties.ts: tiesOf, withTie, withoutTie) adds, edits and removes ties both ways with anyone in the same world; they reach the prompt (tiesNoteFor), world talk and the relationship map. Before, only the world wizard could set them.

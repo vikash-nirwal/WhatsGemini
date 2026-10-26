@@ -798,8 +798,8 @@ export interface Character {
   // back to the app setting; see resolveTurnModel in modelResolution.ts.
   // Worlds (#143): the world this character lives in (unset = "My world"),
   // and, for a character who joined from another world, the id of the one
-  // they were copied from. Copies share the card (see CARD_FIELDS) and keep
-  // their own memory and life.
+  // they were copied from. A copy is its own character from then on: edits
+  // and deletions never reach the others.
   worldId?: number;
   cardOf?: number;
   // How they're tied to others in their world (#144): "your older brother",
