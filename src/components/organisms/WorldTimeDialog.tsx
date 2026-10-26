@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "src/components/molecules/dialog";
 import { TextInput, TextArea } from "src/components/molecules/form-controls";
@@ -7,7 +7,8 @@ import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { selectActivePersona } from "src/features/settingsSlice";
 import { describeGap, TIME_UNITS, TimeUnit } from "src/features/chat/passTime";
-import { passWorldTime } from "src/features/world/passWorldTime";
+import { passWorldTime, undoWorldTime } from "src/features/world/passWorldTime";
+import { canUndo, loadSnapshot } from "src/features/world/timeSkipUndo";
 import { useCurrentWorld, useWorldCharacters, useWorldChats } from "src/hooks/useWorld";
 
 // Pass the time for the whole world you're in (the user's ask, 2026-10-26),
@@ -24,11 +25,23 @@ export const WorldTimeDialog = ({ open, onOpenChange }: { open: boolean; onOpenC
   const [theyTextFirst, setTheyTextFirst] = useState(true);
   const [busy, setBusy] = useState(false);
   const n = Number(amount);
+  // Undo the last skip (#189), while nothing's happened since.
+  const [undoable, setUndoable] = useState<string | undefined>();
+  useEffect(() => {
+    if (!open) return;
+    void loadSnapshot(currentWorldId).then((s) => setUndoable(canUndo(s, chats, Date.now()) ? s!.gap : undefined));
+  }, [open, currentWorldId, chats]);
+  const undo = async () => {
+    const done = await dispatch(undoWorldTime(currentWorldId));
+    if (done) toast.success("Time skip undone");
+    else toast.error("Can't undo it now: the story has moved on since.");
+    onOpenChange(false);
+  };
   const pass = async () => {
     setBusy(true);
     try {
       const texted = await dispatch(passWorldTime({ world: current, worldId: currentWorldId, chats, characters, userName: persona?.name?.trim() || "the user" }, { amount: n, unit, note: note.trim(), theyTextFirst }));
-      toast.success(`${describeGap(n, unit)} later in ${name}${texted ? ` · ${texted} texted you` : ""}`);
+      toast.success(`${describeGap(n, unit)} later in ${name}${texted ? ` · ${texted} texted you` : ""}`, { action: { label: "Undo", onClick: () => void undo() } });
       onOpenChange(false);
       setNote("");
     } catch {
@@ -56,6 +69,9 @@ export const WorldTimeDialog = ({ open, onOpenChange }: { open: boolean; onOpenC
           </div>
           <TextArea aria-label="What happened meanwhile" value={note} onChange={(e) => setNote(e.target.value)} placeholder="What happened meanwhile (optional), e.g. a hard winter; the harbour froze" className="min-h-[60px] resize-none" />
           <ToggleSwitch checked={theyTextFirst} onChange={setTheyTextFirst} label={<span className="text-sm text-muted-foreground">The people you talk to most text first</span>} />
+          {undoable && (
+            <Button type="button" variant="outline" disabled={busy} onClick={() => void undo()}>Undo the last skip ({undoable})</Button>
+          )}
           <Button type="button" disabled={!(n > 0) || busy} onClick={() => void pass()}>{busy ? "Passing..." : `Pass ${n > 0 ? describeGap(n, unit) : "the time"}`}</Button>
         </div>
       </DialogContent>

@@ -13,6 +13,9 @@ import { featureOn } from "./worldPrefs";
 import { withTie } from "../character/ties";
 import { updateCharacter } from "../characterSlice";
 import { AI, YOU } from "../../utils/constants";
+import { canUndo, clearSnapshot, loadSnapshot, saveSnapshot, snapshotOf } from "./timeSkipUndo";
+import { dbService } from "../../services/dbService";
+import { loadTimeline, replaceTimeline } from "./timeline";
 
 // Pass the time for a whole world: each of its chats gets the gap (so every
 // next reply knows it), the world's calendar moves on, it goes in the
@@ -25,6 +28,9 @@ export const passWorldTime = (
   const now = Date.now();
   const gap = describeGap(amount, unit);
   const days = gapDays(amount, unit);
+  // What it was, so it can be undone (#189).
+  const snapshot = snapshotOf(worldId, gap, now, chats, characters, world);
+  await saveSnapshot(snapshot);
   for (const chat of chats) {
     if (!chat.id || chat.archived) continue;
     const passed: TimePassed = { gap, days, ...(note ? { note } : {}), at: now, fromMessage: (chat.content || []).length + 1 };
@@ -65,7 +71,10 @@ export const passWorldTime = (
       if (!arc || arc.doneAt) break;
     }
   }
-  if (!theyTextFirst) return 0;
+  if (!theyTextFirst) {
+    await saveSnapshot({ ...snapshot, endAt: Date.now() });
+    return 0;
+  }
   let texted = 0;
   for (const c of firstAfterGap(characters, chats)) {
     const chat = chats.find((ch) => ch.characterIds?.length === 1 && ch.characterIds[0] === c.id && !ch.whatIf && !ch.archived);
@@ -81,5 +90,27 @@ export const passWorldTime = (
     }
   }
   await dispatch(fetchChats());
+  await saveSnapshot({ ...snapshot, endAt: Date.now() });
   return texted;
+};
+
+// Takes back the last time skip (#189): chats, people, the calendar and the
+// storyline as they were, and its timeline entries gone. Resolves false
+// when it can't be undone anymore.
+export const undoWorldTime = (worldId: number | null) => async (dispatch: AppDispatch, getState: () => { chat: { chats: Chat[] }; character: { characters: Character[] } }) => {
+  await dispatch(fetchChats());
+  const { chats } = getState().chat;
+  const { characters } = getState().character;
+  const s = await loadSnapshot(worldId);
+  if (!s || !canUndo(s, chats, Date.now())) return false;
+  for (const chat of s.chats) await dbService.updateChat(chat);
+  for (const before of s.characters) {
+    const now = characters.find((c) => c.id === before.id);
+    if (now) await dispatch(updateCharacter({ ...now, lifeEvents: before.lifeEvents, ties: before.ties, knowsAbout: before.knowsAbout, firstTexts: before.firstTexts }));
+  }
+  if (worldId != null && s.world) await dispatch(patchWorld(worldId, { storyTime: s.world.storyTime, arc: s.world.arc }));
+  await replaceTimeline(worldId, (await loadTimeline(worldId)).filter((e) => e.at < s.at || e.at > s.endAt!));
+  await clearSnapshot(worldId);
+  await dispatch(fetchChats());
+  return true;
 };

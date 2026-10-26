@@ -61,6 +61,13 @@ export const logToTimeline = async (
   }
 };
 
+// Replaces a world's timeline (undoing a time skip, #189).
+export const replaceTimeline = async (worldId: number | null, list: TimelineEntry[]) => {
+  await dbService.setSetting(keyOf(worldId), list);
+  cache.set(keyOf(worldId), list);
+  listeners.forEach((l) => l());
+};
+
 export const onTimeline = (listener: () => void) => {
   listeners.add(listener);
   return () => {

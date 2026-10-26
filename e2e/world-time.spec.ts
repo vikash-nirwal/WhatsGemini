@@ -47,3 +47,25 @@ test("years later, lives have moved on", async ({ page, mockAI }) => {
   await openRoute(page, "/worlds/mine/timeline");
   await expect(page.getByRole("list", { name: "World timeline" })).toContainText("Aria opened a bakery by the pier.");
 });
+
+// #189: the last world-wide skip can be undone while nothing has happened since.
+test("a time skip can be undone", async ({ page, mockAI }) => {
+  mockAI.reply((req) => (req.prompt.includes("have just passed there") ? "LIFE: Aria | Aria opened a bakery by the pier." : "Mock reply"));
+  await openRoute(page, "/worlds");
+  await page.getByRole("button", { name: "Pass the time" }).click();
+  let dialog = page.getByRole("dialog", { name: "Pass the time in My world" });
+  await dialog.getByRole("spinbutton", { name: "How long" }).fill("3");
+  await dialog.getByRole("radio", { name: "years" }).click();
+  await dialog.getByRole("switch").click(); // nobody texts first
+  await dialog.getByRole("button", { name: "Pass 3 years" }).click();
+  await expect(page.getByText("3 years later in My world").first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Pass the time" }).click();
+  dialog = page.getByRole("dialog", { name: "Pass the time in My world" });
+  await dialog.getByRole("button", { name: "Undo the last skip (3 years)" }).click();
+  await expect(page.getByText("Time skip undone")).toBeVisible();
+  await openChat(page, 1);
+  await expect(page.getByText("⏳ 3 years later")).toHaveCount(0);
+  await openRoute(page, "/worlds/mine/timeline");
+  await expect(page.getByText("Nothing has happened here yet.", { exact: false })).toBeVisible();
+});
