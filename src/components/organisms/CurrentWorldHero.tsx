@@ -8,6 +8,7 @@ import { useAppSelector } from "src/store/hooks";
 import { WorldEventsSection } from "./WorldEventsSection";
 import { NewcomerCard } from "./NewcomerCard";
 import { PlaceDialog } from "./PlaceDialog";
+import { GroupPlanDialog } from "./GroupPlanDialog";
 import { whoIsWhere } from "src/features/world/places";
 import { MapPin } from "src/types";
 import { useCurrentWorld, useWorldCharacters, useWorldPrefs } from "src/hooks/useWorld";
@@ -25,6 +26,7 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
   // Who is where right now (#165); a place opens to start a scene there.
   const here = prefs.places ? whoIsWhere(cast, pins, Date.now()) : {};
   const [openPin, setOpenPin] = useState<MapPin | null>(null);
+  const [planOpen, setPlanOpen] = useState(false);
 
   return (
     <section aria-label="Current world" className="mb-8 overflow-hidden rounded-[20px] bg-card ring-1 ring-inset ring-border">
@@ -43,7 +45,10 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <h3 className="text-[17px] font-bold text-foreground">Cast · {cast.length}</h3>
-            <button type="button" onClick={() => navigate("/characters")} className="text-[13.5px] font-bold text-primary-text hover:underline">All characters</button>
+            <span className="flex gap-4">
+              {cast.length >= 2 && <button type="button" onClick={() => setPlanOpen(true)} className="text-[13.5px] font-bold text-primary-text hover:underline">Make a plan</button>}
+              <button type="button" onClick={() => navigate("/characters")} className="text-[13.5px] font-bold text-primary-text hover:underline">All characters</button>
+            </span>
           </div>
           {cast.length === 0 ? (
             <p className="text-[13.5px] text-muted-foreground">Nobody lives here yet. Add someone from Characters.</p>
@@ -101,6 +106,7 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
           )}
         </div>
       </div>
+      <GroupPlanDialog open={planOpen} onOpenChange={setPlanOpen} cast={cast} world={current} />
       <PlaceDialog pin={openPin} cast={cast} present={openPin ? here[openPin.id] || [] : []} onOpenChange={(o) => !o && setOpenPin(null)} />
     </section>
   );

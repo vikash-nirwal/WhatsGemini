@@ -46,7 +46,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #165 | Places with presence | done | 2026-10-25 |
 | #166 | Your reputation | done | 2026-10-25 |
 | #167 | Introductions | done | 2026-10-25 |
-| #168 | Group plans | todo | |
+| #168 | Group plans | done | 2026-10-25 |
 | #169 | World arcs | todo | |
 | #170 | Secrets between characters | todo | |
 | #171 | Factions and families | todo | |
@@ -75,6 +75,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+Group plans: features/world/groupPlans.ts (Chat.groupPlan, planScenario, outcome prompt, planMemory); GroupPlanDialog from CurrentWorldHero's Make a plan (group chat with a scenario); PlanBar in ChatPage with It happened (outcome written once, a memory for each member, chat notice, timeline). User-driven, so no switch.
 Introductions (switch, off by default): features/world/introductions.ts (pickIntroduction, buildIntroductionPrompt); WorldEventWatcher has someone you talk to pass your number to a person tied to them, who texts first (new chat, memory fact, notice in the introducer's chat, timeline, toast).
 Your reputation: features/world/reputation.ts (World.reputation, rewritten every few days by WorldEventWatcher from what people know and say about you), scene.reputationNote (strangers go by it), shown on CurrentWorldHero. Switches: #162-#166 are per-world prefs (worldPrefs featureOn: events, drift, arrivals, places, reputation), off by default, in WorldLifeControls; drift is the only one for My world.
 Places with presence: features/world/places.ts (whereIs from schedule or Character.hangout, whoIsWhere, placeScenario); CurrentWorldHero places show who's there and open PlaceDialog (usual spot, start a scene there via addChat scenario); their place in chat prompts (placeNote fallback).

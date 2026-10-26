@@ -53,6 +53,7 @@ import { buildLifeNote } from "../features/world/worldLife";
 import { buildWhereNote, whereIs } from "../features/world/places";
 import { buildReputationNote } from "../features/world/reputation";
 import { featureOn } from "../features/world/worldPrefs";
+import PlanBar from "../components/organisms/PlanBar";
 import { worldOf } from "../features/world/currentWorld";
 import { switchWorld, updateWorld } from "../features/worldSlice";
 import { buildMyStatusNote } from "../features/status/myStatuses";
@@ -2552,6 +2553,7 @@ const ChatPage = () => {
           tall side panel (Contact info) stretched it past the bottom, and
           each new message scrolled the whole chat up, leaving a blank strip.
           Clipped, not hidden, so nothing inside can scroll it either. */}
+      {currentChat?.groupPlan && <PlanBar chat={currentChat} />}
       <div className="flex-1 min-h-0 overflow-clip relative">
         {/* Upset with you (#97), until you make up. */}
         {!isRoom && characterData && currentChat?.conflict && (

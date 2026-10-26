@@ -541,6 +541,7 @@ export interface Chat {
   sceneTracker?: boolean; // track location, time, outfit and two meters (#9)
   worldId?: number; // a World whose setting and lore this chat uses (#28)
   godTruths?: string[]; // god mode (#160), outside a world: what you made true in this chat
+  groupPlan?: GroupPlan; // the plan this group chat is for (#168)
   timePassed?: import("../features/chat/passTime").TimePassed; // the last "pass the time": replies react to it for a few exchanges
   backdrop?: string; // a picture behind this chat's bubbles (#13)
   // Rooms only (#22-#24): who answers a message, a narrator between rounds,
@@ -935,6 +936,17 @@ export interface World {
   lastIntroAt?: number; // when someone here last introduced you to someone (#167)
   lastNewcomerAt?: number; // when the world last suggested a newcomer (#164)
   newcomer?: { name: string; idea: string; tieWith?: string; tie?: string; at: number }; // someone who just arrived, waiting for you to welcome them
+}
+
+// A plan several characters join (#168), with its own group chat. When it
+// has happened, each of them remembers how it went.
+export interface GroupPlan {
+  title: string;
+  when?: string;
+  memberIds: number[];
+  at: number;
+  outcome?: string; // how it went, once it happened
+  doneAt?: number;
 }
 
 // Something happening to everyone in a world (#162): a festival, a storm, a
