@@ -18,6 +18,7 @@ import { withTie, withoutTie } from "src/features/character/ties";
 import { buildConnectionsPrompt, castIdea, parseConnections, WorldTie } from "src/features/world/worldWizard";
 import { CastSuggestion, mirrorTie } from "src/features/world/worldAssist";
 import { useWorldAssist } from "src/hooks/useWorldAssist";
+import { logToTimeline } from "src/features/world/timeline";
 import { CHARACTER_SWATCHES, RELATIONSHIP_PRESETS, TIE_PRESETS } from "src/utils/constants";
 import { Character, World } from "src/types";
 
@@ -72,6 +73,7 @@ export const WorldCastCard = ({ world }: { world: World }) => {
     const [na, nb] = withTie(a, b, aToB, bToA);
     await dispatch(updateCharacter(na));
     await dispatch(updateCharacter(nb));
+    void logToTimeline(world.id, { kind: "tie", text: `${b.name} is now ${a.name}'s ${aToB.trim().replace(/^your\s+/i, "")}`, characterIds: [a.id, b.id] }, world.storyTime);
   };
   const removeTie = async (a: Character, b: Character) => {
     const [na, nb] = withoutTie(a, b);

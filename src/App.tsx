@@ -50,6 +50,7 @@ const Login = lazy(() => import("./pages/Login"));
 const CharacterPage = lazy(() => import("./pages/CharacterPage"));
 const UpdatesPage = lazy(() => import("./pages/UpdatesPage"));
 const StarredPage = lazy(() => import("./pages/StarredPage"));
+const TimelinePage = lazy(() => import("./pages/TimelinePage"));
 const ChannelPage = lazy(() => import("./pages/ChannelPage"));
 const CharacterEditorPage = lazy(() => import("./pages/CharacterEditorPage"));
 const QuickCreatePage = lazy(() => import("./pages/QuickCreatePage"));
@@ -263,6 +264,7 @@ const AppContent = () => {
                 <Route path="/peek" element={<PeekPage />} />
                 <Route path="/peek/:a/:b" element={<PeekPage />} />
                 <Route path="/worlds/:worldId/edit" element={<WorldEditorPage />} />
+                <Route path="/worlds/:worldId/timeline" element={<TimelinePage />} />
                 <Route path="/adventures" element={<AdventureGalleryPage />} />
                 <Route path="/adventures/new" element={<AdventureWizardPage />} />
                 <Route path="/adventures/:adventureId" element={<AdventurePage />} />

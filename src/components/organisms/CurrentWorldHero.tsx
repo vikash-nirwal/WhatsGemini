@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { FaEye, FaMapMarkerAlt, FaPen } from "react-icons/fa";
+import { FaEye, FaHistory, FaMapMarkerAlt, FaPen } from "react-icons/fa";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { avatarOf } from "src/features/character/profileChanges";
 import { formatStoryDate } from "src/features/world/storyTime";
@@ -24,6 +24,7 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
         {current?.coverImage && <img src={current.coverImage} alt="" className="absolute inset-0 h-full w-full object-cover opacity-60" />}
         <div className="absolute right-4 top-4 flex flex-wrap justify-end gap-2">
           {current && <button type="button" onClick={() => navigate(`/worlds/${current.id}/edit`)} className="flex h-9 items-center gap-1.5 rounded-lg bg-black/35 px-3 text-[13px] font-semibold"><FaPen size={11} /> Edit world</button>}
+          <button type="button" onClick={() => navigate(`/worlds/${current?.id ?? "mine"}/timeline`)} className="flex h-9 items-center gap-1.5 rounded-lg bg-black/35 px-3 text-[13px] font-semibold"><FaHistory size={12} /> Timeline</button>
           {prefs.peek && <button type="button" onClick={() => navigate("/peek")} className="flex h-9 items-center gap-1.5 rounded-lg bg-black/35 px-3 text-[13px] font-semibold"><FaEye size={12} /> Peek at their threads</button>}
         </div>
         <span className="relative text-[12px] font-semibold uppercase tracking-[0.06em] opacity-80">Current world</span>

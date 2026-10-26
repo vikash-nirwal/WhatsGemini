@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaPlus, FaEdit, FaTrash, FaGlobe, FaSearch } from "react-icons/fa";
+import { FaPlus, FaEdit, FaTrash, FaGlobe, FaSearch, FaHistory } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { deleteWorld, switchWorld } from "../features/worldSlice";
 import { MY_WORLD, worldOf } from "../features/world/currentWorld";
@@ -163,6 +163,9 @@ const WorldGalleryPage = () => {
                       )}
                       <Button onClick={() => navigate(`/worlds/${world.id}/edit`)} variant="outline" className="flex-1 h-9 text-xs font-semibold">
                         <FaEdit size={11} /> Edit
+                      </Button>
+                      <Button onClick={() => navigate(`/worlds/${world.id}/timeline`)} variant="outline" size="icon" className="h-9 w-9" title="Timeline" aria-label={`Timeline of ${world.name}`}>
+                        <FaHistory size={13} />
                       </Button>
                       <Button
                         onClick={() => handleDelete(world.id, world.name)}

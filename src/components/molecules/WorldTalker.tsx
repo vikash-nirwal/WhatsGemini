@@ -6,6 +6,7 @@ import { selectActivePersona } from "src/features/settingsSlice";
 import { parseOffscreenTalk } from "src/features/chat/offscreenTalk";
 import { addWorldTalk, buildWorldTalkPrompt, pickTalkTopic, pickWorldTalk, recencyOf, talksBetween, UserKnowledge, WORLD_TALK_GAP_MS } from "src/features/world/worldTalk";
 import { channelId } from "src/features/channels/channels";
+import { logToTimeline } from "src/features/world/timeline";
 import { factsAboutUser } from "src/features/character/intimacy";
 import { talkLengthFor } from "src/features/world/worldPrefs";
 import { worldOf } from "src/features/world/currentWorld";
@@ -63,6 +64,11 @@ const WorldTalker = () => {
         // Saved even when empty, so a failed attempt waits for the next gap.
         const holder = latest.current.characters.find((c) => c.id === a.id) || a;
         await dispatch(updateCharacter(addWorldTalk(holder, { id: `wt-${now.toString(36)}`, withId: b.id, at: now, lines })));
+        // When they talked about you, the world's timeline notes it (#161).
+        if (topic === "user" && lines.length) {
+          const w = worlds.find((x) => x.id === worldId);
+          void logToTimeline(worldId, { kind: "talk", text: `${a.name} and ${b.name} talked about you`, characterIds: [a.id, b.id], at: now }, w?.storyTime);
+        }
       } catch (err) {
         console.warn("World talk failed (non-fatal):", err);
       } finally {

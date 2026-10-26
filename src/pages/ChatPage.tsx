@@ -47,6 +47,7 @@ import { worldTalkNoteFor } from "../features/world/worldTalk";
 import { buildTimePassedNote, buildTimePassedOpener, describeGap, gapDays, TimePassed, timePassedInScope, timePassedNotice, TimeUnit } from "../features/chat/passTime";
 import { skipStoryTime } from "../features/world/storyTime";
 import { addTruth, buildGodDirective, buildGodTruthsSection } from "../features/chat/godMode";
+import { logToTimeline } from "../features/world/timeline";
 import { worldOf } from "../features/world/currentWorld";
 import { switchWorld, updateWorld } from "../features/worldSlice";
 import { buildMyStatusNote } from "../features/status/myStatuses";
@@ -1116,6 +1117,7 @@ const ChatPage = () => {
       if (chatWorld) await dispatch(updateWorld({ ...chatWorld, godTruths: addTruth(chatWorld.godTruths, text) }));
       else await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { godTruths: addTruth(currentChat?.godTruths, text) } }));
       await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text: text.trim(), isNarration: true, godMode: true }));
+      void logToTimeline(chatWorld ? chatWorld.id : null, { kind: "god", text: text.trim() }, chatWorld?.storyTime);
       await finishRoomRound(await sendCharacterFollowup(undefined, buildGodDirective(text)));
     } catch (err) {
       toast.error(typeof err === "string" ? err : "Couldn't make that true. Check your model settings.");
@@ -1136,6 +1138,7 @@ const ChatPage = () => {
       await dispatch(addChatNotice({ chatId: chatIdNum, text: timePassedNotice(passed) }));
       await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { timePassed: passed } }));
       const chatWorld = worlds.find((w) => w.id === currentChat?.worldId);
+      void logToTimeline(chatWorld ? chatWorld.id : null, { kind: "time", text: `${passed.gap} passed${passed.note ? `: ${passed.note}` : ""}` }, chatWorld?.storyTime);
       if (chatWorld?.storyTime && passed.days >= 1) await dispatch(updateWorld({ ...chatWorld, storyTime: skipStoryTime(chatWorld.storyTime, Math.round(passed.days), Date.now()) }));
       if (theyTextFirst) await finishRoomRound(await sendCharacterFollowup(undefined, buildTimePassedOpener(passed, activePersona?.name?.trim() || "the user")));
     } catch (err) {

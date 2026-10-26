@@ -10,6 +10,7 @@ import { updateCharacter } from "src/features/characterSlice";
 import { avatarOf } from "src/features/character/profileChanges";
 import { tiesOf, withTie, withoutTie } from "src/features/character/ties";
 import { worldOf } from "src/features/world/currentWorld";
+import { logToTimeline } from "src/features/world/timeline";
 import { Character } from "src/types";
 
 // Relationships with other characters, in Contact info: who they are to each
@@ -32,6 +33,8 @@ export const RelationshipsSection = ({ character }: { character: Character }) =>
     const [a, b] = withTie(me, other, editing.toMe, editing.toThem);
     await dispatch(updateCharacter(a));
     await dispatch(updateCharacter(b));
+    const world = worlds.find((w) => w.id === me.worldId);
+    void logToTimeline(world ? world.id : null, { kind: "tie", text: `${other.name} is now ${me.name}'s ${editing.toMe.trim().replace(/^your\s+/i, "")}`, characterIds: [me.id, other.id] }, world?.storyTime);
     setEditing(null);
   };
   const remove = async (o: Character) => {

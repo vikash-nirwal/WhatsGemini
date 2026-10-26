@@ -3,6 +3,7 @@ import { dbService } from "../services/dbService";
 import { WORLD } from "../utils/constants";
 import { World } from "../types";
 import { loadCurrentWorld, saveCurrentWorld } from "./world/currentWorld";
+import { logToTimeline } from "./world/timeline";
 
 // Helper function to handle database errors
 const handleDbError = (error: unknown, rejectWithValue: any) => {
@@ -46,8 +47,9 @@ export const addWorld = createAsyncThunk(
       // Every field is kept, like addCharacter, so later additions (a persona,
       // story time) aren't dropped on creation.
       const { id: _ignoredId, ...newWorld } = world as World;
-      const id = await dbService.addWorld(newWorld);
-      return { id, ...newWorld } as World;
+      const created = await dbService.addWorld(newWorld);
+      void logToTimeline(created, { kind: "begin", text: `${newWorld.name} began` }, newWorld.storyTime);
+      return { id: created, ...newWorld } as World;
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }

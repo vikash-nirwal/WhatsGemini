@@ -1,7 +1,8 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { logToTimeline } from "./world/timeline";
 import { dbService } from "../services/dbService";
 import { CHARACTER } from "../utils/constants";
-import { Character } from "../types";
+import { Character, World } from "../types";
 
 // Helper function to handle database errors
 const handleDbError = (error: unknown, rejectWithValue: any) => {
@@ -54,6 +55,10 @@ export const addCharacter = createAsyncThunk(
       // database assigns a fresh one instead of overwriting another row.
       const { id: _ignoredId, ...newChar } = character as Character;
       const id = await dbService.addCharacter(newChar);
+      // The world's timeline (#161): someone arrived.
+      const worlds = (getState() as { world?: { worlds: World[] } }).world?.worlds || [];
+      const world = worlds.find((w) => w.id === newChar.worldId);
+      void logToTimeline(world ? world.id : null, { kind: "arrival", text: `${newChar.name} ${newChar.cardOf ? "came from another world" : "arrived"}`, characterIds: [id] }, world?.storyTime);
       return { id, ...newChar } as Character;
     } catch (error) {
       return handleDbError(error, rejectWithValue);
@@ -63,8 +68,13 @@ export const addCharacter = createAsyncThunk(
 
 export const deleteCharacter = createAsyncThunk(
   "character/delete",
-  async (characterId: number, { rejectWithValue }) => {
+  async (characterId: number, { getState, rejectWithValue }) => {
     try {
+      // The world's timeline (#161): someone left.
+      const state = getState() as { character: CharacterState; world?: { worlds: World[] } };
+      const leaving = state.character.characters.find((c) => c.id === characterId);
+      const world = state.world?.worlds.find((w) => w.id === leaving?.worldId);
+      if (leaving) void logToTimeline(world ? world.id : null, { kind: "departure", text: `${leaving.name} left`, characterIds: [characterId] }, world?.storyTime);
       await dbService.removeCharacterFromChats(characterId);
       await dbService.removeCharacterFromAdventures(characterId);
       await dbService.deleteCharacter(characterId);
