@@ -81,7 +81,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #198 | Automatic backups | done | 2026-10-25 |
 | #199 | Background chores on the in-browser model | done | 2026-10-25 |
 | #200 | Better memory recall | done | 2026-10-25 |
-| #201 | Android background sync | todo | the user's batch, 2026-10-26 |
+| #201 | Android background sync | done | 2026-10-25 |
 | #148 | Revamp: design tokens and type | done | 2026-10-25 |
 | #149 | Revamp: core components | done | 2026-10-25 |
 | #150 | Revamp: navigation shell | done | 2026-10-25; terminal keeps its drawer and sidebar |
@@ -106,6 +106,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+Android background sync: features/life/backgroundSync.ts (wakeNotices: tomorrow's plans once, a nudge after a quiet day; askForWakeUps registers periodic sync, tag kindred-tick, 12 h, when the installed app has the permission and notifications are on); service-worker.ts handles periodicsync by reading chats from IndexedDB and showing those notices (it can't run the AI or read the API key). Not tried on a real Android phone.
 Better memory recall: features/memory/semanticRecall.ts (opt-in, Settings > Text generation "Find memories by meaning"; all-MiniLM-L6-v2 through transformers.js loaded from jsDelivr at runtime; prepareRecall before every reply in ChatPage, recalled facts get a boost in selectRelevantFacts). A window.__kindredEmbed stand-in lets tests run without the download. Not tried with the real model download.
 Background chores on the in-browser model: features/life/onDevice.ts (a small WebLLM model, chosen in Settings > Spending's Life in the background, only with a usable GPU); generateAssistText runs background-life calls (those with an activity) on it, free, while other helper work stays on the helper model. Not tried on a real GPU.
 Automatic backups: features/backup/autoBackup.ts and AutoBackup (App): with "Back up daily while the app is open" (DriveBackupSection) a daily Drive backup using only this visit's cached token and in-memory passphrase (driveBackup.ts cachedDriveToken/rememberPassphrase); settingsFromStorage builds the backup's settings outside the Settings page. Reminders were already there (BackupReminderBanner), so none was added. Not tried with a real Google account.

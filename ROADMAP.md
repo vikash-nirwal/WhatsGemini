@@ -39,7 +39,6 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 
 The user's picks from the improvement ideas, plus everything that works without a server. Built in this order.
 
-- **#201 Android background sync.** On Android Chrome, the installed app asks for periodic background sync and does a small world tick with a notification when woken.
 
 ## Smaller follow-ups
 

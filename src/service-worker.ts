@@ -10,6 +10,7 @@ import { ExpirationPlugin } from "workbox-expiration";
 import { precacheAndRoute } from "workbox-precaching";
 import { registerRoute } from "workbox-routing";
 import { CacheFirst, StaleWhileRevalidate } from "workbox-strategies";
+import { SYNC_TAG, wakeNotices } from "./features/life/backgroundSync";
 
 declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string; revision: string | null }>;
@@ -96,3 +97,55 @@ self.addEventListener("notificationclick", (event) => {
     })()
   );
 });
+
+// Android background sync (#201): when the browser wakes the installed app,
+// read the saved chats straight from IndexedDB (the app isn't running) and
+// show what's true: tomorrow's plans, and a nudge after a quiet day. What
+// was shown is noted in the same database so it isn't shown twice.
+const openDb = (): Promise<IDBDatabase> =>
+  new Promise((resolve, reject) => {
+    const req = indexedDB.open("ChatAppDB");
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+const readAll = <T,>(db: IDBDatabase, store: string): Promise<T[]> =>
+  new Promise((resolve) => {
+    const get = db.transaction(store).objectStore(store).getAll();
+    get.onsuccess = () => resolve(get.result as T[]);
+    get.onerror = () => resolve([]);
+  });
+const readSetting = <T,>(db: IDBDatabase, key: string): Promise<T | undefined> =>
+  new Promise((resolve) => {
+    const get = db.transaction("settings").objectStore("settings").get(key);
+    get.onsuccess = () => resolve(get.result?.value as T | undefined);
+    get.onerror = () => resolve(undefined);
+  });
+const writeSetting = (db: IDBDatabase, key: string, value: unknown): Promise<void> =>
+  new Promise((resolve) => {
+    const tx = db.transaction("settings", "readwrite");
+    tx.objectStore("settings").put({ key, value });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => resolve();
+  });
+
+const wakeUp = async () => {
+  const db = await openDb();
+  try {
+    const now = Date.now();
+    const reminded = (await readSetting<number[]>(db, "sw_plans_reminded")) || [];
+    const nudgedAt = (await readSetting<number>(db, "sw_nudged_at")) || 0;
+    const notices = wakeNotices(await readAll(db, "chats"), now, reminded, nudgedAt);
+    for (const n of notices) {
+      await self.registration.showNotification(n.title, { body: n.body, tag: n.tag, icon: "logo192.png", data: { path: n.path } });
+      if (n.tag.startsWith("plan-")) reminded.push(Number(n.tag.slice(5)));
+      else await writeSetting(db, "sw_nudged_at", now);
+    }
+    await writeSetting(db, "sw_plans_reminded", reminded.slice(-50));
+  } finally {
+    db.close();
+  }
+};
+
+self.addEventListener("periodicsync", ((event: Event & { tag: string; waitUntil: (p: Promise<unknown>) => void }) => {
+  if (event.tag === SYNC_TAG) event.waitUntil(wakeUp().catch(() => undefined));
+}) as EventListener);

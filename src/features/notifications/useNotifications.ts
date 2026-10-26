@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useAppSelector } from "../../store/hooks";
 import { Character } from "../../types";
 import { isNsfwCharacter } from "../character/contentRating";
-import { notifyChatMessage, OPEN_CHAT_MESSAGE, OPEN_PATH_MESSAGE, setOpenChatHandler, setOpenPathHandler } from "./notifications";
+import { notificationsEnabled, notifyChatMessage, OPEN_CHAT_MESSAGE, OPEN_PATH_MESSAGE, setOpenChatHandler, setOpenPathHandler } from "./notifications";
+import { askForWakeUps } from "../life/backgroundSync";
 
 // Routes notification clicks to the chat. Mounted once inside the router:
 // page notifications call the handler directly, the service worker's ones
@@ -23,6 +24,8 @@ export const useNotificationClicks = () => {
     };
     const sw = "serviceWorker" in navigator ? navigator.serviceWorker : undefined;
     sw?.addEventListener("message", onMessage);
+    // Android background sync (#201), with notifications on.
+    if (notificationsEnabled()) void askForWakeUps();
     return () => {
       setOpenChatHandler(null);
       setOpenPathHandler(null);
