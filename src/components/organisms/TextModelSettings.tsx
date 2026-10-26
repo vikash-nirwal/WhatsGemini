@@ -12,6 +12,7 @@ import ToggleSwitch from 'src/components/atoms/ToggleSwitch';
 import { RoleplayPov, RoleplayStyle, SamplerSettings } from '../../types';
 import PromptInspectorDialog from './PromptInspectorDialog';
 import { checkWebGPU } from "src/features/ai/providers/webllmAdapter";
+import { semanticMemoryOn, setSemanticMemory } from "src/features/memory/semanticRecall";
 
 // Which sampler knobs each chat provider's adapter actually forwards (see
 // the adapters) - shown so an ignored setting isn't a silent no-op.
@@ -103,6 +104,7 @@ const TextModelSettings: React.FC<TextModelSettingsProps> = ({
     };
   }, [chatProvider]);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [semantic, setSemantic] = useState(semanticMemoryOn);
 
   // Blank input = unset = the provider's own default.
   const samplerInput = (key: keyof SamplerSettings, step: string, placeholder: string, min?: string, max?: string) => (
@@ -376,6 +378,23 @@ const TextModelSettings: React.FC<TextModelSettingsProps> = ({
           <Button type="button" variant="outline" onClick={() => setInspectorOpen(true)}>
             Show last request
           </Button>
+        </SettingsRow>
+      </SettingsCard>
+      {/* Memory recall by meaning (#200). */}
+      <SettingsCard>
+        <SettingsRow
+          label="Find memories by meaning"
+          hint="Characters recall what fits what you're saying, not only what shares its words (“the thing with my sister” finds “your sister Nora is sick”). Downloads a small model (about 25 MB) once; runs in this browser, free."
+          align="start"
+        >
+          <ToggleSwitch
+            checked={semantic}
+            onChange={(on) => {
+              setSemantic(on);
+              setSemanticMemory(on);
+            }}
+            label={<span className="sr-only">Find memories by meaning</span>}
+          />
         </SettingsRow>
       </SettingsCard>
       <PromptInspectorDialog isOpen={inspectorOpen} onClose={() => setInspectorOpen(false)} />

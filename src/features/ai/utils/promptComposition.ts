@@ -1,4 +1,5 @@
 import { buildPastSection } from "../../chat/whatIf";
+import { recalledFor } from "../../memory/semanticRecall";
 import { fitNotes, NotePriority, recordDropped } from "./promptBudget";
 import { MemoryFactDates, Character, ChatGame, ChatLanguage, Intensity, RelationshipStage, LoreEntry, Message, RoleplayStyle, SceneState, StoryScript, UserProfile, World } from "../../../types";
 import { YOU } from "../../../utils/constants";
@@ -400,7 +401,7 @@ export const buildSystemInstruction = (
   // word-matched facts (it was written from all of them); pinned facts
   // still go in word for word.
   const standing = ownMemory.standing?.trim();
-  const personalFacts = standing ? ownMemory.pinned : [...ownMemory.pinned, ...selectRelevantFacts(ownMemory.memory, recentMessages)];
+  const personalFacts = standing ? ownMemory.pinned : [...ownMemory.pinned, ...selectRelevantFacts(ownMemory.memory, recentMessages, undefined, recalledFor(String(character.id)))];
   if (standing) sections.push(`Where things stand, from everything you remember (what's true now, what already happened, what's still coming):\n${standing}`);
   if (personalFacts.length > 0) {
     // With dates (#109) each fact says when it was learned.

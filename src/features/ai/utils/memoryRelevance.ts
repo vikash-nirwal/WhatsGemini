@@ -26,7 +26,9 @@ const stem = (w: string) => w.replace(/(ing|ed|es|s)$/, "");
 export const selectRelevantFacts = (
   facts: string[],
   recentMessages: Message[] | undefined,
-  limit: number = MEMORY_PROMPT_LIMIT
+  limit: number = MEMORY_PROMPT_LIMIT,
+  // Facts found by meaning (#200), which count as having come up.
+  boost?: Set<string>
 ): string[] => {
   if (facts.length <= limit) return facts;
 
@@ -40,7 +42,7 @@ export const selectRelevantFacts = (
     // Recency: 0 for the oldest fact, up to 1 for the newest - enough to
     // break ties, never enough to beat a fact that actually came up.
     const recency = facts.length > 1 ? index / (facts.length - 1) : 1;
-    return { index, score: overlap * 2 + recency };
+    return { index, score: overlap * 2 + recency + (boost?.has(fact) ? 3 : 0) };
   });
 
   const chosen = new Set(

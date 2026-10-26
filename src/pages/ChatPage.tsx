@@ -57,6 +57,7 @@ import { buildSecretsNote } from "../features/world/secrets";
 import { buildFactionNote } from "../features/world/factions";
 import { featureOn } from "../features/world/worldPrefs";
 import PlanBar from "../components/organisms/PlanBar";
+import { prepareRecall } from "../features/memory/semanticRecall";
 import { noteBudgetFor } from "../features/ai/utils/promptBudget";
 import { useWorldHistoryNote } from "../hooks/useWorld";
 import { worldOf } from "../features/world/currentWorld";
@@ -277,6 +278,14 @@ const ChatPage = () => {
       buildMyStatusNote(userName, myStatuses, speaker.id, now),
       ownChatNoteFor(speaker, chats, userName),
     ].filter(Boolean).join("\n\n") || undefined;
+  };
+
+  // Memory recall by meaning (#200): worked out just before each reply, from
+  // the last few messages, for the facts this reply would draw on.
+  const recallFor = async (speaker: Character | undefined, msgs: Message[]) => {
+    if (!speaker) return;
+    const facts = !isRoom && chatScopedMemory ? currentChat?.memory || [] : speaker.memory || [];
+    await prepareRecall(String(speaker.id), facts, msgs.slice(-4).map((m) => m.txt || "").join("\n"));
   };
 
   // Real names for summarization/memory-extraction transcripts.
@@ -980,6 +989,7 @@ const ChatPage = () => {
     warnBackgroundFailure("compress", compressError);
     await trackUsage(compressTokens, compressCost);
 
+    await recallFor(speaker, compressedFreshMessages);
     const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = turnContextFor(
       compressedFreshMessages,
       speaker,
@@ -1540,6 +1550,7 @@ const ChatPage = () => {
         setAwayNote(null);
       }
 
+      await recallFor(speaker, [...contextMessages, { role: YOU, txt: text } as Message]);
       const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = turnContextFor(contextMessages, speaker, undefined, replyLengthLimit);
       const sendVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest || shouldAutoSelfie));
       // Matches the "(voice note)" mark buildChatHistory puts on the same
@@ -1659,6 +1670,7 @@ const ChatPage = () => {
           || characterData;
         if (!speaker) return;
 
+        await recallFor(speaker, contextUpToEdit);
         const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = turnContextFor(contextUpToEdit, speaker, undefined, replyLengthLimit);
         const editVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest));
         aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings, promptImages: sentPhotos }));
@@ -1789,6 +1801,7 @@ const ChatPage = () => {
         || characterData;
       if (!speaker) return undefined;
 
+      await recallFor(speaker, historyUpToTarget);
       const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = turnContextFor(historyUpToTarget, speaker, extraDirectives, replyLengthLimit);
       const regenVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest));
       aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: override || speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings, promptImages: sentPhotos }));
@@ -2136,6 +2149,7 @@ const ChatPage = () => {
       if (!speaker) return;
       const continueDirective =
         "The previous assistant message got cut off before finishing. Continue writing directly from exactly where it left off - do not repeat any earlier text, do not restart the sentence, and add no preamble or acknowledgement. Keep going in the same voice, tone, and format.";
+      await recallFor(speaker, historyUpToTarget);
       const { history, systemInstruction, postHistoryNote, characterImages, characterName, protectedCount, appearanceLocks } = turnContextFor([...historyUpToTarget, targetMessage], speaker, [continueDirective], replyLengthLimit);
 
       aiPromiseRef.current = dispatch(generateAIResponse({ prompt: "Continue.", history, systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle: speaker.artStyle, customEmotions: speaker.emotionPortraits?.customEmotions, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings }));
