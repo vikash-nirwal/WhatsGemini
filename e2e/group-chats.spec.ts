@@ -136,6 +136,10 @@ test("room-wide inner thoughts and member diaries are switched on in the Chat ta
 
 test("with the scene tracked, members who leave stop taking turns until they're back", async ({ page, mockAI }) => {
   await openChat(page, 2);
+  // Taking turns, so who's next is known (Lively, the default, picks freely).
+  await openRoomPanel(page, "Group");
+  await page.getByRole("button", { name: "Taking turns" }).click();
+  await page.getByRole("button", { name: "Close scene panel" }).click();
   await openRoomPanel(page, "Scene");
   await page.getByRole("switch", { name: "Track the scene" }).click();
   await page.getByRole("button", { name: "Close scene panel" }).click();
@@ -233,4 +237,16 @@ test("a member remembers the group in your private chat", async ({ page, mockAI 
   const system = systemOf(mockAI.requests.filter((r) => r.stream).pop()!.messages);
   expect(system).toContain('In the group "Aria & Kai":');
   expect(system).toContain("bonfire on saturday?");
+});
+
+// Lively, the default (#188): the member you speak to answers.
+test("in a lively group, whoever you address answers", async ({ page, mockAI }) => {
+  await page.addInitScript(() => {
+    Math.random = () => 0.9; // no extra reaction this time
+  });
+  replyByRequest(mockAI, "");
+  await openChat(page, 2);
+  await sendMessage(page, "Kai, can you look at my car?");
+  await waitForReplyDone(page);
+  expect(speakerOf(mockAI.requests.filter((r) => r.stream)[0].messages)).toBe("Kai");
 });

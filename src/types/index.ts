@@ -546,7 +546,7 @@ export interface Chat {
   backdrop?: string; // a picture behind this chat's bubbles (#13)
   // Rooms only (#22-#24): who answers a message, a narrator between rounds,
   // and what members feel about each other.
-  turnMode?: "round-robin" | "natural" | "everyone";
+  turnMode?: "round-robin" | "natural" | "everyone"; // unset = "lively" (#188)
   narrator?: boolean;
   roomRelationships?: RoomRelationship[];
   innerThoughts?: boolean; // every member writes a hidden thought with each reply (#10)

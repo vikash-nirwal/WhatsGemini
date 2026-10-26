@@ -113,7 +113,8 @@ import { buildSystemInstruction, buildTurnContext, AUTO_REPLY_DIRECTIVE, FOLLOWU
 import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
 import { effectiveContentRating } from "../features/character/contentRating";
 import { resolveNextSpeaker, parseMention, stripSpeakerPrefix, getActiveParticipants } from "../features/ai/utils/roomRouting";
-import { CHAIN_DIRECTIVE, everyoneAfter, MAX_CHAIN } from "../features/ai/utils/roomTurns";
+import { everyoneAfter, MAX_CHAIN } from "../features/ai/utils/roomTurns";
+import { buildReactDirective, pickLively, REACT_CHANCE } from "../features/ai/utils/roomFlow";
 import { migrateToTree, addChildNode, flattenPath, getPathToNode, updateNodeMessage, findDefaultLeafFrom, deleteBranch, getSiblingInfo, generateNodeId } from "../features/chat/messageTree";
 import { estimateTokens, estimateHistoryTokens } from "../features/ai/utils/tokenEstimator";
 import { truncateHistory, trimToLatestSummary, latestSummaryIndex, countSeedMessages, buildSummaryMessages, formatTranscript, TranscriptNames } from "../features/ai/utils/chatHistoryUtils";
@@ -1073,9 +1074,15 @@ const ChatPage = () => {
       } else if (currentChat?.turnMode === "natural" && others.length > 0) {
         const fresh = await dispatch(fetchChatById(chatIdNum)).unwrap();
         followers = ((await pickNaturalSpeakers(getOrBuildTree(fresh).content, others, starter)) || []).slice(0, MAX_CHAIN - 1);
+      } else if (!currentChat?.turnMode && others.length > 0 && Math.random() < REACT_CHANCE) {
+        // Lively (#188): sometimes someone reacts to what they started.
+        const reactor = pickLively(others, [], "").speaker;
+        if (reactor) followers = [reactor];
       }
+      let previous = starter.name;
       for (const follower of followers) {
-        if (!(await sendCharacterFollowup(follower.id, CHAIN_DIRECTIVE, { answering: true }))) break;
+        if (!(await sendCharacterFollowup(follower.id, buildReactDirective(previous), { answering: true }))) break;
+        previous = follower.name;
       }
     }
     await maybeNarrate();
@@ -1508,6 +1515,11 @@ const ChatPage = () => {
         }
       } else if (forcedSpeakerId == null && !mentioned && turnMode === "everyone") {
         followers = everyoneAfter(active, speaker.id);
+      } else if (forcedSpeakerId == null && !mentioned && isRoom && !currentChat?.turnMode && active.length > 1) {
+        // Lively (#188), the default: who's named, or whoever fits; now and then a reaction.
+        const lively = pickLively(active, contextMessages, text);
+        if (lively.speaker) speaker = lively.speaker;
+        followers = lively.followers;
       }
 
       const autoSelfieCfg = speaker.autoSelfie;
@@ -1587,8 +1599,10 @@ const ChatPage = () => {
         runBackgroundUpdates((aiAddResult.payload as Message[]) || [], speaker);
 
         // The rest of the room's answers (#22), then the narrator (#23).
+        let previous = speaker.name;
         for (const follower of followers) {
-          if (!(await sendCharacterFollowup(follower.id, CHAIN_DIRECTIVE, { answering: true }))) break;
+          if (!(await sendCharacterFollowup(follower.id, buildReactDirective(previous), { answering: true }))) break;
+          previous = follower.name;
         }
         await maybeNarrate();
       }

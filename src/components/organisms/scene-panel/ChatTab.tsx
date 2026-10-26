@@ -200,13 +200,16 @@ const ChatTab: React.FC<ScenePanelTabProps & { groups?: ChatTabGroup[] }> = ({ c
                     ? "Whoever would naturally answer, maybe two of them, maybe nobody."
                     : chat?.turnMode === "everyone"
                       ? "Everyone answers each message in turn (up to three)."
-                      : "One member at a time, taking turns."}
+                      : chat?.turnMode === "round-robin"
+                        ? "One member at a time, taking turns."
+                        : "Whoever you name, or whoever fits; now and then someone reacts to them."}
                 </div>
               </div>
               <SegmentedControl
-                value={chat?.turnMode || "round-robin"}
-                onChange={(v) => dispatch(updateChatOptions({ chatId, patch: { turnMode: v === "round-robin" ? undefined : (v as "natural" | "everyone") } }))}
+                value={chat?.turnMode || "lively"}
+                onChange={(v) => dispatch(updateChatOptions({ chatId, patch: { turnMode: v === "lively" ? undefined : (v as "round-robin" | "natural" | "everyone") } }))}
                 options={[
+                  { value: "lively", label: "Lively" },
                   { value: "round-robin", label: "Taking turns" },
                   { value: "natural", label: "Natural" },
                   { value: "everyone", label: "Everyone" },

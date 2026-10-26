@@ -68,7 +68,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #185 | Factions drive what happens | done | 2026-10-25 |
 | #186 | One clock per world | done | 2026-10-25 |
 | #187 | Prompt budget | done | 2026-10-25 |
-| #188 | Group chat flow | todo | the user's batch, 2026-10-26 |
+| #188 | Group chat flow | done | 2026-10-25 |
 | #189 | Undo a world-wide time skip | todo | the user's batch, 2026-10-26 |
 | #190 | Timeline search and people filter | todo | the user's batch, 2026-10-26 |
 | #191 | Simulate a day | todo | the user's batch, 2026-10-26 |
@@ -106,6 +106,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+Group chat flow: "Lively" is the default turn mode (features/ai/utils/roomFlow.ts pickLively): the member you address answers (addressedIn: "Kai, ...", "..., Kai?", "hey Kai"), otherwise whoever fits (not the last speaker, chatty traits more, quiet less), and about a third of the time a second member reacts to the first (buildReactDirective, ties make it likelier). Taking turns is still in the Group panel.
 Prompt budget: features/ai/utils/promptBudget.ts (fitNotes by priority, notes capped at 1,800 characters, noteBudgetFor = ~15% of the model's window); buildTurnContext's notes carry priorities (NOTE_PRIORITY), rules and truths never dropped; the prompt inspector names what was left out of the latest prompt.
 One clock per world: in a world with its own calendar, the background world brief (worldBrief.ts) states the world's date and tells the model the real weekday or date further down doesn't apply, only the time of day; one place instead of every prompt that carries the real clock.
 Factions drive what happens: a "groups" talk topic (rivalry, a grudge, a deal; or their own group's business) and each talker's groups in the talk prompt (worldTalk.ts, WorldTalker), and world events and storylines are written knowing the groups. The map isn't regrouped (places show who's there).
