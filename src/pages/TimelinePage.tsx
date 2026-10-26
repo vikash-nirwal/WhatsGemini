@@ -5,6 +5,8 @@ import Header from "src/components/organisms/Header";
 import { useAppSelector } from "src/store/hooks";
 import { groupTimeline, KIND_LABEL, loadTimeline, onTimeline, TimelineEntry, TimelineKind } from "src/features/world/timeline";
 import { cn } from "src/utils/cn";
+import { TextInput } from "src/components/molecules/form-controls";
+import { Select } from "src/components/molecules/form-controls/FormSelect";
 
 // A world's timeline (#161): everything that happened there, newest first,
 // grouped by day (or the world's own dates), with chips to narrow by kind.
@@ -16,6 +18,10 @@ const TimelinePage = () => {
   const world = useAppSelector((state) => state.world.worlds.find((w) => w.id === worldId));
   const [entries, setEntries] = useState<TimelineEntry[]>([]);
   const [only, setOnly] = useState<TimelineKind | null>(null);
+  // Search and a person (#190), for a long-lived world's history.
+  const [query, setQuery] = useState("");
+  const [person, setPerson] = useState<number | null>(null);
+  const characters = useAppSelector((state) => state.character.characters);
 
   useEffect(() => {
     let live = true;
@@ -29,7 +35,13 @@ const TimelinePage = () => {
   }, [worldId]);
 
   const kinds = useMemo(() => Array.from(new Set(entries.map((e) => e.kind))), [entries]);
-  const groups = groupTimeline(only ? entries.filter((e) => e.kind === only) : entries);
+  const people = useMemo(() => {
+    const ids = new Set(entries.flatMap((e) => e.characterIds || []));
+    return characters.filter((c) => ids.has(c.id)).sort((a, b) => a.name.localeCompare(b.name));
+  }, [entries, characters]);
+  const q = query.trim().toLowerCase();
+  const shown = entries.filter((e) => (!only || e.kind === only) && (!q || e.text.toLowerCase().includes(q)) && (person == null || e.characterIds?.includes(person)));
+  const groups = groupTimeline(shown);
   const title = world?.name || "My world";
 
   return (
@@ -54,6 +66,16 @@ const TimelinePage = () => {
                   ))}
                 </div>
               )}
+              <div className="flex flex-wrap gap-2 px-4 pt-3">
+                <TextInput aria-label="Search the timeline" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search" className="min-w-0 flex-1" />
+                {people.length > 0 && (
+                  <Select aria-label="Only about" value={person == null ? "all" : String(person)} onChange={(e) => setPerson(e.target.value === "all" ? null : Number(e.target.value))} className="w-[170px]">
+                    <option value="all">Everyone</option>
+                    {people.map((c) => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+                  </Select>
+                )}
+              </div>
+              {shown.length === 0 && <p className="px-4 py-6 text-[14px] text-muted-foreground">Nothing matches.</p>}
               <ol aria-label="World timeline" className="flex flex-col gap-5 px-4 py-4">
                 {groups.map((g) => (
                   <li key={g.label}>

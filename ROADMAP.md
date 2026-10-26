@@ -39,7 +39,6 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 
 The user's picks from the improvement ideas, plus everything that works without a server. Built in this order.
 
-- **#190 Timeline search and people filter.** Search the timeline's text and filter it by person.
 - **#191 Simulate a day.** A world's day in a minute: talk, events, life events and news texts run back to back, after a cost estimate.
 - **#192 World spending limit and quiet hours.** Per world: a daily cap on background calls, and hours when nothing runs.
 - **#193 Richer catch-up.** Time away is filled in proportion to how long you were gone: a morning brings a text or two, days bring lives moving on and a summary in the World pulse.
