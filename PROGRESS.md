@@ -45,7 +45,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #164 | Arrivals and departures | done | 2026-10-25 |
 | #165 | Places with presence | done | 2026-10-25 |
 | #166 | Your reputation | done | 2026-10-25 |
-| #167 | Introductions | todo | |
+| #167 | Introductions | done | 2026-10-25 |
 | #168 | Group plans | todo | |
 | #169 | World arcs | todo | |
 | #170 | Secrets between characters | todo | |
@@ -75,6 +75,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+Introductions (switch, off by default): features/world/introductions.ts (pickIntroduction, buildIntroductionPrompt); WorldEventWatcher has someone you talk to pass your number to a person tied to them, who texts first (new chat, memory fact, notice in the introducer's chat, timeline, toast).
 Your reputation: features/world/reputation.ts (World.reputation, rewritten every few days by WorldEventWatcher from what people know and say about you), scene.reputationNote (strangers go by it), shown on CurrentWorldHero. Switches: #162-#166 are per-world prefs (worldPrefs featureOn: events, drift, arrivals, places, reputation), off by default, in WorldLifeControls; drift is the only one for My world.
 Places with presence: features/world/places.ts (whereIs from schedule or Character.hangout, whoIsWhere, placeScenario); CurrentWorldHero places show who's there and open PlaceDialog (usual spot, start a scene there via addChat scenario); their place in chat prompts (placeNote fallback).
 Arrivals and life events: features/world/worldLife.ts (Character.lifeEvents, lifeEventDue, newcomerDue, buildLifeNote), WorldEventWatcher moves lives on (a life event or a newcomer per check), NewcomerCard on CurrentWorldHero (welcome via features/world/addPerson.ts, shared with WorldCastCard); life events in chat (scene.lifeNote), statuses and world talk. Departures are life events (leaving town for a while), never deleting anyone.
@@ -239,6 +240,7 @@ Choices a later session shouldn't revisit. Add the date.
 
 - 2026-10-25 (user): part 2 and worlds are off hold: build them before the rest of the revamp (wave 1 was already done and stays), then deploy.
 - 2026-10-25 (user): the UI revamp (#148–#157) follows the Claude Design canvas (link in ROADMAP.md). From the review: no "Favourites" chat filter; the WhatsApp theme is shown as "Messenger" (its stored id stays "whatsapp"); all four Drama settings stay per chat; forwarding and contact cards stay inside one world. The terminal theme keeps its own phone drawer and desktop sidebar (its shell look has no tab bar or rail on the canvas).
+- 2026-10-26 (user): living-world features each sit behind a per-world switch, **off by default** (`worldPrefs` `featureOn`, toggles in `WorldLifeControls`): events, drifting ties, newcomers and life events, places, reputation. New background world features (#167 onward) follow the same rule.
 
 ## Working notes
 

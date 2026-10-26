@@ -13,6 +13,10 @@ import { buildCastSuggestionsPrompt, parseCastSuggestions } from "src/features/w
 import { logToTimeline } from "src/features/world/timeline";
 import { toast } from "sonner";
 import { selectActivePersona } from "src/features/settingsSlice";
+import { buildIntroductionPrompt, introducedFact, INTRO_GAP_MS, introductionDue, pickIntroduction } from "src/features/world/introductions";
+import { addChat, addChatNotice, addMessage, fetchChats } from "src/features/chatSlice";
+import { cleanFirstText } from "src/features/character/firstTexts";
+import { AI } from "src/utils/constants";
 import { buildReputationPrompt, cleanReputation, REPUTATION_GAP_MS, reputationDue } from "src/features/world/reputation";
 
 const CHECK_EVERY_MS = 2 * 60 * 60 * 1000;
@@ -28,8 +32,9 @@ const WorldEventWatcher = () => {
   const worlds = useAppSelector((state) => state.world.worlds);
   const characters = useLivingCharacters();
   const persona = useAppSelector(selectActivePersona);
-  const latest = useRef({ worlds, characters, persona });
-  latest.current = { worlds, characters, persona };
+  const chats = useAppSelector((state) => state.chat.chats);
+  const latest = useRef({ worlds, characters, persona, chats });
+  latest.current = { worlds, characters, persona, chats };
   const busy = useRef(false);
 
   useEffect(() => {
@@ -104,7 +109,10 @@ const WorldEventWatcher = () => {
       const { worlds, characters, persona } = latest.current;
       const castOf = (id: number) => characters.filter((c) => c.worldId === id);
       const world = worlds.find((w) => castOf(w.id).length > 0 && featureOn(w.id, "reputation") && reputationDue(w, now, lifeScaled(REPUTATION_GAP_MS)));
-      if (!world) return;
+      if (!world) {
+        await introduce(now);
+        return;
+      }
       const userName = persona?.name?.trim() || "the user";
       busy.current = true;
       try {
@@ -118,6 +126,41 @@ const WorldEventWatcher = () => {
         if (fresh) await dispatch(updateWorld({ ...fresh, reputation: { text: text || fresh.reputation?.text || "", at: now } }));
       } catch (err) {
         console.warn("Reputation failed (non-fatal):", err);
+      } finally {
+        busy.current = false;
+      }
+    };
+    // Introductions (#167): someone you talk to passes your number on to a
+    // person in their life, who texts you first.
+    const introduce = async (now: number) => {
+      const { worlds, characters, persona, chats } = latest.current;
+      const userName = persona?.name?.trim() || "the user";
+      const castOf = (id: number) => characters.filter((c) => c.worldId === id);
+      const world = worlds.find((w) => featureOn(w.id, "introductions") && introductionDue(w.lastIntroAt, now, lifeScaled(INTRO_GAP_MS)) && pickIntroduction(castOf(w.id), chats));
+      if (!world) return;
+      const pair = pickIntroduction(castOf(world.id), chats)!;
+      busy.current = true;
+      try {
+        await dispatch(updateWorld({ ...world, lastIntroAt: now }));
+        const { by, to } = pair;
+        const heard = (by.memory || []).slice(-3);
+        const text = cleanFirstText(await dispatch(generateAssistText({
+          instruction: buildIntroductionPrompt(by, to, userName, heard, featureOn(world.id, "reputation") ? world.reputation?.text : undefined),
+          background: true,
+          activity: { at: now, kind: "first-text", text: `${by.name} introduced you to ${to.name}`, characterId: to.id, name: to.name },
+        })).unwrap());
+        if (!text) return;
+        const fresh = latest.current.characters.find((c) => c.id === to.id) || to;
+        await dispatch(updateCharacter({ ...fresh, memory: [...(fresh.memory || []), introducedFact(by.name, userName)], knowsAbout: fresh.knowsAbout?.includes(by.id) ? fresh.knowsAbout : [...(fresh.knowsAbout || []), by.id] }));
+        const chat = await dispatch(addChat({ title: to.name, characterIds: [to.id] })).unwrap();
+        await dispatch(addMessage({ chatId: chat.id, role: AI, text, speakerId: to.id, notes: ["texted-first"], noGreeting: true, at: now }));
+        const byChat = latest.current.chats.find((c) => c.characterIds?.length === 1 && c.characterIds[0] === by.id && !c.whatIf);
+        if (byChat?.id) await dispatch(addChatNotice({ chatId: byChat.id, text: `${by.name} gave ${to.name} your number` }));
+        await dispatch(fetchChats());
+        void logToTimeline(world.id, { kind: "you", text: `${by.name} introduced you to ${to.name}`, characterIds: [by.id, to.id], at: now }, world.storyTime);
+        toast.message(`${by.name} introduced you to ${to.name}`, { description: text.length > 90 ? `${text.slice(0, 87)}...` : text, action: { label: "Open", onClick: () => { window.location.hash = `#/chat/${chat.id}`; } } });
+      } catch (err) {
+        console.warn("Introduction failed (non-fatal):", err);
       } finally {
         busy.current = false;
       }
