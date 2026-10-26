@@ -67,6 +67,21 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #184 | Plans and secrets resolve | done | 2026-10-25 |
 | #185 | Factions drive what happens | done | 2026-10-25 |
 | #186 | One clock per world | done | 2026-10-25 |
+| #187 | Prompt budget | done | 2026-10-25 |
+| #188 | Group chat flow | todo | the user's batch, 2026-10-26 |
+| #189 | Undo a world-wide time skip | todo | the user's batch, 2026-10-26 |
+| #190 | Timeline search and people filter | todo | the user's batch, 2026-10-26 |
+| #191 | Simulate a day | todo | the user's batch, 2026-10-26 |
+| #192 | World spending limit and quiet hours | todo | the user's batch, 2026-10-26 |
+| #193 | Richer catch-up | todo | the user's batch, 2026-10-26 |
+| #194 | Notifications for world happenings | todo | the user's batch, 2026-10-26 |
+| #195 | Plans in your calendar | todo | the user's batch, 2026-10-26 |
+| #196 | Live map | todo | the user's batch, 2026-10-26 |
+| #197 | Share a world by link | todo | the user's batch, 2026-10-26 |
+| #198 | Automatic backups | todo | the user's batch, 2026-10-26 |
+| #199 | Background chores on the in-browser model | todo | the user's batch, 2026-10-26 |
+| #200 | Better memory recall | todo | the user's batch, 2026-10-26 |
+| #201 | Android background sync | todo | the user's batch, 2026-10-26 |
 | #148 | Revamp: design tokens and type | done | 2026-10-25 |
 | #149 | Revamp: core components | done | 2026-10-25 |
 | #150 | Revamp: navigation shell | done | 2026-10-25; terminal keeps its drawer and sidebar |
@@ -91,6 +106,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+Prompt budget: features/ai/utils/promptBudget.ts (fitNotes by priority, notes capped at 1,800 characters, noteBudgetFor = ~15% of the model's window); buildTurnContext's notes carry priorities (NOTE_PRIORITY), rules and truths never dropped; the prompt inspector names what was left out of the latest prompt.
 One clock per world: in a world with its own calendar, the background world brief (worldBrief.ts) states the world's date and tells the model the real weekday or date further down doesn't apply, only the time of day; one place instead of every prompt that carries the real clock.
 Factions drive what happens: a "groups" talk topic (rivalry, a grudge, a deal; or their own group's business) and each talker's groups in the talk prompt (worldTalk.ts, WorldTalker), and world events and storylines are written knowing the groups. The map isn't regrouped (places show who's there).
 Plans and secrets resolve: GroupPlan.date (a Day field in GroupPlanDialog) brings a member's reminder the day before and a written outcome once the day passes (groupPlans.ts planReminderDue/planPassed, planOutcome.ts writePlanOutcome shared with PlanBar); kept secrets come out on their own after a week or so as a confession, a slip or a discovery, remembered by both, with the news texted (secrets.ts secretReadyToSurface/surfacedFacts, KeptSecret.outAt/how).

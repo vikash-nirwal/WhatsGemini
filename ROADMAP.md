@@ -35,6 +35,25 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 - The canvas's boards for Peek (#145), blocking (#133), event invites (#134), disappearing messages (#136), stickers (#137), the activity log (#131), "where things stand" (#142) and "While you were away" (#130) are built with those items; they get no numbers of their own.
 
 
+## No-server batch (#187–#201, picked 2026-10-26)
+
+The user's picks from the improvement ideas, plus everything that works without a server. Built in this order.
+
+- **#188 Group chat flow.** Members react to each other, not only to you; not everyone answers every message; quieter members chime in less, and someone addressed by name answers.
+- **#189 Undo a world-wide time skip.** The last "Pass the time" for a world can be undone: its life events, tie changes, chapters, calendar move and chat notices go back.
+- **#190 Timeline search and people filter.** Search the timeline's text and filter it by person.
+- **#191 Simulate a day.** A world's day in a minute: talk, events, life events and news texts run back to back, after a cost estimate.
+- **#192 World spending limit and quiet hours.** Per world: a daily cap on background calls, and hours when nothing runs.
+- **#193 Richer catch-up.** Time away is filled in proportion to how long you were gone: a morning brings a text or two, days bring lives moving on and a summary in the World pulse.
+- **#194 Notifications for world happenings.** Events, chapters, newcomers and secrets coming out notify like messages do, and a daily digest notification when the world had a busy day.
+- **#195 Plans in your calendar.** A dated plan can be added to your phone's calendar as a downloaded calendar file, so your phone reminds you even with the app closed.
+- **#196 Live map.** Avatars on the world map at the places where people are, you included; tap a place for its scene dialog.
+- **#197 Share a world by link.** A world file can be opened from a pasted link, and shared as a QR code.
+- **#198 Automatic backups.** A daily backup to Google Drive while the app is open, when Drive backup is set up; a reminder to back up otherwise.
+- **#199 Background chores on the in-browser model.** A switch to run background life (statuses, Peek talk, life events, rumors) on the free in-browser model, keeping the paid key for chats.
+- **#200 Better memory recall.** Facts found by meaning with a small in-browser embedding model (opt-in download), alongside keyword matching.
+- **#201 Android background sync.** On Android Chrome, the installed app asks for periodic background sync and does a small world tick with a notification when woken.
+
 ## Smaller follow-ups
 
 Leftovers noted while building the finished items. Pick them up alongside related work.

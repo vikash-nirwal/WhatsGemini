@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { lastDroppedNotes, NOTE_NAMES } from "src/features/ai/utils/promptBudget";
 import { FaCopy } from "react-icons/fa";
 import { toast } from "sonner";
 import Modal from "src/components/molecules/Modal";
@@ -148,6 +149,12 @@ const PromptInspectorDialog: React.FC<PromptInspectorDialogProps> = ({ isOpen, o
                 )}
               </dl>
 
+              {/* The prompt budget (#187): notes left out of the latest prompt. */}
+              {entry.id === log[0]?.id && lastDroppedNotes().keys.length > 0 && (
+                <p role="note" aria-label="Left out to fit" className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                  Left out to fit the model: {lastDroppedNotes().keys.map((k) => NOTE_NAMES[k] || k).join(", ")}.
+                </p>
+              )}
               <Block title="System prompt" hint={entry.systemInstruction ? `${sections.length} sections, ${tokens(estimateTokens(entry.systemInstruction))}` : "none"}>
                 {sections.length > 0 && (
                   <ol className="flex flex-col gap-1.5" aria-label="System prompt sections">

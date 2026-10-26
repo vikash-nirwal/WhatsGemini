@@ -57,6 +57,7 @@ import { buildSecretsNote } from "../features/world/secrets";
 import { buildFactionNote } from "../features/world/factions";
 import { featureOn } from "../features/world/worldPrefs";
 import PlanBar from "../components/organisms/PlanBar";
+import { noteBudgetFor } from "../features/ai/utils/promptBudget";
 import { useWorldHistoryNote } from "../hooks/useWorld";
 import { worldOf } from "../features/world/currentWorld";
 import { patchWorld, switchWorld } from "../features/worldSlice";
@@ -375,6 +376,9 @@ const ChatPage = () => {
   // Set here rather than in `scene` above: they need the persona's name.
   // A flashback or another world (#102, #104) isn't the main story, so the
   // main story's letters, gifts, secrets, plans and anniversaries stay out.
+  // The window of the model replying, for the notes' budget (#187).
+  const notesModel = resolveTurnModel({ chatProvider, selectedModel, temperature: 0, samplers: {} }, characterData);
+  const maxContextTokensForNotes = getModelContextWindow(notesModel.provider, notesModel.model);
   const mainStory = !isRoom && !currentChat?.whatIf;
   const userNameForNotes = activePersona?.name?.trim() || "the user";
   const noteTime = Date.now();
@@ -420,6 +424,7 @@ const ChatPage = () => {
   scene.keptNote = !isRoom && characterData && featureOn(chatWorldId, "secrets") ? buildSecretsNote(characterData, characters, userNameForNotes) : undefined;
   scene.factionNote = !isRoom ? buildFactionNote(characterData, worlds.find((w) => w.id === chatWorldId), characters) : undefined;
   scene.historyNote = worldHistoryNote;
+  scene.noteBudget = noteBudgetFor(maxContextTokensForNotes);
   if (featureOn(chatWorldId, "places")) {
     const placesWorld = worlds.find((w) => w.id === chatWorldId);
     scene.youAtNote = buildYouAtNote(whereYouAre(placesWorld, noteTime), characterData && !isRoom ? whereIs(characterData, placesWorld?.map?.pins || [], noteTime) : undefined, userNameForNotes);

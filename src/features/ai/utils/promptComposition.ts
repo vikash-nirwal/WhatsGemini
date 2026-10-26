@@ -1,4 +1,5 @@
 import { buildPastSection } from "../../chat/whatIf";
+import { fitNotes, NotePriority, recordDropped } from "./promptBudget";
 import { MemoryFactDates, Character, ChatGame, ChatLanguage, Intensity, RelationshipStage, LoreEntry, Message, RoleplayStyle, SceneState, StoryScript, UserProfile, World } from "../../../types";
 import { YOU } from "../../../utils/constants";
 import { stripLeakedBase64 } from "./apiUtils";
@@ -613,11 +614,30 @@ export interface SceneContext {
   youAtNote?: string; // where the user is in the world (#183)
   keptNote?: string; // secrets this character keeps from people in their world (#170)
   factionNote?: string; // their family or faction, and loyalty (#171)
+  noteBudget?: number; // characters the notes may take (#187), from the model's window
 }
 
 // The single function replacing the copy-pasted "build history + build system
 // instruction" block that used to appear separately in handleSend,
 // handleEditMessage, and handleRegenerate.
+// Each scene note and how much it matters when space runs short (#187):
+// 5 = never dropped (rules and what's true), 1 = first to go.
+const NOTE_PRIORITY: [keyof SceneContext, NotePriority][] = [
+  ["knowsNote", 2], ["tiesNote", 3], ["worldTalkNote", 3], ["groupsNote", 4], ["letterNote", 4], ["onThisDayNote", 2], ["giftsNote", 3], ["plansNote", 3], ["secretsNote", 3],
+  ["godNote", 5], ["eventNote", 4], ["arcNote", 4], ["historyNote", 2], ["youAtNote", 4], ["keptNote", 4], ["factionNote", 3], ["lifeNote", 4], ["reputationNote", 3],
+  ["whatIfNote", 5], ["dayNote", 4], ["dayMoodNote", 4], ["moodNote", 4], ["jokesNote", 3], ["conflictNote", 5], ["liesNote", 4], ["jealousyNote", 3], ["dreamNote", 5],
+  ["hookNote", 5], ["slipsNote", 5], ["callbackNote", 4], ["concernsNote", 3], ["placeNote", 3], ["statusNote", 4], ["quoteNote", 5], ["groupNote", 5], ["profileNote", 2],
+  ["disappearingNote", 5], ["inviteNote", 5], ["stickerNote", 5], ["blockNote", 5], ["timePassedNote", 5],
+];
+
+const budgetedNotes = (scene: SceneContext | undefined): string[] => {
+  if (!scene) return [];
+  const notes = NOTE_PRIORITY.flatMap(([key, priority]) => (typeof scene[key] === "string" && scene[key] ? [{ key: String(key), text: scene[key] as string, priority }] : []));
+  const { kept, dropped } = fitNotes(notes, scene.noteBudget);
+  recordDropped(dropped);
+  return kept.map((n) => n.text);
+};
+
 export const buildTurnContext = (
   fullMessages: Message[],
   character: Character | undefined,
@@ -643,17 +663,9 @@ export const buildTurnContext = (
     ...(scene?.boldness && character ? [buildBoldnessSection(scene.boldness, character.name)] : []),
     // The intimacy profile (#73) only once the scene turns romantic.
     ...(character && intimacyInScope(scene?.stage, fullMessages) ? [buildIntimacySection(character, activePersona)].filter((x): x is string => Boolean(x)) : []),
-    ...(scene?.knowsNote ? [scene.knowsNote] : []),
-    ...(scene?.tiesNote ? [scene.tiesNote] : []),
-    ...(scene?.worldTalkNote ? [scene.worldTalkNote] : []),
-    ...(scene?.groupsNote ? [scene.groupsNote] : []),
     ...(scene?.choiceMoments ? [CHOICE_MOMENT_DIRECTIVE] : []),
-    ...(scene?.letterNote ? [scene.letterNote] : []),
-    ...(scene?.onThisDayNote ? [scene.onThisDayNote] : []),
-    ...(scene?.giftsNote ? [scene.giftsNote] : []),
-    ...(scene?.plansNote ? [scene.plansNote] : []),
-    ...(scene?.secretsNote ? [scene.secretsNote] : []),
-    ...[scene?.godNote, scene?.eventNote, scene?.arcNote, scene?.historyNote, scene?.youAtNote, scene?.keptNote, scene?.factionNote, scene?.lifeNote, scene?.reputationNote, scene?.whatIfNote, scene?.dayNote, scene?.dayMoodNote, scene?.moodNote, scene?.jokesNote, scene?.conflictNote, scene?.liesNote, scene?.jealousyNote, scene?.dreamNote, scene?.hookNote, scene?.slipsNote, scene?.callbackNote, scene?.concernsNote, scene?.placeNote, scene?.statusNote, scene?.quoteNote, scene?.groupNote, scene?.profileNote, scene?.disappearingNote, scene?.inviteNote, scene?.stickerNote, scene?.blockNote, scene?.timePassedNote].filter((n): n is string => Boolean(n)),
+    // The notes, within the prompt budget (#187).
+    ...budgetedNotes(scene),
     ...(scene?.language ? [buildLanguageDirective(scene.language, activePersona?.name?.trim() || "The user")] : []),
     ...(scene?.coWriting && character ? [buildCoWritingDirective(character.name, activePersona?.name?.trim() || "the user")] : []),
     ...(scene?.stage ? [buildStageSection(scene.stage, activePersona?.name?.trim() || "the user")] : []),
