@@ -732,6 +732,7 @@ export interface Character {
   preoccupations?: boolean; // has things of their own going on, written weekly (#110)
   concerns?: Preoccupation[]; // open ones and the last few finished
   concernsWrittenAt?: number;
+  lifeEvents?: { text: string; at: number }[]; // things that happened in their life over story time (#164), newest last
   dayMood?: { date: string; mood: string }; // today's mood picked by hand; mood "" = a good day
   spreadsRumors?: boolean; // what you tell them can get around (#98)
   rumors?: Rumor[]; // rumors they heard about you
@@ -928,6 +929,9 @@ export interface World {
   storyTime?: StoryTime; // the world's own calendar (#147); unset = your clock
   events?: WorldEvent[]; // world events (#162), newest last
   lastEventCheckAt?: number; // when the world last considered an event of its own
+  lastLifeAt?: number; // when someone here last had a life event (#164)
+  lastNewcomerAt?: number; // when the world last suggested a newcomer (#164)
+  newcomer?: { name: string; idea: string; tieWith?: string; tie?: string; at: number }; // someone who just arrived, waiting for you to welcome them
 }
 
 // Something happening to everyone in a world (#162): a festival, a storm, a

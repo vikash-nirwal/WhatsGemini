@@ -64,7 +64,8 @@ const StatusPoster = () => {
         const mainChat = chatsRef.current.find((c) => c.characterIds?.length === 1 && c.characterIds[0] === due.id && !c.whatIf);
         const recent = trimToLatestSummary(mainChat?.content || []).filter((m) => !m.isSystem && !m.isRoomEvent).slice(-12);
         const recentChat = recent.length > 0 ? formatTranscript(recent, { userName: userName || "User", charName: due.name }) : undefined;
-        const facts = annotateFacts((due.memory || []).slice(-8), due.memoryDates, now);
+        // What happened in their life this past week (#164) comes first.
+        const facts = [...(due.lifeEvents || []).filter((e) => now - e.at < 7 * 86_400_000).map((e) => e.text), ...annotateFacts((due.memory || []).slice(-8), due.memoryDates, now)];
         const prompt = buildStatusPrompt(due, currentBlock(due.schedule, now)?.activity, facts, liveStatuses(due, now).map((s) => s.text), dayMoodFor(due, now)?.label, dayLogText(due, now), concernsLine(due.concerns), placeLine(due.home, now), mention, { now, userName, recentChat, worldEvents: eventsLine(activeEvents(worldsRef.current.find((w) => w.id === due.worldId), now)) });
         const text = cleanStatus(await dispatch(generateAssistText({ instruction: prompt, background: true, activity: { at: now, kind: "status", text: `${due.name} posted a status`, characterId: due.id, name: due.name } })).unwrap());
         if (text) {

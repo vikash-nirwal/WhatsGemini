@@ -42,7 +42,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #161 | World timeline | done | 2026-10-25 |
 | #162 | World events | done | 2026-10-25 |
 | #163 | Relationships that drift | done | 2026-10-25 |
-| #164 | Arrivals and departures | todo | |
+| #164 | Arrivals and departures | done | 2026-10-25 |
 | #165 | Places with presence | todo | |
 | #166 | Your reputation | todo | |
 | #167 | Introductions | todo | |
@@ -75,6 +75,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+Arrivals and life events: features/world/worldLife.ts (Character.lifeEvents, lifeEventDue, newcomerDue, buildLifeNote), WorldEventWatcher moves lives on (a life event or a newcomer per check), NewcomerCard on CurrentWorldHero (welcome via features/world/addPerson.ts, shared with WorldCastCard); life events in chat (scene.lifeNote), statuses and world talk. Departures are life events (leaving town for a while), never deleting anyone.
 Relationships that drift: world talk may end with a TIE line (worldTalk.ts tieMayChange/parseTieChange, askTie); WorldTalker applies it both ways with withTie, logs it to the timeline and shows a toast.
 World events: features/world/worldEvents.ts (World.events, eventDue, parseEvent, buildEventsNote), startEvent.ts thunks (save, timeline, world channel post), WorldEventWatcher (one every few days per world with a cast), WorldEventsSection on CurrentWorldHero (start with AI help, end); in chat prompts (scene.eventNote), statuses, world channel posts and world talk news.
 World timeline: features/world/timeline.ts (logToTimeline, per-world settings key), logged from add/delete character, addWorld, tie saves, god mode, pass the time, WorldTalker talk about you; pages/TimelinePage.tsx at /worlds/:id/timeline (mine for My world), linked from CurrentWorldHero and world cards.

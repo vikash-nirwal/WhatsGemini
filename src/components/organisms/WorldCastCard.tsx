@@ -18,6 +18,7 @@ import { withTie, withoutTie } from "src/features/character/ties";
 import { buildConnectionsPrompt, castIdea, parseConnections, WorldTie } from "src/features/world/worldWizard";
 import { CastSuggestion, mirrorTie } from "src/features/world/worldAssist";
 import { useWorldAssist } from "src/hooks/useWorldAssist";
+import { addSuggestedPerson } from "src/features/world/addPerson";
 import { logToTimeline } from "src/features/world/timeline";
 import { CHARACTER_SWATCHES, RELATIONSHIP_PRESETS, TIE_PRESETS } from "src/utils/constants";
 import { Character, World } from "src/types";
@@ -90,14 +91,7 @@ export const WorldCastCard = ({ world }: { world: World }) => {
     setSuggestions(found);
   });
   const addSuggestion = (sg: CastSuggestion) => run(`add-${sg.name}`, async () => {
-    const draft = parseCharacterDraft(await dispatch(generateAssistText({ instruction: buildCharacterDraftPrompt({ idea: castIdea(`${sg.name}: ${sg.idea}`, world) }) })).unwrap());
-    const made = await dispatch(addCharacter({ ...draft, name: sg.name, first_mes: draft.first_mes || undefined, accent: CHARACTER_SWATCHES[Math.floor(Math.random() * CHARACTER_SWATCHES.length)], worldId: world.id } as Omit<Character, "id">)).unwrap();
-    const other = residents.find((c) => c.name === sg.tieWith);
-    if (other && sg.tie) {
-      const [na, nb] = withTie(other, made, sg.tie, mirrorTie(sg.tie));
-      await dispatch(updateCharacter(na));
-      await dispatch(updateCharacter(nb));
-    }
+    await dispatch(addSuggestedPerson(world, sg, residents));
     setSuggestions((list) => list.filter((x) => x.name !== sg.name));
   });
   // Someone new, from a line you write: drafted in full to fit the world.

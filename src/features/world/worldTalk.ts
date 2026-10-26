@@ -117,7 +117,7 @@ export const buildWorldTalkPrompt = (
   }
 ) => {
   const who = (c: Character, other: Character) =>
-    `${c.name}: ${[c.description, c.prompt].filter(Boolean).join(" ").slice(0, 500)}${tieOf(c, other) ? ` (${other.name} is ${c.name}'s ${tieOf(c, other)!.replace(/^your\s+/i, "")})` : ""}${c.dayLog?.text ? `\nTheir day so far: ${c.dayLog.text.slice(0, 300)}` : ""}`;
+    `${c.name}: ${[c.description, c.prompt].filter(Boolean).join(" ").slice(0, 500)}${tieOf(c, other) ? ` (${other.name} is ${c.name}'s ${tieOf(c, other)!.replace(/^your\s+/i, "")})` : ""}${c.dayLog?.text ? `\nTheir day so far: ${c.dayLog.text.slice(0, 300)}` : ""}${c.lifeEvents?.length ? `\nLately in their life: ${c.lifeEvents.slice(-2).map((e) => e.text).join(" ")}` : ""}`;
   const knowing = (c: Character) => {
     const k = knows?.[c.id];
     if (!k) return undefined;

@@ -602,6 +602,7 @@ export interface SceneContext {
   timePassedNote?: string; // how long has passed in the story since you last talked
   godNote?: string; // god mode truths (#160) of this chat's world, or of this chat
   eventNote?: string; // world events going on now (#162)
+  lifeNote?: string; // what happened in their life lately (#164)
 }
 
 // The single function replacing the copy-pasted "build history + build system
@@ -641,7 +642,7 @@ export const buildTurnContext = (
     ...(scene?.giftsNote ? [scene.giftsNote] : []),
     ...(scene?.plansNote ? [scene.plansNote] : []),
     ...(scene?.secretsNote ? [scene.secretsNote] : []),
-    ...[scene?.godNote, scene?.eventNote, scene?.whatIfNote, scene?.dayNote, scene?.dayMoodNote, scene?.moodNote, scene?.jokesNote, scene?.conflictNote, scene?.liesNote, scene?.jealousyNote, scene?.dreamNote, scene?.hookNote, scene?.slipsNote, scene?.callbackNote, scene?.concernsNote, scene?.placeNote, scene?.statusNote, scene?.quoteNote, scene?.groupNote, scene?.profileNote, scene?.disappearingNote, scene?.inviteNote, scene?.stickerNote, scene?.blockNote, scene?.timePassedNote].filter((n): n is string => Boolean(n)),
+    ...[scene?.godNote, scene?.eventNote, scene?.lifeNote, scene?.whatIfNote, scene?.dayNote, scene?.dayMoodNote, scene?.moodNote, scene?.jokesNote, scene?.conflictNote, scene?.liesNote, scene?.jealousyNote, scene?.dreamNote, scene?.hookNote, scene?.slipsNote, scene?.callbackNote, scene?.concernsNote, scene?.placeNote, scene?.statusNote, scene?.quoteNote, scene?.groupNote, scene?.profileNote, scene?.disappearingNote, scene?.inviteNote, scene?.stickerNote, scene?.blockNote, scene?.timePassedNote].filter((n): n is string => Boolean(n)),
     ...(scene?.language ? [buildLanguageDirective(scene.language, activePersona?.name?.trim() || "The user")] : []),
     ...(scene?.coWriting && character ? [buildCoWritingDirective(character.name, activePersona?.name?.trim() || "the user")] : []),
     ...(scene?.stage ? [buildStageSection(scene.stage, activePersona?.name?.trim() || "the user")] : []),
