@@ -44,3 +44,33 @@ export const timePassedNotice = (passed: Pick<TimePassed, "gap">) => `⏳ ${pass
 export const NOTE_FOR_MESSAGES = 6;
 export const timePassedInScope = (passed: TimePassed | undefined, contentLength: number) =>
   Boolean(passed) && contentLength - passed!.fromMessage <= NOTE_FOR_MESSAGES;
+
+// Passing the time for a whole world (the user's ask, 2026-10-26): every
+// chat there gets the gap, and the people you talk to most text first. This
+// is the text for one of them, written outside their chat.
+export const buildWorldTimeTextPrompt = (
+  character: { name: string; description?: string; prompt?: string; relationship?: string },
+  passed: Pick<TimePassed, "gap" | "days" | "note">,
+  userName: string,
+  lastLines: string[]
+) =>
+  [
+    `You are ${character.name}. ${[character.description, character.prompt].filter(Boolean).join(" ").slice(0, 600)}`,
+    character.relationship ? `${userName} is your ${character.relationship}.` : "",
+    lastLines.length ? `The end of your last conversation with ${userName}:\n${lastLines.join("\n")}` : "",
+    buildTimePassedOpener(passed as TimePassed, userName),
+    feel(passed.days),
+    "Write that first text: one to three short lines, in your own voice. Reply with only the message.",
+  ].filter(Boolean).join("\n\n");
+
+// Who texts first after a world-wide gap: the people you talk to most
+// recently, a few at most.
+export const firstAfterGap = <C extends { id: number }>(characters: C[], chats: { characterIds?: number[]; whatIf?: unknown; content?: { timestamp?: number }[]; archived?: boolean }[], max = 3): C[] => {
+  const lastWith = new Map<number, number>();
+  for (const chat of chats) {
+    if (chat.characterIds?.length !== 1 || chat.whatIf || chat.archived) continue;
+    const at = chat.content?.[chat.content.length - 1]?.timestamp || 0;
+    if (at) lastWith.set(chat.characterIds[0], Math.max(at, lastWith.get(chat.characterIds[0]) || 0));
+  }
+  return characters.filter((c) => lastWith.has(c.id)).sort((a, b) => lastWith.get(b.id)! - lastWith.get(a.id)!).slice(0, max);
+};

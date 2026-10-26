@@ -1,4 +1,5 @@
 import { Character, Chat } from "../../types";
+import { YOU } from "../../utils/constants";
 import { RoomContext } from "../../features/ai/utils/promptComposition";
 import { effectiveContentRating } from "../../features/character/contentRating";
 import { appearanceLocksFor } from "../../features/ai/utils/appearanceLock";
@@ -50,6 +51,19 @@ export const recentOffscreenTalk = (chat: Chat | undefined, members: Character[]
   return buildOffscreenTalkSection(talk, Object.fromEntries(members.map((c) => [c.id, c.name])));
 };
 
+// In a group, what this speaker and the user said in their own 1:1 chat
+// lately, so the group doesn't feel like meeting a stranger.
+export const ownChatNoteFor = (speaker: Character, chats: Chat[], userName: string, limit = 6): string | undefined => {
+  const own = chats
+    .filter((c) => c.characterIds?.length === 1 && c.characterIds[0] === speaker.id && !c.whatIf)
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
+  const lines = (own?.content || [])
+    .filter((m) => !m.isSystem && !m.isNarration && m.txt?.trim())
+    .slice(-limit)
+    .map((m) => `${m.role === YOU ? userName : speaker.name}: ${(m.txt || "").replace(/\s+/g, " ").slice(0, 200)}`);
+  return lines.length ? `Your own private chat with ${userName} lately (the others here didn't see it; keep private things private unless you choose to share):\n${lines.join("\n")}` : undefined;
+};
+
 // A room turn's context. `speaker` is whoever is about to reply; every
 // OTHER room member's name goes in `otherParticipants` (that speaker's own
 // "who else is here" context), and `speakerNames` labels every
@@ -73,20 +87,23 @@ export const roomContextFor = (speaker: Character, members: Character[], chat: C
     groupPinnedMemory: chat?.pinnedMemory,
     groupStanding: chat?.memoryStanding?.text,
     otherAppearanceLocks: appearanceLocksFor(others),
+    // How each of the others is tied to this speaker (#74, #144), so a
+    // brother and sister don't talk like acquaintances.
     relationshipNotes: buildRelationshipNotes(speaker.id, chat?.roomRelationships, namesById),
     thoughts: chat?.innerThoughts,
     offscreenTalk: recentOffscreenTalk(chat, members),
-    othersAbout: buildOthersAbout(others),
+    othersAbout: buildOthersAbout(others, speaker),
   };
 };
 
 // Who the other members are: a line each, from their description (or the
 // start of their prompt) and how they stand with the user.
-export const buildOthersAbout = (others: Character[]): string | undefined => {
+export const buildOthersAbout = (others: Character[], speaker?: Character): string | undefined => {
   const lines = others.map((c) => {
     const about = (c.description || c.prompt || "").replace(/\s+/g, " ").trim();
     const short = about.length > 220 ? `${about.slice(0, 217).trimEnd()}...` : about;
-    return `- ${c.name}${short ? `: ${short}` : ""}${c.relationship ? ` (with the user: ${c.relationship})` : ""}`;
+    const tie = speaker?.ties?.find((t) => t.withId === c.id)?.tie.replace(/^your\s+/i, "");
+    return `- ${c.name}${tie ? ` [your ${tie}]` : ""}${short ? `: ${short}` : ""}${c.relationship ? ` (with the user: ${c.relationship})` : ""}`;
   });
   return lines.length > 0 ? `Who else is in this group:\n${lines.join("\n")}` : undefined;
 };

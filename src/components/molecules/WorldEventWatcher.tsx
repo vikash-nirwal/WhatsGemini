@@ -10,7 +10,7 @@ import { useLivingCharacters } from "src/hooks/useWorld";
 import { featureOn } from "src/features/world/worldPrefs";
 import { updateCharacter } from "src/features/characterSlice";
 import { addLifeEvent, buildLifeEventPrompt, cleanLifeEvent, LIFE_GAP_MS, lifeEventDue, NEWCOMER_GAP_MS, newcomerDue, pickLifeSubject } from "src/features/world/worldLife";
-import { buildCastSuggestionsPrompt, parseCastSuggestions } from "src/features/world/worldAssist";
+import { buildCastSuggestionsPrompt, castLiteOf, parseCastSuggestions } from "src/features/world/worldAssist";
 import { logToTimeline } from "src/features/world/timeline";
 import { toast } from "sonner";
 import { selectActivePersona } from "src/features/settingsSlice";
@@ -98,7 +98,7 @@ const WorldEventWatcher = () => {
           void logToTimeline(world.id, { kind: "event", text, characterIds: [who.id], at: now }, world.storyTime);
         } else {
           await dispatch(updateWorld({ ...world, lastNewcomerAt: now }));
-          const reply = await dispatch(generateAssistText({ instruction: buildCastSuggestionsPrompt(world, cast.map((c) => ({ name: c.name, description: c.description })), [], 1), background: true, activity: { at: now, kind: "event", text: `Someone new came to ${world.name}`, name: world.name } })).unwrap();
+          const reply = await dispatch(generateAssistText({ instruction: buildCastSuggestionsPrompt(world, cast.map(castLiteOf), [], 1), background: true, activity: { at: now, kind: "event", text: `Someone new came to ${world.name}`, name: world.name } })).unwrap();
           const sg = parseCastSuggestions(reply, cast.map((c) => ({ name: c.name, description: c.description })))[0];
           const fresh = latest.current.worlds.find((w) => w.id === world.id);
           if (!sg || !fresh) return;

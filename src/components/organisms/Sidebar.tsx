@@ -1,4 +1,5 @@
 import { AwayCard } from "src/components/molecules/AwayCard";
+import { byLastActivity, lastActivity } from "src/features/chat/chatOrder";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { avatarOf } from "../../features/character/profileChanges";
 import { motion, AnimatePresence } from "framer-motion";
@@ -279,9 +280,10 @@ const Sidebar = () => {
   // WhatsApp's filter chips on the home screen (#114): all, unread, groups.
   const [listFilter, setListFilter] = useState<"all" | "unread" | "groups">("all");
   const filterOn = !terminal && !viewingArchived ? listFilter : "all";
-  const visibleItems = (viewingArchived ? archivedItems : listedItems).filter((i) =>
+  // Latest conversation first, as in a messaging app (pinned ones stay above).
+  const visibleItems = byLastActivity((viewingArchived ? archivedItems : listedItems).filter((i) =>
     filterOn === "unread" ? unreadCount(i.chat) > 0 : filterOn === "groups" ? (i.chat.characterIds?.length || 0) > 1 : true
-  );
+  ));
   const pinnedItems = useMemo(() => visibleItems.filter((i) => i.chat.pinned), [visibleItems]);
   const unpinnedItems = useMemo(() => visibleItems.filter((i) => !i.chat.pinned), [visibleItems]);
   const archivedUnread = archivedItems.filter((i) => unreadCount(i.chat) > 0).length;
@@ -812,7 +814,7 @@ const ChatList = ({ items, characters, onDeleteChat, onTogglePin, onToggleMute, 
                     {terminal ? "waiting" : "Waiting for you"}
                   </span>
                 ) : (
-                  <span className={cn("flex-shrink-0", terminal ? "text-[10px] opacity-75" : unread > 0 ? "text-[12px] font-semibold text-primary-text" : "text-[12px] text-subtle")}>{formatChatTime(chat.timestamp)}</span>
+                  <span className={cn("flex-shrink-0", terminal ? "text-[10px] opacity-75" : unread > 0 ? "text-[12px] font-semibold text-primary-text" : "text-[12px] text-subtle")}>{formatChatTime(lastActivity(chat))}</span>
                 )}
               </div>
               <div className="flex items-center gap-1.5 min-w-0">

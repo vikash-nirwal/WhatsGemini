@@ -7,7 +7,7 @@ import { addCharacter, updateCharacter } from "../features/characterSlice";
 import { generateAssistText } from "../features/aiSlice";
 import { addPersona, selectActivePersona } from "../features/settingsSlice";
 import { useWorldAssist } from "../hooks/useWorldAssist";
-import { CastSuggestion, mirrorTie } from "../features/world/worldAssist";
+import { CastSuggestion, castLiteOf, mirrorTie } from "../features/world/worldAssist";
 import SuggestField from "src/components/molecules/SuggestField";
 import { buildCharacterDraftPrompt, CharacterDraft, parseCharacterDraft } from "../features/character/characterDraft";
 import { rootOf, worldCopy } from "../features/character/card";
@@ -211,7 +211,7 @@ const WorldWizardPage = () => {
     setSuggesting(true);
     setError(null);
     try {
-      const found = await assist.suggestCast(world, cast.map((m) => ({ name: m.name, description: m.description, relationship: m.withYou })), suggestions.map((x) => x.name));
+      const found = await assist.suggestCast(world, cast.map((m) => castLiteOf({ ...(m.kind === "existing" ? m.character : m.draft), name: m.name, relationship: m.withYou })), suggestions.map((x) => x.name));
       if (!found.length) setError("No suggestions came back. Try again.");
       setSuggestions(found);
     } catch (err) {
@@ -226,10 +226,12 @@ const WorldWizardPage = () => {
   const addSuggestion = async (sg: CastSuggestion) => {
     setAdding(sg.name);
     try {
-      const draft = parseCharacterDraft(await dispatch(generateAssistText({ instruction: buildCharacterDraftPrompt({ idea: castIdea(`${sg.name}: ${sg.idea}`, world) }) })).unwrap());
+      // Drafted knowing who they're tied to, so they fit that person's story.
+      const other = cast.find((m) => m.name === sg.tieWith);
+      const connection = other && sg.tie ? { name: other.name, description: castLiteOf({ ...(other.kind === "existing" ? other.character : other.draft), name: other.name }).description, tie: sg.tie } : undefined;
+      const draft = parseCharacterDraft(await dispatch(generateAssistText({ instruction: buildCharacterDraftPrompt({ idea: castIdea(`${sg.name}: ${sg.idea}`, world, connection) }) })).unwrap());
       const key = `n${Date.now()}`;
       setCast((list) => [...list, { key, kind: "new", draft: { ...draft, name: sg.name }, name: sg.name, description: draft.description || sg.idea, withYou: draft.relationship || "" }]);
-      const other = cast.find((m) => m.name === sg.tieWith);
       if (other && sg.tie) setTies((list) => [...list, { a: other.key, b: key, aToB: `your ${sg.tie}`, bToA: `your ${mirrorTie(sg.tie!)}` }]);
       setSuggestions((list) => list.filter((x) => x.name !== sg.name));
     } catch (err) {

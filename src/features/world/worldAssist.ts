@@ -1,6 +1,14 @@
 // Who's in the world, as much as these prompts need.
 export type CastLite = { name: string; description?: string; relationship?: string };
 
+// Who someone is, for suggestions: many characters have no description and
+// keep everything in their prompt, and a name alone gave generic ideas.
+export const castLiteOf = (c: { name: string; description?: string; about?: string; prompt?: string; personality?: string; personalityTraits?: string[]; relationship?: string }): CastLite => {
+  const about = [c.description, c.about, c.personality, c.personalityTraits?.length ? `Traits: ${c.personalityTraits.join(", ")}` : "", c.prompt]
+    .filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  return { name: c.name, description: about.length > 400 ? `${about.slice(0, 397).trimEnd()}...` : about || undefined, relationship: c.relationship };
+};
+
 // AI help for making and editing a world (#144, the user's 2026-10-26 ask):
 // a suggestion for any field, filling every empty field at once, and new
 // people who'd fit the cast already there. Prompts and lenient readers only.
@@ -89,7 +97,9 @@ export const buildCastSuggestionsPrompt = (world: WorldDraft, cast: CastLite[], 
   [
     `A world for a chat app where AI characters live their lives:\n${describe(world, [])}`,
     cast.length ? `Who lives there now:\n${cast.map((c) => `- ${c.name}${c.description ? `: ${c.description}` : ""}`).join("\n")}` : "Nobody lives there yet.",
-    `Suggest ${count} new people who would make it feel lived-in: family, friends, exes, rivals, coworkers or neighbours of the people already there, with lives and wants of their own. Mix ages and roles.${skip.length ? ` Not these: ${skip.join(", ")}.` : ""}`,
+    cast.length
+      ? `Suggest ${count} new people who belong in these people's lives: each one tied to someone listed above by name (family, friend, ex, rival, coworker, neighbour), who fits that person's story, background and setting - someone that character would actually have in their life. Spread them across the people listed. Lives and wants of their own; mix ages and roles.${skip.length ? ` Not these, and not like them: ${skip.join(", ")}.` : ""}`
+      : `Suggest ${count} new people who would make it feel lived-in, with lives and wants of their own. Mix ages and roles.${skip.length ? ` Not these: ${skip.join(", ")}.` : ""}`,
     'Reply with only JSON: [{"name": "full name", "idea": "one line: who they are, what they do, what makes them interesting", "tieWith": "name of someone already there, or \\"\\"", "tie": "what the new person is to them, e.g. older brother, or \\"\\""}]',
   ].join("\n\n");
 

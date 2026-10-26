@@ -16,7 +16,7 @@ import { avatarOf } from "src/features/character/profileChanges";
 import { buildCharacterDraftPrompt, parseCharacterDraft } from "src/features/character/characterDraft";
 import { withTie, withoutTie } from "src/features/character/ties";
 import { buildConnectionsPrompt, castIdea, parseConnections, WorldTie } from "src/features/world/worldWizard";
-import { CastSuggestion, mirrorTie } from "src/features/world/worldAssist";
+import { CastSuggestion, castLiteOf, mirrorTie } from "src/features/world/worldAssist";
 import { useWorldAssist } from "src/hooks/useWorldAssist";
 import { addSuggestedPerson } from "src/features/world/addPerson";
 import { logToTimeline } from "src/features/world/timeline";
@@ -86,7 +86,7 @@ export const WorldCastCard = ({ world }: { world: World }) => {
   };
 
   const suggestPeople = () => run("people", async () => {
-    const found = await assist.suggestCast({ name: world.name, premise: world.premise, tone: world.tone, era: world.era }, residents, suggestions.map((s) => s.name));
+    const found = await assist.suggestCast({ name: world.name, premise: world.premise, tone: world.tone, era: world.era }, residents.map(castLiteOf), suggestions.map((s) => s.name));
     if (!found.length) throw new Error("No suggestions came back. Try again.");
     setSuggestions(found);
   });

@@ -18,11 +18,24 @@ describe("AI help for worlds", () => {
 
   it("suggests new people tied to the cast, skipping ones already there", () => {
     const cast = [{ name: "Aria Vega", description: "mechanic" }];
-    expect(buildCastSuggestionsPrompt({ name: "Harbour Town" }, cast, ["Lena"])).toContain("Not these: Lena");
+    expect(buildCastSuggestionsPrompt({ name: "Harbour Town" }, cast, ["Lena"])).toContain("Not these, and not like them: Lena");
     const reply = '[{"name": "Tomas Vega", "idea": "Aria\'s older brother, a ferry pilot", "tieWith": "Aria", "tie": "your older brother"}, {"name": "aria vega", "idea": "dup"}, {"name": "Mara", "idea": "barista", "tieWith": "Nobody", "tie": "friend"}]';
     expect(parseCastSuggestions(reply, cast)).toEqual([
       { name: "Tomas Vega", idea: "Aria's older brother, a ferry pilot", tieWith: "Aria Vega", tie: "older brother" },
       { name: "Mara", idea: "barista" },
     ]);
+  });
+});
+
+describe("suggestions know who's selected (the user's report, 2026-10-26)", () => {
+  const { castLiteOf, buildCastSuggestionsPrompt } = require("./worldAssist");
+  test("someone with no description is described from their prompt and traits", () => {
+    expect(castLiteOf({ name: "Aria", prompt: "You are Aria, a lighthouse keeper.", personalityTraits: ["shy"], relationship: "Friend" })).toEqual({ name: "Aria", description: "Traits: shy You are Aria, a lighthouse keeper.", relationship: "Friend" });
+  });
+  test("with people selected, each suggestion is tied to one of them", () => {
+    const prompt = buildCastSuggestionsPrompt({ name: "Harbour" }, [castLiteOf({ name: "Aria", prompt: "A lighthouse keeper." })], ["Bram"]);
+    expect(prompt).toContain("- Aria: A lighthouse keeper.");
+    expect(prompt).toContain("each one tied to someone listed above by name");
+    expect(prompt).toContain("Not these, and not like them: Bram.");
   });
 });

@@ -187,3 +187,35 @@ test("members talk while you're away, and the next replies know it", async ({ pa
   await sendMessage(page, "I'm back!");
   await expect.poll(() => systemOf(mockAI.requests.find((r) => speakerOf(r.messages))?.messages || [])).toContain("While the user was away, Aria and Kai talked privately:");
 });
+
+// Group chats feel like the same people (the user's report, 2026-10-26):
+// each speaker knows what the others are to them, their own life, and what
+// they and you said in private lately.
+test("each member brings their ties and your private chat into the group", async ({ page, mockAI }) => {
+  replyByRequest(mockAI, "Aria");
+  await openChat(page);
+  await page.evaluate(async () => {
+    const db: IDBDatabase = await new Promise((resolve, reject) => {
+      const req = indexedDB.open("ChatAppDB");
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    await new Promise<void>((resolve) => {
+      const os = db.transaction("characters", "readwrite").objectStore("characters");
+      const get = os.get(1);
+      get.onsuccess = () => {
+        os.put({ ...get.result, ties: [{ withId: 2, tie: "your brother" }] });
+        os.transaction.oncomplete = () => resolve();
+      };
+    });
+    db.close();
+  });
+  await page.reload();
+  await openChat(page, 2);
+  await sendMessage(page, "hey both");
+  await waitForReplyDone(page);
+  const aria = mockAI.requests.filter((r) => r.stream).map((r) => systemOf(r.messages)).find((s) => s.includes("You are roleplaying as Aria."))!;
+  expect(aria).toContain("- Kai [your brother]");
+  expect(aria).toContain("Your own private chat with");
+  expect(aria).toContain("Aria message");
+});

@@ -180,6 +180,7 @@ export interface PromptOptions {
   roomRelationshipNotes?: string; // the speaker's feelings about the others (#24)
   roomThoughts?: boolean; // inner thoughts switched on for the whole room (#10)
   roomOffscreenTalk?: string; // a recent conversation members had without the user (#58)
+  roomSpeakerNotes?: string; // room only: the speaker's own day, ties, life and private chat
   emotionTag?: boolean; // ask for the emotion tag even without emotion portraits: moods that carry over need it (#106)
   memoryDates?: Record<string, MemoryFactDates>; // when each fact was learned (#109); the chat's own when it keeps its own memory
   misremembers?: boolean; // now and then gets a small detail wrong and corrects it (#109)
@@ -326,6 +327,7 @@ export const buildSystemInstruction = (
 
   if (isRoomTurn && options.roomRelationshipNotes) sections.push(options.roomRelationshipNotes);
   if (isRoomTurn && options.roomOffscreenTalk) sections.push(options.roomOffscreenTalk);
+  if (isRoomTurn && options.roomSpeakerNotes) sections.push(options.roomSpeakerNotes);
 
   // In a room, the shared group scenario (set on the chat itself) replaces
   // this character's own personal scenario - several characters could have
@@ -543,6 +545,7 @@ export interface RoomContext {
   thoughts?: boolean; // the room shows every member's inner thoughts (#10)
   offscreenTalk?: string; // what two members said while the user was away (#58)
   othersAbout?: string; // who every OTHER member is, so they don't talk like strangers
+  speakerNotes?: string; // the speaker's own life and ties, as a 1:1 chat would carry them
 }
 
 // Per-chat scene settings and app-wide style, shared by 1:1 chats and rooms.
@@ -668,6 +671,7 @@ export const buildTurnContext = (
       roomThoughts: roomContext?.thoughts,
       roomOffscreenTalk: roomContext?.offscreenTalk,
       roomOthersAbout: roomContext?.othersAbout,
+      roomSpeakerNotes: roomContext?.speakerNotes,
       emotionTag: scene?.moodCarry,
       memoryDates: scene?.memoryDates,
       misremembers: scene?.misremembers,

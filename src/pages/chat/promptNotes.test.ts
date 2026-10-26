@@ -45,3 +45,20 @@ describe("prompt notes", () => {
     expect(knowsNoteFor(char(1, "Aria"), [], [], "Vik", NOW)).toBeUndefined();
   });
 });
+
+describe("group chats carry each speaker's own context", () => {
+  const { buildOthersAbout, ownChatNoteFor } = require("./promptNotes");
+  const aria = { id: 1, name: "Aria", ties: [{ withId: 2, tie: "your brother" }] };
+  const kai = { id: 2, name: "Kai", description: "A mechanic.", relationship: "Rival" };
+  test("the others are named with what they are to the speaker", () => {
+    expect(buildOthersAbout([kai], aria)).toBe("Who else is in this group:\n- Kai [your brother]: A mechanic. (with the user: Rival)");
+  });
+  test("the speaker's private chat with you comes along, latest first chat, last lines", () => {
+    const chats = [
+      { id: 1, characterIds: [1], timestamp: 5, content: [{ role: "you", txt: "see you at the docks" }, { role: "ai", txt: "bring coffee" }, { role: "you", txt: "*waves*", isNarration: true }] },
+      { id: 2, characterIds: [1, 2], timestamp: 9, content: [{ role: "you", txt: "group hi" }] },
+    ];
+    expect(ownChatNoteFor(aria, chats, "Sam")).toBe("Your own private chat with Sam lately (the others here didn't see it; keep private things private unless you choose to share):\nSam: see you at the docks\nAria: bring coffee");
+    expect(ownChatNoteFor(kai, chats, "Sam")).toBeUndefined();
+  });
+});

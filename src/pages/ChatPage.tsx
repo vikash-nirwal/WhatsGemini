@@ -41,7 +41,7 @@ import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackgr
 import ChatWindow from "src/components/organisms/ChatWindow";
 import { useBackgroundUpdates } from "./chat/useBackgroundUpdates";
 import { useReplyEffects } from "./chat/useReplyEffects";
-import { knowsNoteFor, recentLetterNote, roomContextFor } from "./chat/promptNotes";
+import { knowsNoteFor, ownChatNoteFor, recentLetterNote, roomContextFor } from "./chat/promptNotes";
 import { tiesNoteFor } from "../features/world/worldWizard";
 import { worldTalkNoteFor } from "../features/world/worldTalk";
 import { buildTimePassedNote, buildTimePassedOpener, describeGap, gapDays, TimePassed, timePassedInScope, timePassedNotice, TimeUnit } from "../features/chat/passTime";
@@ -252,8 +252,28 @@ const ChatPage = () => {
   // Only built for a real room - a 1:1 chat's buildTurnContext call gets
   // `undefined` here and its prompt/history come out exactly as before
   // Phase 12. See roomContextFor.
+  // Each speaker also brings what a 1:1 chat would give them: their ties
+  // and talk with others, their day, what's on their mind, their world
+  // (life events, group, secrets, place) and your private chat lately.
   const buildRoomContext = (speaker: Character): RoomContext | undefined =>
-    isRoom ? roomContextFor(speaker, roomCharacters, currentChat) : undefined;
+    isRoom ? { ...roomContextFor(speaker, roomCharacters, currentChat), speakerNotes: roomSpeakerNotes(speaker) } : undefined;
+  const roomSpeakerNotes = (speaker: Character): string | undefined => {
+    const now = Date.now();
+    const userName = activePersona?.name?.trim() || "the user";
+    const world = worlds.find((w) => w.id === speaker.worldId);
+    return [
+      tiesNoteFor(speaker, characters),
+      worldTalkNoteFor(speaker, characters, now),
+      buildDayLogSection(speaker.name, dayLogText(speaker, now)),
+      buildConcernsSection(speaker.name, speaker.concerns, now),
+      featureOn(speaker.worldId, "arrivals") ? buildLifeNote(speaker, now) : undefined,
+      buildFactionNote(speaker, world, characters),
+      featureOn(speaker.worldId, "secrets") ? buildSecretsNote(speaker, characters, userName) : undefined,
+      featureOn(speaker.worldId, "places") ? buildWhereNote(whereIs(speaker, world?.map?.pins || [], now)) : undefined,
+      buildMyStatusNote(userName, myStatuses, speaker.id, now),
+      ownChatNoteFor(speaker, chats, userName),
+    ].filter(Boolean).join("\n\n") || undefined;
+  };
 
   // Real names for summarization/memory-extraction transcripts.
   const transcriptNames = (): TranscriptNames => ({

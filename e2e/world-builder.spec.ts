@@ -11,7 +11,7 @@ const BRAM = { name: "Bram Vega", description: "Aria's older brother, a ferry pi
 const answer = (prompt: string) => {
   if (prompt.includes("Fill in what's missing")) return '{"premise": "A rainy port where everyone knows everyone.", "tone": "Cozy harbour drama", "era": "Today, phones and all"}';
   if (prompt.includes("Write its tone")) return "Tone: \"Salt-and-rain melancholy\"";
-  if (prompt.includes("new people who would make it feel lived-in")) return '[{"name": "Bram Vega", "idea": "Aria\'s older brother, a ferry pilot", "tieWith": "Aria", "tie": "older brother"}, {"name": "Mara Lin", "idea": "a barista who hears everything"}]';
+  if (prompt.includes("new people who")) return '[{"name": "Bram Vega", "idea": "Aria\'s older brother, a ferry pilot", "tieWith": "Aria", "tie": "older brother"}, {"name": "Mara Lin", "idea": "a barista who hears everything"}]';
   if (prompt.includes("Idea:")) return JSON.stringify(BRAM);
   return "Mock reply";
 };
@@ -45,6 +45,8 @@ test("the wizard fills fields with AI, suggests people from the cast, and makes 
 
   await page.getByRole("group", { name: "People you already have" }).getByRole("button", { name: "Aria" }).click();
   await page.getByRole("button", { name: "Suggest people" }).click();
+  // The picked people go in with who they are, not just their names.
+  await expect.poll(() => mockAI.requests.find((r) => r.prompt.includes("new people who"))?.prompt).toMatch(/- Aria[^\n]*: \S/);
   const suggested = page.getByRole("list", { name: "Suggested people" });
   await expect(suggested).toContainText("Bram Vega · Aria's older brother");
   await suggested.getByRole("button", { name: "Add Bram Vega" }).click();
