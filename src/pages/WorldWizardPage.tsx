@@ -8,6 +8,7 @@ import { generateAssistText } from "../features/aiSlice";
 import { addPersona, selectActivePersona } from "../features/settingsSlice";
 import { useWorldAssist } from "../hooks/useWorldAssist";
 import { CastSuggestion, castLiteOf, mirrorTie } from "../features/world/worldAssist";
+import { withDefaultLife } from "../features/character/lifePresets";
 import SuggestField from "src/components/molecules/SuggestField";
 import { buildCharacterDraftPrompt, CharacterDraft, parseCharacterDraft } from "../features/character/characterDraft";
 import { rootOf, worldCopy } from "../features/character/card";
@@ -260,7 +261,7 @@ const WorldWizardPage = () => {
       for (const m of cast) {
         const base = m.kind === "existing"
           ? worldCopy(m.character, saved.id, { memories: m.memories })
-          : { ...m.draft, first_mes: m.draft.first_mes || undefined, accent: CHARACTER_SWATCHES[Math.floor(Math.random() * CHARACTER_SWATCHES.length)], worldId: saved.id };
+          : withDefaultLife({ ...m.draft, first_mes: m.draft.first_mes || undefined, accent: CHARACTER_SWATCHES[Math.floor(Math.random() * CHARACTER_SWATCHES.length)], worldId: saved.id });
         const c = await dispatch(addCharacter({ ...base, relationship: m.withYou.trim() || base.relationship } as Omit<Character, "id">)).unwrap();
         idOf[m.key] = c.id;
         made.push(c);

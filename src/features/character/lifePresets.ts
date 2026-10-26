@@ -60,3 +60,12 @@ export const lifeOf = (c: Partial<Character>): LifeValues =>
 // A rough count of background calls a day, for the cost note.
 export const backgroundCallsPerDay = (values: LifeValues) =>
   ALL_SWITCHES.filter((s) => s.cost && isOn(values, s.key)).length * 5;
+
+// People made inside a world (the wizard, "Someone new", suggestions,
+// newcomers) used to start with every switch off, so a new world sat silent
+// while My world - made with Quick create's "Realistic texter" - was alive
+// (the user's report, 2026-10-26). They now start the same way, unless the
+// card already says how they live.
+export const DEFAULT_LIFE_PRESET = "texter";
+export const withDefaultLife = <T extends Partial<Character>>(card: T): T =>
+  ALL_SWITCHES.some((s) => card[s.key]) ? card : { ...card, ...LIFE_PRESETS.find((p) => p.id === DEFAULT_LIFE_PRESET)!.values };

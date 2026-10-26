@@ -157,61 +157,60 @@ const WorldGalleryPage = () => {
           ) : filteredWorlds.length === 0 ? (
             <Card className="p-6 text-center text-muted-foreground text-sm">No worlds match "{search}".</Card>
           ) : (
-            <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+            // Full width, like My world above (the user's report, 2026-10-26):
+            // in a grid each card got one 260px column, too narrow for its
+            // switches and buttons.
+            <div className="flex flex-col gap-5">
               {filteredWorlds.map((world) => {
                 const adventureCount = adventures.filter((a) => a.worldId === world.id).length;
                 return (
-                  <Card key={world.id} className="p-5 flex flex-col gap-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-serif font-semibold text-lg text-foreground truncate leading-tight flex items-center gap-2">
-                        <FaGlobe size={13} className="text-subtle flex-shrink-0" /> {world.name}
-                      </h4>
-                    </div>
-                    {world.tone && (
-                      <Badge variant="outline" className="self-start max-w-full truncate border-primary/20 bg-primary/10 font-medium text-primary text-[11px]">
-                        {world.tone}
-                      </Badge>
-                    )}
-                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{world.premise}</p>
-                    {world.storyTime && <p className="text-xs text-foreground">Today here: {formatStoryDate(world.storyTime, Date.now())}</p>}
-                    {world.tags && world.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {world.tags.slice(0, 4).map((tag) => (
-                          <Badge key={tag} variant="secondary" className="text-[10px]">{tag}</Badge>
-                        ))}
+                  <Card key={world.id} className="p-5 flex flex-col gap-3" aria-label={world.name}>
+                    <div className="flex flex-wrap items-start gap-3">
+                      <div className="flex-1 min-w-[220px] flex flex-col gap-1.5">
+                        <h4 className="font-serif font-semibold text-lg text-foreground leading-tight flex items-center gap-2">
+                          <FaGlobe size={13} className="text-subtle flex-shrink-0" /> {world.name}
+                          {world.tone && (
+                            <Badge variant="outline" className="max-w-[220px] truncate border-primary/20 bg-primary/10 font-sans font-medium text-primary text-[11px]">{world.tone}</Badge>
+                          )}
+                        </h4>
+                        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{world.premise}</p>
+                        {world.storyTime && <p className="text-xs text-foreground">Today here: {formatStoryDate(world.storyTime, Date.now())}</p>}
+                        {world.tags && world.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {world.tags.slice(0, 4).map((tag) => (
+                              <Badge key={tag} variant="secondary" className="text-[10px]">{tag}</Badge>
+                            ))}
+                          </div>
+                        )}
+                        <p className="text-[11px] text-subtle">
+                          {plural(countIn(world.id).people, "person").replace("persons", "people")}, {plural(countIn(world.id).chats, "chat")}, {plural(adventureCount, "adventure")}
+                        </p>
                       </div>
-                    )}
-                    <p className="text-[11px] text-subtle mt-auto">
-                      {plural(countIn(world.id).people, "person").replace("persons", "people")}, {plural(countIn(world.id).chats, "chat")}, {plural(adventureCount, "adventure")}
-                    </p>
-                    <div className="flex gap-1.5">
-                      {currentWorldId === world.id ? (
-                        <Badge variant="secondary" className="h-9 px-3">You're here</Badge>
-                      ) : (
-                        <Button onClick={() => goTo(world.id)} variant="default" className="h-9 text-xs font-semibold" aria-label={`Switch to ${world.name}`}>Switch</Button>
-                      )}
-                      <Button onClick={() => navigate(`/worlds/${world.id}/edit`)} variant="outline" className="flex-1 h-9 text-xs font-semibold">
-                        <FaEdit size={11} /> Edit
-                      </Button>
-                      <Button onClick={() => onExport(world)} variant="outline" size="icon" className="h-9 w-9" title="Export" aria-label={`Export ${world.name}`}>
-                        <FaFileExport size={13} />
-                      </Button>
-                      <Button onClick={() => navigate(`/worlds/${world.id}/timeline`)} variant="outline" size="icon" className="h-9 w-9" title="Timeline" aria-label={`Timeline of ${world.name}`}>
-                        <FaHistory size={13} />
-                      </Button>
-                      <Button
-                        onClick={() => handleDelete(world.id, world.name)}
-                        variant="outline"
-                        size="icon"
-                        className="h-9 w-9 hover:border-destructive hover:text-destructive"
-                        title="Delete world"
-                        aria-label="Delete world"
-                      >
-                        <FaTrash size={13} />
-                      </Button>
+                      <div className="flex flex-wrap gap-1.5">
+                        {currentWorldId === world.id ? (
+                          <Badge variant="secondary" className="h-9 px-3">You're here</Badge>
+                        ) : (
+                          <Button onClick={() => goTo(world.id)} variant="default" className="h-9 text-xs font-semibold" aria-label={`Switch to ${world.name}`}>Switch</Button>
+                        )}
+                        <Button onClick={() => navigate(`/worlds/${world.id}/edit`)} variant="outline" className="h-9 text-xs font-semibold">
+                          <FaEdit size={11} /> Edit
+                        </Button>
+                        <Button onClick={() => onExport(world)} variant="outline" size="icon" className="h-9 w-9" title="Export" aria-label={`Export ${world.name}`}>
+                          <FaFileExport size={13} />
+                        </Button>
+                        <Button onClick={() => navigate(`/worlds/${world.id}/timeline`)} variant="outline" size="icon" className="h-9 w-9" title="Timeline" aria-label={`Timeline of ${world.name}`}>
+                          <FaHistory size={13} />
+                        </Button>
+                      </div>
                     </div>
                     <WorldLifeControls worldId={world.id} name={world.name} />
-                    <Button onClick={() => setResetting({ id: world.id, name: world.name })} variant="ghost" size="sm" className="self-start text-muted-foreground" aria-label={`Reset ${world.name}`}>Reset...</Button>
+                    {/* The two that undo things sit together, away from the everyday buttons. */}
+                    <div className="flex gap-2">
+                      <Button onClick={() => setResetting({ id: world.id, name: world.name })} variant="ghost" size="sm" className="text-muted-foreground" aria-label={`Reset ${world.name}`}>Reset...</Button>
+                      <Button onClick={() => handleDelete(world.id, world.name)} variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive" title="Delete world" aria-label="Delete world">
+                        <FaTrash size={11} /> Delete
+                      </Button>
+                    </div>
                   </Card>
                 );
               })}

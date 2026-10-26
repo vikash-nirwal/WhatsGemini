@@ -118,3 +118,9 @@ describe("they text first (#93)", () => {
     expect(cleanFirstText(" ")).toBeUndefined();
   });
 });
+
+test("people made in a world start alive, unless their card says otherwise", () => {
+  const { withDefaultLife } = require("./lifePresets");
+  expect(withDefaultLife({ name: "Mira" })).toMatchObject({ textsFirst: true, postsStatuses: true, dayLogs: true });
+  expect(withDefaultLife({ name: "Mira", dreams: true })).toEqual({ name: "Mira", dreams: true });
+});

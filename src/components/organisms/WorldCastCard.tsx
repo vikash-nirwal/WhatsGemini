@@ -19,6 +19,7 @@ import { buildConnectionsPrompt, castIdea, parseConnections, WorldTie } from "sr
 import { CastSuggestion, castLiteOf, mirrorTie } from "src/features/world/worldAssist";
 import { useWorldAssist } from "src/hooks/useWorldAssist";
 import { addSuggestedPerson } from "src/features/world/addPerson";
+import { withDefaultLife } from "src/features/character/lifePresets";
 import { logToTimeline } from "src/features/world/timeline";
 import { CHARACTER_SWATCHES, RELATIONSHIP_PRESETS, TIE_PRESETS } from "src/utils/constants";
 import { Character, World } from "src/types";
@@ -101,7 +102,7 @@ export const WorldCastCard = ({ world }: { world: World }) => {
     const other = linkId ? byId(Number(linkId)) : undefined;
     const tie = linkTie.trim();
     const draft = parseCharacterDraft(await dispatch(generateAssistText({ instruction: buildCharacterDraftPrompt({ idea: castIdea(line, world, other && tie ? { name: other.name, description: other.description, tie } : undefined) }) })).unwrap());
-    const made = await dispatch(addCharacter({ ...draft, first_mes: draft.first_mes || undefined, accent: CHARACTER_SWATCHES[Math.floor(Math.random() * CHARACTER_SWATCHES.length)], worldId: world.id } as Omit<Character, "id">)).unwrap();
+    const made = await dispatch(addCharacter(withDefaultLife({ ...draft, first_mes: draft.first_mes || undefined, accent: CHARACTER_SWATCHES[Math.floor(Math.random() * CHARACTER_SWATCHES.length)], worldId: world.id }) as Omit<Character, "id">)).unwrap();
     if (other && tie) {
       const [na, nb] = withTie(other, made, tie, mirrorTie(tie));
       await dispatch(updateCharacter(na));

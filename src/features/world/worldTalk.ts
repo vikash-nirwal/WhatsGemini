@@ -12,8 +12,11 @@ const NOTE_FRESH_MS = 2 * 24 * 60 * 60 * 1000;
 
 const holderOf = (a: number, b: number) => Math.min(a, b);
 
+// People in the same made world know each other too: a world you never set
+// connections for used to have no talk at all (the user's report,
+// 2026-10-26). My world stays as it was - there, only ties and knowsAbout.
 export const knowEachOther = (a: Character, b: Character) =>
-  Boolean(a.knowsAbout?.includes(b.id) || b.knowsAbout?.includes(a.id) || a.ties?.some((t) => t.withId === b.id) || b.ties?.some((t) => t.withId === a.id));
+  Boolean(a.knowsAbout?.includes(b.id) || b.knowsAbout?.includes(a.id) || a.ties?.some((t) => t.withId === b.id) || b.ties?.some((t) => t.withId === a.id) || (a.worldId != null && a.worldId === b.worldId));
 
 export const talksBetween = (characters: Character[], a: number, b: number): WorldTalk[] => {
   const holder = characters.find((c) => c.id === holderOf(a, b));

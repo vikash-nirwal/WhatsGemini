@@ -1,7 +1,11 @@
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { Select } from "src/components/molecules/form-controls/FormSelect";
 import { DEFAULT_TALK_LENGTH, MAX_TALK_LENGTH, WorldFeature } from "src/features/world/worldPrefs";
-import { useWorldPrefs } from "src/hooks/useWorld";
+import { useCurrentWorld, useWorldPrefs } from "src/hooks/useWorld";
+import { useAppDispatch, useAppSelector } from "src/store/hooks";
+import { updateCharacter } from "src/features/characterSlice";
+import { inWorld } from "src/features/world/currentWorld";
+import { LIFE_PRESETS, lifeOf, presetOf } from "src/features/character/lifePresets";
 
 // Living-world features (#162-#166), off until switched on. My world has no
 // map, events or reputation of its own, so only drifting ties apply there.
@@ -21,13 +25,35 @@ const LENGTHS = Array.from({ length: MAX_TALK_LENGTH - 1 }, (_, i) => i + 2);
 // their exchanges run, and whether it keeps living while you're elsewhere (#146).
 export const WorldLifeControls = ({ worldId, name }: { worldId: number | null; name: string }) => {
   const [prefs, update] = useWorldPrefs(worldId);
+  // How everyone here lives between your messages, in one go (the user's
+  // report, 2026-10-26: a world whose people all had their life switched
+  // off was silent). Shows the preset they share, or "Mixed".
+  const dispatch = useAppDispatch();
+  const { worlds } = useCurrentWorld();
+  const residents = useAppSelector((state) => state.character.characters).filter(inWorld(worldId, worlds));
+  const presets = Array.from(new Set(residents.map((c) => presetOf(lifeOf(c)) || "custom")));
+  const shared = presets.length === 1 ? presets[0] : residents.length ? "mixed" : "";
+  const liveAs = (id: string) => {
+    const preset = LIFE_PRESETS.find((p) => p.id === id);
+    if (preset) residents.forEach((c) => void dispatch(updateCharacter({ ...c, ...preset.values })));
+  };
   return (
-    <div className="flex flex-col gap-2 border-t border-border pt-3" role="group" aria-label={`Life in ${name}`}>
+    <div className="grid grid-cols-1 gap-x-6 gap-y-2 border-t border-border pt-3 sm:grid-cols-2" role="group" aria-label={`Life in ${name}`}>
       <ToggleSwitch checked={Boolean(prefs.peek)} onChange={(peek) => update({ peek })} label="Peek at their own texts" />
       <ToggleSwitch checked={prefs.keepLiving !== false} onChange={(keepLiving) => update({ keepLiving })} label="Keep living while I'm elsewhere" />
       {FEATURES.filter(([key]) => worldId != null || key === "drift").map(([key, label]) => (
         <ToggleSwitch key={key} checked={Boolean(prefs[key])} onChange={(on) => update({ [key]: on })} label={label} />
       ))}
+      {residents.length > 0 && (
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span className="flex-1">Everyone here lives like</span>
+          <Select aria-label={`How everyone in ${name} lives`} value={shared} onChange={(e) => liveAs(e.target.value)} className="h-8 w-[170px]">
+            {shared === "mixed" && <option value="mixed">Mixed</option>}
+            {shared === "custom" && <option value="custom">Custom</option>}
+            {LIFE_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </Select>
+        </label>
+      )}
       <label className="flex items-center gap-2 text-sm text-muted-foreground">
         <span className="flex-1">Texts per exchange</span>
         <Select aria-label={`Texts per exchange in ${name}`} value={String(prefs.talkLength || DEFAULT_TALK_LENGTH)} onChange={(e) => update({ talkLength: Number(e.target.value) })} className="h-8 w-[76px]">

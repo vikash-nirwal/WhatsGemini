@@ -112,3 +112,10 @@ describe("relationships that drift (#163)", () => {
     expect(tieMayChange("lives", () => 0.1)).toBe(true);
   });
 });
+
+test("people in the same made world know each other; in My world only by ties", () => {
+  const { knowEachOther } = require("./worldTalk");
+  expect(knowEachOther({ id: 1, name: "A", worldId: 3 }, { id: 2, name: "B", worldId: 3 })).toBe(true);
+  expect(knowEachOther({ id: 1, name: "A" }, { id: 2, name: "B" })).toBe(false);
+  expect(knowEachOther({ id: 1, name: "A", worldId: 3 }, { id: 2, name: "B", worldId: 4 })).toBe(false);
+});
