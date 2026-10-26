@@ -206,3 +206,11 @@ describe("notifyChatMessage", () => {
     warn.mockRestore();
   });
 });
+
+test("a busy day is summed up once a day at most (#194)", () => {
+  const { digestDue } = require("./notifications");
+  const HOUR = 3_600_000;
+  expect(digestDue(3, 30 * HOUR, 0)).toBe(true);
+  expect(digestDue(2, 30 * HOUR, 0)).toBe(false);
+  expect(digestDue(5, 30 * HOUR, 15 * HOUR)).toBe(false);
+});

@@ -193,3 +193,59 @@ export const notifyChatMessage = async (input: ChatNotificationInput): Promise<b
     return false;
   }
 };
+
+// World happenings (#194): an event, a new chapter, a newcomer, a secret
+// coming out, a plan that happened - notified like messages, when you're not
+// looking at the app. Tapping one opens `path` (the timeline, the Worlds
+// page). Never throws.
+export const OPEN_PATH_MESSAGE = "OPEN_PATH";
+type OpenPathHandler = (path: string) => void;
+let openPathHandler: OpenPathHandler | null = null;
+export const setOpenPathHandler = (handler: OpenPathHandler | null) => {
+  openPathHandler = handler;
+};
+
+export const notifyWorld = async ({ title, body, path, tag }: { title: string; body: string; path: string; tag?: string }): Promise<boolean> => {
+  if (!shouldNotify()) return false;
+  const options: NotificationOptions & { renotify?: boolean } = { body: previewText(body), icon: `${process.env.PUBLIC_URL || ""}/logo192.png`, tag: tag || `world-${title}`, renotify: true, data: { path } };
+  try {
+    const registration = await getRegistration();
+    if (registration) {
+      await registration.showNotification(title, options);
+      return true;
+    }
+    const notification = new Notification(title, options);
+    notification.onclick = () => {
+      notification.close();
+      try {
+        window.focus();
+      } catch {
+        // See openChatFromNotification.
+      }
+      openPathHandler?.(path);
+    };
+    return true;
+  } catch (err) {
+    console.warn("Couldn't show a notification:", err);
+    return false;
+  }
+};
+
+// A busy day (#194): once a day at most, when a world had a few things
+// happen, one notification sums them up.
+const DIGEST_KEY = "world_digest_at";
+export const digestDue = (count: number, now: number, lastAt: number) => count >= 3 && now - lastAt >= 20 * 60 * 60 * 1000;
+export const lastDigestAt = () => {
+  try {
+    return Number(localStorage.getItem(DIGEST_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+};
+export const markDigest = (now: number) => {
+  try {
+    localStorage.setItem(DIGEST_KEY, String(now));
+  } catch {
+    // Only a convenience.
+  }
+};

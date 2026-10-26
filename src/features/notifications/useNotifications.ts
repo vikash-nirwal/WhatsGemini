@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAppSelector } from "../../store/hooks";
 import { Character } from "../../types";
 import { isNsfwCharacter } from "../character/contentRating";
-import { notifyChatMessage, OPEN_CHAT_MESSAGE, setOpenChatHandler } from "./notifications";
+import { notifyChatMessage, OPEN_CHAT_MESSAGE, OPEN_PATH_MESSAGE, setOpenChatHandler, setOpenPathHandler } from "./notifications";
 
 // Routes notification clicks to the chat. Mounted once inside the router:
 // page notifications call the handler directly, the service worker's ones
@@ -12,15 +12,20 @@ export const useNotificationClicks = () => {
   const navigate = useNavigate();
   useEffect(() => {
     setOpenChatHandler((chatId) => navigate(`/chat/${chatId}`));
+    setOpenPathHandler((path) => navigate(path));
     const onMessage = (event: MessageEvent) => {
       if (event.data?.type === OPEN_CHAT_MESSAGE && typeof event.data.chatId === "number") {
         navigate(`/chat/${event.data.chatId}`);
+      }
+      if (event.data?.type === OPEN_PATH_MESSAGE && typeof event.data.path === "string") {
+        navigate(event.data.path);
       }
     };
     const sw = "serviceWorker" in navigator ? navigator.serviceWorker : undefined;
     sw?.addEventListener("message", onMessage);
     return () => {
       setOpenChatHandler(null);
+      setOpenPathHandler(null);
       sw?.removeEventListener("message", onMessage);
     };
   }, [navigate]);

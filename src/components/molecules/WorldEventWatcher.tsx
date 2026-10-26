@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { digestDue, lastDigestAt, markDigest, notifyWorld } from "src/features/notifications/notifications";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { generateAssistText } from "src/features/aiSlice";
 import { patchWorld } from "src/features/worldSlice";
@@ -69,9 +70,11 @@ const WorldEventWatcher = () => {
             // A notice (#175), so a new chapter isn't only in the timeline.
             const next = advanceArc(arc, now);
             toast(`${w.name} · ${arc.title}`, { description: next.doneAt ? "The storyline has ended." : next.beats[next.step] });
+            void notifyWorld({ title: `${w.name} · ${arc.title}`, body: next.doneAt ? "The storyline has ended." : next.beats[next.step], path: `/worlds/${w.id}/timeline` });
             if (!next.doneAt) await tellTheNews(w, `${arc.title}: ${next.beats[next.step]}`, [], now);
           }
         }
+        await sendDigest(now);
         for (const job of [fillPlaces, runIntoYou, startOwnEvent, moveLivesOn, welcomeNewcomer, refreshReputation, introduce, keepSecret, surfaceSecret, keepPlans]) await job(now);
       } finally {
         busy.current = false;
@@ -137,6 +140,7 @@ const WorldEventWatcher = () => {
         if (event && fresh) {
           await dispatch(startWorldEvent(fresh, event));
           toast(`${world.name}: ${event.title}`, { description: event.text });
+          void notifyWorld({ title: `${world.name}: ${event.title}`, body: event.text, path: "/worlds" });
           await tellTheNews(world, `${event.title}: ${event.text}`, [], now);
         }
       } catch (err) {
@@ -178,6 +182,7 @@ const WorldEventWatcher = () => {
         if (!sg || !fresh) return;
         await dispatch(patchWorld(fresh.id, { newcomer: { ...sg, at: now } }));
         toast(`Someone new in ${world.name}`, { description: `${sg.name}${sg.tieWith ? `, ${sg.tieWith}'s ${sg.tie}` : ""}. Welcome them on the Worlds page.` });
+        void notifyWorld({ title: `Someone new in ${world.name}`, body: `${sg.name}${sg.tieWith ? `, ${sg.tieWith}'s ${sg.tie}` : ""}`, path: "/worlds" });
       } catch (err) {
         console.warn("World life failed (non-fatal):", err);
       }
@@ -281,6 +286,7 @@ const WorldEventWatcher = () => {
         await dispatch(updateCharacter({ ...freshFrom, memory: [...(freshFrom.memory || []), facts.forFrom] }));
         void logToTimeline(world.id, { kind: "event", text: facts.timeline, characterIds: [keeper.id, from.id], at: now }, world.storyTime);
         toast(`${world.name}: ${facts.timeline}`, { description: secret.text });
+        void notifyWorld({ title: `${world.name}: ${facts.timeline}`, body: secret.text, path: `/worlds/${world.id}/timeline` });
         await tellTheNews(world, facts.forFrom, [from.id], now);
         return;
       }
@@ -304,6 +310,7 @@ const WorldEventWatcher = () => {
           } else if (planPassed(plan, now)) {
             await dispatch(writePlanOutcome(chat, characters, world, userName, undefined, true));
             toast(`${plan.title} happened`, { description: "How it went is in its group chat." });
+            void notifyWorld({ title: `${plan.title} happened`, body: "How it went is in its group chat.", path: `/chat/${chat.id}` });
           }
         } catch (err) {
           console.warn("Plan follow-up failed (non-fatal):", err);
@@ -311,6 +318,20 @@ const WorldEventWatcher = () => {
       }
     };
     // Catch-up for time away runs through the life ticks (#193).
+    // A busy day's digest (#194), when you're not looking.
+    const sendDigest = async (now: number) => {
+      if (document.visibilityState !== "hidden") return;
+      const count = await countToday(now);
+      if (!digestDue(count, now, lastDigestAt())) return;
+      const shown = await notifyWorld({ title: "A busy day in your worlds", body: `${count} things happened today. Tap to see what.`, path: "/", tag: "world-digest" });
+      if (shown) markDigest(now);
+    };
+    const countToday = async (now: number) => {
+      const ids: (number | null)[] = [null, ...latest.current.worlds.map((w) => w.id)];
+      let n = 0;
+      for (const id of ids) n += (await loadTimeline(id)).filter((e) => now - e.at < 86_400_000 && e.kind !== "talk").length;
+      return n;
+    };
     const first = window.setTimeout(() => void check(), FIRST_CHECK_MS);
     const timer = window.setInterval(() => void check(), CHECK_EVERY_MS);
     const offTick = registerTick("world-life", (at) => check(at));

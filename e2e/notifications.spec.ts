@@ -166,3 +166,34 @@ test("an auto follow-up in a hidden tab notifies", async ({ page, mockAI }) => {
   ]);
   await expect(chatMessages(page).getByText("Hey, still there?")).toBeVisible();
 });
+
+// World happenings (#194): a new storyline chapter notifies like a message.
+test("a new storyline chapter notifies you", async ({ page }) => {
+  await installFakes(page);
+  await page.clock.install({ time: new Date(2026, 9, 21, 11, 0, 0) });
+  await openRoute(page, "/worlds/new");
+  await page.locator("#world-name").fill("Harbour Town");
+  await page.locator("#world-premise").fill("A rainy port where everyone knows everyone.");
+  await page.getByRole("button", { name: "Create World" }).click();
+  await page.evaluate(async () => {
+    const db: IDBDatabase = await new Promise((resolve, reject) => {
+      const req = indexedDB.open("ChatAppDB");
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    await new Promise<void>((resolve) => {
+      const os = db.transaction("worlds", "readwrite").objectStore("worlds");
+      const get = os.get(1);
+      get.onsuccess = () => {
+        os.put({ ...get.result, arc: { title: "The Bell", beats: ["A bell rings.", "A rope is cut.", "It ends."], step: 0, startedAt: 0, stepAt: 0 } });
+        os.transaction.oncomplete = () => resolve();
+      };
+    });
+    db.close();
+  });
+  await page.reload();
+  await turnOnInSettings(page);
+  await setHidden(page, true);
+  await page.clock.fastForward(65_000);
+  await expect.poll(() => shownNotifications(page), { timeout: 15_000 }).toContainEqual(expect.objectContaining({ title: "Harbour Town · The Bell", body: "A rope is cut." }));
+});
