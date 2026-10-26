@@ -248,6 +248,8 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
+- 2026-10-26: Relationships between characters are editable any time: a Relationships section in Contact info (organisms/RelationshipsSection.tsx; features/character/ties.ts: tiesOf, withTie, withoutTie) adds, edits and removes ties both ways with anyone in the same world; they reach the prompt (tiesNoteFor), world talk and the relationship map. Before, only the world wizard could set them.
+
 - 2026-10-26: Fixed your statuses going unseen: who-sees-it was one helper call, read strictly and never retried, so a failed call or a loose answer ("true" as a string, a first name, a wrapping object) left a status with no views. Now features/status/decideReactions.ts decides it (logged in the activity log), parseMyStatusReactions reads loose answers, MyStatusWatcher retries undecided statuses (MyStatus.decidedAt/tries/worldId), and after two failures they fall back to plain views.
 
 - 2026-10-25 (night, rename): The app is now **Kindred** (was WhatsGemini): names and a new logo in the app and docs. The repo and site address stay vikash-nirwal/WhatsGemini and /WhatsGemini/ for now (the user's call); renaming them later means updating package.json's homepage and playwright.config.ts's baseURL. Storage keys, the database name, the backup type marker and the cards' `whatsgemini` extension keep the old name so data and old files carry over. Fixed a flaky while-away test (its threshold assumed a later catch-up time than the job picks). Suites: 1050 unit, 1109 UI, 18 screenshot.

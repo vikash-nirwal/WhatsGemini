@@ -66,7 +66,7 @@ const ConnectionsPreview = ({ cast, ties, userName }: { cast: Member[]; ties: Wo
           </g>
         ))}
       </svg>
-      <p className="text-[12px] text-subtle">They use these when they talk about each other. Editable later in their Contact info.</p>
+      <p className="text-[12px] text-subtle">They use these when they talk about each other. Change them any time in a character's Contact info, under Relationships.</p>
     </aside>
   );
 };
