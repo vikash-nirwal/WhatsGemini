@@ -1,7 +1,17 @@
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { Select } from "src/components/molecules/form-controls/FormSelect";
-import { DEFAULT_TALK_LENGTH, MAX_TALK_LENGTH } from "src/features/world/worldPrefs";
+import { DEFAULT_TALK_LENGTH, MAX_TALK_LENGTH, WorldFeature } from "src/features/world/worldPrefs";
 import { useWorldPrefs } from "src/hooks/useWorld";
+
+// Living-world features (#162-#166), off until switched on. My world has no
+// map, events or reputation of its own, so only drifting ties apply there.
+const FEATURES: [WorldFeature, string][] = [
+  ["events", "World events"],
+  ["drift", "Relationships change from their talk"],
+  ["arrivals", "Newcomers and life events"],
+  ["places", "Who's where on the map"],
+  ["reputation", "Your reputation"],
+];
 
 const LENGTHS = Array.from({ length: MAX_TALK_LENGTH - 1 }, (_, i) => i + 2);
 
@@ -13,6 +23,9 @@ export const WorldLifeControls = ({ worldId, name }: { worldId: number | null; n
     <div className="flex flex-col gap-2 border-t border-border pt-3" role="group" aria-label={`Life in ${name}`}>
       <ToggleSwitch checked={Boolean(prefs.peek)} onChange={(peek) => update({ peek })} label="Peek at their own texts" />
       <ToggleSwitch checked={prefs.keepLiving !== false} onChange={(keepLiving) => update({ keepLiving })} label="Keep living while I'm elsewhere" />
+      {FEATURES.filter(([key]) => worldId != null || key === "drift").map(([key, label]) => (
+        <ToggleSwitch key={key} checked={Boolean(prefs[key])} onChange={(on) => update({ [key]: on })} label={label} />
+      ))}
       <label className="flex items-center gap-2 text-sm text-muted-foreground">
         <span className="flex-1">Texts per exchange</span>
         <Select aria-label={`Texts per exchange in ${name}`} value={String(prefs.talkLength || DEFAULT_TALK_LENGTH)} onChange={(e) => update({ talkLength: Number(e.target.value) })} className="h-8 w-[76px]">

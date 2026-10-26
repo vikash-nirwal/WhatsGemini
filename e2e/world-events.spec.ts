@@ -14,6 +14,9 @@ test("start a world event with AI help, see it, and end it", async ({ page, mock
   await page.getByRole("button", { name: "Switch to Harbour Town" }).click();
   await openRoute(page, "/worlds");
 
+  // Off until you switch it on for the world.
+  await expect(page.getByRole("region", { name: "World events" })).toHaveCount(0);
+  await page.getByRole("group", { name: "Life in Harbour Town" }).getByText("World events").click();
   const section = page.getByRole("region", { name: "World events" });
   await expect(section).toContainText("Nothing special.");
   await section.getByRole("button", { name: "Start an event" }).click();

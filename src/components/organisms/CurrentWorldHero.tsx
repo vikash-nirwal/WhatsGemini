@@ -23,7 +23,7 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
   const you = personas.find((p) => p.id === current?.personaId);
   const pins = current?.map?.pins || [];
   // Who is where right now (#165); a place opens to start a scene there.
-  const here = whoIsWhere(cast, pins, Date.now());
+  const here = prefs.places ? whoIsWhere(cast, pins, Date.now()) : {};
   const [openPin, setOpenPin] = useState<MapPin | null>(null);
 
   return (
@@ -68,8 +68,14 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
           </dl>
         </div>
         <div className="flex flex-col gap-3">
-          {current && <NewcomerCard world={current} />}
-          {current && <WorldEventsSection world={current} />}
+          {current && prefs.arrivals && <NewcomerCard world={current} />}
+          {current && prefs.events && <WorldEventsSection world={current} />}
+          {current && prefs.reputation && (
+            <section aria-label="Your reputation" className="flex flex-col gap-1.5">
+              <h3 className="text-[17px] font-bold text-foreground">What people say about you</h3>
+              <p className="text-[13.5px] leading-[19px] text-muted-foreground">{current.reputation?.text || "Nothing yet. Word gets around in a few days."}</p>
+            </section>
+          )}
           <h3 className="text-[17px] font-bold text-foreground">Places</h3>
           {current?.map?.image ? (
             <button type="button" onClick={onOpenMap || (() => navigate(`/worlds/${current.id}/edit`))} aria-label="Open the map" className="h-[150px] overflow-hidden rounded-xl bg-sunken">
@@ -80,7 +86,7 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
             <ul className="flex flex-col gap-2">
               {pins.slice(0, 8).map((p) => (
                 <li key={p.id}>
-                  <button type="button" onClick={() => setOpenPin(p)} aria-label={`${p.name}${here[p.id]?.length ? `, ${here[p.id].map((c) => c.name).join(", ")} here` : ""}`} className="flex w-full items-center gap-2.5 rounded-lg py-1 text-left text-[13.5px] font-semibold text-foreground hover:bg-raised">
+                  <button type="button" disabled={!prefs.places} onClick={() => setOpenPin(p)} aria-label={`${p.name}${here[p.id]?.length ? `, ${here[p.id].map((c) => c.name).join(", ")} here` : ""}`} className="flex w-full items-center gap-2.5 rounded-lg py-1 text-left text-[13.5px] font-semibold text-foreground enabled:hover:bg-raised">
                     <FaMapMarkerAlt size={12} className="flex-none text-primary-text" />
                     <span className="min-w-0 flex-1 truncate">{p.name}</span>
                     <span className="flex -space-x-1.5">

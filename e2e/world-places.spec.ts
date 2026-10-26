@@ -5,6 +5,9 @@ import { test, expect, openRoute, ARIA, KAI } from "./fixtures";
 // the map; a place opens to mark who usually goes there and to start a
 // scene there with the people you pick.
 
+// The feature is off until switched on; these tests switch it on.
+const switchOn = (page: import("@playwright/test").Page) => page.addInitScript((prefs) => localStorage.setItem("world_prefs", JSON.stringify(prefs)), { "1": { places: true } });
+
 test.use({ seed: { messages: 2, room: true } });
 
 const patch = (page: Page, store: string, id: number, change: Record<string, unknown>) =>
@@ -28,6 +31,7 @@ const patch = (page: Page, store: string, id: number, change: Record<string, unk
 const PIXEL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==";
 
 test("see who's where, mark a regular, and start a scene at a place", async ({ page, mockAI }) => {
+  await switchOn(page);
   await openRoute(page, "/worlds/new");
   await page.locator("#world-name").fill("Harbour Town");
   await page.locator("#world-premise").fill("A rainy port where everyone knows everyone.");

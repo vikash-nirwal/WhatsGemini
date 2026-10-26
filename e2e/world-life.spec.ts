@@ -5,6 +5,9 @@ import { test, expect, openRoute, ARIA, KAI } from "./fixtures";
 // of a world's people, and now and then someone new turns up for you to
 // welcome or let pass.
 
+// The feature is off until switched on; these tests switch it on.
+const switchOn = (page: import("@playwright/test").Page) => page.addInitScript((prefs) => localStorage.setItem("world_prefs", JSON.stringify(prefs)), { "1": { events: true, arrivals: true, reputation: true } });
+
 test.use({ seed: { messages: 2, room: true } });
 
 const NOW = new Date(2026, 9, 21, 10, 0, 0).getTime();
@@ -31,6 +34,7 @@ const patch = (page: Page, store: string, id: number, change: Record<string, unk
 // A world with Aria and Kai in it, where you are. `world` patches the world.
 // Rolls come up low, so whatever is due happens.
 const harbourTown = async (page: Page, world: Record<string, unknown>) => {
+  await switchOn(page);
   await page.addInitScript(() => {
     let n = 0;
     Math.random = () => 0.01 + ((n++ * 0.0137) % 0.2);
@@ -78,4 +82,13 @@ test("something happens in someone's life, and it's on the timeline", async ({ p
   await page.clock.fastForward(65_000);
   await openRoute(page, "/worlds/1/timeline");
   await expect(page.getByRole("list", { name: "World timeline" })).toContainText("Aria got the lighthouse keeper's job.", { timeout: 15_000 });
+});
+
+// Your reputation (#166): word gets around, and strangers go by it.
+test("word about you gets around, and chats there hear it", async ({ page, mockAI }) => {
+  mockAI.reply((req) => (req.prompt.includes("reputation in Harbour Town") ? "The newcomer who asks too many questions, though Aria swears you're kind." : "Mock reply"));
+  await harbourTown(page, { lastLifeAt: NOW, lastNewcomerAt: NOW });
+  await page.clock.fastForward(65_000);
+  await openRoute(page, "/worlds");
+  await expect(page.getByRole("region", { name: "Your reputation" })).toContainText("The newcomer who asks too many questions", { timeout: 15_000 });
 });

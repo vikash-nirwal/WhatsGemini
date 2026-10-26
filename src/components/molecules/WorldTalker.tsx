@@ -11,7 +11,7 @@ import { activeEvents } from "src/features/world/worldEvents";
 import { withTie } from "src/features/character/ties";
 import { toast } from "sonner";
 import { factsAboutUser } from "src/features/character/intimacy";
-import { talkLengthFor } from "src/features/world/worldPrefs";
+import { featureOn, talkLengthFor } from "src/features/world/worldPrefs";
 import { worldOf } from "src/features/world/currentWorld";
 import { awakeAt } from "src/features/character/firstTexts";
 import { lifeScaled } from "src/features/life/lifeDial";
@@ -52,7 +52,7 @@ const WorldTalker = () => {
         // A topic each time (#159), now and then the user - with what each
         // of them actually knows about them.
         // A world event going on (#162) is the news before the channel's last post.
-        const event = activeEvents(worlds.find((w) => w.id === worldId), now)[0];
+        const event = featureOn(worldId, "events") ? activeEvents(worlds.find((w) => w.id === worldId), now)[0] : undefined;
         const news = event ? `${event.title}: ${event.text}` : worldId ? channels.find((c) => c.id === channelId("world", worldId))?.posts.slice(-1)[0]?.text : undefined;
         const topic = pickTalkTopic({ hasTie: Boolean(a.ties?.some((t) => t.withId === b.id)), hasNews: Boolean(news), hasPrevious: Boolean(previous?.lines.length) });
         const knowledge = (c: typeof a): UserKnowledge => {
@@ -60,7 +60,7 @@ const WorldTalker = () => {
           const lastAt = Math.max(0, ...own.map((ch) => ch.content?.[ch.content.length - 1]?.timestamp || 0));
           return { relationship: c.relationship, lastTalked: recencyOf(lastAt || undefined, now), facts: factsAboutUser([...(c.pinnedMemory || []), ...(c.memory || [])], c.memoryCategories) };
         };
-        const askTie = tieMayChange(topic);
+        const askTie = featureOn(worldId, "drift") && tieMayChange(topic);
         const reply = await dispatch(generateAssistText({
           instruction: buildWorldTalkPrompt(a, b, { world: worlds.find((w) => w.id === worldId), userName: persona?.name?.trim() || "the user", maxLines, previous, topic, news, askTie, knows: { [a.id]: knowledge(a), [b.id]: knowledge(b) } }),
           background: true,

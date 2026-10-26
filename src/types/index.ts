@@ -931,6 +931,7 @@ export interface World {
   events?: WorldEvent[]; // world events (#162), newest last
   lastEventCheckAt?: number; // when the world last considered an event of its own
   lastLifeAt?: number; // when someone here last had a life event (#164)
+  reputation?: { text: string; at: number }; // how people here see you (#166)
   lastNewcomerAt?: number; // when the world last suggested a newcomer (#164)
   newcomer?: { name: string; idea: string; tieWith?: string; tie?: string; at: number }; // someone who just arrived, waiting for you to welcome them
 }

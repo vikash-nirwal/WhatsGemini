@@ -53,6 +53,8 @@ test("characters who know each other text on their own, and Peek shows it", asyn
   const ask = mockAI.requests.find((r) => r.prompt.includes("Write a text conversation between"))!.prompt;
   expect(ask).toContain("between Aria and Kai");
   expect(ask).toContain("2 to 10 short texts");
+  // Relationships don't drift unless that's switched on.
+  expect(ask).not.toContain("TIE:");
 
   // Hidden until Peek is turned on for this world.
   await expect(page.getByRole("link", { name: /^Peek/ })).toHaveCount(0);
@@ -99,6 +101,8 @@ test("a world you've left keeps living unless it's switched off", async ({ page,
 // Relationships that drift (#163): a talk that changes how two people stand
 // updates their tie both ways, with a notice and a timeline entry.
 test("a talk that changes things changes their relationship", async ({ page, mockAI }) => {
+  // Off until switched on (the user's call); switched on for My world here.
+  await page.addInitScript(() => localStorage.setItem("world_prefs", JSON.stringify({ mine: { drift: true } })));
   await page.clock.install({ time: new Date(2026, 9, 21, 10, 0, 0) });
   // Low rolls, so this talk is one that may change their tie.
   await page.addInitScript(() => {

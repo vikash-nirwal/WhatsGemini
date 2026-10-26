@@ -51,6 +51,8 @@ import { logToTimeline } from "../features/world/timeline";
 import { activeEvents, buildEventsNote } from "../features/world/worldEvents";
 import { buildLifeNote } from "../features/world/worldLife";
 import { buildWhereNote, whereIs } from "../features/world/places";
+import { buildReputationNote } from "../features/world/reputation";
+import { featureOn } from "../features/world/worldPrefs";
 import { worldOf } from "../features/world/currentWorld";
 import { switchWorld, updateWorld } from "../features/worldSlice";
 import { buildMyStatusNote } from "../features/status/myStatuses";
@@ -383,8 +385,12 @@ const ChatPage = () => {
   // Time passed (the user's ask): every member knows how long it's been.
   // God mode (#160): the truths of this chat's world, or of this chat.
   scene.godNote = buildGodTruthsSection([...(worlds.find((w) => w.id === currentChat?.worldId)?.godTruths || []), ...(currentChat?.godTruths || [])]);
-  scene.lifeNote = mainStory && characterData ? buildLifeNote(characterData, Date.now()) : undefined;
-  scene.eventNote = buildEventsNote(activeEvents(worlds.find((w) => w.id === currentChat?.worldId), Date.now()));
+  // Living-world features (#162-#166) only where they're switched on.
+  scene.lifeNote = mainStory && characterData && featureOn(chatWorldId, "arrivals") ? buildLifeNote(characterData, Date.now()) : undefined;
+  scene.eventNote = featureOn(chatWorldId, "events") ? buildEventsNote(activeEvents(worlds.find((w) => w.id === chatWorldId), Date.now())) : undefined;
+  scene.reputationNote = featureOn(chatWorldId, "reputation")
+    ? buildReputationNote(worlds.find((w) => w.id === chatWorldId), userNameForNotes, (currentChat?.content || []).length < 6 && !(characterData?.memory || []).length && !characterData?.relationship)
+    : undefined;
   scene.timePassedNote = currentChat?.timePassed && timePassedInScope(currentChat.timePassed, (currentChat.content || []).length) ? buildTimePassedNote(currentChat.timePassed, userNameForNotes) : undefined;
   // Group chats (#124): members may rename the group or start a poll.
   scene.groupNote = isRoom ? buildGroupDirective(userNameForNotes) : undefined;
@@ -398,7 +404,7 @@ const ChatPage = () => {
     ? buildPlaceSection(characterData.name, home, cachedWeather(home, noteTime), holidaysNear(cachedHolidays(home.countryCode, new Date(noteTime).getFullYear()), noteTime, home.timeZone), noteTime)
     : undefined;
   // Places with presence (#165): where on their world's map they are now.
-  if (!scene.placeNote && mainStory && characterData) scene.placeNote = buildWhereNote(whereIs(characterData, worlds.find((w) => w.id === characterData.worldId)?.map?.pins || [], noteTime));
+  if (!scene.placeNote && mainStory && characterData && featureOn(characterData.worldId, "places")) scene.placeNote = buildWhereNote(whereIs(characterData, worlds.find((w) => w.id === characterData.worldId)?.map?.pins || [], noteTime));
   scene.concernsNote = mainStory && characterData ? buildConcernsSection(characterData.name, characterData.concerns, noteTime) : undefined;
   scene.dayNote = mainStory && characterData ? buildDayLogSection(characterData.name, dayLogText(characterData, noteTime)) : undefined;
   const dayMood = mainStory ? dayMoodFor(characterData, noteTime) : undefined;

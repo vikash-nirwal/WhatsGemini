@@ -6,11 +6,14 @@ import { buildEventIdeaPrompt, EVENT_GAP_MS, eventDue, parseEvent } from "src/fe
 import { startWorldEvent } from "src/features/world/startEvent";
 import { lifeScaled } from "src/features/life/lifeDial";
 import { useLivingCharacters } from "src/hooks/useWorld";
+import { featureOn } from "src/features/world/worldPrefs";
 import { updateCharacter } from "src/features/characterSlice";
 import { addLifeEvent, buildLifeEventPrompt, cleanLifeEvent, LIFE_GAP_MS, lifeEventDue, NEWCOMER_GAP_MS, newcomerDue, pickLifeSubject } from "src/features/world/worldLife";
 import { buildCastSuggestionsPrompt, parseCastSuggestions } from "src/features/world/worldAssist";
 import { logToTimeline } from "src/features/world/timeline";
 import { toast } from "sonner";
+import { selectActivePersona } from "src/features/settingsSlice";
+import { buildReputationPrompt, cleanReputation, REPUTATION_GAP_MS, reputationDue } from "src/features/world/reputation";
 
 const CHECK_EVERY_MS = 2 * 60 * 60 * 1000;
 const FIRST_CHECK_MS = 60 * 1000;
@@ -24,8 +27,9 @@ const WorldEventWatcher = () => {
   const dispatch = useAppDispatch();
   const worlds = useAppSelector((state) => state.world.worlds);
   const characters = useLivingCharacters();
-  const latest = useRef({ worlds, characters });
-  latest.current = { worlds, characters };
+  const persona = useAppSelector(selectActivePersona);
+  const latest = useRef({ worlds, characters, persona });
+  latest.current = { worlds, characters, persona };
   const busy = useRef(false);
 
   useEffect(() => {
@@ -34,7 +38,7 @@ const WorldEventWatcher = () => {
       const now = Date.now();
       const { worlds, characters } = latest.current;
       const castOf = (id: number) => characters.filter((c) => c.worldId === id);
-      const world = worlds.find((w) => castOf(w.id).length >= 2 && eventDue(w, now, lifeScaled(EVENT_GAP_MS)));
+      const world = worlds.find((w) => castOf(w.id).length >= 2 && featureOn(w.id, "events") && eventDue(w, now, lifeScaled(EVENT_GAP_MS)));
       if (!world) {
         await moveLivesOn(now);
         return;
@@ -60,10 +64,13 @@ const WorldEventWatcher = () => {
     const moveLivesOn = async (now: number) => {
       const { worlds, characters } = latest.current;
       const castOf = (id: number) => characters.filter((c) => c.worldId === id);
-      const living = worlds.find((w) => castOf(w.id).length > 0 && lifeEventDue(w, now, lifeScaled(LIFE_GAP_MS)));
-      const arriving = living ? undefined : worlds.find((w) => newcomerDue(w, castOf(w.id).length, now, lifeScaled(NEWCOMER_GAP_MS)));
+      const living = worlds.find((w) => castOf(w.id).length > 0 && featureOn(w.id, "arrivals") && lifeEventDue(w, now, lifeScaled(LIFE_GAP_MS)));
+      const arriving = living ? undefined : worlds.find((w) => featureOn(w.id, "arrivals") && newcomerDue(w, castOf(w.id).length, now, lifeScaled(NEWCOMER_GAP_MS)));
       const world = living || arriving;
-      if (!world) return;
+      if (!world) {
+        await refreshReputation(now);
+        return;
+      }
       busy.current = true;
       try {
         const cast = castOf(world.id);
@@ -88,6 +95,29 @@ const WorldEventWatcher = () => {
         }
       } catch (err) {
         console.warn("World life failed (non-fatal):", err);
+      } finally {
+        busy.current = false;
+      }
+    };
+    // Your reputation (#166), when nothing else happened this check.
+    const refreshReputation = async (now: number) => {
+      const { worlds, characters, persona } = latest.current;
+      const castOf = (id: number) => characters.filter((c) => c.worldId === id);
+      const world = worlds.find((w) => castOf(w.id).length > 0 && featureOn(w.id, "reputation") && reputationDue(w, now, lifeScaled(REPUTATION_GAP_MS)));
+      if (!world) return;
+      const userName = persona?.name?.trim() || "the user";
+      busy.current = true;
+      try {
+        const cast = castOf(world.id);
+        const said = cast.flatMap((c) => (c.talks || []).flatMap((t) => t.lines.map((l) => ({ ...l, who: characters.find((x) => x.id === l.speakerId)?.name }))))
+          .filter((l) => l.who && l.text.toLowerCase().includes(userName.toLowerCase()))
+          .map((l) => `${l.who}: ${l.text}`);
+        const text = cleanReputation(await dispatch(generateAssistText({ instruction: buildReputationPrompt(world, userName, cast, said), background: true, activity: { at: now, kind: "event", text: `Word about you got around ${world.name}`, name: world.name } })).unwrap());
+        const fresh = latest.current.worlds.find((w) => w.id === world.id);
+        // Stamped even when nothing came back, so it waits a whole gap.
+        if (fresh) await dispatch(updateWorld({ ...fresh, reputation: { text: text || fresh.reputation?.text || "", at: now } }));
+      } catch (err) {
+        console.warn("Reputation failed (non-fatal):", err);
       } finally {
         busy.current = false;
       }

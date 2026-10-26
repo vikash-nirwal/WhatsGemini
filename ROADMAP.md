@@ -38,7 +38,6 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 
 The user's batch: refine how characters talk to each other (and about you), a god mode, and twelve ideas that build on worlds. Built in this order.
 
-- **#166 Your reputation (S).** How people in a world see you, from what you've said and done and the rumors; it shapes how strangers greet you.
 - **#167 Introductions (S).** Characters introduce you to people you haven't met; the newcomer knows who you are and what they've heard.
 - **#168 Group plans (M).** A plan several characters join, with a group chat for it, and each remembers how it went.
 - **#169 World arcs (L).** An optional storyline across the world, unfolding over story time through statuses, news and talk, with you in it.

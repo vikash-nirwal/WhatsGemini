@@ -44,7 +44,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #163 | Relationships that drift | done | 2026-10-25 |
 | #164 | Arrivals and departures | done | 2026-10-25 |
 | #165 | Places with presence | done | 2026-10-25 |
-| #166 | Your reputation | todo | |
+| #166 | Your reputation | done | 2026-10-25 |
 | #167 | Introductions | todo | |
 | #168 | Group plans | todo | |
 | #169 | World arcs | todo | |
@@ -75,6 +75,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+Your reputation: features/world/reputation.ts (World.reputation, rewritten every few days by WorldEventWatcher from what people know and say about you), scene.reputationNote (strangers go by it), shown on CurrentWorldHero. Switches: #162-#166 are per-world prefs (worldPrefs featureOn: events, drift, arrivals, places, reputation), off by default, in WorldLifeControls; drift is the only one for My world.
 Places with presence: features/world/places.ts (whereIs from schedule or Character.hangout, whoIsWhere, placeScenario); CurrentWorldHero places show who's there and open PlaceDialog (usual spot, start a scene there via addChat scenario); their place in chat prompts (placeNote fallback).
 Arrivals and life events: features/world/worldLife.ts (Character.lifeEvents, lifeEventDue, newcomerDue, buildLifeNote), WorldEventWatcher moves lives on (a life event or a newcomer per check), NewcomerCard on CurrentWorldHero (welcome via features/world/addPerson.ts, shared with WorldCastCard); life events in chat (scene.lifeNote), statuses and world talk. Departures are life events (leaving town for a while), never deleting anyone.
 Relationships that drift: world talk may end with a TIE line (worldTalk.ts tieMayChange/parseTieChange, askTie); WorldTalker applies it both ways with withTie, logs it to the timeline and shows a toast.
