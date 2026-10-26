@@ -5,6 +5,7 @@ import { Button } from "src/components/atoms/button";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { addChat, updateChatOptions } from "src/features/chatSlice";
+import { patchWorld } from "src/features/worldSlice";
 import { updateCharacter } from "src/features/characterSlice";
 import { selectActivePersona } from "src/features/settingsSlice";
 import { avatarOf } from "src/features/character/profileChanges";
@@ -13,7 +14,7 @@ import { Character, MapPin } from "src/types";
 
 // A place on the world map (#165): who's there now, who usually is, and a
 // scene that starts there with the people you pick.
-export const PlaceDialog = ({ pin, cast, present, onOpenChange }: { pin: MapPin | null; cast: Character[]; present: Character[]; onOpenChange: (open: boolean) => void }) => {
+export const PlaceDialog = ({ pin, cast, present, onOpenChange, worldId }: { pin: MapPin | null; cast: Character[]; present: Character[]; onOpenChange: (open: boolean) => void; worldId?: number }) => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const persona = useAppSelector(selectActivePersona);
@@ -27,6 +28,8 @@ export const PlaceDialog = ({ pin, cast, present, onOpenChange }: { pin: MapPin 
     const people = cast.filter((c) => chosen.includes(c.id));
     const chat = await dispatch(addChat({ title: people.length === 1 ? people[0].name : `At ${pin.name}`, characterIds: people.map((c) => c.id), scenario: placeScenario(pin.name, people.map((c) => c.name), persona?.name?.trim() || "You") })).unwrap();
     if (people.length > 1) await dispatch(updateChatOptions({ chatId: chat.id, patch: { offscreenTalk: true } }));
+    // You're there now (#183).
+    if (worldId != null) await dispatch(patchWorld(worldId, { youAt: { pinId: pin.id, at: Date.now() } }));
     onOpenChange(false);
     navigate(`/chat/${chat.id}`);
   };

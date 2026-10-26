@@ -50,7 +50,7 @@ import { addTruth, buildGodDirective, buildGodTruthsSection } from "../features/
 import { logToTimeline } from "../features/world/timeline";
 import { activeEvents, buildEventsNote } from "../features/world/worldEvents";
 import { buildLifeNote } from "../features/world/worldLife";
-import { buildWhereNote, whereIs } from "../features/world/places";
+import { buildWhereNote, buildYouAtNote, whereIs, whereYouAre } from "../features/world/places";
 import { buildReputationNote } from "../features/world/reputation";
 import { arcActive, buildArcNote } from "../features/world/worldArcs";
 import { buildSecretsNote } from "../features/world/secrets";
@@ -420,6 +420,10 @@ const ChatPage = () => {
   scene.keptNote = !isRoom && characterData && featureOn(chatWorldId, "secrets") ? buildSecretsNote(characterData, characters, userNameForNotes) : undefined;
   scene.factionNote = !isRoom ? buildFactionNote(characterData, worlds.find((w) => w.id === chatWorldId), characters) : undefined;
   scene.historyNote = worldHistoryNote;
+  if (featureOn(chatWorldId, "places")) {
+    const placesWorld = worlds.find((w) => w.id === chatWorldId);
+    scene.youAtNote = buildYouAtNote(whereYouAre(placesWorld, noteTime), characterData && !isRoom ? whereIs(characterData, placesWorld?.map?.pins || [], noteTime) : undefined, userNameForNotes);
+  }
   scene.arcNote = buildArcNote(arcActive(worlds.find((w) => w.id === chatWorldId)), userNameForNotes);
   scene.reputationNote = featureOn(chatWorldId, "reputation")
     ? buildReputationNote(worlds.find((w) => w.id === chatWorldId), userNameForNotes, (currentChat?.content || []).length < 6 && !(characterData?.memory || []).length && !characterData?.relationship)

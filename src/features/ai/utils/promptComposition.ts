@@ -610,6 +610,7 @@ export interface SceneContext {
   reputationNote?: string; // what people in the world say about you (#166)
   arcNote?: string; // the world's storyline under way (#169)
   historyNote?: string; // what's happened in the world before (#179)
+  youAtNote?: string; // where the user is in the world (#183)
   keptNote?: string; // secrets this character keeps from people in their world (#170)
   factionNote?: string; // their family or faction, and loyalty (#171)
 }
@@ -652,7 +653,7 @@ export const buildTurnContext = (
     ...(scene?.giftsNote ? [scene.giftsNote] : []),
     ...(scene?.plansNote ? [scene.plansNote] : []),
     ...(scene?.secretsNote ? [scene.secretsNote] : []),
-    ...[scene?.godNote, scene?.eventNote, scene?.arcNote, scene?.historyNote, scene?.keptNote, scene?.factionNote, scene?.lifeNote, scene?.reputationNote, scene?.whatIfNote, scene?.dayNote, scene?.dayMoodNote, scene?.moodNote, scene?.jokesNote, scene?.conflictNote, scene?.liesNote, scene?.jealousyNote, scene?.dreamNote, scene?.hookNote, scene?.slipsNote, scene?.callbackNote, scene?.concernsNote, scene?.placeNote, scene?.statusNote, scene?.quoteNote, scene?.groupNote, scene?.profileNote, scene?.disappearingNote, scene?.inviteNote, scene?.stickerNote, scene?.blockNote, scene?.timePassedNote].filter((n): n is string => Boolean(n)),
+    ...[scene?.godNote, scene?.eventNote, scene?.arcNote, scene?.historyNote, scene?.youAtNote, scene?.keptNote, scene?.factionNote, scene?.lifeNote, scene?.reputationNote, scene?.whatIfNote, scene?.dayNote, scene?.dayMoodNote, scene?.moodNote, scene?.jokesNote, scene?.conflictNote, scene?.liesNote, scene?.jealousyNote, scene?.dreamNote, scene?.hookNote, scene?.slipsNote, scene?.callbackNote, scene?.concernsNote, scene?.placeNote, scene?.statusNote, scene?.quoteNote, scene?.groupNote, scene?.profileNote, scene?.disappearingNote, scene?.inviteNote, scene?.stickerNote, scene?.blockNote, scene?.timePassedNote].filter((n): n is string => Boolean(n)),
     ...(scene?.language ? [buildLanguageDirective(scene.language, activePersona?.name?.trim() || "The user")] : []),
     ...(scene?.coWriting && character ? [buildCoWritingDirective(character.name, activePersona?.name?.trim() || "the user")] : []),
     ...(scene?.stage ? [buildStageSection(scene.stage, activePersona?.name?.trim() || "the user")] : []),

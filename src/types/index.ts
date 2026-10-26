@@ -937,6 +937,8 @@ export interface World {
   lastIntroAt?: number; // when someone here last introduced you to someone (#167)
   lastSecretAt?: number; // when someone here last started keeping a secret (#170)
   lastHangoutsAt?: number; // when residents were last given usual spots (#177)
+  youAt?: { pinId: string; at: number }; // where you are in this world (#183)
+  lastRunInAt?: number; // when someone last ran into you there (#183)
   arc?: WorldArc; // a storyline across the world (#169)
   factions?: Faction[]; // families and factions (#171)
   lastNewcomerAt?: number; // when the world last suggested a newcomer (#164)

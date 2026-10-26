@@ -29,3 +29,14 @@ test("everyone without a usual spot gets one from the map (#177)", () => {
   expect(buildHangoutsPrompt("Harbour", pins, [people[0]])).toContain("Places in Harbour: The Docks, Rosa's Café.");
   expect(parseHangouts("- Aria | the docks\n**Kai | Rosa's Café**\nNobody | The Docks\nAria2 | Moon", people, pins)).toEqual({ 1: "p1", 2: "p2" });
 });
+
+test("where you are fades after a few hours, and someone there knows (#183)", () => {
+  const { whereYouAre, buildYouAtNote, runInDue } = require("./places");
+  const HOUR = 3_600_000;
+  const world = { youAt: { pinId: "p1", at: 0 }, map: { pins } };
+  expect(whereYouAre(world, 2 * HOUR)!.name).toBe("The Docks");
+  expect(whereYouAre(world, 7 * HOUR)).toBeUndefined();
+  expect(buildYouAtNote(pins[0], pins[0], "Sam")).toBe("Sam is at The Docks right now. So are you - you might run into each other.");
+  expect(buildYouAtNote(pins[0], pins[1], "Sam")).toBe("Sam is at The Docks right now.");
+  expect(runInDue({ lastRunInAt: 0 }, 2 * HOUR)).toBe(false);
+});

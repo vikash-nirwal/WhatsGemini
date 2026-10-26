@@ -4,7 +4,7 @@ import { FaEye, FaHistory, FaHourglassHalf, FaMapMarkerAlt, FaPen } from "react-
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { avatarOf } from "src/features/character/profileChanges";
 import { formatStoryDate } from "src/features/world/storyTime";
-import { useAppSelector } from "src/store/hooks";
+import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { WorldEventsSection } from "./WorldEventsSection";
 import { NewcomerCard } from "./NewcomerCard";
 import { PlaceDialog } from "./PlaceDialog";
@@ -12,7 +12,9 @@ import { GroupPlanDialog } from "./GroupPlanDialog";
 import { WorldTimeDialog } from "./WorldTimeDialog";
 import { WorldArcSection } from "./WorldArcSection";
 import { FactionsSection } from "./FactionsSection";
-import { whoIsWhere } from "src/features/world/places";
+import { whereYouAre, whoIsWhere } from "src/features/world/places";
+import { patchWorld } from "src/features/worldSlice";
+import { Select } from "src/components/molecules/form-controls/FormSelect";
 import { MapPin } from "src/types";
 import { useCurrentWorld, useWorldCharacters, useWorldPrefs } from "src/hooks/useWorld";
 
@@ -31,6 +33,8 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
   const [openPin, setOpenPin] = useState<MapPin | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
   const [timeOpen, setTimeOpen] = useState(false);
+  const dispatch = useAppDispatch();
+  const youAt = whereYouAre(current, Date.now());
 
   return (
     <section aria-label="Current world" className="mb-8 overflow-hidden rounded-[20px] bg-card ring-1 ring-inset ring-border">
@@ -94,6 +98,15 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
               <img src={current.map.image} alt="" className="h-full w-full object-cover" />
             </button>
           ) : null}
+          {current && prefs.places && pins.length > 0 && (
+            <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
+              <span className="flex-1">You're at</span>
+              <Select aria-label="Where you are" value={youAt?.id || "none"} onChange={(e) => void dispatch(patchWorld(current.id, { youAt: e.target.value === "none" ? undefined : { pinId: e.target.value, at: Date.now() } }))} className="h-8 w-[170px]">
+                <option value="none">Nowhere in particular</option>
+                {pins.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </Select>
+            </label>
+          )}
           {pins.length > 0 ? (
             <ul className="flex flex-col gap-2">
               {pins.slice(0, 8).map((p) => (
@@ -115,7 +128,7 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
       </div>
       <WorldTimeDialog open={timeOpen} onOpenChange={setTimeOpen} />
       <GroupPlanDialog open={planOpen} onOpenChange={setPlanOpen} cast={cast} world={current} />
-      <PlaceDialog pin={openPin} cast={cast} present={openPin ? here[openPin.id] || [] : []} onOpenChange={(o) => !o && setOpenPin(null)} />
+      <PlaceDialog worldId={current?.id} pin={openPin} cast={cast} present={openPin ? here[openPin.id] || [] : []} onOpenChange={(o) => !o && setOpenPin(null)} />
     </section>
   );
 };

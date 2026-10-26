@@ -55,3 +55,17 @@ export const parseHangouts = (reply: string, people: Character[], pins: MapPin[]
   }
   return out;
 };
+
+// Your place in the world (#183): where you are, set by a scene at a place
+// or by hand. It fades after a few hours. Someone at the same place may run
+// into you; everyone's prompt knows where you are.
+export const YOU_AT_FOR_MS = 6 * 60 * 60 * 1000;
+export const RUN_IN_GAP_MS = 3 * 60 * 60 * 1000;
+
+export const whereYouAre = (world: { youAt?: { pinId: string; at: number }; map?: { pins: MapPin[] } } | undefined, now: number): MapPin | undefined =>
+  world?.youAt && now - world.youAt.at < YOU_AT_FOR_MS ? world.map?.pins.find((p) => p.id === world.youAt!.pinId) : undefined;
+
+export const buildYouAtNote = (place: MapPin | undefined, theirs: MapPin | undefined, userName: string) =>
+  place ? `${userName} is at ${place.name} right now.${theirs?.id === place.id ? " So are you - you might run into each other." : ""}` : undefined;
+
+export const runInDue = (world: { lastRunInAt?: number }, now: number) => now - (world.lastRunInAt || 0) >= RUN_IN_GAP_MS;

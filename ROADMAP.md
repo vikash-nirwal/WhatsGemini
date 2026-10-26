@@ -39,7 +39,6 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 
 From the world mechanics review (https://claude.ai/artifact/E4TKJjHKExRF8qTYiVWheK); the user asked for all of them. Built in this order.
 
-- **#183 Your place in the world (I5).** Where you are in a world: set by scenes at a place; people there may run into you; in their prompts.
 - **#184 Plans and secrets resolve (I6).** Plans get a date, a reminder the day before and an outcome if the day passes; secrets can come out on their own.
 - **#185 Factions drive what happens (I7).** Events and storylines can name groups; rival groups get a talk topic about each other; drift weighs groups.
 - **#186 One clock per world (I8).** Where a world keeps its own calendar, background prompts keep the time of day but drop the real weekday.

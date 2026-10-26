@@ -101,3 +101,28 @@ test("people are given usual spots, and a scene there talks while you're away", 
   }, chatId);
   expect(talks).toBe(true);
 });
+
+// #183: where you are. Someone at the same place runs into you, and your
+// chats know where you are.
+test("you're somewhere, and someone there runs into you", async ({ page, mockAI }) => {
+  await switchOn(page);
+  const NOW = new Date(2026, 9, 21, 10, 0, 0).getTime();
+  await page.clock.install({ time: NOW });
+  mockAI.reply((req) => (req.prompt.includes("is at The Docks right now") && req.prompt.includes("Something just happened") ? "wait is that you at the docks??" : "Mock reply"));
+  await openRoute(page, "/worlds/new");
+  await page.locator("#world-name").fill("Harbour Town");
+  await page.locator("#world-premise").fill("A rainy port where everyone knows everyone.");
+  await page.getByRole("button", { name: "Create World" }).click();
+  await page.getByRole("button", { name: "Switch to Harbour Town" }).click();
+  await patch(page, "worlds", 1, { map: { image: PIXEL, pins: [{ id: "p1", name: "The Docks", x: 10, y: 10 }, { id: "p2", name: "Rosa's Café", x: 50, y: 50 }] }, lastHangoutsAt: NOW });
+  await patch(page, "characters", ARIA.id, { worldId: 1, hangout: "p1", textsFirst: true, firstTexts: [NOW - 5 * 3_600_000] });
+  await patch(page, "characters", KAI.id, { worldId: 1, hangout: "p2" });
+  await page.reload();
+  await openRoute(page, "/worlds");
+  await page.getByRole("combobox", { name: "Where you are" }).click();
+  await page.getByRole("option", { name: "The Docks" }).click();
+  await page.clock.fastForward(65_000);
+  await expect.poll(() => mockAI.requests.some((r) => r.prompt.includes("wait is that you") || r.prompt.includes("is at The Docks right now")), { timeout: 15_000 }).toBe(true);
+  await openRoute(page, "/chat/1");
+  await expect(page.getByText("wait is that you at the docks??").first()).toBeVisible({ timeout: 15_000 });
+});

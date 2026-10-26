@@ -9,7 +9,7 @@ import { lifeScaled } from "src/features/life/lifeDial";
 import { catchUpTime } from "src/features/life/away";
 import { shareNews } from "src/features/world/shareNews";
 import { World } from "src/types";
-import { buildHangoutsPrompt, hangoutsDue, parseHangouts } from "src/features/world/places";
+import { buildHangoutsPrompt, hangoutsDue, parseHangouts, runInDue, whereIs, whereYouAre } from "src/features/world/places";
 import { useLivingCharacters } from "src/hooks/useWorld";
 import { featureOn } from "src/features/world/worldPrefs";
 import { updateCharacter } from "src/features/characterSlice";
@@ -70,7 +70,7 @@ const WorldEventWatcher = () => {
             if (!next.doneAt) await tellTheNews(w, `${arc.title}: ${next.beats[next.step]}`, [], now);
           }
         }
-        for (const job of [fillPlaces, startOwnEvent, moveLivesOn, welcomeNewcomer, refreshReputation, introduce, keepSecret]) await job(now);
+        for (const job of [fillPlaces, runIntoYou, startOwnEvent, moveLivesOn, welcomeNewcomer, refreshReputation, introduce, keepSecret]) await job(now);
       } finally {
         busy.current = false;
       }
@@ -98,6 +98,23 @@ const WorldEventWatcher = () => {
     const tellTheNews = async (world: World, news: string, about: number[], now: number) => {
       const { characters, chats, persona } = latest.current;
       await dispatch(shareNews({ world, cast: characters.filter((c) => c.worldId === world.id), chats, userName: persona?.name?.trim() || "the user", news, about, now }));
+    };
+    // Someone at the same place runs into you (#183).
+    const runIntoYou = async (now: number) => {
+      const { worlds, characters } = latest.current;
+      const world = worlds.find((w) => featureOn(w.id, "places") && whereYouAre(w, now) && runInDue(w, now));
+      if (!world) return;
+      const place = whereYouAre(world, now)!;
+      const there = characters.filter((c) => c.worldId === world.id && whereIs(c, world.map?.pins || [], now)?.id === place.id);
+      if (!there.length) return;
+      try {
+        await dispatch(patchWorld(world.id, { lastRunInAt: now }));
+        const { chats, persona } = latest.current;
+        const userName = persona?.name?.trim() || "the user";
+        await dispatch(shareNews({ world, cast: there, chats, userName, news: `${userName} is at ${place.name} right now, and so are you - you've just spotted them`, about: there.map((c) => c.id), max: 1, now }));
+      } catch (err) {
+        console.warn("Run-in failed (non-fatal):", err);
+      }
     };
     const startOwnEvent = async (now: number) => {
       const { worlds, characters } = latest.current;

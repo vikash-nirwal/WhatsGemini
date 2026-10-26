@@ -62,7 +62,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #180 | Passing time ages the world | done | 2026-10-25 |
 | #181 | Strangers become friends | done | 2026-10-25 |
 | #182 | Living world preset | done | 2026-10-25 |
-| #183 | Your place in the world | todo | from the world review (I5) |
+| #183 | Your place in the world | done | 2026-10-25 |
 | #184 | Plans and secrets resolve | todo | from the world review (I6) |
 | #185 | Factions drive what happens | todo | from the world review (I7) |
 | #186 | One clock per world | todo | from the world review (I8) |
@@ -90,6 +90,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+Your place in the world: World.youAt (set by a scene at a place or You're at on CurrentWorldHero, fades after 6 h; places.ts whereYouAre/buildYouAtNote); chats know where you are (scene.youAtNote); someone at the same place may run into you by text (WorldEventWatcher runIntoYou, 3 h apart).
 Living world preset: worldPrefs LIVING_WORLD (all features but secrets), a Turn all on/off row in WorldLifeControls, and a Living world switch on the wizard's last step (off by default).
 Strangers become friends: untied neighbours talk as acquaintances (buildWorldTalkPrompt), and after three talks two untied people get a friend tie, logged to the timeline (worldTalk.ts becameFriends, WorldTalker).
 Passing time ages the world: for a world-wide gap of a week or more, passWorldTime writes a life event per resident in one helper call (worldLife.ts buildGapLivesPrompt/parseGapLives), changes ties when drift is on, moves the storyline on a chapter per two days, and first texts after the gap carry their own news. Life events now reach prompts wherever they exist, not only with the newcomers switch.
