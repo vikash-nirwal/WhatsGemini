@@ -1,6 +1,6 @@
 import { extractInvite } from "./chat/invites";
 import { buildWorldBrief, withWorldBrief } from "./world/worldBrief";
-import { featureOn } from "./world/worldPrefs";
+import { backgroundAllowed, countBackgroundCall, featureOn } from "./world/worldPrefs";
 import { cachedTimeline } from "./world/timeline";
 import { extractSticker } from "./character/stickers";
 import { extractBlockTags } from "./chat/blocking";
@@ -650,6 +650,10 @@ export const generateAssistText = createAsyncThunk(
         const helper = await resolveHelperCall(settings);
         const about = state.character.characters.find((c) => c.id === activity?.characterId);
         const briefWorld = state.world.worlds.find((w) => w.id === (worldId ?? about?.worldId));
+        // A world's limit and quiet hours (#192), for life in the background.
+        const callWorld = briefWorld ? briefWorld.id : null;
+        if (activity && !backgroundAllowed(callWorld, Date.now())) throw new Error("Background life is paused in this world (quiet hours or today's limit).");
+        if (activity) countBackgroundCall(callWorld, Date.now());
         const brief = buildWorldBrief(briefWorld, activity?.at ?? Date.now(), { events: briefWorld ? featureOn(briefWorld.id, "events") : false, history: briefWorld ? cachedTimeline(briefWorld.id) : undefined });
         const result = await helper.adapter.generateOnce(withWorldBrief(instruction, brief), helper.model, helper.config);
         if (activity) {

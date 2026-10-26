@@ -13,6 +13,8 @@ export interface WorldPrefs {
   reputation?: boolean; // how people there see you (#166)
   introductions?: boolean; // people introduce you to people they know (#167)
   secrets?: boolean; // secrets between characters (#170)
+  callCap?: number; // background calls a day at most (#192); unset = no limit
+  quietHours?: [number, number]; // hours when nothing runs in the background (#192), e.g. [23, 8]
 }
 
 export type WorldFeature = "events" | "drift" | "arrivals" | "places" | "reputation" | "introductions" | "secrets";
@@ -52,6 +54,39 @@ export const saveWorldPrefs = (worldId: number | null, patch: WorldPrefs): World
 export const LIVING_WORLD: WorldFeature[] = ["events", "drift", "arrivals", "places", "reputation", "introductions"];
 export const isLivingWorld = (prefs: WorldPrefs) => LIVING_WORLD.every((f) => prefs[f]);
 export const livingWorldPatch = (on: boolean): WorldPrefs => Object.fromEntries(LIVING_WORLD.map((f) => [f, on]));
+
+// Spending limit and quiet hours (#192): whether a background call for this
+// world may run now, and counting the ones that do (per day, on this device).
+const today = (now: number) => new Date(now).toISOString().slice(0, 10);
+const countKey = (worldId: number | null, now: number) => `world_calls_${worldId ?? "mine"}_${today(now)}`;
+
+export const inQuietHours = (quiet: [number, number] | undefined, now: number) => {
+  if (!quiet) return false;
+  const h = new Date(now).getHours();
+  const [from, to] = quiet;
+  return from <= to ? h >= from && h < to : h >= from || h < to;
+};
+
+export const callsToday = (worldId: number | null, now: number) => {
+  try {
+    return Number(localStorage.getItem(countKey(worldId, now))) || 0;
+  } catch {
+    return 0;
+  }
+};
+
+export const backgroundAllowed = (worldId: number | null, now: number) => {
+  const prefs = loadWorldPrefs(worldId);
+  return !inQuietHours(prefs.quietHours, now) && (!prefs.callCap || callsToday(worldId, now) < prefs.callCap);
+};
+
+export const countBackgroundCall = (worldId: number | null, now: number) => {
+  try {
+    localStorage.setItem(countKey(worldId, now), String(callsToday(worldId, now) + 1));
+  } catch {
+    // Storage can be refused; the limit just can't count then.
+  }
+};
 
 export const featureOn = (worldId: number | null | undefined, feature: WorldFeature) => Boolean(loadWorldPrefs(worldId ?? null)[feature]);
 

@@ -1,6 +1,6 @@
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { Select } from "src/components/molecules/form-controls/FormSelect";
-import { DEFAULT_TALK_LENGTH, isLivingWorld, livingWorldPatch, MAX_TALK_LENGTH, WorldFeature } from "src/features/world/worldPrefs";
+import { callsToday, DEFAULT_TALK_LENGTH, isLivingWorld, livingWorldPatch, MAX_TALK_LENGTH, WorldFeature } from "src/features/world/worldPrefs";
 import { useCurrentWorld, useWorldPrefs } from "src/hooks/useWorld";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { updateCharacter } from "src/features/characterSlice";
@@ -62,6 +62,18 @@ export const WorldLifeControls = ({ worldId, name }: { worldId: number | null; n
           </Select>
         </label>
       )}
+      <label className="flex items-center gap-2 text-sm text-muted-foreground">
+        <span className="flex-1">Background calls a day</span>
+        <Select aria-label={`Background calls a day in ${name}`} value={String(prefs.callCap || 0)} onChange={(e) => update({ callCap: Number(e.target.value) || undefined })} className="h-8 w-[110px]">
+          {[0, 10, 25, 50, 100].map((n) => <option key={n} value={String(n)}>{n ? `${n}${callsToday(worldId, Date.now()) ? ` (${callsToday(worldId, Date.now())} today)` : ""}` : "No limit"}</option>)}
+        </Select>
+      </label>
+      <label className="flex items-center gap-2 text-sm text-muted-foreground">
+        <span className="flex-1">Quiet hours</span>
+        <Select aria-label={`Quiet hours in ${name}`} value={prefs.quietHours ? prefs.quietHours.join("-") : "off"} onChange={(e) => update({ quietHours: e.target.value === "off" ? undefined : (e.target.value.split("-").map(Number) as [number, number]) })} className="h-8 w-[110px]">
+          {[["off", "Off"], ["23-8", "11pm-8am"], ["22-7", "10pm-7am"], ["0-7", "12am-7am"]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </Select>
+      </label>
       <label className="flex items-center gap-2 text-sm text-muted-foreground">
         <span className="flex-1">Texts per exchange</span>
         <Select aria-label={`Texts per exchange in ${name}`} value={String(prefs.talkLength || DEFAULT_TALK_LENGTH)} onChange={(e) => update({ talkLength: Number(e.target.value) })} className="h-8 w-[76px]">

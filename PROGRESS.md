@@ -72,7 +72,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #189 | Undo a world-wide time skip | done | 2026-10-25 |
 | #190 | Timeline search and people filter | done | 2026-10-25 |
 | #191 | Simulate a day | done | 2026-10-25 |
-| #192 | World spending limit and quiet hours | todo | the user's batch, 2026-10-26 |
+| #192 | World spending limit and quiet hours | done | 2026-10-25 |
 | #193 | Richer catch-up | done | 2026-10-25 |
 | #194 | Notifications for world happenings | todo | the user's batch, 2026-10-26 |
 | #195 | Plans in your calendar | todo | the user's batch, 2026-10-26 |
@@ -106,6 +106,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+World spending limit and quiet hours: worldPrefs callCap and quietHours (inQuietHours, backgroundAllowed, countBackgroundCall: per world per day in localStorage); generateAssistText refuses a background-life call (one with an activity) when the world is quiet or at its limit; both set in WorldLifeControls.
 Richer catch-up: LifeTicker runs every registered job at moments spread across the absence (catchUpMoments: one per ~4 h, at most six), 5 s after opening, before the jobs' own first checks; the per-job catchUpTime turns are gone.
 Simulate a day: background jobs register their checks (features/life/ticks.ts registerTick/runTicks); SimulateDayDialog on CurrentWorldHero runs every job six rounds with waits cut to a day's worth (lifeDial withLifeBoost), with an upper bound on calls and a progress bar.
 Timeline search and people filter: TimelinePage has a search box and an "Only about" person picker (people who appear in the entries).
