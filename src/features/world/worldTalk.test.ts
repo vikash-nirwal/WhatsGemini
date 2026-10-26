@@ -135,3 +135,15 @@ describe("strangers become friends (#181)", () => {
     expect(becameFriends([a, b], { ...a, ties: [{ withId: 2, tie: "your rival" }] }, b)).toBe(false);
   });
 });
+
+describe("families and factions drive talk (#185)", () => {
+  const { buildWorldTalkPrompt, pickTalkTopic } = require("./worldTalk");
+  test("people in groups can talk about them, loyal to their own", () => {
+    expect(pickTalkTopic({ hasTie: false, hasNews: false, hasPrevious: false, hasGroups: true }, () => 0.99)).toBe("groups");
+    const prompt = buildWorldTalkPrompt({ id: 1, name: "A" }, { id: 2, name: "B" }, { userName: "Sam", maxLines: 6, topic: "groups", groups: { 1: ["The Vales"], 2: ["Dockers"] } });
+    expect(prompt).toContain("Belongs to: The Vales (loyal to their own)");
+    expect(prompt).toContain("rivalry, a grudge, a deal");
+    const same = buildWorldTalkPrompt({ id: 1, name: "A" }, { id: 2, name: "B" }, { userName: "Sam", maxLines: 6, topic: "groups", groups: { 1: ["The Vales"], 2: ["The Vales"] } });
+    expect(same).toContain("Their own The Vales business");
+  });
+});

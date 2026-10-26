@@ -53,10 +53,10 @@ const tieOf = (from: Character, to: Character) => from.ties?.find((t) => t.withI
 
 // What a talk is about (#159): picked each time so their threads vary, and
 // so the user - whom the roleplay is for - comes up now and then.
-export type TalkTopic = "user" | "lives" | "tie" | "plan" | "news" | "follow-up";
+export type TalkTopic = "user" | "lives" | "tie" | "plan" | "news" | "follow-up" | "groups";
 
 export const pickTalkTopic = (
-  { hasTie, hasNews, hasPrevious }: { hasTie: boolean; hasNews: boolean; hasPrevious: boolean },
+  { hasTie, hasNews, hasPrevious, hasGroups = false }: { hasTie: boolean; hasNews: boolean; hasPrevious: boolean; hasGroups?: boolean },
   rand: () => number = Math.random
 ): TalkTopic => {
   const weights: [TalkTopic, number][] = [
@@ -66,6 +66,8 @@ export const pickTalkTopic = (
     ...(hasTie ? ([["tie", 0.15]] as [TalkTopic, number][]) : []),
     ...(hasNews ? ([["news", 0.1]] as [TalkTopic, number][]) : []),
     ...(hasPrevious ? ([["follow-up", 0.15]] as [TalkTopic, number][]) : []),
+    // Families and factions drive talk (#185).
+    ...(hasGroups ? ([["groups", 0.15]] as [TalkTopic, number][]) : []),
   ];
   const total = weights.reduce((n, [, w]) => n + w, 0);
   let r = rand() * total;
@@ -87,7 +89,7 @@ export const recencyOf = (lastAt: number | undefined, now: number) => {
   return days < 1 ? "today" : days === 1 ? "yesterday" : days < 14 ? `${days} days ago` : "not for weeks";
 };
 
-const TOPIC_ASK = (t: TalkTopic, a: Character, b: Character, userName: string, worldName?: string, news?: string) => {
+const TOPIC_ASK = (t: TalkTopic, a: Character, b: Character, userName: string, worldName?: string, news?: string, groups?: Record<number, string[]>) => {
   const tie = tieOf(a, b)?.replace(/^your\s+/i, "");
   switch (t) {
     case "user":
@@ -98,6 +100,13 @@ const TOPIC_ASK = (t: TalkTopic, a: Character, b: Character, userName: string, w
       return "Making a plan, asking a favour, or one of them needs something.";
     case "news":
       return `What's going on in ${worldName || "town"} lately${news ? `: ${news.slice(0, 200)}` : ""} - and what they make of it.`;
+    case "groups": {
+      const ga = groups?.[a.id] || [], gb = groups?.[b.id] || [];
+      const shared = ga.filter((g) => gb.includes(g));
+      return shared.length
+        ? `Their own ${shared[0]} business: loyalty, a family matter, what the group should do, how they feel about the other groups here.`
+        : `The groups they belong to${ga.length ? ` (${a.name}: ${ga.join(", ")})` : ""}${gb.length ? ` (${b.name}: ${gb.join(", ")})` : ""}: rivalry, a grudge, a deal, or what one side says about the other - each loyal to their own.`;
+    }
     case "follow-up":
       return "They pick up where they left off last time (below): what happened since, an answer to a question, the plan they made.";
     default:
@@ -108,7 +117,7 @@ const TOPIC_ASK = (t: TalkTopic, a: Character, b: Character, userName: string, w
 export const buildWorldTalkPrompt = (
   a: Character,
   b: Character,
-  { world, userName, maxLines, previous, topic = "lives", knows, news, askTie }: {
+  { world, userName, maxLines, previous, topic = "lives", knows, news, askTie, groups }: {
     world?: World;
     userName: string;
     maxLines: number;
@@ -117,10 +126,11 @@ export const buildWorldTalkPrompt = (
     knows?: Record<number, UserKnowledge>;
     news?: string;
     askTie?: boolean; // let the talk change their relationship (#163)
+    groups?: Record<number, string[]>; // the families and factions each belongs to (#185)
   }
 ) => {
   const who = (c: Character, other: Character) =>
-    `${c.name}: ${[c.description, c.prompt].filter(Boolean).join(" ").slice(0, 500)}${tieOf(c, other) ? ` (${other.name} is ${c.name}'s ${tieOf(c, other)!.replace(/^your\s+/i, "")})` : ""}${c.dayLog?.text ? `\nTheir day so far: ${c.dayLog.text.slice(0, 300)}` : ""}${c.lifeEvents?.length ? `\nLately in their life: ${c.lifeEvents.slice(-2).map((e) => e.text).join(" ")}` : ""}`;
+    `${c.name}: ${[c.description, c.prompt].filter(Boolean).join(" ").slice(0, 500)}${tieOf(c, other) ? ` (${other.name} is ${c.name}'s ${tieOf(c, other)!.replace(/^your\s+/i, "")})` : ""}${c.dayLog?.text ? `\nTheir day so far: ${c.dayLog.text.slice(0, 300)}` : ""}${c.lifeEvents?.length ? `\nLately in their life: ${c.lifeEvents.slice(-2).map((e) => e.text).join(" ")}` : ""}${groups?.[c.id]?.length ? `\nBelongs to: ${groups[c.id].join(", ")} (loyal to their own)` : ""}`;
   const knowing = (c: Character) => {
     const k = knows?.[c.id];
     if (!k) return undefined;
@@ -138,7 +148,7 @@ export const buildWorldTalkPrompt = (
     ...(topic === "user" ? ["", knowing(a), knowing(b)].filter((x): x is string => x !== undefined) : []),
     ...(previous?.lines.length ? ["", "The last time they texted:", ...previous.lines.map((l) => `${names[l.speakerId] || "?"}: ${l.text}`)] : []),
     "",
-    `What it's about this time: ${TOPIC_ASK(topic, a, b, userName, world?.name, news)}`,
+    `What it's about this time: ${TOPIC_ASK(topic, a, b, userName, world?.name, news, groups)}`,
     "",
     `- 2 to ${maxLines} short texts, each starting with the sender's name and a colon, like "${a.name}: ...". Not strictly alternating: people double-text, trail off, reply late.`,
     tie || a.knowsAbout?.includes(b.id) || b.knowsAbout?.includes(a.id)

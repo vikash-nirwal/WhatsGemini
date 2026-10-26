@@ -17,10 +17,11 @@ export const nextBeatDue = (arc: WorldArc, now: number, gapMs: number = BEAT_GAP
 export const advanceArc = (arc: WorldArc, now: number): WorldArc =>
   arc.step + 1 >= arc.beats.length ? { ...arc, doneAt: now } : { ...arc, step: arc.step + 1, stepAt: now };
 
-export const buildArcPrompt = (world: Pick<World, "name" | "premise" | "tone" | "era">, cast: string[], userName: string, idea?: string) =>
+export const buildArcPrompt = (world: Pick<World, "name" | "premise" | "tone" | "era" | "factions">, cast: string[], userName: string, idea?: string) =>
   [
     `${world.name}: ${world.premise}${world.tone ? ` Tone: ${world.tone}.` : ""}${world.era ? ` Era: ${world.era}.` : ""}`,
     cast.length ? `People here: ${cast.slice(0, 12).join(", ")}.` : "",
+    world.factions?.length ? `Groups here: ${world.factions.map((f) => f.name).join(", ")} - the story can turn on them.` : "",
     idea?.trim() ? `The author's idea for it: ${idea.trim()}` : "Invent one: a mystery, a feud, a romance, a threat, a scheme - something the whole world gets caught up in.",
     `Write a storyline that unfolds across this world over a few weeks, in 4 to 6 beats. Each beat is what happens next, one or two sentences, naming people. ${userName} is part of it: leave room for them to act, never decide what they do.`,
     "Answer only with:",

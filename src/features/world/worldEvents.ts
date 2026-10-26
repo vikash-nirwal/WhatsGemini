@@ -27,10 +27,12 @@ export const eventDue = (world: Pick<World, "events" | "lastEventCheckAt">, now:
   return now - lastAt >= gapMs && rand() < 0.5;
 };
 
-export const buildEventIdeaPrompt = (world: Pick<World, "name" | "premise" | "tone" | "era">, cast: string[], past: WorldEvent[], idea?: string) =>
+export const buildEventIdeaPrompt = (world: Pick<World, "name" | "premise" | "tone" | "era" | "factions">, cast: string[], past: WorldEvent[], idea?: string) =>
   [
     `${world.name}: ${world.premise}${world.tone ? ` Tone: ${world.tone}.` : ""}${world.era ? ` Era: ${world.era}.` : ""}`,
     cast.length ? `People here: ${cast.slice(0, 12).join(", ")}.` : "",
+    // Families and factions can be part of it (#185).
+    world.factions?.length ? `Groups here: ${world.factions.map((f) => `${f.name} (${f.kind}${f.about ? `, ${f.about}` : ""})`).join("; ")}. An event may involve one of them, or set them against each other.` : "",
     past.length ? `Earlier events (something different this time): ${past.slice(-4).map((e) => e.title).join("; ")}.` : "",
     idea?.trim() ? `The author wants this to happen: ${idea.trim()}` : "Invent one event that happens to this whole world now: a festival, a storm, a scandal, an election, a crime, a fair, a blackout - whatever fits the setting. Something everyone would talk about.",
     "Answer with exactly three lines, nothing else:",

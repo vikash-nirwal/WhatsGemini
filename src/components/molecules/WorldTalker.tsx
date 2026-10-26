@@ -8,6 +8,7 @@ import { addWorldTalk, becameFriends, buildWorldTalkPrompt, parseTieChange, pick
 import { channelId } from "src/features/channels/channels";
 import { logToTimeline } from "src/features/world/timeline";
 import { activeEvents } from "src/features/world/worldEvents";
+import { factionsOf } from "src/features/world/factions";
 import { arcActive, arcLine } from "src/features/world/worldArcs";
 import { withTie } from "src/features/character/ties";
 import { toast } from "sonner";
@@ -56,7 +57,9 @@ const WorldTalker = () => {
         const event = featureOn(worldId, "events") ? activeEvents(worlds.find((w) => w.id === worldId), now)[0] : undefined;
         const arc = arcLine(arcActive(worlds.find((w) => w.id === worldId)));
         const news = event ? `${event.title}: ${event.text}` : arc ? arc : worldId ? channels.find((c) => c.id === channelId("world", worldId))?.posts.slice(-1)[0]?.text : undefined;
-        const topic = pickTalkTopic({ hasTie: Boolean(a.ties?.some((t) => t.withId === b.id)), hasNews: Boolean(news), hasPrevious: Boolean(previous?.lines.length) });
+        const talkWorld = worlds.find((w) => w.id === worldId);
+        const groups = Object.fromEntries([a, b].map((c) => [c.id, factionsOf(talkWorld, c.id).map((f) => f.name)]));
+        const topic = pickTalkTopic({ hasTie: Boolean(a.ties?.some((t) => t.withId === b.id)), hasNews: Boolean(news), hasPrevious: Boolean(previous?.lines.length), hasGroups: groups[a.id].length + groups[b.id].length > 0 });
         const knowledge = (c: typeof a): UserKnowledge => {
           const own = chats.filter((ch) => ch.characterIds?.length === 1 && ch.characterIds[0] === c.id);
           const lastAt = Math.max(0, ...own.map((ch) => ch.content?.[ch.content.length - 1]?.timestamp || 0));
@@ -64,7 +67,7 @@ const WorldTalker = () => {
         };
         const askTie = featureOn(worldId, "drift") && tieMayChange(topic);
         const reply = await dispatch(generateAssistText({
-          instruction: buildWorldTalkPrompt(a, b, { world: worlds.find((w) => w.id === worldId), userName: persona?.name?.trim() || "the user", maxLines, previous, topic, news, askTie, knows: { [a.id]: knowledge(a), [b.id]: knowledge(b) } }),
+          instruction: buildWorldTalkPrompt(a, b, { world: worlds.find((w) => w.id === worldId), userName: persona?.name?.trim() || "the user", maxLines, previous, topic, news, askTie, groups, knows: { [a.id]: knowledge(a), [b.id]: knowledge(b) } }),
           background: true,
           activity: { at: now, kind: "talk", text: `${a.name} and ${b.name} texted`, characterId: a.id, name: a.name },
         })).unwrap();
