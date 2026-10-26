@@ -98,6 +98,15 @@ test("the world editor manages its cast: copies stand alone, people are suggeste
 
   // Suggested people, then a connection set by hand.
   await openRoute(page, `/worlds/${worldId}/edit`);
+  // Someone new, from a line.
+  await card.getByLabel("Someone new").fill("A grumpy lighthouse keeper");
+  await card.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(card.getByRole("list", { name: "People in Harbour Town" })).toContainText("Bram Vega");
+  expect(mockAI.requests.some((r) => r.prompt.includes("A grumpy lighthouse keeper") && r.prompt.includes("Harbour Town"))).toBe(true);
+  await card.getByRole("button", { name: "Delete Bram Vega" }).click();
+  await page.getByRole("button", { name: /^(Confirm|OK|Delete)$/ }).click();
+  await expect(card.getByRole("list", { name: "People in Harbour Town" })).not.toContainText("Bram Vega");
+
   await card.getByRole("button", { name: "Suggest people" }).click();
   await card.getByRole("list", { name: "Suggested people" }).getByRole("button", { name: "Add Bram Vega" }).click();
   await expect(card.getByRole("list", { name: "People in Harbour Town" })).toContainText("Bram Vega");

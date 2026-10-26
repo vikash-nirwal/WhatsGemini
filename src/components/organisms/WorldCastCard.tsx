@@ -42,6 +42,7 @@ export const WorldCastCard = ({ world }: { world: World }) => {
   const [suggestions, setSuggestions] = useState<CastSuggestion[]>([]);
   const [proposals, setProposals] = useState<{ a: number; b: number; aToB: string; bToA: string }[]>([]);
   const [form, setForm] = useState<{ a: number; b: number; aToB: string; bToA: string } | null>(null);
+  const [idea, setIdea] = useState("");
 
   // Each pair once: "b is a's aToB".
   const pairs: { a: Character; b: Character; aToB: string; bToA: string }[] = [];
@@ -94,6 +95,14 @@ export const WorldCastCard = ({ world }: { world: World }) => {
     }
     setSuggestions((list) => list.filter((x) => x.name !== sg.name));
   });
+  // Someone new, from a line you write: drafted in full to fit the world.
+  const createFromIdea = () => run("idea", async () => {
+    const line = idea.trim();
+    if (!line) return;
+    const draft = parseCharacterDraft(await dispatch(generateAssistText({ instruction: buildCharacterDraftPrompt({ idea: castIdea(line, world) }) })).unwrap());
+    await dispatch(addCharacter({ ...draft, first_mes: draft.first_mes || undefined, accent: CHARACTER_SWATCHES[Math.floor(Math.random() * CHARACTER_SWATCHES.length)], worldId: world.id } as Omit<Character, "id">)).unwrap();
+    setIdea("");
+  });
   const suggestTies = () => run("ties", async () => {
     const cast = residents.map((c) => ({ key: String(c.id), name: c.name, description: c.description, withYou: c.relationship || "" }));
     const reply = await dispatch(generateAssistText({ instruction: buildConnectionsPrompt(world, cast, persona?.name?.trim() || "the user") })).unwrap();
@@ -116,11 +125,19 @@ export const WorldCastCard = ({ world }: { world: World }) => {
           <Button type="button" variant="outline" size="sm" onClick={() => void suggestPeople()} disabled={busy === "people"}><FaMagic size={10} /> {busy === "people" ? "Thinking..." : "Suggest people"}</Button>
         </div>
       </div>
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="cast-new-idea" className="text-sm font-medium text-foreground">Someone new</label>
+        <div className="flex flex-wrap gap-2">
+          <Input id="cast-new-idea" value={idea} onChange={(e) => setIdea(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void createFromIdea()} placeholder="e.g. A grumpy lighthouse keeper with a soft spot for strays" className="min-w-[200px] flex-1" />
+          <Button type="button" onClick={() => void createFromIdea()} disabled={busy === "idea" || !idea.trim()}><FaMagic size={10} /> {busy === "idea" ? "Creating..." : "Create"}</Button>
+        </div>
+        <p className="text-xs text-subtle">Describe them in a line; the rest is drafted to fit this world. Edit them after with the pencil.</p>
+      </div>
       <JoinWorldDialog open={joinOpen} onOpenChange={setJoinOpen} target={{ id: world.id, name: world.name }} />
       {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
 
       {residents.length === 0 ? (
-        <p className="text-[13.5px] text-muted-foreground">Nobody lives here yet. Bring someone from another world, or let the AI suggest people.</p>
+        <p className="text-[13.5px] text-muted-foreground">Nobody lives here yet. Describe someone new, bring someone from another world, or let the AI suggest people.</p>
       ) : (
         <ul aria-label={`People in ${world.name}`} className="flex flex-col gap-1.5">
           {residents.map((c) => (
