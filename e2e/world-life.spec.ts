@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, openRoute, ARIA, KAI } from "./fixtures";
+import { test, expect, openRoute, chatMessages, ARIA, KAI } from "./fixtures";
 
 // Arrivals and life events (#164): with time, things happen in the lives
 // of a world's people, and now and then someone new turns up for you to
@@ -116,4 +116,36 @@ test("one check moves the storyline, starts an event and moves a life on, all ke
   await openRoute(page, "/worlds");
   await expect(page.getByRole("region", { name: "Storyline" })).toContainText("Chapter 2 of 3");
   await expect(page.getByRole("region", { name: "World events" })).toContainText("Fog Week");
+});
+
+// #178: something happens in someone's life, and they text you about it.
+test("someone texts you their news", async ({ page, mockAI }) => {
+  mockAI.reply((req) =>
+    req.prompt.includes("Something just happened in Aria") ? "Aria got the lighthouse keeper's job."
+      : req.prompt.includes("Something just happened in your life") ? "guess who's the new lighthouse keeper 🙈"
+      : "Mock reply"
+  );
+  await harbourTown(page, { lastNewcomerAt: NOW });
+  // A first text 5 hours ago: too recent for the usual one (6 h), not for news (3 h).
+  await patch(page, "characters", ARIA.id, { textsFirst: true, lifeEvents: [], firstTexts: [NOW - 5 * 3_600_000] });
+  await patch(page, "characters", KAI.id, { lifeEvents: [{ text: "x", at: NOW }] });
+  await page.reload();
+  await page.clock.fastForward(65_000);
+  // Written in the background; wait for it before opening the chat.
+  const lastInChat1 = () => page.evaluate(async () => {
+    const db: IDBDatabase = await new Promise((resolve, reject) => {
+      const req = indexedDB.open("ChatAppDB");
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    const chat: any = await new Promise((resolve) => {
+      const get = db.transaction("chats").objectStore("chats").get(1);
+      get.onsuccess = () => resolve(get.result);
+    });
+    db.close();
+    return chat.content[chat.content.length - 1]?.txt;
+  });
+  await expect.poll(lastInChat1, { timeout: 15_000 }).toBe("guess who's the new lighthouse keeper 🙈");
+  await openRoute(page, "/chat/1");
+  await expect(chatMessages(page).getByText("guess who's the new lighthouse keeper 🙈")).toHaveCount(1);
 });

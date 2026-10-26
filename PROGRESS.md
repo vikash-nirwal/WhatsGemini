@@ -57,7 +57,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #175 | World pulse and notices | done | 2026-10-25 |
 | #176 | World-made group chats talk | done | 2026-10-25 |
 | #177 | Places fill up | done | 2026-10-25 |
-| #178 | Characters text you the news | todo | from the world review (I3) |
+| #178 | Characters text you the news | done | 2026-10-25 |
 | #179 | World history remembered | todo | from the world review (I2) |
 | #180 | Passing time ages the world | todo | from the world review (I1) |
 | #181 | Strangers become friends | todo | from the world review (I4) |
@@ -90,6 +90,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+Characters text you the news: features/world/news.ts (pickNewsTellers: the people it's about, then their ties; texters only, awake, 3 h apart, not left unanswered) and shareNews.ts; sent for world events (own and yours), storyline chapters and life events.
 Places fill up: with places on, WorldEventWatcher's fillPlaces gives everyone without a usual spot one from the map (places.ts hangoutsDue/buildHangoutsPrompt/parseHangouts, World.lastHangoutsAt). Schedules are hand-written in the editor, so there was no generator to teach the map.
 World-made group chats talk: plan, family/faction and place-scene chats are created with offscreenTalk on (GroupPlanDialog, FactionsSection, PlaceDialog).
 World pulse: features/world/pulse.ts (timeline entries plus their own texts over the last day), WorldPulse on top of the chat list (folded, new since last opened, items open the timeline or Peek); notices when a world starts an event or reaches a new storyline chapter (WorldEventWatcher).

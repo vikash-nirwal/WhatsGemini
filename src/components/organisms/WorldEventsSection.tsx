@@ -4,7 +4,9 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "src/components/molecules/dialog";
 import { TextInput, TextArea } from "src/components/molecules/form-controls";
 import { Button } from "src/components/atoms/button";
-import { useAppDispatch } from "src/store/hooks";
+import { useAppDispatch, useAppSelector } from "src/store/hooks";
+import { selectActivePersona } from "src/features/settingsSlice";
+import { shareNews } from "src/features/world/shareNews";
 import { generateAssistText } from "src/features/aiSlice";
 import { activeEvents, buildEventIdeaPrompt, daysLeft, newEventId, parseEvent } from "src/features/world/worldEvents";
 import { endWorldEvent, startWorldEvent } from "src/features/world/startEvent";
@@ -18,6 +20,8 @@ const DAY = 24 * 60 * 60 * 1000;
 export const WorldEventsSection = ({ world }: { world: World }) => {
   const dispatch = useAppDispatch();
   const cast = useWorldCharacters();
+  const chats = useAppSelector((state) => state.chat.chats);
+  const persona = useAppSelector(selectActivePersona);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
@@ -46,6 +50,8 @@ export const WorldEventsSection = ({ world }: { world: World }) => {
     const n = Math.min(14, Math.max(1, Math.round(Number(days)) || 3));
     await dispatch(startWorldEvent(world, { id: newEventId(), title: title.trim(), text: text.trim() || title.trim(), at: Date.now(), endsAt: Date.now() + n * DAY, byYou: true }));
     toast.success(`${title.trim()} is happening in ${world.name}`);
+    // People close to it may text you about it (#178).
+    void dispatch(shareNews({ world, cast, chats, userName: persona?.name?.trim() || "the user", news: `${title.trim()}: ${text.trim() || title.trim()}` }));
     setOpen(false);
     setTitle("");
     setText("");

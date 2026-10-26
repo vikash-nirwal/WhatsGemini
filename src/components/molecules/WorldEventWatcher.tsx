@@ -7,6 +7,8 @@ import { moveArcOn, startWorldEvent } from "src/features/world/startEvent";
 import { advanceArc, arcActive, BEAT_GAP_MS, nextBeatDue } from "src/features/world/worldArcs";
 import { lifeScaled } from "src/features/life/lifeDial";
 import { catchUpTime } from "src/features/life/away";
+import { shareNews } from "src/features/world/shareNews";
+import { World } from "src/types";
 import { buildHangoutsPrompt, hangoutsDue, parseHangouts } from "src/features/world/places";
 import { useLivingCharacters } from "src/hooks/useWorld";
 import { featureOn } from "src/features/world/worldPrefs";
@@ -59,6 +61,7 @@ const WorldEventWatcher = () => {
             // A notice (#175), so a new chapter isn't only in the timeline.
             const next = advanceArc(arc, now);
             toast(`${w.name} · ${arc.title}`, { description: next.doneAt ? "The storyline has ended." : next.beats[next.step] });
+            if (!next.doneAt) await tellTheNews(w, `${arc.title}: ${next.beats[next.step]}`, [], now);
           }
         }
         for (const job of [fillPlaces, startOwnEvent, moveLivesOn, welcomeNewcomer, refreshReputation, introduce, keepSecret]) await job(now);
@@ -85,6 +88,11 @@ const WorldEventWatcher = () => {
         console.warn("Places failed (non-fatal):", err);
       }
     };
+    // The news reaches you (#178): one or two people close to it text you.
+    const tellTheNews = async (world: World, news: string, about: number[], now: number) => {
+      const { characters, chats, persona } = latest.current;
+      await dispatch(shareNews({ world, cast: characters.filter((c) => c.worldId === world.id), chats, userName: persona?.name?.trim() || "the user", news, about, now }));
+    };
     const startOwnEvent = async (now: number) => {
       const { worlds, characters } = latest.current;
       const castOf = (id: number) => characters.filter((c) => c.worldId === id);
@@ -104,6 +112,7 @@ const WorldEventWatcher = () => {
         if (event && fresh) {
           await dispatch(startWorldEvent(fresh, event));
           toast(`${world.name}: ${event.title}`, { description: event.text });
+          await tellTheNews(world, `${event.title}: ${event.text}`, [], now);
         }
       } catch (err) {
         console.warn("World event failed (non-fatal):", err);
@@ -125,6 +134,7 @@ const WorldEventWatcher = () => {
         if (!text || !fresh) return;
         await dispatch(updateCharacter(addLifeEvent(fresh, text, now)));
         void logToTimeline(world.id, { kind: "event", text, characterIds: [who.id], at: now }, world.storyTime);
+        await tellTheNews(world, text, [who.id], now);
       } catch (err) {
         console.warn("World life failed (non-fatal):", err);
       }
