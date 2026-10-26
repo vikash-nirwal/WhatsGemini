@@ -22,8 +22,17 @@ const KEEP = 400;
 const keyOf = (worldId: number | null) => `world_timeline_${worldId ?? "mine"}`;
 const listeners = new Set<() => void>();
 
-export const loadTimeline = async (worldId: number | null): Promise<TimelineEntry[]> =>
-  ((await dbService.getSetting(keyOf(worldId))) as TimelineEntry[] | undefined) || [];
+// The last list read or written per world, so prompts built on the spot
+// (which can't wait for the database) can recall the history (#179).
+const cache = new Map<string, TimelineEntry[]>();
+
+export const loadTimeline = async (worldId: number | null): Promise<TimelineEntry[]> => {
+  const list = ((await dbService.getSetting(keyOf(worldId))) as TimelineEntry[] | undefined) || [];
+  cache.set(keyOf(worldId), list);
+  return list;
+};
+
+export const cachedTimeline = (worldId: number | null): TimelineEntry[] => cache.get(keyOf(worldId)) || [];
 
 export const appendEntry = (list: TimelineEntry[], entry: TimelineEntry) => [...list, entry].slice(-KEEP);
 
@@ -43,7 +52,9 @@ export const logToTimeline = async (
       ...(storyTime ? { storyDate: formatStoryDate(storyTime, at) } : {}),
       ...(entry.characterIds?.length ? { characterIds: entry.characterIds } : {}),
     };
-    await dbService.setSetting(keyOf(worldId), appendEntry(await loadTimeline(worldId), full));
+    const next = appendEntry(await loadTimeline(worldId), full);
+    await dbService.setSetting(keyOf(worldId), next);
+    cache.set(keyOf(worldId), next);
     listeners.forEach((l) => l());
   } catch (err) {
     console.warn("Timeline entry not saved (non-fatal):", err);
@@ -75,6 +86,20 @@ export const groupTimeline = (entries: TimelineEntry[], now = Date.now()) => {
     else groups.push({ label: l, entries: [e] });
   }
   return groups;
+};
+
+// What's happened here (#179): the notable past, for prompts - events,
+// chapters, arrivals and departures, lives, time passing, what you made
+// true. Their own texts to each other are left out (too many, and they
+// carry the latest one anyway). Older than a day, so it reads as history.
+const NOTABLE: TimelineKind[] = ["begin", "arrival", "departure", "god", "time", "event", "arc", "you"];
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export const buildHistoryNote = (entries: TimelineEntry[], now: number, max = 8): string | undefined => {
+  const past = entries.filter((e) => NOTABLE.includes(e.kind) && now - e.at >= DAY_MS).slice(-max);
+  if (!past.length) return undefined;
+  const when = (e: TimelineEntry) => e.storyDate || `${Math.round((now - e.at) / DAY_MS)} days ago`;
+  return `What's happened in this world before (history you lived through; bring it up when it fits, never as if it's happening now):\n${past.map((e) => `- ${when(e)}: ${e.text}`).join("\n")}`;
 };
 
 export const KIND_LABEL: Record<TimelineKind, string> = {

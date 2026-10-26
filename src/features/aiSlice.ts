@@ -1,6 +1,7 @@
 import { extractInvite } from "./chat/invites";
 import { buildWorldBrief, withWorldBrief } from "./world/worldBrief";
 import { featureOn } from "./world/worldPrefs";
+import { cachedTimeline } from "./world/timeline";
 import { extractSticker } from "./character/stickers";
 import { extractBlockTags } from "./chat/blocking";
 import { ActivityEntry, logActivity } from "./life/activityLog";
@@ -649,7 +650,7 @@ export const generateAssistText = createAsyncThunk(
         const helper = await resolveHelperCall(settings);
         const about = state.character.characters.find((c) => c.id === activity?.characterId);
         const briefWorld = state.world.worlds.find((w) => w.id === (worldId ?? about?.worldId));
-        const brief = buildWorldBrief(briefWorld, activity?.at ?? Date.now(), { events: briefWorld ? featureOn(briefWorld.id, "events") : false });
+        const brief = buildWorldBrief(briefWorld, activity?.at ?? Date.now(), { events: briefWorld ? featureOn(briefWorld.id, "events") : false, history: briefWorld ? cachedTimeline(briefWorld.id) : undefined });
         const result = await helper.adapter.generateOnce(withWorldBrief(instruction, brief), helper.model, helper.config);
         if (activity) {
           const cost = isFreeProvider(helper.providerId) ? undefined : estimateCallCost({ kind: "text", providerId: helper.providerId, model: helper.model, usage: result.usage });

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { buildHistoryNote, loadTimeline, onTimeline } from "../features/world/timeline";
 import { livingIn, loadWorldPrefs, saveWorldPrefs, WorldPrefs } from "src/features/world/worldPrefs";
 import { useAppSelector } from "src/store/hooks";
 import { inWorld, worldName, worldOf } from "src/features/world/currentWorld";
@@ -90,4 +91,22 @@ export const useElsewhereName = () => {
     const id = worldOf(item, worlds);
     return id === currentWorldId ? undefined : worldName(id, worlds);
   };
+};
+
+// What's happened in a world before (#179), for a chat's prompt: read once
+// and kept fresh as the timeline grows.
+export const useWorldHistoryNote = (worldId: number | null | undefined): string | undefined => {
+  const [note, setNote] = useState<string | undefined>();
+  useEffect(() => {
+    if (worldId === undefined) return;
+    let live = true;
+    const load = () => void loadTimeline(worldId).then((list) => live && setNote(buildHistoryNote(list, Date.now())));
+    load();
+    const off = onTimeline(load);
+    return () => {
+      live = false;
+      off();
+    };
+  }, [worldId]);
+  return note;
 };

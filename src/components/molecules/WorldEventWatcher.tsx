@@ -15,7 +15,7 @@ import { featureOn } from "src/features/world/worldPrefs";
 import { updateCharacter } from "src/features/characterSlice";
 import { addLifeEvent, buildLifeEventPrompt, cleanLifeEvent, LIFE_GAP_MS, lifeEventDue, NEWCOMER_GAP_MS, newcomerDue, pickLifeSubject } from "src/features/world/worldLife";
 import { buildCastSuggestionsPrompt, castLiteOf, parseCastSuggestions } from "src/features/world/worldAssist";
-import { logToTimeline } from "src/features/world/timeline";
+import { loadTimeline, logToTimeline } from "src/features/world/timeline";
 import { toast } from "sonner";
 import { selectActivePersona } from "src/features/settingsSlice";
 import { buildIntroductionPrompt, introducedFact, INTRO_GAP_MS, introductionDue, pickIntroduction } from "src/features/world/introductions";
@@ -46,6 +46,12 @@ const WorldEventWatcher = () => {
   const latest = useRef({ worlds, characters, persona, chats });
   latest.current = { worlds, characters, persona, chats };
   const busy = useRef(false);
+
+  // Background prompts recall the history from the timeline cache (#179).
+  const worldIds = worlds.map((w) => w.id).join(",");
+  useEffect(() => {
+    for (const id of worldIds ? worldIds.split(",").map(Number) : []) void loadTimeline(id);
+  }, [worldIds]);
 
   useEffect(() => {
     const check = async (at?: number) => {

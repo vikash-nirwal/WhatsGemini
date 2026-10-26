@@ -57,6 +57,7 @@ import { buildSecretsNote } from "../features/world/secrets";
 import { buildFactionNote } from "../features/world/factions";
 import { featureOn } from "../features/world/worldPrefs";
 import PlanBar from "../components/organisms/PlanBar";
+import { useWorldHistoryNote } from "../hooks/useWorld";
 import { worldOf } from "../features/world/currentWorld";
 import { patchWorld, switchWorld } from "../features/worldSlice";
 import { buildMyStatusNote } from "../features/status/myStatuses";
@@ -238,6 +239,7 @@ const ChatPage = () => {
   // takes you to that world (#146), so the list beside it matches.
   const currentWorldId = useAppSelector((state) => state.world.currentWorldId);
   const chatWorldId = currentChat ? worldOf(currentChat, worlds) : undefined;
+  const worldHistoryNote = useWorldHistoryNote(chatWorldId);
   useEffect(() => {
     if (chatWorldId !== undefined && chatWorldId !== (worlds.some((w) => w.id === currentWorldId) ? currentWorldId : null)) dispatch(switchWorld(chatWorldId));
   }, [chatWorldId, currentWorldId, worlds, dispatch]);
@@ -415,6 +417,7 @@ const ChatPage = () => {
   scene.eventNote = featureOn(chatWorldId, "events") ? buildEventsNote(activeEvents(worlds.find((w) => w.id === chatWorldId), Date.now())) : undefined;
   scene.keptNote = !isRoom && characterData && featureOn(chatWorldId, "secrets") ? buildSecretsNote(characterData, characters, userNameForNotes) : undefined;
   scene.factionNote = !isRoom ? buildFactionNote(characterData, worlds.find((w) => w.id === chatWorldId), characters) : undefined;
+  scene.historyNote = worldHistoryNote;
   scene.arcNote = buildArcNote(arcActive(worlds.find((w) => w.id === chatWorldId)), userNameForNotes);
   scene.reputationNote = featureOn(chatWorldId, "reputation")
     ? buildReputationNote(worlds.find((w) => w.id === chatWorldId), userNameForNotes, (currentChat?.content || []).length < 6 && !(characterData?.memory || []).length && !characterData?.relationship)
