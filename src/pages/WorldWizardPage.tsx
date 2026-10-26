@@ -19,6 +19,7 @@ import { Character } from "../types";
 import { cn } from "../utils/cn";
 import { CHARACTER_SWATCHES, RELATIONSHIP_PRESETS, TIE_PRESETS, WORLD_ERA_PRESETS, WORLD_TONE_PRESETS } from "../utils/constants";
 import { Button } from "src/components/atoms/button";
+import { Switch } from "src/components/atoms/switch";
 import { Card } from "src/components/atoms/card";
 import Header from "src/components/organisms/Header";
 import { WizardSteps } from "src/components/molecules/WizardSteps";
@@ -30,7 +31,8 @@ const NEW_PERSONA = "__new_persona";
 
 // Someone in the new world's cast: a person from another world (joining as a
 // copy) or one drafted for this world.
-type Member = CastMember & ({ kind: "existing"; character: Character } | { kind: "new"; draft: CharacterDraft });
+// `memories`: someone from another world comes with what they remember, or fresh.
+type Member = CastMember & ({ kind: "existing"; character: Character; memories?: boolean } | { kind: "new"; draft: CharacterDraft });
 
 // A live preview of the connections (#157), as on the canvas: you in the
 // middle, the cast around you, their ties as labelled lines.
@@ -255,7 +257,7 @@ const WorldWizardPage = () => {
       const made: Character[] = [];
       for (const m of cast) {
         const base = m.kind === "existing"
-          ? worldCopy(m.character, saved.id)
+          ? worldCopy(m.character, saved.id, { memories: m.memories })
           : { ...m.draft, first_mes: m.draft.first_mes || undefined, accent: CHARACTER_SWATCHES[Math.floor(Math.random() * CHARACTER_SWATCHES.length)], worldId: saved.id };
         const c = await dispatch(addCharacter({ ...base, relationship: m.withYou.trim() || base.relationship } as Omit<Character, "id">)).unwrap();
         idOf[m.key] = c.id;
@@ -343,6 +345,12 @@ const WorldWizardPage = () => {
                         <div className="truncate text-[14.5px] font-semibold text-foreground">{m.name}</div>
                         <div className="truncate text-[12.5px] text-muted-foreground">{m.kind === "new" ? "New" : `From ${worldName(worldOf(m.character, worlds), worlds)}`}{m.description ? ` · ${m.description}` : ""}</div>
                       </div>
+                      {m.kind === "existing" && (
+                        <label className="flex items-center gap-2 text-[12.5px] text-muted-foreground" title="With their memories, or a fresh start here">
+                          <Switch aria-label={`${m.name} brings their memories`} checked={Boolean(m.memories)} onCheckedChange={(on) => setCast((list) => list.map((x) => (x.key === m.key && x.kind === "existing" ? { ...x, memories: on } : x)))} />
+                          {m.memories ? "With memories" : "Fresh start"}
+                        </label>
+                      )}
                       <Button type="button" variant="ghost" size="icon" aria-label={`Remove ${m.name}`} onClick={() => { setCast((list) => list.filter((x) => x.key !== m.key)); setTies((list) => list.filter((t) => t.a !== m.key && t.b !== m.key)); }}><FaTimes size={12} /></Button>
                     </li>
                   ))}
@@ -361,7 +369,7 @@ const WorldWizardPage = () => {
                       );
                     })}
                   </div>
-                  <p className="mt-2 text-xs text-subtle">They join as themselves, with no memories from other worlds.</p>
+                  <p className="mt-2 text-xs text-subtle">Each joins as their own copy. Choose per person whether they bring their memories or start fresh.</p>
                 </div>
               )}
               {step === 1 && <datalist id="tie-choices">{TIE_PRESETS.map((t) => <option key={t} value={t} />)}</datalist>}

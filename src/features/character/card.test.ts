@@ -14,6 +14,14 @@ describe("character card (#143, #158)", () => {
     expect(worldCopy(aria, null)).not.toHaveProperty("worldId");
   });
 
+  it("a copy can bring its memories, and never its life in the old world", () => {
+    const copy = worldCopy(aria, 7, { memories: true });
+    expect(copy).toMatchObject({ memory: ["You like tea"], memoryStanding: { text: "Warm.", at: 1 }, diary: [], relationship: "Close friend", relationshipHistory: aria.relationshipHistory, worldId: 7 });
+    expect(copy).not.toHaveProperty("statuses");
+    expect(copy).not.toHaveProperty("gifts");
+    expect(copy).not.toHaveProperty("dayMood");
+  });
+
   it("reset clears what built up and keeps the card, the world and the link", () => {
     const reset = resetCharacter({ ...aria, worldId: 7, cardOf: 3 });
     expect(reset).toEqual({ id: 1, name: "Aria", description: "Mechanic", prompt: "You are Aria.", appearance: "red hair", textsFirst: true, relationship: "New Friend", worldId: 7, cardOf: 3 });

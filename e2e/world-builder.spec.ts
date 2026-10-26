@@ -144,3 +144,60 @@ test("in the wizard, someone new can be tied to someone in the cast", async ({ p
   await page.getByRole("button", { name: "Next" }).click();
   await expect(page.getByLabel("What Bram Vega is to Aria")).toHaveValue("older brother");
 });
+
+const patchAria = (page: import("@playwright/test").Page, fields: Record<string, unknown>) =>
+  page.evaluate(async ({ id, fields }) => {
+    const db: IDBDatabase = await new Promise((resolve) => { const req = indexedDB.open("ChatAppDB"); req.onsuccess = () => resolve(req.result); });
+    await new Promise<void>((resolve) => {
+      const tx = db.transaction("characters", "readwrite");
+      const store = tx.objectStore("characters");
+      const get = store.get(id);
+      get.onsuccess = () => store.put({ ...get.result, ...fields });
+      tx.oncomplete = () => resolve();
+    });
+    db.close();
+  }, { id: ARIA.id, fields });
+
+const copyOfAria = async (page: import("@playwright/test").Page) =>
+  page.evaluate(async () => {
+    const db: IDBDatabase = await new Promise((resolve) => { const req = indexedDB.open("ChatAppDB"); req.onsuccess = () => resolve(req.result); });
+    const all: any[] = await new Promise((resolve) => { const get = db.transaction("characters").objectStore("characters").getAll(); get.onsuccess = () => resolve(get.result); });
+    db.close();
+    const copy = all.find((c) => c.name === "Aria" && c.worldId);
+    return copy ? { memory: copy.memory, statuses: copy.statuses } : undefined;
+  });
+
+test("someone pulled into another world comes with their memories, or fresh", async ({ page, mockAI }) => {
+  mockAI.reply("Mock reply");
+  await openRoute(page, "/");
+  await patchAria(page, { memory: ["You hate mornings"], statuses: [{ id: "s", text: "garage day", createdAt: Date.now() }] });
+  await page.reload();
+  await openRoute(page, "/worlds/new");
+  await page.locator("#world-name").fill("Harbour Town");
+  await page.locator("#world-premise").fill("A rainy port.");
+  await page.getByRole("button", { name: "Create World" }).click();
+  await page.getByRole("button", { name: "Switch to Harbour Town" }).click();
+  await openRoute(page, "/characters");
+  await page.getByRole("button", { name: "From another world" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add someone to Harbour Town" });
+  await dialog.getByRole("radio", { name: /Their memories/ }).click();
+  await expect(dialog).toContainText("1 facts");
+  await dialog.getByRole("button", { name: "Add Aria" }).click();
+  await expect.poll(() => copyOfAria(page)).toEqual({ memory: ["You hate mornings"], statuses: undefined });
+});
+
+test("in the wizard, each person pulled in can bring their memories", async ({ page, mockAI }) => {
+  mockAI.reply("Mock reply");
+  await openRoute(page, "/");
+  await patchAria(page, { memory: ["You hate mornings"] });
+  await page.reload();
+  await openRoute(page, "/worlds/wizard");
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Harbour Town");
+  await page.getByRole("textbox", { name: "Premise", exact: true }).fill("A rainy port.");
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("group", { name: "People you already have" }).getByRole("button", { name: "Aria" }).click();
+  await page.getByRole("switch", { name: "Aria brings their memories" }).click();
+  for (let i = 0; i < 2; i++) await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("button", { name: "Create world" }).click();
+  await expect.poll(async () => (await copyOfAria(page))?.memory).toEqual(["You hate mornings"]);
+});
