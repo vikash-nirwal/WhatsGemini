@@ -572,6 +572,7 @@ export interface SceneContext {
   knowsNote?: string; // what this character knows of the user's other relationships (#74)
   tiesNote?: string; // who they're tied to in their world (#144)
   worldTalkNote?: string; // their latest texts with someone in their world (#145)
+  groupsNote?: string; // what's been said lately in groups they share with the user
   onThisDayNote?: string; // a month, 100 days or a year since your first chat or a chapter (#83)
   giftsNote?: string; // gifts given both ways (#82)
   plansNote?: string; // plans made together (#84)
@@ -643,6 +644,7 @@ export const buildTurnContext = (
     ...(scene?.knowsNote ? [scene.knowsNote] : []),
     ...(scene?.tiesNote ? [scene.tiesNote] : []),
     ...(scene?.worldTalkNote ? [scene.worldTalkNote] : []),
+    ...(scene?.groupsNote ? [scene.groupsNote] : []),
     ...(scene?.choiceMoments ? [CHOICE_MOMENT_DIRECTIVE] : []),
     ...(scene?.letterNote ? [scene.letterNote] : []),
     ...(scene?.onThisDayNote ? [scene.onThisDayNote] : []),

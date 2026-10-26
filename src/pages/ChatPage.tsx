@@ -41,7 +41,7 @@ import { parseSize, autoCoverCropToBlob, savePortraitBlob, removeChromaKeyBackgr
 import ChatWindow from "src/components/organisms/ChatWindow";
 import { useBackgroundUpdates } from "./chat/useBackgroundUpdates";
 import { useReplyEffects } from "./chat/useReplyEffects";
-import { knowsNoteFor, ownChatNoteFor, recentLetterNote, roomContextFor } from "./chat/promptNotes";
+import { groupChatsNoteFor, knowsNoteFor, ownChatNoteFor, recentLetterNote, roomContextFor } from "./chat/promptNotes";
 import { tiesNoteFor } from "../features/world/worldWizard";
 import { worldTalkNoteFor } from "../features/world/worldTalk";
 import { buildTimePassedNote, buildTimePassedOpener, describeGap, gapDays, TimePassed, timePassedInScope, timePassedNotice, TimeUnit } from "../features/chat/passTime";
@@ -262,7 +262,7 @@ const ChatPage = () => {
     const userName = activePersona?.name?.trim() || "the user";
     const world = worlds.find((w) => w.id === speaker.worldId);
     return [
-      tiesNoteFor(speaker, characters),
+      tiesNoteFor({ ...speaker, ties: (speaker.ties || []).filter((t) => !roomCharacters.some((c) => c.id === t.withId)) }, characters),
       worldTalkNoteFor(speaker, characters, now),
       buildDayLogSection(speaker.name, dayLogText(speaker, now)),
       buildConcernsSection(speaker.name, speaker.concerns, now),
@@ -380,6 +380,7 @@ const ChatPage = () => {
   scene.knowsNote = mainStory ? knowsNoteFor(characterData, characters, chats, userNameForNotes) : undefined;
   scene.tiesNote = mainStory ? tiesNoteFor(characterData, characters) : undefined;
   scene.worldTalkNote = mainStory ? worldTalkNoteFor(characterData, characters) : undefined;
+  scene.groupsNote = mainStory ? groupChatsNoteFor(characterData, chats, characters, userNameForNotes, chatIdNum) : undefined;
   scene.giftsNote = mainStory && characterData ? buildGiftsSection(characterData.gifts, characterData.name, userNameForNotes) : undefined;
   scene.secretsNote = mainStory && characterData ? buildSecretsSection(characterData.name, userNameForNotes, secretsInPlay(characterData, currentChat)) : undefined;
   scene.plansNote = mainStory ? buildPlansSection(currentChat?.plans, userNameForNotes, noteTime) : undefined;

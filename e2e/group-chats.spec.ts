@@ -219,3 +219,18 @@ test("each member brings their ties and your private chat into the group", async
   expect(aria).toContain("Your own private chat with");
   expect(aria).toContain("Aria message");
 });
+
+// The other way (review, 2026-10-26): what was said in a group reaches the
+// members' private chats, so they don't forget it there.
+test("a member remembers the group in your private chat", async ({ page, mockAI }) => {
+  replyByRequest(mockAI, "Aria");
+  await openChat(page, 2);
+  await sendMessage(page, "bonfire on saturday?");
+  await waitForReplyDone(page);
+  await openChat(page, 1);
+  await sendMessage(page, "about saturday");
+  await waitForReplyDone(page);
+  const system = systemOf(mockAI.requests.filter((r) => r.stream).pop()!.messages);
+  expect(system).toContain('In the group "Aria & Kai":');
+  expect(system).toContain("bonfire on saturday?");
+});

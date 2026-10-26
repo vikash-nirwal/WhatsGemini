@@ -50,7 +50,7 @@ const ChannelPoster = () => {
           const world = worlds.find((w) => w.id === due.refId)!;
           instruction = buildWorldChannelPrompt(world, (world.map?.pins || []).map((p) => p.name), recent, [featureOn(world.id, "events") ? eventsLine(activeEvents(world, now)) : undefined, arcLine(arcActive(world))].filter(Boolean).join("; ") || undefined);
         }
-        const text = cleanChannelPost(await dispatch(generateAssistText({ instruction, background: true, activity: { at: now, kind: "channel", text: `${channelName} posted to its channel`, characterId: due.kind === "character" ? due.refId : undefined, name: channelName } })).unwrap());
+        const text = cleanChannelPost(await dispatch(generateAssistText({ instruction, background: true, worldId: due.kind === "world" ? due.refId : undefined, activity: { at: now, kind: "channel", text: `${channelName} posted to its channel`, characterId: due.kind === "character" ? due.refId : undefined, name: channelName } })).unwrap());
         // Recorded even when nothing usable came back, so it isn't retried every check.
         await dispatch(changeChannels((list) => list.map((c) => (c.id === due.id ? { ...c, lastPostAt: now, posts: text ? addChannelPost(c.posts, { id: newChannelPostId(), text, at: now }) : c.posts } : c))));
       } catch (err) {

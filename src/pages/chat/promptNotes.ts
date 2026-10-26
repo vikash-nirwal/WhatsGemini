@@ -32,9 +32,15 @@ export const knowsNoteFor = (character: Character | undefined, characters: Chara
         relationship: other.relationship,
         lastAt: content[content.length - 1]?.timestamp,
         recentCount: content.filter((m) => (m.timestamp || 0) > now - 7 * 86_400_000).length,
-        facts: factsAboutUser(other.memory, other.memoryCategories),
+        // Only what they know about the user themself: what the user and the
+        // other character are to each other stays between them.
+        facts: factsAboutUser(other.memory, other.memoryCategories).filter((f) => other.memoryCategories?.[f] !== "relationship"),
       };
-    });
+    })
+    // In a big world everyone may know everyone: the few the user talks to
+    // most recently are what matters, and the rest would only cost tokens.
+    .sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0))
+    .slice(0, 4);
   return buildKnowsSection(character.name, userName, others, now);
 };
 
@@ -62,6 +68,30 @@ export const ownChatNoteFor = (speaker: Character, chats: Chat[], userName: stri
     .slice(-limit)
     .map((m) => `${m.role === YOU ? userName : speaker.name}: ${(m.txt || "").replace(/\s+/g, " ").slice(0, 200)}`);
   return lines.length ? `Your own private chat with ${userName} lately (the others here didn't see it; keep private things private unless you choose to share):\n${lines.join("\n")}` : undefined;
+};
+
+// In a private chat, what's been going on lately in groups this character
+// shares with the user: a group's facts stayed in that group (Chat.memory),
+// so without this they'd forget the bonfire chat by the next 1:1.
+const GROUP_FRESH_MS = 3 * 86_400_000;
+export const groupChatsNoteFor = (character: Character | undefined, chats: Chat[], characters: Character[], userName: string, currentChatId: number | null, now = Date.now()): string | undefined => {
+  if (!character) return undefined;
+  const groups = chats
+    .filter((c) => c.id !== currentChatId && (c.characterIds?.length || 0) > 1 && c.characterIds!.includes(character.id) && !c.archived)
+    .map((c) => ({ c, at: c.content?.[c.content.length - 1]?.timestamp || 0 }))
+    .filter(({ at }) => at && now - at < GROUP_FRESH_MS)
+    .sort((a, b) => b.at - a.at)
+    .slice(0, 2);
+  if (!groups.length) return undefined;
+  const nameOf = (id?: number) => characters.find((x) => x.id === id)?.name || "someone";
+  const parts = groups.map(({ c }) => {
+    const standing = c.memoryStanding?.text?.trim();
+    const facts = [...(c.pinnedMemory || []), ...(c.memory || [])].slice(-4);
+    const lines = (c.content || []).filter((m) => !m.isSystem && !m.isRoomEvent && m.txt?.trim()).slice(-4)
+      .map((m) => `${m.role === YOU ? userName : nameOf(m.speakerId)}: ${(m.txt || "").replace(/\s+/g, " ").slice(0, 160)}`);
+    return [`In the group "${c.title}":`, standing ? standing.slice(0, 400) : facts.length ? `- ${facts.join("\n- ")}` : "", `Last said:\n${lines.join("\n")}`].filter(Boolean).join("\n");
+  });
+  return `Group chats you're in with ${userName}, lately (you were there; it can come up):\n${parts.join("\n\n")}`;
 };
 
 // A room turn's context. `speaker` is whoever is about to reply; every

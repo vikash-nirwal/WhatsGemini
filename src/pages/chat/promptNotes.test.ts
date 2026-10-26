@@ -62,3 +62,28 @@ describe("group chats carry each speaker's own context", () => {
     expect(ownChatNoteFor(kai, chats, "Sam")).toBeUndefined();
   });
 });
+
+describe("information between private chats and groups (review, 2026-10-26)", () => {
+  const { groupChatsNoteFor, knowsNoteFor } = require("./promptNotes");
+  const now = 10 * 86_400_000;
+  const aria = { id: 1, name: "Aria", knowsAbout: [2] };
+  const kai = { id: 2, name: "Kai", memory: ["Sam hates mornings", "Sam and Kai kissed"], memoryCategories: { "Sam hates mornings": "user", "Sam and Kai kissed": "relationship" } };
+  test("what happened in a shared group lately reaches the private chat", () => {
+    const chats = [
+      { id: 1, title: "Aria", characterIds: [1], content: [] },
+      { id: 2, title: "Bonfire", characterIds: [1, 2], memory: ["They planned a bonfire"], content: [{ role: "you", txt: "who brings wood?", timestamp: now - 1000 }, { role: "ai", speakerId: 2, txt: "me", timestamp: now - 500 }] },
+      { id: 3, title: "Old", characterIds: [1, 2], content: [{ role: "you", txt: "ancient", timestamp: 1 }] },
+    ];
+    const note = groupChatsNoteFor(aria, chats, [aria, kai], "Sam", 1, now);
+    expect(note).toContain('In the group "Bonfire":');
+    expect(note).toContain("- They planned a bonfire");
+    expect(note).toContain("Sam: who brings wood?\nKai: me");
+    expect(note).not.toContain("ancient");
+    expect(groupChatsNoteFor(aria, chats, [aria, kai], "Sam", 2, now)).toBeUndefined();
+  });
+  test("what the user and someone else are to each other stays private", () => {
+    const note = knowsNoteFor(aria, [aria, kai], [], "Sam", now);
+    expect(note).toContain("Sam hates mornings");
+    expect(note).not.toContain("kissed");
+  });
+});

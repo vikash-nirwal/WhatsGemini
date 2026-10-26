@@ -63,6 +63,7 @@ const WorldEventWatcher = () => {
           instruction: buildEventIdeaPrompt(world, castOf(world.id).map((c) => c.name), world.events || []),
           background: true,
           activity: { at: now, kind: "event", text: `Something happened in ${world.name}`, name: world.name },
+          worldId: world.id,
         })).unwrap();
         const event = parseEvent(reply, now);
         const fresh = latest.current.worlds.find((w) => w.id === world.id);
@@ -98,7 +99,7 @@ const WorldEventWatcher = () => {
           void logToTimeline(world.id, { kind: "event", text, characterIds: [who.id], at: now }, world.storyTime);
         } else {
           await dispatch(updateWorld({ ...world, lastNewcomerAt: now }));
-          const reply = await dispatch(generateAssistText({ instruction: buildCastSuggestionsPrompt(world, cast.map(castLiteOf), [], 1), background: true, activity: { at: now, kind: "event", text: `Someone new came to ${world.name}`, name: world.name } })).unwrap();
+          const reply = await dispatch(generateAssistText({ instruction: buildCastSuggestionsPrompt(world, cast.map(castLiteOf), [], 1), background: true, activity: { at: now, kind: "event", text: `Someone new came to ${world.name}`, name: world.name }, worldId: world.id })).unwrap();
           const sg = parseCastSuggestions(reply, cast.map((c) => ({ name: c.name, description: c.description })))[0];
           const fresh = latest.current.worlds.find((w) => w.id === world.id);
           if (!sg || !fresh) return;
@@ -127,7 +128,7 @@ const WorldEventWatcher = () => {
         const said = cast.flatMap((c) => (c.talks || []).flatMap((t) => t.lines.map((l) => ({ ...l, who: characters.find((x) => x.id === l.speakerId)?.name }))))
           .filter((l) => l.who && l.text.toLowerCase().includes(userName.toLowerCase()))
           .map((l) => `${l.who}: ${l.text}`);
-        const text = cleanReputation(await dispatch(generateAssistText({ instruction: buildReputationPrompt(world, userName, cast, said), background: true, activity: { at: now, kind: "event", text: `Word about you got around ${world.name}`, name: world.name } })).unwrap());
+        const text = cleanReputation(await dispatch(generateAssistText({ instruction: buildReputationPrompt(world, userName, cast, said), background: true, activity: { at: now, kind: "event", text: `Word about you got around ${world.name}`, name: world.name }, worldId: world.id })).unwrap());
         const fresh = latest.current.worlds.find((w) => w.id === world.id);
         // Stamped even when nothing came back, so it waits a whole gap.
         if (fresh) await dispatch(updateWorld({ ...fresh, reputation: { text: text || fresh.reputation?.text || "", at: now } }));

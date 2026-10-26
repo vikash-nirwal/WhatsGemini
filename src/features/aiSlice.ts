@@ -1,4 +1,6 @@
 import { extractInvite } from "./chat/invites";
+import { buildWorldBrief, withWorldBrief } from "./world/worldBrief";
+import { featureOn } from "./world/worldPrefs";
 import { extractSticker } from "./character/stickers";
 import { extractBlockTags } from "./chat/blocking";
 import { ActivityEntry, logActivity } from "./life/activityLog";
@@ -637,13 +639,18 @@ export const generateAssistText = createAsyncThunk(
   // for helpers like reply suggestions that run after every reply.
   // `activity` (#131): a background job's call, noted in the activity log
   // with its estimated cost.
-  async ({ instruction, background = false, activity }: { instruction: string; background?: boolean; activity?: Omit<ActivityEntry, "id" | "at" | "cost"> & { at?: number } }, { getState, rejectWithValue }) => {
+  // `worldId`: the world a background call is about, when no character is
+  // named in `activity`; either way its brief goes first (worldBrief.ts).
+  async ({ instruction, background = false, activity, worldId }: { instruction: string; background?: boolean; activity?: Omit<ActivityEntry, "id" | "at" | "cost"> & { at?: number }; worldId?: number }, { getState, rejectWithValue }) => {
     try {
       const state = getState() as RootState;
       const settings = state.settings;
       if (background) {
         const helper = await resolveHelperCall(settings);
-        const result = await helper.adapter.generateOnce(instruction, helper.model, helper.config);
+        const about = state.character.characters.find((c) => c.id === activity?.characterId);
+        const briefWorld = state.world.worlds.find((w) => w.id === (worldId ?? about?.worldId));
+        const brief = buildWorldBrief(briefWorld, activity?.at ?? Date.now(), { events: briefWorld ? featureOn(briefWorld.id, "events") : false });
+        const result = await helper.adapter.generateOnce(withWorldBrief(instruction, brief), helper.model, helper.config);
         if (activity) {
           const cost = isFreeProvider(helper.providerId) ? undefined : estimateCallCost({ kind: "text", providerId: helper.providerId, model: helper.model, usage: result.usage });
           // Which world it happened in (#146), for the log's rows and filter.
