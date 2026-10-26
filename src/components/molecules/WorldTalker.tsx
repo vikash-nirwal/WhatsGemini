@@ -17,7 +17,7 @@ import { featureOn, talkLengthFor } from "src/features/world/worldPrefs";
 import { worldOf } from "src/features/world/currentWorld";
 import { awakeAt } from "src/features/character/firstTexts";
 import { lifeScaled } from "src/features/life/lifeDial";
-import { catchUpTime } from "src/features/life/away";
+import { registerTick } from "src/features/life/ticks";
 import { useLivingCharacters } from "src/hooks/useWorld";
 
 const CHECK_EVERY_MS = 45 * 60 * 1000;
@@ -109,9 +109,12 @@ const WorldTalker = () => {
       }
     };
     // The catch-up turn is claimed when the timer fires, not at mount.
-    const first = window.setTimeout(() => check(catchUpTime("world-talk")), FIRST_CHECK_MS);
+    // Catch-up for time away now runs through the life ticks (#193).
+    const first = window.setTimeout(() => check(), FIRST_CHECK_MS);
     const timer = window.setInterval(check, CHECK_EVERY_MS);
+    const offTick = registerTick("world-talk", (at) => check(at));
     return () => {
+      offTick();
       window.clearTimeout(first);
       window.clearInterval(timer);
     };

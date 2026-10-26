@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { registerTick } from "src/features/life/ticks";
 import { AppDispatch } from "src/store/store";
 import { useAppDispatch } from "src/store/hooks";
 import { generateAssistText } from "src/features/aiSlice";
@@ -59,7 +60,10 @@ const ConcernsWriter = () => {
     };
     const first = window.setTimeout(check, FIRST_CHECK_MS);
     const timer = window.setInterval(check, CHECK_EVERY_MS);
+    // Also run on demand: catch-up and Simulate a day (#191, #193).
+    const offTick = registerTick("concerns", () => check());
     return () => {
+      offTick();
       window.clearTimeout(first);
       window.clearInterval(timer);
     };

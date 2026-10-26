@@ -1,4 +1,4 @@
-import { catchUpTime } from "src/features/life/away";
+import { registerTick } from "src/features/life/ticks";
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -118,9 +118,12 @@ const FirstTexter = () => {
     };
     // The catch-up turn is claimed when the timer fires, not at mount (a
     // remount would otherwise lose it).
-    const first = window.setTimeout(() => check(catchUpTime("first-text")), FIRST_CHECK_MS);
+    // Catch-up for time away now runs through the life ticks (#193).
+    const first = window.setTimeout(() => check(), FIRST_CHECK_MS);
     const timer = window.setInterval(check, CHECK_EVERY_MS);
+    const offTick = registerTick("first-text", (at) => check(at));
     return () => {
+      offTick();
       window.clearTimeout(first);
       window.clearInterval(timer);
     };

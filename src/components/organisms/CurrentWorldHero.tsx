@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaEye, FaHistory, FaHourglassHalf, FaMapMarkerAlt, FaPen } from "react-icons/fa";
+import { FaEye, FaForward, FaHistory, FaHourglassHalf, FaMapMarkerAlt, FaPen } from "react-icons/fa";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { avatarOf } from "src/features/character/profileChanges";
 import { formatStoryDate } from "src/features/world/storyTime";
@@ -10,6 +10,7 @@ import { NewcomerCard } from "./NewcomerCard";
 import { PlaceDialog } from "./PlaceDialog";
 import { GroupPlanDialog } from "./GroupPlanDialog";
 import { WorldTimeDialog } from "./WorldTimeDialog";
+import { SimulateDayDialog } from "./SimulateDayDialog";
 import { WorldArcSection } from "./WorldArcSection";
 import { FactionsSection } from "./FactionsSection";
 import { whereYouAre, whoIsWhere } from "src/features/world/places";
@@ -33,6 +34,7 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
   const [openPin, setOpenPin] = useState<MapPin | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
   const [timeOpen, setTimeOpen] = useState(false);
+  const [simOpen, setSimOpen] = useState(false);
   const dispatch = useAppDispatch();
   const youAt = whereYouAre(current, Date.now());
 
@@ -42,6 +44,7 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
         {current?.coverImage && <img src={current.coverImage} alt="" className="absolute inset-0 h-full w-full object-cover opacity-60" />}
         <div className="absolute right-4 top-4 flex flex-wrap justify-end gap-2">
           {current && <button type="button" onClick={() => navigate(`/worlds/${current.id}/edit`)} className="flex h-9 items-center gap-1.5 rounded-lg bg-black/35 px-3 text-[13px] font-semibold"><FaPen size={11} /> Edit world</button>}
+          <button type="button" onClick={() => setSimOpen(true)} className="flex h-9 items-center gap-1.5 rounded-lg bg-black/35 px-3 text-[13px] font-semibold"><FaForward size={11} /> Simulate a day</button>
           <button type="button" onClick={() => setTimeOpen(true)} className="flex h-9 items-center gap-1.5 rounded-lg bg-black/35 px-3 text-[13px] font-semibold"><FaHourglassHalf size={11} /> Pass the time</button>
           <button type="button" onClick={() => navigate(`/worlds/${current?.id ?? "mine"}/timeline`)} className="flex h-9 items-center gap-1.5 rounded-lg bg-black/35 px-3 text-[13px] font-semibold"><FaHistory size={12} /> Timeline</button>
           {prefs.peek && <button type="button" onClick={() => navigate("/peek")} className="flex h-9 items-center gap-1.5 rounded-lg bg-black/35 px-3 text-[13px] font-semibold"><FaEye size={12} /> Peek at their threads</button>}
@@ -127,6 +130,7 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
         </div>
       </div>
       <WorldTimeDialog open={timeOpen} onOpenChange={setTimeOpen} />
+      <SimulateDayDialog open={simOpen} onOpenChange={setSimOpen} />
       <GroupPlanDialog open={planOpen} onOpenChange={setPlanOpen} cast={cast} world={current} />
       <PlaceDialog worldId={current?.id} pin={openPin} cast={cast} present={openPin ? here[openPin.id] || [] : []} onOpenChange={(o) => !o && setOpenPin(null)} />
     </section>

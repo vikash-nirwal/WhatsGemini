@@ -32,6 +32,7 @@ import WeatherRefresher from "src/components/molecules/WeatherRefresher";
 import OffscreenTalker from "src/components/molecules/OffscreenTalker";
 import WorldTalker from "src/components/molecules/WorldTalker";
 import WorldEventWatcher from "src/components/molecules/WorldEventWatcher";
+import LifeTicker from "src/components/molecules/LifeTicker";
 import LetterWriter from "src/components/molecules/LetterWriter";
 import FirstTexter from "src/components/molecules/FirstTexter";
 import MyStatusWatcher from "src/components/molecules/MyStatusWatcher";
@@ -239,6 +240,7 @@ const AppContent = () => {
         <OffscreenTalker />
         <WorldTalker />
         <WorldEventWatcher />
+        <LifeTicker />
         <LetterWriter />
         <FirstTexter />
         <MyStatusWatcher />

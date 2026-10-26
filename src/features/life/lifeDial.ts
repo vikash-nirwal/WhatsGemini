@@ -26,8 +26,20 @@ export const saveLifeDial = (level: LifeLevel): void => {
   }
 };
 
+// While a day is being simulated (#191), waits are a fraction of themselves,
+// so what would come due over the day comes due now.
+let boost = 1;
+export const withLifeBoost = async <T,>(factor: number, run: () => Promise<T>): Promise<T> => {
+  boost = factor;
+  try {
+    return await run();
+  } finally {
+    boost = 1;
+  }
+};
+
 // A background job's waiting time at the current setting.
-export const lifeScaled = (ms: number, level: LifeLevel = loadLifeDial()): number => ms * FACTOR[level];
+export const lifeScaled = (ms: number, level: LifeLevel = loadLifeDial()): number => (ms * FACTOR[level]) / boost;
 
 // Roughly how many background calls a day the setting makes, for its hint.
 export const LIFE_HINT: Record<LifeLevel, string> = {

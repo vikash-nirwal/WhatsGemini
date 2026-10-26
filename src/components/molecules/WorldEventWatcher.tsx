@@ -6,7 +6,7 @@ import { buildEventIdeaPrompt, EVENT_GAP_MS, eventDue, parseEvent } from "src/fe
 import { moveArcOn, startWorldEvent } from "src/features/world/startEvent";
 import { advanceArc, arcActive, BEAT_GAP_MS, nextBeatDue } from "src/features/world/worldArcs";
 import { lifeScaled } from "src/features/life/lifeDial";
-import { catchUpTime } from "src/features/life/away";
+import { registerTick } from "src/features/life/ticks";
 import { shareNews } from "src/features/world/shareNews";
 import { World } from "src/types";
 import { buildHangoutsPrompt, hangoutsDue, parseHangouts, runInDue, whereIs, whereYouAre } from "src/features/world/places";
@@ -310,9 +310,12 @@ const WorldEventWatcher = () => {
         }
       }
     };
-    const first = window.setTimeout(() => void check(catchUpTime("world-life")), FIRST_CHECK_MS);
+    // Catch-up for time away runs through the life ticks (#193).
+    const first = window.setTimeout(() => void check(), FIRST_CHECK_MS);
     const timer = window.setInterval(() => void check(), CHECK_EVERY_MS);
+    const offTick = registerTick("world-life", (at) => check(at));
     return () => {
+      offTick();
       window.clearTimeout(first);
       window.clearInterval(timer);
     };

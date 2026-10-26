@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { registerTick } from "src/features/life/ticks";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { generateAssistText } from "src/features/aiSlice";
 import { updateCharacter } from "src/features/characterSlice";
@@ -54,7 +55,10 @@ const RumorMill = () => {
     };
     const first = window.setTimeout(check, FIRST_CHECK_MS);
     const timer = window.setInterval(check, CHECK_EVERY_MS);
+    // Also run on demand: catch-up and Simulate a day (#191, #193).
+    const offTick = registerTick("rumors", () => check());
     return () => {
+      offTick();
       window.clearTimeout(first);
       window.clearInterval(timer);
     };

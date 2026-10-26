@@ -71,9 +71,9 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #188 | Group chat flow | done | 2026-10-25 |
 | #189 | Undo a world-wide time skip | done | 2026-10-25 |
 | #190 | Timeline search and people filter | done | 2026-10-25 |
-| #191 | Simulate a day | todo | the user's batch, 2026-10-26 |
+| #191 | Simulate a day | done | 2026-10-25 |
 | #192 | World spending limit and quiet hours | todo | the user's batch, 2026-10-26 |
-| #193 | Richer catch-up | todo | the user's batch, 2026-10-26 |
+| #193 | Richer catch-up | done | 2026-10-25 |
 | #194 | Notifications for world happenings | todo | the user's batch, 2026-10-26 |
 | #195 | Plans in your calendar | todo | the user's batch, 2026-10-26 |
 | #196 | Live map | todo | the user's batch, 2026-10-26 |
@@ -106,6 +106,8 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+Richer catch-up: LifeTicker runs every registered job at moments spread across the absence (catchUpMoments: one per ~4 h, at most six), 5 s after opening, before the jobs' own first checks; the per-job catchUpTime turns are gone.
+Simulate a day: background jobs register their checks (features/life/ticks.ts registerTick/runTicks); SimulateDayDialog on CurrentWorldHero runs every job six rounds with waits cut to a day's worth (lifeDial withLifeBoost), with an upper bound on calls and a progress bar.
 Timeline search and people filter: TimelinePage has a search box and an "Only about" person picker (people who appear in the entries).
 Undo a world-wide time skip: passWorldTime saves a snapshot first (timeSkipUndo.ts: whole chats, people's lives/ties/first texts, calendar and storyline); undoWorldTime restores it and drops the skip's timeline entries (replaceTimeline), only within a day and while nothing's been said since (canUndo). Undo in the toast and in the Pass the time dialog.
 Group chat flow: "Lively" is the default turn mode (features/ai/utils/roomFlow.ts pickLively): the member you address answers (addressedIn: "Kai, ...", "..., Kai?", "hey Kai"), otherwise whoever fits (not the last speaker, chatty traits more, quiet less), and about a third of the time a second member reacts to the first (buildReactDirective, ties make it likelier). Taking turns is still in the Group panel.
