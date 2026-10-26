@@ -9,6 +9,7 @@ import { WorldEventsSection } from "./WorldEventsSection";
 import { NewcomerCard } from "./NewcomerCard";
 import { PlaceDialog } from "./PlaceDialog";
 import { GroupPlanDialog } from "./GroupPlanDialog";
+import { WorldArcSection } from "./WorldArcSection";
 import { whoIsWhere } from "src/features/world/places";
 import { MapPin } from "src/types";
 import { useCurrentWorld, useWorldCharacters, useWorldPrefs } from "src/hooks/useWorld";
@@ -75,6 +76,7 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
         <div className="flex flex-col gap-3">
           {current && prefs.arrivals && <NewcomerCard world={current} />}
           {current && prefs.events && <WorldEventsSection world={current} />}
+          {current && <WorldArcSection world={current} />}
           {current && prefs.reputation && (
             <section aria-label="Your reputation" className="flex flex-col gap-1.5">
               <h3 className="text-[17px] font-bold text-foreground">What people say about you</h3>

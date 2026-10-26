@@ -9,6 +9,7 @@ import { concernsLine } from "src/features/character/preoccupations";
 import { useLivingCharacters } from "src/hooks/useWorld";
 import { activeEvents, eventsLine } from "src/features/world/worldEvents";
 import { featureOn } from "src/features/world/worldPrefs";
+import { arcActive, arcLine } from "src/features/world/worldArcs";
 
 const CHECK_EVERY_MS = 30 * 60 * 1000;
 const FIRST_CHECK_MS = 20 * 1000;
@@ -47,7 +48,7 @@ const ChannelPoster = () => {
           instruction = buildCharacterChannelPrompt(character, recent, { dayLog: dayLogText(character, now), concerns: concernsLine(character.concerns), now });
         } else {
           const world = worlds.find((w) => w.id === due.refId)!;
-          instruction = buildWorldChannelPrompt(world, (world.map?.pins || []).map((p) => p.name), recent, featureOn(world.id, "events") ? eventsLine(activeEvents(world, now)) : undefined);
+          instruction = buildWorldChannelPrompt(world, (world.map?.pins || []).map((p) => p.name), recent, [featureOn(world.id, "events") ? eventsLine(activeEvents(world, now)) : undefined, arcLine(arcActive(world))].filter(Boolean).join("; ") || undefined);
         }
         const text = cleanChannelPost(await dispatch(generateAssistText({ instruction, background: true, activity: { at: now, kind: "channel", text: `${channelName} posted to its channel`, characterId: due.kind === "character" ? due.refId : undefined, name: channelName } })).unwrap());
         // Recorded even when nothing usable came back, so it isn't retried every check.

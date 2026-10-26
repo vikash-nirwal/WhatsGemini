@@ -3,7 +3,8 @@ import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { generateAssistText } from "src/features/aiSlice";
 import { updateWorld } from "src/features/worldSlice";
 import { buildEventIdeaPrompt, EVENT_GAP_MS, eventDue, parseEvent } from "src/features/world/worldEvents";
-import { startWorldEvent } from "src/features/world/startEvent";
+import { moveArcOn, startWorldEvent } from "src/features/world/startEvent";
+import { arcActive, BEAT_GAP_MS, nextBeatDue } from "src/features/world/worldArcs";
 import { lifeScaled } from "src/features/life/lifeDial";
 import { useLivingCharacters } from "src/hooks/useWorld";
 import { featureOn } from "src/features/world/worldPrefs";
@@ -42,6 +43,11 @@ const WorldEventWatcher = () => {
       if (busy.current) return;
       const now = Date.now();
       const { worlds, characters } = latest.current;
+      // Storylines (#169) move to their next beat on their own; no AI call.
+      for (const w of worlds) {
+        const arc = arcActive(w);
+        if (arc && nextBeatDue(arc, now, lifeScaled(BEAT_GAP_MS))) await dispatch(moveArcOn(w, now));
+      }
       const castOf = (id: number) => characters.filter((c) => c.worldId === id);
       const world = worlds.find((w) => castOf(w.id).length >= 2 && featureOn(w.id, "events") && eventDue(w, now, lifeScaled(EVENT_GAP_MS)));
       if (!world) {

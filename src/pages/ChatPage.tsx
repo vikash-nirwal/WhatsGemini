@@ -52,6 +52,7 @@ import { activeEvents, buildEventsNote } from "../features/world/worldEvents";
 import { buildLifeNote } from "../features/world/worldLife";
 import { buildWhereNote, whereIs } from "../features/world/places";
 import { buildReputationNote } from "../features/world/reputation";
+import { arcActive, buildArcNote } from "../features/world/worldArcs";
 import { featureOn } from "../features/world/worldPrefs";
 import PlanBar from "../components/organisms/PlanBar";
 import { worldOf } from "../features/world/currentWorld";
@@ -389,6 +390,7 @@ const ChatPage = () => {
   // Living-world features (#162-#166) only where they're switched on.
   scene.lifeNote = mainStory && characterData && featureOn(chatWorldId, "arrivals") ? buildLifeNote(characterData, Date.now()) : undefined;
   scene.eventNote = featureOn(chatWorldId, "events") ? buildEventsNote(activeEvents(worlds.find((w) => w.id === chatWorldId), Date.now())) : undefined;
+  scene.arcNote = buildArcNote(arcActive(worlds.find((w) => w.id === chatWorldId)), userNameForNotes);
   scene.reputationNote = featureOn(chatWorldId, "reputation")
     ? buildReputationNote(worlds.find((w) => w.id === chatWorldId), userNameForNotes, (currentChat?.content || []).length < 6 && !(characterData?.memory || []).length && !characterData?.relationship)
     : undefined;

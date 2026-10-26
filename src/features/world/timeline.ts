@@ -7,7 +7,7 @@ import { formatStoryDate } from "./storyTime";
 // events, and now and then the people talking about you. Kept per world in
 // the database (My world included), newest last, capped.
 
-export type TimelineKind = "begin" | "arrival" | "departure" | "tie" | "god" | "time" | "event" | "talk" | "you";
+export type TimelineKind = "begin" | "arrival" | "departure" | "tie" | "god" | "time" | "event" | "talk" | "you" | "arc";
 
 export interface TimelineEntry {
   id: string;
@@ -78,5 +78,5 @@ export const groupTimeline = (entries: TimelineEntry[], now = Date.now()) => {
 };
 
 export const KIND_LABEL: Record<TimelineKind, string> = {
-  begin: "Began", arrival: "Arrived", departure: "Left", tie: "Relationship", god: "Made true", time: "Time", event: "Event", talk: "Talk", you: "You",
+  begin: "Began", arrival: "Arrived", departure: "Left", tie: "Relationship", god: "Made true", time: "Time", event: "Event", talk: "Talk", you: "You", arc: "Storyline",
 };

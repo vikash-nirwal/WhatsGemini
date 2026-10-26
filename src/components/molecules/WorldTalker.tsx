@@ -8,6 +8,7 @@ import { addWorldTalk, buildWorldTalkPrompt, parseTieChange, pickTalkTopic, tieM
 import { channelId } from "src/features/channels/channels";
 import { logToTimeline } from "src/features/world/timeline";
 import { activeEvents } from "src/features/world/worldEvents";
+import { arcActive, arcLine } from "src/features/world/worldArcs";
 import { withTie } from "src/features/character/ties";
 import { toast } from "sonner";
 import { factsAboutUser } from "src/features/character/intimacy";
@@ -53,7 +54,8 @@ const WorldTalker = () => {
         // of them actually knows about them.
         // A world event going on (#162) is the news before the channel's last post.
         const event = featureOn(worldId, "events") ? activeEvents(worlds.find((w) => w.id === worldId), now)[0] : undefined;
-        const news = event ? `${event.title}: ${event.text}` : worldId ? channels.find((c) => c.id === channelId("world", worldId))?.posts.slice(-1)[0]?.text : undefined;
+        const arc = arcLine(arcActive(worlds.find((w) => w.id === worldId)));
+        const news = event ? `${event.title}: ${event.text}` : arc ? arc : worldId ? channels.find((c) => c.id === channelId("world", worldId))?.posts.slice(-1)[0]?.text : undefined;
         const topic = pickTalkTopic({ hasTie: Boolean(a.ties?.some((t) => t.withId === b.id)), hasNews: Boolean(news), hasPrevious: Boolean(previous?.lines.length) });
         const knowledge = (c: typeof a): UserKnowledge => {
           const own = chats.filter((ch) => ch.characterIds?.length === 1 && ch.characterIds[0] === c.id);

@@ -934,8 +934,20 @@ export interface World {
   lastLifeAt?: number; // when someone here last had a life event (#164)
   reputation?: { text: string; at: number }; // how people here see you (#166)
   lastIntroAt?: number; // when someone here last introduced you to someone (#167)
+  arc?: WorldArc; // a storyline across the world (#169)
   lastNewcomerAt?: number; // when the world last suggested a newcomer (#164)
   newcomer?: { name: string; idea: string; tieWith?: string; tie?: string; at: number }; // someone who just arrived, waiting for you to welcome them
+}
+
+// A storyline across a world (#169): a few beats that unfold over story
+// time through chats, statuses, news and talk, with you in it.
+export interface WorldArc {
+  title: string;
+  beats: string[];
+  step: number; // the beat under way
+  startedAt: number;
+  stepAt: number; // when the current beat began
+  doneAt?: number;
 }
 
 // A plan several characters join (#168), with its own group chat. When it

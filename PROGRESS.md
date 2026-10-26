@@ -47,7 +47,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #166 | Your reputation | done | 2026-10-25 |
 | #167 | Introductions | done | 2026-10-25 |
 | #168 | Group plans | done | 2026-10-25 |
-| #169 | World arcs | todo | |
+| #169 | World arcs | done | 2026-10-25 |
 | #170 | Secrets between characters | todo | |
 | #171 | Factions and families | todo | |
 | #172 | World export and import | todo | |
@@ -75,6 +75,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+World arcs: features/world/worldArcs.ts (World.arc, parseArc, advanceArc, buildArcNote), startEvent.ts startWorldArc/moveArcOn/endWorldArc (timeline kind arc, news post); WorldArcSection on CurrentWorldHero (write from an idea, next chapter, end); beats move on every couple of story days in WorldEventWatcher; in chat prompts (scene.arcNote), statuses, news and talk. Started by you, so no switch.
 Group plans: features/world/groupPlans.ts (Chat.groupPlan, planScenario, outcome prompt, planMemory); GroupPlanDialog from CurrentWorldHero's Make a plan (group chat with a scenario); PlanBar in ChatPage with It happened (outcome written once, a memory for each member, chat notice, timeline). User-driven, so no switch.
 Introductions (switch, off by default): features/world/introductions.ts (pickIntroduction, buildIntroductionPrompt); WorldEventWatcher has someone you talk to pass your number to a person tied to them, who texts first (new chat, memory fact, notice in the introducer's chat, timeline, toast).
 Your reputation: features/world/reputation.ts (World.reputation, rewritten every few days by WorldEventWatcher from what people know and say about you), scene.reputationNote (strangers go by it), shown on CurrentWorldHero. Switches: #162-#166 are per-world prefs (worldPrefs featureOn: events, drift, arrivals, places, reputation), off by default, in WorldLifeControls; drift is the only one for My world.
