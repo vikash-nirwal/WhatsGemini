@@ -39,7 +39,6 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 
 The user's picks from the improvement ideas, plus everything that works without a server. Built in this order.
 
-- **#196 Live map.** Avatars on the world map at the places where people are, you included; tap a place for its scene dialog.
 - **#197 Share a world by link.** A world file can be opened from a pasted link, and shared as a QR code.
 - **#198 Automatic backups.** A daily backup to Google Drive while the app is open, when Drive backup is set up; a reminder to back up otherwise.
 - **#199 Background chores on the in-browser model.** A switch to run background life (statuses, Peek talk, life events, rumors) on the free in-browser model, keeping the paid key for chats.

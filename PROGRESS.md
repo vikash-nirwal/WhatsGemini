@@ -76,7 +76,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #193 | Richer catch-up | done | 2026-10-25 |
 | #194 | Notifications for world happenings | done | 2026-10-25 |
 | #195 | Plans in your calendar | done | 2026-10-25 |
-| #196 | Live map | todo | the user's batch, 2026-10-26 |
+| #196 | Live map | done | 2026-10-25 |
 | #197 | Share a world by link | todo | the user's batch, 2026-10-26 |
 | #198 | Automatic backups | todo | the user's batch, 2026-10-26 |
 | #199 | Background chores on the in-browser model | todo | the user's batch, 2026-10-26 |
@@ -106,6 +106,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+Live map: LiveMap on CurrentWorldHero (with places on): the whole picture with avatars of who's at each pin and a marker where you are; tapping a place opens its PlaceDialog.
 Plans in your calendar: groupPlans.ts planCalendarFile (an all-day entry with a reminder at 9 the morning before); Add to calendar on a dated plan's PlanBar downloads it.
 Notifications for world happenings: notifications.ts notifyWorld (opens a page, routed by setOpenPathHandler and the service worker's OPEN_PATH) for new events, chapters, newcomers, secrets coming out and plans that happened; a once-a-day digest when a world had three or more happenings and you're not looking (digestDue).
 World spending limit and quiet hours: worldPrefs callCap and quietHours (inQuietHours, backgroundAllowed, countBackgroundCall: per world per day in localStorage); generateAssistText refuses a background-life call (one with an activity) when the world is quiet or at its limit; both set in WorldLifeControls.

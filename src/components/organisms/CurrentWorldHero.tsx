@@ -10,6 +10,7 @@ import { NewcomerCard } from "./NewcomerCard";
 import { PlaceDialog } from "./PlaceDialog";
 import { GroupPlanDialog } from "./GroupPlanDialog";
 import { WorldTimeDialog } from "./WorldTimeDialog";
+import { LiveMap } from "./LiveMap";
 import { SimulateDayDialog } from "./SimulateDayDialog";
 import { WorldArcSection } from "./WorldArcSection";
 import { FactionsSection } from "./FactionsSection";
@@ -96,7 +97,9 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
             </section>
           )}
           <h3 className="text-[17px] font-bold text-foreground">Places</h3>
-          {current?.map?.image ? (
+          {current?.map?.image && prefs.places && pins.length > 0 ? (
+            <LiveMap image={current.map.image} pins={pins} here={here} youAt={youAt} onOpenPin={setOpenPin} />
+          ) : current?.map?.image ? (
             <button type="button" onClick={onOpenMap || (() => navigate(`/worlds/${current.id}/edit`))} aria-label="Open the map" className="h-[150px] overflow-hidden rounded-xl bg-sunken">
               <img src={current.map.image} alt="" className="h-full w-full object-cover" />
             </button>

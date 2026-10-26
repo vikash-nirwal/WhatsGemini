@@ -126,3 +126,22 @@ test("you're somewhere, and someone there runs into you", async ({ page, mockAI 
   await openRoute(page, "/chat/1");
   await expect(page.getByText("wait is that you at the docks??").first()).toBeVisible({ timeout: 15_000 });
 });
+
+// #196: the live map shows who's at each place, and you.
+test("the live map shows who's where, and you", async ({ page }) => {
+  await switchOn(page);
+  await openRoute(page, "/worlds/new");
+  await page.locator("#world-name").fill("Harbour Town");
+  await page.locator("#world-premise").fill("A rainy port where everyone knows everyone.");
+  await page.getByRole("button", { name: "Create World" }).click();
+  await page.getByRole("button", { name: "Switch to Harbour Town" }).click();
+  await patch(page, "worlds", 1, { map: { image: PIXEL, pins: [{ id: "p1", name: "The Docks", x: 10, y: 50 }, { id: "p2", name: "Rosa's Café", x: 60, y: 50 }] }, lastHangoutsAt: Date.now(), youAt: { pinId: "p2", at: Date.now() } });
+  await patch(page, "characters", ARIA.id, { worldId: 1, hangout: "p1" });
+  await patch(page, "characters", KAI.id, { worldId: 1, hangout: "p2" });
+  await page.reload();
+  await openRoute(page, "/worlds");
+  const map = page.getByRole("group", { name: "Live map" });
+  await expect(map.getByRole("button", { name: "The Docks on the map: Aria" })).toBeVisible();
+  await map.getByRole("button", { name: "Rosa's Café on the map: Kai, you're here" }).click();
+  await expect(page.getByRole("dialog", { name: "Rosa's Café" })).toBeVisible();
+});
