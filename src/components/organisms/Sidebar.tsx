@@ -1,4 +1,5 @@
 import { AwayCard } from "src/components/molecules/AwayCard";
+import { WorldPulse } from "src/components/molecules/WorldPulse";
 import { byLastActivity, lastActivity } from "src/features/chat/chatOrder";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { avatarOf } from "../../features/character/profileChanges";
@@ -460,6 +461,7 @@ const Sidebar = () => {
         {/* Chat list */}
         <div className={cn("flex-1 overflow-y-auto pb-2.5", terminal ? "px-2" : "px-2", railCollapsed && "lg:px-1.5")}>
           {!terminal && !search.trim() && !viewingArchived && <AwayCard />}
+          {!terminal && !search.trim() && !viewingArchived && !railCollapsed && <WorldPulse onNavigate={close} />}
           {/* Peek (#145): their own texts, when it's on for this world. */}
           {!search.trim() && !viewingArchived && peekThreads > 0 && (
             <Link to="/peek" onClick={close} className={cn("w-full flex items-center gap-3 px-3 py-2 text-[14px] text-foreground hover:bg-raised rounded-xl", railCollapsed && "lg:hidden")} aria-label={`Peek, ${peekThreads} ${peekThreads === 1 ? "thread" : "threads"}`}>

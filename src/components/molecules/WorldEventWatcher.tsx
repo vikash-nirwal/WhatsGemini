@@ -4,7 +4,7 @@ import { generateAssistText } from "src/features/aiSlice";
 import { patchWorld } from "src/features/worldSlice";
 import { buildEventIdeaPrompt, EVENT_GAP_MS, eventDue, parseEvent } from "src/features/world/worldEvents";
 import { moveArcOn, startWorldEvent } from "src/features/world/startEvent";
-import { arcActive, BEAT_GAP_MS, nextBeatDue } from "src/features/world/worldArcs";
+import { advanceArc, arcActive, BEAT_GAP_MS, nextBeatDue } from "src/features/world/worldArcs";
 import { lifeScaled } from "src/features/life/lifeDial";
 import { catchUpTime } from "src/features/life/away";
 import { useLivingCharacters } from "src/hooks/useWorld";
@@ -53,7 +53,12 @@ const WorldEventWatcher = () => {
         // Storylines (#169) move to their next beat on their own; no AI call.
         for (const w of latest.current.worlds) {
           const arc = arcActive(w);
-          if (arc && nextBeatDue(arc, now, lifeScaled(BEAT_GAP_MS))) await dispatch(moveArcOn(w, now));
+          if (arc && nextBeatDue(arc, now, lifeScaled(BEAT_GAP_MS))) {
+            await dispatch(moveArcOn(w, now));
+            // A notice (#175), so a new chapter isn't only in the timeline.
+            const next = advanceArc(arc, now);
+            toast(`${w.name} · ${arc.title}`, { description: next.doneAt ? "The storyline has ended." : next.beats[next.step] });
+          }
         }
         for (const job of [startOwnEvent, moveLivesOn, welcomeNewcomer, refreshReputation, introduce, keepSecret]) await job(now);
       } finally {
@@ -76,7 +81,10 @@ const WorldEventWatcher = () => {
         })).unwrap();
         const event = parseEvent(reply, now);
         const fresh = latest.current.worlds.find((w) => w.id === world.id);
-        if (event && fresh) await dispatch(startWorldEvent(fresh, event));
+        if (event && fresh) {
+          await dispatch(startWorldEvent(fresh, event));
+          toast(`${world.name}: ${event.title}`, { description: event.text });
+        }
       } catch (err) {
         console.warn("World event failed (non-fatal):", err);
       }

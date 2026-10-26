@@ -54,7 +54,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #172 | World export and import | done | 2026-10-25 |
 | #173 | Safe world saves | done | 2026-10-25 |
 | #174 | World watcher cadence and catch-up | done | 2026-10-25 |
-| #175 | World pulse and notices | todo | from the world review (Q1) |
+| #175 | World pulse and notices | done | 2026-10-25 |
 | #176 | World-made group chats talk | todo | from the world review (B4) |
 | #177 | Places fill up | todo | from the world review (B3) |
 | #178 | Characters text you the news | todo | from the world review (I3) |
@@ -90,6 +90,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+World pulse: features/world/pulse.ts (timeline entries plus their own texts over the last day), WorldPulse on top of the chat list (folded, new since last opened, items open the timeline or Peek); notices when a world starts an event or reaches a new storyline chapter (WorldEventWatcher).
 World watcher cadence: WorldEventWatcher checks every 20 min; each check runs every due job (storyline, event, life event, newcomer, reputation, introduction, secret) on its own gap; the first check after time away is stamped inside the absence (catchUpTime "world-life").
 Safe world saves: worldSlice patchWorld(id, changes or fn of latest) reads the world from the database and changes only those fields; used by the watcher, startEvent.ts, passWorldTime, import, factions, newcomers, god truths and the world editor.
 World export and import: features/world/worldFile.ts (exportWorld drops lived fields and local: pictures, readWorldFile, relink), importWorld.ts thunk; Export per world card and Import on the Worlds page.
