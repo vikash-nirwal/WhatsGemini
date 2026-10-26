@@ -14,6 +14,7 @@ import { ScenePanelTabProps } from "./scene-panel/types";
 import ChatTab from "./scene-panel/ChatTab";
 import MemoryTab from "./scene-panel/MemoryTab";
 import RelationshipsSection from "./RelationshipsSection";
+import SecretsYouKnow from "./SecretsYouKnow";
 
 // Contact info (#151), as on the revamp canvas: the character everywhere,
 // not just this chat - who they are at the top, then their life between
@@ -72,6 +73,7 @@ const ContactInfoPanel: React.FC<ScenePanelTabProps> = (props) => {
         <div className="flex flex-col gap-[22px] border-t border-border px-[18px] py-[18px]">
           <ChatTab {...props} groups={["alive", "inner", "texting", "relationship", "look"]} />
           <RelationshipsSection character={character} />
+          <SecretsYouKnow character={character} />
           <MemoryTab {...props} />
           {!blockedByThem(chat) && (
             <button type="button" onClick={() => void toggleBlock()} className="flex min-h-12 items-center gap-3 rounded-card bg-raised px-4 text-left text-[14.5px] font-semibold text-destructive ring-1 ring-inset ring-border">

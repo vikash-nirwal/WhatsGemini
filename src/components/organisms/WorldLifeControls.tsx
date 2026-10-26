@@ -12,6 +12,7 @@ const FEATURES: [WorldFeature, string][] = [
   ["places", "Who's where on the map"],
   ["reputation", "Your reputation"],
   ["introductions", "Introductions to people they know"],
+  ["secrets", "Secrets between them"],
 ];
 
 const LENGTHS = Array.from({ length: MAX_TALK_LENGTH - 1 }, (_, i) => i + 2);

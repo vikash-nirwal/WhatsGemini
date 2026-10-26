@@ -734,6 +734,7 @@ export interface Character {
   concerns?: Preoccupation[]; // open ones and the last few finished
   concernsWrittenAt?: number;
   hangout?: string; // the map pin of their usual spot in their world (#165)
+  keptSecrets?: KeptSecret[]; // what they hide from people in their world (#170)
   lifeEvents?: { text: string; at: number }[]; // things that happened in their life over story time (#164), newest last
   dayMood?: { date: string; mood: string }; // today's mood picked by hand; mood "" = a good day
   spreadsRumors?: boolean; // what you tell them can get around (#98)
@@ -934,9 +935,21 @@ export interface World {
   lastLifeAt?: number; // when someone here last had a life event (#164)
   reputation?: { text: string; at: number }; // how people here see you (#166)
   lastIntroAt?: number; // when someone here last introduced you to someone (#167)
+  lastSecretAt?: number; // when someone here last started keeping a secret (#170)
   arc?: WorldArc; // a storyline across the world (#169)
   lastNewcomerAt?: number; // when the world last suggested a newcomer (#164)
   newcomer?: { name: string; idea: string; tieWith?: string; tie?: string; at: number }; // someone who just arrived, waiting for you to welcome them
+}
+
+// A secret one character keeps from another (#170). You may hear it as
+// gossip, and decide whether to tell the person it's kept from.
+export interface KeptSecret {
+  id: string;
+  fromId: number; // who it's kept from
+  text: string;
+  at: number;
+  heardFrom?: number; // who told you; set once you know it
+  toldAt?: number; // when you told them
 }
 
 // A storyline across a world (#169): a few beats that unfold over story

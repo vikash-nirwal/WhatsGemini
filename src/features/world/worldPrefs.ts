@@ -12,9 +12,10 @@ export interface WorldPrefs {
   places?: boolean; // who's where on the map (#165)
   reputation?: boolean; // how people there see you (#166)
   introductions?: boolean; // people introduce you to people they know (#167)
+  secrets?: boolean; // secrets between characters (#170)
 }
 
-export type WorldFeature = "events" | "drift" | "arrivals" | "places" | "reputation" | "introductions";
+export type WorldFeature = "events" | "drift" | "arrivals" | "places" | "reputation" | "introductions" | "secrets";
 
 export const DEFAULT_TALK_LENGTH = 10;
 export const MAX_TALK_LENGTH = 20;

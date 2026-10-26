@@ -48,7 +48,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #167 | Introductions | done | 2026-10-25 |
 | #168 | Group plans | done | 2026-10-25 |
 | #169 | World arcs | done | 2026-10-25 |
-| #170 | Secrets between characters | todo | |
+| #170 | Secrets between characters | done | 2026-10-25 |
 | #171 | Factions and families | todo | |
 | #172 | World export and import | todo | |
 | #148 | Revamp: design tokens and type | done | 2026-10-25 |
@@ -75,6 +75,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+Secrets between characters (switch, off by default): features/world/secrets.ts (Character.keptSecrets/KeptSecret, pickSecretPair, pickGossip, parseSecret, buildSecretsNote); WorldEventWatcher starts one and a friend of the keeper may text it to you; the keeper's chat prompt knows (scene.keptNote); SecretsYouKnow in ContactInfoPanel lets you tell (memories both sides, notice, timeline).
 World arcs: features/world/worldArcs.ts (World.arc, parseArc, advanceArc, buildArcNote), startEvent.ts startWorldArc/moveArcOn/endWorldArc (timeline kind arc, news post); WorldArcSection on CurrentWorldHero (write from an idea, next chapter, end); beats move on every couple of story days in WorldEventWatcher; in chat prompts (scene.arcNote), statuses, news and talk. Started by you, so no switch.
 Group plans: features/world/groupPlans.ts (Chat.groupPlan, planScenario, outcome prompt, planMemory); GroupPlanDialog from CurrentWorldHero's Make a plan (group chat with a scenario); PlanBar in ChatPage with It happened (outcome written once, a memory for each member, chat notice, timeline). User-driven, so no switch.
 Introductions (switch, off by default): features/world/introductions.ts (pickIntroduction, buildIntroductionPrompt); WorldEventWatcher has someone you talk to pass your number to a person tied to them, who texts first (new chat, memory fact, notice in the introducer's chat, timeline, toast).

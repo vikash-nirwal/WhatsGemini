@@ -18,6 +18,7 @@ import { buildIntroductionPrompt, introducedFact, INTRO_GAP_MS, introductionDue,
 import { addChat, addChatNotice, addMessage, fetchChats } from "src/features/chatSlice";
 import { cleanFirstText } from "src/features/character/firstTexts";
 import { AI } from "src/utils/constants";
+import { addSecret, buildSecretPrompt, parseSecret, pickGossip, pickSecretPair, SECRET_GAP_MS, secretDue } from "src/features/world/secrets";
 import { buildReputationPrompt, cleanReputation, REPUTATION_GAP_MS, reputationDue } from "src/features/world/reputation";
 
 const CHECK_EVERY_MS = 2 * 60 * 60 * 1000;
@@ -143,7 +144,10 @@ const WorldEventWatcher = () => {
       const userName = persona?.name?.trim() || "the user";
       const castOf = (id: number) => characters.filter((c) => c.worldId === id);
       const world = worlds.find((w) => featureOn(w.id, "introductions") && introductionDue(w.lastIntroAt, now, lifeScaled(INTRO_GAP_MS)) && pickIntroduction(castOf(w.id), chats));
-      if (!world) return;
+      if (!world) {
+        await keepSecret(now);
+        return;
+      }
       const pair = pickIntroduction(castOf(world.id), chats)!;
       busy.current = true;
       try {
@@ -167,6 +171,39 @@ const WorldEventWatcher = () => {
         toast.message(`${by.name} introduced you to ${to.name}`, { description: text.length > 90 ? `${text.slice(0, 87)}...` : text, action: { label: "Open", onClick: () => { window.location.hash = `#/chat/${chat.id}`; } } });
       } catch (err) {
         console.warn("Introduction failed (non-fatal):", err);
+      } finally {
+        busy.current = false;
+      }
+    };
+    // Secrets between characters (#170): someone starts hiding something
+    // from a person in their life, and a friend of theirs may let it slip
+    // to you.
+    const keepSecret = async (now: number) => {
+      const { worlds, characters, persona, chats } = latest.current;
+      const userName = persona?.name?.trim() || "the user";
+      const castOf = (id: number) => characters.filter((c) => c.worldId === id);
+      const world = worlds.find((w) => featureOn(w.id, "secrets") && secretDue(w.lastSecretAt, now, lifeScaled(SECRET_GAP_MS)) && pickSecretPair(castOf(w.id)));
+      if (!world) return;
+      const cast = castOf(world.id);
+      const { keeper, from } = pickSecretPair(cast)!;
+      const gossip = pickGossip(cast, chats, keeper, from);
+      busy.current = true;
+      try {
+        await dispatch(updateWorld({ ...world, lastSecretAt: now }));
+        const parsed = parseSecret(await dispatch(generateAssistText({ instruction: buildSecretPrompt(keeper, from, gossip, userName), background: true, activity: { at: now, kind: "other", text: `${keeper.name} started keeping something from ${from.name}`, characterId: keeper.id, name: keeper.name } })).unwrap());
+        const fresh = latest.current.characters.find((c) => c.id === keeper.id);
+        if (!parsed || !fresh) return;
+        const told = gossip && parsed.gossip ? gossip : undefined;
+        await dispatch(updateCharacter(addSecret(fresh, { id: `sec-${now.toString(36)}`, fromId: from.id, text: parsed.secret, at: now, ...(told ? { heardFrom: told.id } : {}) })));
+        if (!told) return;
+        const chat = latest.current.chats.find((ch) => ch.characterIds?.length === 1 && ch.characterIds[0] === told.id && !ch.whatIf);
+        if (!chat?.id) return;
+        await dispatch(addMessage({ chatId: chat.id, role: AI, text: parsed.gossip!, speakerId: told.id, notes: ["texted-first"], at: now }));
+        await dispatch(fetchChats());
+        void logToTimeline(world.id, { kind: "you", text: `${told.name} told you something ${keeper.name} is hiding from ${from.name}`, characterIds: [told.id, keeper.id, from.id], at: now }, world.storyTime);
+        toast.message(`${told.name} texted you`, { description: parsed.gossip!.length > 90 ? `${parsed.gossip!.slice(0, 87)}...` : parsed.gossip, action: { label: "Open", onClick: () => { window.location.hash = `#/chat/${chat.id}`; } } });
+      } catch (err) {
+        console.warn("Secret failed (non-fatal):", err);
       } finally {
         busy.current = false;
       }
