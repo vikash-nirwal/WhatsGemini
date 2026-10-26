@@ -29,6 +29,10 @@ test("a poll you create gets the members' votes, and yours", async ({ page, mock
 });
 
 test("a member can rename the group, and so can you", async ({ page, mockAI }) => {
+  // One answer only: in a lively group someone may react too (#188).
+  await page.addInitScript(() => {
+    Math.random = () => 0.9;
+  });
   mockAI.reply("Fine, it's official now.\n[Group name: Garage Gremlins]");
   await openChat(page, 2);
   await sendMessage(page, "We need a better name.");

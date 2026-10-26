@@ -35,14 +35,11 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 - The canvas's boards for Peek (#145), blocking (#133), event invites (#134), disappearing messages (#136), stickers (#137), the activity log (#131), "where things stand" (#142) and "While you were away" (#130) are built with those items; they get no numbers of their own.
 
 
-## No-server batch (#187–#201, picked 2026-10-26)
-
-The user's picks from the improvement ideas, plus everything that works without a server. Built in this order.
-
-
 ## Smaller follow-ups
 
 Leftovers noted while building the finished items. Pick them up alongside related work.
+
+- **#187–#201 (2026-10-26):** not tried for real: the in-browser model for background life (needs a GPU), the embedding download for recall by meaning, the daily Drive backup with a real Google account, and Android background sync on a real phone. The prompt budget's priorities are a first guess; tune them with the inspector once real models are in use.
 
 - **#173–#186 (2026-10-26):** not tried with real models: the usual-spot, news-text, gap-lives, plan reminder and outcome, and group-talk prompts. Factions don't regroup the map. Plans resolve only for chats in living worlds while the app is open.
 
