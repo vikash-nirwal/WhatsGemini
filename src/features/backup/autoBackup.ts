@@ -7,15 +7,12 @@ import {
 import { getSpendingSnapshot } from "../spending/spending";
 
 // Automatic backups (#198). With no server, nothing can back up while the
-// app is closed, so: a reminder when it's been a week, and - once you've
-// backed up to Google Drive this visit with "daily" on - a backup to Drive
-// every day while the app is open. The passphrase is kept only in memory
-// until the app closes, never stored.
+// app is closed, so once you've backed up to Google Drive this visit with
+// "daily" on, it backs up to Drive every day while the app is open. The
+// passphrase is kept only in memory until the app closes, never stored.
 
 const DAY = 24 * 60 * 60 * 1000;
-export const REMIND_AFTER_MS = 7 * DAY;
 export const LS_DRIVE_AUTO = "drive_auto_backup";
-const LS_REMINDED_AT = "backup_reminded_at";
 
 const read = (key: string) => {
   try {
@@ -36,13 +33,6 @@ export const lastBackupAt = () => Number(read(LS_LAST_BACKUP_AT)) || 0;
 export const markBackupDone = (now: number) => write(LS_LAST_BACKUP_AT, String(now));
 export const driveAutoOn = () => read(LS_DRIVE_AUTO) === "true";
 export const setDriveAuto = (on: boolean) => write(LS_DRIVE_AUTO, String(on));
-
-// A gentle reminder: a week without a backup, at most once a day, and only
-// once there's something worth keeping.
-export const reminderDue = (now: number, lastAt: number, remindedAt: number, chatCount: number) =>
-  chatCount >= 2 && now - lastAt >= REMIND_AFTER_MS && now - remindedAt >= DAY;
-export const remindedAt = () => Number(read(LS_REMINDED_AT)) || 0;
-export const markReminded = (now: number) => write(LS_REMINDED_AT, String(now));
 
 export const driveBackupDue = (now: number, lastAt: number) => now - lastAt >= DAY;
 

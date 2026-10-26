@@ -1,13 +1,9 @@
-import { driveBackupDue, reminderDue, settingsFromStorage } from "./autoBackup";
+import { driveBackupDue, settingsFromStorage } from "./autoBackup";
 import { LS_TEXTING_MODE, LS_USER_PERSONAS } from "../../utils/constants";
 
 const DAY = 86_400_000;
 
-test("a reminder after a week without a backup, once a day, when there's something to keep (#198)", () => {
-  expect(reminderDue(8 * DAY, 0, 0, 3)).toBe(true);
-  expect(reminderDue(8 * DAY, 2 * DAY, 0, 3)).toBe(false);
-  expect(reminderDue(8 * DAY, 0, 7.5 * DAY, 3)).toBe(false);
-  expect(reminderDue(8 * DAY, 0, 0, 1)).toBe(false);
+test("a daily Drive backup comes due a day after the last (#198)", () => {
   expect(driveBackupDue(2 * DAY, DAY / 2)).toBe(true);
   expect(driveBackupDue(DAY, DAY / 2)).toBe(false);
 });
