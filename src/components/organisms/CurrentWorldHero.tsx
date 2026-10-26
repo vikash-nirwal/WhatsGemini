@@ -10,6 +10,7 @@ import { NewcomerCard } from "./NewcomerCard";
 import { PlaceDialog } from "./PlaceDialog";
 import { GroupPlanDialog } from "./GroupPlanDialog";
 import { WorldArcSection } from "./WorldArcSection";
+import { FactionsSection } from "./FactionsSection";
 import { whoIsWhere } from "src/features/world/places";
 import { MapPin } from "src/types";
 import { useCurrentWorld, useWorldCharacters, useWorldPrefs } from "src/hooks/useWorld";
@@ -60,7 +61,7 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
                   <CharacterAvatar name={c.name} accent={c.accent} imageSrc={avatarOf(c)} size={40} />
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate text-[13.5px] font-bold text-foreground">{c.name}</span>
-                    <span className="truncate text-[12px] text-subtle">{c.relationship || "—"}</span>
+                    <span className="truncate text-[12px] text-subtle">{[c.relationship, ...(current?.factions || []).filter((f) => f.memberIds.includes(c.id)).map((f) => f.name)].filter(Boolean).join(" · ") || "—"}</span>
                   </span>
                 </li>
               ))}
@@ -77,6 +78,7 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
           {current && prefs.arrivals && <NewcomerCard world={current} />}
           {current && prefs.events && <WorldEventsSection world={current} />}
           {current && <WorldArcSection world={current} />}
+          {current && cast.length >= 2 && <FactionsSection world={current} />}
           {current && prefs.reputation && (
             <section aria-label="Your reputation" className="flex flex-col gap-1.5">
               <h3 className="text-[17px] font-bold text-foreground">What people say about you</h3>

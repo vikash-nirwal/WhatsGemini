@@ -49,7 +49,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #168 | Group plans | done | 2026-10-25 |
 | #169 | World arcs | done | 2026-10-25 |
 | #170 | Secrets between characters | done | 2026-10-25 |
-| #171 | Factions and families | todo | |
+| #171 | Factions and families | done | 2026-10-25 |
 | #172 | World export and import | todo | |
 | #148 | Revamp: design tokens and type | done | 2026-10-25 |
 | #149 | Revamp: core components | done | 2026-10-25 |
@@ -75,6 +75,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+Families and factions: features/world/factions.ts (World.factions, parseFactions, buildFactionNote, factionScenario); FactionsSection on CurrentWorldHero (suggest from cast and ties, make by hand, group chat each); members' chat prompts carry loyalty (scene.factionNote); the cast list shows each person's groups. The map isn't clustered: places show who's there instead (#165).
 Secrets between characters (switch, off by default): features/world/secrets.ts (Character.keptSecrets/KeptSecret, pickSecretPair, pickGossip, parseSecret, buildSecretsNote); WorldEventWatcher starts one and a friend of the keeper may text it to you; the keeper's chat prompt knows (scene.keptNote); SecretsYouKnow in ContactInfoPanel lets you tell (memories both sides, notice, timeline).
 World arcs: features/world/worldArcs.ts (World.arc, parseArc, advanceArc, buildArcNote), startEvent.ts startWorldArc/moveArcOn/endWorldArc (timeline kind arc, news post); WorldArcSection on CurrentWorldHero (write from an idea, next chapter, end); beats move on every couple of story days in WorldEventWatcher; in chat prompts (scene.arcNote), statuses, news and talk. Started by you, so no switch.
 Group plans: features/world/groupPlans.ts (Chat.groupPlan, planScenario, outcome prompt, planMemory); GroupPlanDialog from CurrentWorldHero's Make a plan (group chat with a scenario); PlanBar in ChatPage with It happened (outcome written once, a memory for each member, chat notice, timeline). User-driven, so no switch.

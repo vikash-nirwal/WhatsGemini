@@ -937,6 +937,7 @@ export interface World {
   lastIntroAt?: number; // when someone here last introduced you to someone (#167)
   lastSecretAt?: number; // when someone here last started keeping a secret (#170)
   arc?: WorldArc; // a storyline across the world (#169)
+  factions?: Faction[]; // families and factions (#171)
   lastNewcomerAt?: number; // when the world last suggested a newcomer (#164)
   newcomer?: { name: string; idea: string; tieWith?: string; tie?: string; at: number }; // someone who just arrived, waiting for you to welcome them
 }
@@ -950,6 +951,17 @@ export interface KeptSecret {
   at: number;
   heardFrom?: number; // who told you; set once you know it
   toldAt?: number; // when you told them
+}
+
+// A family or faction in a world (#171): people who stick together, with
+// a group chat of their own.
+export interface Faction {
+  id: string;
+  name: string;
+  kind: "family" | "faction";
+  memberIds: number[];
+  about?: string; // what they stand for, or what the family is like
+  chatId?: number;
 }
 
 // A storyline across a world (#169): a few beats that unfold over story

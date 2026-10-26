@@ -54,6 +54,7 @@ import { buildWhereNote, whereIs } from "../features/world/places";
 import { buildReputationNote } from "../features/world/reputation";
 import { arcActive, buildArcNote } from "../features/world/worldArcs";
 import { buildSecretsNote } from "../features/world/secrets";
+import { buildFactionNote } from "../features/world/factions";
 import { featureOn } from "../features/world/worldPrefs";
 import PlanBar from "../components/organisms/PlanBar";
 import { worldOf } from "../features/world/currentWorld";
@@ -392,6 +393,7 @@ const ChatPage = () => {
   scene.lifeNote = mainStory && characterData && featureOn(chatWorldId, "arrivals") ? buildLifeNote(characterData, Date.now()) : undefined;
   scene.eventNote = featureOn(chatWorldId, "events") ? buildEventsNote(activeEvents(worlds.find((w) => w.id === chatWorldId), Date.now())) : undefined;
   scene.keptNote = !isRoom && characterData && featureOn(chatWorldId, "secrets") ? buildSecretsNote(characterData, characters, userNameForNotes) : undefined;
+  scene.factionNote = !isRoom ? buildFactionNote(characterData, worlds.find((w) => w.id === chatWorldId), characters) : undefined;
   scene.arcNote = buildArcNote(arcActive(worlds.find((w) => w.id === chatWorldId)), userNameForNotes);
   scene.reputationNote = featureOn(chatWorldId, "reputation")
     ? buildReputationNote(worlds.find((w) => w.id === chatWorldId), userNameForNotes, (currentChat?.content || []).length < 6 && !(characterData?.memory || []).length && !characterData?.relationship)

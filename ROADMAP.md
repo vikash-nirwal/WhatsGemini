@@ -38,7 +38,6 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 
 The user's batch: refine how characters talk to each other (and about you), a god mode, and twelve ideas that build on worlds. Built in this order.
 
-- **#171 Factions and families (M).** Groups of residents with their own group chats and loyalties; the map clusters by them.
 - **#172 World export and import (S).** A whole world (premise, cast, ties, lore) as one file, to share or start fresh.
 
 ## Smaller follow-ups
