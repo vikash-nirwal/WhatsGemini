@@ -48,26 +48,99 @@ export const pickWorldTalk = (
 
 const tieOf = (from: Character, to: Character) => from.ties?.find((t) => t.withId === to.id)?.tie;
 
+// What a talk is about (#159): picked each time so their threads vary, and
+// so the user - whom the roleplay is for - comes up now and then.
+export type TalkTopic = "user" | "lives" | "tie" | "plan" | "news" | "follow-up";
+
+export const pickTalkTopic = (
+  { hasTie, hasNews, hasPrevious }: { hasTie: boolean; hasNews: boolean; hasPrevious: boolean },
+  rand: () => number = Math.random
+): TalkTopic => {
+  const weights: [TalkTopic, number][] = [
+    ["user", 0.3],
+    ["lives", 0.25],
+    ["plan", 0.1],
+    ...(hasTie ? ([["tie", 0.15]] as [TalkTopic, number][]) : []),
+    ...(hasNews ? ([["news", 0.1]] as [TalkTopic, number][]) : []),
+    ...(hasPrevious ? ([["follow-up", 0.15]] as [TalkTopic, number][]) : []),
+  ];
+  const total = weights.reduce((n, [, w]) => n + w, 0);
+  let r = rand() * total;
+  for (const [topic, w] of weights) if ((r -= w) < 0) return topic;
+  return "lives";
+};
+
+// What one of them knows about the user, for talk about the user: who the
+// user is to them, how recently they talked, and a few things they remember.
+export interface UserKnowledge {
+  relationship?: string;
+  lastTalked?: string; // "today", "3 days ago", "not for weeks"
+  facts: string[];
+}
+
+export const recencyOf = (lastAt: number | undefined, now: number) => {
+  if (!lastAt) return "never one to one";
+  const days = Math.floor((now - lastAt) / 86_400_000);
+  return days < 1 ? "today" : days === 1 ? "yesterday" : days < 14 ? `${days} days ago` : "not for weeks";
+};
+
+const TOPIC_ASK = (t: TalkTopic, a: Character, b: Character, userName: string, worldName?: string, news?: string) => {
+  const tie = tieOf(a, b)?.replace(/^your\s+/i, "");
+  switch (t) {
+    case "user":
+      return `This time they get onto ${userName}: how ${userName} is, something ${userName} said or did lately, how each of them feels about ${userName}. Ground it in what each actually knows (below) - they haven't read each other's chats, may see ${userName} differently, and can disagree. Curious, fond, teasing or worried as fits them; never a summary of a chat.`;
+    case "tie":
+      return `Something only ${b.name}'s ${tie || "friend"} would bring up: shared history, an old joke, a sore point between them.`;
+    case "plan":
+      return "Making a plan, asking a favour, or one of them needs something.";
+    case "news":
+      return `What's going on in ${worldName || "town"} lately${news ? `: ${news.slice(0, 200)}` : ""} - and what they make of it.`;
+    case "follow-up":
+      return "They pick up where they left off last time (below): what happened since, an answer to a question, the plan they made.";
+    default:
+      return "Their own lives: work, family, money, health, something that happened today.";
+  }
+};
+
 export const buildWorldTalkPrompt = (
   a: Character,
   b: Character,
-  { world, userName, maxLines, previous }: { world?: World; userName: string; maxLines: number; previous?: WorldTalk }
+  { world, userName, maxLines, previous, topic = "lives", knows, news }: {
+    world?: World;
+    userName: string;
+    maxLines: number;
+    previous?: WorldTalk;
+    topic?: TalkTopic;
+    knows?: Record<number, UserKnowledge>;
+    news?: string;
+  }
 ) => {
   const who = (c: Character, other: Character) =>
     `${c.name}: ${[c.description, c.prompt].filter(Boolean).join(" ").slice(0, 500)}${tieOf(c, other) ? ` (${other.name} is ${c.name}'s ${tieOf(c, other)!.replace(/^your\s+/i, "")})` : ""}${c.dayLog?.text ? `\nTheir day so far: ${c.dayLog.text.slice(0, 300)}` : ""}`;
+  const knowing = (c: Character) => {
+    const k = knows?.[c.id];
+    if (!k) return undefined;
+    return `What ${c.name} knows about ${userName}: ${[k.relationship && `${userName} is their ${k.relationship}`, k.lastTalked && `they last talked ${k.lastTalked}`, k.facts.length && `they remember: ${k.facts.join("; ")}`].filter(Boolean).join("; ")}.`;
+  };
   const names = { [a.id]: a.name, [b.id]: b.name };
+  const tie = tieOf(a, b)?.replace(/^your\s+/i, "");
   return [
     `Write a text conversation between ${a.name} and ${b.name}, who know each other${world ? ` and live in ${world.name}: ${world.premise}` : ""}. ${userName} isn't in it.`,
     "",
     who(a, b),
     who(b, a),
+    ...(topic === "user" ? ["", knowing(a), knowing(b)].filter((x): x is string => x !== undefined) : []),
     ...(previous?.lines.length ? ["", "The last time they texted:", ...previous.lines.map((l) => `${names[l.speakerId] || "?"}: ${l.text}`)] : []),
     "",
-    `- 2 to ${maxLines} short texts, each starting with the sender's name and a colon, like "${a.name}: ...". Not strictly alternating: people double-text.`,
-    `- About their own lives: plans, work, gossip, a favour, a joke. ${userName} may come up, but doesn't have to.`,
-    "- Plain text, in character, no stage directions. Don't settle big story points.",
-  ].join("\n");
+    `What it's about this time: ${TOPIC_ASK(topic, a, b, userName, world?.name, news)}`,
+    "",
+    `- 2 to ${maxLines} short texts, each starting with the sender's name and a colon, like "${a.name}: ...". Not strictly alternating: people double-text, trail off, reply late.`,
+    `- Text the way ${tie ? `a ${tie} and ` : "people "}who know each other this well do: siblings bicker, exes are careful, old friends use shorthand, new acquaintances are polite.`,
+    topic === "user" ? "" : `- ${userName} can come up in passing if it's natural, but it's not the point.`,
+    "- Plain text, in character, no stage directions. Don't settle big story points or decide anything for " + userName + ".",
+  ].filter(Boolean).join("\n");
 };
+
 
 export const addWorldTalk = (holder: Character, talk: WorldTalk): Character => ({
   ...holder,

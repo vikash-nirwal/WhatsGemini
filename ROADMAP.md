@@ -34,6 +34,24 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 **Wave 3: with the features they belong to**
 - The canvas's boards for Peek (#145), blocking (#133), event invites (#134), disappearing messages (#136), stickers (#137), the activity log (#131), "where things stand" (#142) and "While you were away" (#130) are built with those items; they get no numbers of their own.
 
+## Living worlds (#159–#172, picked 2026-10-26)
+
+The user's batch: refine how characters talk to each other (and about you), a god mode, and twelve ideas that build on worlds. Built in this order.
+
+- **#160 God mode (M).** A per-chat switch: what you write in god mode is the truth of the world, and characters accept it without question or comment (it changes facts, relationships, places, the scene). Kept as world facts every member's prompt carries.
+- **#161 World timeline (M).** One history per world: events, relationship changes, arrivals and departures, story dates. A page under the world.
+- **#162 World events (M).** Now and then the world has an event (festival, storm, scandal); it reaches statuses, the news channel, talk and replies. You can start one.
+- **#163 Relationships that drift (M).** Ties change from what characters say to each other: fallings-out, making up, new couples; a notice when it happens.
+- **#164 Arrivals and departures (M).** Over story time people leave, newcomers arrive (suggested from the cast), life events happen.
+- **#165 Places with presence (M).** Characters are at places on the world map; you can see who's where and start a scene there.
+- **#166 Your reputation (S).** How people in a world see you, from what you've said and done and the rumors; it shapes how strangers greet you.
+- **#167 Introductions (S).** Characters introduce you to people you haven't met; the newcomer knows who you are and what they've heard.
+- **#168 Group plans (M).** A plan several characters join, with a group chat for it, and each remembers how it went.
+- **#169 World arcs (L).** An optional storyline across the world, unfolding over story time through statuses, news and talk, with you in it.
+- **#170 Secrets between characters (M).** A hides something from B; you can learn it through Peek or gossip, and choose whether to tell.
+- **#171 Factions and families (M).** Groups of residents with their own group chats and loyalties; the map clusters by them.
+- **#172 World export and import (S).** A whole world (premise, cast, ties, lore) as one file, to share or start fresh.
+
 ## Smaller follow-ups
 
 Leftovers noted while building the finished items. Pick them up alongside related work.

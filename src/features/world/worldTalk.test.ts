@@ -1,4 +1,4 @@
-import { addWorldTalk, buildWorldTalkPrompt, knowEachOther, pickWorldTalk, talksBetween, worldTalkNoteFor, worldThreads, WORLD_TALK_GAP_MS } from "./worldTalk";
+import { addWorldTalk, buildWorldTalkPrompt, pickTalkTopic, recencyOf, knowEachOther, pickWorldTalk, talksBetween, worldTalkNoteFor, worldThreads, WORLD_TALK_GAP_MS } from "./worldTalk";
 import { loadWorldPrefs, saveWorldPrefs, talkLengthFor } from "./worldPrefs";
 import { Character, World } from "../../types";
 
@@ -66,5 +66,35 @@ describe("worlds keep running (#146)", () => {
     expect(livingIn(7, null)).toBe(false);
     expect(livingIn(7, 7)).toBe(true);
     expect(livingIn(8, null)).toBe(true);
+  });
+});
+
+describe("better talk between characters (#159)", () => {
+  it("picks a topic each time, the user about three times in ten", () => {
+    const counts: Record<string, number> = {};
+    for (let i = 0; i < 100; i++) {
+      const t = pickTalkTopic({ hasTie: true, hasNews: true, hasPrevious: true }, () => (i + 0.5) / 100);
+      counts[t] = (counts[t] || 0) + 1;
+    }
+    expect(counts.user).toBe(29);
+    expect(Object.keys(counts).sort()).toEqual(["follow-up", "lives", "news", "plan", "tie", "user"]);
+    // Only topics that make sense for this pair.
+    expect(pickTalkTopic({ hasTie: false, hasNews: false, hasPrevious: false }, () => 0.99)).toBe("plan");
+  });
+
+  it("talk about the user is grounded in what each knows, and other talk leaves the user in passing", () => {
+    const a = { id: 1, name: "Aria", prompt: "x", ties: [{ withId: 2, tie: "your brother" }] } as Character;
+    const b = { id: 2, name: "Kai", prompt: "x" } as Character;
+    const knows = { 1: { relationship: "Close friend", lastTalked: "today", facts: ["Sam hates mornings"] }, 2: { lastTalked: "not for weeks", facts: [] } };
+    const aboutYou = buildWorldTalkPrompt(a, b, { userName: "Sam", maxLines: 8, topic: "user", knows });
+    expect(aboutYou).toContain("This time they get onto Sam");
+    expect(aboutYou).toContain("What Aria knows about Sam: Sam is their Close friend; they last talked today; they remember: Sam hates mornings.");
+    expect(aboutYou).toContain("What Kai knows about Sam: they last talked not for weeks.");
+    expect(aboutYou).toContain("a brother and who know each other this well");
+    const lives = buildWorldTalkPrompt(a, b, { userName: "Sam", maxLines: 8, topic: "lives", knows });
+    expect(lives).not.toContain("What Aria knows about Sam");
+    expect(lives).toContain("Sam can come up in passing");
+    expect(recencyOf(undefined, 0)).toBe("never one to one");
+    expect(recencyOf(1, 3 * 86_400_000 + 1)).toBe("3 days ago");
   });
 });

@@ -10,7 +10,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 - **Your own WhatsApp (#113–#129, 2026-10-24):** all seventeen are built, each committed on its own (see "What's built"), plus a texts-first change the user asked for (editor switch, first contact, unanswered limit). Calls were left out at the user's request. Suite results are in the session log. Pushed (9a12173) and deployed (gh-pages 736778e).
 - **UI revamp (#148–#157):** all three waves built, pushed and deployed (2026-10-25).
 - **Part 2, worlds and Reset (#130–#147, #158):** all built, pushed and deployed on 2026-10-25, each committed on its own (see "What's built").
-- **Next up:** nothing queued. #132 (real-model tuning) waits on the user's testing; Drive backup (#54) waits on their OAuth client ID.
+- **Next up (user, 2026-10-26):** living worlds #159–#172, in order, then push and deploy. Earlier note: #132 (real-model tuning) waits on the user's testing; Drive backup (#54) waits on their OAuth client ID.
 - **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
 - **How the new-ideas run went:** #42, #43, #12+#44 and #45 ran in fresh sessions; from #46 on they were built in the coordinating session, because new sessions can't be started over Remote Control. Each item was committed only after every suite passed.
 
@@ -37,6 +37,20 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #146 | Worlds keep running | done | 2026-10-25 |
 | #147 | Story time | done | 2026-10-25 |
 | #158 | Reset a character or a world | done | 2026-10-25 |
+| #159 | Better talk between characters | done | 2026-10-25 |
+| #160 | God mode | todo | |
+| #161 | World timeline | todo | |
+| #162 | World events | todo | |
+| #163 | Relationships that drift | todo | |
+| #164 | Arrivals and departures | todo | |
+| #165 | Places with presence | todo | |
+| #166 | Your reputation | todo | |
+| #167 | Introductions | todo | |
+| #168 | Group plans | todo | |
+| #169 | World arcs | todo | |
+| #170 | Secrets between characters | todo | |
+| #171 | Factions and families | todo | |
+| #172 | World export and import | todo | |
 | #148 | Revamp: design tokens and type | done | 2026-10-25 |
 | #149 | Revamp: core components | done | 2026-10-25 |
 | #150 | Revamp: navigation shell | done | 2026-10-25; terminal keeps its drawer and sidebar |
@@ -61,6 +75,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+#159 better talk between characters: worldTalk.ts pickTalkTopic (user ~3 in 10, their lives, a tie thing, a plan, the world's news, following up) and UserKnowledge/recencyOf; talk about the user gets each one's relationship with them, when they last talked and facts they remember (WorldTalker gathers it); tone follows the tie.
 #157 worlds UI: WorldRail (molecules/WorldSwitcher.tsx) puts every world on the desktop rail (current ringed, Go to <world>, New world); CurrentWorldHero on the Worlds page (cover, name, premise, Edit world, Peek, cast, how it runs, places); the world wizard shows a live connections preview beside step 3 (curved, labelled ties). The phone title-row switcher was already in place (#143).
 #156 smaller screens: PollDialog as the canvas's sheet (Cancel / New poll, question, option rows, Add option, Send poll); Message info as a sheet with the bubble on the chat background, a Read by card and the receipts note; ForwardDialog picks several chats (round checks, quoted message, world note, To: line, optional message, Forward); Starred with chat filter chips and bubble-style items; Adventures gallery with a Continue card for the latest story and rows; adventure choices one per row.
 #155 characters, new chat, settings: character cards as on the canvas (colour or portrait, Not met/Muted/Archived badge, life preset line, Message or Start chat, edit and menu), In this world / All worlds chips, sort by recent or name, search by tag; the new tile goes to quick create. New chat/new group sheet in Sidebar (Chat/Group, selected avatars with remove, In <world>, round checks, a New character row). Settings grouped You / AI / Chat and look / Care with values; phones get a list at /settings with the persona card and the life dial, each section on its own screen.
