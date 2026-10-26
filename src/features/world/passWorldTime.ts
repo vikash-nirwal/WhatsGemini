@@ -1,7 +1,7 @@
 import { Character, Chat, World } from "../../types";
 import { AppDispatch } from "../../store/store";
 import { addChatNotice, addMessage, fetchChats, updateChatOptions } from "../chatSlice";
-import { updateWorld } from "../worldSlice";
+import { patchWorld } from "../worldSlice";
 import { generateAssistText } from "../aiSlice";
 import { cleanFirstText } from "../character/firstTexts";
 import { buildWorldTimeTextPrompt, describeGap, firstAfterGap, gapDays, TimePassed, timePassedNotice, TimeUnit } from "../chat/passTime";
@@ -26,7 +26,7 @@ export const passWorldTime = (
     await dispatch(addChatNotice({ chatId: chat.id, text: timePassedNotice(passed) }));
     await dispatch(updateChatOptions({ chatId: chat.id, patch: { timePassed: passed } }));
   }
-  if (world?.storyTime && days >= 1) await dispatch(updateWorld({ ...world, storyTime: skipStoryTime(world.storyTime, Math.round(days), now) }));
+  if (world?.storyTime && days >= 1) await dispatch(patchWorld(world.id, (w) => (w.storyTime ? { storyTime: skipStoryTime(w.storyTime, Math.round(days), now) } : {})));
   void logToTimeline(worldId, { kind: "time", text: `${gap} passed for everyone${note ? `: ${note}` : ""}`, at: now }, world?.storyTime);
   if (!theyTextFirst) return 0;
   let texted = 0;

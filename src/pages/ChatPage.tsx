@@ -58,7 +58,7 @@ import { buildFactionNote } from "../features/world/factions";
 import { featureOn } from "../features/world/worldPrefs";
 import PlanBar from "../components/organisms/PlanBar";
 import { worldOf } from "../features/world/currentWorld";
-import { switchWorld, updateWorld } from "../features/worldSlice";
+import { patchWorld, switchWorld } from "../features/worldSlice";
 import { buildMyStatusNote } from "../features/status/myStatuses";
 import { buildForwardDirective, buildQuoteDirective, quoteTextOf } from "../features/chat/replyQuotes";
 import { buildGroupDirective } from "../features/chat/groupLife";
@@ -1155,7 +1155,7 @@ const ChatPage = () => {
     autoReplyInFlightRef.current = true;
     try {
       const chatWorld = worlds.find((w) => w.id === currentChat?.worldId);
-      if (chatWorld) await dispatch(updateWorld({ ...chatWorld, godTruths: addTruth(chatWorld.godTruths, text) }));
+      if (chatWorld) await dispatch(patchWorld(chatWorld.id, (w) => ({ godTruths: addTruth(w.godTruths, text) })));
       else await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { godTruths: addTruth(currentChat?.godTruths, text) } }));
       await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text: text.trim(), isNarration: true, godMode: true }));
       void logToTimeline(chatWorld ? chatWorld.id : null, { kind: "god", text: text.trim() }, chatWorld?.storyTime);
@@ -1180,7 +1180,7 @@ const ChatPage = () => {
       await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { timePassed: passed } }));
       const chatWorld = worlds.find((w) => w.id === currentChat?.worldId);
       void logToTimeline(chatWorld ? chatWorld.id : null, { kind: "time", text: `${passed.gap} passed${passed.note ? `: ${passed.note}` : ""}` }, chatWorld?.storyTime);
-      if (chatWorld?.storyTime && passed.days >= 1) await dispatch(updateWorld({ ...chatWorld, storyTime: skipStoryTime(chatWorld.storyTime, Math.round(passed.days), Date.now()) }));
+      if (chatWorld?.storyTime && passed.days >= 1) await dispatch(patchWorld(chatWorld.id, { storyTime: skipStoryTime(chatWorld.storyTime, Math.round(passed.days), Date.now()) }));
       if (theyTextFirst) await finishRoomRound(await sendCharacterFollowup(undefined, buildTimePassedOpener(passed, activePersona?.name?.trim() || "the user")));
     } catch (err) {
       toast.error(typeof err === "string" ? err : "Couldn't pass the time. Check your model settings.");

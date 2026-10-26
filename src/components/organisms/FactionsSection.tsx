@@ -8,7 +8,7 @@ import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { generateAssistText } from "src/features/aiSlice";
 import { addChat } from "src/features/chatSlice";
-import { updateWorld } from "src/features/worldSlice";
+import { patchWorld } from "src/features/worldSlice";
 import { selectActivePersona } from "src/features/settingsSlice";
 import { avatarOf } from "src/features/character/profileChanges";
 import { buildFactionsPrompt, factionScenario, newFactionId, parseFactions } from "src/features/world/factions";
@@ -32,7 +32,7 @@ export const FactionsSection = ({ world }: { world: World }) => {
   const groups = world.factions || [];
   const nameOf = (id: number) => cast.find((c) => c.id === id)?.name;
 
-  const save = (factions: Faction[]) => dispatch(updateWorld({ ...world, factions }));
+  const save = (factions: Faction[]) => dispatch(patchWorld(world.id, { factions }));
   const add = async (f: Faction) => {
     await save([...groups, f]);
     setSuggested((list) => list.filter((x) => x.id !== f.id));

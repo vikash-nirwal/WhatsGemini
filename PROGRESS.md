@@ -52,6 +52,20 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #170 | Secrets between characters | done | 2026-10-25 |
 | #171 | Factions and families | done | 2026-10-25 |
 | #172 | World export and import | done | 2026-10-25 |
+| #173 | Safe world saves | done | 2026-10-25 |
+| #174 | World watcher cadence and catch-up | done | 2026-10-25 |
+| #175 | World pulse and notices | todo | from the world review (Q1) |
+| #176 | World-made group chats talk | todo | from the world review (B4) |
+| #177 | Places fill up | todo | from the world review (B3) |
+| #178 | Characters text you the news | todo | from the world review (I3) |
+| #179 | World history remembered | todo | from the world review (I2) |
+| #180 | Passing time ages the world | todo | from the world review (I1) |
+| #181 | Strangers become friends | todo | from the world review (I4) |
+| #182 | Living world preset | todo | from the world review (Q2) |
+| #183 | Your place in the world | todo | from the world review (I5) |
+| #184 | Plans and secrets resolve | todo | from the world review (I6) |
+| #185 | Factions drive what happens | todo | from the world review (I7) |
+| #186 | One clock per world | todo | from the world review (I8) |
 | #148 | Revamp: design tokens and type | done | 2026-10-25 |
 | #149 | Revamp: core components | done | 2026-10-25 |
 | #150 | Revamp: navigation shell | done | 2026-10-25; terminal keeps its drawer and sidebar |
@@ -76,6 +90,8 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+World watcher cadence: WorldEventWatcher checks every 20 min; each check runs every due job (storyline, event, life event, newcomer, reputation, introduction, secret) on its own gap; the first check after time away is stamped inside the absence (catchUpTime "world-life").
+Safe world saves: worldSlice patchWorld(id, changes or fn of latest) reads the world from the database and changes only those fields; used by the watcher, startEvent.ts, passWorldTime, import, factions, newcomers, god truths and the world editor.
 World export and import: features/world/worldFile.ts (exportWorld drops lived fields and local: pictures, readWorldFile, relink), importWorld.ts thunk; Export per world card and Import on the Worlds page.
 Families and factions: features/world/factions.ts (World.factions, parseFactions, buildFactionNote, factionScenario); FactionsSection on CurrentWorldHero (suggest from cast and ties, make by hand, group chat each); members' chat prompts carry loyalty (scene.factionNote); the cast list shows each person's groups. The map isn't clustered: places show who's there instead (#165).
 Secrets between characters (switch, off by default): features/world/secrets.ts (Character.keptSecrets/KeptSecret, pickSecretPair, pickGossip, parseSecret, buildSecretsNote); WorldEventWatcher starts one and a friend of the keeper may text it to you; the keeper's chat prompt knows (scene.keptNote); SecretsYouKnow in ContactInfoPanel lets you tell (memories both sides, notice, timeline).

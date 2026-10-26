@@ -35,6 +35,23 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 - The canvas's boards for Peek (#145), blocking (#133), event invites (#134), disappearing messages (#136), stickers (#137), the activity log (#131), "where things stand" (#142) and "While you were away" (#130) are built with those items; they get no numbers of their own.
 
 
+## World review fixes (#173–#186, picked 2026-10-26)
+
+From the world mechanics review (https://claude.ai/artifact/E4TKJjHKExRF8qTYiVWheK); the user asked for all of them. Built in this order.
+
+- **#175 World pulse and notices (Q1).** A feed of the last day's happenings in the current world at the top of Chats, each one tap from where it happened; notices for new events and chapters.
+- **#176 World-made group chats talk (B4).** Plan, family/faction and place chats are made with members talking while you're away.
+- **#177 Places fill up (B3).** With places on, each resident gets a usual spot that fits them; new schedules are written with the world's places.
+- **#178 Characters text you the news (I3).** A notable happening (event, chapter, life event) can make one or two people close to it text you about it.
+- **#179 World history remembered (I2).** A short digest of the world's timeline goes into chat prompts and the background world brief.
+- **#180 Passing time ages the world (I1).** A long world-wide gap writes a life event per resident, moves the storyline on and lets ties drift.
+- **#181 Strangers become friends (I4).** Untied residents talk as acquaintances; a few good talks make them friends (a first tie).
+- **#182 Living world preset (Q2).** One tap on a world card turns on a sensible set of living-world features.
+- **#183 Your place in the world (I5).** Where you are in a world: set by scenes at a place; people there may run into you; in their prompts.
+- **#184 Plans and secrets resolve (I6).** Plans get a date, a reminder the day before and an outcome if the day passes; secrets can come out on their own.
+- **#185 Factions drive what happens (I7).** Events and storylines can name groups; rival groups get a talk topic about each other; drift weighs groups.
+- **#186 One clock per world (I8).** Where a world keeps its own calendar, background prompts keep the time of day but drop the real weekday.
+
 ## Smaller follow-ups
 
 Leftovers noted while building the finished items. Pick them up alongside related work.

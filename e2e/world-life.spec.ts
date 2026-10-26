@@ -92,3 +92,28 @@ test("word about you gets around, and chats there hear it", async ({ page, mockA
   await openRoute(page, "/worlds");
   await expect(page.getByRole("region", { name: "Your reputation" })).toContainText("The newcomer who asks too many questions", { timeout: 15_000 });
 });
+
+// #173, #174: one check gives each feature its turn, and moving the
+// storyline on isn't undone by the event check that follows it.
+test("one check moves the storyline, starts an event and moves a life on, all kept", async ({ page, mockAI }) => {
+  mockAI.reply((req) =>
+    req.prompt.includes("Invent one event") ? "TITLE: Fog Week\nWHAT: Fog has rolled in off the sea.\nDAYS: 3"
+      : req.prompt.includes("Something just happened in") ? "Kai finally fixed the ferry engine."
+      : "Mock reply"
+  );
+  await harbourTown(page, {
+    events: [],
+    lastEventCheckAt: 0,
+    lastNewcomerAt: NOW,
+    arc: { title: "The Bell", beats: ["A bell rings.", "A rope is cut.", "It ends."], step: 0, startedAt: 0, stepAt: 0 },
+  });
+  await page.clock.fastForward(65_000);
+  await openRoute(page, "/worlds/1/timeline");
+  const timeline = page.getByRole("list", { name: "World timeline" });
+  await expect(timeline).toContainText("A rope is cut.", { timeout: 15_000 });
+  await expect(timeline).toContainText("Fog Week: Fog has rolled in off the sea.");
+  await expect(timeline).toContainText("Kai finally fixed the ferry engine.");
+  await openRoute(page, "/worlds");
+  await expect(page.getByRole("region", { name: "Storyline" })).toContainText("Chapter 2 of 3");
+  await expect(page.getByRole("region", { name: "World events" })).toContainText("Fog Week");
+});

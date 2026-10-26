@@ -2,7 +2,7 @@ import React from "react";
 import { FaCrown, FaTimes } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { updateChatOptions } from "src/features/chatSlice";
-import { updateWorld } from "src/features/worldSlice";
+import { patchWorld } from "src/features/worldSlice";
 import { removeTruth } from "src/features/chat/godMode";
 import { Chat } from "src/types";
 
@@ -15,7 +15,7 @@ export const GodTruthsSection = ({ chat }: { chat: Chat }) => {
   const truths = world ? world.godTruths || [] : chat.godTruths || [];
   if (truths.length === 0) return null;
   const remove = (t: string) =>
-    world ? dispatch(updateWorld({ ...world, godTruths: removeTruth(world.godTruths, t) })) : chat.id && dispatch(updateChatOptions({ chatId: chat.id, patch: { godTruths: removeTruth(chat.godTruths, t) } }));
+    world ? dispatch(patchWorld(world.id, (w) => ({ godTruths: removeTruth(w.godTruths, t) }))) : chat.id && dispatch(updateChatOptions({ chatId: chat.id, patch: { godTruths: removeTruth(chat.godTruths, t) } }));
   return (
     <section aria-label="God mode truths" className="flex flex-col gap-2">
       <h3 className="flex items-center gap-2 text-[15px] font-semibold text-foreground"><FaCrown size={12} className="text-amber-600" /> True {world ? `in ${world.name}` : "in this chat"}</h3>

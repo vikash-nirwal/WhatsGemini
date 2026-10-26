@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { Button } from "src/components/atoms/button";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { useAppDispatch } from "src/store/hooks";
-import { updateWorld } from "src/features/worldSlice";
+import { patchWorld } from "src/features/worldSlice";
 import { addSuggestedPerson } from "src/features/world/addPerson";
 import { useWorldCharacters } from "src/hooks/useWorld";
 import { World } from "src/types";
@@ -20,7 +20,7 @@ export const NewcomerCard = ({ world }: { world: World }) => {
     setBusy(true);
     try {
       await dispatch(addSuggestedPerson(world, sg, residents));
-      await dispatch(updateWorld({ ...world, newcomer: undefined }));
+      await dispatch(patchWorld(world.id, { newcomer: undefined }));
       toast.success(`${sg.name} lives in ${world.name} now`);
     } catch {
       toast.error(`Couldn't write ${sg.name} up. Try again.`);
@@ -37,7 +37,7 @@ export const NewcomerCard = ({ world }: { world: World }) => {
         <p className="text-[13px] leading-[18px] text-muted-foreground">{sg.idea}</p>
         <div className="mt-2 flex gap-2">
           <Button type="button" size="sm" disabled={busy} onClick={() => void welcome()}>{busy ? "Welcoming..." : `Welcome ${sg.name}`}</Button>
-          <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void dispatch(updateWorld({ ...world, newcomer: undefined }))}>Let them pass</Button>
+          <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void dispatch(patchWorld(world.id, { newcomer: undefined }))}>Let them pass</Button>
         </div>
       </div>
     </section>

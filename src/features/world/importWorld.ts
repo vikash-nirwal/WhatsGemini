@@ -1,6 +1,6 @@
 import { Character, World } from "../../types";
 import { AppDispatch } from "../../store/store";
-import { addWorld, updateWorld } from "../worldSlice";
+import { addWorld, patchWorld } from "../worldSlice";
 import { addCharacter, updateCharacter } from "../characterSlice";
 import { relink, WorldFile } from "./worldFile";
 
@@ -21,6 +21,6 @@ export const importWorld = (file: WorldFile) => async (dispatch: AppDispatch) =>
     if (!ties[c.id]) continue;
     await dispatch(updateCharacter({ ...c, ties: ties[c.id], knowsAbout: ties[c.id].map((t) => t.withId) }));
   }
-  if (factions.length) await dispatch(updateWorld({ ...world, factions }));
+  if (factions.length) await dispatch(patchWorld(world.id, { factions }));
   return world;
 };

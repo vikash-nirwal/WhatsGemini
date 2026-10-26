@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { FaMagic, FaCheck, FaPlus, FaGlobe, FaMap } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { addWorld, updateWorld } from "../features/worldSlice";
+import { addWorld, patchWorld } from "../features/worldSlice";
 import { Select } from "src/components/molecules/form-controls/FormSelect";
 import SuggestField from "src/components/molecules/SuggestField";
 import { WorldCastCard } from "src/components/organisms/WorldCastCard";
@@ -165,7 +165,9 @@ const WorldEditorPage = () => {
     setSaveError(null);
     const payload = { name: name.trim(), premise: premise.trim(), settingDetails: settingDetails.trim() || undefined, tone: tone.trim() || undefined, era: era.trim() || undefined, tags, loreEntries, map, personaId: personaId && personaId !== NEW_PERSONA ? personaId : undefined, storyTime };
     if (editWorld) {
-      await dispatch(updateWorld({ ...editWorld, ...payload }));
+      // Only the editor's fields (#173): events, storylines and the rest
+      // written while it was open stay.
+      await dispatch(patchWorld(editWorld.id, payload));
     } else {
       await dispatch(addWorld(payload));
     }

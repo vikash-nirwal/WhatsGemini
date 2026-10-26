@@ -68,6 +68,16 @@ export const updateWorld = createAsyncThunk(
   }
 );
 
+// Changes only the named fields of the world as it is now in the database
+// (#173). Whole-object saves from a copy read earlier could undo what was
+// saved in between - a storyline chapter, an event, a newcomer - when the
+// background watcher and you saved close together. `change` can be worked
+// out from the latest world.
+export const patchWorld = (id: number, change: Partial<World> | ((latest: World) => Partial<World>)) => async (dispatch: (a: any) => any) => {
+  const latest = await dbService.getWorldById(id);
+  return dispatch(updateWorld({ ...latest, ...(typeof change === "function" ? change(latest) : change), id }));
+};
+
 export const deleteWorld = createAsyncThunk(
   "world/delete",
   async (worldId: number, { rejectWithValue }) => {
