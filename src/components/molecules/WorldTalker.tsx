@@ -4,10 +4,12 @@ import { generateAssistText } from "src/features/aiSlice";
 import { updateCharacter } from "src/features/characterSlice";
 import { selectActivePersona } from "src/features/settingsSlice";
 import { parseOffscreenTalk } from "src/features/chat/offscreenTalk";
-import { addWorldTalk, buildWorldTalkPrompt, pickTalkTopic, pickWorldTalk, recencyOf, talksBetween, UserKnowledge, WORLD_TALK_GAP_MS } from "src/features/world/worldTalk";
+import { addWorldTalk, buildWorldTalkPrompt, parseTieChange, pickTalkTopic, tieMayChange, pickWorldTalk, recencyOf, talksBetween, UserKnowledge, WORLD_TALK_GAP_MS } from "src/features/world/worldTalk";
 import { channelId } from "src/features/channels/channels";
 import { logToTimeline } from "src/features/world/timeline";
 import { activeEvents } from "src/features/world/worldEvents";
+import { withTie } from "src/features/character/ties";
+import { toast } from "sonner";
 import { factsAboutUser } from "src/features/character/intimacy";
 import { talkLengthFor } from "src/features/world/worldPrefs";
 import { worldOf } from "src/features/world/currentWorld";
@@ -58,8 +60,9 @@ const WorldTalker = () => {
           const lastAt = Math.max(0, ...own.map((ch) => ch.content?.[ch.content.length - 1]?.timestamp || 0));
           return { relationship: c.relationship, lastTalked: recencyOf(lastAt || undefined, now), facts: factsAboutUser([...(c.pinnedMemory || []), ...(c.memory || [])], c.memoryCategories) };
         };
+        const askTie = tieMayChange(topic);
         const reply = await dispatch(generateAssistText({
-          instruction: buildWorldTalkPrompt(a, b, { world: worlds.find((w) => w.id === worldId), userName: persona?.name?.trim() || "the user", maxLines, previous, topic, news, knows: { [a.id]: knowledge(a), [b.id]: knowledge(b) } }),
+          instruction: buildWorldTalkPrompt(a, b, { world: worlds.find((w) => w.id === worldId), userName: persona?.name?.trim() || "the user", maxLines, previous, topic, news, askTie, knows: { [a.id]: knowledge(a), [b.id]: knowledge(b) } }),
           background: true,
           activity: { at: now, kind: "talk", text: `${a.name} and ${b.name} texted`, characterId: a.id, name: a.name },
         })).unwrap();
@@ -68,9 +71,22 @@ const WorldTalker = () => {
         const holder = latest.current.characters.find((c) => c.id === a.id) || a;
         await dispatch(updateCharacter(addWorldTalk(holder, { id: `wt-${now.toString(36)}`, withId: b.id, at: now, lines })));
         // When they talked about you, the world's timeline notes it (#161).
+        const w = worlds.find((x) => x.id === worldId);
         if (topic === "user" && lines.length) {
-          const w = worlds.find((x) => x.id === worldId);
           void logToTimeline(worldId, { kind: "talk", text: `${a.name} and ${b.name} talked about you`, characterIds: [a.id, b.id], at: now }, w?.storyTime);
+        }
+        // Relationships that drift (#163): the talk changed how they stand.
+        const change = askTie && lines.length ? parseTieChange(reply) : undefined;
+        const freshA = latest.current.characters.find((c) => c.id === a.id);
+        const freshB = latest.current.characters.find((c) => c.id === b.id);
+        const before = freshA?.ties?.find((t) => t.withId === b.id)?.tie;
+        if (change && freshA && freshB && change.bToA.replace(/^your\s+/i, "").toLowerCase() !== (before || "").replace(/^your\s+/i, "").toLowerCase()) {
+          const [na, nb] = withTie(freshA, freshB, change.bToA, change.aToB);
+          await dispatch(updateCharacter(na));
+          await dispatch(updateCharacter(nb));
+          const what = `${b.name} is now ${a.name}'s ${change.bToA.replace(/^your\s+/i, "")}${before ? ` (was ${before.replace(/^your\s+/i, "")})` : ""}`;
+          void logToTimeline(worldId, { kind: "tie", text: what, characterIds: [a.id, b.id], at: now }, w?.storyTime);
+          toast(`${a.name} and ${b.name}`, { description: what });
         }
       } catch (err) {
         console.warn("World talk failed (non-fatal):", err);

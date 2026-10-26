@@ -98,3 +98,17 @@ describe("better talk between characters (#159)", () => {
     expect(recencyOf(1, 3 * 86_400_000 + 1)).toBe("3 days ago");
   });
 });
+
+describe("relationships that drift (#163)", () => {
+  const { parseTieChange, tieMayChange } = require("./worldTalk");
+  test("a talk's TIE line is read; none means no change", () => {
+    expect(parseTieChange("Aria: sorry\nBram: me too\n**TIE: your friend again | your friend again**")).toEqual({ bToA: "your friend again", aToB: "your friend again" });
+    expect(parseTieChange("TIE: ex-girlfriend")).toEqual({ bToA: "ex-girlfriend", aToB: "ex-girlfriend" });
+    expect(parseTieChange("Aria: hi\nBram: hi")).toBeUndefined();
+  });
+  test("talks about their tie may always change it; others now and then", () => {
+    expect(tieMayChange("tie", () => 0.99)).toBe(true);
+    expect(tieMayChange("lives", () => 0.99)).toBe(false);
+    expect(tieMayChange("lives", () => 0.1)).toBe(true);
+  });
+});

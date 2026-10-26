@@ -95,3 +95,27 @@ test("a world you've left keeps living unless it's switched off", async ({ page,
   await page.clock.fastForward(60 * 60_000);
   await expect.poll(() => talksInDb(page), { timeout: 15_000 }).toHaveLength(1);
 });
+
+// Relationships that drift (#163): a talk that changes how two people stand
+// updates their tie both ways, with a notice and a timeline entry.
+test("a talk that changes things changes their relationship", async ({ page, mockAI }) => {
+  await page.clock.install({ time: new Date(2026, 9, 21, 10, 0, 0) });
+  // Low rolls, so this talk is one that may change their tie.
+  await page.addInitScript(() => {
+    let n = 0;
+    Math.random = () => 0.01 + ((n++ * 0.0137) % 0.2);
+  });
+  mockAI.reply((req) => (req.prompt.includes("Write a text conversation between") ? `${TALK}\nKai: so... are we a thing now?\nAria: yes, idiot\nTIE: your boyfriend | your girlfriend` : "Mock reply"));
+  await openRoute(page, "/");
+  await expect(page.getByRole("link", { name: /^AR Aria/ })).toBeVisible({ timeout: 30_000 });
+  await patchCharacter(page, ARIA.id, { knowsAbout: [KAI.id], ties: [{ withId: KAI.id, tie: "your friend" }] });
+  await patchCharacter(page, KAI.id, { knowsAbout: [ARIA.id], ties: [{ withId: ARIA.id, tie: "your friend" }] });
+  await page.reload();
+  await page.clock.fastForward(40_000);
+  await expect(page.getByText("Kai is now Aria's boyfriend (was friend)")).toBeVisible({ timeout: 15_000 });
+  const ask = mockAI.requests.find((r) => r.prompt.includes("Write a text conversation between"))!.prompt;
+  expect(ask).toContain("TIE: <what Kai is to Aria now> | <what Aria is to Kai now>");
+
+  await openRoute(page, "/worlds/mine/timeline");
+  await expect(page.getByRole("list", { name: "World timeline" })).toContainText("Kai is now Aria's boyfriend (was friend)");
+});

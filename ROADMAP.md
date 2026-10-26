@@ -38,7 +38,6 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 
 The user's batch: refine how characters talk to each other (and about you), a god mode, and twelve ideas that build on worlds. Built in this order.
 
-- **#163 Relationships that drift (M).** Ties change from what characters say to each other: fallings-out, making up, new couples; a notice when it happens.
 - **#164 Arrivals and departures (M).** Over story time people leave, newcomers arrive (suggested from the cast), life events happen.
 - **#165 Places with presence (M).** Characters are at places on the world map; you can see who's where and start a scene there.
 - **#166 Your reputation (S).** How people in a world see you, from what you've said and done and the rumors; it shapes how strangers greet you.

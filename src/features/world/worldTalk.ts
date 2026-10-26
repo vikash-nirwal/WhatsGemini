@@ -105,7 +105,7 @@ const TOPIC_ASK = (t: TalkTopic, a: Character, b: Character, userName: string, w
 export const buildWorldTalkPrompt = (
   a: Character,
   b: Character,
-  { world, userName, maxLines, previous, topic = "lives", knows, news }: {
+  { world, userName, maxLines, previous, topic = "lives", knows, news, askTie }: {
     world?: World;
     userName: string;
     maxLines: number;
@@ -113,6 +113,7 @@ export const buildWorldTalkPrompt = (
     topic?: TalkTopic;
     knows?: Record<number, UserKnowledge>;
     news?: string;
+    askTie?: boolean; // let the talk change their relationship (#163)
   }
 ) => {
   const who = (c: Character, other: Character) =>
@@ -140,9 +141,23 @@ export const buildWorldTalkPrompt = (
     `- Text the way ${tie ? `a ${tie} and ` : "people "}who know each other this well do: siblings bicker, exes are careful, old friends use shorthand, new acquaintances are polite.`,
     topic === "user" ? "" : `- ${userName} can come up in passing if it's natural, but it's not the point.`,
     "- Plain text, in character, no stage directions. Don't settle big story points or decide anything for " + userName + ".",
+    askTie ? `- Only if this conversation really changes how they stand with each other (a falling-out, making up, getting together, breaking up, becoming friends), end with one more line: TIE: <what ${b.name} is to ${a.name} now> | <what ${a.name} is to ${b.name} now>. Most conversations change nothing; then leave it out.` : "",
   ].filter(Boolean).join("\n");
 };
 
+
+// Relationships that drift (#163): how often a talk may change a tie. A talk
+// about their tie always may; others now and then, so ties move slowly.
+export const tieMayChange = (topic: TalkTopic, rand: () => number = Math.random) => topic === "tie" || rand() < 0.3;
+
+// The "TIE: x | y" line a talk ends with when it changed things.
+export const parseTieChange = (reply: string): { bToA: string; aToB: string } | undefined => {
+  const m = reply.match(/^[\s*_-]*TIE\s*:\s*(.+)$/im);
+  if (!m) return undefined;
+  const [bToA, aToB] = m[1].split("|").map((s) => s.replace(/[*_]/g, "").trim().replace(/^["']|["']$/g, "").trim());
+  if (!bToA || bToA.length > 60 || (aToB && aToB.length > 60)) return undefined;
+  return { bToA, aToB: aToB || bToA };
+};
 
 export const addWorldTalk = (holder: Character, talk: WorldTalk): Character => ({
   ...holder,
