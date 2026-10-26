@@ -7,6 +7,11 @@ import { cleanFirstText } from "../character/firstTexts";
 import { buildWorldTimeTextPrompt, describeGap, firstAfterGap, gapDays, TimePassed, timePassedNotice, TimeUnit } from "../chat/passTime";
 import { skipStoryTime } from "./storyTime";
 import { logToTimeline } from "./timeline";
+import { addLifeEvent, AGING_MIN_DAYS, buildGapLivesPrompt, parseGapLives } from "./worldLife";
+import { advanceArc, arcActive, BEAT_GAP_MS } from "./worldArcs";
+import { featureOn } from "./worldPrefs";
+import { withTie } from "../character/ties";
+import { updateCharacter } from "../characterSlice";
 import { AI, YOU } from "../../utils/constants";
 
 // Pass the time for a whole world: each of its chats gets the gap (so every
@@ -28,6 +33,38 @@ export const passWorldTime = (
   }
   if (world?.storyTime && days >= 1) await dispatch(patchWorld(world.id, (w) => (w.storyTime ? { storyTime: skipStoryTime(w.storyTime, Math.round(days), now) } : {})));
   void logToTimeline(worldId, { kind: "time", text: `${gap} passed for everyone${note ? `: ${note}` : ""}`, at: now }, world?.storyTime);
+  // The world ages (#180): lives move on over a long gap, ties may change,
+  // and the storyline moves on as many chapters as the time covers.
+  const ownNews: Record<number, string> = {};
+  if (days >= AGING_MIN_DAYS && characters.length) {
+    try {
+      const withTies = featureOn(worldId, "drift");
+      const reply = await dispatch(generateAssistText({ instruction: buildGapLivesPrompt(world || { name: "My world", premise: "the user's own world" }, gap, note || undefined, characters, withTies), background: true, activity: { at: now, kind: "event", text: `Lives moved on over ${gap}`, name: world?.name }, ...(world ? { worldId: world.id } : {}) })).unwrap();
+      const { lives, ties } = parseGapLives(reply, characters);
+      const byId = new Map(characters.map((c) => [c.id, c]));
+      for (const l of lives) {
+        byId.set(l.id, addLifeEvent(byId.get(l.id)!, l.text, now));
+        ownNews[l.id] = l.text;
+      }
+      for (const t of withTies ? ties : []) {
+        const [na, nb] = withTie(byId.get(t.a)!, byId.get(t.b)!, t.bToA, t.aToB);
+        byId.set(na.id, na);
+        byId.set(nb.id, nb);
+      }
+      for (const c of characters) if (byId.get(c.id) !== c) await dispatch(updateCharacter(byId.get(c.id)!));
+      for (const l of lives) void logToTimeline(worldId, { kind: "event", text: l.text, characterIds: [l.id], at: now }, world?.storyTime);
+    } catch (err) {
+      console.warn("Lives over the gap failed (non-fatal):", err);
+    }
+  }
+  if (world && arcActive(world)) {
+    const chapters = Math.floor(days / (BEAT_GAP_MS / 86_400_000));
+    for (let i = 0; i < chapters; i++) {
+      const latest = await dispatch(patchWorld(world.id, (w) => (w.arc && !w.arc.doneAt ? { arc: advanceArc(w.arc, now) } : {})));
+      const arc = (latest as { payload?: World })?.payload?.arc;
+      if (!arc || arc.doneAt) break;
+    }
+  }
   if (!theyTextFirst) return 0;
   let texted = 0;
   for (const c of firstAfterGap(characters, chats)) {
@@ -35,7 +72,7 @@ export const passWorldTime = (
     if (!chat?.id) continue;
     try {
       const last = (chat.content || []).filter((m) => !m.isSystem && !m.isRoomEvent && m.txt).slice(-4).map((m) => `${m.role === YOU ? userName : c.name}: ${(m.txt || "").slice(0, 200)}`);
-      const text = cleanFirstText(await dispatch(generateAssistText({ instruction: buildWorldTimeTextPrompt(c, { gap, days, note }, userName, last), background: true, activity: { at: now, kind: "first-text", text: `${c.name} texted after ${gap}`, characterId: c.id, name: c.name } })).unwrap());
+      const text = cleanFirstText(await dispatch(generateAssistText({ instruction: buildWorldTimeTextPrompt(c, { gap, days, note }, userName, last, ownNews[c.id]), background: true, activity: { at: now, kind: "first-text", text: `${c.name} texted after ${gap}`, characterId: c.id, name: c.name } })).unwrap());
       if (!text) continue;
       await dispatch(addMessage({ chatId: chat.id, role: AI, text, speakerId: c.id, notes: ["texted-first"], at: Date.now() }));
       texted++;

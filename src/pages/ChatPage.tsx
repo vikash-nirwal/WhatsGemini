@@ -268,7 +268,7 @@ const ChatPage = () => {
       worldTalkNoteFor(speaker, characters, now),
       buildDayLogSection(speaker.name, dayLogText(speaker, now)),
       buildConcernsSection(speaker.name, speaker.concerns, now),
-      featureOn(speaker.worldId, "arrivals") ? buildLifeNote(speaker, now) : undefined,
+      buildLifeNote(speaker, now),
       buildFactionNote(speaker, world, characters),
       featureOn(speaker.worldId, "secrets") ? buildSecretsNote(speaker, characters, userName) : undefined,
       featureOn(speaker.worldId, "places") ? buildWhereNote(whereIs(speaker, world?.map?.pins || [], now)) : undefined,
@@ -413,7 +413,9 @@ const ChatPage = () => {
   // God mode (#160): the truths of this chat's world, or of this chat.
   scene.godNote = buildGodTruthsSection([...(worlds.find((w) => w.id === currentChat?.worldId)?.godTruths || []), ...(currentChat?.godTruths || [])]);
   // Living-world features (#162-#166) only where they're switched on.
-  scene.lifeNote = mainStory && characterData && featureOn(chatWorldId, "arrivals") ? buildLifeNote(characterData, Date.now()) : undefined;
+  // Life events come from the newcomers switch or from passing the time
+  // (#180); whichever wrote them, they're part of their life.
+  scene.lifeNote = mainStory && characterData ? buildLifeNote(characterData, Date.now()) : undefined;
   scene.eventNote = featureOn(chatWorldId, "events") ? buildEventsNote(activeEvents(worlds.find((w) => w.id === chatWorldId), Date.now())) : undefined;
   scene.keptNote = !isRoom && characterData && featureOn(chatWorldId, "secrets") ? buildSecretsNote(characterData, characters, userNameForNotes) : undefined;
   scene.factionNote = !isRoom ? buildFactionNote(characterData, worlds.find((w) => w.id === chatWorldId), characters) : undefined;

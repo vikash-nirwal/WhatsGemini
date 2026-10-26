@@ -31,3 +31,16 @@ test("a life event is kept, and their prompt hears about recent ones", () => {
   expect(cleanLifeEvent('"Mara moved to the north coast."\nextra')).toBe("Mara moved to the north coast.");
   expect(cleanLifeEvent("ok")).toBeUndefined();
 });
+
+test("a long gap writes each life and the ties that changed (#180)", () => {
+  const { parseGapLives, buildGapLivesPrompt } = require("./worldLife");
+  const cast = [c(1, { name: "Aria" }), c(2, { name: "Kai Vale", ties: [{ withId: 1, tie: "your friend" }] })] as Character[];
+  const prompt = buildGapLivesPrompt({ name: "Harbour", premise: "A port." }, "3 years", "a war", cast, true);
+  expect(prompt).toContain("3 years have just passed there (meanwhile: a war).");
+  expect(prompt).toContain("(Aria: friend)");
+  expect(prompt).toContain("TIE: <name>");
+  expect(buildGapLivesPrompt({ name: "H", premise: "p" }, "2 weeks", undefined, cast, false)).not.toContain("TIE:");
+  const { lives, ties } = parseGapLives("LIFE: Aria | Aria opened a bakery by the pier.\n**LIFE: Kai | Kai married Mira.**\nLIFE: Nobody | x happened here.\nTIE: Aria | Kai | your ex | your ex", cast);
+  expect(lives).toEqual([{ id: 1, text: "Aria opened a bakery by the pier." }, { id: 2, text: "Kai married Mira." }]);
+  expect(ties).toEqual([{ a: 1, b: 2, bToA: "your ex", aToB: "your ex" }]);
+});

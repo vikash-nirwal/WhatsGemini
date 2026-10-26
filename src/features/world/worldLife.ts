@@ -55,3 +55,46 @@ export const buildLifeNote = (character: Pick<Character, "lifeEvents"> | undefin
   };
   return `Things that happened in your life lately (real; they shape your mood and plans, bring them up when it fits):\n${recent.map((e) => `- ${e.text} (${ago(e.at)})`).join("\n")}`;
 };
+
+// Passing the time ages the world (#180): for a gap of a week or more, one
+// helper call writes what happened in each resident's life meanwhile, and -
+// where ties drift - how a pair of them stands now.
+export const AGING_MIN_DAYS = 7;
+
+export const buildGapLivesPrompt = (world: Pick<World, "name" | "premise">, gap: string, note: string | undefined, cast: Character[], withTies: boolean) =>
+  [
+    `${world.name}: ${world.premise}`,
+    `${gap} have just passed there${note ? ` (meanwhile: ${note})` : ""}.`,
+    "The people:",
+    ...cast.map((c) => `- ${c.name}: ${[c.description, c.prompt].filter(Boolean).join(" ").replace(/\s+/g, " ").slice(0, 200)}${(c.ties || []).length ? ` (${(c.ties || []).map((t) => `${cast.find((x) => x.id === t.withId)?.name}: ${t.tie.replace(/^your\s+/i, "")}`).join(", ")})` : ""}`),
+    `For each person, one sentence in the past tense: what happened in their life over those ${gap} - as much as that much time brings (a new job, a move, a baby, a loss, a habit picked up).`,
+    withTies ? "Then, only for pairs whose relationship really changed over that time, one line each." : "",
+    "Answer with lines like these, nothing else:",
+    "LIFE: <name> | <sentence>",
+    withTies ? "TIE: <name> | <name> | <what the second is to the first now> | <what the first is to the second now>" : "",
+  ].filter(Boolean).join("\n");
+
+export const parseGapLives = (reply: string, cast: Character[]) => {
+  const byName = (n: string) => {
+    const name = n.replace(/[*_"]/g, "").trim().toLowerCase();
+    return cast.find((c) => c.name.toLowerCase() === name) || cast.find((c) => c.name.toLowerCase().split(/\s+/)[0] === name.split(/\s+/)[0]);
+  };
+  const lives: { id: number; text: string }[] = [];
+  const ties: { a: number; b: number; bToA: string; aToB: string }[] = [];
+  for (const raw of reply.split("\n")) {
+    const line = raw.replace(/[*_]/g, "").replace(/^[\s-]+/, "");
+    const life = line.match(/^LIFE\s*:\s*(.+)$/i);
+    const tie = line.match(/^TIE\s*:\s*(.+)$/i);
+    if (life) {
+      const [who, text] = life[1].split("|").map((x) => x.trim());
+      const c = who ? byName(who) : undefined;
+      const clean = text ? cleanLifeEvent(text) : undefined;
+      if (c && clean && !lives.some((l) => l.id === c.id)) lives.push({ id: c.id, text: clean });
+    } else if (tie) {
+      const [a, b, bToA, aToB] = tie[1].split("|").map((x) => x.trim());
+      const ca = a ? byName(a) : undefined, cb = b ? byName(b) : undefined;
+      if (ca && cb && ca.id !== cb.id && bToA && bToA.length <= 60) ties.push({ a: ca.id, b: cb.id, bToA, aToB: aToB && aToB.length <= 60 ? aToB : bToA });
+    }
+  }
+  return { lives, ties };
+};

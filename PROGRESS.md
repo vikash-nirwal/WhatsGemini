@@ -59,7 +59,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #177 | Places fill up | done | 2026-10-25 |
 | #178 | Characters text you the news | done | 2026-10-25 |
 | #179 | World history remembered | done | 2026-10-25 |
-| #180 | Passing time ages the world | todo | from the world review (I1) |
+| #180 | Passing time ages the world | done | 2026-10-25 |
 | #181 | Strangers become friends | todo | from the world review (I4) |
 | #182 | Living world preset | todo | from the world review (Q2) |
 | #183 | Your place in the world | todo | from the world review (I5) |
@@ -90,6 +90,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+Passing time ages the world: for a world-wide gap of a week or more, passWorldTime writes a life event per resident in one helper call (worldLife.ts buildGapLivesPrompt/parseGapLives), changes ties when drift is on, moves the storyline on a chapter per two days, and first texts after the gap carry their own news. Life events now reach prompts wherever they exist, not only with the newcomers switch.
 World history remembered: timeline.ts buildHistoryNote (notable entries older than a day) and a per-world cache (cachedTimeline); chats get scene.historyNote (useWorldHistoryNote), background calls get a line of it in the world brief (cache warmed by WorldEventWatcher).
 Characters text you the news: features/world/news.ts (pickNewsTellers: the people it's about, then their ties; texters only, awake, 3 h apart, not left unanswered) and shareNews.ts; sent for world events (own and yours), storyline chapters and life events.
 Places fill up: with places on, WorldEventWatcher's fillPlaces gives everyone without a usual spot one from the map (places.ts hangoutsDue/buildHangoutsPrompt/parseHangouts, World.lastHangoutsAt). Schedules are hand-written in the editor, so there was no generator to teach the map.

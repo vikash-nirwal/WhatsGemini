@@ -52,13 +52,15 @@ export const buildWorldTimeTextPrompt = (
   character: { name: string; description?: string; prompt?: string; relationship?: string },
   passed: Pick<TimePassed, "gap" | "days" | "note">,
   userName: string,
-  lastLines: string[]
+  lastLines: string[],
+  ownNews?: string // what happened in their life over the gap (#180)
 ) =>
   [
     `You are ${character.name}. ${[character.description, character.prompt].filter(Boolean).join(" ").slice(0, 600)}`,
     character.relationship ? `${userName} is your ${character.relationship}.` : "",
     lastLines.length ? `The end of your last conversation with ${userName}:\n${lastLines.join("\n")}` : "",
     buildTimePassedOpener(passed as TimePassed, userName),
+    ownNews ? `Meanwhile in your life: ${ownNews}` : "",
     feel(passed.days),
     "Write that first text: one to three short lines, in your own voice. Reply with only the message.",
   ].filter(Boolean).join("\n\n");

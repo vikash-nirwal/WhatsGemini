@@ -39,7 +39,6 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 
 From the world mechanics review (https://claude.ai/artifact/E4TKJjHKExRF8qTYiVWheK); the user asked for all of them. Built in this order.
 
-- **#180 Passing time ages the world (I1).** A long world-wide gap writes a life event per resident, moves the storyline on and lets ties drift.
 - **#181 Strangers become friends (I4).** Untied residents talk as acquaintances; a few good talks make them friends (a first tie).
 - **#182 Living world preset (Q2).** One tap on a world card turns on a sensible set of living-world features.
 - **#183 Your place in the world (I5).** Where you are in a world: set by scenes at a place; people there may run into you; in their prompts.

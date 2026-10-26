@@ -26,3 +26,24 @@ test("time passes for the whole world, and someone texts first", async ({ page, 
   await openRoute(page, "/worlds/mine/timeline");
   await expect(page.getByRole("list", { name: "World timeline" })).toContainText("2 weeks passed for everyone: a storm cut the power");
 });
+
+// #180: a long gap ages the world - each life moves on, and the people who
+// text first bring their own news.
+test("years later, lives have moved on", async ({ page, mockAI }) => {
+  mockAI.reply((req) =>
+    req.prompt.includes("have just passed there") ? "LIFE: Aria | Aria opened a bakery by the pier."
+      : req.prompt.includes("have passed since your last conversation") ? (req.prompt.includes("Meanwhile in your life: Aria opened a bakery") ? "I have a bakery now. can you believe it" : "hey")
+      : "Mock reply"
+  );
+  await openRoute(page, "/worlds");
+  await page.getByRole("button", { name: "Pass the time" }).click();
+  const dialog = page.getByRole("dialog", { name: "Pass the time in My world" });
+  await dialog.getByRole("spinbutton", { name: "How long" }).fill("3");
+  await dialog.getByRole("radio", { name: "years" }).click();
+  await dialog.getByRole("button", { name: "Pass 3 years" }).click();
+  await expect(page.getByText("3 years later in My world · 1 texted you")).toBeVisible();
+  await openChat(page, 1);
+  await expect(chatMessages(page).getByText("I have a bakery now. can you believe it")).toHaveCount(1);
+  await openRoute(page, "/worlds/mine/timeline");
+  await expect(page.getByRole("list", { name: "World timeline" })).toContainText("Aria opened a bakery by the pier.");
+});
