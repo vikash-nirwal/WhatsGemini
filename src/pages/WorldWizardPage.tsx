@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import ToggleSwitch from "src/components/atoms/ToggleSwitch";
+import { livingWorldPatch, saveWorldPrefs } from "../features/world/worldPrefs";
 import { useNavigate } from "react-router-dom";
 import { FaArrowLeft, FaArrowRight, FaCheck, FaGlobe, FaMagic, FaPlus, FaTimes, FaUserFriends, FaLink, FaUser } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
@@ -105,6 +107,7 @@ const WorldWizardPage = () => {
   const [ties, setTies] = useState<WorldTie[]>([]);
   const [proposing, setProposing] = useState(false);
   const [personaId, setPersonaId] = useState("");
+  const [living, setLiving] = useState(false);
   // AI help (#144): field suggestions, filling the rest, suggested people.
   const assist = useWorldAssist();
   const [filling, setFilling] = useState(false);
@@ -256,6 +259,7 @@ const WorldWizardPage = () => {
     setCreating(true);
     try {
       const saved = await dispatch(addWorld({ ...world, personaId: personaId && personaId !== NEW_PERSONA ? personaId : undefined })).unwrap();
+      if (living) saveWorldPrefs(saved.id, livingWorldPatch(true));
       const idOf: Record<string, number> = {};
       const made: Character[] = [];
       for (const m of cast) {
@@ -465,6 +469,8 @@ const WorldWizardPage = () => {
                 )}
               </div>
               <p className="text-sm text-muted-foreground">{world.name} starts with {cast.length} {cast.length === 1 ? "person" : "people"} and {ties.length} {ties.length === 1 ? "connection" : "connections"}. You'll switch to it when it's made.</p>
+              {/* A living world from the start (#182); off unless you choose it. */}
+              <ToggleSwitch checked={living} onChange={setLiving} label={<span className="text-sm text-foreground">Living world: events, newcomers, places, reputation, introductions, and relationships that change. More happens, with more background calls.</span>} />
             </Card>
           )}
 

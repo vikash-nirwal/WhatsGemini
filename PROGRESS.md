@@ -61,7 +61,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #179 | World history remembered | done | 2026-10-25 |
 | #180 | Passing time ages the world | done | 2026-10-25 |
 | #181 | Strangers become friends | done | 2026-10-25 |
-| #182 | Living world preset | todo | from the world review (Q2) |
+| #182 | Living world preset | done | 2026-10-25 |
 | #183 | Your place in the world | todo | from the world review (I5) |
 | #184 | Plans and secrets resolve | todo | from the world review (I6) |
 | #185 | Factions drive what happens | todo | from the world review (I7) |
@@ -90,6 +90,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+Living world preset: worldPrefs LIVING_WORLD (all features but secrets), a Turn all on/off row in WorldLifeControls, and a Living world switch on the wizard's last step (off by default).
 Strangers become friends: untied neighbours talk as acquaintances (buildWorldTalkPrompt), and after three talks two untied people get a friend tie, logged to the timeline (worldTalk.ts becameFriends, WorldTalker).
 Passing time ages the world: for a world-wide gap of a week or more, passWorldTime writes a life event per resident in one helper call (worldLife.ts buildGapLivesPrompt/parseGapLives), changes ties when drift is on, moves the storyline on a chapter per two days, and first texts after the gap carry their own news. Life events now reach prompts wherever they exist, not only with the newcomers switch.
 World history remembered: timeline.ts buildHistoryNote (notable entries older than a day) and a per-world cache (cachedTimeline); chats get scene.historyNote (useWorldHistoryNote), background calls get a line of it in the world brief (cache warmed by WorldEventWatcher).

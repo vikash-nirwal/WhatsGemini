@@ -1,6 +1,6 @@
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { Select } from "src/components/molecules/form-controls/FormSelect";
-import { DEFAULT_TALK_LENGTH, MAX_TALK_LENGTH, WorldFeature } from "src/features/world/worldPrefs";
+import { DEFAULT_TALK_LENGTH, isLivingWorld, livingWorldPatch, MAX_TALK_LENGTH, WorldFeature } from "src/features/world/worldPrefs";
 import { useCurrentWorld, useWorldPrefs } from "src/hooks/useWorld";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { updateCharacter } from "src/features/characterSlice";
@@ -41,6 +41,14 @@ export const WorldLifeControls = ({ worldId, name }: { worldId: number | null; n
     <div className="grid grid-cols-1 gap-x-6 gap-y-2 border-t border-border pt-3 sm:grid-cols-2" role="group" aria-label={`Life in ${name}`}>
       <ToggleSwitch checked={Boolean(prefs.peek)} onChange={(peek) => update({ peek })} label="Peek at their own texts" />
       <ToggleSwitch checked={prefs.keepLiving !== false} onChange={(keepLiving) => update({ keepLiving })} label="Keep living while I'm elsewhere" />
+      {worldId != null && (
+        <div className="flex items-center justify-between gap-2 sm:col-span-2">
+          <span className="text-sm font-medium text-foreground">Living world</span>
+          <button type="button" onClick={() => update(livingWorldPatch(!isLivingWorld(prefs)))} className="text-[13px] font-bold text-primary-text hover:underline">
+            {isLivingWorld(prefs) ? "Turn all off" : "Turn all on"}
+          </button>
+        </div>
+      )}
       {FEATURES.filter(([key]) => worldId != null || key === "drift").map(([key, label]) => (
         <ToggleSwitch key={key} checked={Boolean(prefs[key])} onChange={(on) => update({ [key]: on })} label={label} />
       ))}

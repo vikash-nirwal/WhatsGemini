@@ -60,3 +60,19 @@ test("everyone in a world can be given a life at once, and the card is full widt
   await expect.poll(async () => (await charactersInDb(page)).filter((c) => c.worldId === 1).every((c) => c.textsFirst && c.postsStatuses && c.dayLogs)).toBe(true);
   await expect(lives).toContainText("Realistic texter");
 });
+
+// #182: one tap turns on a living world, and one turns it off.
+test("a living world in one tap", async ({ page }) => {
+  await openRoute(page, "/worlds/new");
+  await page.locator("#world-name").fill("Harbour Town");
+  await page.locator("#world-premise").fill("A rainy port where everyone knows everyone.");
+  await page.getByRole("button", { name: "Create World" }).click();
+  const life = page.getByRole("group", { name: "Life in Harbour Town" });
+  await life.getByRole("button", { name: "Turn all on" }).click();
+  for (const label of ["World events", "Newcomers and life events", "Your reputation", "Introductions to people they know"]) {
+    await expect(life.getByRole("switch", { name: label })).toBeChecked();
+  }
+  await expect(life.getByRole("switch", { name: "Secrets between them" })).not.toBeChecked();
+  await life.getByRole("button", { name: "Turn all off" }).click();
+  await expect(life.getByRole("switch", { name: "World events" })).not.toBeChecked();
+});

@@ -47,6 +47,12 @@ export const saveWorldPrefs = (worldId: number | null, patch: WorldPrefs): World
   return next;
 };
 
+// A living world in one tap (#182): every living-world feature but secrets,
+// which add drama some worlds don't want.
+export const LIVING_WORLD: WorldFeature[] = ["events", "drift", "arrivals", "places", "reputation", "introductions"];
+export const isLivingWorld = (prefs: WorldPrefs) => LIVING_WORLD.every((f) => prefs[f]);
+export const livingWorldPatch = (on: boolean): WorldPrefs => Object.fromEntries(LIVING_WORLD.map((f) => [f, on]));
+
 export const featureOn = (worldId: number | null | undefined, feature: WorldFeature) => Boolean(loadWorldPrefs(worldId ?? null)[feature]);
 
 export const talkLengthFor = (worldId: number | null) =>
