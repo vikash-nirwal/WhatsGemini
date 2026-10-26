@@ -1,6 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaPlus, FaEdit, FaTrash, FaGlobe, FaSearch, FaHistory } from "react-icons/fa";
+import { FaPlus, FaEdit, FaTrash, FaGlobe, FaSearch, FaHistory, FaFileExport, FaFileImport } from "react-icons/fa";
+import { toast } from "sonner";
+import { exportWorld, readWorldFile, worldFileName } from "../features/world/worldFile";
+import { importWorld } from "../features/world/importWorld";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { deleteWorld, switchWorld } from "../features/worldSlice";
 import { MY_WORLD, worldOf } from "../features/world/currentWorld";
@@ -30,6 +33,28 @@ const WorldGalleryPage = () => {
   const characters = useAppSelector((state) => state.character.characters);
   const chats = useAppSelector((state) => state.chat.chats);
   const { currentWorldId } = useCurrentWorld();
+  // World files (#172): download a world as written; bring one in as new.
+  const importInput = React.useRef<HTMLInputElement>(null);
+  const onExport = (world: (typeof worlds)[number]) => {
+    const file = exportWorld(world, characters.filter((c) => c.worldId === world.id));
+    const url = URL.createObjectURL(new Blob([JSON.stringify(file, null, 2)], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = worldFileName(world.name);
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  const onImport = async (picked: File | undefined) => {
+    if (!picked) return;
+    try {
+      const world = await dispatch(importWorld(readWorldFile(await picked.text())));
+      toast.success(`${world.name} imported, with its people`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't import that world.");
+    } finally {
+      if (importInput.current) importInput.current.value = "";
+    }
+  };
   // Who and what lives in each world (#143), for the cards.
   const countIn = (id: number | null) => ({
     people: characters.filter((c) => worldOf(c, worlds) === id).length,
@@ -90,6 +115,10 @@ const WorldGalleryPage = () => {
                   <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search worlds" aria-label="Search worlds" className="pl-8 text-[13px] w-[220px] bg-card" />
                 </div>
               )}
+              <Button onClick={() => importInput.current?.click()} variant="outline">
+                <FaFileImport size={12} /> Import
+              </Button>
+              <input ref={importInput} type="file" accept=".json,application/json" aria-label="Import a world file" className="hidden" onChange={(e) => void onImport(e.target.files?.[0])} />
               <Button onClick={() => navigate("/worlds/wizard")} variant="default">
                 <FaPlus size={12} /> New world
               </Button>
@@ -163,6 +192,9 @@ const WorldGalleryPage = () => {
                       )}
                       <Button onClick={() => navigate(`/worlds/${world.id}/edit`)} variant="outline" className="flex-1 h-9 text-xs font-semibold">
                         <FaEdit size={11} /> Edit
+                      </Button>
+                      <Button onClick={() => onExport(world)} variant="outline" size="icon" className="h-9 w-9" title="Export" aria-label={`Export ${world.name}`}>
+                        <FaFileExport size={13} />
                       </Button>
                       <Button onClick={() => navigate(`/worlds/${world.id}/timeline`)} variant="outline" size="icon" className="h-9 w-9" title="Timeline" aria-label={`Timeline of ${world.name}`}>
                         <FaHistory size={13} />
