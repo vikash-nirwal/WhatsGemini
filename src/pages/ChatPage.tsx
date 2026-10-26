@@ -50,6 +50,7 @@ import { addTruth, buildGodDirective, buildGodTruthsSection } from "../features/
 import { logToTimeline } from "../features/world/timeline";
 import { activeEvents, buildEventsNote } from "../features/world/worldEvents";
 import { buildLifeNote } from "../features/world/worldLife";
+import { buildWhereNote, whereIs } from "../features/world/places";
 import { worldOf } from "../features/world/currentWorld";
 import { switchWorld, updateWorld } from "../features/worldSlice";
 import { buildMyStatusNote } from "../features/status/myStatuses";
@@ -396,6 +397,8 @@ const ChatPage = () => {
   scene.placeNote = home && characterData
     ? buildPlaceSection(characterData.name, home, cachedWeather(home, noteTime), holidaysNear(cachedHolidays(home.countryCode, new Date(noteTime).getFullYear()), noteTime, home.timeZone), noteTime)
     : undefined;
+  // Places with presence (#165): where on their world's map they are now.
+  if (!scene.placeNote && mainStory && characterData) scene.placeNote = buildWhereNote(whereIs(characterData, worlds.find((w) => w.id === characterData.worldId)?.map?.pins || [], noteTime));
   scene.concernsNote = mainStory && characterData ? buildConcernsSection(characterData.name, characterData.concerns, noteTime) : undefined;
   scene.dayNote = mainStory && characterData ? buildDayLogSection(characterData.name, dayLogText(characterData, noteTime)) : undefined;
   const dayMood = mainStory ? dayMoodFor(characterData, noteTime) : undefined;

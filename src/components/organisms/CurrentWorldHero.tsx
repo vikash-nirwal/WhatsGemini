@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaEye, FaHistory, FaMapMarkerAlt, FaPen } from "react-icons/fa";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
@@ -7,6 +7,9 @@ import { formatStoryDate } from "src/features/world/storyTime";
 import { useAppSelector } from "src/store/hooks";
 import { WorldEventsSection } from "./WorldEventsSection";
 import { NewcomerCard } from "./NewcomerCard";
+import { PlaceDialog } from "./PlaceDialog";
+import { whoIsWhere } from "src/features/world/places";
+import { MapPin } from "src/types";
 import { useCurrentWorld, useWorldCharacters, useWorldPrefs } from "src/hooks/useWorld";
 
 // The world you're in (#157), on top of the Worlds page as on the canvas: a
@@ -19,6 +22,9 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
   const [prefs] = useWorldPrefs(currentWorldId);
   const you = personas.find((p) => p.id === current?.personaId);
   const pins = current?.map?.pins || [];
+  // Who is where right now (#165); a place opens to start a scene there.
+  const here = whoIsWhere(cast, pins, Date.now());
+  const [openPin, setOpenPin] = useState<MapPin | null>(null);
 
   return (
     <section aria-label="Current world" className="mb-8 overflow-hidden rounded-[20px] bg-card ring-1 ring-inset ring-border">
@@ -72,8 +78,16 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
           ) : null}
           {pins.length > 0 ? (
             <ul className="flex flex-col gap-2">
-              {pins.slice(0, 6).map((p) => (
-                <li key={p.id} className="flex items-center gap-2.5 text-[13.5px] font-semibold text-foreground"><FaMapMarkerAlt size={12} className="text-primary-text" />{p.name}</li>
+              {pins.slice(0, 8).map((p) => (
+                <li key={p.id}>
+                  <button type="button" onClick={() => setOpenPin(p)} aria-label={`${p.name}${here[p.id]?.length ? `, ${here[p.id].map((c) => c.name).join(", ")} here` : ""}`} className="flex w-full items-center gap-2.5 rounded-lg py-1 text-left text-[13.5px] font-semibold text-foreground hover:bg-raised">
+                    <FaMapMarkerAlt size={12} className="flex-none text-primary-text" />
+                    <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                    <span className="flex -space-x-1.5">
+                      {(here[p.id] || []).slice(0, 4).map((c) => <CharacterAvatar key={c.id} name={c.name} accent={c.accent} imageSrc={avatarOf(c)} size={22} />)}
+                    </span>
+                  </button>
+                </li>
               ))}
             </ul>
           ) : (
@@ -81,6 +95,7 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
           )}
         </div>
       </div>
+      <PlaceDialog pin={openPin} cast={cast} present={openPin ? here[openPin.id] || [] : []} onOpenChange={(o) => !o && setOpenPin(null)} />
     </section>
   );
 };

@@ -732,6 +732,7 @@ export interface Character {
   preoccupations?: boolean; // has things of their own going on, written weekly (#110)
   concerns?: Preoccupation[]; // open ones and the last few finished
   concernsWrittenAt?: number;
+  hangout?: string; // the map pin of their usual spot in their world (#165)
   lifeEvents?: { text: string; at: number }[]; // things that happened in their life over story time (#164), newest last
   dayMood?: { date: string; mood: string }; // today's mood picked by hand; mood "" = a good day
   spreadsRumors?: boolean; // what you tell them can get around (#98)
