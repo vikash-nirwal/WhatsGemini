@@ -26,3 +26,16 @@ test("the keeper's prompt knows; you see what you heard and haven't told", () =>
   expect(secretsYouKnowAbout(bram, [told, bram])).toHaveLength(0);
   expect(buildSecretsNote(told, [told, bram], "Sam")).toBeUndefined();
 });
+
+test("an old secret can come out on its own, and both sides remember how (#184)", () => {
+  const { secretReadyToSurface, surfacedFacts } = require("./secrets");
+  const DAY = 86_400_000;
+  const keeper = { id: 1, name: "Aria", keptSecrets: [{ id: "s", fromId: 2, text: "Aria sold the boat.", at: 0 }] };
+  expect(secretReadyToSurface([keeper], 8 * DAY, 7 * DAY, () => 0)).toEqual({ keeper, secret: keeper.keptSecrets[0] });
+  expect(secretReadyToSurface([keeper], 3 * DAY, 7 * DAY, () => 0)).toBeUndefined();
+  expect(secretReadyToSurface([keeper], 8 * DAY, 7 * DAY, () => 0.9)).toBeUndefined();
+  expect(secretReadyToSurface([{ ...keeper, keptSecrets: [{ ...keeper.keptSecrets[0], outAt: 1 }] }], 8 * DAY, 7 * DAY, () => 0)).toBeUndefined();
+  const facts = surfacedFacts("Aria", "Kai", "Aria sold the boat.", "found out");
+  expect(facts.forFrom).toBe("You found out what Aria had been hiding from you: Aria sold the boat.");
+  expect(facts.timeline).toBe("Kai found out what Aria was hiding");
+});

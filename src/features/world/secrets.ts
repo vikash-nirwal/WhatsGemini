@@ -48,14 +48,32 @@ export const addSecret = (keeper: Character, secret: KeptSecret): Character => (
 
 // For the keeper's own prompt: what they're hiding, and from whom.
 export const buildSecretsNote = (keeper: Character | undefined, characters: Character[], userName: string): string | undefined => {
-  const kept = (keeper?.keptSecrets || []).filter((s) => !s.toldAt);
+  const kept = (keeper?.keptSecrets || []).filter((s) => !s.toldAt && !s.outAt);
   if (!kept.length) return undefined;
   return `Secrets you're keeping (act like it: careful, guilty or defensive around it; you might confide in ${userName} if you trust them):\n${kept.map((s) => `- From ${characters.find((c) => c.id === s.fromId)?.name || "someone"}: ${s.text}`).join("\n")}`;
 };
 
 // Secrets about this person that you know and haven't told them.
 export const secretsYouKnowAbout = (person: Character, characters: Character[]) =>
-  characters.flatMap((keeper) => (keeper.keptSecrets || []).filter((s) => s.fromId === person.id && s.heardFrom !== undefined && !s.toldAt).map((s) => ({ keeper, secret: s })));
+  characters.flatMap((keeper) => (keeper.keptSecrets || []).filter((s) => s.fromId === person.id && s.heardFrom !== undefined && !s.toldAt && !s.outAt).map((s) => ({ keeper, secret: s })));
 
 export const toldFact = (userName: string, keeper: string, text: string) => `${userName} told you something ${keeper} was hiding from you: ${text}`;
 export const toldOnFact = (userName: string, to: string) => `${userName} told ${to} the secret you were keeping from them.`;
+
+// Secrets come out on their own (#184): after a week or so (scaled by the
+// life dial), now and then one does - the keeper confesses, lets it slip,
+// or the other one finds out. Both remember how.
+export const SECRET_OUT_AFTER_MS = 7 * 86_400_000;
+
+export const secretReadyToSurface = (keepers: Character[], now: number, afterMs: number = SECRET_OUT_AFTER_MS, rand: () => number = Math.random): { keeper: Character; secret: KeptSecret } | undefined => {
+  const ready = keepers.flatMap((k) => (k.keptSecrets || []).filter((s) => !s.toldAt && !s.outAt && now - s.at >= afterMs).map((secret) => ({ keeper: k, secret })));
+  return ready.length && rand() < 0.4 ? ready[Math.floor(rand() * ready.length)] : undefined;
+};
+
+export const HOW_IT_CAME_OUT: KeptSecret["how"][] = ["confessed", "slipped", "found out"];
+
+export const surfacedFacts = (keeperName: string, fromName: string, text: string, how: NonNullable<KeptSecret["how"]>) => ({
+  forKeeper: how === "confessed" ? `You told ${fromName} what you'd been hiding: ${text}` : how === "slipped" ? `It slipped out in front of ${fromName}: ${text}` : `${fromName} found out what you'd been hiding: ${text}`,
+  forFrom: how === "confessed" ? `${keeperName} confessed something they'd been hiding from you: ${text}` : how === "slipped" ? `${keeperName} let slip something they'd been hiding: ${text}` : `You found out what ${keeperName} had been hiding from you: ${text}`,
+  timeline: how === "confessed" ? `${keeperName} confessed to ${fromName}` : how === "slipped" ? `${keeperName}'s secret slipped out in front of ${fromName}` : `${fromName} found out what ${keeperName} was hiding`,
+});

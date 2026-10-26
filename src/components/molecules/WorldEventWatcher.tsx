@@ -19,10 +19,12 @@ import { loadTimeline, logToTimeline } from "src/features/world/timeline";
 import { toast } from "sonner";
 import { selectActivePersona } from "src/features/settingsSlice";
 import { buildIntroductionPrompt, introducedFact, INTRO_GAP_MS, introductionDue, pickIntroduction } from "src/features/world/introductions";
-import { addChat, addChatNotice, addMessage, fetchChats } from "src/features/chatSlice";
+import { addChat, addChatNotice, addMessage, fetchChats, updateChatOptions } from "src/features/chatSlice";
+import { buildPlanReminderPrompt, planPassed, planReminderDue } from "src/features/world/groupPlans";
+import { writePlanOutcome } from "src/features/world/planOutcome";
 import { cleanFirstText } from "src/features/character/firstTexts";
 import { AI } from "src/utils/constants";
-import { addSecret, buildSecretPrompt, parseSecret, pickGossip, pickSecretPair, SECRET_GAP_MS, secretDue } from "src/features/world/secrets";
+import { HOW_IT_CAME_OUT, SECRET_OUT_AFTER_MS, secretReadyToSurface, surfacedFacts, addSecret, buildSecretPrompt, parseSecret, pickGossip, pickSecretPair, SECRET_GAP_MS, secretDue } from "src/features/world/secrets";
 import { buildReputationPrompt, cleanReputation, REPUTATION_GAP_MS, reputationDue } from "src/features/world/reputation";
 
 // Every 20 minutes, each feature on its own gap (#174): one shared turn
@@ -70,7 +72,7 @@ const WorldEventWatcher = () => {
             if (!next.doneAt) await tellTheNews(w, `${arc.title}: ${next.beats[next.step]}`, [], now);
           }
         }
-        for (const job of [fillPlaces, runIntoYou, startOwnEvent, moveLivesOn, welcomeNewcomer, refreshReputation, introduce, keepSecret]) await job(now);
+        for (const job of [fillPlaces, runIntoYou, startOwnEvent, moveLivesOn, welcomeNewcomer, refreshReputation, introduce, keepSecret, surfaceSecret, keepPlans]) await job(now);
       } finally {
         busy.current = false;
       }
@@ -263,6 +265,51 @@ const WorldEventWatcher = () => {
       }
     };
     // The catch-up turn is claimed when the timer fires, not at mount.
+    // Secrets come out on their own (#184).
+    const surfaceSecret = async (now: number) => {
+      const { worlds, characters } = latest.current;
+      for (const world of worlds.filter((w) => featureOn(w.id, "secrets"))) {
+        const ready = secretReadyToSurface(characters.filter((c) => c.worldId === world.id), now, lifeScaled(SECRET_OUT_AFTER_MS));
+        if (!ready) continue;
+        const { keeper, secret } = ready;
+        const from = characters.find((c) => c.id === secret.fromId);
+        if (!from) continue;
+        const how = HOW_IT_CAME_OUT[Math.floor(Math.random() * HOW_IT_CAME_OUT.length)]!;
+        const facts = surfacedFacts(keeper.name, from.name, secret.text, how);
+        await dispatch(updateCharacter({ ...keeper, memory: [...(keeper.memory || []), facts.forKeeper], keptSecrets: (keeper.keptSecrets || []).map((s) => (s.id === secret.id ? { ...s, outAt: now, how } : s)) }));
+        const freshFrom = latest.current.characters.find((c) => c.id === from.id) || from;
+        await dispatch(updateCharacter({ ...freshFrom, memory: [...(freshFrom.memory || []), facts.forFrom] }));
+        void logToTimeline(world.id, { kind: "event", text: facts.timeline, characterIds: [keeper.id, from.id], at: now }, world.storyTime);
+        toast(`${world.name}: ${facts.timeline}`, { description: secret.text });
+        await tellTheNews(world, facts.forFrom, [from.id], now);
+        return;
+      }
+    };
+    // Plans resolve (#184): a reminder the day before, and how it went once
+    // the day has passed without you saying.
+    const keepPlans = async (now: number) => {
+      const { characters, chats, worlds, persona } = latest.current;
+      const userName = persona?.name?.trim() || "the user";
+      for (const chat of chats.filter((c) => c.groupPlan && c.id)) {
+        const plan = chat.groupPlan!;
+        const world = worlds.find((w) => w.id === chat.worldId);
+        try {
+          if (planReminderDue(plan, now)) {
+            const members = characters.filter((c) => plan.memberIds.includes(c.id));
+            const who = members[Math.floor(Math.random() * members.length)];
+            await dispatch(updateChatOptions({ chatId: chat.id!, patch: { groupPlan: { ...plan, remindedAt: now } } }));
+            if (!who) continue;
+            const text = cleanFirstText(await dispatch(generateAssistText({ instruction: buildPlanReminderPrompt(plan, who, members.filter((m) => m.id !== who.id).map((m) => m.name), userName), background: true, activity: { at: now, kind: "first-text", text: `${who.name} reminded everyone about ${plan.title}`, characterId: who.id, name: who.name } })).unwrap());
+            if (text) await dispatch(addMessage({ chatId: chat.id!, role: AI, text, speakerId: who.id, at: now }));
+          } else if (planPassed(plan, now)) {
+            await dispatch(writePlanOutcome(chat, characters, world, userName, undefined, true));
+            toast(`${plan.title} happened`, { description: "How it went is in its group chat." });
+          }
+        } catch (err) {
+          console.warn("Plan follow-up failed (non-fatal):", err);
+        }
+      }
+    };
     const first = window.setTimeout(() => void check(catchUpTime("world-life")), FIRST_CHECK_MS);
     const timer = window.setInterval(() => void check(), CHECK_EVERY_MS);
     return () => {

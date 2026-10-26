@@ -4,13 +4,8 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "src/compo
 import { TextArea } from "src/components/molecules/form-controls";
 import { Button } from "src/components/atoms/button";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
-import { addChatNotice, updateChatOptions } from "src/features/chatSlice";
-import { updateCharacter } from "src/features/characterSlice";
-import { generateAssistText } from "src/features/aiSlice";
 import { selectActivePersona } from "src/features/settingsSlice";
-import { buildPlanOutcomePrompt, cleanOutcome, planMemory, withPlanMemory } from "src/features/world/groupPlans";
-import { logToTimeline } from "src/features/world/timeline";
-import { YOU } from "src/utils/constants";
+import { writePlanOutcome } from "src/features/world/planOutcome";
 import { Chat } from "src/types";
 
 // A group plan's chat (#168): the plan on top, and "It happened" to write
@@ -26,19 +21,10 @@ export const PlanBar = ({ chat }: { chat: Chat }) => {
   const plan = chat.groupPlan;
   if (!plan || !chat.id) return null;
   const userName = persona?.name?.trim() || "You";
-  const members = characters.filter((c) => plan.memberIds.includes(c.id));
   const happened = async () => {
     setBusy(true);
     try {
-      const transcript = (chat.content || []).slice(-30).map((m) => `${m.role === YOU ? userName : characters.find((c) => c.id === m.speakerId)?.name || "?"}: ${m.txt}`).join("\n");
-      const outcome = cleanOutcome(await dispatch(generateAssistText({ instruction: buildPlanOutcomePrompt(plan, members.map((c) => c.name), userName, transcript, idea) })).unwrap());
-      if (!outcome) throw new Error("empty");
-      const fact = planMemory(plan, outcome, userName);
-      for (const m of members) await dispatch(updateCharacter(withPlanMemory(m, fact)));
-      await dispatch(updateChatOptions({ chatId: chat.id!, patch: { groupPlan: { ...plan, outcome, doneAt: Date.now() } } }));
-      await dispatch(addChatNotice({ chatId: chat.id!, text: `How it went: ${outcome}` }));
-      const world = worlds.find((w) => w.id === chat.worldId);
-      void logToTimeline(world ? world.id : null, { kind: "you", text: `${plan.title}: ${outcome}`, characterIds: plan.memberIds }, world?.storyTime);
+      await dispatch(writePlanOutcome(chat, characters, worlds.find((w) => w.id === chat.worldId), userName, idea));
       setOpen(false);
       setIdea("");
     } catch {

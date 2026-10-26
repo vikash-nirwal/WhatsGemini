@@ -25,3 +25,17 @@ export const cleanOutcome = (reply: string): string | undefined => {
 export const planMemory = (plan: Pick<GroupPlan, "title">, outcome: string, userName: string) => `${plan.title} with ${userName} and the others happened: ${outcome}`;
 
 export const withPlanMemory = (c: Character, fact: string): Character => ({ ...c, memory: [...(c.memory || []), fact] });
+
+// Plans resolve (#184): with a date, someone in the group reminds everyone
+// the day before, and if the day passes without "It happened", the outcome
+// is written anyway - the story moves on whether or not you pressed it.
+const DAY = 24 * 60 * 60 * 1000;
+const dayStart = (date: string) => new Date(`${date}T00:00:00`).getTime();
+
+export const planReminderDue = (plan: GroupPlan | undefined, now: number) =>
+  Boolean(plan?.date && !plan.outcome && !plan.remindedAt && now >= dayStart(plan.date) - DAY && now < dayStart(plan.date) && new Date(now).getHours() >= 9);
+
+export const planPassed = (plan: GroupPlan | undefined, now: number) => Boolean(plan?.date && !plan.outcome && now >= dayStart(plan.date) + DAY);
+
+export const buildPlanReminderPrompt = (plan: Pick<GroupPlan, "title" | "when">, who: Character, others: string[], userName: string) =>
+  `You are ${who.name}. ${[who.description, who.prompt].filter(Boolean).join(" ").slice(0, 400)}\n\nTomorrow is the plan you made with ${userName}${others.length ? ` and ${others.join(", ")}` : ""}: ${plan.title}${plan.when ? ` (${plan.when})` : ""}. Text the group about it - excited, a last detail, a worry, whatever you'd say. One or two short lines, in your own voice. Reply with only the message.`;

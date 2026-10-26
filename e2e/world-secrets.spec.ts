@@ -64,3 +64,38 @@ test("a friend lets a secret slip, and you tell the one it's kept from", async (
   await expect(page.getByRole("region", { name: "Secrets you know" })).toHaveCount(0);
   await expect(page.getByText("You told Kai what Aria was hiding").first()).toBeVisible();
 });
+
+// #184: a secret kept long enough can come out on its own.
+test("an old secret comes out, and the one it was kept from knows", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("world_prefs", JSON.stringify({ "1": { secrets: true } }));
+    let n = 0;
+    Math.random = () => 0.01 + ((n++ * 0.0137) % 0.2);
+  });
+  await page.clock.install({ time: NOW });
+  await openRoute(page, "/worlds/new");
+  await page.locator("#world-name").fill("Harbour Town");
+  await page.locator("#world-premise").fill("A rainy port where everyone knows everyone.");
+  await page.getByRole("button", { name: "Create World" }).click();
+  await put(page, "worlds", { id: 1, lastSecretAt: NOW });
+  await put(page, "characters", { id: ARIA.id, worldId: 1, keptSecrets: [{ id: "s1", fromId: KAI.id, text: "Aria sold their late father's boat.", at: NOW - 10 * 86_400_000 }] });
+  await put(page, "characters", { id: KAI.id, worldId: 1 });
+  await page.reload();
+  await page.clock.fastForward(65_000);
+  await openRoute(page, "/worlds/1/timeline");
+  await expect(page.getByRole("list", { name: "World timeline" })).toContainText(/Aria confessed to Kai|slipped out in front of Kai|Kai found out what Aria was hiding/, { timeout: 15_000 });
+  const kaiMemory = await page.evaluate(async (id) => {
+    const db: IDBDatabase = await new Promise((resolve, reject) => {
+      const req = indexedDB.open("ChatAppDB");
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    const c: any = await new Promise((resolve) => {
+      const get = db.transaction("characters").objectStore("characters").get(id);
+      get.onsuccess = () => resolve(get.result);
+    });
+    db.close();
+    return c.memory || [];
+  }, KAI.id);
+  expect(kaiMemory.join(" ")).toContain("Aria sold their late father's boat.");
+});

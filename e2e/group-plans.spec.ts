@@ -44,3 +44,30 @@ test("make a plan, chat about it, and everyone remembers how it went", async ({ 
   expect(mockAI.requests.find((r) => r.prompt.includes("made a plan"))!.prompt).toContain("says it went: it rained");
   await expect.poll(() => memoryOf(page, "Kai")).toContainEqual(expect.stringContaining("Bonfire on the beach with"));
 });
+
+// #184: a dated plan gets a reminder the day before, and if its day passes
+// without "It happened", how it went is written anyway.
+test("a dated plan reminds the group and resolves on its own", async ({ page, mockAI }) => {
+  await page.clock.install({ time: new Date(2026, 9, 24, 10, 0, 0) });
+  mockAI.reply((req) =>
+    req.prompt.includes("Tomorrow is the plan") ? "tomorrow!! bring blankets"
+      : req.prompt.includes("made a plan: Bonfire on the beach") ? "The fire wouldn't light until Kai found dry wood, then everyone stayed till dawn."
+      : "Mock reply"
+  );
+  await openRoute(page, "/worlds");
+  await page.getByRole("button", { name: "Make a plan" }).click();
+  const dialog = page.getByRole("dialog", { name: "Make a plan" });
+  await dialog.getByRole("textbox", { name: "The plan" }).fill("Bonfire on the beach");
+  await dialog.getByLabel("Day").fill("2026-10-25");
+  await dialog.getByRole("checkbox", { name: "Aria is in" }).check();
+  await dialog.getByRole("checkbox", { name: "Kai is in" }).check();
+  await dialog.getByRole("button", { name: "Start the group chat" }).click();
+  await expect(page).toHaveURL(/#\/chat\/\d+$/);
+
+  await page.clock.fastForward(65_000);
+  await expect(page.getByText("tomorrow!! bring blankets").first()).toBeVisible({ timeout: 15_000 });
+
+  await page.clock.fastForward(2 * 24 * 3_600_000);
+  await expect(page.getByRole("region", { name: "Group plan" })).toContainText("done", { timeout: 15_000 });
+  await expect(page.getByText("How it went: The fire wouldn't light", { exact: false })).toBeVisible();
+});

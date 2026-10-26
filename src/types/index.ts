@@ -954,6 +954,8 @@ export interface KeptSecret {
   at: number;
   heardFrom?: number; // who told you; set once you know it
   toldAt?: number; // when you told them
+  outAt?: number; // when it came out on its own (#184)
+  how?: "confessed" | "slipped" | "found out";
 }
 
 // A family or faction in a world (#171): people who stick together, with
@@ -985,6 +987,8 @@ export interface GroupPlan {
   when?: string;
   memberIds: number[];
   at: number;
+  date?: string; // the day it's on, YYYY-MM-DD (#184): reminders and an outcome if it passes
+  remindedAt?: number; // the day-before reminder went out
   outcome?: string; // how it went, once it happened
   doneAt?: number;
 }

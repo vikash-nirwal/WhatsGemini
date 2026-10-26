@@ -19,17 +19,19 @@ export const GroupPlanDialog = ({ open, onOpenChange, cast, world }: { open: boo
   const persona = useAppSelector(selectActivePersona);
   const [title, setTitle] = useState("");
   const [when, setWhen] = useState("");
+  const [date, setDate] = useState("");
   const [chosen, setChosen] = useState<number[]>([]);
   const toggle = (id: number) => setChosen((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]));
   const start = async () => {
     const people = cast.filter((c) => chosen.includes(c.id));
-    const plan = { title: title.trim(), when: when.trim() || undefined, memberIds: people.map((c) => c.id), at: Date.now() };
+    const plan = { title: title.trim(), when: when.trim() || undefined, ...(date ? { date } : {}), memberIds: people.map((c) => c.id), at: Date.now() };
     const chat = await dispatch(addChat({ title: plan.title, characterIds: plan.memberIds, scenario: planScenario(plan, people.map((c) => c.name), persona?.name?.trim() || "You") })).unwrap();
     await dispatch(updateChatOptions({ chatId: chat.id, patch: { groupPlan: plan, offscreenTalk: true } }));
     void logToTimeline(world ? world.id : null, { kind: "you", text: `You made a plan: ${plan.title}${plan.when ? `, ${plan.when}` : ""} (with ${people.map((c) => c.name).join(", ")})`, characterIds: plan.memberIds }, world?.storyTime);
     onOpenChange(false);
     setTitle("");
     setWhen("");
+    setDate("");
     setChosen([]);
     navigate(`/chat/${chat.id}`);
   };
@@ -40,7 +42,11 @@ export const GroupPlanDialog = ({ open, onOpenChange, cast, world }: { open: boo
           <DialogTitle className="pt-1">Make a plan</DialogTitle>
           <DialogDescription>A plan with a few people, and a group chat to sort it out. When it has happened, they'll remember how it went.</DialogDescription>
           <TextInput aria-label="The plan" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Bonfire on the beach" />
-          <TextInput aria-label="When" value={when} onChange={(e) => setWhen(e.target.value)} placeholder="When (optional), e.g. Saturday night" />
+          <div className="flex gap-2">
+            <TextInput aria-label="When" value={when} onChange={(e) => setWhen(e.target.value)} placeholder="When (optional), e.g. Saturday night" />
+            {/* A real day (#184): a reminder the day before, and it happens even if you forget. */}
+            <TextInput type="date" aria-label="Day" value={date} onChange={(e) => setDate(e.target.value)} className="w-[160px] flex-none" />
+          </div>
           <ul aria-label="Who's in" className="flex flex-col gap-1.5">
             {cast.map((c) => (
               <li key={c.id}>
