@@ -23,3 +23,8 @@ test("it goes first, and not twice", () => {
   expect(withWorldBrief("Simply true in this world: y. Write.", "Context: X.")).toBe("Simply true in this world: y. Write.");
   expect(withWorldBrief("Write.", undefined)).toBe("Write.");
 });
+
+test("a world with its own calendar overrides the real weekday (#186)", () => {
+  const brief = buildWorldBrief({ id: 3, name: "Vale", premise: "x", storyTime: { year: 12, months: ["Frost"], daysPerMonth: 30, day: 2, anchorAt: 0, moves: false } } as World, 0, { events: false })!;
+  expect(brief).toContain("by the world's own calendar: any real weekday or date further down doesn't apply, only the time of day does.");
+});

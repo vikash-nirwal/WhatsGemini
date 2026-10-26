@@ -65,7 +65,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #183 | Your place in the world | done | 2026-10-25 |
 | #184 | Plans and secrets resolve | done | 2026-10-25 |
 | #185 | Factions drive what happens | done | 2026-10-25 |
-| #186 | One clock per world | todo | from the world review (I8) |
+| #186 | One clock per world | done | 2026-10-25 |
 | #148 | Revamp: design tokens and type | done | 2026-10-25 |
 | #149 | Revamp: core components | done | 2026-10-25 |
 | #150 | Revamp: navigation shell | done | 2026-10-25; terminal keeps its drawer and sidebar |
@@ -90,6 +90,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+One clock per world: in a world with its own calendar, the background world brief (worldBrief.ts) states the world's date and tells the model the real weekday or date further down doesn't apply, only the time of day; one place instead of every prompt that carries the real clock.
 Factions drive what happens: a "groups" talk topic (rivalry, a grudge, a deal; or their own group's business) and each talker's groups in the talk prompt (worldTalk.ts, WorldTalker), and world events and storylines are written knowing the groups. The map isn't regrouped (places show who's there).
 Plans and secrets resolve: GroupPlan.date (a Day field in GroupPlanDialog) brings a member's reminder the day before and a written outcome once the day passes (groupPlans.ts planReminderDue/planPassed, planOutcome.ts writePlanOutcome shared with PlanBar); kept secrets come out on their own after a week or so as a confession, a slip or a discovery, remembered by both, with the news texted (secrets.ts secretReadyToSurface/surfacedFacts, KeptSecret.outAt/how).
 Your place in the world: World.youAt (set by a scene at a place or You're at on CurrentWorldHero, fades after 6 h; places.ts whereYouAre/buildYouAtNote); chats know where you are (scene.youAtNote); someone at the same place may run into you by text (WorldEventWatcher runIntoYou, 3 h apart).

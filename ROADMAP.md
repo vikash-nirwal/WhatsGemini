@@ -39,7 +39,6 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 
 From the world mechanics review (https://claude.ai/artifact/E4TKJjHKExRF8qTYiVWheK); the user asked for all of them. Built in this order.
 
-- **#186 One clock per world (I8).** Where a world keeps its own calendar, background prompts keep the time of day but drop the real weekday.
 
 ## Smaller follow-ups
 

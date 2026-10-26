@@ -18,7 +18,9 @@ const historyLine = (entries: TimelineEntry[], now: number) => {
 export const buildWorldBrief = (world: World | undefined, now: number, opts: { events: boolean; history?: TimelineEntry[] }): string | undefined => {
   if (!world) return undefined;
   const lines = [
-    world.storyTime ? `It's ${formatStoryDate(world.storyTime, now)} there.` : "",
+    // One clock per world (#186): the world's own date wins over the real
+    // weekday some prompts carry; their time of day still sets the rhythm.
+    world.storyTime ? `It's ${formatStoryDate(world.storyTime, now)} there, by the world's own calendar: any real weekday or date further down doesn't apply, only the time of day does.` : "",
     world.godTruths?.length ? `Simply true there (never question it): ${world.godTruths.join("; ")}.` : "",
     opts.events ? activeEvents(world, now).map((e) => `Going on: ${e.title} (${e.text}).`).join(" ") : "",
     arcActive(world) ? `The story there right now: ${arcActive(world)!.beats[arcActive(world)!.step]}` : "",
