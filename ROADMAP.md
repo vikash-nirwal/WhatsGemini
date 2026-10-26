@@ -38,7 +38,6 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 
 The user's batch: refine how characters talk to each other (and about you), a god mode, and twelve ideas that build on worlds. Built in this order.
 
-- **#160 God mode (M).** A per-chat switch: what you write in god mode is the truth of the world, and characters accept it without question or comment (it changes facts, relationships, places, the scene). Kept as world facts every member's prompt carries.
 - **#161 World timeline (M).** One history per world: events, relationship changes, arrivals and departures, story dates. A page under the world.
 - **#162 World events (M).** Now and then the world has an event (festival, storm, scandal); it reaches statuses, the news channel, talk and replies. You can start one.
 - **#163 Relationships that drift (M).** Ties change from what characters say to each other: fallings-out, making up, new couples; a notice when it happens.

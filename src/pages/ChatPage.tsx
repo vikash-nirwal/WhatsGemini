@@ -46,6 +46,7 @@ import { tiesNoteFor } from "../features/world/worldWizard";
 import { worldTalkNoteFor } from "../features/world/worldTalk";
 import { buildTimePassedNote, buildTimePassedOpener, describeGap, gapDays, TimePassed, timePassedInScope, timePassedNotice, TimeUnit } from "../features/chat/passTime";
 import { skipStoryTime } from "../features/world/storyTime";
+import { addTruth, buildGodDirective, buildGodTruthsSection } from "../features/chat/godMode";
 import { worldOf } from "../features/world/currentWorld";
 import { switchWorld, updateWorld } from "../features/worldSlice";
 import { buildMyStatusNote } from "../features/status/myStatuses";
@@ -376,6 +377,8 @@ const ChatPage = () => {
   if (!isRoom && characterData && currentChat?.conflict) scene.conflictNote = [scene.conflictNote, buildBlockDirective(characterData.name, userNameForNotes)].filter(Boolean).join("\n");
   scene.blockNote = !isRoom && characterData ? blockNotesFor(characterData, characters, chats, userNameForNotes) : undefined;
   // Time passed (the user's ask): every member knows how long it's been.
+  // God mode (#160): the truths of this chat's world, or of this chat.
+  scene.godNote = buildGodTruthsSection([...(worlds.find((w) => w.id === currentChat?.worldId)?.godTruths || []), ...(currentChat?.godTruths || [])]);
   scene.timePassedNote = currentChat?.timePassed && timePassedInScope(currentChat.timePassed, (currentChat.content || []).length) ? buildTimePassedNote(currentChat.timePassed, userNameForNotes) : undefined;
   // Group chats (#124): members may rename the group or start a poll.
   scene.groupNote = isRoom ? buildGroupDirective(userNameForNotes) : undefined;
@@ -1103,6 +1106,24 @@ const ChatPage = () => {
     }
   };
 
+  // God mode (#160): it becomes true - kept on the world (or, outside one,
+  // this chat), shown as a line in the chat, and the story carries on in it.
+  const handleGodChange = async (text: string) => {
+    if (!chatIdNum || autoReplyInFlightRef.current || aiLoading) return;
+    autoReplyInFlightRef.current = true;
+    try {
+      const chatWorld = worlds.find((w) => w.id === currentChat?.worldId);
+      if (chatWorld) await dispatch(updateWorld({ ...chatWorld, godTruths: addTruth(chatWorld.godTruths, text) }));
+      else await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { godTruths: addTruth(currentChat?.godTruths, text) } }));
+      await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text: text.trim(), isNarration: true, godMode: true }));
+      await finishRoomRound(await sendCharacterFollowup(undefined, buildGodDirective(text)));
+    } catch (err) {
+      toast.error(typeof err === "string" ? err : "Couldn't make that true. Check your model settings.");
+    } finally {
+      autoReplyInFlightRef.current = false;
+    }
+  };
+
   // Pass the time (the user's ask): a marker in the chat, replies told how
   // long it's been for a few exchanges, the world's calendar moved on, and -
   // if you like - them texting first after the gap.
@@ -1310,9 +1331,13 @@ const ChatPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoReplySettings.enabled, autoReplySettings.minDelaySeconds, autoReplySettings.maxDelaySeconds, autoReplySettings.maxFollowups, autoReplySettings.followupCount, chatIdNum, characterData, currentChat?.content, aiLoading, lastTypingActivityAt]);
 
-  const handleSend = async (rawText: string, requestedImage?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean, isVoiceNote?: boolean, photos?: string[]) => {
+  const handleSend = async (rawText: string, requestedImage?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean, isVoiceNote?: boolean, photos?: string[], isGod?: boolean) => {
     // A photo can go on its own, without words (#48).
     if ((!rawText.trim() && !photos?.length) || !chatIdNum) return;
+    if (isGod) {
+      await handleGodChange(rawText);
+      return;
+    }
 
     setError(null);
 

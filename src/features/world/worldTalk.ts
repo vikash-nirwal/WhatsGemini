@@ -126,6 +126,8 @@ export const buildWorldTalkPrompt = (
   const tie = tieOf(a, b)?.replace(/^your\s+/i, "");
   return [
     `Write a text conversation between ${a.name} and ${b.name}, who know each other${world ? ` and live in ${world.name}: ${world.premise}` : ""}. ${userName} isn't in it.`,
+    // God mode (#160): what the author made true holds here too.
+    ...(world?.godTruths?.length ? [`Simply true in this world (never question it): ${world.godTruths.join("; ")}.`] : []),
     "",
     who(a, b),
     who(b, a),

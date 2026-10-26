@@ -43,6 +43,7 @@ export interface Message {
   isImageRequest?: boolean; // True if it triggered image generation
   isVideoRequest?: boolean; // True if it triggered video generation (mutually exclusive with isImageRequest)
   isImpersonated?: boolean; // role AI, but the user wrote it themselves (Impersonate mode) - not a real generation
+  godMode?: boolean; // a god-mode change (#160): shown as a narration line, kept as a truth
   isNarration?: boolean; // a /narrate line: neither the user nor a character speaking (stored with role "you")
   bookmarked?: boolean; // starred by the user to find again (#21)
   // Heuristically detected out-of-character refusal ("I can't continue this
@@ -539,6 +540,7 @@ export interface Chat {
   textingMode?: boolean; // this chat's texting mode (#6); unset = the app setting
   sceneTracker?: boolean; // track location, time, outfit and two meters (#9)
   worldId?: number; // a World whose setting and lore this chat uses (#28)
+  godTruths?: string[]; // god mode (#160), outside a world: what you made true in this chat
   timePassed?: import("../features/chat/passTime").TimePassed; // the last "pass the time": replies react to it for a few exchanges
   backdrop?: string; // a picture behind this chat's bubbles (#13)
   // Rooms only (#22-#24): who answers a message, a narrator between rounds,
@@ -922,6 +924,7 @@ export interface World {
   map?: WorldMap; // a picture of the world with its places pinned (#66)
   personaId?: string; // who you are in this world (#143); unset = your active persona
   era?: string; // era or technology (#144), e.g. "Medieval: news travels by letter"
+  godTruths?: string[]; // god mode (#160): what you made true; every chat and life here carries it
   storyTime?: StoryTime; // the world's own calendar (#147); unset = your clock
 }
 

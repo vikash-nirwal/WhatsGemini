@@ -38,7 +38,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #147 | Story time | done | 2026-10-25 |
 | #158 | Reset a character or a world | done | 2026-10-25 |
 | #159 | Better talk between characters | done | 2026-10-25 |
-| #160 | God mode | todo | |
+| #160 | God mode | done | 2026-10-25 |
 | #161 | World timeline | todo | |
 | #162 | World events | todo | |
 | #163 | Relationships that drift | todo | |
@@ -75,6 +75,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+#160 god mode: a composer mode (Toggle god mode, stays on until turned off; MessageInput onSend's isGod) - handleGodChange in ChatPage keeps the text as a truth on the chat's world (World.godTruths) or, outside a world, the chat (Chat.godTruths), adds a '⚡ Now true:' narration (Message.godMode) and has the character carry on (buildGodDirective). features/chat/godMode.ts: addTruth/removeTruth/buildGodTruthsSection (scene.godNote, first among the notes; world talk too). Story tab › God mode truths lists and removes them. Left: statuses, letters and other background prompts don't carry the truths yet.
 #159 better talk between characters: worldTalk.ts pickTalkTopic (user ~3 in 10, their lives, a tie thing, a plan, the world's news, following up) and UserKnowledge/recencyOf; talk about the user gets each one's relationship with them, when they last talked and facts they remember (WorldTalker gathers it); tone follows the tie.
 #157 worlds UI: WorldRail (molecules/WorldSwitcher.tsx) puts every world on the desktop rail (current ringed, Go to <world>, New world); CurrentWorldHero on the Worlds page (cover, name, premise, Edit world, Peek, cast, how it runs, places); the world wizard shows a live connections preview beside step 3 (curved, labelled ties). The phone title-row switcher was already in place (#143).
 #156 smaller screens: PollDialog as the canvas's sheet (Cancel / New poll, question, option rows, Add option, Send poll); Message info as a sheet with the bubble on the chat background, a Read by card and the receipts note; ForwardDialog picks several chats (round checks, quoted message, world note, To: line, optional message, Forward); Starred with chat filter chips and bubble-style items; Adventures gallery with a Continue card for the latest story and rows; adventure choices one per row.

@@ -637,7 +637,9 @@ const ChatMessage = React.memo(({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
-        <p className="max-w-[88%] md:max-w-[70%] rounded-xl bg-surface px-3 py-1.5 text-center font-serif italic text-[14px] leading-[21px] text-muted-foreground ring-1 ring-inset ring-border">
+        <p className={cn("max-w-[88%] md:max-w-[70%] rounded-xl px-3 py-1.5 text-center font-serif italic text-[14px] leading-[21px] ring-1 ring-inset", msg.godMode ? "bg-amber-500/[0.1] text-foreground ring-amber-500/40" : "bg-surface text-muted-foreground ring-border")}>
+          {/* God mode (#160): a change you made true. */}
+          {msg.godMode && <span className="mr-1.5 not-italic font-sans text-[12px] font-bold text-amber-700 dark:text-amber-300" data-slot="god-mode">⚡ Now true:</span>}
           {msg.txt}
         </p>
       </motion.div>

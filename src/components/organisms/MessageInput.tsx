@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo, lazy, Suspense } from "react";
 import { avatarOf } from "../../features/character/profileChanges";
-import { FaPaperPlane, FaStop, FaCog, FaImage, FaVideo, FaTimes, FaMask, FaUserFriends, FaCommentSlash, FaPlus, FaMagic, FaMicrophone, FaMicrophoneAlt, FaPaperclip } from "react-icons/fa";
+import { FaCrown, FaPaperPlane, FaStop, FaCog, FaImage, FaVideo, FaTimes, FaMask, FaUserFriends, FaCommentSlash, FaPlus, FaMagic, FaMicrophone, FaMicrophoneAlt, FaPaperclip } from "react-icons/fa";
 import { cn } from "../../utils/cn";
 import { Button } from "src/components/atoms/button";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
@@ -37,7 +37,7 @@ interface MessageInputProps {
   // character should reply to this particular message, bypassing the usual
   // @mention/round-robin pick.
   // `isVoiceNote` marks a message recorded with hold-to-talk (#44).
-  onSend: (text: string, isImageRequest?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean, isVoiceNote?: boolean, photos?: string[]) => void;
+  onSend: (text: string, isImageRequest?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean, isVoiceNote?: boolean, photos?: string[], isGod?: boolean) => void;
   disabled?: boolean;
   onStop?: () => void;
   // Fires while the user is actively typing a non-empty draft - lets a
@@ -185,6 +185,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
     return () => { cancelled = true; };
   }, []);
   const [isImpersonated, setIsImpersonated] = useState(false);
+  // God mode (#160): what you write becomes true. Stays on until turned off,
+  // so several changes can go in a row.
+  const [isGod, setIsGod] = useState(false);
   // "Send without a reply" - adds the message as yourself but skips the
   // usual auto AI-reply, so the very next send (e.g. an impersonated one)
   // can supply the character's side of the exchange instead.
@@ -357,7 +360,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
     }
     setSlashError(null);
 
-    onSend(trimmedText, isImageRequest, isVideoRequest, isImpersonated, selectedSpeakerId ?? undefined, isSilentSend, false, photos.length > 0 ? photos : undefined);
+    onSend(trimmedText, isImageRequest, isVideoRequest, isImpersonated, selectedSpeakerId ?? undefined, isSilentSend, false, photos.length > 0 ? photos : undefined, isGod);
     setText("");
     setPhotos([]);
     setPhotoError(null);
@@ -367,7 +370,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
     setIsSilentSend(false);
     setSelectedSpeakerId(null);
     setMention(null);
-  }, [text, photos, isImageRequest, isVideoRequest, isImpersonated, isSilentSend, selectedSpeakerId, onSend, disabled]);
+  }, [text, photos, isImageRequest, isVideoRequest, isImpersonated, isSilentSend, selectedSpeakerId, onSend, disabled, isGod]);
 
   // ---- Voice (#12, #44) ----
   // Dictation types what you say into the box; holding the record button
@@ -668,13 +671,19 @@ const MessageInput: React.FC<MessageInputProps> = ({
     {
       key: "impersonate", icon: FaMask, label: `Write as ${impersonatedName || "the character"}`, title: `Write as ${impersonatedName || "the character"} instead of yourself`,
       ariaLabel: "Toggle impersonation mode", active: isImpersonated, toggle: true, disabled,
-      onClick: () => setIsImpersonated((v) => { if (!v) setIsSilentSend(false); return !v; }),
+      onClick: () => setIsImpersonated((v) => { if (!v) { setIsSilentSend(false); setIsGod(false); } return !v; }),
       activeClass: "bg-violet-500/[0.12] text-violet-500", activeButtonClass: "bg-violet-500/[0.14] text-violet-500 hover:bg-violet-500/[0.2]",
+    },
+    {
+      key: "god", icon: FaCrown, label: isGod ? "Turn off god mode" : "God mode", title: "God mode: what you write becomes true, and everyone accepts it",
+      ariaLabel: "Toggle god mode", active: isGod, toggle: true, disabled,
+      onClick: () => setIsGod((v) => { if (!v) { setIsImpersonated(false); setIsSilentSend(false); } return !v; }),
+      activeClass: "bg-amber-500/[0.12] text-amber-600", activeButtonClass: "bg-amber-500/[0.14] text-amber-600 hover:bg-amber-500/[0.2]",
     },
     {
       key: "silent", icon: FaCommentSlash, label: "Send without a reply", title: "Send without triggering an AI reply",
       ariaLabel: "Toggle silent send", active: isSilentSend, toggle: true, disabled,
-      onClick: () => setIsSilentSend((v) => { if (!v) setIsImpersonated(false); return !v; }),
+      onClick: () => setIsSilentSend((v) => { if (!v) { setIsImpersonated(false); setIsGod(false); } return !v; }),
       activeClass: "bg-amber-500/[0.12] text-amber-500", activeButtonClass: "bg-amber-500/[0.14] text-amber-500 hover:bg-amber-500/[0.2]",
     },
     ...(onDraftReply ? [{
@@ -750,6 +759,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
     placeholder={
       disabled
         ? "Waiting for response..."
+        : isGod
+        ? "Change anything: it becomes true…"
         : placeholderText && !isImpersonated
         ? placeholderText
         : isImpersonated
@@ -1150,7 +1161,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
         // Theme hook (Material restyles the idle composer); left off in the
         // impersonate/silent modes so their outlines still show.
         data-slot={isImpersonated || isSilentSend ? undefined : "composer"}
-        data-mode={isImpersonated ? "impersonate" : isSilentSend ? "silent" : undefined}
+        data-mode={isGod ? "god" : isImpersonated ? "impersonate" : isSilentSend ? "silent" : undefined}
         className={cn(
           // #149: the canvas's composer - opaque, one row that grows with a
           // multi-line draft (items-end keeps the buttons on the bottom line),
@@ -1159,6 +1170,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
           // the composer itself: an outline and a chip, not a banner above it.
           "relative flex items-end gap-1 min-h-[52px] p-1.5 rounded-[24px] transition-shadow",
           neumorphic && !isImpersonated && !isSilentSend ? "surface-sunken" : "bg-raised shadow-popover",
+          isGod && "ring-2 ring-amber-500/70",
           isImpersonated
             ? "ring-[1.5px] ring-inset ring-info"
             : isSilentSend
@@ -1238,6 +1250,19 @@ const MessageInput: React.FC<MessageInputProps> = ({
         </div>
 
         {/* The mode chip: who you're writing as, or that no reply follows. */}
+        {isGod && (
+          <button
+            type="button"
+            onClick={() => setIsGod(false)}
+            aria-label="Turn off god mode"
+            title="God mode on: what you send becomes true in this world, and everyone accepts it"
+            data-slot="composer-mode"
+            className="my-2 ml-0.5 inline-flex h-6 flex-shrink-0 items-center gap-1.5 rounded-full bg-amber-500/[0.16] px-2.5 text-[12.5px] font-semibold text-amber-700 dark:text-amber-300"
+          >
+            <FaCrown size={10} aria-hidden /> God mode
+            <FaTimes size={9} aria-hidden />
+          </button>
+        )}
         {(isImpersonated || isSilentSend) && (
           <button
             type="button"
