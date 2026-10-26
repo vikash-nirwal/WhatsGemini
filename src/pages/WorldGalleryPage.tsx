@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaPlus, FaEdit, FaTrash, FaGlobe, FaSearch, FaHistory, FaFileExport, FaFileImport } from "react-icons/fa";
+import { FaPlus, FaEdit, FaTrash, FaGlobe, FaSearch, FaHistory, FaFileExport, FaFileImport, FaLink, FaShareAlt } from "react-icons/fa";
+import { ShareWorldDialog } from "src/components/organisms/ShareWorldDialog";
 import { toast } from "sonner";
 import { exportWorld, readWorldFile, worldFileName } from "../features/world/worldFile";
 import { importWorld } from "../features/world/importWorld";
@@ -35,6 +36,7 @@ const WorldGalleryPage = () => {
   const { currentWorldId } = useCurrentWorld();
   // World files (#172): download a world as written; bring one in as new.
   const importInput = React.useRef<HTMLInputElement>(null);
+  const [sharing, setSharing] = useState<(typeof worlds)[number] | null>(null);
   const onExport = (world: (typeof worlds)[number]) => {
     const file = exportWorld(world, characters.filter((c) => c.worldId === world.id));
     const url = URL.createObjectURL(new Blob([JSON.stringify(file, null, 2)], { type: "application/json" }));
@@ -118,6 +120,9 @@ const WorldGalleryPage = () => {
               <Button onClick={() => importInput.current?.click()} variant="outline">
                 <FaFileImport size={12} /> Import
               </Button>
+              <Button onClick={() => navigate("/worlds/import")} variant="outline">
+                <FaLink size={12} /> From a link
+              </Button>
               <input ref={importInput} type="file" accept=".json,application/json" aria-label="Import a world file" className="hidden" onChange={(e) => void onImport(e.target.files?.[0])} />
               <Button onClick={() => navigate("/worlds/wizard")} variant="default">
                 <FaPlus size={12} /> New world
@@ -195,6 +200,9 @@ const WorldGalleryPage = () => {
                         <Button onClick={() => navigate(`/worlds/${world.id}/edit`)} variant="outline" className="h-9 text-xs font-semibold">
                           <FaEdit size={11} /> Edit
                         </Button>
+                        <Button onClick={() => setSharing(world)} variant="outline" size="icon" className="h-9 w-9" title="Share" aria-label={`Share ${world.name}`}>
+                          <FaShareAlt size={13} />
+                        </Button>
                         <Button onClick={() => onExport(world)} variant="outline" size="icon" className="h-9 w-9" title="Export" aria-label={`Export ${world.name}`}>
                           <FaFileExport size={13} />
                         </Button>
@@ -218,6 +226,7 @@ const WorldGalleryPage = () => {
           )}
         </div>
       </div>
+      <ShareWorldDialog world={sharing} onOpenChange={(o) => !o && setSharing(null)} />
     </div>
   );
 };

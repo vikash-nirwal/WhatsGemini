@@ -20,3 +20,24 @@ test("reading checks it's a world; ties and groups move to the new ids", () => {
   expect(factions[0].memberIds).toEqual([11, 12]);
   expect(worldFileName("Harbour Town!")).toBe("harbour-town.world.json");
 });
+
+describe("sharing a world by link (#197)", () => {
+  // jsdom has no TextEncoder; Node's is the same thing.
+  Object.assign(global, { TextEncoder: require("util").TextEncoder, TextDecoder: require("util").TextDecoder });
+  const { encodeWorldLink, decodeWorldLink, linkTarget, withoutPictures } = require("./worldFile");
+  test("a world goes into a link and comes back, without pictures", async () => {
+    const file = exportWorld({ ...world, coverImage: "data:image/png;base64,AAAA" } as World, [aria, kai]);
+    const code = await encodeWorldLink(file);
+    expect(code).toMatch(/^[zp][A-Za-z0-9_-]+$/);
+    const back = await decodeWorldLink(code);
+    expect(back.world.name).toBe("Harbour Town");
+    expect(back.cast.map((c: any) => c.name)).toEqual(["Aria", "Kai"]);
+    expect(JSON.stringify(back)).not.toContain("data:image");
+    expect(withoutPictures({ a: "data:x", b: ["data:y", "ok"] })).toEqual({ b: ["ok"] });
+  });
+  test("a pasted link is our share link or a file to fetch", () => {
+    expect(linkTarget("https://x.github.io/WhatsGemini/#/worlds/import?w=zAbC_-1")).toEqual({ code: "zAbC_-1" });
+    expect(linkTarget("https://gist.githubusercontent.com/u/1/raw/w.json")).toEqual({ url: "https://gist.githubusercontent.com/u/1/raw/w.json" });
+    expect(linkTarget("hello")).toEqual({});
+  });
+});

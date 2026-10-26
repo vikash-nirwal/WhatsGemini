@@ -53,6 +53,7 @@ const CharacterPage = lazy(() => import("./pages/CharacterPage"));
 const UpdatesPage = lazy(() => import("./pages/UpdatesPage"));
 const StarredPage = lazy(() => import("./pages/StarredPage"));
 const TimelinePage = lazy(() => import("./pages/TimelinePage"));
+const WorldImportPage = lazy(() => import("./pages/WorldImportPage"));
 const ChannelPage = lazy(() => import("./pages/ChannelPage"));
 const CharacterEditorPage = lazy(() => import("./pages/CharacterEditorPage"));
 const QuickCreatePage = lazy(() => import("./pages/QuickCreatePage"));
@@ -265,6 +266,7 @@ const AppContent = () => {
                 <Route path="/worlds" element={<WorldGalleryPage />} />
                 <Route path="/worlds/new" element={<WorldEditorPage />} />
                 <Route path="/worlds/wizard" element={<WorldWizardPage />} />
+                <Route path="/worlds/import" element={<WorldImportPage />} />
                 <Route path="/peek" element={<PeekPage />} />
                 <Route path="/peek/:a/:b" element={<PeekPage />} />
                 <Route path="/worlds/:worldId/edit" element={<WorldEditorPage />} />

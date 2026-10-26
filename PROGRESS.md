@@ -77,7 +77,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #194 | Notifications for world happenings | done | 2026-10-25 |
 | #195 | Plans in your calendar | done | 2026-10-25 |
 | #196 | Live map | done | 2026-10-25 |
-| #197 | Share a world by link | todo | the user's batch, 2026-10-26 |
+| #197 | Share a world by link | done | 2026-10-25 |
 | #198 | Automatic backups | todo | the user's batch, 2026-10-26 |
 | #199 | Background chores on the in-browser model | todo | the user's batch, 2026-10-26 |
 | #200 | Better memory recall | todo | the user's batch, 2026-10-26 |
@@ -106,6 +106,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+Share a world by link: worldFile.ts encodeWorldLink/decodeWorldLink (the world file without pictures, deflate-compressed, base64url in #/worlds/import?w=), linkTarget for pasted links (ours, or a hosted world file fetched); ShareWorldDialog (copy, QR code via the qrcode package when short enough) from each world card; WorldImportPage previews and imports; From a link on the Worlds page.
 Live map: LiveMap on CurrentWorldHero (with places on): the whole picture with avatars of who's at each pin and a marker where you are; tapping a place opens its PlaceDialog.
 Plans in your calendar: groupPlans.ts planCalendarFile (an all-day entry with a reminder at 9 the morning before); Add to calendar on a dated plan's PlanBar downloads it.
 Notifications for world happenings: notifications.ts notifyWorld (opens a page, routed by setOpenPathHandler and the service worker's OPEN_PATH) for new events, chapters, newcomers, secrets coming out and plans that happened; a once-a-day digest when a world had three or more happenings and you're not looking (digestDue).

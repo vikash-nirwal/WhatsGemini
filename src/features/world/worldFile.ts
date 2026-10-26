@@ -72,3 +72,40 @@ export const relink = (file: WorldFile, idOf: Record<number, number>) => {
 };
 
 export const worldFileName = (name: string) => `${name.trim().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "").toLowerCase() || "world"}.world.json`;
+
+// Sharing a world by link (#197). With no server, the link carries the
+// world itself: its file without pictures (they'd make links too long),
+// compressed where the browser can, in the link's own address.
+const toBase64Url = (bytes: Uint8Array) => btoa(String.fromCharCode(...Array.from(bytes))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const fromBase64Url = (s: string) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+
+const stream = async (bytes: Uint8Array, transform: GenericTransformStream) => new Uint8Array(await new Response(new Blob([bytes as BlobPart]).stream().pipeThrough(transform as unknown as TransformStream)).arrayBuffer());
+
+// Pictures out: data: images are far too long for a link.
+export const withoutPictures = <T,>(value: T): T => {
+  if (typeof value === "string") return (value.startsWith("data:") ? undefined : value) as T;
+  if (Array.isArray(value)) return value.map(withoutPictures).filter((v) => v !== undefined) as T;
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, withoutPictures(v)]).filter(([, v]) => v !== undefined)) as T;
+  return value;
+};
+
+export const encodeWorldLink = async (file: WorldFile): Promise<string> => {
+  const bytes = new TextEncoder().encode(JSON.stringify(withoutPictures(file)));
+  if (typeof CompressionStream !== "undefined") return `z${toBase64Url(await stream(bytes, new CompressionStream("deflate-raw")))}`;
+  return `p${toBase64Url(bytes)}`;
+};
+
+export const decodeWorldLink = async (code: string): Promise<WorldFile> => {
+  const body = fromBase64Url(code.slice(1));
+  const bytes = code[0] === "z" ? await stream(body, new DecompressionStream("deflate-raw")) : body;
+  return readWorldFile(new TextDecoder().decode(bytes));
+};
+
+// What a pasted link points at: our own share link (its code), or a world
+// file hosted anywhere that allows it (a URL to fetch).
+export const linkTarget = (input: string): { code?: string; url?: string } => {
+  const text = input.trim();
+  const code = text.match(/[?&]w=([A-Za-z0-9_-]+)/)?.[1];
+  if (code) return { code };
+  return /^https?:\/\//i.test(text) ? { url: text } : {};
+};

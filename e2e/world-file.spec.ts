@@ -68,3 +68,29 @@ test("export a world with its people, and import it as a fresh copy", async ({ p
   expect(aria.ties).toEqual([{ withId: kai.id, tie: "your brother" }]);
   expect(aria.memory).toBeUndefined();
 });
+
+// #197: a world shared as a link (and a QR code), opened from the link.
+test("share a world as a link and open it", async ({ page }) => {
+  await openRoute(page, "/worlds/new");
+  await page.locator("#world-name").fill("Harbour Town");
+  await page.locator("#world-premise").fill("A rainy port where everyone knows everyone.");
+  await page.getByRole("button", { name: "Create World" }).click();
+  await patch(page, ARIA.id, { worldId: 1 });
+  await page.reload();
+  await openRoute(page, "/worlds");
+  await page.getByRole("button", { name: "Share Harbour Town" }).click();
+  const dialog = page.getByRole("dialog", { name: "Share Harbour Town" });
+  const field = dialog.getByRole("textbox", { name: "Share link" });
+  await expect(field).toHaveValue(/#\/worlds\/import\?w=/);
+  await expect(dialog.getByRole("img", { name: "QR code for Harbour Town" })).toBeVisible();
+  const link = await field.inputValue();
+  await page.keyboard.press("Escape");
+
+  await page.goto(link);
+  const shared = page.getByRole("region", { name: "Shared world" });
+  await expect(shared).toContainText("Harbour Town", { timeout: 30_000 });
+  await expect(shared).toContainText("1 person: Aria");
+  await shared.getByRole("button", { name: "Import this world" }).click();
+  await expect(page.getByText("Harbour Town imported, with its people")).toBeVisible();
+  await expect.poll(async () => (await charactersInDb(page)).filter((c) => c.worldId === 2).map((c) => c.name)).toEqual(["Aria"]);
+});
