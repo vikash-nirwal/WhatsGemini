@@ -48,6 +48,7 @@ import { buildTimePassedNote, buildTimePassedOpener, describeGap, gapDays, TimeP
 import { skipStoryTime } from "../features/world/storyTime";
 import { addTruth, buildGodDirective, buildGodTruthsSection } from "../features/chat/godMode";
 import { logToTimeline } from "../features/world/timeline";
+import { activeEvents, buildEventsNote } from "../features/world/worldEvents";
 import { worldOf } from "../features/world/currentWorld";
 import { switchWorld, updateWorld } from "../features/worldSlice";
 import { buildMyStatusNote } from "../features/status/myStatuses";
@@ -380,6 +381,7 @@ const ChatPage = () => {
   // Time passed (the user's ask): every member knows how long it's been.
   // God mode (#160): the truths of this chat's world, or of this chat.
   scene.godNote = buildGodTruthsSection([...(worlds.find((w) => w.id === currentChat?.worldId)?.godTruths || []), ...(currentChat?.godTruths || [])]);
+  scene.eventNote = buildEventsNote(activeEvents(worlds.find((w) => w.id === currentChat?.worldId), Date.now()));
   scene.timePassedNote = currentChat?.timePassed && timePassedInScope(currentChat.timePassed, (currentChat.content || []).length) ? buildTimePassedNote(currentChat.timePassed, userNameForNotes) : undefined;
   // Group chats (#124): members may rename the group or start a poll.
   scene.groupNote = isRoom ? buildGroupDirective(userNameForNotes) : undefined;

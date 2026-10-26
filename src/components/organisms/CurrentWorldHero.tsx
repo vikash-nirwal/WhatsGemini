@@ -5,6 +5,7 @@ import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { avatarOf } from "src/features/character/profileChanges";
 import { formatStoryDate } from "src/features/world/storyTime";
 import { useAppSelector } from "src/store/hooks";
+import { WorldEventsSection } from "./WorldEventsSection";
 import { useCurrentWorld, useWorldCharacters, useWorldPrefs } from "src/hooks/useWorld";
 
 // The world you're in (#157), on top of the Worlds page as on the canvas: a
@@ -60,6 +61,7 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
           </dl>
         </div>
         <div className="flex flex-col gap-3">
+          {current && <WorldEventsSection world={current} />}
           <h3 className="text-[17px] font-bold text-foreground">Places</h3>
           {current?.map?.image ? (
             <button type="button" onClick={onOpenMap || (() => navigate(`/worlds/${current.id}/edit`))} aria-label="Open the map" className="h-[150px] overflow-hidden rounded-xl bg-sunken">

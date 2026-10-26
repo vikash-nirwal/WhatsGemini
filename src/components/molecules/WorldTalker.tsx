@@ -7,6 +7,7 @@ import { parseOffscreenTalk } from "src/features/chat/offscreenTalk";
 import { addWorldTalk, buildWorldTalkPrompt, pickTalkTopic, pickWorldTalk, recencyOf, talksBetween, UserKnowledge, WORLD_TALK_GAP_MS } from "src/features/world/worldTalk";
 import { channelId } from "src/features/channels/channels";
 import { logToTimeline } from "src/features/world/timeline";
+import { activeEvents } from "src/features/world/worldEvents";
 import { factsAboutUser } from "src/features/character/intimacy";
 import { talkLengthFor } from "src/features/world/worldPrefs";
 import { worldOf } from "src/features/world/currentWorld";
@@ -48,7 +49,9 @@ const WorldTalker = () => {
         const maxLines = talkLengthFor(worldId);
         // A topic each time (#159), now and then the user - with what each
         // of them actually knows about them.
-        const news = worldId ? channels.find((c) => c.id === channelId("world", worldId))?.posts.slice(-1)[0]?.text : undefined;
+        // A world event going on (#162) is the news before the channel's last post.
+        const event = activeEvents(worlds.find((w) => w.id === worldId), now)[0];
+        const news = event ? `${event.title}: ${event.text}` : worldId ? channels.find((c) => c.id === channelId("world", worldId))?.posts.slice(-1)[0]?.text : undefined;
         const topic = pickTalkTopic({ hasTie: Boolean(a.ties?.some((t) => t.withId === b.id)), hasNews: Boolean(news), hasPrevious: Boolean(previous?.lines.length) });
         const knowledge = (c: typeof a): UserKnowledge => {
           const own = chats.filter((ch) => ch.characterIds?.length === 1 && ch.characterIds[0] === c.id);

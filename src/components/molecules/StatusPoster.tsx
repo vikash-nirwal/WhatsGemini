@@ -18,6 +18,7 @@ import { formatTranscript } from "src/features/ai/utils/chatHistoryUtils";
 import { trimToLatestSummary } from "src/features/ai/utils/transcript";
 import { annotateFacts } from "src/features/ai/utils/memoryTime";
 import { useLivingCharacters } from "src/hooks/useWorld";
+import { activeEvents, eventsLine } from "src/features/world/worldEvents";
 
 const CHECK_EVERY_MS = 30 * 60 * 1000;
 const FIRST_CHECK_MS = 15 * 1000;
@@ -37,6 +38,9 @@ const StatusPoster = () => {
   const persona = useAppSelector(selectActivePersona);
   const userNameRef = useRef(persona?.name?.trim() || "");
   userNameRef.current = persona?.name?.trim() || "";
+  const worlds = useAppSelector((state) => state.world.worlds);
+  const worldsRef = useRef(worlds);
+  worldsRef.current = worlds;
   const navigate = useNavigate();
   const busy = useRef(false);
 
@@ -61,7 +65,7 @@ const StatusPoster = () => {
         const recent = trimToLatestSummary(mainChat?.content || []).filter((m) => !m.isSystem && !m.isRoomEvent).slice(-12);
         const recentChat = recent.length > 0 ? formatTranscript(recent, { userName: userName || "User", charName: due.name }) : undefined;
         const facts = annotateFacts((due.memory || []).slice(-8), due.memoryDates, now);
-        const prompt = buildStatusPrompt(due, currentBlock(due.schedule, now)?.activity, facts, liveStatuses(due, now).map((s) => s.text), dayMoodFor(due, now)?.label, dayLogText(due, now), concernsLine(due.concerns), placeLine(due.home, now), mention, { now, userName, recentChat });
+        const prompt = buildStatusPrompt(due, currentBlock(due.schedule, now)?.activity, facts, liveStatuses(due, now).map((s) => s.text), dayMoodFor(due, now)?.label, dayLogText(due, now), concernsLine(due.concerns), placeLine(due.home, now), mention, { now, userName, recentChat, worldEvents: eventsLine(activeEvents(worldsRef.current.find((w) => w.id === due.worldId), now)) });
         const text = cleanStatus(await dispatch(generateAssistText({ instruction: prompt, background: true, activity: { at: now, kind: "status", text: `${due.name} posted a status`, characterId: due.id, name: due.name } })).unwrap());
         if (text) {
           const latest = charactersRef.current.find((c) => c.id === due.id) || due;

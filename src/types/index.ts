@@ -926,6 +926,19 @@ export interface World {
   era?: string; // era or technology (#144), e.g. "Medieval: news travels by letter"
   godTruths?: string[]; // god mode (#160): what you made true; every chat and life here carries it
   storyTime?: StoryTime; // the world's own calendar (#147); unset = your clock
+  events?: WorldEvent[]; // world events (#162), newest last
+  lastEventCheckAt?: number; // when the world last considered an event of its own
+}
+
+// Something happening to everyone in a world (#162): a festival, a storm, a
+// scandal. While it lasts it's in every chat, status, post and talk there.
+export interface WorldEvent {
+  id: string;
+  title: string;
+  text: string;
+  at: number;
+  endsAt: number;
+  byYou?: boolean; // you started it
 }
 
 // A world's calendar (#147). `day` counts days from the start of `year`'s

@@ -2,7 +2,7 @@
 // and roughly what it cost on your key. Kept on this device (the last 300
 // entries), read by Settings > Activity log.
 
-export type ActivityKind = "status" | "first-text" | "letter" | "channel" | "profile" | "talk" | "rumor" | "day-log" | "concerns" | "dream" | "other";
+export type ActivityKind = "status" | "first-text" | "letter" | "channel" | "profile" | "talk" | "rumor" | "day-log" | "concerns" | "dream" | "event" | "other";
 
 export interface ActivityEntry {
   id: string;
