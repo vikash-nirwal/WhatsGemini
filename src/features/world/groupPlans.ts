@@ -43,7 +43,7 @@ export const buildPlanReminderPrompt = (plan: Pick<GroupPlan, "title" | "when">,
 // Plans in your calendar (#195): a dated plan as a calendar file, so your
 // phone or computer reminds you even with the app closed - an all-day entry
 // on its day, with a reminder at 9 the morning before.
-const icsEscape = (s: string) => s.replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+const icsEscape = (s: string) => s.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
 const icsDate = (date: string) => date.replace(/-/g, "");
 const nextDay = (date: string) => {
   const d = new Date(`${date}T00:00:00Z`);

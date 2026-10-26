@@ -29,6 +29,7 @@ test("a dated plan becomes a calendar entry with a reminder the day before (#195
   expect(ics).toContain("DTSTART;VALUE=DATE:20261031");
   expect(ics).toContain("DTEND;VALUE=DATE:20261101");
   expect(ics).toContain("SUMMARY:Bonfire\\, beach");
+  expect(planCalendarFile({ title: "Fire; dawn", date: "2026-10-31", at: 1 }, [], 0)).toContain("SUMMARY:Fire\\; dawn");
   expect(ics).toContain("DESCRIPTION:With Aria\\, Kai - Saturday night. Planned in Kindred.");
   expect(ics).toContain("TRIGGER:-PT15H");
   expect(planCalendarFile({ title: "x", at: 1 }, [], 0)).toBeUndefined();

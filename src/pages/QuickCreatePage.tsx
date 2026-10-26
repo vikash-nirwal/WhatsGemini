@@ -104,7 +104,7 @@ const QuickCreatePage = () => {
               className="w-full resize-none bg-transparent text-[15.5px] leading-6 text-foreground placeholder:text-subtle outline-none" />
             {photo && (
               <div className="relative w-fit">
-                <img src={photo} alt="Your photo" className="h-20 rounded-lg" />
+                <img src={photo} alt="What you uploaded" className="h-20 rounded-lg" />
                 <button type="button" aria-label="Remove photo" onClick={() => setPhoto(undefined)} className="absolute -right-2 -top-2 grid h-7 w-7 place-items-center rounded-full bg-popover shadow-soft"><FaTimes size={10} /></button>
               </div>
             )}
