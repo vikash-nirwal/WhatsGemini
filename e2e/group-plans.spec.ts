@@ -71,3 +71,21 @@ test("a dated plan reminds the group and resolves on its own", async ({ page, mo
   await expect(page.getByRole("region", { name: "Group plan" })).toContainText("done", { timeout: 15_000 });
   await expect(page.getByText("How it went: The fire wouldn't light", { exact: false })).toBeVisible();
 });
+
+// #195: a dated plan goes into your calendar as a file.
+test("a dated plan can be added to your calendar", async ({ page }) => {
+  await openRoute(page, "/worlds");
+  await page.getByRole("button", { name: "Make a plan" }).click();
+  const dialog = page.getByRole("dialog", { name: "Make a plan" });
+  await dialog.getByRole("textbox", { name: "The plan" }).fill("Bonfire on the beach");
+  await dialog.getByLabel("Day").fill("2026-10-31");
+  await dialog.getByRole("checkbox", { name: "Aria is in" }).check();
+  await dialog.getByRole("checkbox", { name: "Kai is in" }).check();
+  await dialog.getByRole("button", { name: "Start the group chat" }).click();
+  const downloading = page.waitForEvent("download");
+  await page.getByRole("region", { name: "Group plan" }).getByRole("button", { name: "Add to calendar" }).click();
+  const download = await downloading;
+  expect(download.suggestedFilename()).toBe("bonfire-on-the-beach.ics");
+  const text = require("fs").readFileSync((await download.path())!, "utf8");
+  expect(text).toContain("DTSTART;VALUE=DATE:20261031");
+});

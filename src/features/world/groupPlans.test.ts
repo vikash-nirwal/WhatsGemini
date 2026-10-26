@@ -22,3 +22,14 @@ test("a dated plan is remembered the day before and resolves after its day (#184
   expect(planPassed({ ...plan, outcome: "fun" }, at(27, 1))).toBe(false);
   expect(planPassed({ ...plan, date: undefined }, at(27, 1))).toBe(false);
 });
+
+test("a dated plan becomes a calendar entry with a reminder the day before (#195)", () => {
+  const { planCalendarFile } = require("./groupPlans");
+  const ics = planCalendarFile({ title: "Bonfire, beach", when: "Saturday night", date: "2026-10-31", at: 7 }, ["Aria", "Kai"], Date.UTC(2026, 9, 26, 12));
+  expect(ics).toContain("DTSTART;VALUE=DATE:20261031");
+  expect(ics).toContain("DTEND;VALUE=DATE:20261101");
+  expect(ics).toContain("SUMMARY:Bonfire\\, beach");
+  expect(ics).toContain("DESCRIPTION:With Aria\\, Kai - Saturday night. Planned in Kindred.");
+  expect(ics).toContain("TRIGGER:-PT15H");
+  expect(planCalendarFile({ title: "x", at: 1 }, [], 0)).toBeUndefined();
+});

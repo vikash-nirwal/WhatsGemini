@@ -39,3 +39,38 @@ export const planPassed = (plan: GroupPlan | undefined, now: number) => Boolean(
 
 export const buildPlanReminderPrompt = (plan: Pick<GroupPlan, "title" | "when">, who: Character, others: string[], userName: string) =>
   `You are ${who.name}. ${[who.description, who.prompt].filter(Boolean).join(" ").slice(0, 400)}\n\nTomorrow is the plan you made with ${userName}${others.length ? ` and ${others.join(", ")}` : ""}: ${plan.title}${plan.when ? ` (${plan.when})` : ""}. Text the group about it - excited, a last detail, a worry, whatever you'd say. One or two short lines, in your own voice. Reply with only the message.`;
+
+// Plans in your calendar (#195): a dated plan as a calendar file, so your
+// phone or computer reminds you even with the app closed - an all-day entry
+// on its day, with a reminder at 9 the morning before.
+const icsEscape = (s: string) => s.replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+const icsDate = (date: string) => date.replace(/-/g, "");
+const nextDay = (date: string) => {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+};
+
+export const planCalendarFile = (plan: Pick<GroupPlan, "title" | "when" | "date" | "at">, members: string[], now: number): string | undefined => {
+  if (!plan.date) return undefined;
+  const stamp = new Date(now).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  return [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Kindred//Group plans//EN",
+    "BEGIN:VEVENT",
+    `UID:kindred-plan-${plan.at}@kindred`,
+    `DTSTAMP:${stamp}`,
+    `DTSTART;VALUE=DATE:${icsDate(plan.date)}`,
+    `DTEND;VALUE=DATE:${icsDate(nextDay(plan.date))}`,
+    `SUMMARY:${icsEscape(plan.title)}`,
+    `DESCRIPTION:${icsEscape(`With ${members.join(", ")}${plan.when ? ` - ${plan.when}` : ""}. Planned in Kindred.`)}`,
+    "BEGIN:VALARM",
+    "ACTION:DISPLAY",
+    `DESCRIPTION:${icsEscape(`Tomorrow: ${plan.title}`)}`,
+    "TRIGGER:-PT15H",
+    "END:VALARM",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+};

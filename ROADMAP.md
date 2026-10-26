@@ -39,7 +39,6 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 
 The user's picks from the improvement ideas, plus everything that works without a server. Built in this order.
 
-- **#195 Plans in your calendar.** A dated plan can be added to your phone's calendar as a downloaded calendar file, so your phone reminds you even with the app closed.
 - **#196 Live map.** Avatars on the world map at the places where people are, you included; tap a place for its scene dialog.
 - **#197 Share a world by link.** A world file can be opened from a pasted link, and shared as a QR code.
 - **#198 Automatic backups.** A daily backup to Google Drive while the app is open, when Drive backup is set up; a reminder to back up otherwise.
