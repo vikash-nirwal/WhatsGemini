@@ -25,7 +25,7 @@ export const GroupPlanDialog = ({ open, onOpenChange, cast, world }: { open: boo
     const people = cast.filter((c) => chosen.includes(c.id));
     const plan = { title: title.trim(), when: when.trim() || undefined, memberIds: people.map((c) => c.id), at: Date.now() };
     const chat = await dispatch(addChat({ title: plan.title, characterIds: plan.memberIds, scenario: planScenario(plan, people.map((c) => c.name), persona?.name?.trim() || "You") })).unwrap();
-    await dispatch(updateChatOptions({ chatId: chat.id, patch: { groupPlan: plan } }));
+    await dispatch(updateChatOptions({ chatId: chat.id, patch: { groupPlan: plan, offscreenTalk: true } }));
     void logToTimeline(world ? world.id : null, { kind: "you", text: `You made a plan: ${plan.title}${plan.when ? `, ${plan.when}` : ""} (with ${people.map((c) => c.name).join(", ")})`, characterIds: plan.memberIds }, world?.storyTime);
     onOpenChange(false);
     setTitle("");

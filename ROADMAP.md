@@ -39,8 +39,6 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 
 From the world mechanics review (https://claude.ai/artifact/E4TKJjHKExRF8qTYiVWheK); the user asked for all of them. Built in this order.
 
-- **#176 World-made group chats talk (B4).** Plan, family/faction and place chats are made with members talking while you're away.
-- **#177 Places fill up (B3).** With places on, each resident gets a usual spot that fits them; new schedules are written with the world's places.
 - **#178 Characters text you the news (I3).** A notable happening (event, chapter, life event) can make one or two people close to it text you about it.
 - **#179 World history remembered (I2).** A short digest of the world's timeline goes into chat prompts and the background world brief.
 - **#180 Passing time ages the world (I1).** A long world-wide gap writes a life event per resident, moves the storyline on and lets ties drift.

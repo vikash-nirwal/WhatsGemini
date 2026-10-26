@@ -7,6 +7,7 @@ import { moveArcOn, startWorldEvent } from "src/features/world/startEvent";
 import { advanceArc, arcActive, BEAT_GAP_MS, nextBeatDue } from "src/features/world/worldArcs";
 import { lifeScaled } from "src/features/life/lifeDial";
 import { catchUpTime } from "src/features/life/away";
+import { buildHangoutsPrompt, hangoutsDue, parseHangouts } from "src/features/world/places";
 import { useLivingCharacters } from "src/hooks/useWorld";
 import { featureOn } from "src/features/world/worldPrefs";
 import { updateCharacter } from "src/features/characterSlice";
@@ -60,9 +61,28 @@ const WorldEventWatcher = () => {
             toast(`${w.name} · ${arc.title}`, { description: next.doneAt ? "The storyline has ended." : next.beats[next.step] });
           }
         }
-        for (const job of [startOwnEvent, moveLivesOn, welcomeNewcomer, refreshReputation, introduce, keepSecret]) await job(now);
+        for (const job of [fillPlaces, startOwnEvent, moveLivesOn, welcomeNewcomer, refreshReputation, introduce, keepSecret]) await job(now);
       } finally {
         busy.current = false;
+      }
+    };
+    // Places fill up (#177): everyone gets a usual spot on the map.
+    const fillPlaces = async (now: number) => {
+      const { worlds, characters } = latest.current;
+      const castOf = (id: number) => characters.filter((c) => c.worldId === id);
+      const world = worlds.find((w) => featureOn(w.id, "places") && hangoutsDue(w, castOf(w.id), now));
+      if (!world) return;
+      const pins = world.map!.pins;
+      const people = castOf(world.id).filter((c) => !c.hangout || !pins.some((p) => p.id === c.hangout));
+      try {
+        await dispatch(patchWorld(world.id, { lastHangoutsAt: now }));
+        const picked = parseHangouts(await dispatch(generateAssistText({ instruction: buildHangoutsPrompt(world.name, pins, people), background: true, activity: { at: now, kind: "other", text: `People in ${world.name} found their places`, name: world.name }, worldId: world.id })).unwrap(), people, pins);
+        for (const c of people) {
+          const fresh = latest.current.characters.find((x) => x.id === c.id);
+          if (fresh && picked[c.id]) await dispatch(updateCharacter({ ...fresh, hangout: picked[c.id] }));
+        }
+      } catch (err) {
+        console.warn("Places failed (non-fatal):", err);
       }
     };
     const startOwnEvent = async (now: number) => {

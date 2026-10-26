@@ -7,7 +7,7 @@ import { TextInput } from "src/components/molecules/form-controls";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { generateAssistText } from "src/features/aiSlice";
-import { addChat } from "src/features/chatSlice";
+import { addChat, updateChatOptions } from "src/features/chatSlice";
 import { patchWorld } from "src/features/worldSlice";
 import { selectActivePersona } from "src/features/settingsSlice";
 import { avatarOf } from "src/features/character/profileChanges";
@@ -54,6 +54,8 @@ export const FactionsSection = ({ world }: { world: World }) => {
     const existing = chats.find((c) => c.id === f.chatId);
     if (existing?.id) return navigate(`/chat/${existing.id}`);
     const chat = await dispatch(addChat({ title: f.name, characterIds: f.memberIds, scenario: factionScenario(f, persona?.name?.trim() || "You") })).unwrap();
+    // Chats the world makes talk among themselves while you're away (#176).
+    await dispatch(updateChatOptions({ chatId: chat.id, patch: { offscreenTalk: true } }));
     await save(groups.map((g) => (g.id === f.id ? { ...g, chatId: chat.id } : g)));
     navigate(`/chat/${chat.id}`);
   };

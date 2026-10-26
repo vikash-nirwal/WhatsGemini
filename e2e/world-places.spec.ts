@@ -59,3 +59,45 @@ test("see who's where, mark a regular, and start a scene at a place", async ({ p
   await expect(page.getByLabel("Message input")).toBeVisible();
   await expect(page.getByText("At The Docks", { exact: true }).first()).toBeVisible();
 });
+
+// #177: with places on, people without a usual spot are given one, so the
+// map isn't empty. #176: a scene there talks on its own while you're away.
+test("people are given usual spots, and a scene there talks while you're away", async ({ page, mockAI }) => {
+  await switchOn(page);
+  await page.clock.install({ time: new Date(2026, 9, 21, 10, 0, 0) });
+  mockAI.reply((req) => (req.prompt.includes("need a usual spot") ? "Aria | The Docks\nKai | Rosa's Café" : "Mock reply"));
+  await openRoute(page, "/worlds/new");
+  await page.locator("#world-name").fill("Harbour Town");
+  await page.locator("#world-premise").fill("A rainy port where everyone knows everyone.");
+  await page.getByRole("button", { name: "Create World" }).click();
+  await page.getByRole("button", { name: "Switch to Harbour Town" }).click();
+  await patch(page, "worlds", 1, { map: { image: PIXEL, pins: [{ id: "p1", name: "The Docks", x: 10, y: 10 }, { id: "p2", name: "Rosa's Café", x: 50, y: 50 }] } });
+  await patch(page, "characters", ARIA.id, { worldId: 1 });
+  await patch(page, "characters", KAI.id, { worldId: 1 });
+  await page.reload();
+  await page.clock.fastForward(65_000);
+  await openRoute(page, "/worlds");
+  await expect(page.getByRole("button", { name: "The Docks, Aria here" })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("button", { name: "Rosa's Café, Kai here" })).toBeVisible();
+
+  await page.getByRole("button", { name: "The Docks, Aria here" }).click();
+  const dialog = page.getByRole("dialog", { name: "The Docks" });
+  await dialog.getByRole("checkbox", { name: "Kai in the scene" }).click();
+  await dialog.getByRole("button", { name: "Start a scene here" }).click();
+  await expect(page).toHaveURL(/#\/chat\/(\d+)$/);
+  const chatId = Number(page.url().match(/chat\/(\d+)$/)![1]);
+  const talks = await page.evaluate(async (id) => {
+    const db: IDBDatabase = await new Promise((resolve, reject) => {
+      const req = indexedDB.open("ChatAppDB");
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    const chat: any = await new Promise((resolve) => {
+      const get = db.transaction("chats").objectStore("chats").get(id);
+      get.onsuccess = () => resolve(get.result);
+    });
+    db.close();
+    return chat.offscreenTalk;
+  }, chatId);
+  expect(talks).toBe(true);
+});

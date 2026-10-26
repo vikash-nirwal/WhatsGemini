@@ -17,3 +17,15 @@ test("a scene at a place names who's there", () => {
   expect(placeScenario("The Docks", ["Aria", "Kai"], "Sam")).toBe("Sam comes by The Docks. Aria, Kai are there. The scene starts there and then.");
   expect(placeScenario("The Docks", [], "Sam")).toBe("Sam comes by The Docks. The scene starts there and then.");
 });
+
+test("everyone without a usual spot gets one from the map (#177)", () => {
+  const { hangoutsDue, parseHangouts, buildHangoutsPrompt } = require("./places");
+  const people = [c(1, { name: "Aria" }), c(2, { name: "Kai Vale" }), c(3, { hangout: "p1" })];
+  const world = { map: { pins } };
+  expect(hangoutsDue(world, people, 2 * 86_400_000)).toBe(true);
+  expect(hangoutsDue({ ...world, lastHangoutsAt: 86_400_000 }, people, 1.5 * 86_400_000)).toBe(false);
+  expect(hangoutsDue(world, [c(3, { hangout: "p1" })], 2 * 86_400_000)).toBe(false);
+  expect(hangoutsDue({}, people, 2 * 86_400_000)).toBe(false);
+  expect(buildHangoutsPrompt("Harbour", pins, [people[0]])).toContain("Places in Harbour: The Docks, Rosa's Café.");
+  expect(parseHangouts("- Aria | the docks\n**Kai | Rosa's Café**\nNobody | The Docks\nAria2 | Moon", people, pins)).toEqual({ 1: "p1", 2: "p2" });
+});
