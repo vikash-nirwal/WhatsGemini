@@ -58,7 +58,9 @@ test("Aria introduces you to her brother, who texts first", async ({ page, mockA
   await patch(page, "characters", KAI.id, { worldId: 1, ties: [{ withId: ARIA.id, tie: "your sister" }] });
   await page.reload();
   await page.clock.fastForward(65_000);
-  await expect(page.getByText("Aria introduced you to Kai")).toBeVisible({ timeout: 15_000 });
+  // The notice (the World pulse lists it too, #175).
+  await expect(page.getByText("Aria introduced you to Kai").first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("region", { name: "World pulse" })).toContainText("Aria introduced you to Kai");
   const ask = mockAI.requests.find((r) => r.prompt.includes("just introduced Kai to"))!.prompt;
   expect(ask).toContain("What Aria has told Kai about");
   expect(ask).toContain("They fixed her bike");

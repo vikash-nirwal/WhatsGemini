@@ -35,14 +35,11 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 - The canvas's boards for Peek (#145), blocking (#133), event invites (#134), disappearing messages (#136), stickers (#137), the activity log (#131), "where things stand" (#142) and "While you were away" (#130) are built with those items; they get no numbers of their own.
 
 
-## World review fixes (#173–#186, picked 2026-10-26)
-
-From the world mechanics review (https://claude.ai/artifact/E4TKJjHKExRF8qTYiVWheK); the user asked for all of them. Built in this order.
-
-
 ## Smaller follow-ups
 
 Leftovers noted while building the finished items. Pick them up alongside related work.
+
+- **#173–#186 (2026-10-26):** not tried with real models: the usual-spot, news-text, gap-lives, plan reminder and outcome, and group-talk prompts. Factions don't regroup the map. Plans resolve only for chats in living worlds while the app is open.
 
 - **#159–#172 (2026-10-26):** not tried with real models: the talk topics, the TIE line, event, life-event, newcomer, reputation, introduction, secret, storyline and faction prompts. All of it only runs while the app is open. God-mode truths, events and storylines don't reach letters or the feed's reactions yet. Factions don't cluster the map; plans, factions and storylines have no switch (you start them yourself).
 
