@@ -100,9 +100,14 @@ test("the world editor manages its cast: copies stand alone, people are suggeste
   await openRoute(page, `/worlds/${worldId}/edit`);
   // Someone new, from a line.
   await card.getByLabel("Someone new").fill("A grumpy lighthouse keeper");
+  // Tied to someone already there: the draft knows, and the tie is saved.
+  await card.getByRole("combobox", { name: "Connected to" }).click();
+  await page.getByRole("option", { name: "Aria" }).click();
+  await card.getByLabel("What they are to Aria").fill("older brother");
   await card.getByRole("button", { name: "Create", exact: true }).click();
   await expect(card.getByRole("list", { name: "People in Harbour Town" })).toContainText("Bram Vega");
-  expect(mockAI.requests.some((r) => r.prompt.includes("A grumpy lighthouse keeper") && r.prompt.includes("Harbour Town"))).toBe(true);
+  expect(mockAI.requests.some((r) => r.prompt.includes("A grumpy lighthouse keeper") && r.prompt.includes("They are Aria's older brother"))).toBe(true);
+  await expect(card.getByRole("list", { name: "Connections in Harbour Town" })).toContainText("Bram Vega is Aria's older brother");
   await card.getByRole("button", { name: "Delete Bram Vega" }).click();
   await page.getByRole("button", { name: /^(Confirm|OK|Delete)$/ }).click();
   await expect(card.getByRole("list", { name: "People in Harbour Town" })).not.toContainText("Bram Vega");
@@ -120,4 +125,22 @@ test("the world editor manages its cast: copies stand alone, people are suggeste
   await card.getByRole("button", { name: "Delete Aria" }).click();
   await page.getByRole("button", { name: /^(Confirm|OK|Delete)$/ }).click();
   await expect.poll(async () => (await charactersInDb(page)).filter((c) => c.name === "Aria").length).toBe(1);
+});
+
+test("in the wizard, someone new can be tied to someone in the cast", async ({ page, mockAI }) => {
+  mockAI.reply((req) => answer(req.prompt));
+  await openRoute(page, "/worlds/wizard");
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Harbour Town");
+  await page.getByRole("textbox", { name: "Premise", exact: true }).fill("A rainy port.");
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("group", { name: "People you already have" }).getByRole("button", { name: "Aria" }).click();
+  await page.getByLabel("Someone new").fill("A ferry pilot");
+  await page.getByRole("combobox", { name: "Connected to" }).click();
+  await page.getByRole("option", { name: "Aria" }).click();
+  await page.getByLabel("What they are to Aria").fill("older brother");
+  await page.getByRole("button", { name: "Draft", exact: true }).click();
+  await expect(page.getByRole("list", { name: "Cast" })).toContainText("Bram Vega");
+  expect(mockAI.requests.some((r) => r.prompt.includes("They are Aria's older brother"))).toBe(true);
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(page.getByLabel("What Bram Vega is to Aria")).toHaveValue("older brother");
 });

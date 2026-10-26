@@ -95,6 +95,9 @@ const WorldWizardPage = () => {
 
   const [cast, setCast] = useState<Member[]>([]);
   const [idea, setIdea] = useState("");
+  // Who the new person is tied to in the cast, and what they are to them.
+  const [linkKey, setLinkKey] = useState("");
+  const [linkTie, setLinkTie] = useState("");
   const [drafting, setDrafting] = useState(false);
   const [ties, setTies] = useState<WorldTie[]>([]);
   const [proposing, setProposing] = useState(false);
@@ -151,9 +154,16 @@ const WorldWizardPage = () => {
     setDrafting(true);
     setError(null);
     try {
-      const draft = parseCharacterDraft(await dispatch(generateAssistText({ instruction: buildCharacterDraftPrompt({ idea: castIdea(idea, world) }) })).unwrap());
-      setCast((list) => [...list, { key: `n${Date.now()}`, kind: "new", draft, name: draft.name, description: draft.description, withYou: draft.relationship || "" }]);
+      const other = cast.find((m) => m.key === linkKey);
+      const tie = linkTie.trim();
+      const draft = parseCharacterDraft(await dispatch(generateAssistText({ instruction: buildCharacterDraftPrompt({ idea: castIdea(idea, world, other && tie ? { name: other.name, description: other.description, tie } : undefined) }) })).unwrap());
+      const key = `n${Date.now()}`;
+      setCast((list) => [...list, { key, kind: "new", draft, name: draft.name, description: draft.description, withYou: draft.relationship || "" }]);
+      // The tie goes straight into Connections, both ways.
+      if (other && tie) setTies((list) => [...list, { a: other.key, b: key, aToB: `your ${tie.replace(/^your\s+/i, "")}`, bToA: `your ${mirrorTie(tie.replace(/^your\s+/i, ""))}` }]);
       setIdea("");
+      setLinkKey("");
+      setLinkTie("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't draft that person. Try again.");
     } finally {
@@ -308,6 +318,21 @@ const WorldWizardPage = () => {
                   <TextInput id="wizard-idea" value={idea} onChange={(e) => setIdea(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void draftPerson()} placeholder="e.g. A grumpy lighthouse keeper with a soft spot for strays" className="flex-1 min-w-[200px]" />
                   <Button type="button" onClick={() => void draftPerson()} disabled={drafting || !idea.trim()}><FaMagic size={11} /> {drafting ? "Drafting..." : "Draft"}</Button>
                 </div>
+                {cast.length > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
+                    <span>Connected to</span>
+                    <Select aria-label="Connected to" value={linkKey} onChange={(e) => setLinkKey(e.target.value)} className="h-8 w-[150px]">
+                      <option value="">Nobody in particular</option>
+                      {cast.map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
+                    </Select>
+                    {linkKey && (
+                      <>
+                        <span>as their</span>
+                        <TextInput list="tie-choices" aria-label={`What they are to ${cast.find((m) => m.key === linkKey)?.name}`} value={linkTie} onChange={(e) => setLinkTie(e.target.value)} placeholder="older brother" className="h-8 w-[160px]" />
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
               {cast.length > 0 && (
                 <ul aria-label="Cast" className="flex flex-col gap-1">
@@ -339,6 +364,7 @@ const WorldWizardPage = () => {
                   <p className="mt-2 text-xs text-subtle">They join as themselves, with no memories from other worlds.</p>
                 </div>
               )}
+              {step === 1 && <datalist id="tie-choices">{TIE_PRESETS.map((t) => <option key={t} value={t} />)}</datalist>}
               <div className="flex flex-col gap-2 border-t border-border pt-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-medium text-foreground">People who'd fit in</p>

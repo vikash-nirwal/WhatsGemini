@@ -11,6 +11,8 @@ const cast = [
 describe("world wizard (#144)", () => {
   it("drafts new people to fit the world and asks for connections in a fixed format", () => {
     expect(castIdea("A lighthouse keeper", world)).toContain("Harbour Town: A rainy port. Era and technology: Medieval");
+    // Tied to someone already there, the draft is told who and how.
+    expect(castIdea("A ferry pilot", world, { name: "Aria", description: "a mechanic", tie: "your older brother" })).toContain("They are Aria's older brother (Aria: a mechanic)");
     const prompt = buildConnectionsPrompt(world, cast, "Sam");
     expect(prompt).toContain("- Kai");
     expect(prompt).toContain("YOU: <name> | <what they are to Sam");

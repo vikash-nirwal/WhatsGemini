@@ -9,8 +9,10 @@ const describeWorld = (w: WorldBasics) =>
   [`${w.name}: ${w.premise.trim()}`, w.tone?.trim() && `Tone: ${w.tone.trim()}.`, w.era?.trim() && `Era and technology: ${w.era.trim()}.`].filter(Boolean).join(" ");
 
 // A "character from one line" idea (#45) that fits the world.
-export const castIdea = (line: string, world: WorldBasics) =>
-  `${line.trim()}. They live in this world - ${describeWorld(world)} Their look, job, way of talking and what they own fit it.`;
+// `connection`: someone already there the new person is tied to, so the draft
+// fits them (a brother who shares the family name, knows their story).
+export const castIdea = (line: string, world: WorldBasics, connection?: { name: string; description?: string; tie: string }) =>
+  `${line.trim()}. They live in this world - ${describeWorld(world)} Their look, job, way of talking and what they own fit it.${connection ? ` They are ${connection.name}'s ${connection.tie.replace(/^your\s+/i, "")}${connection.description ? ` (${connection.name}: ${connection.description.trim().slice(0, 300)})` : ""}; write them so that fits - shared history, family name or ways if it's family, and what they think of ${connection.name}.` : ""}`;
 
 export interface CastMember {
   key: string; // stable while the wizard is open; ids don't exist yet for new people

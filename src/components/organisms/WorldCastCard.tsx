@@ -43,6 +43,9 @@ export const WorldCastCard = ({ world }: { world: World }) => {
   const [proposals, setProposals] = useState<{ a: number; b: number; aToB: string; bToA: string }[]>([]);
   const [form, setForm] = useState<{ a: number; b: number; aToB: string; bToA: string } | null>(null);
   const [idea, setIdea] = useState("");
+  // Who the new person is tied to, if anyone, and what they are to them.
+  const [linkId, setLinkId] = useState("");
+  const [linkTie, setLinkTie] = useState("");
 
   // Each pair once: "b is a's aToB".
   const pairs: { a: Character; b: Character; aToB: string; bToA: string }[] = [];
@@ -99,9 +102,18 @@ export const WorldCastCard = ({ world }: { world: World }) => {
   const createFromIdea = () => run("idea", async () => {
     const line = idea.trim();
     if (!line) return;
-    const draft = parseCharacterDraft(await dispatch(generateAssistText({ instruction: buildCharacterDraftPrompt({ idea: castIdea(line, world) }) })).unwrap());
-    await dispatch(addCharacter({ ...draft, first_mes: draft.first_mes || undefined, accent: CHARACTER_SWATCHES[Math.floor(Math.random() * CHARACTER_SWATCHES.length)], worldId: world.id } as Omit<Character, "id">)).unwrap();
+    const other = linkId ? byId(Number(linkId)) : undefined;
+    const tie = linkTie.trim();
+    const draft = parseCharacterDraft(await dispatch(generateAssistText({ instruction: buildCharacterDraftPrompt({ idea: castIdea(line, world, other && tie ? { name: other.name, description: other.description, tie } : undefined) }) })).unwrap());
+    const made = await dispatch(addCharacter({ ...draft, first_mes: draft.first_mes || undefined, accent: CHARACTER_SWATCHES[Math.floor(Math.random() * CHARACTER_SWATCHES.length)], worldId: world.id } as Omit<Character, "id">)).unwrap();
+    if (other && tie) {
+      const [na, nb] = withTie(other, made, tie, mirrorTie(tie));
+      await dispatch(updateCharacter(na));
+      await dispatch(updateCharacter(nb));
+    }
     setIdea("");
+    setLinkId("");
+    setLinkTie("");
   });
   const suggestTies = () => run("ties", async () => {
     const cast = residents.map((c) => ({ key: String(c.id), name: c.name, description: c.description, withYou: c.relationship || "" }));
@@ -131,7 +143,22 @@ export const WorldCastCard = ({ world }: { world: World }) => {
           <Input id="cast-new-idea" value={idea} onChange={(e) => setIdea(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void createFromIdea()} placeholder="e.g. A grumpy lighthouse keeper with a soft spot for strays" className="min-w-[200px] flex-1" />
           <Button type="button" onClick={() => void createFromIdea()} disabled={busy === "idea" || !idea.trim()}><FaMagic size={10} /> {busy === "idea" ? "Creating..." : "Create"}</Button>
         </div>
-        <p className="text-xs text-subtle">Describe them in a line; the rest is drafted to fit this world. Edit them after with the pencil.</p>
+        {residents.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
+            <span>Connected to</span>
+            <Select aria-label="Connected to" value={linkId} onChange={(e) => setLinkId(e.target.value)} className="h-8 w-[150px]">
+              <option value="">Nobody in particular</option>
+              {residents.map((c) => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+            </Select>
+            {linkId && (
+              <>
+                <span>as their</span>
+                <Input list="cast-tie-choices" aria-label={`What they are to ${byId(Number(linkId))?.name}`} value={linkTie} onChange={(e) => setLinkTie(e.target.value)} placeholder="older brother" className="h-8 w-[160px]" />
+              </>
+            )}
+          </div>
+        )}
+        <p className="text-xs text-subtle">Describe them in a line; the rest is drafted to fit this world{linkId ? " and who they're tied to" : ""}. Edit them after with the pencil.</p>
       </div>
       <JoinWorldDialog open={joinOpen} onOpenChange={setJoinOpen} target={{ id: world.id, name: world.name }} />
       {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
