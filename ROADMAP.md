@@ -34,14 +34,12 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 **Wave 3: with the features they belong to**
 - The canvas's boards for Peek (#145), blocking (#133), event invites (#134), disappearing messages (#136), stickers (#137), the activity log (#131), "where things stand" (#142) and "While you were away" (#130) are built with those items; they get no numbers of their own.
 
-## Living worlds (#159–#172, picked 2026-10-26)
-
-The user's batch: refine how characters talk to each other (and about you), a god mode, and twelve ideas that build on worlds. Built in this order.
-
 
 ## Smaller follow-ups
 
 Leftovers noted while building the finished items. Pick them up alongside related work.
+
+- **#159–#172 (2026-10-26):** not tried with real models: the talk topics, the TIE line, event, life-event, newcomer, reputation, introduction, secret, storyline and faction prompts. All of it only runs while the app is open. God-mode truths, events and storylines don't reach letters or the feed's reactions yet. Factions don't cluster the map; plans, factions and storylines have no switch (you start them yourself).
 
 
 - **#113–#129 (2026-10-24):** not tried with real models or a real image provider: whether models use the new tags (`[Re: …]`, `[Fwd: …]`, `[Contact: …]`, `[Group name: …]`, `[Poll: …]`), the status, channel, About and poll-vote helper prompts, and photo statuses and profile photos. Swipe-to-reply has no UI test. Channels, your statuses' private replies and profile changes only happen while the app is open. You can't send view-once photos yourself yet. The phone shell is WhatsApp-theme only.
