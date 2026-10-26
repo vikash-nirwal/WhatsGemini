@@ -428,6 +428,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
   }, [messages]);
 
   const prevMessagesLengthRef = useRef(messages.length);
+  // Scrolls only the message list to its end. scrollIntoView also scrolled
+  // the boxes around it whenever the end sat under the floating composer,
+  // pushing the whole chat up and leaving a blank strip below it.
+  const scrollToEnd = useCallback((behavior: ScrollBehavior) => {
+    const el = scrollContainerRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior });
+  }, []);
 
   useEffect(() => {
     if (!isScrolledUp) {
@@ -436,10 +443,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
       const diff = Math.abs(messages.length - prevMessagesLengthRef.current);
       const isInstant = prevMessagesLengthRef.current === 0 || diff > 1;
 
-      chatEndRef.current?.scrollIntoView({ behavior: isInstant ? "auto" : "smooth" });
+      scrollToEnd(isInstant ? "auto" : "smooth");
     }
     prevMessagesLengthRef.current = messages.length;
-  }, [messages, aiLoading, isScrolledUp, streamingText]);
+  }, [messages, aiLoading, isScrolledUp, streamingText, scrollToEnd]);
 
   const handleRegenerate = useCallback(
     (msg: Message) => {
@@ -688,8 +695,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
 
   return (
     <>
-    <div className="relative h-full w-full flex overflow-hidden">
-      <div className="flex-1 min-w-0 relative flex flex-col overflow-hidden" data-slot="chat-pane" data-room={isRoom ? "true" : undefined}>
+    {/* overflow-clip, not hidden: a hidden box can still be scrolled by
+        focus or scrollIntoView inside it, which shifted the chat up. */}
+    <div className="relative h-full w-full flex overflow-clip">
+      <div className="flex-1 min-w-0 relative flex flex-col overflow-clip" data-slot="chat-pane" data-room={isRoom ? "true" : undefined}>
         {(chatBackdrop || character?.appearanceImages?.[0]) && !terminal && (
           <>
             {/* The chat's own backdrop (#13) when it has one, otherwise the
@@ -1000,7 +1009,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
           <Button
             onClick={() => {
               setIsScrolledUp(false);
-              chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+              scrollToEnd("smooth");
             }}
             size="icon"
             // Sits just above the composer, wherever its measured top is,

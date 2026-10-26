@@ -248,6 +248,8 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
+- 2026-10-26: Fixed the chat shifting up with a blank strip below: with a tall side panel open (Contact info), ChatPage's message wrapper (a flex-1 column child without min-h-0) grew past the screen, and each new message's scrollIntoView scrolled it. Now min-h-0, the side panel is h-full in column mode and scrolls inside, the outer boxes are overflow-clip, and ChatWindow scrolls only its list (scrollToEnd). e2e/chat-layout.spec.ts fails on the old code.
+
 - 2026-10-26: Relationships between characters are editable any time: a Relationships section in Contact info (organisms/RelationshipsSection.tsx; features/character/ties.ts: tiesOf, withTie, withoutTie) adds, edits and removes ties both ways with anyone in the same world; they reach the prompt (tiesNoteFor), world talk and the relationship map. Before, only the world wizard could set them.
 
 - 2026-10-26: Fixed your statuses going unseen: who-sees-it was one helper call, read strictly and never retried, so a failed call or a loose answer ("true" as a string, a first name, a wrapping object) left a status with no views. Now features/status/decideReactions.ts decides it (logged in the activity log), parseMyStatusReactions reads loose answers, MyStatusWatcher retries undecided statuses (MyStatus.decidedAt/tries/worldId), and after two failures they fall back to plain views.

@@ -2389,7 +2389,7 @@ const ChatPage = () => {
   ];
 
   return (
-    <div className="flex flex-col w-full h-dvh relative">
+    <div className="flex flex-col w-full h-dvh relative overflow-clip">
       <Header
         title={character || "Chat"}
         subtitle={isRoom ? `With ${roomCharacters.map((c) => c.name).join(", ")}` : blockedByYou(currentChat) ? "Blocked" : blockedByThem(currentChat) ? undefined : currentChat?.disappearing ? `Disappearing · ${DISAPPEAR_LABEL[currentChat.disappearing.after]}` : (presence?.label || characterData?.relationship || characterData?.description)}
@@ -2482,8 +2482,11 @@ const ChatPage = () => {
         </div>
       )}
 
-      {/* Chat Messages */}
-      <div className="flex-1 overflow-hidden relative">
+      {/* Chat Messages. min-h-0 keeps it the screen's height: without it a
+          tall side panel (Contact info) stretched it past the bottom, and
+          each new message scrolled the whole chat up, leaving a blank strip.
+          Clipped, not hidden, so nothing inside can scroll it either. */}
+      <div className="flex-1 min-h-0 overflow-clip relative">
         {/* Upset with you (#97), until you make up. */}
         {!isRoom && characterData && currentChat?.conflict && (
           <div className="pointer-events-none absolute top-2 left-1/2 -translate-x-1/2 z-10 max-w-[90%]">

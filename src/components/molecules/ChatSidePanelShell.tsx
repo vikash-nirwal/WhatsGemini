@@ -28,7 +28,7 @@ export const ChatSidePanelShell: React.FC<ChatSidePanelShellProps> = ({ title, s
     <aside
       data-slot="side-panel"
       className={cn(
-        "fixed inset-y-0 md:top-16 right-0 z-40 w-full md:w-[392px] md:shadow-sheet bg-surface min-[1360px]:static min-[1360px]:z-auto min-[1360px]:shadow-none flex-none md:border-l border-border flex flex-col overflow-hidden",
+        "fixed inset-y-0 md:top-16 right-0 z-40 w-full md:w-[392px] md:shadow-sheet bg-surface min-[1360px]:static min-[1360px]:z-auto min-[1360px]:h-full min-[1360px]:shadow-none flex-none md:border-l border-border flex flex-col overflow-hidden [&>*:last-child]:min-h-0",
         terminal && "bg-background min-[1360px]:bg-background border-border"
       )}
     >
