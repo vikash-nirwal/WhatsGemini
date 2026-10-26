@@ -6,11 +6,30 @@ import { CostMarker } from "src/components/molecules/SettingRow";
 import { LIFE_HINT, LifeLevel, loadLifeDial, saveLifeDial } from "src/features/life/lifeDial";
 import { groupActivity, loadActivity, onActivity, todaysActivity } from "src/features/life/activityLog";
 import { formatUSD } from "src/features/spending/spending";
+import { ON_DEVICE_MODELS, onDeviceModel, setOnDeviceModel } from "src/features/life/onDevice";
+import { checkWebGPU } from "src/features/ai/providers/webllmAdapter";
+import { Select } from "src/components/molecules/form-controls/FormSelect";
 
 // Life in the background (#131): the life dial and the activity log, in
 // Settings > Spending, since every entry is a call on your key.
 const LifeSettings = () => {
   const [level, setLevel] = useState<LifeLevel>(loadLifeDial);
+  const [onDevice, setOnDevice] = useState(onDeviceModel);
+  const [gpuNote, setGpuNote] = useState<string | undefined>();
+  // Only with a usable GPU: without one nothing would download or run.
+  const pickOnDevice = async (value: string) => {
+    if (value === "off") {
+      setOnDeviceModel(undefined);
+      setOnDevice(undefined);
+      return;
+    }
+    if (!(await checkWebGPU())) {
+      setGpuNote("This browser can't use the GPU for a model (no WebGPU), so background life stays on your model.");
+      return;
+    }
+    setOnDeviceModel(value);
+    setOnDevice(value);
+  };
   const [entries, setEntries] = useState(loadActivity);
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -48,6 +67,13 @@ const LifeSettings = () => {
               { value: "lively", label: "Lively" },
             ]}
           />
+        </SettingsRow>
+        {/* Background life on this device (#199), free. */}
+        <SettingsRow label="Run it on this device (free)" hint={onDevice ? `Background life uses ${onDevice.split("-q4")[0]} in this browser; the first time downloads it (about 1 GB). Chats still use your model.` : gpuNote || "Statuses, their own talk, life events and rumors on a small model in your browser instead of your key. Needs a recent browser with WebGPU."} align="start">
+          <Select aria-label="Background life on this device" value={onDevice || "off"} onChange={(e) => void pickOnDevice(e.target.value)} className="w-[200px]">
+            <option value="off">Off (use my model)</option>
+            {ON_DEVICE_MODELS.map((m) => <option key={m} value={m}>{m.split("-q4")[0]}</option>)}
+          </Select>
         </SettingsRow>
       </SettingsCard>
 

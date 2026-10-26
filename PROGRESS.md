@@ -79,7 +79,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #196 | Live map | done | 2026-10-25 |
 | #197 | Share a world by link | done | 2026-10-25 |
 | #198 | Automatic backups | done | 2026-10-25 |
-| #199 | Background chores on the in-browser model | todo | the user's batch, 2026-10-26 |
+| #199 | Background chores on the in-browser model | done | 2026-10-25 |
 | #200 | Better memory recall | todo | the user's batch, 2026-10-26 |
 | #201 | Android background sync | todo | the user's batch, 2026-10-26 |
 | #148 | Revamp: design tokens and type | done | 2026-10-25 |
@@ -106,6 +106,7 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+Background chores on the in-browser model: features/life/onDevice.ts (a small WebLLM model, chosen in Settings > Spending's Life in the background, only with a usable GPU); generateAssistText runs background-life calls (those with an activity) on it, free, while other helper work stays on the helper model. Not tried on a real GPU.
 Automatic backups: features/backup/autoBackup.ts and AutoBackup (App): with "Back up daily while the app is open" (DriveBackupSection) a daily Drive backup using only this visit's cached token and in-memory passphrase (driveBackup.ts cachedDriveToken/rememberPassphrase); settingsFromStorage builds the backup's settings outside the Settings page. Reminders were already there (BackupReminderBanner), so none was added. Not tried with a real Google account.
 Share a world by link: worldFile.ts encodeWorldLink/decodeWorldLink (the world file without pictures, deflate-compressed, base64url in #/worlds/import?w=), linkTarget for pasted links (ours, or a hosted world file fetched); ShareWorldDialog (copy, QR code via the qrcode package when short enough) from each world card; WorldImportPage previews and imports; From a link on the Worlds page.
 Live map: LiveMap on CurrentWorldHero (with places on): the whole picture with avatars of who's at each pin and a marker where you are; tapping a place opens its PlaceDialog.

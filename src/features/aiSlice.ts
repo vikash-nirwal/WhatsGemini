@@ -2,6 +2,7 @@ import { extractInvite } from "./chat/invites";
 import { buildWorldBrief, withWorldBrief } from "./world/worldBrief";
 import { backgroundAllowed, countBackgroundCall, featureOn } from "./world/worldPrefs";
 import { cachedTimeline } from "./world/timeline";
+import { onDeviceModel } from "./life/onDevice";
 import { extractSticker } from "./character/stickers";
 import { extractBlockTags } from "./chat/blocking";
 import { ActivityEntry, logActivity } from "./life/activityLog";
@@ -647,7 +648,6 @@ export const generateAssistText = createAsyncThunk(
       const state = getState() as RootState;
       const settings = state.settings;
       if (background) {
-        const helper = await resolveHelperCall(settings);
         const about = state.character.characters.find((c) => c.id === activity?.characterId);
         const briefWorld = state.world.worlds.find((w) => w.id === (worldId ?? about?.worldId));
         // A world's limit and quiet hours (#192), for life in the background.
@@ -655,6 +655,17 @@ export const generateAssistText = createAsyncThunk(
         if (activity && !backgroundAllowed(callWorld, Date.now())) throw new Error("Background life is paused in this world (quiet hours or today's limit).");
         if (activity) countBackgroundCall(callWorld, Date.now());
         const brief = buildWorldBrief(briefWorld, activity?.at ?? Date.now(), { events: briefWorld ? featureOn(briefWorld.id, "events") : false, history: briefWorld ? cachedTimeline(briefWorld.id) : undefined });
+        // Background life on this device (#199): free, on the in-browser
+        // model; other helper work (memory, suggestions) stays on the helper.
+        const local = activity ? onDeviceModel() : undefined;
+        if (local) {
+          const adapter = CHAT_PROVIDERS.webllm;
+          const config = await resolveProviderConfig("webllm", adapter.capabilities.requiresBaseUrl);
+          const result = await adapter.generateOnce(withWorldBrief(instruction, brief), local, config);
+          logActivity({ ...activity!, ...(briefWorld ? { world: briefWorld.name } : {}) });
+          return result.text.trim();
+        }
+        const helper = await resolveHelperCall(settings);
         const result = await helper.adapter.generateOnce(withWorldBrief(instruction, brief), helper.model, helper.config);
         if (activity) {
           const cost = isFreeProvider(helper.providerId) ? undefined : estimateCallCost({ kind: "text", providerId: helper.providerId, model: helper.model, usage: result.usage });

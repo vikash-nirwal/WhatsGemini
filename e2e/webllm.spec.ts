@@ -31,3 +31,17 @@ test.describe("chatting without a usable GPU", () => {
     expect(downloads).toEqual([]);
   });
 });
+
+// #199: background life on the in-browser model; without a usable GPU the
+// setting says so and stays off.
+test("background life on this device needs a usable GPU", async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(navigator, "gpu", { value: undefined, configurable: true }));
+  await openRoute(page, "/settings/spending");
+  const pick = page.getByRole("combobox", { name: "Background life on this device" });
+  await expect(pick).toContainText("Off (use my model)", { timeout: 30_000 });
+  await pick.click();
+  await page.getByRole("option", { name: "Llama-3.2-1B-Instruct" }).click();
+  await expect(page.getByText("This browser can't use the GPU for a model")).toBeVisible();
+  await expect(pick).toContainText("Off (use my model)");
+  expect(await page.evaluate(() => localStorage.getItem("background_on_device"))).toBeNull();
+});
