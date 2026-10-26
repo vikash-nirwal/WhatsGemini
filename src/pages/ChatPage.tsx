@@ -44,8 +44,10 @@ import { useReplyEffects } from "./chat/useReplyEffects";
 import { knowsNoteFor, recentLetterNote, roomContextFor } from "./chat/promptNotes";
 import { tiesNoteFor } from "../features/world/worldWizard";
 import { worldTalkNoteFor } from "../features/world/worldTalk";
+import { buildTimePassedNote, buildTimePassedOpener, describeGap, gapDays, TimePassed, timePassedInScope, timePassedNotice, TimeUnit } from "../features/chat/passTime";
+import { skipStoryTime } from "../features/world/storyTime";
 import { worldOf } from "../features/world/currentWorld";
-import { switchWorld } from "../features/worldSlice";
+import { switchWorld, updateWorld } from "../features/worldSlice";
 import { buildMyStatusNote } from "../features/status/myStatuses";
 import { buildForwardDirective, buildQuoteDirective, quoteTextOf } from "../features/chat/replyQuotes";
 import { buildGroupDirective } from "../features/chat/groupLife";
@@ -373,6 +375,8 @@ const ChatPage = () => {
   // someone you blocked can talk it through.
   if (!isRoom && characterData && currentChat?.conflict) scene.conflictNote = [scene.conflictNote, buildBlockDirective(characterData.name, userNameForNotes)].filter(Boolean).join("\n");
   scene.blockNote = !isRoom && characterData ? blockNotesFor(characterData, characters, chats, userNameForNotes) : undefined;
+  // Time passed (the user's ask): every member knows how long it's been.
+  scene.timePassedNote = currentChat?.timePassed && timePassedInScope(currentChat.timePassed, (currentChat.content || []).length) ? buildTimePassedNote(currentChat.timePassed, userNameForNotes) : undefined;
   // Group chats (#124): members may rename the group or start a poll.
   scene.groupNote = isRoom ? buildGroupDirective(userNameForNotes) : undefined;
   // Quoted replies (#119): in texting mode they may quote an older message.
@@ -1094,6 +1098,27 @@ const ChatPage = () => {
       await finishRoomRound(await sendCharacterFollowup(undefined, `${skip}: the story has moved on (see the narration). Pick it up from there, naturally.`));
     } catch (err) {
       toast.error(typeof err === "string" ? err : "Couldn't skip ahead. Check your model settings.");
+    } finally {
+      autoReplyInFlightRef.current = false;
+    }
+  };
+
+  // Pass the time (the user's ask): a marker in the chat, replies told how
+  // long it's been for a few exchanges, the world's calendar moved on, and -
+  // if you like - them texting first after the gap.
+  const handlePassTime = async ({ amount, unit, note, theyTextFirst }: { amount: number; unit: TimeUnit; note: string; theyTextFirst: boolean }) => {
+    if (!chatIdNum || autoReplyInFlightRef.current || aiLoading) return;
+    setTimeSkipOpen(false);
+    autoReplyInFlightRef.current = true;
+    try {
+      const passed: TimePassed = { gap: describeGap(amount, unit), days: gapDays(amount, unit), ...(note ? { note } : {}), at: Date.now(), fromMessage: (currentChat?.content || []).length + 1 };
+      await dispatch(addChatNotice({ chatId: chatIdNum, text: timePassedNotice(passed) }));
+      await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { timePassed: passed } }));
+      const chatWorld = worlds.find((w) => w.id === currentChat?.worldId);
+      if (chatWorld?.storyTime && passed.days >= 1) await dispatch(updateWorld({ ...chatWorld, storyTime: skipStoryTime(chatWorld.storyTime, Math.round(passed.days), Date.now()) }));
+      if (theyTextFirst) await finishRoomRound(await sendCharacterFollowup(undefined, buildTimePassedOpener(passed, activePersona?.name?.trim() || "the user")));
+    } catch (err) {
+      toast.error(typeof err === "string" ? err : "Couldn't pass the time. Check your model settings.");
     } finally {
       autoReplyInFlightRef.current = false;
     }
@@ -2344,7 +2369,7 @@ const ChatPage = () => {
       ? [
           { icon: FaDiceD20, label: "Surprise me (the next reply brings a twist)", onClick: handleSurprise, disabled: aiLoading },
           { icon: FaTheaterMasks, label: "Scenario cards", onClick: () => setScenarioOpen(true), disabled: aiLoading },
-          { icon: FaForward, label: "Time skip", onClick: () => setTimeSkipOpen(true), disabled: aiLoading },
+          { icon: FaForward, label: "Pass the time", onClick: () => setTimeSkipOpen(true), disabled: aiLoading },
         ]
       : []),
     ...(!isRoom && characterData && messages.length > 0
@@ -2520,7 +2545,7 @@ const ChatPage = () => {
         <PollDialog open={pollOpen} onOpenChange={setPollOpen} onCreate={(q, o) => void handleCreatePoll(q, o)} />
         <StoryScriptDialog open={storyOpen} onOpenChange={setStoryOpen} script={currentChat?.storyScript} onSave={saveStoryScript} />
         <ScenarioCardsDialog open={scenarioOpen} onOpenChange={setScenarioOpen} onStart={handleStartScenario} />
-        <TimeSkipDialog open={timeSkipOpen} onOpenChange={setTimeSkipOpen} onSkip={handleTimeSkip} />
+        <TimeSkipDialog open={timeSkipOpen} onOpenChange={setTimeSkipOpen} onSkip={handleTimeSkip} onPassTime={(pass) => void handlePassTime(pass)} />
         {!isRoom && characterData && (
           <CompareDialog
             open={compareOpen}

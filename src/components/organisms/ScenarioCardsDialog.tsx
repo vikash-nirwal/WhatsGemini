@@ -5,6 +5,7 @@ import { TextInput, TextArea } from "src/components/molecules/form-controls";
 import { Button } from "src/components/atoms/button";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { BUILT_IN_CARDS, loadCustomCards, makeCardId, saveCustomCards, ScenarioCard, TIME_SKIPS } from "src/features/chat/scenarioCards";
+import { describeGap, TIME_UNITS, TimeUnit } from "src/features/chat/passTime";
 
 interface ScenarioCardsDialogProps {
   open: boolean;
@@ -95,14 +96,47 @@ export const ScenarioCardsDialog: React.FC<ScenarioCardsDialogProps> = ({ open, 
 };
 
 // Time skips (#80): a few common jumps, or your own.
-export const TimeSkipDialog: React.FC<{ open: boolean; onOpenChange: (open: boolean) => void; onSkip: (skip: string) => void }> = ({ open, onOpenChange, onSkip }) => {
+// Pass the time (the user's ask) and scene jumps (#80), in one place: how
+// long has gone by for everyone - they react to it - or just a cut to later.
+export const TimeSkipDialog: React.FC<{
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSkip: (skip: string) => void;
+  onPassTime: (pass: { amount: number; unit: TimeUnit; note: string; theyTextFirst: boolean }) => void;
+}> = ({ open, onOpenChange, onSkip, onPassTime }) => {
   const [custom, setCustom] = useState("");
+  const [amount, setAmount] = useState("3");
+  const [unit, setUnit] = useState<TimeUnit>("days");
+  const [note, setNote] = useState("");
+  const [theyTextFirst, setTheyTextFirst] = useState(true);
+  const n = Number(amount);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
-        <DialogTitle>Time skip</DialogTitle>
-        <DialogDescription>Jump ahead: a short transition is written, the tracked time and place move on, and the story carries on from there.</DialogDescription>
-        <div className="flex flex-col gap-2">
+      <DialogContent size="sheet" className="px-4">
+        <div className="flex min-h-0 flex-col gap-4 overflow-y-auto pb-2">
+        <DialogTitle className="pt-1">Pass the time</DialogTitle>
+        <DialogDescription>Hours, days or years go by for everyone here. They act like it: catching up, what changed, how a long silence feels.</DialogDescription>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <TextInput type="number" min={1} aria-label="How long" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-20" />
+            <div role="radiogroup" aria-label="Unit" className="flex flex-wrap gap-1.5">
+              {TIME_UNITS.map((u) => (
+                <button key={u} type="button" role="radio" aria-checked={unit === u} onClick={() => setUnit(u)}
+                  className={unit === u ? "h-9 rounded-full bg-primary/15 px-3 text-[13px] font-semibold text-foreground ring-1 ring-inset ring-primary" : "h-9 rounded-full bg-raised px-3 text-[13px] font-semibold text-foreground ring-1 ring-inset ring-border"}>
+                  {u}
+                </button>
+              ))}
+            </div>
+          </div>
+          <TextArea aria-label="What happened meanwhile" value={note} onChange={(e) => setNote(e.target.value)} placeholder="What happened meanwhile (optional), e.g. she moved to Porto and you never wrote" className="min-h-[60px] resize-none" />
+          <ToggleSwitch checked={theyTextFirst} onChange={setTheyTextFirst} label={<span className="text-sm text-muted-foreground">They text first</span>} />
+          <Button type="button" disabled={!(n > 0)} onClick={() => onPassTime({ amount: n, unit, note: note.trim(), theyTextFirst })}>
+            Pass {n > 0 ? describeGap(n, unit) : "the time"}
+          </Button>
+        </div>
+        <div className="flex flex-col gap-2 border-t border-border pt-4">
+          <span className="text-sm font-medium text-foreground">Or jump the scene</span>
+          <span className="text-xs text-subtle">A short narration moves the story on, without anyone remarking on the time.</span>
           {TIME_SKIPS.map((skip) => (
             <Button key={skip} type="button" variant="outline" onClick={() => onSkip(skip)} className="justify-start">{skip}...</Button>
           ))}
@@ -117,7 +151,9 @@ export const TimeSkipDialog: React.FC<{ open: boolean; onOpenChange: (open: bool
             <Button type="submit" disabled={!custom.trim()}>Skip</Button>
           </form>
         </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
 };
+

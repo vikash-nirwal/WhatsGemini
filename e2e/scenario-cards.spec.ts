@@ -30,8 +30,8 @@ test("a time skip writes a transition, moves the tracked time and place on, and 
   await page.getByRole("switch", { name: "Track the scene" }).click();
   await page.getByRole("button", { name: "Close scene panel" }).click();
 
-  await headerAction(page, "Time skip");
-  await page.getByRole("dialog", { name: "Time skip" }).getByRole("button", { name: "The next morning..." }).click();
+  await headerAction(page, "Pass the time");
+  await page.getByRole("dialog", { name: "Pass the time" }).getByRole("button", { name: "The next morning..." }).click();
   await expect(page.getByText("Morning light spills across the kitchen.")).toBeVisible();
   await expect(messageBubble(page, "Coffee?")).toBeVisible();
   const strip = page.getByRole("group", { name: "Scene state" });

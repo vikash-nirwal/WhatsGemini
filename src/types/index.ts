@@ -539,6 +539,7 @@ export interface Chat {
   textingMode?: boolean; // this chat's texting mode (#6); unset = the app setting
   sceneTracker?: boolean; // track location, time, outfit and two meters (#9)
   worldId?: number; // a World whose setting and lore this chat uses (#28)
+  timePassed?: import("../features/chat/passTime").TimePassed; // the last "pass the time": replies react to it for a few exchanges
   backdrop?: string; // a picture behind this chat's bubbles (#13)
   // Rooms only (#22-#24): who answers a message, a narrator between rounds,
   // and what members feel about each other.
