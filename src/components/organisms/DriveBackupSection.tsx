@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { driveAutoOn, setDriveAuto } from "src/features/backup/autoBackup";
+import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { FaCloudDownloadAlt, FaCloudUploadAlt, FaGoogleDrive } from "react-icons/fa";
 import { toast } from "sonner";
 import { Button } from "src/components/atoms/button";
@@ -9,6 +11,7 @@ import {
   DriveBackup,
   downloadDriveBackup,
   encryptBackup,
+  rememberPassphrase,
   getDriveToken,
   KEEP_BACKUPS,
   listDriveBackups,
@@ -53,6 +56,7 @@ const DriveBackupSection: React.FC<DriveBackupSectionProps> = ({ buildBackup, re
   };
 
   const ready = clientId.trim().length > 0 && passphrase.length >= MIN_PASSPHRASE;
+  const [auto, setAuto] = useState(driveAutoOn());
 
   const run = async (kind: "backup" | "list", work: (token: string) => Promise<void>) => {
     setBusy(kind);
@@ -72,6 +76,8 @@ const DriveBackupSection: React.FC<DriveBackupSectionProps> = ({ buildBackup, re
       const sealed = await encryptBackup(await zip.arrayBuffer(), passphrase);
       const name = `kindred_backup_${new Date().toISOString().replace(/[:.]/g, "-")}.wgbk`;
       await uploadDriveBackup(token, sealed, name);
+      // Daily backups while the app is open (#198) reuse this visit's passphrase.
+      if (auto) rememberPassphrase(passphrase);
       const removed = await pruneDriveBackups(token).catch(() => 0);
       onBackedUp();
       toast.success(`Backed up to Google Drive${removed > 0 ? `, keeping the newest ${KEEP_BACKUPS}` : ""}.`);
@@ -121,6 +127,15 @@ const DriveBackupSection: React.FC<DriveBackupSectionProps> = ({ buildBackup, re
         <TextInput type="password" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} autoComplete="new-password" />
       </label>
 
+      <ToggleSwitch
+        checked={auto}
+        onChange={(on) => {
+          setAuto(on);
+          setDriveAuto(on);
+          if (!on) rememberPassphrase(undefined);
+        }}
+        label={<span className="text-sm text-muted-foreground">Back up daily while the app is open: after your first backup each visit, it keeps the passphrase in memory until you close the app.</span>}
+      />
       <div className="flex flex-wrap gap-2">
         <Button type="button" onClick={handleBackup} disabled={!ready || busy !== null}>
           <FaCloudUploadAlt /> {busy === "backup" ? "Backing up..." : "Back up to Drive"}

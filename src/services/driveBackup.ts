@@ -109,6 +109,16 @@ export const getDriveToken = async (clientId: string): Promise<string> => {
   });
 };
 
+// For the daily backup while the app is open (#198): the token from this
+// visit's sign-in, if it's still good - never a new sign-in, which would
+// need you there - and the passphrase you used this visit, in memory only.
+export const cachedDriveToken = (): string | undefined => (cachedToken && cachedToken.expires > Date.now() + 60_000 ? cachedToken.token : undefined);
+let sessionPassphrase: string | undefined;
+export const rememberPassphrase = (passphrase: string | undefined) => {
+  sessionPassphrase = passphrase;
+};
+export const rememberedPassphrase = () => sessionPassphrase;
+
 export const forgetDriveToken = () => {
   cachedToken = null;
 };

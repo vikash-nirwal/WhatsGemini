@@ -39,7 +39,6 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 
 The user's picks from the improvement ideas, plus everything that works without a server. Built in this order.
 
-- **#198 Automatic backups.** A daily backup to Google Drive while the app is open, when Drive backup is set up; a reminder to back up otherwise.
 - **#199 Background chores on the in-browser model.** A switch to run background life (statuses, Peek talk, life events, rumors) on the free in-browser model, keeping the paid key for chats.
 - **#200 Better memory recall.** Facts found by meaning with a small in-browser embedding model (opt-in download), alongside keyword matching.
 - **#201 Android background sync.** On Android Chrome, the installed app asks for periodic background sync and does a small world tick with a notification when woken.
