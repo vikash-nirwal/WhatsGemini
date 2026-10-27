@@ -1,4 +1,4 @@
-import { applyShared, audienceOf, buildKnowsNote, buildShareSection, knowsEntry, knownTo, parseNewFact, parseShared } from "./knowledge";
+import { applyShared, buildFoldPrompt, cleanFold, foldDue, FOLD_AT, markFolded, audienceOf, buildKnowsNote, buildShareSection, knowsEntry, knownTo, parseNewFact, parseShared } from "./knowledge";
 import { buildSceneNow } from "./sceneNow";
 import { buildHistoryNote, TimelineEntry } from "./timeline";
 import { buildWorldTalkPrompt } from "./worldTalk";
@@ -135,5 +135,21 @@ describe("one time and place (#205)", () => {
   it("uses the world's own calendar when it keeps one", () => {
     const st = { yearLabel: "Year", year: 3, months: ["Frost"], daysPerMonth: 30, day: 4, anchorAt: evening, moves: true, start: { year: 3, day: 0 } };
     expect(buildSceneNow({ storyTime: st } as never, [jon], evening)).toContain("Year 3, Frost, day 5, evening");
+  });
+});
+
+describe("memory condensing (#207)", () => {
+  const many = Array.from({ length: FOLD_AT }, (_, i) => entry(`e${i}`, { kind: "talk", characterIds: [2], text: `thing ${i}`, at: NOW - (20 - i) * DAY }));
+
+  it("folds the oldest once someone knows a lot, and the note keeps the gist", () => {
+    expect(foldDue(2, many.slice(1), NOW)).toEqual([]);
+    const due = foldDue(2, many, NOW);
+    expect(due.map((e) => e.id)).toEqual(["e0", "e1", "e2", "e3", "e4", "e5"]);
+    expect(buildFoldPrompt({ ...jon, knownSummary: "Old news." }, due, cast)).toContain("What they already remembered: Old news.");
+    const folded = markFolded(many, due.map((e) => e.id), 2);
+    expect(foldDue(2, folded, NOW)).toEqual([]);
+    expect(knownTo(2, folded, NOW, { max: 20 }).map((i) => i.entry.id)).toEqual(["e6", "e7", "e8", "e9"]);
+    expect(buildKnowsNote({ ...jon, knownSummary: "Jon knows the mill is closing." }, folded, cast, NOW)).toContain("- From before: Jon knows the mill is closing.");
+    expect(cleanFold('"  ok "')).toBeUndefined();
   });
 });

@@ -83,8 +83,8 @@ export const resetWorldLife = createAsyncThunk(
     if (people) {
       await resetPeople(dispatch, state, new Set(here.map((c) => c.id)), deleteChats);
     } else {
-      // Only their talk with each other.
-      for (const c of here) if (c.talks?.length) await dispatch(updateCharacter({ ...c, talks: undefined }));
+      // Only their talk with each other, and what they'd heard by it (#207).
+      for (const c of here) if (c.talks?.length || c.knownSummary) await dispatch(updateCharacter({ ...c, talks: undefined, knownSummary: undefined }));
     }
   }
 );

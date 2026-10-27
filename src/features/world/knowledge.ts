@@ -50,12 +50,52 @@ const itemLine = (item: KnownItem, nameOf: (id: number) => string) =>
 // For a character's own chats with you (1:1 or a group): what they know
 // lately, beyond the world brief. Public news is left to the brief and the
 // events note; this is what's theirs.
-export const buildKnowsNote = (character: Pick<Character, "id" | "name"> | undefined, entries: TimelineEntry[], characters: Pick<Character, "id" | "name">[], now: number): string | undefined => {
+export const buildKnowsNote = (character: Pick<Character, "id" | "name" | "knownSummary"> | undefined, entries: TimelineEntry[], characters: Pick<Character, "id" | "name">[], now: number): string | undefined => {
   if (!character) return undefined;
   const items = knownTo(character.id, entries, now).filter((i) => audienceOf(i.entry) !== "public");
-  if (!items.length) return undefined;
-  return `What you know lately that not everyone does (use it only if it fits; what you heard is hearsay, it may be wrong, and you know who told you):\n${items.map((i) => `- ${itemLine(i, nameIn(characters))}`).join("\n")}`;
+  if (!items.length && !character.knownSummary) return undefined;
+  return [
+    "What you know that not everyone does (use it only if it fits; what you heard is hearsay, it may be wrong, and you know who told you):",
+    ...(character.knownSummary ? [`- From before: ${character.knownSummary}`] : []),
+    ...items.map((i) => `- ${itemLine(i, nameIn(characters))}`),
+  ].join("\n");
 };
+
+// Memory condensing (#207): once someone knows a lot that isn't public,
+// the oldest of it folds into their one-line summary on the helper model,
+// so their prompts stay small and the gist stays with them.
+export const FOLD_AT = 10;
+const FOLD_COUNT = 6;
+const FOLD_AFTER_MS = 3 * DAY_MS;
+
+export const foldDue = (id: number, entries: TimelineEntry[], now: number): TimelineEntry[] => {
+  const mine = entries.filter((e) => audienceOf(e) !== "public" && e.kind !== "god" && !e.folded?.includes(id) && knowsEntry(e, id));
+  if (mine.length < FOLD_AT) return [];
+  return mine.filter((e) => now - e.at >= FOLD_AFTER_MS).slice(0, FOLD_COUNT);
+};
+
+export const buildFoldPrompt = (character: Pick<Character, "id" | "name" | "knownSummary">, items: TimelineEntry[], characters: Pick<Character, "id" | "name">[]) => {
+  const nameOf = nameIn(characters);
+  const lines = items.map((e) => {
+    const from = e.heard?.find((h) => h.id === character.id)?.from;
+    return `- ${audienceOf(e) === "secret" ? "(a secret) " : ""}${from !== undefined && !(e.knownBy || e.characterIds)?.includes(character.id) ? `(heard from ${nameOf(from)}) ` : ""}${e.text}`;
+  });
+  return [
+    `Fold what ${character.name} knows into one short paragraph of their memory, at most 60 words, in the third person.`,
+    character.knownSummary ? `What they already remembered: ${character.knownSummary}` : "",
+    "What to fold in:",
+    ...lines,
+    "Keep who did what, who told them, and what's a secret; drop small talk. Reply with only the paragraph.",
+  ].filter(Boolean).join("\n");
+};
+
+export const cleanFold = (reply: string): string | undefined => {
+  const text = reply.replace(/^["'\s]+|["'\s]+$/g, "").replace(/\s+/g, " ");
+  return text.length >= 10 ? text.slice(0, 600) : undefined;
+};
+
+export const markFolded = (entries: TimelineEntry[], ids: string[], who: number): TimelineEntry[] =>
+  entries.map((e) => (ids.includes(e.id) && !e.folded?.includes(who) ? { ...e, folded: [...(e.folded || []), who] } : e));
 
 // What one person in a talk could tell the others: things they know that
 // someone there doesn't. Private things about other people only pass on

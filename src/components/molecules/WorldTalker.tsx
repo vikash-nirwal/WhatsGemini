@@ -7,7 +7,7 @@ import { parseOffscreenTalk } from "src/features/chat/offscreenTalk";
 import { addWorldTalk, becameFriends, buildWorldTalkPrompt, parseTieChange, pickTalkTopic, tieMayChange, pickWorldTalk, recencyOf, talksBetween, UserKnowledge, WORLD_TALK_GAP_MS } from "src/features/world/worldTalk";
 import { channelId } from "src/features/channels/channels";
 import { editTimeline, loadTimeline, logToTimeline } from "src/features/world/timeline";
-import { applyShared, buildShareSection, parseNewFact, parseShared } from "src/features/world/knowledge";
+import { applyShared, buildFoldPrompt, buildShareSection, cleanFold, foldDue, markFolded, parseNewFact, parseShared } from "src/features/world/knowledge";
 import { buildSceneNow } from "src/features/world/sceneNow";
 import { activeEvents } from "src/features/world/worldEvents";
 import { factionsOf } from "src/features/world/factions";
@@ -112,6 +112,22 @@ const WorldTalker = () => {
           const what = `${b.name} is now ${a.name}'s ${change.bToA.replace(/^your\s+/i, "")}${before ? ` (was ${before.replace(/^your\s+/i, "")})` : ""}`;
           void logToTimeline(worldId, { kind: "tie", text: what, characterIds: [a.id, b.id], at: now }, w?.storyTime);
           toast(`${a.name} and ${b.name}`, { description: what });
+        }
+        // Memory condensing (#207): one of them who knows a lot folds the
+        // oldest into a line, at most one a check.
+        const timeline = await loadTimeline(worldId);
+        const folder = [a, b].map((c) => ({ c, due: foldDue(c.id, timeline, now) })).find((x) => x.due.length);
+        if (folder) {
+          const summary = cleanFold(await dispatch(generateAssistText({
+            instruction: buildFoldPrompt(latest.current.characters.find((c) => c.id === folder.c.id) || folder.c, folder.due, latest.current.characters),
+            background: true,
+            activity: { at: now, kind: "other", text: `${folder.c.name} sorted through what they know`, characterId: folder.c.id, name: folder.c.name },
+          })).unwrap());
+          const fresh = latest.current.characters.find((c) => c.id === folder.c.id);
+          if (summary && fresh) {
+            await dispatch(updateCharacter({ ...fresh, knownSummary: summary }));
+            void editTimeline(worldId, (list) => markFolded(list, folder.due.map((e) => e.id), folder.c.id));
+          }
         }
       } catch (err) {
         console.warn("World talk failed (non-fatal):", err);
