@@ -31,6 +31,13 @@ test("a status you post is seen, liked and replied to in private", async ({ page
   await expect(viewer.getByLabel("liked it")).toBeVisible();
   await viewer.getByRole("tab", { name: "Comments 1" }).click();
   await expect(viewer.getByRole("list", { name: "Comments" })).toContainText("Looks amazing!");
+  // You can answer her comment, and she answers back (2026-10-27).
+  mockAI.reply((req) => (req.prompt.includes('replied to Aria: "thanks! you should come next time"') ? "deal, save me a spot" : "Mock reply"));
+  await viewer.getByRole("button", { name: "Reply to Aria" }).click();
+  await viewer.getByRole("textbox", { name: "Your reply to Aria" }).fill("thanks! you should come next time");
+  await viewer.getByRole("button", { name: "Send" }).click();
+  await expect(viewer.getByRole("list", { name: "Comments" })).toContainText("thanks! you should come next time");
+  await expect(viewer.getByRole("list", { name: "Comments" })).toContainText("deal, save me a spot");
   await page.keyboard.press("Escape");
 
   // Her private reply reaches your chat, quoting the status, and she knows it.

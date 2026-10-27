@@ -256,6 +256,7 @@ export interface StatusComment {
   from: number | "you"; // a character id, or you
   text: string;
   at: number;
+  replyTo?: string; // the comment this answers (replies on your status, 2026-10-27)
 }
 
 // One of a character's outfits (#50).

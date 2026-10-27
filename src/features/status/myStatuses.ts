@@ -155,3 +155,17 @@ export const buildMyStatusNote = (userName: string, statuses: MyStatus[], charac
   const what = latest.text ? `"${latest.text}"${latest.image ? " (with a photo)" : ""}` : "a photo";
   return `${userName} posted a status ${when}, and you've seen it: ${what}. Bring it up only if it fits.`;
 };
+
+// Replying to a comment on your status (the user's report, 2026-10-27: there
+// was no way to). Your reply goes under theirs, and they answer it.
+export const buildMyCommentReplyPrompt = (who: Pick<Character, "name" | "description" | "prompt" | "relationship">, userName: string, status: Pick<MyStatus, "text" | "image">, theirs: string, yours: string): string =>
+  `${userName} posted a status${status.image ? " with a photo" : ""}${status.text ? `: "${status.text}"` : "."}
+${who.name} commented under it: "${theirs}"
+${userName} replied to ${who.name}: "${yours}"
+
+About ${who.name}: ${about(who)}
+
+Write ${who.name}'s answer to ${userName}'s reply: one short line in their own voice, at most 120 characters, like a reply in a comment thread. Reply with only the text.`;
+
+export const withMyComment = (statuses: MyStatus[], statusId: string, comment: StatusComment): MyStatus[] =>
+  statuses.map((s) => (s.id === statusId ? { ...s, comments: [...(s.comments || []), comment] } : s));

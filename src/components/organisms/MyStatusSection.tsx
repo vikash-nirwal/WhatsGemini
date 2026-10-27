@@ -9,6 +9,7 @@ import { changeMyStatuses } from "src/features/myStatusSlice";
 import { readPhoto } from "src/features/chat/photoAttachments";
 import { addMyStatus, happened, liveMyStatuses, newMyStatusId } from "src/features/status/myStatuses";
 import { decideMyStatusReactions } from "src/features/status/decideReactions";
+import { replyToStatusComment } from "src/features/status/replyToComment";
 import { STATUS_COLORS } from "src/features/status/statusLook";
 import { MyStatus } from "src/types";
 import { useCurrentWorld, useWorldCharacters } from "src/hooks/useWorld";
@@ -62,6 +63,26 @@ export const MyStatusSection = ({ variant }: { variant: "tile" | "row" }) => {
   const latest = live[live.length - 1];
   const userName = persona?.name?.trim() || "You";
   const nameOf = (id: number) => characters.find((c) => c.id === id)?.name || "Someone";
+  // Replying to a comment (2026-10-27): your reply goes under it, they answer.
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [answering, setAnswering] = useState<string | null>(null);
+  const sendReply = async (commentId: string, from: number) => {
+    const who = characters.find((c) => c.id === from);
+    const status = statuses.find((s) => s.comments?.some((c) => c.id === commentId));
+    if (!who || !status || !replyText.trim()) return;
+    const text = replyText;
+    setReplyText("");
+    setReplyingTo(null);
+    setAnswering(commentId);
+    try {
+      await dispatch(replyToStatusComment(status, commentId, text, who, userName));
+    } catch {
+      setError(`${who.name} couldn't answer just now.`);
+    } finally {
+      setAnswering(null);
+    }
+  };
   const latestViews = latest ? happened(latest.views, now).length : 0;
   const latestLikes = latest ? happened(latest.likes, now).length : 0;
 
@@ -247,10 +268,28 @@ export const MyStatusSection = ({ variant }: { variant: "tile" | "row" }) => {
                 {tab === "comments" ? (
                   comments.length === 0 ? <p className="px-3 py-4 text-[13.5px] text-muted-foreground">No comments yet.</p> : (
                     <ul aria-label="Comments" className="flex flex-col gap-1">
-                      {comments.map((c) => (
-                        <li key={c.id} className="flex items-start gap-3 rounded-xl px-3 py-2">
-                          <CharacterAvatar name={typeof c.from === "number" ? nameOf(c.from) : userName} size={32} />
-                          <span className="min-w-0 text-[14px]"><b>{typeof c.from === "number" ? nameOf(c.from) : "You"}</b> {c.text}</span>
+                      {comments.filter((c) => !c.replyTo).map((c) => (
+                        <li key={c.id} className="flex flex-col gap-1 rounded-xl px-3 py-2">
+                          <div className="flex items-start gap-3">
+                            <CharacterAvatar name={typeof c.from === "number" ? nameOf(c.from) : userName} size={32} />
+                            <span className="min-w-0 flex-1 text-[14px]"><b>{typeof c.from === "number" ? nameOf(c.from) : "You"}</b> {c.text}</span>
+                            {typeof c.from === "number" && (
+                              <button type="button" onClick={() => { setReplyingTo(c.id); setReplyText(""); }} aria-label={`Reply to ${nameOf(c.from)}`} className="flex-none text-[12.5px] font-semibold text-primary-text">Reply</button>
+                            )}
+                          </div>
+                          {comments.filter((r) => r.replyTo === c.id).map((r) => (
+                            <div key={r.id} className="ml-11 flex items-start gap-2.5">
+                              <CharacterAvatar name={typeof r.from === "number" ? nameOf(r.from) : userName} size={24} />
+                              <span className="min-w-0 text-[13.5px]"><b>{typeof r.from === "number" ? nameOf(r.from) : "You"}</b> {r.text}</span>
+                            </div>
+                          ))}
+                          {answering === c.id && typeof c.from === "number" && <p className="ml-11 text-[12.5px] text-subtle">{nameOf(c.from)} is replying...</p>}
+                          {replyingTo === c.id && typeof c.from === "number" && (
+                            <form className="ml-11 flex gap-2" onSubmit={(e) => { e.preventDefault(); void sendReply(c.id, c.from as number); }}>
+                              <input autoFocus value={replyText} onChange={(e) => setReplyText(e.target.value)} aria-label={`Your reply to ${nameOf(c.from)}`} placeholder={`Reply to ${nameOf(c.from)}`} className="h-9 min-w-0 flex-1 rounded-lg bg-background px-3 text-[13.5px] text-foreground ring-1 ring-inset ring-border" />
+                              <button type="submit" disabled={!replyText.trim()} className="h-9 rounded-lg bg-primary px-3 text-[13px] font-semibold text-primary-foreground disabled:opacity-50">Send</button>
+                            </form>
+                          )}
                         </li>
                       ))}
                     </ul>
