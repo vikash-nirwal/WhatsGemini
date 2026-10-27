@@ -53,6 +53,6 @@ export const NOTE_NAMES: Record<string, string> = {
   eventNote: "world events", arcNote: "the storyline", historyNote: "world history", heardNote: "what they know and heard", goalNote: "what they want this week", youAtNote: "where you are", keptNote: "secrets they keep",
   factionNote: "their family or faction", lifeNote: "their life events", reputationNote: "your reputation", dayNote: "their day",
   dayMoodNote: "their mood today", moodNote: "a lingering mood", jokesNote: "inside jokes", liesNote: "lies", jealousyNote: "jealousy",
-  dreamNote: "a dream", callbackNote: "an old memory", concernsNote: "what's on their mind", placeNote: "where they are", statusNote: "your status",
+  dreamNote: "a dream", callbackNote: "an old memory", concernsNote: "what's on their mind", placeNote: "where they are", statusNote: "statuses",
   profileNote: "their About line",
 };

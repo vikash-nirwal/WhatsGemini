@@ -591,7 +591,7 @@ export interface SceneContext {
   jokesNote?: string; // inside jokes (#96)
   conflictNote?: string; // a fight, or how one starts (#97)
   jealousyNote?: string; // time you spent in other chats (#99)
-  statusNote?: string; // your status they've seen (#117)
+  statusNote?: string; // their recent statuses and yours they've seen, with the comments (#117, #233)
   quoteNote?: string; // they may quote an older message of yours (#119)
   groupNote?: string; // a group may be renamed or polled (#124)
   profileNote?: string; // their own About line (#125)

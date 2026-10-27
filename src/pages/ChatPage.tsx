@@ -71,6 +71,7 @@ import { buildGoalNote } from "../features/world/goals";
 import { worldOf } from "../features/world/currentWorld";
 import { patchWorld, switchWorld } from "../features/worldSlice";
 import { buildMyStatusNote } from "../features/status/myStatuses";
+import { buildStatusesNote } from "../features/status/statusNote";
 import { buildForwardDirective, buildQuoteDirective, quoteTextOf } from "../features/chat/replyQuotes";
 import { buildGroupDirective } from "../features/chat/groupLife";
 import { buildProfileNote } from "../features/character/profileChanges";
@@ -516,7 +517,9 @@ const ChatPage = () => {
   scene.liesNote = !isRoom && characterData && currentChat?.lies ? buildLiesSection(characterData.name, userNameForNotes, currentChat.toldLies) : undefined;
   scene.hookNote = currentChat?.pendingHook ? buildHookSection(currentChat.pendingHook) : undefined;
   // Your status (#117), once this character has seen it.
-  scene.statusNote = mainStory ? buildMyStatusNote(userNameForNotes, myStatuses, characterData?.id, noteTime) : undefined;
+  // Statuses (#117, #233): theirs and what was said under them, and yours
+  // they've seen with your exchange there.
+  scene.statusNote = mainStory ? buildStatusesNote({ character: characterData, characters, userName: userNameForNotes, myStatuses, chat: currentChat, now: noteTime }) : undefined;
 
   // Role reversal (#105): while swapped, a reply is built as if your persona
   // were the character and the character "the user", with only the chat's

@@ -4,7 +4,7 @@ What's built, what's open and what a new session needs to know. [ROADMAP.md](ROA
 
 ## Where we stand
 
-- **State (2026-10-27):** every item through #232 is built, pushed and deployed (main dac84eb, gh-pages d8f6828); #224–#232 came from the memory reviews, not the roadmap.
+- **State (2026-10-27):** every item through #232 is built, pushed and deployed (main dac84eb, gh-pages d8f6828); #224–#233 came from the memory reviews, not the roadmap. #233 is built, not yet committed or deployed.
 - **Open:** #132 real-model tuning waits on the user's testing with their key (turn on "Keep helper replies" in Settings › Spending first, then replay them, #214). Drive backup (#54) is built but needs the user's Google OAuth client ID (steps in Settings › Data).
 - **Skipped:** #135 location sharing (dropped by the user), #139 circles (became worlds, #145). Voice features and calls wait for an AI voice model (see Decisions).
 - **Not tried with real models or services:** most prompts from #81 on, image providers with real keys, notifications and background sync on real phones, the in-browser model. ROADMAP.md › "Untried" lists them.
@@ -32,7 +32,7 @@ A map, by area: item numbers and where the code lives. Paths are under `src/` un
 - Groups: turns and flow (`roomTurns.ts`, `roomFlow.ts`), locations (#69), events and polls (#124 `groupLife.ts`), off-screen talk (#58 `offscreenTalk.ts`, `OffscreenTalker.tsx`), groups of theirs (#202 `theirGroup.ts`, `runTheirGroup.ts`).
 
 **Your own WhatsApp (#113–#141)**
-- Messenger theme (#113, `tokens.css`), phone shell (#114 `usePhoneShell.ts`), chat list (#115 `chatList.ts`), your profile and statuses (#116–#118 `features/status/myStatuses.ts`), starred (#120), message info (#121), view-once (#122), forwarding (#123), profile changes (#125), left on read (#126), channels (#127 `features/channels/channels.ts`), shared contacts (#128), status mentions (#129), replies to status comments (`features/status/replyToComment.ts`).
+- Messenger theme (#113, `tokens.css`), phone shell (#114 `usePhoneShell.ts`), chat list (#115 `chatList.ts`), your profile and statuses (#116–#118 `features/status/myStatuses.ts`), starred (#120), message info (#121), view-once (#122), forwarding (#123), profile changes (#125), left on read (#126), channels (#127 `features/channels/channels.ts`), shared contacts (#128), status mentions (#129), replies to status comments (`features/status/replyToComment.ts`), statuses in 1:1 replies: their own recent ones with reactions and comments, and yours they've seen with your exchange under it (#233 `features/status/statusNote.ts`).
 - Blocking (#133 `blocking.ts`), event invites (#134 `invites.ts`), disappearing messages (#136), stickers (#137), relationship map (#138 `features/character/relationshipMap.ts`), status duration (#140), "where things stand" (#142).
 
 **Their life between messages**
@@ -98,6 +98,7 @@ Facts that save the next session time.
 
 Newest first. Older sessions are in the git history.
 
+- 2026-10-27: Statuses and their comments reach 1:1 replies (#233).
 - 2026-10-27: Memory for less context and better recall: one fact in one note (#231), condensing old facts instead of dropping them at the cap (#232).
 - 2026-10-27: Reviewed how memory moves between chats, groups, adventures and worlds. Fixed world talks kept per holder, not per pair (#224); recall skipped once "where things stand" existed (#225); replies missing the world's state (#226); pinned group facts dropped first (#227); "you texted" for letters and in-person talks. Built memory bridges #228–#230. Pushed and deployed.
 - 2026-10-27: Reviewed the world engine and built #209–#223 (#214 and #215 as parallel lanes), fixed fal.ai's "At least one image URL is required" fallback, kept names out of image prompts, and fixed the scheduler waking up to 10 s late. Deployed twice. Trimmed PROGRESS.md and ROADMAP.md and removed the finished revamp's design briefs and screenshots.
