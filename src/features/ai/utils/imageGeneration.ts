@@ -1,3 +1,4 @@
+import { nameLabels, withoutNames } from "./hideNames";
 import { AISafetySettings, SDImageParams, ArtStyle, LocalImageSettings } from "../../../types";
 import { appendCharacterImages } from "./imageProcessing";
 import { generateSDImage } from "./sdWebuiUtils";
@@ -289,8 +290,15 @@ export const generateImage = async (
   const reason = lastError instanceof Error && lastError.message ? `: ${lastError.message.slice(0, 300)}` : " due to API error";
   return { images: [], warning: `\n\n[Warning: Image generation failed${reason}.]` };
 
-  async function drawOnce(derivedImagePrompt: string): Promise<ImageGenerationResult> {
+  async function drawOnce(namedPrompt: string): Promise<ImageGenerationResult> {
+    // No names go to the image model (hideNames.ts): the prompt and the
+    // reference legend say "the character" or "person 1", "person 2".
+    const labels = nameLabels([characterName, ...(otherRoomCharacters || []).map((c) => c.name)]);
+    const derivedImagePrompt = withoutNames(namedPrompt, labels);
+    const labelOf = (name: string | undefined) => (name && labels.get(name.trim())) || "the character";
     if (useSdWebui) {
+      // The name still picks the face model on your own SD WebUI; it isn't
+      // part of the prompt.
       const images = await generateSDImage(derivedImagePrompt, derivedParams, characterImages, characterName, signal, localImageSettings);
       return { images };
     }
@@ -309,11 +317,11 @@ export const generateImage = async (
     if (hasOthers) {
       referenceCharacters = [];
       if (characterImages && characterImages.length > 0) {
-        referenceCharacters.push({ name: characterName || "the character replying", images: await appendCharacterImages(characterImages) });
+        referenceCharacters.push({ name: labelOf(characterName), images: await appendCharacterImages(characterImages) });
       }
       for (const other of otherRoomCharacters!) {
         if (!other.images || other.images.length === 0) continue;
-        referenceCharacters.push({ name: other.name, images: await appendCharacterImages(other.images) });
+        referenceCharacters.push({ name: labelOf(other.name), images: await appendCharacterImages(other.images) });
       }
     }
 

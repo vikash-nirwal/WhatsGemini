@@ -105,7 +105,8 @@ test.describe("fal.ai", () => {
     expect(submit!.headers()["authorization"]).toBe("Key test-fal-key");
     const body = submit!.postDataJSON();
     expect(body.image_urls).toEqual(["https://v3b.fal.media/files/ref-1.png"]);
-    expect(body.prompt).toContain("Aria waving at the camera");
+    expect(body.prompt).toContain("the character waving at the camera");
+    expect(body.prompt).not.toContain("Aria");
   });
 });
 
@@ -201,7 +202,7 @@ test.describe("Wan", () => {
     const body = submit!.postDataJSON();
     expect(body.model).toBe("wan2.7-image");
     const content = body.input.messages[0].content;
-    expect(content[0].text).toContain("Aria waving at the camera");
+    expect(content[0].text).toContain("the character waving at the camera");
     // The app labels the reference image/jpeg; the adapter corrects it from the bytes.
     expect(content.slice(1)).toEqual([{ image: `data:image/png;base64,${REFERENCE_PNG}` }]);
   });
@@ -223,7 +224,7 @@ test.describe("ComfyUI", () => {
     const nodes = Object.values(comfy.queuedWorkflow() as Record<string, { class_type: string; inputs: Record<string, any> }>);
     const texts = nodes.filter((n) => typeof n.inputs.text === "string").map((n) => n.inputs.text as string);
     // ComfyUI's SDXL workflow takes tags, so the locked look goes in as tags.
-    expect(texts.some((t) => t.startsWith("aria_char, ") && t.includes("silver hair, violet eyes, ") && t.includes("Aria waving at the camera"))).toBe(true);
+    expect(texts.some((t) => t.startsWith("aria_char, ") && t.includes("silver hair, violet eyes, ") && t.includes("the character waving at the camera"))).toBe(true);
     expect(nodes.find((n) => "seed" in n.inputs)?.inputs.seed).toBe(1234);
     expect(nodes.find((n) => "lora_name" in n.inputs)?.inputs).toMatchObject({ lora_name: "aria_v1.safetensors", strength_model: 0.7 });
     expect(nodes.find((n) => n.class_type === "LoadImage")?.inputs.image).toBe(comfy.requests[0].uploadName);
@@ -247,7 +248,7 @@ test.describe("ComfyUI prompt writing", () => {
     expect(mockAI.requests[1].prompt).toContain('You write prompts for an image generator: ComfyUI running the "SDXL text to image" workflow');
     expect(mockAI.requests[1].prompt).toContain("It shows: Aria on a beach at sunset");
     const texts = Object.values(comfy.queuedWorkflow() as Record<string, { inputs: Record<string, any> }>).map((n) => n.inputs.text).filter((t): t is string => typeof t === "string");
-    expect(texts).toContain("1girl, solo, Aria, beach at sunset, sundress, waving, golden hour, upper body");
+    expect(texts).toContain("1girl, solo, the character, beach at sunset, sundress, waving, golden hour, upper body");
     expect(texts.some((t) => t.includes("send me a pic at the beach"))).toBe(false);
   });
 });
@@ -290,7 +291,7 @@ test.describe("Reference sheet", () => {
     await expect(page.getByRole("button", { name: /Generate reference sheet/ })).toBeEnabled({ timeout: 20_000 });
 
     expect(prompts).toHaveLength(3);
-    for (const prompt of prompts) expect(prompt).toContain("Character portrait of Aria. silver hair, violet eyes.");
+    for (const prompt of prompts) expect(prompt).toContain("Character portrait. silver hair, violet eyes.");
     expect(prompts.map((p) => /front|three-quarter|side/i.exec(p)?.[0].toLowerCase())).toEqual(["front", "three-quarter", "side"]);
     await expect(page.getByRole("button", { name: /Make reference \d the main reference/ })).toHaveCount(2);
   });

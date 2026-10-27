@@ -778,7 +778,7 @@ export const generateAvatarImage = createAsyncThunk(
         : await resolveProviderConfig(imageProviderId, IMAGE_PROVIDERS[imageProviderId]?.capabilities.requiresBaseUrl || false);
       const imageModelName = settings.imageModel;
 
-      // Build a portrait-optimized prompt from the character's name + appearance.
+      // Build a portrait-optimized prompt from the character's appearance (no name: image models never get one, see hideNames.ts).
       // For an emotion portrait, the reference images (ideally including the
       // existing neutral portrait) keep it recognizably the same character
       // while the prompt's only job is to change the expression/pose.
@@ -786,7 +786,7 @@ export const generateAvatarImage = createAsyncThunk(
       // "stylized") so separate generation calls for the same character don't
       // drift between anime/realistic/in-between looks.
       const styleClause = ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE];
-      const parts = [`Character portrait of ${name}`];
+      const parts = ["Character portrait"];
       // The locked look first (#34), so every portrait and mood variant
       // starts from the same fixed traits; the free text adds the rest.
       if (visualTags?.trim()) parts.push(visualTags.trim());
