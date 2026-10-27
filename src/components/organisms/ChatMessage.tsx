@@ -214,6 +214,15 @@ const ChatMessage = React.memo(({
   const neumorphic = is("neumorphic");
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
   const [termReactOpen, setTermReactOpen] = useState(false);
+  // Deleted texts the user has tapped open, by their place in the reply.
+  const [shownDeleted, setShownDeleted] = useState<Set<number>>(() => new Set());
+  const toggleDeleted = (i: number) =>
+    setShownDeleted((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
 
   const handleCopy = useCallback(() => onCopy(stripImageContextTag(msg.txt || "")), [onCopy, msg.txt]);
   const handleRegenerate = useCallback(() => onRegenerate(msg), [onRegenerate, msg]);
@@ -588,7 +597,7 @@ const ChatMessage = React.memo(({
             <div className="flex flex-col gap-1" data-slot="terminal-texts">
               {textParts.slice(0, shownParts).map((part, i) => (
                 <div key={i} className={cn(part.kind === "deleted" && "italic text-muted-foreground")}>
-                  {part.kind === "deleted" ? `# ${part.text}` : <MarkdownRenderer msgText={part.text} isUser={false} />}
+                  {part.kind === "deleted" ? `# ${part.text}${part.original ? `: "${part.original}"` : ""}` : <MarkdownRenderer msgText={part.text} isUser={false} />}
                 </div>
               ))}
             </div>
@@ -1013,17 +1022,28 @@ const ChatMessage = React.memo(({
       {textParts ? (
         <div className="flex flex-col items-start gap-0.5 max-w-[86%] md:max-w-[min(600px,78%)] min-w-0">
           {textParts.slice(0, shownParts - (showMainBubble ? 1 : 0)).map((part, i) => part.kind === "deleted" ? (
-            <motion.div
+            <motion.button
               key={i}
+              type="button"
               data-slot="deleted-bubble"
-              className={cn(partClass(), "flex items-center gap-1.5 font-sans text-[13px] italic text-subtle")}
+              aria-expanded={part.original ? shownDeleted.has(i) : undefined}
+              title={part.original ? (shownDeleted.has(i) ? "Hide what it said" : "See what it said") : undefined}
+              onClick={part.original ? () => toggleDeleted(i) : undefined}
+              className={cn(partClass(), "flex flex-col items-start gap-1 text-left font-sans text-[13px] italic text-subtle", part.original && "cursor-pointer")}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.18, ease: "easeOut" }}
             >
-              <span aria-hidden>🚫</span>
-              {part.text}
-            </motion.div>
+              <span className="flex items-center gap-1.5">
+                <span aria-hidden>🚫</span>
+                {part.text}
+              </span>
+              {part.original && shownDeleted.has(i) && (
+                <span data-slot="deleted-original" className="not-italic font-serif text-[14px] text-muted-foreground">
+                  {part.original}
+                </span>
+              )}
+            </motion.button>
           ) : (
             <motion.div
               key={i}

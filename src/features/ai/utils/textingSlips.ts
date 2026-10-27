@@ -13,6 +13,7 @@ export interface TextBubble {
   text: string;
   kind: "text" | "deleted" | "correction";
   quote?: string; // one of your messages this bubble answers
+  original?: string; // what a deleted message said, for when you tap to see it
 }
 
 export interface SlipPlan {
@@ -101,8 +102,10 @@ export const planSlips = (parts: string[], seed: string, level: SlipLevel | unde
     }
   }
   if (rollDeleted) {
+    // They delete a text and send it again, so what the deleted one said is
+    // the text that follows it, which the user can tap to see.
     const at = pick(bubbles.length);
-    bubbles.splice(at, 0, { text: DELETED_TEXT, kind: "deleted" });
+    bubbles.splice(at, 0, { text: DELETED_TEXT, kind: "deleted", original: bubbles[at].text });
   }
   if (rollQuote && userBurst && userBurst.length >= 2) {
     const first = bubbles.find((b) => b.kind === "text");

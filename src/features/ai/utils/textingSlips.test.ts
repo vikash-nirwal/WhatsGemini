@@ -45,6 +45,8 @@ describe("texting imperfections (#108)", () => {
     const at = plan.bubbles.findIndex((b) => b.kind === "deleted");
     expect(plan.bubbles[at].text).toBe(DELETED_TEXT);
     expect(plan.bubbles[at + 1]).toBeDefined();
+    // What it said is kept, so a tap can show it: the text sent again.
+    expect(plan.bubbles[at].original).toBe(plan.bubbles[at + 1].text);
     expect(plan.bubbles.filter((b) => b.kind === "text").map((b) => b.text.length)).toEqual(PARTS.map((p) => p.length));
   });
 
