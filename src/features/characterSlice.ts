@@ -99,6 +99,22 @@ export const updateCharacter = createAsyncThunk(
   }
 );
 
+// Safe character saves (#210), like patchWorld: reads the character from
+// the database and changes only the fields given (or the fields a function
+// of the latest record returns). A background job and your chat used to
+// save whole copies, so whichever saved second undid the other's change.
+// Patches to one character run one at a time, so two read-modify-writes
+// can't interleave either.
+const patching = new Map<number, Promise<unknown>>();
+export const patchCharacter = (id: number, change: Partial<Character> | ((latest: Character) => Partial<Character>)) => (dispatch: (a: any) => any): Promise<Character> => {
+  const next = (patching.get(id) || Promise.resolve()).catch(() => undefined).then(async () => {
+    const latest = await dbService.getCharacterById(id);
+    return dispatch(updateCharacter({ ...latest, ...(typeof change === "function" ? change(latest) : change), id })).unwrap() as Promise<Character>;
+  });
+  patching.set(id, next);
+  return next;
+};
+
 interface CharacterState {
   characters: Character[];
   loading: boolean;

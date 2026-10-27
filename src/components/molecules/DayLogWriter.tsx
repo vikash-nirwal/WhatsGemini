@@ -3,7 +3,7 @@ import { registerJob } from "src/features/life/scheduler";
 import { AppDispatch } from "src/store/store";
 import { useAppDispatch } from "src/store/hooks";
 import { generateAssistText } from "src/features/aiSlice";
-import { updateCharacter } from "src/features/characterSlice";
+import { patchCharacter } from "src/features/characterSlice";
 import { buildDayLogPrompt, cleanDayLog, dayLogDue } from "src/features/character/dayLog";
 import { buildScheduleSection } from "src/features/character/schedule";
 import { dayKey, dayMoodFor } from "src/features/character/badDays";
@@ -35,8 +35,7 @@ export const writeDayLog = async (dispatch: AppDispatch, character: Character, l
   } catch (err) {
     console.warn("Day log failed (non-fatal):", err);
   }
-  const fresh = latest() || character;
-  await dispatch(updateCharacter({ ...fresh, dayLog: { date: dayKey(now), text, writtenAt: now } }));
+  await dispatch(patchCharacter(character.id, { dayLog: { date: dayKey(now), text, writtenAt: now } }));
 };
 
 // One consistent day (#107): while the app is open, once a day each character

@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { registerJob } from "src/features/life/scheduler";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { generateAssistText } from "src/features/aiSlice";
-import { updateCharacter } from "src/features/characterSlice";
+import { patchCharacter } from "src/features/characterSlice";
 import { selectActivePersona } from "src/features/settingsSlice";
 import { addRumor, buildRumorPrompt, newRumorId, parseRumorReply, pickListener, rumorDue, rumorListenersFor } from "src/features/character/rumors";
 import { formatTranscript } from "src/features/ai/utils/chatHistoryUtils";
@@ -40,13 +40,11 @@ const RumorMill = () => {
         const transcript = formatTranscript(trimToLatestSummary(chat.content || []).slice(-16), { userName, charName: source.name });
         const reply = await dispatch(generateAssistText({ instruction: buildRumorPrompt(source.name, listener.name, userName, transcript), background: true, activity: { kind: "rumor", text: `${source.name} talked to ${listener.name} about you`, characterId: source.id, name: source.name } })).unwrap();
         const parsed = parseRumorReply(reply);
-        const fresh = latest.current.characters.find((c) => c.id === listener.id) || listener;
         // Kept even when there was nothing worth gossiping about (an empty
         // rumor, already "raised"), so the same stretch isn't asked about again.
-        await dispatch(updateCharacter({
-          ...fresh,
+        await dispatch(patchCharacter(listener.id, (fresh) => ({
           rumors: addRumor(fresh.rumors, { id: newRumorId(), fromId: source.id, heard: parsed?.heard || "", truth: parsed?.truth || "", at: now, ...(parsed ? {} : { raised: now }) }),
-        }));
+        })));
       } catch (err) {
         console.warn("Rumor failed (non-fatal):", err);
       } finally {

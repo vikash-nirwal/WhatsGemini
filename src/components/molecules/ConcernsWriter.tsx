@@ -3,7 +3,7 @@ import { registerJob } from "src/features/life/scheduler";
 import { AppDispatch } from "src/store/store";
 import { useAppDispatch } from "src/store/hooks";
 import { generateAssistText } from "src/features/aiSlice";
-import { updateCharacter } from "src/features/characterSlice";
+import { patchCharacter } from "src/features/characterSlice";
 import { applyConcerns, buildConcernsPrompt, concernsDue, openConcerns, parseConcerns } from "src/features/character/preoccupations";
 import { buildScheduleSection } from "src/features/character/schedule";
 import { dayLogText } from "src/features/character/dayLog";
@@ -32,8 +32,7 @@ export const writeConcerns = async (dispatch: AppDispatch, character: Character,
   } catch (err) {
     console.warn("Preoccupations failed (non-fatal):", err);
   }
-  const fresh = latest() || character;
-  await dispatch(updateCharacter({ ...fresh, concerns, concernsWrittenAt: now }));
+  await dispatch(patchCharacter(character.id, { concerns, concernsWrittenAt: now }));
 };
 
 // Their own preoccupations (#110): while the app is open, once a week each

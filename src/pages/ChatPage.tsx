@@ -8,7 +8,7 @@ import { useEffect, useState, useMemo, useRef } from "react";
 import { avatarOf } from "../features/character/profileChanges";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { addChatNotice, setBlocked, fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, insertCompressionSummary, removeCompressionSummary, forkChat, updateChatMessage, updateChatOptions, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatGreeting, setPendingFollowupAt, addPreparedChat, addChat } from "../features/chatSlice";
-import { fetchCharacterById, updateCharacter, addCharacter } from "../features/characterSlice";
+import { fetchCharacterById, updateCharacter, addCharacter, patchCharacter } from "../features/characterSlice";
 import { generateAIResponse, compressChatHistory, autoCompressChat, generateAvatarImage, summarizeChapter, generateAssistText, generateBackdropImage } from "../features/aiSlice";
 import { parseSlashCommand, SLASH_COMMANDS } from "../features/chat/slashCommands";
 import { buildStoryMarkdown, storyFileName } from "../features/chat/storyExport";
@@ -754,8 +754,7 @@ const ChatPage = () => {
         contact = made;
         const madeId = made.id;
         await dispatch(updateChatMessage({ chatId: chatIdNum, messageId: msg.id, patch: { contactCard: { ...card, characterId: madeId } } }));
-        const freshSender = characters.find((c) => c.id === sender.id) || sender;
-        await dispatch(updateCharacter({ ...freshSender, knowsAbout: [...(freshSender.knowsAbout || []), madeId] }));
+        await dispatch(patchCharacter(sender.id, (fresh) => ({ knowsAbout: [...(fresh.knowsAbout || []), madeId] })));
       }
       if (!contact) return;
       const found: Character = contact;
@@ -1079,7 +1078,7 @@ const ChatPage = () => {
     await dispatch(fetchChats());
 
     if (generatedImages && generatedImages.length > 0) {
-      dispatch(updateCharacter({ ...speaker, gallery: [...(speaker.gallery || []), ...generatedImages] }));
+      void dispatch(patchCharacter(speaker.id, (fresh) => ({ gallery: [...(fresh.gallery || []), ...generatedImages] })));
     }
 
     await saveCharacterReaction(payloadObj?.reaction, compressedFreshMessages, speaker.id);
@@ -1254,7 +1253,7 @@ const ChatPage = () => {
     setGiftOpen(false);
     autoReplyInFlightRef.current = true;
     try {
-      await dispatch(updateCharacter({ ...characterData, gifts: [...(characterData.gifts || []), { id: newGiftId(), what, at: Date.now(), from: "you", chatId: chatIdNum }] }));
+      await dispatch(patchCharacter(characterData.id, (fresh) => ({ gifts: [...(fresh.gifts || []), { id: newGiftId(), what, at: Date.now(), from: "you", chatId: chatIdNum }] })));
       await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text: giftMessage(what) }));
       await sendCharacterFollowup(undefined, buildGiftReactionDirective(what, activePersona?.name?.trim() || "The user"));
     } catch (err) {
@@ -1290,10 +1289,9 @@ const ChatPage = () => {
     if (due.length === 0 || celebratedRef.current === key || autoReplyInFlightRef.current) return;
     celebratedRef.current = key;
     const year = new Date(now).getFullYear();
-    dispatch(updateCharacter({
-      ...characterData,
-      importantDates: (characterData.importantDates || []).map((d) => (due.some((x) => x.id === d.id) ? { ...d, lastCelebratedYear: year } : d)),
-    }));
+    void dispatch(patchCharacter(characterData.id, (fresh) => ({
+      importantDates: (fresh.importantDates || []).map((d) => (due.some((x) => x.id === d.id) ? { ...d, lastCelebratedYear: year } : d)),
+    })));
     autoReplyInFlightRef.current = true;
     // A private album photo (#75) comes along as a gift, if one is ready.
     const gift = photoForOccasion(characterData.album, currentChat?.stage);
@@ -1619,7 +1617,7 @@ const ChatPage = () => {
         notifyIfAway(speaker, notificationText(replyText, replyVoiceNote), generatedImages);
 
         if (generatedImages && generatedImages.length > 0) {
-          dispatch(updateCharacter({ ...speaker, gallery: [...(speaker.gallery || []), ...generatedImages] }));
+          void dispatch(patchCharacter(speaker.id, (fresh) => ({ gallery: [...(fresh.gallery || []), ...generatedImages] })));
         }
 
         await saveCharacterReaction(payloadObj?.reaction, contextMessages, speaker.id);
@@ -1748,7 +1746,7 @@ const ChatPage = () => {
           await dispatch(updateChatTree({ chatId: chatIdNum, content: finalContent, tree: finalTree, activeLeafId: aiNodeId }));
 
           if (generatedImages && generatedImages.length > 0) {
-            dispatch(updateCharacter({ ...speaker, gallery: [...(speaker.gallery || []), ...generatedImages] }));
+            void dispatch(patchCharacter(speaker.id, (fresh) => ({ gallery: [...(fresh.gallery || []), ...generatedImages] })));
           }
 
           advanceStoryIfDone(payloadObj, finalContent);
@@ -1874,7 +1872,7 @@ const ChatPage = () => {
         await dispatch(updateChatTree({ chatId: chatIdNum, content: newContent, tree: newTree, activeLeafId: newNodeId }));
 
         if (generatedImages && generatedImages.length > 0) {
-          dispatch(updateCharacter({ ...speaker, gallery: [...(speaker.gallery || []), ...generatedImages] }));
+          void dispatch(patchCharacter(speaker.id, (fresh) => ({ gallery: [...(fresh.gallery || []), ...generatedImages] })));
         }
 
         advanceStoryIfDone(payloadObj, newContent);
@@ -1988,8 +1986,7 @@ const ChatPage = () => {
   };
   const handleKeepPov = async (text: string) => {
     if (!characterData) return;
-    const fresh: Character = (await dispatch(fetchCharacterById(characterData.id)).unwrap().catch(() => characterData)) || characterData;
-    await dispatch(updateCharacter({ ...fresh, diary: appendDiaryEntry(fresh.diary, { id: generateNodeId(), timestamp: Date.now(), chatId: chatIdNum || undefined, text }) }));
+    await dispatch(patchCharacter(characterData.id, (fresh) => ({ diary: appendDiaryEntry(fresh.diary, { id: generateNodeId(), timestamp: Date.now(), chatId: chatIdNum || undefined, text }) })));
     setPovOpen(false);
     toast.success(`Kept in ${characterData.name}'s diary`);
   };
@@ -2043,8 +2040,7 @@ const ChatPage = () => {
       const recent = trimToLatestSummary(messages).filter((m) => !m.isSystem).slice(-30);
       const event = cleanPastEvent(await dispatch(generateAssistText({ instruction: buildPastEventPrompt(characterData.name, whatIf, formatTranscript(recent, transcriptNames())) })).unwrap());
       if (!event) throw new Error("Nothing came back. Try again.");
-      const fresh: Character = (await dispatch(fetchCharacterById(characterData.id)).unwrap().catch(() => characterData)) || characterData;
-      await dispatch(updateCharacter({ ...fresh, pastEvents: addPastEvent(fresh.pastEvents, event) }));
+      await dispatch(patchCharacter(characterData.id, (fresh) => ({ pastEvents: addPastEvent(fresh.pastEvents, event) })));
       await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { whatIf: { ...whatIf, endedAt: Date.now() } } }));
       await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text: `End of the flashback. ${event}`, isNarration: true }));
       if (whatIf.parentChatId != null && chats.some((c) => c.id === whatIf.parentChatId)) {

@@ -1,10 +1,10 @@
 import { configureStore } from "@reduxjs/toolkit";
-import characterReducer, { addCharacter } from "./characterSlice";
+import characterReducer, { addCharacter, patchCharacter } from "./characterSlice";
 import { dbService } from "../services/dbService";
 import { Character } from "../types";
 
 jest.mock("../services/dbService", () => ({
-  dbService: { addCharacter: jest.fn() },
+  dbService: { addCharacter: jest.fn(), getCharacterById: jest.fn(), updateCharacter: jest.fn() },
 }));
 
 const makeStore = () => configureStore({ reducer: { character: characterReducer } });
@@ -40,5 +40,29 @@ describe("addCharacter", () => {
   it("still requires a name and a prompt", async () => {
     await expect(makeStore().dispatch(addCharacter({ name: " ", description: "", prompt: "x" })).unwrap()).rejects.toMatch(/required/);
     expect(dbService.addCharacter).not.toHaveBeenCalled();
+  });
+});
+
+describe("patchCharacter (#210)", () => {
+  it("changes only what it's given, on the latest record, one patch at a time", async () => {
+    // A tiny database: each read is slow, so two patches started together
+    // would both read the same record if they weren't queued.
+    let stored = { id: 3, name: "Aria", prompt: "x", memory: ["likes tea"] } as Character;
+    (dbService.getCharacterById as jest.Mock).mockImplementation(async () => {
+      await new Promise((r) => setTimeout(r, 5));
+      return stored;
+    });
+    (dbService.updateCharacter as jest.Mock).mockImplementation(async (c: Character) => {
+      stored = c;
+      return c.id;
+    });
+    const store = makeStore();
+    await Promise.all([
+      store.dispatch(patchCharacter(3, (c) => ({ memory: [...(c.memory || []), "has a cat"] })) as any),
+      store.dispatch(patchCharacter(3, { dayLog: { date: "2026-10-27", text: "Baked bread.", writtenAt: 1 } }) as any),
+    ]);
+    expect(stored.memory).toEqual(["likes tea", "has a cat"]);
+    expect(stored.dayLog?.text).toBe("Baked bread.");
+    expect(stored.name).toBe("Aria");
   });
 });

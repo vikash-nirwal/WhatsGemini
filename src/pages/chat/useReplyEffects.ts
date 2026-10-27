@@ -19,7 +19,7 @@ import { trustAfter } from "../../features/chat/conflicts";
 import { moodAfterReply } from "../../features/chat/lingeringMood";
 import { addLie, catchLie, standingLies } from "../../features/chat/lies";
 import { markRumorRaised, pendingRumors } from "../../features/character/rumors";
-import { fetchCharacterById, updateCharacter } from "../../features/characterSlice";
+import { patchCharacter } from "../../features/characterSlice";
 import { mergeState } from "../../features/chat/sceneState";
 import { gameLabel, GameOutcome } from "../../features/chat/miniGames";
 import { buildNextIdeasPrompt } from "../../features/chat/coWriting";
@@ -266,12 +266,10 @@ export const useReplyEffects = ({
     if (effects.upset) toast.info(`${speaker?.name || "They"} ${speaker?.name ? "is" : "are"} upset with you`);
     if (effects.madeUp) toast.success("You made up");
     if (speaker && (effects.rumor || dreamt)) {
-      const fresh: Character = (await dispatch(fetchCharacterById(speaker.id)).unwrap().catch(() => speaker)) || speaker;
-      await dispatch(updateCharacter({
-        ...fresh,
+      await dispatch(patchCharacter(speaker.id, (fresh) => ({
         ...(effects.rumor ? { rumors: markRumorRaised(fresh.rumors, effects.rumor.id, now) } : {}),
         ...(dreamt ? { lastDreamAt: now } : {}),
-      }));
+      })));
     }
   };
 

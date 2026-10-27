@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { selectActivePersona } from "src/features/settingsSlice";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { generateAdventureSceneImage, generateAssistText } from "src/features/aiSlice";
-import { updateCharacter } from "src/features/characterSlice";
+import { updateCharacter, patchCharacter } from "src/features/characterSlice";
 import { addStatus, buildStatusPrompt, cleanStatus, liveStatuses, mentionsUser, photoStatusDue, statusDue, statusPhotoScene } from "src/features/character/statusUpdates";
 import { buildFeedReactionsPrompt, feedPeersFor, parseFeedReactions, updateStatus } from "src/features/character/statusFeed";
 import { CharacterStatus } from "src/types";
@@ -94,7 +94,7 @@ const StatusPoster = () => {
             const { likes, comments } = parseFeedReactions(reply, peers, Date.now());
             const posted = charactersRef.current.find((c) => c.id === due.id);
             if (posted && (likes.length > 0 || comments.length > 0)) {
-              await dispatch(updateCharacter({ ...posted, statuses: updateStatus(posted.statuses, status.id, (s) => ({ ...s, likes, comments: [...(s.comments || []), ...comments] })) }));
+              await dispatch(patchCharacter(posted.id, (fresh) => ({ statuses: updateStatus(fresh.statuses, status.id, (s) => ({ ...s, likes, comments: [...(s.comments || []), ...comments] })) })));
             }
           }
         }

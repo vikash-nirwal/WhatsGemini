@@ -11,7 +11,7 @@ import { addLifeEvent, AGING_MIN_DAYS, buildGapLivesPrompt, parseGapLives } from
 import { advanceArc, arcActive, BEAT_GAP_MS } from "./worldArcs";
 import { featureOn } from "./worldPrefs";
 import { withTie } from "../character/ties";
-import { updateCharacter } from "../characterSlice";
+import { updateCharacter, patchCharacter } from "../characterSlice";
 import { AI, YOU } from "../../utils/constants";
 import { canUndo, clearSnapshot, loadSnapshot, saveSnapshot, snapshotOf } from "./timeSkipUndo";
 import { dbService } from "../../services/dbService";
@@ -104,8 +104,7 @@ export const undoWorldTime = (worldId: number | null) => async (dispatch: AppDis
   if (!s || !canUndo(s, chats, Date.now())) return false;
   for (const chat of s.chats) await dbService.withChatLock(chat.id!, () => dbService.updateChat(chat));
   for (const before of s.characters) {
-    const now = characters.find((c) => c.id === before.id);
-    if (now) await dispatch(updateCharacter({ ...now, lifeEvents: before.lifeEvents, ties: before.ties, knowsAbout: before.knowsAbout, firstTexts: before.firstTexts }));
+    if (characters.some((c) => c.id === before.id)) await dispatch(patchCharacter(before.id, { lifeEvents: before.lifeEvents, ties: before.ties, knowsAbout: before.knowsAbout, firstTexts: before.firstTexts }));
   }
   if (worldId != null && s.world) await dispatch(patchWorld(worldId, { storyTime: s.world.storyTime, arc: s.world.arc }));
   await editTimeline(worldId, (list) => list.filter((e) => e.at < s.at || e.at > s.endAt!));

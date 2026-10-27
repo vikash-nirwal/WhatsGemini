@@ -2,7 +2,7 @@ import { registerJob } from "src/features/life/scheduler";
 import { useEffect, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { generateAssistText, generateAvatarImage } from "src/features/aiSlice";
-import { updateCharacter } from "src/features/characterSlice";
+import { patchCharacter } from "src/features/characterSlice";
 import { addChatNotice } from "src/features/chatSlice";
 import { buildAboutPrompt, cleanAbout, photoChangeDue, photoHint, profileChangeDue } from "src/features/character/profileChanges";
 import { awakeAt } from "src/features/character/firstTexts";
@@ -52,14 +52,12 @@ const ProfileChanger = () => {
           }
         }
         // Recorded even when nothing usable came back, so it isn't retried every hour.
-        const fresh = latest.current.characters.find((c) => c.id === changer.id) || changer;
-        await dispatch(updateCharacter({
-          ...fresh,
+        await dispatch(patchCharacter(changer.id, (fresh) => ({
           profileChangedAt: now,
           profileChangeCount: (fresh.profileChangeCount || 0) + 1,
           ...(about ? { about } : {}),
           ...(photo ? { profilePhoto: photo } : {}),
-        }));
+        })));
         const chat = chatFor(changer.id);
         if (chat?.id && about) await dispatch(addChatNotice({ chatId: chat.id, text: `${changer.name} changed their About to "${about}"` }));
         if (chat?.id && photo) await dispatch(addChatNotice({ chatId: chat.id, text: `${changer.name} changed their profile photo` }));

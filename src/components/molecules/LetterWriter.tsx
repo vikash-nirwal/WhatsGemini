@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { registerJob } from "src/features/life/scheduler";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { generateAssistText } from "src/features/aiSlice";
-import { updateCharacter } from "src/features/characterSlice";
+import { patchCharacter } from "src/features/characterSlice";
 import { selectActivePersona } from "src/features/settingsSlice";
 import { addLetter, buildLetterPrompt, cleanLetter, letterDue } from "src/features/character/letters";
 import { currentBlock } from "src/features/character/schedule";
@@ -48,9 +48,8 @@ const LetterWriter = () => {
           activity: { kind: "letter", text: `${writer.name} wrote you a letter`, characterId: writer.id, name: writer.name },
         })).unwrap();
         const text = cleanLetter(reply);
-        const fresh = latest.current.characters.find((c) => c.id === writer.id) || writer;
         // Saved even when the reply was unusable, so one absence never asks twice.
-        await dispatch(updateCharacter({ ...fresh, letters: addLetter(fresh.letters, { id: `letter-${now.toString(36)}`, at: now, text: text || "", chatId: chat.id }) }));
+        await dispatch(patchCharacter(writer.id, (fresh) => ({ letters: addLetter(fresh.letters, { id: `letter-${now.toString(36)}`, at: now, text: text || "", chatId: chat.id }) })));
       } catch (err) {
         console.warn("Letter failed (non-fatal):", err);
       } finally {

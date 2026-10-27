@@ -2,7 +2,7 @@ import { Character, Chat, World } from "../../types";
 import { AppDispatch } from "../../store/store";
 import { generateAssistText } from "../aiSlice";
 import { addChatNotice, updateChatOptions } from "../chatSlice";
-import { updateCharacter } from "../characterSlice";
+import { patchCharacter } from "../characterSlice";
 import { buildPlanOutcomePrompt, cleanOutcome, planMemory, withPlanMemory } from "./groupPlans";
 import { logToTimeline } from "./timeline";
 import { YOU } from "../../utils/constants";
@@ -20,7 +20,7 @@ export const writePlanOutcome = (chat: Chat, characters: Character[], world: Wor
   })).unwrap());
   if (!outcome) throw new Error("Nothing usable came back.");
   const fact = planMemory(plan, outcome, userName);
-  for (const m of members) await dispatch(updateCharacter(withPlanMemory(m, fact)));
+  for (const m of members) await dispatch(patchCharacter(m.id, (fresh) => withPlanMemory(fresh, fact)));
   await dispatch(updateChatOptions({ chatId: chat.id!, patch: { groupPlan: { ...plan, outcome, doneAt: Date.now() } } }));
   await dispatch(addChatNotice({ chatId: chat.id!, text: `How it went: ${outcome}` }));
   void logToTimeline(world ? world.id : null, { kind: "you", text: `${plan.title}: ${outcome}`, characterIds: plan.memberIds }, world?.storyTime);

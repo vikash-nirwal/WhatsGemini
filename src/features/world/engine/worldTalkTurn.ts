@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 import { Character } from "../../../types";
 import { generateAssistText } from "../../aiSlice";
-import { updateCharacter } from "../../characterSlice";
+import { patchCharacter } from "../../characterSlice";
 import { channelId } from "../../channels/channels";
 import { parseOffscreenTalk } from "../../chat/offscreenTalk";
 import { factsAboutUser } from "../../character/intimacy";
@@ -61,8 +61,7 @@ export const worldTalkTurn = (now: number) => async (dispatch: EngineDispatch, g
       background: true,
       activity: { at: now, kind: "other", text: `${wanting.name} decided what they want this week`, characterId: wanting.id, name: wanting.name },
     })).unwrap());
-    const latest = fresh(wanting.id);
-    if (goal && latest) await dispatch(updateCharacter({ ...latest, goal: { text: goal, setAt: now } }));
+    if (goal) await dispatch(patchCharacter(wanting.id, { goal: { text: goal, setAt: now } }));
   }
   const [ga, gb] = [a, b].map((c) => fresh(c.id) || c);
   const reply = await dispatch(generateAssistText({
@@ -72,7 +71,7 @@ export const worldTalkTurn = (now: number) => async (dispatch: EngineDispatch, g
   })).unwrap();
   const lines = parseOffscreenTalk(reply, pair, maxLines);
   // Saved even when empty, so a failed attempt waits for the next gap.
-  await dispatch(updateCharacter(addWorldTalk(fresh(a.id) || a, { id: `wt-${now.toString(36)}`, withId: b.id, at: now, lines })));
+  await dispatch(patchCharacter(a.id, (latest) => addWorldTalk(latest, { id: `wt-${now.toString(36)}`, withId: b.id, at: now, lines })));
   // Hearsay (#206): what was passed on, and anything new about them.
   const told = lines.length ? parseShared(reply) : [];
   if (told.length) void editTimeline(worldId, (list) => applyShared(list, share.items, told, [a.id, b.id], now));
@@ -82,7 +81,7 @@ export const worldTalkTurn = (now: number) => async (dispatch: EngineDispatch, g
   for (const step of goals && lines.length ? parseGoalProgress(reply, [a, b]) : []) {
     const who = fresh(step.id);
     if (!who?.goal) continue;
-    await dispatch(updateCharacter({ ...who, goal: step.done ? undefined : { ...who.goal, progress: step.progress } }));
+    await dispatch(patchCharacter(who.id, (latest) => ({ goal: step.done || !latest.goal ? undefined : { ...latest.goal, progress: step.progress } })));
     if (step.done) void logToTimeline(worldId, { kind: "event", text: `${who.name} got what they were after: ${who.goal.text}`, characterIds: [who.id], audience: "private", at: now }, talkWorld?.storyTime);
   }
   // When they talked about you, the world's timeline notes it (#161).
@@ -93,9 +92,8 @@ export const worldTalkTurn = (now: number) => async (dispatch: EngineDispatch, g
   const nowA = fresh(a.id);
   const nowB = fresh(b.id);
   if (nowA && nowB && becameFriends(engineState(getState).characters, nowA, nowB)) {
-    const [na, nb] = withTie(nowA, nowB, "your friend", "your friend");
-    await dispatch(updateCharacter(na));
-    await dispatch(updateCharacter(nb));
+    await dispatch(patchCharacter(a.id, (latest) => withTie(latest, nowB, "your friend", "your friend")[0]));
+    await dispatch(patchCharacter(b.id, (latest) => withTie(nowA, latest, "your friend", "your friend")[1]));
     void logToTimeline(worldId, { kind: "tie", text: `${a.name} and ${b.name} became friends`, characterIds: [a.id, b.id], at: now }, talkWorld?.storyTime);
   }
   // Relationships that drift (#163): the talk changed how they stand.
@@ -105,9 +103,8 @@ export const worldTalkTurn = (now: number) => async (dispatch: EngineDispatch, g
   const before = freshA?.ties?.find((t) => t.withId === b.id)?.tie;
   const bare = (tie: string) => tie.replace(/^your\s+/i, "");
   if (change && freshA && freshB && bare(change.bToA).toLowerCase() !== bare(before || "").toLowerCase()) {
-    const [na, nb] = withTie(freshA, freshB, change.bToA, change.aToB);
-    await dispatch(updateCharacter(na));
-    await dispatch(updateCharacter(nb));
+    await dispatch(patchCharacter(a.id, (latest) => withTie(latest, freshB, change.bToA, change.aToB)[0]));
+    await dispatch(patchCharacter(b.id, (latest) => withTie(freshA, latest, change.bToA, change.aToB)[1]));
     const what = `${b.name} is now ${a.name}'s ${bare(change.bToA)}${before ? ` (was ${bare(before)})` : ""}`;
     void logToTimeline(worldId, { kind: "tie", text: what, characterIds: [a.id, b.id], at: now }, talkWorld?.storyTime);
     toast(`${a.name} and ${b.name}`, { description: what });
@@ -122,9 +119,8 @@ export const worldTalkTurn = (now: number) => async (dispatch: EngineDispatch, g
     background: true,
     activity: { at: now, kind: "other", text: `${folder.c.name} sorted through what they know`, characterId: folder.c.id, name: folder.c.name },
   })).unwrap());
-  const latest = fresh(folder.c.id);
-  if (summary && latest) {
-    await dispatch(updateCharacter({ ...latest, knownSummary: summary }));
+  if (summary) {
+    await dispatch(patchCharacter(folder.c.id, { knownSummary: summary }));
     void editTimeline(worldId, (list) => markFolded(list, folder.due.map((e) => e.id), folder.c.id));
   }
 };

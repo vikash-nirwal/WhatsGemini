@@ -2,7 +2,7 @@ import { Character, Chat, World } from "../../types";
 import { AppDispatch } from "../../store/store";
 import { generateAssistText } from "../aiSlice";
 import { addMessage, fetchChats } from "../chatSlice";
-import { updateCharacter } from "../characterSlice";
+import { patchCharacter } from "../characterSlice";
 import { addFirstText, cleanFirstText } from "../character/firstTexts";
 import { buildNewsTextPrompt, ownChat, pickNewsTellers } from "./news";
 import { AI, YOU } from "../../utils/constants";
@@ -18,7 +18,7 @@ export const shareNews = (
       const last = (chat.content || []).filter((m) => !m.isSystem && !m.isRoomEvent && m.txt).slice(-4).map((m) => `${m.role === YOU ? userName : c.name}: ${(m.txt || "").slice(0, 200)}`);
       const text = cleanFirstText(await dispatch(generateAssistText({ instruction: buildNewsTextPrompt(c, news, userName, last, about.includes(c.id)), background: true, activity: { at: now, kind: "first-text", text: `${c.name} texted you the news`, characterId: c.id, name: c.name }, ...(world ? { worldId: world.id } : {}) })).unwrap());
       if (!text) continue;
-      await dispatch(updateCharacter({ ...c, firstTexts: addFirstText(c.firstTexts, now) }));
+      await dispatch(patchCharacter(c.id, (fresh) => ({ firstTexts: addFirstText(fresh.firstTexts, now) })));
       await dispatch(addMessage({ chatId: chat.id!, role: AI, text, speakerId: c.id, notes: ["texted-first"], at: now }));
       sent++;
     } catch (err) {

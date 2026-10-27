@@ -2,7 +2,7 @@ import { toast } from "sonner";
 import { World } from "../../../types";
 import { AI } from "../../../utils/constants";
 import { generateAssistText } from "../../aiSlice";
-import { updateCharacter } from "../../characterSlice";
+import { patchCharacter } from "../../characterSlice";
 import { addChat, addChatNotice, addMessage, fetchChats, updateChatOptions } from "../../chatSlice";
 import { patchWorld } from "../../worldSlice";
 import { cleanFirstText } from "../../character/firstTexts";
@@ -73,10 +73,7 @@ export const fillPlaces: Job = (now) => async (dispatch, getState) => {
   const people = castOf(characters, world.id).filter((c) => !c.hangout || !pins.some((p) => p.id === c.hangout));
   await dispatch(patchWorld(world.id, { lastHangoutsAt: now }));
   const picked = parseHangouts(await dispatch(generateAssistText({ instruction: buildHangoutsPrompt(world.name, pins, people), background: true, activity: { at: now, kind: "other", text: `People in ${world.name} found their places`, name: world.name }, worldId: world.id })).unwrap(), people, pins);
-  for (const c of people) {
-    const fresh = engineState(getState).characters.find((x) => x.id === c.id);
-    if (fresh && picked[c.id]) await dispatch(updateCharacter({ ...fresh, hangout: picked[c.id] }));
-  }
+  for (const c of people) if (picked[c.id]) await dispatch(patchCharacter(c.id, { hangout: picked[c.id] }));
 };
 
 // Someone at the same place runs into you (#183).
@@ -123,9 +120,8 @@ export const moveLivesOn: Job = (now) => async (dispatch, getState) => {
   if (!who) return;
   const people = (who.ties || []).map((t) => characters.find((c) => c.id === t.withId)?.name).filter((n): n is string => Boolean(n));
   const text = cleanLifeEvent(await dispatch(generateAssistText({ instruction: buildLifeEventPrompt(who, world, people), background: true, activity: { at: now, kind: "event", text: `Something happened in ${who.name}'s life`, characterId: who.id, name: who.name } })).unwrap());
-  const fresh = engineState(getState).characters.find((c) => c.id === who.id);
-  if (!text || !fresh) return;
-  await dispatch(updateCharacter(addLifeEvent(fresh, text, now)));
+  if (!text) return;
+  await dispatch(patchCharacter(who.id, (latest) => addLifeEvent(latest, text, now)));
   // Their own news (#203): it travels by talk, and by them texting you.
   void logToTimeline(world.id, { kind: "event", text, characterIds: [who.id], audience: "private", at: now }, world.storyTime);
   await dispatch(tellTheNews(world, text, [who.id], now));
@@ -177,8 +173,7 @@ export const introduce: Job = (now) => async (dispatch, getState) => {
     activity: { at: now, kind: "first-text", text: `${by.name} introduced you to ${to.name}`, characterId: to.id, name: to.name },
   })).unwrap());
   if (!text) return;
-  const fresh = engineState(getState).characters.find((c) => c.id === to.id) || to;
-  await dispatch(updateCharacter({ ...fresh, memory: [...(fresh.memory || []), introducedFact(by.name, userName)], knowsAbout: fresh.knowsAbout?.includes(by.id) ? fresh.knowsAbout : [...(fresh.knowsAbout || []), by.id] }));
+  await dispatch(patchCharacter(to.id, (latest) => ({ memory: [...(latest.memory || []), introducedFact(by.name, userName)], knowsAbout: latest.knowsAbout?.includes(by.id) ? latest.knowsAbout : [...(latest.knowsAbout || []), by.id] })));
   const chat = await dispatch(addChat({ title: to.name, characterIds: [to.id] })).unwrap();
   await dispatch(addMessage({ chatId: chat.id, role: AI, text, speakerId: to.id, notes: ["texted-first"], noGreeting: true, at: now }));
   const byChat = engineState(getState).chats.find((c) => c.characterIds?.length === 1 && c.characterIds[0] === by.id && !c.whatIf);
@@ -199,10 +194,9 @@ export const keepSecret: Job = (now) => async (dispatch, getState) => {
   const gossip = pickGossip(cast, chats, keeper, from);
   await dispatch(patchWorld(world.id, { lastSecretAt: now }));
   const parsed = parseSecret(await dispatch(generateAssistText({ instruction: buildSecretPrompt(keeper, from, gossip, userName), background: true, activity: { at: now, kind: "other", text: `${keeper.name} started keeping something from ${from.name}`, characterId: keeper.id, name: keeper.name } })).unwrap());
-  const fresh = engineState(getState).characters.find((c) => c.id === keeper.id);
-  if (!parsed || !fresh) return;
+  if (!parsed) return;
   const told = gossip && parsed.gossip ? gossip : undefined;
-  await dispatch(updateCharacter(addSecret(fresh, { id: `sec-${now.toString(36)}`, fromId: from.id, text: parsed.secret, at: now, ...(told ? { heardFrom: told.id } : {}) })));
+  await dispatch(patchCharacter(keeper.id, (latest) => addSecret(latest, { id: `sec-${now.toString(36)}`, fromId: from.id, text: parsed.secret, at: now, ...(told ? { heardFrom: told.id } : {}) })));
   if (!told) return;
   const chat = engineState(getState).chats.find((ch) => ch.characterIds?.length === 1 && ch.characterIds[0] === told.id && !ch.whatIf);
   if (!chat?.id) return;
@@ -222,9 +216,8 @@ export const surfaceSecret: Job = (now) => async (dispatch, getState) => {
   if (!from) return;
   const how = HOW_IT_CAME_OUT[Math.floor(Math.random() * HOW_IT_CAME_OUT.length)]!;
   const facts = surfacedFacts(keeper.name, from.name, secret.text, how);
-  await dispatch(updateCharacter({ ...keeper, memory: [...(keeper.memory || []), facts.forKeeper], keptSecrets: (keeper.keptSecrets || []).map((s) => (s.id === secret.id ? { ...s, outAt: now, how } : s)) }));
-  const freshFrom = engineState(getState).characters.find((c) => c.id === from.id) || from;
-  await dispatch(updateCharacter({ ...freshFrom, memory: [...(freshFrom.memory || []), facts.forFrom] }));
+  await dispatch(patchCharacter(keeper.id, (latest) => ({ memory: [...(latest.memory || []), facts.forKeeper], keptSecrets: (latest.keptSecrets || []).map((s) => (s.id === secret.id ? { ...s, outAt: now, how } : s)) })));
+  await dispatch(patchCharacter(from.id, (latest) => ({ memory: [...(latest.memory || []), facts.forFrom] })));
   void logToTimeline(world.id, { kind: "event", text: facts.timeline, characterIds: [keeper.id, from.id], audience: "private", at: now }, world.storyTime);
   toast(`${world.name}: ${facts.timeline}`, { description: secret.text });
   void notifyWorld({ title: `${world.name}: ${facts.timeline}`, body: secret.text, path: `/worlds/${world.id}/timeline` });

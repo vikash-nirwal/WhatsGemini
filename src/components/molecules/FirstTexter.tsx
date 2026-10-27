@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { generateAssistText } from "src/features/aiSlice";
 import { addChat, addMessage, fetchChats } from "src/features/chatSlice";
-import { updateCharacter } from "src/features/characterSlice";
+import { patchCharacter } from "src/features/characterSlice";
 import { selectActivePersona } from "src/features/settingsSlice";
 import { addFirstText, buildFirstTextPrompt, cleanFirstText, firstTextDue, unansweredFirstTexts } from "src/features/character/firstTexts";
 import { buildDreamDirective, dreamDue, dreamIngredients } from "src/features/character/dreams";
@@ -95,8 +95,7 @@ const FirstTexter = () => {
         const text = cleanFirstText(reply);
         // Recorded even when the reply was unusable, so a failing model
         // isn't asked again on every check.
-        const fresh = latest.current.characters.find((c) => c.id === texter.id) || texter;
-        await dispatch(updateCharacter({ ...fresh, firstTexts: addFirstText(fresh.firstTexts, now), ...(dreaming && text ? { lastDreamAt: now } : {}) }));
+        await dispatch(patchCharacter(texter.id, (fresh) => ({ firstTexts: addFirstText(fresh.firstTexts, now), ...(dreaming && text ? { lastDreamAt: now } : {}) })));
         if (!text) return;
         if (!chat?.id) chat = await dispatch(addChat({ title: texter.name, characterIds: [texter.id] })).unwrap();
         if (!chat?.id) return;

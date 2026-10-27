@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { useAppDispatch } from "../../store/hooks";
 import { extractCharacterMemory, generateAssistText, writeDiaryEntry } from "../../features/aiSlice";
 import { fetchChatById, updateChatMemory, updateChatOptions } from "../../features/chatSlice";
-import { fetchCharacterById, updateCharacter } from "../../features/characterSlice";
+import { patchCharacter } from "../../features/characterSlice";
 import { applyMemoryChanges, carryMemoryCategories } from "../../features/ai/utils/memoryExtraction";
 import { carryMemoryDates } from "../../features/ai/utils/memoryTime";
 import { appendDiaryEntry } from "../../features/ai/utils/diary";
@@ -118,10 +118,12 @@ export const useBackgroundUpdates = ({
           // Re-read the character before writing: `speaker` was captured
           // before the extraction call, and saving it whole would undo
           // anything written meanwhile (e.g. this turn's selfie in gallery).
-          const fresh = (await dispatch(fetchCharacterById(speaker.id)).unwrap().catch(() => speaker)) || speaker;
-          const memoryCategories = carryMemoryCategories(merged, pinned, fresh.memoryCategories, existingMemory, changes);
-          const memoryDates = carryMemoryDates(merged, pinned, fresh.memoryDates, existingMemory, changes, Date.now());
-          await dispatch(updateCharacter({ ...fresh, memory: merged, memoryCategories, memoryDates, ...(memoryStanding ? { memoryStanding } : {}) }));
+          await dispatch(patchCharacter(speaker.id, (fresh) => ({
+            memory: merged,
+            memoryCategories: carryMemoryCategories(merged, pinned, fresh.memoryCategories, existingMemory, changes),
+            memoryDates: carryMemoryDates(merged, pinned, fresh.memoryDates, existingMemory, changes, Date.now()),
+            ...(memoryStanding ? { memoryStanding } : {}),
+          })));
         }
       }
     } catch (err) {
@@ -181,11 +183,9 @@ export const useBackgroundUpdates = ({
           others: isRoom ? roomCharacters.filter((c) => c.id !== writer.id).map((c) => c.name) : undefined,
         })).unwrap();
         if (!text) continue;
-        const fresh = (await dispatch(fetchCharacterById(writer.id)).unwrap().catch(() => writer)) || writer;
-        await dispatch(updateCharacter({
-          ...fresh,
+        await dispatch(patchCharacter(writer.id, (fresh) => ({
           diary: appendDiaryEntry(fresh.diary, { id: generateNodeId(), timestamp: Date.now(), chatId: chatIdNum, text }),
-        }));
+        })));
       } catch (err) {
         console.warn("Diary entry failed (non-fatal):", err);
       }
@@ -238,8 +238,10 @@ export const useBackgroundUpdates = ({
     const suggestion = currentChat?.relationshipSuggestion;
     if (!chatIdNum || !suggestion || !characterData) return;
     // Kept for the relationship map (#138): what it was, and when it changed.
-    const history = [...(characterData.relationshipHistory || []), { from: characterData.relationship || suggestion.from || "", to: suggestion.to, at: Date.now() }].slice(-10);
-    dispatch(updateCharacter({ ...characterData, relationship: suggestion.to, relationshipHistory: history }));
+    void dispatch(patchCharacter(characterData.id, (fresh) => ({
+      relationship: suggestion.to,
+      relationshipHistory: [...(fresh.relationshipHistory || []), { from: fresh.relationship || suggestion.from || "", to: suggestion.to, at: Date.now() }].slice(-10),
+    })));
     dispatch(updateChatOptions({ chatId: chatIdNum, patch: { relationshipSuggestion: undefined } }));
     toast.success(`${characterData.name} and you: ${suggestion.to}`);
   };
@@ -271,8 +273,7 @@ export const useBackgroundUpdates = ({
   const acceptArc = async () => {
     const note = currentChat?.arcSuggestion;
     if (!chatIdNum || !note || !characterData) return;
-    const fresh = (await dispatch(fetchCharacterById(characterData.id)).unwrap().catch(() => characterData)) || characterData;
-    dispatch(updateCharacter({ ...fresh, growth: addGrowth(fresh.growth, note) }));
+    void dispatch(patchCharacter(characterData.id, (fresh) => ({ growth: addGrowth(fresh.growth, note) })));
     dispatch(updateChatOptions({ chatId: chatIdNum, patch: { arcSuggestion: undefined } }));
     toast.success(`Added to how ${characterData.name} has grown`);
   };
