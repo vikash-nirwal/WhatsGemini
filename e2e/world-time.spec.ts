@@ -50,6 +50,9 @@ test("years later, lives have moved on", async ({ page, mockAI }) => {
 
 // #189: the last world-wide skip can be undone while nothing has happened since.
 test("a time skip can be undone", async ({ page, mockAI }) => {
+  // Quiet hours all day: a background text after the skip would rightly
+  // stop the undo (the story moved on), so none may arrive here.
+  await page.addInitScript(() => localStorage.setItem("world_prefs", JSON.stringify({ mine: { quietHours: [0, 24] } })));
   mockAI.reply((req) => (req.prompt.includes("have just passed there") ? "LIFE: Aria | Aria opened a bakery by the pier." : "Mock reply"));
   await openRoute(page, "/worlds");
   await page.getByRole("button", { name: "Pass the time" }).click();

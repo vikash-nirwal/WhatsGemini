@@ -43,7 +43,9 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
     <section aria-label="Current world" className="mb-8 overflow-hidden rounded-[20px] bg-card ring-1 ring-inset ring-border">
       <div className="relative flex min-h-[200px] flex-col justify-end gap-2 p-6 text-white md:px-10 md:py-7" style={{ background: "#22324A" }}>
         {current?.coverImage && <img src={current.coverImage} alt="" className="absolute inset-0 h-full w-full object-cover opacity-60" />}
-        <div className="absolute right-4 top-4 flex flex-wrap justify-end gap-2">
+        {/* In the flow, not floating over the cover: with five buttons they
+            wrapped over the "Current world" label on narrower screens. */}
+        <div className="relative mb-auto flex flex-wrap justify-end gap-2 pb-4">
           {current && <button type="button" onClick={() => navigate(`/worlds/${current.id}/edit`)} className="flex h-9 items-center gap-1.5 rounded-lg bg-black/35 px-3 text-[13px] font-semibold"><FaPen size={11} /> Edit world</button>}
           <button type="button" onClick={() => setSimOpen(true)} className="flex h-9 items-center gap-1.5 rounded-lg bg-black/35 px-3 text-[13px] font-semibold"><FaForward size={11} /> Simulate a day</button>
           <button type="button" onClick={() => setTimeOpen(true)} className="flex h-9 items-center gap-1.5 rounded-lg bg-black/35 px-3 text-[13px] font-semibold"><FaHourglassHalf size={11} /> Pass the time</button>

@@ -1,20 +1,22 @@
 import { lifeScaled } from "../life/lifeDial";
 import { Character, Chat, OffscreenTalk, RoomRelationship } from "../../types";
 
-// Characters talk while you're away (#58): in a group chat with this on, two
-// members have a short conversation of their own between your visits,
+// Characters talk while you're away (#58): in a group chat (on unless you
+// turn it off, since 2026-10-27), two members have a short conversation of
+// their own between your visits,
 // shaped by how they feel about each other (#24). You can read it, and the
 // next replies know it happened.
 
-export const IDLE_BEFORE_TALK_MS = 3 * 60 * 60 * 1000; // you've been away 3 hours
-export const TALK_GAP_MS = 20 * 60 * 60 * 1000; // at most one talk a day or so
+export const IDLE_BEFORE_TALK_MS = 60 * 60 * 1000; // you've been away an hour
+export const TALK_GAP_MS = 6 * 60 * 60 * 1000; // a few talks a day at most
 const KEEP = 5;
 
 const lastActivity = (chat: Pick<Chat, "content" | "timestamp">): number =>
   chat.content?.length ? chat.content[chat.content.length - 1].timestamp || chat.timestamp || 0 : chat.timestamp || 0;
 
 export const talkDue = (chat: Pick<Chat, "offscreenTalk" | "offscreenTalks" | "content" | "timestamp" | "characterIds">, now: number): boolean => {
-  if (!chat.offscreenTalk || (chat.characterIds || []).length < 2) return false;
+  // A group of theirs (#202) talks in the chat itself instead.
+  if (chat.offscreenTalk === false || (chat as Pick<Chat, "theirs">).theirs || (chat.characterIds || []).length < 2) return false;
   if (now - lastActivity(chat) < IDLE_BEFORE_TALK_MS) return false;
   const latest = (chat.offscreenTalks || []).reduce((t, x) => Math.max(t, x.at), 0);
   // One per stretch away: nothing new until you've been back since the last one.

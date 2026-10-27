@@ -1,4 +1,5 @@
 import { AwayCard } from "src/components/molecules/AwayCard";
+import { DEFAULT_LIMIT, LIMITS as THEIR_LIMITS } from "src/features/chat/theirGroup";
 import { WorldPulse } from "src/components/molecules/WorldPulse";
 import { byLastActivity, lastActivity } from "src/features/chat/chatOrder";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
@@ -139,6 +140,9 @@ const Sidebar = () => {
   const [selectedCharacterIds, setSelectedCharacterIds] = useState<number[]>([]);
   const [roomName, setRoomName] = useState("");
   const [roomScenario, setRoomScenario] = useState("");
+  // A group of theirs (#202): you're not in it; they talk up to this many messages a time.
+  const [theirsOnly, setTheirsOnly] = useState(false);
+  const [theirLimit, setTheirLimit] = useState(DEFAULT_LIMIT);
   const [creatingRoom, setCreatingRoom] = useState(false);
 
   const resetNewChatModal = () => {
@@ -147,6 +151,8 @@ const Sidebar = () => {
     setSelectedCharacterIds([]);
     setRoomName("");
     setRoomScenario("");
+    setTheirsOnly(false);
+    setTheirLimit(DEFAULT_LIMIT);
   };
 
   const toggleCharacterSelection = (id: number) => {
@@ -219,6 +225,7 @@ const Sidebar = () => {
         scenario: roomScenario.trim() || undefined,
       }));
       if (result.payload && (result.payload as Chat).id) {
+        if (theirsOnly) await dispatch(updateChatOptions({ chatId: (result.payload as Chat).id, patch: { theirs: { limit: theirLimit } } }));
         navigate(`/chat/${(result.payload as Chat).id}`);
       }
       setIsNewChatModalOpen(false);
@@ -688,6 +695,18 @@ const Sidebar = () => {
                   aria-label="Room scenario"
                   className="min-h-[64px] text-[13px] bg-background border-border/10 shadow-none resize-none"
                 />
+                <label className="flex items-center justify-between gap-3 text-[13px] text-foreground">
+                  <span>Just them: you're not in it, you read along</span>
+                  <input type="checkbox" checked={theirsOnly} onChange={(e) => setTheirsOnly(e.target.checked)} aria-label="Just them, you're not in it" />
+                </label>
+                {theirsOnly && (
+                  <label className="flex items-center justify-between gap-3 text-[13px] text-muted-foreground">
+                    <span>Messages each time they talk</span>
+                    <select value={theirLimit} onChange={(e) => setTheirLimit(Number(e.target.value))} aria-label="Messages each time they talk" className="h-8 rounded-md border border-input bg-background px-2 text-foreground">
+                      {THEIR_LIMITS.map((n) => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </label>
+                )}
                 <Button
                   onClick={handleCreateRoom}
                   disabled={creatingRoom}

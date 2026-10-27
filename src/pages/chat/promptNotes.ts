@@ -77,7 +77,7 @@ const GROUP_FRESH_MS = 3 * 86_400_000;
 export const groupChatsNoteFor = (character: Character | undefined, chats: Chat[], characters: Character[], userName: string, currentChatId: number | null, now = Date.now()): string | undefined => {
   if (!character) return undefined;
   const groups = chats
-    .filter((c) => c.id !== currentChatId && (c.characterIds?.length || 0) > 1 && c.characterIds!.includes(character.id) && !c.archived)
+    .filter((c) => c.id !== currentChatId && (c.characterIds?.length || 0) > 1 && c.characterIds!.includes(character.id) && !c.archived && !c.theirs)
     .map((c) => ({ c, at: c.content?.[c.content.length - 1]?.timestamp || 0 }))
     .filter(({ at }) => at && now - at < GROUP_FRESH_MS)
     .sort((a, b) => b.at - a.at)

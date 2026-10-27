@@ -7,7 +7,9 @@ import { World, WorldEvent } from "../../types";
 
 const DAY = 24 * 60 * 60 * 1000;
 const KEEP = 20;
-export const EVENT_GAP_MS = 4 * DAY;
+// Shortened after "nothing happens" (2026-10-27): a world should feel busy
+// within a few visits; the life dial still halves or doubles these.
+export const EVENT_GAP_MS = 2 * DAY;
 export const MAX_EVENT_DAYS = 14;
 
 export const newEventId = () => `ev-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;

@@ -542,6 +542,7 @@ export interface Chat {
   worldId?: number; // a World whose setting and lore this chat uses (#28)
   godTruths?: string[]; // god mode (#160), outside a world: what you made true in this chat
   groupPlan?: GroupPlan; // the plan this group chat is for (#168)
+  theirs?: { limit: number; lastAt?: number }; // a group of theirs you're not in (#202): they talk on their own, up to `limit` messages a time
   timePassed?: import("../features/chat/passTime").TimePassed; // the last "pass the time": replies react to it for a few exchanges
   backdrop?: string; // a picture behind this chat's bubbles (#13)
   // Rooms only (#22-#24): who answers a message, a narrator between rounds,
@@ -552,7 +553,7 @@ export interface Chat {
   innerThoughts?: boolean; // every member writes a hidden thought with each reply (#10)
   arcCheckedAt?: number; // message count at the last character-growth check (#60)
   arcSuggestion?: string; // a growth note waiting for the user's OK
-  offscreenTalk?: boolean; // members talk among themselves while you're away (#58)
+  offscreenTalk?: boolean; // members talk among themselves while you're away (#58); on unless false
   language?: ChatLanguage; // language practice mode (#67)
   coWriting?: boolean; // write one shared story instead of chatting (#68)
   choiceMoments?: boolean; // turning points come with tappable options (#87)

@@ -7,8 +7,8 @@ import { Character, World } from "../../types";
 
 const DAY = 24 * 60 * 60 * 1000;
 const KEEP = 8;
-export const LIFE_GAP_MS = 3 * DAY;
-export const NEWCOMER_GAP_MS = 10 * DAY;
+export const LIFE_GAP_MS = DAY;
+export const NEWCOMER_GAP_MS = 5 * DAY;
 const NOTE_FOR_MS = 21 * DAY;
 
 export const lifeEventDue = (world: Pick<World, "lastLifeAt">, now: number, gapMs: number = LIFE_GAP_MS, rand: () => number = Math.random) =>

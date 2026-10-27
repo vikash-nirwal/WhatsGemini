@@ -5,7 +5,7 @@ import { Character, KeptSecret, Chat } from "../../types";
 // may pass it to you as gossip; then it's yours to keep or to tell.
 
 const DAY = 24 * 60 * 60 * 1000;
-export const SECRET_GAP_MS = 5 * DAY;
+export const SECRET_GAP_MS = 3 * DAY;
 const KEEP = 6;
 
 export const secretDue = (lastAt: number | undefined, now: number, gapMs: number = SECRET_GAP_MS, rand: () => number = Math.random) =>

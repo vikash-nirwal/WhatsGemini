@@ -33,6 +33,7 @@ import OffscreenTalker from "src/components/molecules/OffscreenTalker";
 import WorldTalker from "src/components/molecules/WorldTalker";
 import WorldEventWatcher from "src/components/molecules/WorldEventWatcher";
 import LifeTicker from "src/components/molecules/LifeTicker";
+import TheirGroupTalker from "src/components/molecules/TheirGroupTalker";
 import AutoBackup from "src/components/molecules/AutoBackup";
 import LetterWriter from "src/components/molecules/LetterWriter";
 import FirstTexter from "src/components/molecules/FirstTexter";
@@ -243,6 +244,7 @@ const AppContent = () => {
         <WorldTalker />
         <WorldEventWatcher />
         <LifeTicker />
+        <TheirGroupTalker />
         <AutoBackup />
         <LetterWriter />
         <FirstTexter />

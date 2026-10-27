@@ -5,7 +5,7 @@ import { Character, Chat } from "../../types";
 // are from what they've been told - and what people say about you.
 
 const DAY = 24 * 60 * 60 * 1000;
-export const INTRO_GAP_MS = 4 * DAY;
+export const INTRO_GAP_MS = 2 * DAY;
 const MIN_MESSAGES = 6;
 
 export const introductionDue = (lastIntroAt: number | undefined, now: number, gapMs: number = INTRO_GAP_MS, rand: () => number = Math.random) =>

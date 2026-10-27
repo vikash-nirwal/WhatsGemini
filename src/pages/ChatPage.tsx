@@ -58,6 +58,9 @@ import { buildFactionNote } from "../features/world/factions";
 import { featureOn } from "../features/world/worldPrefs";
 import PlanBar from "../components/organisms/PlanBar";
 import { prepareRecall } from "../features/memory/semanticRecall";
+import { runTheirGroup } from "../features/chat/runTheirGroup";
+import { Select } from "src/components/molecules/form-controls/FormSelect";
+import { LIMITS as THEIR_LIMITS } from "../features/chat/theirGroup";
 import { noteBudgetFor } from "../features/ai/utils/promptBudget";
 import { useWorldHistoryNote } from "../hooks/useWorld";
 import { worldOf } from "../features/world/currentWorld";
@@ -278,6 +281,21 @@ const ChatPage = () => {
       buildMyStatusNote(userName, myStatuses, speaker.id, now),
       ownChatNoteFor(speaker, chats, userName),
     ].filter(Boolean).join("\n\n") || undefined;
+  };
+
+  // A group of theirs (#202): another round, when you ask.
+  const [theirBusy, setTheirBusy] = useState(false);
+  const letThemTalk = async () => {
+    if (!currentChat?.theirs) return;
+    setTheirBusy(true);
+    try {
+      const n = await dispatch(runTheirGroup(currentChat, characters, activePersona?.name?.trim() || "the user"));
+      if (!n) toast.error("Nobody said anything. Try again.");
+    } catch (err) {
+      toast.error(typeof err === "string" ? err : "Couldn't get them talking. Check your model settings.");
+    } finally {
+      setTheirBusy(false);
+    }
   };
 
   // Memory recall by meaning (#200): worked out just before each reply, from
@@ -2693,7 +2711,16 @@ const ChatPage = () => {
               )
         }
       >
-{blockedByYou(currentChat) && characterData ? (
+{currentChat?.theirs ? (
+          // A group of theirs (#202): you read it; they talk on their own.
+          <div role="status" data-slot="their-group-bar" className="flex flex-wrap items-center justify-center gap-3 rounded-card bg-surface px-4 py-3 text-center shadow-popover ring-1 ring-inset ring-border">
+            <p className="text-[13.5px] text-muted-foreground">You're not in this group. They don't know you can read it.</p>
+            <Select aria-label="Messages per talk" value={String(currentChat.theirs.limit)} onChange={(e) => chatIdNum && dispatch(updateChatOptions({ chatId: chatIdNum, patch: { theirs: { ...currentChat.theirs!, limit: Number(e.target.value) } } }))} className="h-10 w-[150px]">
+              {THEIR_LIMITS.map((n) => <option key={n} value={String(n)}>{n} messages a talk</option>)}
+            </Select>
+            <Button type="button" disabled={theirBusy} onClick={() => void letThemTalk()} className="h-10 rounded-[10px] px-5">{theirBusy ? "Talking..." : "Let them talk now"}</Button>
+          </div>
+        ) : blockedByYou(currentChat) && characterData ? (
           // You blocked them (#133): no composer, just the way back.
           <div role="status" data-slot="blocked-bar" className="flex flex-col items-center gap-3 rounded-card bg-surface px-4 py-3 text-center shadow-popover ring-1 ring-inset ring-border">
             <p className="text-[13.5px] text-muted-foreground">You blocked {characterData.name}. They can't message you, and you can't message them.</p>

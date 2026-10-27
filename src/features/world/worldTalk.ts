@@ -6,7 +6,7 @@ import { worldOf } from "./currentWorld";
 // (#74) and the wizard's ties (#144): a big world doesn't mean everyone
 // talks to everyone.
 
-export const WORLD_TALK_GAP_MS = 18 * 60 * 60 * 1000; // per pair, before the life dial
+export const WORLD_TALK_GAP_MS = 6 * 60 * 60 * 1000; // per pair, before the life dial
 const KEEP_TALKS = 6; // per stored character
 const NOTE_FRESH_MS = 2 * 24 * 60 * 60 * 1000;
 

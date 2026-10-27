@@ -177,8 +177,9 @@ test("members talk while you're away, and the next replies know it", async ({ pa
     return speaker ? `${speaker} says hello back.` : "OK";
   });
   await openChat(page, 2);
+  // On by default since 2026-10-27; the switch shows it.
   await openRoomPanel(page, "Group");
-  await page.getByRole("switch", { name: "Members talk while you're away" }).click();
+  await expect(page.getByRole("switch", { name: "Members talk while you're away" })).toBeChecked();
   await page.getByRole("button", { name: "Close scene panel" }).click();
   // The seeded room was last used months ago, so a talk is due at the first check.
   await page.clock.fastForward(25_000);
