@@ -6,7 +6,9 @@ import { selectActivePersona } from "src/features/settingsSlice";
 import { parseOffscreenTalk } from "src/features/chat/offscreenTalk";
 import { addWorldTalk, becameFriends, buildWorldTalkPrompt, parseTieChange, pickTalkTopic, tieMayChange, pickWorldTalk, recencyOf, talksBetween, UserKnowledge, WORLD_TALK_GAP_MS } from "src/features/world/worldTalk";
 import { channelId } from "src/features/channels/channels";
-import { logToTimeline } from "src/features/world/timeline";
+import { editTimeline, loadTimeline, logToTimeline } from "src/features/world/timeline";
+import { applyShared, buildShareSection, parseNewFact, parseShared } from "src/features/world/knowledge";
+import { buildSceneNow } from "src/features/world/sceneNow";
 import { activeEvents } from "src/features/world/worldEvents";
 import { factionsOf } from "src/features/world/factions";
 import { arcActive, arcLine } from "src/features/world/worldArcs";
@@ -66,8 +68,12 @@ const WorldTalker = () => {
           return { relationship: c.relationship, lastTalked: recencyOf(lastAt || undefined, now), facts: factsAboutUser([...(c.pinnedMemory || []), ...(c.memory || [])], c.memoryCategories) };
         };
         const askTie = featureOn(worldId, "drift") && tieMayChange(topic);
+        // What each knows from the world's record (#204), at one shared
+        // time and place (#205).
+        const share = buildShareSection([a, b], await loadTimeline(worldId), now, characters);
+        const sceneNow = buildSceneNow(talkWorld, [a, b], now);
         const reply = await dispatch(generateAssistText({
-          instruction: buildWorldTalkPrompt(a, b, { world: worlds.find((w) => w.id === worldId), userName: persona?.name?.trim() || "the user", maxLines, previous, topic, news, askTie, groups, knows: { [a.id]: knowledge(a), [b.id]: knowledge(b) } }),
+          instruction: buildWorldTalkPrompt(a, b, { world: talkWorld, userName: persona?.name?.trim() || "the user", maxLines, previous, topic, news, askTie, groups, sceneNow, share, knows: { [a.id]: knowledge(a), [b.id]: knowledge(b) } }),
           background: true,
           activity: { at: now, kind: "talk", text: `${a.name} and ${b.name} texted`, characterId: a.id, name: a.name },
         })).unwrap();
@@ -77,6 +83,11 @@ const WorldTalker = () => {
         await dispatch(updateCharacter(addWorldTalk(holder, { id: `wt-${now.toString(36)}`, withId: b.id, at: now, lines })));
         // When they talked about you, the world's timeline notes it (#161).
         const w = worlds.find((x) => x.id === worldId);
+        // Hearsay (#206): what was passed on, and anything new about them.
+        const told = lines.length ? parseShared(reply) : [];
+        if (told.length) void editTimeline(worldId, (list) => applyShared(list, share.items, told, [a.id, b.id], now));
+        const fresh = lines.length ? parseNewFact(reply) : undefined;
+        if (fresh) void logToTimeline(worldId, { kind: "talk", text: fresh, characterIds: [a.id, b.id], audience: "private", at: now }, w?.storyTime);
         if (topic === "user" && lines.length) {
           void logToTimeline(worldId, { kind: "talk", text: `${a.name} and ${b.name} talked about you`, characterIds: [a.id, b.id], at: now }, w?.storyTime);
         }

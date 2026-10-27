@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { buildHistoryNote, loadTimeline, onTimeline } from "../features/world/timeline";
+import { loadTimeline, onTimeline, TimelineEntry } from "../features/world/timeline";
 import { livingIn, loadWorldPrefs, saveWorldPrefs, WorldPrefs } from "src/features/world/worldPrefs";
 import { useAppSelector } from "src/store/hooks";
 import { inWorld, worldName, worldOf } from "src/features/world/currentWorld";
@@ -93,14 +93,14 @@ export const useElsewhereName = () => {
   };
 };
 
-// What's happened in a world before (#179), for a chat's prompt: read once
-// and kept fresh as the timeline grows.
-export const useWorldHistoryNote = (worldId: number | null | undefined): string | undefined => {
-  const [note, setNote] = useState<string | undefined>();
+// A world's timeline (#161), read once and kept fresh as it grows: for a
+// chat's history note (#179) and what each character knows (#204).
+export const useWorldTimeline = (worldId: number | null | undefined): TimelineEntry[] => {
+  const [entries, setEntries] = useState<TimelineEntry[]>([]);
   useEffect(() => {
     if (worldId === undefined) return;
     let live = true;
-    const load = () => void loadTimeline(worldId).then((list) => live && setNote(buildHistoryNote(list, Date.now())));
+    const load = () => void loadTimeline(worldId).then((list) => live && setEntries(list));
     load();
     const off = onTimeline(load);
     return () => {
@@ -108,5 +108,5 @@ export const useWorldHistoryNote = (worldId: number | null | undefined): string 
       off();
     };
   }, [worldId]);
-  return note;
+  return entries;
 };

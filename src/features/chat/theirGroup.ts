@@ -1,6 +1,7 @@
 import { Character, Chat, Message } from "../../types";
 import { lifeScaled } from "../life/lifeDial";
 import { AI } from "../../utils/constants";
+import { SHARE_ASK } from "../world/knowledge";
 
 // A group of theirs (#202): a group chat between characters that you're not
 // in. You can read it - they don't know - and they talk on their own every
@@ -20,12 +21,19 @@ export const buildTheirGroupPrompt = (
   members: Character[],
   title: string,
   recent: Message[],
-  { limit, scenario, userName }: { limit: number; scenario?: string; userName: string }
+  { limit, scenario, userName, sceneNow, share }: {
+    limit: number;
+    scenario?: string;
+    userName: string;
+    sceneNow?: string; // the time and where each of them is (#205)
+    share?: { text?: string; items: unknown[] }; // what one knows that others may not (#204, #206)
+  }
 ) => {
   const nameOf = (id?: number) => members.find((m) => m.id === id)?.name || "?";
   return [
     `This is "${title}", a group chat between ${members.map((m) => m.name).join(", ")}. ${userName} isn't in it.`,
     scenario ? `What the group is about: ${scenario}` : "",
+    sceneNow || "",
     "",
     ...members.map((m) => {
       const ties = (m.ties || []).filter((t) => members.some((o) => o.id === t.withId)).map((t) => `${nameOf(t.withId)} is their ${bare(t.tie)}`);
@@ -33,8 +41,10 @@ export const buildTheirGroupPrompt = (
     }),
     "",
     recent.length ? `The chat so far (latest last):\n${recent.map((m) => `${nameOf(m.speakerId)}: ${(m.txt || "").replace(/\s+/g, " ").slice(0, 300)}`).join("\n")}` : "Nobody has written yet: someone starts it.",
+    ...(share?.text ? ["", share.text] : []),
     "",
     `Write what they say next: 2 to ${limit} messages, each starting with the sender's name and a colon, like "${members[0].name}: ...". Pick up from where it left off, or start something new if it went quiet - plans, gossip, teasing, news, ${userName} now and then. Not strictly in turn; short texts, in character, no stage directions.`,
+    ...(share ? SHARE_ASK(share.items.length > 0) : []),
   ].filter((l) => l !== null).join("\n");
 };
 

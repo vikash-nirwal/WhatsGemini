@@ -62,7 +62,9 @@ import { runTheirGroup } from "../features/chat/runTheirGroup";
 import { Select } from "src/components/molecules/form-controls/FormSelect";
 import { LIMITS as THEIR_LIMITS } from "../features/chat/theirGroup";
 import { noteBudgetFor } from "../features/ai/utils/promptBudget";
-import { useWorldHistoryNote } from "../hooks/useWorld";
+import { useWorldTimeline } from "../hooks/useWorld";
+import { buildHistoryNote } from "../features/world/timeline";
+import { audienceOf, buildKnowsNote } from "../features/world/knowledge";
 import { worldOf } from "../features/world/currentWorld";
 import { patchWorld, switchWorld } from "../features/worldSlice";
 import { buildMyStatusNote } from "../features/status/myStatuses";
@@ -245,7 +247,7 @@ const ChatPage = () => {
   // takes you to that world (#146), so the list beside it matches.
   const currentWorldId = useAppSelector((state) => state.world.currentWorldId);
   const chatWorldId = currentChat ? worldOf(currentChat, worlds) : undefined;
-  const worldHistoryNote = useWorldHistoryNote(chatWorldId);
+  const worldTimeline = useWorldTimeline(chatWorldId);
   useEffect(() => {
     if (chatWorldId !== undefined && chatWorldId !== (worlds.some((w) => w.id === currentWorldId) ? currentWorldId : null)) dispatch(switchWorld(chatWorldId));
   }, [chatWorldId, currentWorldId, worlds, dispatch]);
@@ -272,6 +274,7 @@ const ChatPage = () => {
     return [
       tiesNoteFor({ ...speaker, ties: (speaker.ties || []).filter((t) => !roomCharacters.some((c) => c.id === t.withId)) }, characters),
       worldTalkNoteFor(speaker, characters, now),
+      buildKnowsNote(speaker, worldTimeline, characters, now),
       buildDayLogSection(speaker.name, dayLogText(speaker, now)),
       buildConcernsSection(speaker.name, speaker.concerns, now),
       buildLifeNote(speaker, now),
@@ -451,7 +454,10 @@ const ChatPage = () => {
   scene.eventNote = featureOn(chatWorldId, "events") ? buildEventsNote(activeEvents(worlds.find((w) => w.id === chatWorldId), Date.now())) : undefined;
   scene.keptNote = !isRoom && characterData && featureOn(chatWorldId, "secrets") ? buildSecretsNote(characterData, characters, userNameForNotes) : undefined;
   scene.factionNote = !isRoom ? buildFactionNote(characterData, worlds.find((w) => w.id === chatWorldId), characters) : undefined;
-  scene.historyNote = worldHistoryNote;
+  // Only the history this character could know (#203): in a group, what
+  // everyone saw; each speaker's own knowledge comes with their notes.
+  scene.historyNote = buildHistoryNote(isRoom ? worldTimeline.filter((e) => audienceOf(e) === "public") : worldTimeline, noteTime, 8, isRoom ? undefined : characterData?.id);
+  scene.heardNote = mainStory ? buildKnowsNote(characterData, worldTimeline, characters, noteTime) : undefined;
   scene.noteBudget = noteBudgetFor(maxContextTokensForNotes);
   if (featureOn(chatWorldId, "places")) {
     const placesWorld = worlds.find((w) => w.id === chatWorldId);

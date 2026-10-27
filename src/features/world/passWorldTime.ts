@@ -6,7 +6,7 @@ import { generateAssistText } from "../aiSlice";
 import { cleanFirstText } from "../character/firstTexts";
 import { buildWorldTimeTextPrompt, describeGap, firstAfterGap, gapDays, TimePassed, timePassedNotice, TimeUnit } from "../chat/passTime";
 import { skipStoryTime } from "./storyTime";
-import { logToTimeline } from "./timeline";
+import { editTimeline, logToTimeline } from "./timeline";
 import { addLifeEvent, AGING_MIN_DAYS, buildGapLivesPrompt, parseGapLives } from "./worldLife";
 import { advanceArc, arcActive, BEAT_GAP_MS } from "./worldArcs";
 import { featureOn } from "./worldPrefs";
@@ -15,7 +15,6 @@ import { updateCharacter } from "../characterSlice";
 import { AI, YOU } from "../../utils/constants";
 import { canUndo, clearSnapshot, loadSnapshot, saveSnapshot, snapshotOf } from "./timeSkipUndo";
 import { dbService } from "../../services/dbService";
-import { loadTimeline, replaceTimeline } from "./timeline";
 
 // Pass the time for a whole world: each of its chats gets the gap (so every
 // next reply knows it), the world's calendar moves on, it goes in the
@@ -58,7 +57,7 @@ export const passWorldTime = (
         byId.set(nb.id, nb);
       }
       for (const c of characters) if (byId.get(c.id) !== c) await dispatch(updateCharacter(byId.get(c.id)!));
-      for (const l of lives) void logToTimeline(worldId, { kind: "event", text: l.text, characterIds: [l.id], at: now }, world?.storyTime);
+      for (const l of lives) void logToTimeline(worldId, { kind: "event", text: l.text, characterIds: [l.id], audience: "private", at: now }, world?.storyTime);
     } catch (err) {
       console.warn("Lives over the gap failed (non-fatal):", err);
     }
@@ -109,7 +108,7 @@ export const undoWorldTime = (worldId: number | null) => async (dispatch: AppDis
     if (now) await dispatch(updateCharacter({ ...now, lifeEvents: before.lifeEvents, ties: before.ties, knowsAbout: before.knowsAbout, firstTexts: before.firstTexts }));
   }
   if (worldId != null && s.world) await dispatch(patchWorld(worldId, { storyTime: s.world.storyTime, arc: s.world.arc }));
-  await replaceTimeline(worldId, (await loadTimeline(worldId)).filter((e) => e.at < s.at || e.at > s.endAt!));
+  await editTimeline(worldId, (list) => list.filter((e) => e.at < s.at || e.at > s.endAt!));
   await clearSnapshot(worldId);
   await dispatch(fetchChats());
   return true;

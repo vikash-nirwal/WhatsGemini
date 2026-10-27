@@ -162,7 +162,8 @@ const WorldEventWatcher = () => {
         const fresh = latest.current.characters.find((c) => c.id === who.id);
         if (!text || !fresh) return;
         await dispatch(updateCharacter(addLifeEvent(fresh, text, now)));
-        void logToTimeline(world.id, { kind: "event", text, characterIds: [who.id], at: now }, world.storyTime);
+        // Their own news (#203): it travels by talk, and by them texting you.
+        void logToTimeline(world.id, { kind: "event", text, characterIds: [who.id], audience: "private", at: now }, world.storyTime);
         await tellTheNews(world, text, [who.id], now);
       } catch (err) {
         console.warn("World life failed (non-fatal):", err);
@@ -263,7 +264,7 @@ const WorldEventWatcher = () => {
         if (!chat?.id) return;
         await dispatch(addMessage({ chatId: chat.id, role: AI, text: parsed.gossip!, speakerId: told.id, notes: ["texted-first"], at: now }));
         await dispatch(fetchChats());
-        void logToTimeline(world.id, { kind: "you", text: `${told.name} told you something ${keeper.name} is hiding from ${from.name}`, characterIds: [told.id, keeper.id, from.id], at: now }, world.storyTime);
+        void logToTimeline(world.id, { kind: "you", text: `${told.name} told you something ${keeper.name} is hiding from ${from.name}`, characterIds: [told.id, keeper.id, from.id], knownBy: [told.id], at: now }, world.storyTime);
         toast.message(`${told.name} texted you`, { description: parsed.gossip!.length > 90 ? `${parsed.gossip!.slice(0, 87)}...` : parsed.gossip, action: { label: "Open", onClick: () => { window.location.hash = `#/chat/${chat.id}`; } } });
       } catch (err) {
         console.warn("Secret failed (non-fatal):", err);
@@ -284,7 +285,7 @@ const WorldEventWatcher = () => {
         await dispatch(updateCharacter({ ...keeper, memory: [...(keeper.memory || []), facts.forKeeper], keptSecrets: (keeper.keptSecrets || []).map((s) => (s.id === secret.id ? { ...s, outAt: now, how } : s)) }));
         const freshFrom = latest.current.characters.find((c) => c.id === from.id) || from;
         await dispatch(updateCharacter({ ...freshFrom, memory: [...(freshFrom.memory || []), facts.forFrom] }));
-        void logToTimeline(world.id, { kind: "event", text: facts.timeline, characterIds: [keeper.id, from.id], at: now }, world.storyTime);
+        void logToTimeline(world.id, { kind: "event", text: facts.timeline, characterIds: [keeper.id, from.id], audience: "private", at: now }, world.storyTime);
         toast(`${world.name}: ${facts.timeline}`, { description: secret.text });
         void notifyWorld({ title: `${world.name}: ${facts.timeline}`, body: secret.text, path: `/worlds/${world.id}/timeline` });
         await tellTheNews(world, facts.forFrom, [from.id], now);

@@ -1,5 +1,6 @@
 import { lifeScaled } from "../life/lifeDial";
 import { Character, Chat, OffscreenTalk, RoomRelationship } from "../../types";
+import { SHARE_ASK } from "../world/knowledge";
 
 // Characters talk while you're away (#58): in a group chat (on unless you
 // turn it off, since 2026-10-27), two members have a short conversation of
@@ -44,18 +45,20 @@ export const buildOffscreenTalkPrompt = (
   userName: string,
   feelings: string[],
   transcript: string,
-  scenario?: string
+  scenario?: string,
+  // The world's time and places (#205), and what each knows (#204, #206).
+  { sceneNow, share }: { sceneNow?: string; share?: { text?: string; items: unknown[] } } = {}
 ): string => `Write a short private conversation between ${a.name} and ${b.name}, two characters from a group chat with ${userName}, that happens while ${userName} is away.
 
 ${a.name}: ${[a.description, a.prompt].filter(Boolean).join(" ").slice(0, 500)}
 ${b.name}: ${[b.description, b.prompt].filter(Boolean).join(" ").slice(0, 500)}
-${scenario ? `\nThe setting: ${scenario}\n` : ""}${feelings.length > 0 ? `\nHow they feel about each other:\n- ${feelings.join("\n- ")}\n` : ""}
+${scenario ? `\nThe setting: ${scenario}\n` : ""}${sceneNow ? `\n${sceneNow}\n` : ""}${share?.text ? `\n${share.text}\n` : ""}${feelings.length > 0 ? `\nHow they feel about each other:\n- ${feelings.join("\n- ")}\n` : ""}
 What happened in the group chat most recently:
 ${transcript}
 
 - 4 to 8 lines, alternating, each starting with the speaker's name and a colon, like "${a.name}: ...".
 - Natural and in character: they might talk about ${userName}, about what just happened, or about something of their own. Let their feelings show.
-- Don't resolve big plot points or decide anything for ${userName}. Plain text, no stage directions in brackets.`;
+- Don't resolve big plot points or decide anything for ${userName}. Plain text, no stage directions in brackets.${share ? `\n${SHARE_ASK(share.items.length > 0).join("\n")}` : ""}`;
 
 // "Name: line" rows, kept only for the two who talk.
 export const parseOffscreenTalk = (reply: string, pair: [Character, Character], max = 10): { speakerId: number; text: string }[] => {

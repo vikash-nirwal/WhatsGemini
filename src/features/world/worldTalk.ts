@@ -1,5 +1,6 @@
 import { Character, World, WorldTalk } from "../../types";
 import { worldOf } from "./currentWorld";
+import { SHARE_ASK } from "./knowledge";
 
 // Life inside a world (#145): characters who know each other text on their
 // own, one helper call per exchange. Who talks follows "who knows whom"
@@ -117,7 +118,7 @@ const TOPIC_ASK = (t: TalkTopic, a: Character, b: Character, userName: string, w
 export const buildWorldTalkPrompt = (
   a: Character,
   b: Character,
-  { world, userName, maxLines, previous, topic = "lives", knows, news, askTie, groups }: {
+  { world, userName, maxLines, previous, topic = "lives", knows, news, askTie, groups, sceneNow, share }: {
     world?: World;
     userName: string;
     maxLines: number;
@@ -127,6 +128,8 @@ export const buildWorldTalkPrompt = (
     news?: string;
     askTie?: boolean; // let the talk change their relationship (#163)
     groups?: Record<number, string[]>; // the families and factions each belongs to (#185)
+    sceneNow?: string; // the time and where each of them is (#205)
+    share?: { text?: string; items: unknown[] }; // what one knows that the other may not (#204, #206)
   }
 ) => {
   const who = (c: Character, other: Character) =>
@@ -134,7 +137,7 @@ export const buildWorldTalkPrompt = (
   const knowing = (c: Character) => {
     const k = knows?.[c.id];
     if (!k) return undefined;
-    return `What ${c.name} knows about ${userName}: ${[k.relationship && `${userName} is their ${k.relationship}`, k.lastTalked && `they last talked ${k.lastTalked}`, k.facts.length && `they remember: ${k.facts.join("; ")}`].filter(Boolean).join("; ")}.`;
+    return `What ${c.name} knows about ${userName}: ${[k.relationship && `${userName} is their ${k.relationship}`, k.lastTalked && `they last talked ${k.lastTalked}`, k.facts.length && `they remember: ${k.facts.join("; ")}`].filter(Boolean).join("; ")}.${c.spreadsRumors ? "" : ` ${c.name} doesn't pass on what ${userName} told them in private.`}`;
   };
   const names = { [a.id]: a.name, [b.id]: b.name };
   const tie = tieOf(a, b)?.replace(/^your\s+/i, "");
@@ -142,11 +145,13 @@ export const buildWorldTalkPrompt = (
     `Write a text conversation between ${a.name} and ${b.name}, who know each other${world ? ` and live in ${world.name}: ${world.premise}` : ""}. ${userName} isn't in it.`,
     // God mode (#160): what the author made true holds here too.
     ...(world?.godTruths?.length ? [`Simply true in this world (never question it): ${world.godTruths.join("; ")}.`] : []),
+    ...(sceneNow ? [sceneNow] : []),
     "",
     who(a, b),
     who(b, a),
     ...(topic === "user" ? ["", knowing(a), knowing(b)].filter((x): x is string => x !== undefined) : []),
     ...(previous?.lines.length ? ["", "The last time they texted:", ...previous.lines.map((l) => `${names[l.speakerId] || "?"}: ${l.text}`)] : []),
+    ...(share?.text ? ["", share.text] : []),
     "",
     `What it's about this time: ${TOPIC_ASK(topic, a, b, userName, world?.name, news, groups)}`,
     "",
@@ -157,6 +162,7 @@ export const buildWorldTalkPrompt = (
       : `- They only know each other a little, as people in the same place do: polite, curious, a bit careful - no shared history unless it comes up here.`,
     topic === "user" ? "" : `- ${userName} can come up in passing if it's natural, but it's not the point.`,
     "- Plain text, in character, no stage directions. Don't settle big story points or decide anything for " + userName + ".",
+    ...(share ? SHARE_ASK(share.items.length > 0) : []),
     askTie ? `- Only if this conversation really changes how they stand with each other (a falling-out, making up, getting together, breaking up, becoming friends), end with one more line: TIE: <what ${b.name} is to ${a.name} now> | <what ${a.name} is to ${b.name} now>. Most conversations change nothing; then leave it out.` : "",
   ].filter(Boolean).join("\n");
 };
