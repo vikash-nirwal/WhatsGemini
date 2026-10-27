@@ -1,4 +1,5 @@
 import { Character, Faction, World } from "../../types";
+import { loadWorldPrefs, travellingPrefs, WorldPrefs } from "./worldPrefs";
 
 // World export and import (#172): a whole world - premise, lore, map,
 // calendar, groups, and its people with how they're tied - as one file, to
@@ -30,11 +31,18 @@ export interface WorldFile {
   world: Omit<World, "id">;
   cast: (Partial<Character> & { name: string; key: number })[];
   ties: { a: number; b: number; tie: string }[]; // b is a's <tie>, by cast key
+  // The world's switches and talk length (#215), only those not at their
+  // defaults, and left out when there are none. travellingPrefs says what
+  // stays on this device.
+  prefs?: WorldPrefs;
 }
 
-export const exportWorld = (world: World, cast: Character[]): WorldFile => {
+// Prefs are read from this device unless given, so callers that only have
+// the world and its people still send its switches along.
+export const exportWorld = (world: World, cast: Character[], prefs: WorldPrefs = loadWorldPrefs(world.id)): WorldFile => {
   const { id: _id, events: _e, reputation: _r, newcomer: _n, arc: _a, lastEventCheckAt: _1, lastLifeAt: _2, lastNewcomerAt: _3, lastIntroAt: _4, lastSecretAt: _5, ...rest } = world;
   const factions = (world.factions || []).map(({ chatId: _c, ...f }) => f as Faction);
+  const travelling = travellingPrefs(prefs);
   return {
     kind: WORLD_FILE_KIND,
     version: 1,
@@ -44,6 +52,7 @@ export const exportWorld = (world: World, cast: Character[]): WorldFile => {
       return { ...portable(card), name: c.name, key: c.id };
     }),
     ties: cast.flatMap((c) => (c.ties || []).filter((t) => cast.some((x) => x.id === t.withId)).map((t) => ({ a: c.id, b: t.withId, tie: t.tie }))),
+    ...(Object.keys(travelling).length ? { prefs: travelling } : {}),
   };
 };
 

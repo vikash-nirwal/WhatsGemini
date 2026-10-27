@@ -5,6 +5,7 @@ import {
   LS_INITIAL_MESSAGES, LS_SPENDING_LEDGER, LS_SPENDING_BUDGET, LS_LAST_BACKUP_AT,
 } from "../../utils/constants";
 import { getSpendingSnapshot } from "../spending/spending";
+import { LS_LIFE_DIAL } from "../life/lifeDial";
 
 // Automatic backups (#198). With no server, nothing can back up while the
 // app is closed, so once you've backed up to Google Drive this visit with
@@ -42,7 +43,7 @@ const SETTINGS_KEYS = [
   LS_AI_MODEL, LS_MAX_OUTPUT_TOKENS, LS_REPLY_LENGTH_LIMIT, LS_COMPRESS_THRESHOLD, LS_TEMPRATURE, LS_SAMPLERS, LS_ROLEPLAY_STYLE, LS_SAFETY_SETTINGS,
   LS_MAX_CHAT_LENGTH, LS_FONT_SIZE, LS_IMAGE_RESOLUTION, LS_GEMINI_IMAGE_SIZE, LS_PORTRAIT_SAVE_SIZE, LS_PORTRAIT_RESIZE_ENABLED, LS_EMOTION_PANEL_ENABLED,
   LS_EMOTION_POPUP_ENABLED, LS_EMOTION_POPUP_DURATION, LS_ALWAYS_SHOW_INITIALS, LS_TEXTING_MODE, LS_RECAP_AFTER_DAYS, LS_USER_PERSONAS, LS_ACTIVE_PERSONA_ID,
-  LS_INITIAL_MESSAGES,
+  LS_INITIAL_MESSAGES, LS_LIFE_DIAL,
 ];
 export const settingsFromStorage = () => ({
   ...Object.fromEntries(SETTINGS_KEYS.map((k) => {

@@ -41,3 +41,20 @@ describe("sharing a world by link (#197)", () => {
     expect(linkTarget("hello")).toEqual({});
   });
 });
+
+describe("a world's switches travel with it (#215)", () => {
+  const { encodeWorldLink, decodeWorldLink } = require("./worldFile");
+  afterEach(() => localStorage.removeItem("world_prefs"));
+  test("only switches and talk length not at their defaults go; this device's limits stay", () => {
+    const file = exportWorld(world, [aria, kai], { events: true, drift: false, secrets: true, peek: true, talkLength: 10, keepLiving: false, callCap: 20, quietHours: [23, 8] });
+    expect(file.prefs).toEqual({ events: true, secrets: true, peek: true });
+    expect(exportWorld(world, [aria, kai], { talkLength: 4 }).prefs).toEqual({ talkLength: 4 });
+    expect("prefs" in exportWorld(world, [aria, kai], { keepLiving: true, callCap: 5 })).toBe(false);
+  });
+  test("without prefs given, the world's own on this device go, and they ride in a link", async () => {
+    localStorage.setItem("world_prefs", JSON.stringify({ 7: { goals: true, quietHours: [1, 2] } }));
+    const file = exportWorld(world, [aria, kai]);
+    expect(file.prefs).toEqual({ goals: true });
+    expect((await decodeWorldLink(await encodeWorldLink(file))).prefs).toEqual({ goals: true });
+  });
+});
