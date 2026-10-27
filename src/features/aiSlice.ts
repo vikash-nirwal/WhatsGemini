@@ -47,6 +47,7 @@ import { insertCompressionSummary, fetchChats } from "./chatSlice";
 import { resolveTurnModel } from "./ai/modelResolution";
 import { AppearanceLock, appearanceLocksFor, applyAppearanceLocks } from "./ai/utils/appearanceLock";
 import { insertAdventureCompressionSummary } from "./adventureSlice";
+import { recordReply, ReplyKind } from "./ai/replyLog";
 
 // What a vision-capable helper writes about a photo the chat model can't see.
 const PHOTO_DESCRIPTION_PROMPT =
@@ -652,7 +653,9 @@ export const generateAssistText = createAsyncThunk(
   // with its estimated cost.
   // `worldId`: the world a background call is about, when no character is
   // named in `activity`; either way its brief goes first (worldBrief.ts).
-  async ({ instruction, background = false, activity, worldId }: { instruction: string; background?: boolean; activity?: Omit<ActivityEntry, "id" | "at" | "cost"> & { at?: number }; worldId?: number }, { getState, rejectWithValue }) => {
+  // `replyKind` (#214): which prompt this is, for the helper reply log.
+  async ({ instruction, background = false, activity, worldId, replyKind }: { instruction: string; background?: boolean; activity?: Omit<ActivityEntry, "id" | "at" | "cost"> & { at?: number }; worldId?: number; replyKind?: ReplyKind }, { getState, rejectWithValue }) => {
+    const keep = (reply: string, model: string) => void recordReply({ instruction, reply, model, kind: replyKind, fallbackKind: activity?.kind });
     try {
       const state = getState() as RootState;
       const settings = state.settings;
@@ -676,6 +679,7 @@ export const generateAssistText = createAsyncThunk(
           const config = await resolveProviderConfig("webllm", adapter.capabilities.requiresBaseUrl);
           const result = await adapter.generateOnce(withWorldBrief(instruction, brief), local, config);
           logActivity({ ...activity!, ...(briefWorld ? { world: briefWorld.name } : {}) });
+          keep(result.text, local);
           return result.text.trim();
         }
         const helper = await resolveHelperCall(settings);
@@ -687,6 +691,7 @@ export const generateAssistText = createAsyncThunk(
           const world = who?.worldId ? state.world.worlds.find((w) => w.id === who.worldId)?.name : undefined;
           logActivity({ ...activity, cost, ...(world ? { world } : {}) });
         }
+        keep(result.text, helper.model);
         return result.text.trim();
       }
       const chatProviderId = settings.chatProvider;
@@ -696,6 +701,7 @@ export const generateAssistText = createAsyncThunk(
         throw new Error("API key is missing. Please log in.");
       }
       const result = await chatAdapter.generateOnce(instruction, settings.selectedModel, chatConfig);
+      keep(result.text, settings.selectedModel);
       return result.text.trim();
     } catch (error: any) {
       console.error("AI Assist Error:", error);

@@ -1,0 +1,65 @@
+[
+  {
+    "note": "good: lines, a TIE change, SHARED and NEW, a goal moved on",
+    "at": 1,
+    "kind": "world-talk",
+    "model": "fixture",
+    "instruction": "Write a text conversation between Kai Moreno and Mira Okafor, who know each other and live in Harbor Bay: a foggy fishing town. Sam isn't in it.\n\nKai Moreno: a barista saving for a boat\nMira Okafor: a nurse on night shifts\n\n- 2 to 6 short texts, each starting with the sender's name and a colon, like \"Kai Moreno: ...\".\n- Then one more line: SHARED: <the numbers of the things above someone actually told in this conversation>, or SHARED: none.\n- If something new about their own lives comes out here that others could hear about later (news, a plan, a falling-out), add one line: NEW: <it, in one short sentence, with names>. Most talks have none; then leave it out.\n- If this talk moved one of their goals on, add one line: GOAL: <name>: <where it stands now, a few words>, or GOAL: <name>: done. Most talks don't; then leave it out.\n- Only if this conversation really changes how they stand with each other, end with one more line: TIE: <what Mira Okafor is to Kai Moreno now> | <what Kai Moreno is to Mira Okafor now>.",
+    "reply": "Kai: you up? shift just ended\nMira: barely. the ER was a zoo\nMira: also. did you hear about the harbor master\nKai: no?? tell me\nMira: retiring. there's a boat going cheap\nKai: wait are you serious. i might actually make it\nSHARED: 2\nNEW: Kai is going to look at the harbor master's old boat on Saturday.\nGOAL: Kai: found a boat he can afford\nTIE: close friend | close friend",
+    "expect": { "lines": "parsed", "TIE": "parsed", "SHARED": "parsed", "NEW": "parsed", "GOAL": "parsed" }
+  },
+  {
+    "note": "missing: tags left out, SHARED was asked for",
+    "at": 2,
+    "kind": "world-talk",
+    "model": "fixture",
+    "instruction": "Write a text conversation between Kai Moreno and Mira Okafor, who know each other. Sam isn't in it.\n- Then one more line: SHARED: <the numbers>, or SHARED: none.\n- add one line: NEW: <it>.\n- end with one more line: TIE: <x> | <y>.",
+    "reply": "Kai: coffee later?\nMira: can't, double shift\nKai: tomorrow then\nMira: deal",
+    "expect": { "lines": "parsed", "TIE": "missing", "SHARED": "missing", "NEW": "missing" }
+  },
+  {
+    "note": "malformed: markdown names, TIE with no text, SHARED with words, NEW as none",
+    "at": 3,
+    "kind": "world-talk",
+    "model": "fixture",
+    "instruction": "Write a text conversation between Kai Moreno and Mira Okafor, who know each other. Sam isn't in it.\n- Then one more line: SHARED: <the numbers>, or SHARED: none.\n- add one line: NEW: <it>.\n- end with one more line: TIE: <x> | <y>.",
+    "reply": "**Kai:** hey\n**Mira:** hey yourself\n**Kai:** we good?\n**Mira:** we're good\n\n**SHARED:** they talked about the festival\n**NEW:** none\n**TIE:**",
+    "expect": { "lines": "parsed", "TIE": "malformed", "SHARED": "malformed", "NEW": "missing" }
+  },
+  {
+    "note": "malformed: a narrated scene instead of Name: lines",
+    "at": 4,
+    "kind": "world-talk",
+    "model": "fixture",
+    "instruction": "Write a text conversation between Kai Moreno and Mira Okafor, who know each other. Sam isn't in it.",
+    "reply": "Late that night: Kai texts Mira, asking if she is awake.\nA while later: she answers that the ER was busy, and they agree to meet tomorrow.",
+    "expect": { "lines": "malformed" }
+  },
+  {
+    "note": "good: offscreen talk with SHARED: none",
+    "at": 5,
+    "kind": "offscreen-talk",
+    "model": "fixture",
+    "instruction": "Write a short private conversation between Aria and Leo, two characters from a group chat with Sam, that happens while Sam is away.\n\n- Then one more line: SHARED: <the numbers of the things above someone actually told in this conversation>, or SHARED: none.",
+    "reply": "Aria: did Sam seem off to you?\nLeo: a bit. work stuff maybe\nAria: i'll ask tomorrow\nLeo: don't make it weird\nSHARED: none",
+    "expect": { "lines": "parsed", "SHARED": "parsed" }
+  },
+  {
+    "note": "missing: the model wrote prose, no lines at all",
+    "at": 6,
+    "kind": "offscreen-talk",
+    "model": "fixture",
+    "instruction": "Write a short private conversation between Aria and Leo, two characters from a group chat with Sam, that happens while Sam is away.",
+    "reply": "Aria and Leo spend the evening wondering what Sam is up to, and agree to ask tomorrow.",
+    "expect": { "lines": "missing" }
+  },
+  {
+    "note": "good: a group of theirs, three people",
+    "at": 7,
+    "kind": "their-group",
+    "model": "fixture",
+    "instruction": "This is \"Night shift\", a group chat between Mira Okafor, Jo Park, Dev Rao. Sam isn't in it.",
+    "reply": "Jo: who took my yogurt\nDev: not me\nMira: it was expired anyway\nJo: MIRA",
+    "expect": { "lines": "parsed" }
+  }
+]

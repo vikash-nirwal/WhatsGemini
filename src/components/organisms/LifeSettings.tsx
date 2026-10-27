@@ -9,6 +9,7 @@ import { formatUSD } from "src/features/spending/spending";
 import { ON_DEVICE_MODELS, onDeviceModel, setOnDeviceModel } from "src/features/life/onDevice";
 import { checkWebGPU } from "src/features/ai/providers/webllmAdapter";
 import { Select } from "src/components/molecules/form-controls/FormSelect";
+import HelperRepliesCard from "src/components/organisms/HelperRepliesCard";
 
 // Life in the background (#131): the life dial and the activity log, in
 // Settings > Spending, since every entry is a call on your key.
@@ -107,6 +108,8 @@ const LifeSettings = () => {
           </div>
         )}
       </SettingsCard>
+
+      <HelperRepliesCard />
     </>
   );
 };
