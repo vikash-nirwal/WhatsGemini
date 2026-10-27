@@ -103,7 +103,7 @@ export const undoWorldTime = (worldId: number | null) => async (dispatch: AppDis
   const { characters } = getState().character;
   const s = await loadSnapshot(worldId);
   if (!s || !canUndo(s, chats, Date.now())) return false;
-  for (const chat of s.chats) await dbService.updateChat(chat);
+  for (const chat of s.chats) await dbService.withChatLock(chat.id!, () => dbService.updateChat(chat));
   for (const before of s.characters) {
     const now = characters.find((c) => c.id === before.id);
     if (now) await dispatch(updateCharacter({ ...now, lifeEvents: before.lifeEvents, ties: before.ties, knowsAbout: before.knowsAbout, firstTexts: before.firstTexts }));

@@ -662,6 +662,10 @@ export const generateAssistText = createAsyncThunk(
         // A world's limit and quiet hours (#192), for life in the background.
         const callWorld = briefWorld ? briefWorld.id : null;
         if (activity && !backgroundAllowed(callWorld, Date.now())) throw new Error("Background life is paused in this world (quiet hours or today's limit).");
+        // A reply you're waiting for comes first (2026-10-27): background
+        // life holding the provider at the same moment can push your reply
+        // into a rate limit. It tries again on its next turn.
+        if (activity && state.ai.loading) throw new Error("A reply is being written; background life waits its turn.");
         if (activity) countBackgroundCall(callWorld, Date.now());
         const brief = buildWorldBrief(briefWorld, activity?.at ?? Date.now(), { events: briefWorld ? featureOn(briefWorld.id, "events") : false, history: briefWorld ? cachedTimeline(briefWorld.id) : undefined });
         // Background life on this device (#199): free, on the in-browser

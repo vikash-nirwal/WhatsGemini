@@ -26,9 +26,19 @@ const handleDbError = (error: unknown, rejectWithValue: any) => {
 };
 
 // Async Thunks
-export const fetchChats = createAsyncThunk("chat/fetchAll", async (_, { rejectWithValue }) => {
+// Runs a chat thunk under that chat's lock (dbService.withChatLock): the
+// chat is the argument itself or its `chatId`.
+const lockedByChat = <A, R, T>(run: (arg: A, api: T) => Promise<R>) => (arg: A, api: T): Promise<R> => {
+  const id = typeof arg === "number" ? arg : (arg as { chatId?: unknown })?.chatId;
+  return typeof id === "number" ? dbService.withChatLock(id, () => run(arg, api)) : run(arg, api);
+};
+
+// `readAt` goes with the result: a chat changed on screen after this read
+// keeps its newer copy (see fetchChats.fulfilled).
+export const fetchChats = createAsyncThunk<Chat[], void, { fulfilledMeta: { readAt: number } }>("chat/fetchAll", async (_, { rejectWithValue, fulfillWithValue }) => {
   try {
-    return await dbService.getAllChats();
+    const readAt = Date.now();
+    return fulfillWithValue(await dbService.getAllChats(), { readAt });
   } catch (error) {
     return handleDbError(error, rejectWithValue);
   }
@@ -91,7 +101,7 @@ export const addPreparedChat = createAsyncThunk("chat/addPrepared", async (chat:
 
 export const addMessage = createAsyncThunk(
   "chat/addMessage",
-  async ({ chatId, role, text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration, thoughts, isVoiceNote, beat, choices, secretRevealed, notes, swapped, noGreeting, quotedStatus, replyTo, forward, poll, at, godMode }: { godMode?: boolean; at?: number; chatId: number; role: string; text: string; images?: string[], isImageRequest?: boolean, videos?: string[], isVideoRequest?: boolean, videoPrompt?: string, isImpersonated?: boolean, emotion?: string, imagePrompt?: string, imageParams?: any, speakerId?: number, isRefusal?: boolean, isNarration?: boolean, thoughts?: string, isVoiceNote?: boolean, beat?: number, choices?: Message["choices"], secretRevealed?: boolean, notes?: Message["notes"], swapped?: boolean, noGreeting?: boolean, quotedStatus?: Message["quotedStatus"], replyTo?: Message["replyTo"], forward?: Message["forward"], poll?: Message["poll"] }, { dispatch, getState, rejectWithValue }) => {
+  lockedByChat(async ({ chatId, role, text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration, thoughts, isVoiceNote, beat, choices, secretRevealed, notes, swapped, noGreeting, quotedStatus, replyTo, forward, poll, at, godMode }: { godMode?: boolean; at?: number; chatId: number; role: string; text: string; images?: string[], isImageRequest?: boolean, videos?: string[], isVideoRequest?: boolean, videoPrompt?: string, isImpersonated?: boolean, emotion?: string, imagePrompt?: string, imageParams?: any, speakerId?: number, isRefusal?: boolean, isNarration?: boolean, thoughts?: string, isVoiceNote?: boolean, beat?: number, choices?: Message["choices"], secretRevealed?: boolean, notes?: Message["notes"], swapped?: boolean, noGreeting?: boolean, quotedStatus?: Message["quotedStatus"], replyTo?: Message["replyTo"], forward?: Message["forward"], poll?: Message["poll"] }, { dispatch, getState, rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
 
@@ -152,7 +162,7 @@ export const addMessage = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 export const deleteChat = createAsyncThunk("chat/delete", async (chatId: number, { rejectWithValue }) => {
@@ -169,7 +179,7 @@ export const deleteChat = createAsyncThunk("chat/delete", async (chatId: number,
 // chat - compression goes through insertCompressionSummary instead.
 export const updateMessages = createAsyncThunk(
   "chat/updateMessages",
-  async ({ chatId, newMessages }: { chatId: number; newMessages: Message[] }, { rejectWithValue }) => {
+  lockedByChat(async ({ chatId, newMessages }: { chatId: number; newMessages: Message[] }, { rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
       chat.content = newMessages;
@@ -180,14 +190,14 @@ export const updateMessages = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 // Structured update used by branching regenerate/edit/switch-branch - keeps
 // Chat.content and Chat.tree in sync in a single write.
 export const updateChatTree = createAsyncThunk(
   "chat/updateChatTree",
-  async (
+  lockedByChat(async (
     { chatId, content, tree, activeLeafId }: { chatId: number; content: Message[]; tree: ConversationTree; activeLeafId: string | null },
     { rejectWithValue }
   ) => {
@@ -201,13 +211,13 @@ export const updateChatTree = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 // "Undo compression": takes a summary pair back out (removeSummaryFromConversation).
 export const removeCompressionSummary = createAsyncThunk(
   "chat/removeCompressionSummary",
-  async ({ chatId, summaryId }: { chatId: number; summaryId: string }, { rejectWithValue }) => {
+  lockedByChat(async ({ chatId, summaryId }: { chatId: number; summaryId: string }, { rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
       const result = removeSummaryFromConversation(chat, summaryId);
@@ -220,7 +230,7 @@ export const removeCompressionSummary = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 // Splices a compression summary pair into the chat right after the last
@@ -229,7 +239,7 @@ export const removeCompressionSummary = createAsyncThunk(
 // summary (trimToLatestSummary). See spliceSummaryIntoConversation.
 export const insertCompressionSummary = createAsyncThunk(
   "chat/insertCompressionSummary",
-  async (
+  lockedByChat(async (
     { chatId, afterMessageId, afterIndex, summaryMessages }: { chatId: number; afterMessageId?: string; afterIndex: number; summaryMessages: Message[] },
     { rejectWithValue }
   ) => {
@@ -245,14 +255,14 @@ export const insertCompressionSummary = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 // Patches fields on one message (e.g. renaming a chapter) in both the
 // flattened content and, if present, its tree node, without moving it.
 export const updateChatMessage = createAsyncThunk(
   "chat/updateChatMessage",
-  async ({ chatId, messageId, patch }: { chatId: number; messageId: string; patch: Partial<Message> }, { rejectWithValue }) => {
+  lockedByChat(async ({ chatId, messageId, patch }: { chatId: number; messageId: string; patch: Partial<Message> }, { rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
       chat.content = chat.content.map((m) => (m.id === messageId ? { ...m, ...patch } : m));
@@ -265,7 +275,7 @@ export const updateChatMessage = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 // Updates simple per-chat switches, leaving content and tree untouched.
@@ -285,7 +295,7 @@ export const updateChatOptions = createAsyncThunk(
 // leaving content and tree untouched.
 export const updateChatAutoReply = createAsyncThunk(
   "chat/updateChatAutoReply",
-  async ({ chatId, autoReply }: { chatId: number; autoReply: Chat["autoReply"] }, { rejectWithValue }) => {
+  lockedByChat(async ({ chatId, autoReply }: { chatId: number; autoReply: Chat["autoReply"] }, { rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
       chat.autoReply = autoReply;
@@ -294,13 +304,13 @@ export const updateChatAutoReply = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 // Updates just a chat's pinned flag, leaving content and tree untouched.
 export const updateChatPinned = createAsyncThunk(
   "chat/updateChatPinned",
-  async ({ chatId, pinned }: { chatId: number; pinned: boolean }, { rejectWithValue }) => {
+  lockedByChat(async ({ chatId, pinned }: { chatId: number; pinned: boolean }, { rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
       chat.pinned = pinned;
@@ -309,13 +319,13 @@ export const updateChatPinned = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 // Updates just a chat's author's note (Scene panel), leaving content and tree untouched.
 export const updateChatAuthorNote = createAsyncThunk(
   "chat/updateChatAuthorNote",
-  async ({ chatId, authorNote }: { chatId: number; authorNote: Chat["authorNote"] }, { rejectWithValue }) => {
+  lockedByChat(async ({ chatId, authorNote }: { chatId: number; authorNote: Chat["authorNote"] }, { rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
       chat.authorNote = authorNote;
@@ -324,13 +334,13 @@ export const updateChatAuthorNote = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 // Updates just a chat's world tags (Scene panel), leaving content and tree untouched.
 export const updateChatWorldTags = createAsyncThunk(
   "chat/updateChatWorldTags",
-  async ({ chatId, worldTags }: { chatId: number; worldTags: Chat["worldTags"] }, { rejectWithValue }) => {
+  lockedByChat(async ({ chatId, worldTags }: { chatId: number; worldTags: Chat["worldTags"] }, { rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
       chat.worldTags = worldTags;
@@ -339,14 +349,14 @@ export const updateChatWorldTags = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 // Updates which of a room's participants are muted (Phase 12's Participants
 // panel) - leaves content and tree untouched. Meaningless for a 1:1 chat.
 export const updateChatMutedParticipants = createAsyncThunk(
   "chat/updateChatMutedParticipants",
-  async ({ chatId, mutedParticipantIds }: { chatId: number; mutedParticipantIds: Chat["mutedParticipantIds"] }, { rejectWithValue }) => {
+  lockedByChat(async ({ chatId, mutedParticipantIds }: { chatId: number; mutedParticipantIds: Chat["mutedParticipantIds"] }, { rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
       chat.mutedParticipantIds = mutedParticipantIds;
@@ -355,7 +365,7 @@ export const updateChatMutedParticipants = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 // Invites a character into an already-multi-character room, adding another
@@ -383,7 +393,7 @@ const pushRoomEvent = (chat: Chat, txt: string) => {
 // A notice in a chat, like "Aria changed their profile photo" (#125).
 export const addChatNotice = createAsyncThunk(
   "chat/addChatNotice",
-  async ({ chatId, text }: { chatId: number; text: string }, { rejectWithValue }) => {
+  lockedByChat(async ({ chatId, text }: { chatId: number; text: string }, { rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
       pushRoomEvent(chat, text);
@@ -392,13 +402,13 @@ export const addChatNotice = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 // Disappearing messages (#136): on (a day or a week) or off, with a notice.
 export const setDisappearing = createAsyncThunk(
   "chat/setDisappearing",
-  async ({ chatId, after, notice }: { chatId: number; after: "day" | "week" | null; notice: string }, { rejectWithValue }) => {
+  lockedByChat(async ({ chatId, after, notice }: { chatId: number; after: "day" | "week" | null; notice: string }, { rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
       chat.disappearing = after ? { after, since: Date.now() } : undefined;
@@ -408,13 +418,13 @@ export const setDisappearing = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 // Blocking (#133): set or clear it, with a notice in the chat.
 export const setBlocked = createAsyncThunk(
   "chat/setBlocked",
-  async ({ chatId, blocked, notice }: { chatId: number; blocked: Chat["blocked"] | null; notice: string }, { rejectWithValue }) => {
+  lockedByChat(async ({ chatId, blocked, notice }: { chatId: number; blocked: Chat["blocked"] | null; notice: string }, { rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
       chat.blocked = blocked || undefined;
@@ -424,13 +434,13 @@ export const setBlocked = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 // Renames a group chat, by you or by a member, with its notice (#124).
 export const renameGroupChat = createAsyncThunk(
   "chat/renameGroupChat",
-  async ({ chatId, title, by }: { chatId: number; title: string; by: string }, { rejectWithValue }) => {
+  lockedByChat(async ({ chatId, title, by }: { chatId: number; title: string; by: string }, { rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
       const clean = title.trim().slice(0, 60);
@@ -443,7 +453,7 @@ export const renameGroupChat = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 export const addChatParticipant = createAsyncThunk(
@@ -562,7 +572,7 @@ export const branchChatWithParticipant = createAsyncThunk(
 // Saves a chat's boundaries (see Chat.hardLimits / Chat.intensity).
 export const updateChatBoundaries = createAsyncThunk(
   "chat/updateChatBoundaries",
-  async ({ chatId, hardLimits, intensity }: { chatId: number; hardLimits?: Chat["hardLimits"]; intensity?: Chat["intensity"] }, { rejectWithValue }) => {
+  lockedByChat(async ({ chatId, hardLimits, intensity }: { chatId: number; hardLimits?: Chat["hardLimits"]; intensity?: Chat["intensity"] }, { rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
       chat.hardLimits = hardLimits && hardLimits.length > 0 ? hardLimits : undefined;
@@ -572,14 +582,14 @@ export const updateChatBoundaries = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 // Picks which of the primary character's greetings (see getGreetings) a
 // still-empty chat will open with; read by addMessage when it seeds the chat.
 export const updateChatGreeting = createAsyncThunk(
   "chat/updateChatGreeting",
-  async ({ chatId, greetingIndex }: { chatId: number; greetingIndex: number }, { rejectWithValue }) => {
+  lockedByChat(async ({ chatId, greetingIndex }: { chatId: number; greetingIndex: number }, { rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
       chat.greetingIndex = greetingIndex;
@@ -588,7 +598,7 @@ export const updateChatGreeting = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 // Updates just a room's own group-scoped memory (Scene panel, and the
@@ -597,7 +607,7 @@ export const updateChatGreeting = createAsyncThunk(
 // Character.memory instead and never touches this field.
 export const updateChatMemory = createAsyncThunk(
   "chat/updateChatMemory",
-  async (
+  lockedByChat(async (
     { chatId, memory, pinnedMemory, memoryCategories, memoryDates, memoryStanding }: { chatId: number; memory: Chat["memory"]; pinnedMemory?: Chat["pinnedMemory"]; memoryCategories?: Chat["memoryCategories"] | null; memoryDates?: Chat["memoryDates"] | null; memoryStanding?: Chat["memoryStanding"] },
     { rejectWithValue }
   ) => {
@@ -614,7 +624,7 @@ export const updateChatMemory = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 // Switches a 1:1 chat between sharing its character's memory and keeping
@@ -622,7 +632,7 @@ export const updateChatMemory = createAsyncThunk(
 // the character's (passed in as `seed`), so it still knows the backstory.
 export const updateChatMemoryScope = createAsyncThunk(
   "chat/updateChatMemoryScope",
-  async (
+  lockedByChat(async (
     { chatId, memoryScope, seed }: { chatId: number; memoryScope: "character" | "chat"; seed?: Pick<Chat, "memory" | "pinnedMemory" | "memoryCategories" | "memoryDates"> },
     { rejectWithValue }
   ) => {
@@ -641,7 +651,7 @@ export const updateChatMemoryScope = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 // Updates just a room's own group-scoped scenario (Scene panel) - see
@@ -649,7 +659,7 @@ export const updateChatMemoryScope = createAsyncThunk(
 // Character.scenario instead and never touches this field.
 export const updateChatScenario = createAsyncThunk(
   "chat/updateChatScenario",
-  async ({ chatId, scenario }: { chatId: number; scenario: Chat["scenario"] }, { rejectWithValue }) => {
+  lockedByChat(async ({ chatId, scenario }: { chatId: number; scenario: Chat["scenario"] }, { rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
       chat.scenario = scenario;
@@ -658,7 +668,7 @@ export const updateChatScenario = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 // Removes a member from a room outright (distinct from muting, which just
@@ -667,7 +677,7 @@ export const updateChatScenario = createAsyncThunk(
 // turns stop including them.
 export const removeChatParticipant = createAsyncThunk(
   "chat/removeChatParticipant",
-  async ({ chatId, characterId }: { chatId: number; characterId: number }, { rejectWithValue }) => {
+  lockedByChat(async ({ chatId, characterId }: { chatId: number; characterId: number }, { rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
       chat.characterIds = (chat.characterIds || []).filter((id) => id !== characterId);
@@ -680,7 +690,7 @@ export const removeChatParticipant = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 // Overrides which user persona this chat uses, independent of the global
@@ -688,7 +698,7 @@ export const removeChatParticipant = createAsyncThunk(
 // override so the chat falls back to whichever persona is globally active.
 export const updateChatPersona = createAsyncThunk(
   "chat/updateChatPersona",
-  async ({ chatId, personaId }: { chatId: number; personaId?: string }, { rejectWithValue }) => {
+  lockedByChat(async ({ chatId, personaId }: { chatId: number; personaId?: string }, { rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
       chat.personaId = personaId;
@@ -697,7 +707,7 @@ export const updateChatPersona = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 // Adds to (never replaces) a chat's running usage totals - called after every
@@ -706,7 +716,7 @@ export const updateChatPersona = createAsyncThunk(
 // messages get folded away by compression.
 export const incrementChatUsage = createAsyncThunk(
   "chat/incrementChatUsage",
-  async ({ chatId, tokens, cost }: { chatId: number; tokens: number; cost: number }, { rejectWithValue }) => {
+  lockedByChat(async ({ chatId, tokens, cost }: { chatId: number; tokens: number; cost: number }, { rejectWithValue }) => {
     try {
       if (!tokens && !cost) return null;
       const chat = await dbService.getChatById(chatId);
@@ -719,7 +729,7 @@ export const incrementChatUsage = createAsyncThunk(
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
-  }
+  })
 );
 
 export const importChat = createAsyncThunk("chat/import", async (chatData: any, { rejectWithValue }) => {
@@ -768,6 +778,10 @@ interface ChatState {
   // Redux rather than component state so the Sidebar can render a "Typing..."
   // badge on that chat's row without needing its own timer.
   pendingFollowups: Record<number, number>;
+  // When each chat was last changed here (2026-10-27): a refresh that read
+  // the database before then would put back an older copy - the reply you
+  // just got, gone from the screen while the typing dots stayed.
+  changedAt: Record<number, number>;
 }
 
 const initialState: ChatState = {
@@ -775,6 +789,7 @@ const initialState: ChatState = {
   loading: false,
   error: null,
   pendingFollowups: {},
+  changedAt: {},
 };
 
 const chatSlice = createSlice({
@@ -798,7 +813,11 @@ const chatSlice = createSlice({
       })
       .addCase(fetchChats.fulfilled, (state, action) => {
         state.loading = false;
-        state.chats = action.payload;
+        const readAt = (action.meta as { readAt?: number }).readAt ?? 0;
+        state.chats = action.payload.map((chat) => {
+          const local = state.chats.find((c) => c.id === chat.id);
+          return local && chat.id != null && (state.changedAt[chat.id] || 0) > readAt ? local : chat;
+        });
       })
       .addCase(fetchChats.rejected, (state, action) => {
         state.loading = false;
@@ -1053,7 +1072,16 @@ const chatSlice = createSlice({
       })
       .addCase(importChat.rejected, (state, action) => {
         state.error = action.payload as string;
-      });
+      })
+      // Every change to one chat, for the refresh above.
+      .addMatcher(
+        (action): action is { type: string; meta: { arg: unknown }; payload: unknown } => action.type.startsWith("chat/") && action.type.endsWith("/fulfilled") && !action.type.startsWith("chat/fetch"),
+        (state, action) => {
+          const arg = action.meta?.arg;
+          const id = typeof arg === "number" ? arg : (arg as { chatId?: unknown } | undefined)?.chatId;
+          if (typeof id === "number") state.changedAt[id] = Date.now();
+        }
+      );
   },
 });
 

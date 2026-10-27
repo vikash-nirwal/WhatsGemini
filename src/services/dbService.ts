@@ -51,6 +51,8 @@ class KindredDB extends Dexie {
 
 export const db = new KindredDB();
 
+const chatLocks = new Map<number, Promise<void>>();
+
 export const dbService = {
   // Settings (e.g. Directory Handle)
   async getSetting(key: string): Promise<any> {
@@ -76,6 +78,27 @@ export const dbService = {
     return await db.chats.add(chat as Chat);
   },
 
+  // One change at a time per chat (the user's report, 2026-10-27: a reply
+  // went missing while background life was busy). Most changes read the
+  // whole chat, change it and write it back; two at once - your reply and,
+  // say, a character's news text or a group's talk - each wrote back its own
+  // copy, and the later one erased the other. Changes to one chat now wait
+  // their turn; different chats don't wait for each other.
+  async withChatLock<T>(id: number, run: () => Promise<T>): Promise<T> {
+    const before = chatLocks.get(id) || Promise.resolve();
+    let release!: () => void;
+    const mine = new Promise<void>((resolve) => (release = resolve));
+    const queue = before.then(() => mine);
+    chatLocks.set(id, queue);
+    await before;
+    try {
+      return await run();
+    } finally {
+      release();
+      if (chatLocks.get(id) === queue) chatLocks.delete(id);
+    }
+  },
+
   async updateChat(chat: Chat): Promise<number> {
     return await db.chats.put(chat);
   },
@@ -84,13 +107,15 @@ export const dbService = {
   // different fields landing at once (say a reply's scene state and its
   // story tags) can't overwrite each other.
   async patchChat(id: number, patch: Partial<Chat>): Promise<Chat> {
-    return await db.transaction("rw", db.chats, async () => {
-      const chat = await db.chats.get(id);
-      if (!chat) throw new Error(`Chat with id ${id} not found.`);
-      Object.assign(chat, patch);
-      await db.chats.put(chat);
-      return chat;
-    });
+    return await dbService.withChatLock(id, () =>
+      db.transaction("rw", db.chats, async () => {
+        const chat = await db.chats.get(id);
+        if (!chat) throw new Error(`Chat with id ${id} not found.`);
+        Object.assign(chat, patch);
+        await db.chats.put(chat);
+        return chat;
+      })
+    );
   },
 
   async deleteChat(id: number): Promise<void> {

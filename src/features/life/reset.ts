@@ -58,7 +58,8 @@ const resetPeople = async (dispatch: (a: unknown) => unknown, state: State, ids:
   for (const chat of theirs) {
     if (!chat.id) continue;
     if (deleteChats) await dispatch(deleteChat(chat.id));
-    else await dbService.updateChat(withoutProgress(await dbService.getChatById(chat.id)));
+    // Under the chat's lock, like every other change to a chat.
+    else await dbService.withChatLock(chat.id, async () => { await dbService.updateChat(withoutProgress(await dbService.getChatById(chat.id!))); });
   }
   await dispatch(fetchChats());
 };
