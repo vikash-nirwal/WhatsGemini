@@ -53,3 +53,29 @@ export const selectRelevantFacts = (
   );
   return facts.filter((_, i) => chosen.has(i));
 };
+
+// With "where things stand" (#142) in the prompt, the general picture is
+// covered; what a paragraph can't carry is the detail the conversation has
+// just touched ("Nora is sick"). So only facts that actually came up, by
+// their words or by meaning (#200), go in beside it, a few at most.
+export const STANDING_DETAIL_LIMIT = 6;
+export const selectMentionedFacts = (
+  facts: string[],
+  recentMessages: Message[] | undefined,
+  limit: number = STANDING_DETAIL_LIMIT,
+  boost?: Set<string>
+): string[] => {
+  const recentText = (recentMessages || []).slice(-MEMORY_RELEVANCE_SCAN_COUNT).map((m) => m.txt || "").join("\n");
+  const recentStems = new Set(words(recentText).map(stem));
+  const scored = facts
+    .map((fact, index) => {
+      let overlap = 0;
+      new Set(words(fact).map(stem)).forEach((s) => { if (recentStems.has(s)) overlap++; });
+      return { index, score: overlap * 2 + (boost?.has(fact) ? 3 : 0) };
+    })
+    // One shared word is often a coincidence ("today"); two, or a match by
+    // meaning, is the fact coming up.
+    .filter((s) => s.score >= 4 || boost?.has(facts[s.index]));
+  const chosen = new Set(scored.sort((a, b) => b.score - a.score || b.index - a.index).slice(0, limit).map((s) => s.index));
+  return facts.filter((_, i) => chosen.has(i));
+};

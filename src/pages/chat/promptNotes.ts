@@ -86,7 +86,10 @@ export const groupChatsNoteFor = (character: Character | undefined, chats: Chat[
   const nameOf = (id?: number) => characters.find((x) => x.id === id)?.name || "someone";
   const parts = groups.map(({ c }) => {
     const standing = c.memoryStanding?.text?.trim();
-    const facts = [...(c.pinnedMemory || []), ...(c.memory || [])].slice(-4);
+    // Pinned facts first and kept (#227): they're what the user marked as mattering.
+    const pinned = c.pinnedMemory || [];
+    const rest = (c.memory || []).filter((f) => !pinned.includes(f));
+    const facts = [...pinned, ...rest.slice(rest.length - Math.max(0, 4 - pinned.length))];
     const lines = (c.content || []).filter((m) => !m.isSystem && !m.isRoomEvent && m.txt?.trim()).slice(-4)
       .map((m) => `${m.role === YOU ? userName : nameOf(m.speakerId)}: ${(m.txt || "").replace(/\s+/g, " ").slice(0, 160)}`);
     return [`In the group "${c.title}":`, standing ? standing.slice(0, 400) : facts.length ? `- ${facts.join("\n- ")}` : "", `Last said:\n${lines.join("\n")}`].filter(Boolean).join("\n");

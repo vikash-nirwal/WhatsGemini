@@ -408,4 +408,12 @@ describe("where things stand in the prompt (#142)", () => {
     expect(without).not.toContain("Where things stand");
     expect(without).toContain("Sam has a sister.");
   });
+
+  it("still brings in a fact the conversation just touched, which the paragraph left out", () => {
+    const aria = makeCharacter({ memory: ["Sam's sister Nora is sick in hospital.", "Sam likes jazz."], memoryStanding: { text: "Sam and Aria are close.", at: 1 } });
+    const { text } = buildSystemInstruction(aria, undefined, undefined, undefined, [msg(YOU, "I visited Nora at the hospital today")]);
+    expect(text).toContain("Where things stand");
+    expect(text).toContain("Sam's sister Nora is sick in hospital.");
+    expect(text).not.toContain("Sam likes jazz.");
+  });
 });

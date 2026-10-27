@@ -6,6 +6,7 @@ import { fetchChatById, updateChatMemory, updateChatOptions } from "../../featur
 import { patchCharacter } from "../../features/characterSlice";
 import { applyMemoryChanges, carryMemoryCategories } from "../../features/ai/utils/memoryExtraction";
 import { carryMemoryDates } from "../../features/ai/utils/memoryTime";
+import { groupFactsFor, rememberFacts } from "../../features/memory/sharedMoments";
 import { appendDiaryEntry } from "../../features/ai/utils/diary";
 import { formatTranscript, TranscriptNames } from "../../features/ai/utils/chatHistoryUtils";
 import { trimToLatestSummary } from "../../features/ai/utils/transcript";
@@ -16,6 +17,8 @@ import { buildStagePrompt, parseStageReply, stageCheckDue } from "../../features
 import { latestStorySummary } from "../../features/chat/recap";
 import { applyPlanChanges, buildPlansPrompt, mentionsOpenPlan, mentionsPlan, openPlans, parsePlansReply } from "../../features/chat/sharedPlans";
 import { generateNodeId } from "../../features/chat/messageTree";
+import { logChatMoment } from "../../features/world/chatMoments";
+import { STAGE_LABELS } from "../../features/character/relationshipStages";
 import { addJokes, buildJokesPrompt, jokeCheckDue, parseJokesReply } from "../../features/chat/insideJokes";
 import { AI, DIARY_INTERVAL, MEMORY_EXTRACTION_INTERVAL } from "../../utils/constants";
 import { Character, Chat, Message, RoleplayStyle, UserProfile } from "../../types";
@@ -61,9 +64,9 @@ export const useBackgroundUpdates = ({
   // conversation. `speaker` defaults to the chat's primary character
   // (unchanged behavior for a 1:1 chat) but a room passes whichever bot
   // actually just replied - only to gate/label the extraction call, though:
-  // in a room the extracted facts merge into the room's own Chat.memory, not
-  // that (or any) participant's personal Character.memory, so a group
-  // conversation never writes back onto a character used outside this room.
+  // in a room the extracted facts merge into the room's own Chat.memory, and
+  // each member also remembers the new ones as having happened in the group
+  // (see below).
   //
   // Counted from the message count at the last extraction (per chat, this
   // session) rather than `length % interval === 0`: impersonated/silent sends,
@@ -114,6 +117,15 @@ export const useBackgroundUpdates = ({
           const memoryCategories = carryMemoryCategories(merged, pinned, currentChat?.memoryCategories, existingMemory, changes);
           const memoryDates = carryMemoryDates(merged, pinned, currentChat?.memoryDates, existingMemory, changes, Date.now());
           await dispatch(updateChatMemory({ chatId: chatIdNum, memory: merged, memoryCategories: memoryCategories ?? null, memoryDates: memoryDates ?? null, memoryStanding }));
+          // Everyone in a group was there: each member takes its new facts
+          // into their own memory too, labelled with the group, so their
+          // private chats remember it after the group note has gone stale.
+          // A 1:1 that keeps its own memory is a what-if and stays apart.
+          if (isRoom && changes.added.length && currentChat) {
+            const { facts, categories } = groupFactsFor(currentChat.title, changes.added, changes.categories);
+            const now = Date.now();
+            for (const member of roomCharacters) await dispatch(patchCharacter(member.id, (fresh) => rememberFacts(fresh, facts, categories, now)));
+          }
         } else {
           // Re-read the character before writing: `speaker` was captured
           // before the extraction call, and saving it whole would undo
@@ -244,6 +256,7 @@ export const useBackgroundUpdates = ({
     })));
     dispatch(updateChatOptions({ chatId: chatIdNum, patch: { relationshipSuggestion: undefined } }));
     toast.success(`${characterData.name} and you: ${suggestion.to}`);
+    dispatch(logChatMoment(currentChat, characterData, `${characterData.name} and you: now ${suggestion.to}${suggestion.from ? ` (was ${suggestion.from})` : ""}`));
   };
   const dismissRelationship = () => {
     if (chatIdNum) dispatch(updateChatOptions({ chatId: chatIdNum, patch: { relationshipSuggestion: undefined } }));
@@ -304,6 +317,7 @@ export const useBackgroundUpdates = ({
   const acceptStage = () => {
     if (!chatIdNum || !currentChat?.stageSuggestion) return;
     dispatch(updateChatOptions({ chatId: chatIdNum, patch: { stage: currentChat.stageSuggestion, stageSuggestion: undefined } }));
+    if (characterData) dispatch(logChatMoment(currentChat, characterData, `${characterData.name} and you: ${STAGE_LABELS[currentChat.stageSuggestion].toLowerCase()} now${currentChat.stage ? ` (was ${STAGE_LABELS[currentChat.stage].toLowerCase()})` : ""}`));
   };
   const dismissStage = () => {
     if (chatIdNum) dispatch(updateChatOptions({ chatId: chatIdNum, patch: { stageSuggestion: undefined } }));

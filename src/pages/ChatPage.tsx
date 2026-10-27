@@ -48,6 +48,8 @@ import { buildTimePassedNote, buildTimePassedOpener, describeGap, gapDays, TimeP
 import { skipStoryTime } from "../features/world/storyTime";
 import { addTruth, buildGodDirective, buildGodTruthsSection } from "../features/chat/godMode";
 import { logToTimeline } from "../features/world/timeline";
+import { buildCanonNote, buildInnerStateNote, buildWorldNowNote } from "../features/world/worldNow";
+import { logChatMoment } from "../features/world/chatMoments";
 import { activeEvents, buildEventsNote } from "../features/world/worldEvents";
 import { buildLifeNote } from "../features/world/worldLife";
 import { buildWhereNote, buildYouAtNote, whereIs, whereYouAre } from "../features/world/places";
@@ -285,6 +287,7 @@ const ChatPage = () => {
       featureOn(speaker.worldId, "places") ? buildWhereNote(whereIs(speaker, world?.map?.pins || [], now)) : undefined,
       buildMyStatusNote(userName, myStatuses, speaker.id, now),
       ownChatNoteFor(speaker, chats, userName),
+      buildInnerStateNote(speaker, world, characters, now),
     ].filter(Boolean).join("\n\n") || undefined;
   };
 
@@ -461,6 +464,13 @@ const ChatPage = () => {
   scene.historyNote = buildHistoryNote(isRoom ? worldTimeline.filter((e) => audienceOf(e) === "public") : worldTimeline, noteTime, 8, isRoom ? undefined : characterData?.id);
   scene.heardNote = mainStory ? buildKnowsNote(characterData, worldTimeline, characters, noteTime) : undefined;
   scene.goalNote = mainStory && featureOn(chatWorldId, "goals") ? buildGoalNote(characterData) : undefined;
+  // The world as it is now (#211, #218-#222), which the world engine's own
+  // prompts already hear: what's settled, the season and places, and the
+  // character's own mood and bonds. A what-if isn't this world's now.
+  const nowWorld = currentChat?.whatIf ? undefined : worlds.find((w) => w.id === chatWorldId);
+  scene.canonNote = buildCanonNote(nowWorld, characters, worldTimeline);
+  scene.worldNowNote = buildWorldNowNote(nowWorld, noteTime);
+  scene.innerNote = mainStory ? buildInnerStateNote(characterData, nowWorld, characters, noteTime) : undefined;
   scene.noteBudget = noteBudgetFor(maxContextTokensForNotes);
   if (featureOn(chatWorldId, "places")) {
     const placesWorld = worlds.find((w) => w.id === chatWorldId);
@@ -1254,6 +1264,7 @@ const ChatPage = () => {
     autoReplyInFlightRef.current = true;
     try {
       await dispatch(patchCharacter(characterData.id, (fresh) => ({ gifts: [...(fresh.gifts || []), { id: newGiftId(), what, at: Date.now(), from: "you", chatId: chatIdNum }] })));
+      dispatch(logChatMoment(currentChat, characterData, `You gave ${characterData.name} ${what}`));
       await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text: giftMessage(what) }));
       await sendCharacterFollowup(undefined, buildGiftReactionDirective(what, activePersona?.name?.trim() || "The user"));
     } catch (err) {
@@ -2454,10 +2465,12 @@ const ChatPage = () => {
     );
     if (!confirmed) return;
     await dispatch(setBlocked({ chatId: chatIdNum, blocked: { by: "you", at: Date.now() }, notice: `You blocked ${name}` }));
+    dispatch(logChatMoment(currentChat, characterData, `You blocked ${name}`));
   };
   const unblockCharacter = () => {
     if (!chatIdNum || !characterData) return;
     void dispatch(setBlocked({ chatId: chatIdNum, blocked: null, notice: `You unblocked ${characterData.name}` }));
+    dispatch(logChatMoment(currentChat, characterData, `You unblocked ${characterData.name}`));
   };
 
   const chatActions: HeaderAction[] = [

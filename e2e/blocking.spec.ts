@@ -18,7 +18,7 @@ test("you can block someone from Contact info, and unblock them", async ({ page 
 
   await bar.getByRole("button", { name: "Unblock" }).click();
   await expect(page.getByLabel("Message input")).toBeVisible();
-  await expect(page.getByText("You unblocked Aria")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Messages" }).getByText("You unblocked Aria")).toBeVisible();
 });
 
 test("a character can block you in a fight: no replies, one grey tick", async ({ page, mockAI }) => {
@@ -26,7 +26,7 @@ test("a character can block you in a fight: no replies, one grey tick", async ({
   await openChat(page);
   await sendMessage(page, "You're nothing to me");
   await waitForReplyDone(page);
-  await expect(page.getByText("Aria blocked you")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Messages" }).getByText("Aria blocked you")).toBeVisible();
   await expect(page.getByText("[Block]")).toHaveCount(0);
 
   await sendMessage(page, "Wait, I'm sorry");

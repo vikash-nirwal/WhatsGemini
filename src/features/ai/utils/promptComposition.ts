@@ -24,7 +24,7 @@ import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
 import { buildStoryTimeSection } from "../../world/storyTime";
 import { applyMacros } from "./macros";
 import { countProtectedPrefix, trimToLatestSummary } from "./transcript";
-import { selectRelevantFacts } from "./memoryRelevance";
+import { selectMentionedFacts, selectRelevantFacts } from "./memoryRelevance";
 import { annotateFacts, buildMisrememberDirective, MEMORY_DATES_NOTE } from "./memoryTime";
 import { buildWritingStyleSection } from "../../character/writingStyle";
 import { buildDiarySection } from "./diary";
@@ -401,7 +401,12 @@ export const buildSystemInstruction = (
   // word-matched facts (it was written from all of them); pinned facts
   // still go in word for word.
   const standing = ownMemory.standing?.trim();
-  const personalFacts = standing ? ownMemory.pinned : [...ownMemory.pinned, ...selectRelevantFacts(ownMemory.memory, recentMessages, undefined, recalledFor(String(character.id)))];
+  // Beside it (#225), the few facts this conversation has just touched, which a
+  // paragraph may have left out; recall by meaning (#200) counts here too.
+  const recalled = recalledFor(String(character.id));
+  const personalFacts = standing
+    ? [...ownMemory.pinned, ...selectMentionedFacts(ownMemory.memory.filter((f) => !ownMemory.pinned.includes(f)), recentMessages, undefined, recalled)]
+    : [...ownMemory.pinned, ...selectRelevantFacts(ownMemory.memory, recentMessages, undefined, recalled)];
   if (standing) sections.push(`Where things stand, from everything you remember (what's true now, what already happened, what's still coming):\n${standing}`);
   if (personalFacts.length > 0) {
     // With dates (#109) each fact says when it was learned.
@@ -412,11 +417,11 @@ export const buildSystemInstruction = (
   }
   // Group-room-only: facts learned specifically during this room's own
   // conversation (Chat.memory), on top of - never instead of - the speaker's
-  // own personal memory above. Never written back to any participant's own
-  // Character.memory, so it stays scoped to this one room.
+  // own personal memory above. Each member also keeps the new ones in their
+  // own memory, labelled with the group (sharedMoments.ts).
   const groupStanding = isRoomTurn ? options.groupStanding?.trim() : undefined;
   if (groupStanding) sections.push(`Where things stand in this group, from everything remembered here:\n${groupStanding}`);
-  const groupFacts = isRoomTurn ? [...(options.groupPinnedMemory || []), ...(groupStanding ? [] : selectRelevantFacts(groupMemory || [], recentMessages))] : [];
+  const groupFacts = isRoomTurn ? [...(options.groupPinnedMemory || []), ...(groupStanding ? selectMentionedFacts(groupMemory || [], recentMessages) : selectRelevantFacts(groupMemory || [], recentMessages))] : [];
   if (groupFacts.length > 0) {
     sections.push(`Facts learned during this group conversation, shared by everyone here:\n- ${groupFacts.join("\n- ")}`);
   }
@@ -617,6 +622,9 @@ export interface SceneContext {
   youAtNote?: string; // where the user is in the world (#183)
   keptNote?: string; // secrets this character keeps from people in their world (#170)
   factionNote?: string; // their family or faction, and loyalty (#171)
+  canonNote?: string; // what's settled in this world, never to contradict (#220)
+  worldNowNote?: string; // the season and how places are after an event (#219, #222)
+  innerNote?: string; // their own mood and charged bonds lately, the people around them (#211, #218)
   noteBudget?: number; // characters the notes may take (#187), from the model's window
 }
 
@@ -627,7 +635,7 @@ export interface SceneContext {
 // 5 = never dropped (rules and what's true), 1 = first to go.
 const NOTE_PRIORITY: [keyof SceneContext, NotePriority][] = [
   ["knowsNote", 2], ["tiesNote", 3], ["worldTalkNote", 3], ["groupsNote", 4], ["letterNote", 4], ["onThisDayNote", 2], ["giftsNote", 3], ["plansNote", 3], ["secretsNote", 3],
-  ["godNote", 5], ["eventNote", 4], ["arcNote", 4], ["historyNote", 2], ["heardNote", 3], ["goalNote", 3], ["youAtNote", 4], ["keptNote", 4], ["factionNote", 3], ["lifeNote", 4], ["reputationNote", 3],
+  ["godNote", 5], ["eventNote", 4], ["arcNote", 4], ["historyNote", 2], ["heardNote", 3], ["goalNote", 3], ["youAtNote", 4], ["keptNote", 4], ["factionNote", 3], ["lifeNote", 4], ["reputationNote", 3], ["canonNote", 5], ["worldNowNote", 3], ["innerNote", 3],
   ["whatIfNote", 5], ["dayNote", 4], ["dayMoodNote", 4], ["moodNote", 4], ["jokesNote", 3], ["conflictNote", 5], ["liesNote", 4], ["jealousyNote", 3], ["dreamNote", 5],
   ["hookNote", 5], ["slipsNote", 5], ["callbackNote", 4], ["concernsNote", 3], ["placeNote", 3], ["statusNote", 4], ["quoteNote", 5], ["groupNote", 5], ["profileNote", 2],
   ["disappearingNote", 5], ["inviteNote", 5], ["stickerNote", 5], ["blockNote", 5], ["timePassedNote", 5],

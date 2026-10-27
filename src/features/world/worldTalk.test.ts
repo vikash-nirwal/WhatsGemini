@@ -41,6 +41,27 @@ describe("life inside a world (#145)", () => {
     expect(worldTalkNoteFor(kai, [holder, kai], NOW + 3 * 86_400_000)).toBeUndefined();
   });
 
+  it("keeps talks per pair, so a busy holder's partners each keep their thread", () => {
+    let holder = aria;
+    for (let i = 0; i < 30; i++) holder = addWorldTalk(holder, { id: `t${i}`, withId: 2 + (i % 5), at: NOW + i, lines: [{ speakerId: 1, text: `line ${i}` }] });
+    expect([2, 3, 4, 5, 6].map((o) => holder.talks!.filter((t) => t.withId === o).length)).toEqual([6, 6, 6, 6, 6]);
+    // A failed attempt marks the time without pushing out real talks, and
+    // a second one replaces the first.
+    holder = addWorldTalk(holder, { id: "e1", withId: 2, at: NOW + 100, lines: [] });
+    holder = addWorldTalk(holder, { id: "e2", withId: 2, at: NOW + 200, lines: [] });
+    const withKai = holder.talks!.filter((t) => t.withId === 2);
+    expect(withKai.map((t) => t.id)).toEqual(["t0", "t5", "t10", "t15", "t20", "t25", "e2"]);
+    holder = addWorldTalk(holder, { id: "t99", withId: 2, at: NOW + 300, lines: [{ speakerId: 1, text: "hi" }] });
+    expect(holder.talks!.filter((t) => t.withId === 2).map((t) => t.id)).toEqual(["t5", "t10", "t15", "t20", "t25", "t99"]);
+  });
+
+  it("says how they talked: letters and in person aren't texts", () => {
+    const letters = addWorldTalk(aria, { id: "l", withId: 2, at: NOW, lines: [{ speakerId: 2, text: "Dear Aria" }], medium: "letters" });
+    expect(worldTalkNoteFor(kai, [letters, kai], NOW + 10)).toMatch(/^Recently you and Aria wrote to each other:/);
+    const met = addWorldTalk(aria, { id: "m", withId: 2, at: NOW, lines: [{ speakerId: 2, text: "Hey" }], medium: "in person", place: "the docks" });
+    expect(worldTalkNoteFor(kai, [met, kai], NOW + 10)).toMatch(/^Recently you talked with Aria at the docks:/);
+  });
+
   it("asks for their own talk, up to the world's length, with their tie", () => {
     const prompt = buildWorldTalkPrompt(bram, aria, { world: worlds[0], userName: "Sam", maxLines: 6 });
     expect(prompt).toContain("live in Harbour Town: A rainy port.");

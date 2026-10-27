@@ -11,7 +11,7 @@ import { GOAL_ASK, goalLine } from "./goals";
 // talks to everyone.
 
 export const WORLD_TALK_GAP_MS = 6 * 60 * 60 * 1000; // per pair, before the life dial
-const KEEP_TALKS = 6; // per stored character
+const KEEP_TALKS = 6; // per pair
 const NOTE_FRESH_MS = 2 * 24 * 60 * 60 * 1000;
 
 const holderOf = (a: number, b: number) => Math.min(a, b);
@@ -163,7 +163,7 @@ export const buildWorldTalkPrompt = (
     ...(standing ? [standing] : []),
     ...(extras ? [extras] : []),
     ...(topic === "user" ? ["", knowing(a), knowing(b)].filter((x): x is string => x !== undefined) : []),
-    ...(previous?.lines.length ? ["", "The last time they texted:", ...previous.lines.map((l) => `${names[l.speakerId] || "?"}: ${l.text}`)] : []),
+    ...(previous?.lines.length ? ["", previous.medium === "letters" ? "Their last letters:" : previous.medium === "in person" ? "The last time they talked:" : "The last time they texted:", ...previous.lines.map((l) => `${names[l.speakerId] || "?"}: ${l.text}`)] : []),
     ...(share?.text ? ["", share.text] : []),
     "",
     `What it's about this time: ${TOPIC_ASK(topic, a, b, userName, world?.name, news, groups)}`,
@@ -204,10 +204,19 @@ export const FRIENDS_AFTER_TALKS = 3;
 export const becameFriends = (characters: Character[], a: Character, b: Character) =>
   !a.ties?.some((t) => t.withId === b.id) && !b.ties?.some((t) => t.withId === a.id) && talksBetween(characters, a.id, b.id).filter((t) => t.lines.length).length >= FRIENDS_AFTER_TALKS;
 
-export const addWorldTalk = (holder: Character, talk: WorldTalk): Character => ({
-  ...holder,
-  talks: [...(holder.talks || []), talk].slice(-KEEP_TALKS),
-});
+// Kept per pair, not per holder (#224): the lower id of a busy world holds the
+// talks with everyone, and a shared cap left them one talk per partner, so
+// they never became friends (#181), lost the thread to follow up on, and
+// looked like they'd never talked. An empty talk (a failed attempt) only
+// marks when it was tried, so it replaces the pair's earlier empty one and
+// never pushes out a real talk.
+export const addWorldTalk = (holder: Character, talk: WorldTalk): Character => {
+  const all = holder.talks || [];
+  const others = all.filter((t) => t.withId !== talk.withId);
+  const pair = all.filter((t) => t.withId === talk.withId && t.lines.length);
+  const kept = talk.lines.length ? [...pair, talk].slice(-KEEP_TALKS) : [...pair, talk];
+  return { ...holder, talks: [...others, ...kept].sort((x, y) => x.at - y.at) };
+};
 
 export interface TalkThread {
   a: Character;
@@ -244,5 +253,6 @@ export const worldTalkNoteFor = (character: Character | undefined, characters: C
   const other = characters.find((c) => c.id === latest.otherId);
   if (!other) return undefined;
   const names: Record<number, string> = { [character.id]: character.name, [other.id]: other.name };
-  return `Recently you texted ${other.name}:\n${latest.t.lines.slice(-6).map((l) => `${names[l.speakerId]}: ${l.text}`).join("\n")}\nIt's part of your life; bring it up only if it fits.`;
+  const how = latest.t.medium === "letters" ? `you and ${other.name} wrote to each other` : latest.t.medium === "in person" ? `you talked with ${other.name}${latest.t.place ? ` at ${latest.t.place}` : " in person"}` : `you texted ${other.name}`;
+  return `Recently ${how}:\n${latest.t.lines.slice(-6).map((l) => `${names[l.speakerId]}: ${l.text}`).join("\n")}\nIt's part of your life; bring it up only if it fits.`;
 };

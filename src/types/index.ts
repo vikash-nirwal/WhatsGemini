@@ -521,9 +521,9 @@ export interface Chat {
   authorNote?: string; // freeform per-chat note injected into every reply
   worldTags?: string[]; // short user-authored lore/setting tags for this chat
   // Group-room-only equivalents of Character.scenario/memory (see there) -
-  // scoped to this chat instead of any one participant, so a room's plot
-  // context and facts learned during it die with the room and never leak
-  // into a character's own 1:1 chats. Unset/unused for a 1:1 chat, where
+  // scoped to this chat instead of any one participant. A room's plot
+  // context stays here; its facts are also copied, labelled with the group,
+  // into each member's own memory (sharedMoments.ts). Unset/unused for a 1:1 chat, where
   // the primary character's own scenario/memory apply instead.
   scenario?: string;
   memory?: string[];

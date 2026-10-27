@@ -81,6 +81,14 @@ describe("information between private chats and groups (review, 2026-10-26)", ()
     expect(note).not.toContain("ancient");
     expect(groupChatsNoteFor(aria, chats, [aria, kai], "Sam", 2, now)).toBeUndefined();
   });
+  test("a group's pinned facts are kept, with its newest others", () => {
+    const group = { id: 2, title: "Crew", characterIds: [1, 2], pinnedMemory: ["Sam is the captain"], memory: ["a", "b", "c", "d", "e"], content: [{ role: "you", txt: "hi", timestamp: now - 1000 }] };
+    const note = groupChatsNoteFor(aria, [group], [aria, kai], "Sam", 1, now);
+    expect(note).toContain("- Sam is the captain\n- c\n- d\n- e");
+    expect(note).not.toContain("- b");
+    const allPinned = { ...group, pinnedMemory: ["p1", "p2", "p3", "p4", "p5"] };
+    expect(groupChatsNoteFor(aria, [allPinned], [aria, kai], "Sam", 1, now)).not.toContain("- e");
+  });
   test("what the user and someone else are to each other stays private", () => {
     const note = knowsNoteFor(aria, [aria, kai], [], "Sam", now);
     expect(note).toContain("Sam hates mornings");

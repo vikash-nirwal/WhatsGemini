@@ -10,6 +10,10 @@ import { WorldMapView } from "src/components/molecules/WorldMapView";
 import { latestPinIn } from "../features/world/worldMap";
 import { generateAIResponse, generateAdventureSceneImage, autoCompressAdventure, extractCharacterMemory, summarizeChapter } from "../features/aiSlice";
 import { applyMemoryChanges } from "../features/ai/utils/memoryExtraction";
+import { adventureFactsFor, rememberFacts } from "../features/memory/sharedMoments";
+import { patchCharacter } from "../features/characterSlice";
+import { worldOf } from "../features/world/currentWorld";
+import { logToTimeline } from "../features/world/timeline";
 import { buildChatHistory, buildPostHistoryNote } from "../features/ai/utils/promptComposition";
 import { trimToLatestSummary, countProtectedPrefix, latestSummaryIndex, buildSummaryMessages } from "../features/ai/utils/transcript";
 import { TagInput } from "src/components/molecules/form-controls/TagInput";
@@ -51,6 +55,13 @@ const AdventurePage = () => {
   const adventure = adventures.find((a) => a.id === Number(adventureId));
   const world = worlds.find((w) => w.id === adventure?.worldId);
   const cast = useMemo(() => characters.filter((c) => adventure?.characterIds.includes(c.id)), [characters, adventure?.characterIds]);
+  // Cast members who live in the world the story is set in: it happened to
+  // them, so they remember it and the world hears of it. A freeform story
+  // with no world is a what-if and stays in the story.
+  const castAtHome = useMemo(() => {
+    const home = adventure ? worldOf(adventure, worlds) : null;
+    return home === null ? [] : cast.filter((c) => worldOf(c, worlds) === home);
+  }, [cast, worlds, adventure]);
   // Which persona this adventure actually speaks as: its own override if set,
   // otherwise whichever persona is globally active - same rule ChatPage uses.
   const persona = personas.find((p) => p.id === (adventure?.personaId || globalActivePersonaId)) || personas[0];
@@ -215,11 +226,18 @@ const AdventurePage = () => {
         if (changes.added.length + changes.updated.length + changes.forgotten.length + changes.reinforced.length > 0 || changes.standing) {
           await dispatch(updateAdventureMemory({ adventureId: adventure.id, memory: applyMemoryChanges(existing, changes, []), memoryStanding: changes.standing ? { text: changes.standing, at: Date.now() } : undefined }));
         }
+        // The cast remember their part (sharedMoments.ts), when the story
+        // is set in the world they live in; a story elsewhere is a what-if.
+        const now = Date.now();
+        for (const c of changes.added.length ? castAtHome : []) {
+          const facts = adventureFactsFor(adventure.title, changes.added, c.name);
+          if (facts.length) await dispatch(patchCharacter(c.id, (fresh) => rememberFacts(fresh, facts, Object.fromEntries(facts.map((f) => [f, "story" as const])), now)));
+        }
       } catch (err) {
         console.warn("Adventure memory extraction failed (non-fatal):", err);
       }
     },
-    [adventure, dispatch, persona]
+    [adventure, dispatch, persona, castAtHome]
   );
 
   const generateNarratorReply = useCallback(
@@ -501,7 +519,15 @@ const AdventurePage = () => {
     {
       icon: isCompleted ? FaUndo : FaCheckCircle,
       label: isCompleted ? "Reopen adventure" : "Mark completed",
-      onClick: () => dispatch(updateAdventureStatus({ adventureId: adventure.id, status: isCompleted ? "active" : "completed" })),
+      onClick: () => {
+        void dispatch(updateAdventureStatus({ adventureId: adventure.id, status: isCompleted ? "active" : "completed" }));
+        // Finishing a story is something that happened in its world: the
+        // cast who live there know it first-hand, others may hear of it.
+        if (!isCompleted && castAtHome.length) {
+          const how = adventure.memoryStanding?.text?.replace(/\s+/g, " ").trim().slice(0, 240);
+          void logToTimeline(worldOf(adventure, worlds), { kind: "you", text: `You and ${castAtHome.map((c) => c.name).join(", ")} finished "${adventure.title}"${how ? `: ${how}` : ""}`, characterIds: castAtHome.map((c) => c.id), audience: "private" }, world?.storyTime);
+        }
+      },
     },
     {
       icon: FaShieldAlt,

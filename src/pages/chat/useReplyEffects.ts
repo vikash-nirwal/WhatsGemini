@@ -20,6 +20,7 @@ import { moodAfterReply } from "../../features/chat/lingeringMood";
 import { addLie, catchLie, standingLies } from "../../features/chat/lies";
 import { markRumorRaised, pendingRumors } from "../../features/character/rumors";
 import { patchCharacter } from "../../features/characterSlice";
+import { logChatMoment } from "../../features/world/chatMoments";
 import { mergeState } from "../../features/chat/sceneState";
 import { gameLabel, GameOutcome } from "../../features/chat/miniGames";
 import { buildNextIdeasPrompt } from "../../features/chat/coWriting";
@@ -101,6 +102,7 @@ export const useReplyEffects = ({
     // patched it up with whoever did.
     if (chatIdNum && payload?.blocks && !isRoom && characterData && !currentChat?.blocked) {
       void dispatch(setBlocked({ chatId: chatIdNum, blocked: { by: "them", at: Date.now() }, notice: `${characterData.name} blocked you` }));
+      dispatch(logChatMoment(currentChat, characterData, `${characterData.name} blocked you`));
     }
     if (payload?.patchedUp) void patchUp(payload.patchedUp);
     if (!chatIdNum || (!payload?.replyQuote && !payload?.forward && !payload?.contact && !payload?.invite && !payload?.sticker)) return;
@@ -124,6 +126,7 @@ export const useReplyEffects = ({
     const chat = blocker ? mainChatWith(chats, blocker.id) : undefined;
     if (!blocker || !chat?.id || !blockedByThem(chat)) return;
     await dispatch(setBlocked({ chatId: chat.id, blocked: null, notice: `${blocker.name} unblocked you` }));
+    dispatch(logChatMoment(chat, blocker, `${blocker.name} unblocked you`));
     toast.success(`${blocker.name} unblocked you`);
   };
   // View-once photos (#122): with the switch on, about half the photos a
@@ -263,6 +266,9 @@ export const useReplyEffects = ({
     if (lies !== currentChat?.toldLies) patch.toldLies = lies;
     if (currentChat?.pendingHook) patch.pendingHook = undefined;
     if (Object.keys(patch).length > 0) await dispatch(updateChatOptions({ chatId: chatIdNum, patch }));
+    // A fight, and making up, are the world's to hear of (chatMoments.ts).
+    if (speaker && effects.upset) dispatch(logChatMoment(currentChat, speaker, `${speaker.name} and you fell out: ${payload!.storyTags!.upset}`));
+    if (speaker && effects.madeUp) dispatch(logChatMoment(currentChat, speaker, `${speaker.name} and you made up${currentChat?.conflict?.about ? ` after falling out over ${currentChat.conflict.about}` : ""}`));
     if (effects.upset) toast.info(`${speaker?.name || "They"} ${speaker?.name ? "is" : "are"} upset with you`);
     if (effects.madeUp) toast.success("You made up");
     if (speaker && (effects.rumor || dreamt)) {
