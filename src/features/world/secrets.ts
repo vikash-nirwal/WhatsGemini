@@ -1,3 +1,4 @@
+import { weightedPick } from "./bonds";
 import { Character, KeptSecret, Chat } from "../../types";
 
 // Secrets between characters (#170): now and then someone starts keeping
@@ -12,8 +13,10 @@ export const secretDue = (lastAt: number | undefined, now: number, gapMs: number
   now - (lastAt || 0) >= gapMs && rand() < 0.5;
 
 // Who keeps what from whom: two people tied to each other.
-export const pickSecretPair = (cast: Character[], rand: () => number = Math.random): { keeper: Character; from: Character } | undefined => {
+export const pickSecretPair = (cast: Character[], rand: () => number = Math.random, weight?: (keeper: Character, from: Character) => number): { keeper: Character; from: Character } | undefined => {
   const pairs = cast.flatMap((keeper) => (keeper.ties || []).map((t) => cast.find((c) => c.id === t.withId)).filter((from): from is Character => Boolean(from)).map((from) => ({ keeper, from })));
+  // With the numbers on (#211), close or tense pairs have more to hide.
+  if (weight) return weightedPick(pairs, (p) => weight(p.keeper, p.from), rand);
   return pairs.length ? pairs[Math.floor(rand() * pairs.length)] : undefined;
 };
 

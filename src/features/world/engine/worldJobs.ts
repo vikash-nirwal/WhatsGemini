@@ -23,6 +23,7 @@ import { advanceArc, arcActive, BEAT_GAP_MS, nextBeatDue } from "../worldArcs";
 import { buildEventIdeaPrompt, EVENT_GAP_MS, eventDue, parseEvent } from "../worldEvents";
 import { addLifeEvent, buildLifeEventPrompt, cleanLifeEvent, LIFE_GAP_MS, lifeEventDue, NEWCOMER_GAP_MS, newcomerDue, pickLifeSubject } from "../worldLife";
 import { featureOn } from "../worldPrefs";
+import { lifeEventTone, lifeWeight, nudgeBond, nudgeMood, secretWeight } from "../bonds";
 import { EngineDispatch, engineState, GetState } from "./state";
 
 // A world's own life (#162-#184), moved out of WorldEventWatcher (#209):
@@ -116,12 +117,13 @@ export const moveLivesOn: Job = (now) => async (dispatch, getState) => {
   const world = pickWorld("lives", worlds, now, (w) => castOf(characters, w.id).length > 0 && featureOn(w.id, "arrivals") && lifeEventDue(w, now, lifeScaled(LIFE_GAP_MS)));
   if (!world) return;
   await dispatch(patchWorld(world.id, { lastLifeAt: now }));
-  const who = pickLifeSubject(castOf(characters, world.id), now);
+  const who = pickLifeSubject(castOf(characters, world.id), now, Math.random, featureOn(world.id, "drift") ? (c) => lifeWeight(c, now) : undefined);
   if (!who) return;
   const people = (who.ties || []).map((t) => characters.find((c) => c.id === t.withId)?.name).filter((n): n is string => Boolean(n));
   const text = cleanLifeEvent(await dispatch(generateAssistText({ instruction: buildLifeEventPrompt(who, world, people), background: true, activity: { at: now, kind: "event", text: `Something happened in ${who.name}'s life`, characterId: who.id, name: who.name } })).unwrap());
   if (!text) return;
-  await dispatch(patchCharacter(who.id, (latest) => addLifeEvent(latest, text, now)));
+  // Good news lifts their mood, bad news sinks it (#211).
+  await dispatch(patchCharacter(who.id, (latest) => ({ ...addLifeEvent(latest, text, now), ...nudgeMood(latest, lifeEventTone(text), now) })));
   // Their own news (#203): it travels by talk, and by them texting you.
   void logToTimeline(world.id, { kind: "event", text, characterIds: [who.id], audience: "private", at: now }, world.storyTime);
   await dispatch(tellTheNews(world, text, [who.id], now));
@@ -190,13 +192,14 @@ export const keepSecret: Job = (now) => async (dispatch, getState) => {
   const world = pickWorld("secrets", worlds, now, (w) => featureOn(w.id, "secrets") && secretDue(w.lastSecretAt, now, lifeScaled(SECRET_GAP_MS)) && pickSecretPair(castOf(characters, w.id)));
   if (!world) return;
   const cast = castOf(characters, world.id);
-  const { keeper, from } = pickSecretPair(cast)!;
+  const { keeper, from } = pickSecretPair(cast, Math.random, featureOn(world.id, "drift") ? (k, f) => secretWeight(k, f, now) : undefined)!;
   const gossip = pickGossip(cast, chats, keeper, from);
   await dispatch(patchWorld(world.id, { lastSecretAt: now }));
   const parsed = parseSecret(await dispatch(generateAssistText({ instruction: buildSecretPrompt(keeper, from, gossip, userName), background: true, activity: { at: now, kind: "other", text: `${keeper.name} started keeping something from ${from.name}`, characterId: keeper.id, name: keeper.name } })).unwrap());
   if (!parsed) return;
   const told = gossip && parsed.gossip ? gossip : undefined;
-  await dispatch(patchCharacter(keeper.id, (latest) => addSecret(latest, { id: `sec-${now.toString(36)}`, fromId: from.id, text: parsed.secret, at: now, ...(told ? { heardFrom: told.id } : {}) })));
+  // Hiding something puts a strain on it, from the keeper's side (#211).
+  await dispatch(patchCharacter(keeper.id, (latest) => ({ ...addSecret(latest, { id: `sec-${now.toString(36)}`, fromId: from.id, text: parsed.secret, at: now, ...(told ? { heardFrom: told.id } : {}) }), ...nudgeBond(latest, from.id, { tension: 10 }, now) })));
   if (!told) return;
   const chat = engineState(getState).chats.find((ch) => ch.characterIds?.length === 1 && ch.characterIds[0] === told.id && !ch.whatIf);
   if (!chat?.id) return;
@@ -216,8 +219,9 @@ export const surfaceSecret: Job = (now) => async (dispatch, getState) => {
   if (!from) return;
   const how = HOW_IT_CAME_OUT[Math.floor(Math.random() * HOW_IT_CAME_OUT.length)]!;
   const facts = surfacedFacts(keeper.name, from.name, secret.text, how);
-  await dispatch(patchCharacter(keeper.id, (latest) => ({ memory: [...(latest.memory || []), facts.forKeeper], keptSecrets: (latest.keptSecrets || []).map((s) => (s.id === secret.id ? { ...s, outAt: now, how } : s)) })));
-  await dispatch(patchCharacter(from.id, (latest) => ({ memory: [...(latest.memory || []), facts.forFrom] })));
+  // It coming out hurts both (#211): the one it was kept from most.
+  await dispatch(patchCharacter(keeper.id, (latest) => ({ memory: [...(latest.memory || []), facts.forKeeper], keptSecrets: (latest.keptSecrets || []).map((s) => (s.id === secret.id ? { ...s, outAt: now, how } : s)), ...nudgeBond(latest, from.id, { tension: 25 }, now), ...nudgeMood(latest, -25, now) })));
+  await dispatch(patchCharacter(from.id, (latest) => ({ memory: [...(latest.memory || []), facts.forFrom], ...nudgeBond(latest, keeper.id, { closeness: -25, tension: 40 }, now), ...nudgeMood(latest, -30, now) })));
   void logToTimeline(world.id, { kind: "event", text: facts.timeline, characterIds: [keeper.id, from.id], audience: "private", at: now }, world.storyTime);
   toast(`${world.name}: ${facts.timeline}`, { description: secret.text });
   void notifyWorld({ title: `${world.name}: ${facts.timeline}`, body: secret.text, path: `/worlds/${world.id}/timeline` });

@@ -816,6 +816,8 @@ export interface Character {
   // How they're tied to others in their world (#144): "your older brother",
   // "your rival at the shipyard". Set by the world wizard; per world.
   ties?: { withId: number; tie: string }[];
+  bonds?: import("../features/world/bonds").Bond[]; // how close and how tense with each person they know (#211)
+  mood?: import("../features/world/bonds").Mood; // their own mood, fading back to even (#211)
   talks?: WorldTalk[]; // their own conversations with others in their world (#145), kept on the lower id of the two
   modelOverride?: {
     provider?: string; // chat provider id (a CHAT_PROVIDERS key)

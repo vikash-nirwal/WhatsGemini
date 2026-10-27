@@ -3,6 +3,8 @@ import { awakeAt } from "../../character/firstTexts";
 import { lifeScaled } from "../../life/lifeDial";
 import { fairOrder, markServed } from "../../life/scheduler";
 import { pickWorldTalk, WORLD_TALK_GAP_MS } from "../worldTalk";
+import { featureOn } from "../worldPrefs";
+import { talkGapFor } from "../bonds";
 
 // The pair who talk next (#145, #209). Worlds take turns, My world among
 // them: the one whose people talked longest ago (by this job's turns) goes
@@ -12,7 +14,9 @@ import { pickWorldTalk, WORLD_TALK_GAP_MS } from "../worldTalk";
 export const pickNextTalk = (characters: Character[], worlds: Parameters<typeof pickWorldTalk>[1], now: number): [Character, Character] | undefined => {
   const opts = { gapMs: lifeScaled(WORLD_TALK_GAP_MS), awake: (c: Character) => awakeAt(c, now) };
   for (const worldId of fairOrder("world-talk", [null, ...worlds.map((w) => w.id)], (id) => id, now)) {
-    const pair = pickWorldTalk(characters, worlds, now, { ...opts, worldAllowed: (w) => w === worldId });
+    // With drift on (#211), people who are close or tense talk more often.
+    const gapFor = featureOn(worldId, "drift") ? (a: Character, b: Character) => talkGapFor(opts.gapMs, a, b, now) : undefined;
+    const pair = pickWorldTalk(characters, worlds, now, { ...opts, worldAllowed: (w) => w === worldId, gapFor });
     if (pair) {
       markServed("world-talk", worldId, now);
       return pair;

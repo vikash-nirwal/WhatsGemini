@@ -35,7 +35,8 @@ export const pickWorldTalk = (
     gapMs = WORLD_TALK_GAP_MS,
     awake = (): boolean => true,
     worldAllowed = (): boolean => true,
-  }: { gapMs?: number; awake?: (c: Character) => boolean; worldAllowed?: (worldId: number | null) => boolean } = {}
+    gapFor,
+  }: { gapMs?: number; awake?: (c: Character) => boolean; worldAllowed?: (worldId: number | null) => boolean; gapFor?: (a: Character, b: Character) => number } = {}
 ): [Character, Character] | undefined => {
   let best: { pair: [Character, Character]; last: number } | undefined;
   for (let i = 0; i < characters.length; i++) {
@@ -44,7 +45,7 @@ export const pickWorldTalk = (
       const world = worldOf(a, worlds);
       if (world !== worldOf(b, worlds) || !worldAllowed(world) || !knowEachOther(a, b)) continue;
       const last = talksBetween(characters, a.id, b.id).reduce((m, t) => Math.max(m, t.at), 0);
-      if (now - last < gapMs || !awake(a) || !awake(b)) continue;
+      if (now - last < (gapFor ? gapFor(a, b) : gapMs) || !awake(a) || !awake(b)) continue;
       if (!best || last < best.last) best = { pair: a.id < b.id ? [a, b] : [b, a], last };
     }
   }
@@ -119,7 +120,7 @@ const TOPIC_ASK = (t: TalkTopic, a: Character, b: Character, userName: string, w
 export const buildWorldTalkPrompt = (
   a: Character,
   b: Character,
-  { world, userName, maxLines, previous, topic = "lives", knows, news, askTie, groups, sceneNow, share, goals }: {
+  { world, userName, maxLines, previous, topic = "lives", knows, news, askTie, groups, sceneNow, share, goals, standing }: {
     world?: World;
     userName: string;
     maxLines: number;
@@ -132,6 +133,7 @@ export const buildWorldTalkPrompt = (
     sceneNow?: string; // the time and where each of them is (#205)
     share?: { text?: string; items: unknown[] }; // what one knows that the other may not (#204, #206)
     goals?: boolean; // what each wants this week leans the talk (#208)
+    standing?: string; // how close or tense they are lately, and their moods (#211)
   }
 ) => {
   const who = (c: Character, other: Character) =>
@@ -151,6 +153,7 @@ export const buildWorldTalkPrompt = (
     "",
     who(a, b),
     who(b, a),
+    ...(standing ? [standing] : []),
     ...(topic === "user" ? ["", knowing(a), knowing(b)].filter((x): x is string => x !== undefined) : []),
     ...(previous?.lines.length ? ["", "The last time they texted:", ...previous.lines.map((l) => `${names[l.speakerId] || "?"}: ${l.text}`)] : []),
     ...(share?.text ? ["", share.text] : []),

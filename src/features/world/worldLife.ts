@@ -1,3 +1,4 @@
+import { weightedPick } from "./bonds";
 import { Character, World } from "../../types";
 
 // Arrivals, departures and life events (#164): over story time things
@@ -18,9 +19,11 @@ export const newcomerDue = (world: Pick<World, "lastNewcomerAt" | "newcomer">, c
   !world.newcomer && castSize >= 2 && now - (world.lastNewcomerAt || 0) >= gapMs && rand() < 0.5;
 
 // Whose life moves on: anyone, but less often someone it just happened to.
-export const pickLifeSubject = (cast: Character[], now: number, rand: () => number = Math.random): Character | undefined => {
+export const pickLifeSubject = (cast: Character[], now: number, rand: () => number = Math.random, weight?: (c: Character) => number): Character | undefined => {
   const pool = cast.filter((c) => !(c.lifeEvents || []).some((e) => now - e.at < 7 * DAY));
   const from = pool.length ? pool : cast;
+  // With the numbers on (#211), whoever's mood is furthest from even leans first.
+  if (weight) return weightedPick(from, weight, rand);
   return from.length ? from[Math.floor(rand() * from.length)] : undefined;
 };
 

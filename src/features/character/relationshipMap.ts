@@ -1,5 +1,6 @@
 import { Character, Chat } from "../../types";
 import { STAGE_LABELS } from "./relationshipStages";
+import { bondWords } from "../world/bonds";
 
 // The relationship map (#138): who knows whom (#74, shared groups), how they
 // feel about each other (#24, a group's room feelings), and each bond with
@@ -23,7 +24,7 @@ export interface MapLink {
 
 const mainChat = (chats: Chat[], id: number) => chats.find((c) => c.characterIds?.length === 1 && c.characterIds[0] === id && !c.whatIf && c.memoryScope !== "chat");
 
-export const buildRelationshipMap = (characters: Character[], chats: Chat[]): { nodes: MapNode[]; links: MapLink[] } => {
+export const buildRelationshipMap = (characters: Character[], chats: Chat[], now = Date.now()): { nodes: MapNode[]; links: MapLink[] } => {
   // Everyone you talk to: a 1:1 chat or a group.
   const inChats = new Set(chats.flatMap((c) => c.characterIds || []));
   const people = characters.filter((c) => inChats.has(c.id));
@@ -65,6 +66,14 @@ export const buildRelationshipMap = (characters: Character[], chats: Chat[]): { 
       const l = link(r.fromId, r.toId);
       const text = r.note.trim();
       if (l && text) l.feelings.push(`${names.get(r.fromId)} about ${names.get(r.toId)}: ${text}`);
+    }
+  }
+  // How close or tense they are (#211), once their talks have moved it.
+  for (const c of people) {
+    for (const b of c.bonds || []) {
+      const l = link(c.id, b.withId);
+      const words = l && bondWords(c, b.withId, now);
+      if (l && words) l.feelings.push(`${c.name} about ${names.get(b.withId)}: ${words}`);
     }
   }
   return { nodes, links: Array.from(links.values()) };
