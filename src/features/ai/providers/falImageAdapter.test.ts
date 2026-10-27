@@ -190,6 +190,22 @@ test("an edit model saved to run without a photo falls back to its text-to-image
   expect(submitOf(ok).body).toEqual({ prompt: "a cat", aspect_ratio: "3:4" });
 });
 
+test("Seedream's own wording for a missing photo also falls back", async () => {
+  localStorage.setItem("fal_custom_models", JSON.stringify({
+    "fal-ai/bytedance/seedream/v4.5/edit-x": { label: "Seedream edit", referenceEndpoint: "fal-ai/bytedance/seedream/v4.5/edit-x", referenceField: "image_urls", maxReferences: 10, referenceSize: "image_size", textEndpoint: "fal-ai/bytedance/seedream/v4.5/edit-x", textSize: "image_size" },
+  }));
+  const ok = mockFal();
+  const answer = global.fetch as jest.Mock;
+  global.fetch = jest.fn(async (input: RequestInfo | URL, init: RequestInit = {}) => {
+    if (String(input) === "https://queue.fal.run/fal-ai/bytedance/seedream/v4.5/edit-x") return reply({ detail: [{ loc: ["body", "image_urls"], msg: "At least one image URL is required.", type: "value_error", input: [] }] }, 422);
+    return answer(input, init);
+  }) as unknown as typeof fetch;
+  const result = await falImageAdapter.generateImage({ model: "fal-ai/bytedance/seedream/v4.5/edit-x", prompt: "a cat" }, config);
+  expect(result.images).toHaveLength(1);
+  expect(submitOf(ok).url).not.toBe("https://queue.fal.run/fal-ai/bytedance/seedream/v4.5/edit-x");
+  localStorage.removeItem("fal_custom_models");
+});
+
 test("says which field fal wanted", async () => {
   global.fetch = jest.fn(async () => reply({ detail: [{ loc: ["body", "image_urls"], msg: "Field required" }] }, 422)) as unknown as typeof fetch;
   await expect(falImageAdapter.generateImage({ model: "fal-ai/bytedance/seedream/v4/edit", prompt: "p" }, config)).rejects.toThrow("image_urls: Field required");

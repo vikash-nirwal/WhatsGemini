@@ -228,8 +228,10 @@ const generateImage = async (opts: ImageGenCallOptions, config: ProviderRuntimeC
   }
 
   // An edit model picked before 2026-10-27 may be set to run without a
-  // photo, which it can't ("Field required"): then its text-to-image
-  // sibling, and the default text model last.
+  // photo, which it can't: then its text-to-image sibling, and the default
+  // text model last. Models say so in their own words ("Field required",
+  // Seedream's "At least one image URL is required."), so any "required"
+  // counts.
   const fallbacks = refs.images.length === 0 && model.textEndpoint === model.referenceEndpoint && model.maxReferences > 0
     ? [...textSiblingsOf(endpoint).map((id) => ({ id, input })), { id: FALLBACK_TEXT_ENDPOINT, input: { prompt: opts.prompt, ...sizeParams("image_size", opts.aspectRatio) } }]
     : [];
@@ -240,7 +242,7 @@ const generateImage = async (opts: ImageGenCallOptions, config: ProviderRuntimeC
       break;
     } catch (err: any) {
       const last = attempt.id === (fallbacks[fallbacks.length - 1]?.id ?? endpoint);
-      if (last || opts.signal?.aborted || !/field required|not found|404|405/i.test(err?.message || "")) throw err;
+      if (last || opts.signal?.aborted || !/required|not found|404|405/i.test(err?.message || "")) throw err;
     }
   }
   // FLUX's safety checker returns a black image and flags it rather than
