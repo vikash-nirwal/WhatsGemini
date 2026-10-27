@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { FalModelBrowser } from "./FalModelBrowser";
+import { customFalModels } from "src/features/ai/providers/falCatalog";
 import { cn } from '../../utils/cn';
 import { useColorTheme } from '../../hooks/useColorTheme';
 import { IMAGE_RESOLUTIONS, GEMINI_IMAGE_SIZES, GEMINI_IMAGE_SIZE_SUPPORTED_MODELS } from '../../utils/constants';
@@ -135,6 +137,8 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
   videoModelSuggestions,
 }) => {
   const { is } = useColorTheme();
+  // fal.ai's whole model list (the user's ask, 2026-10-27).
+  const [falBrowserOpen, setFalBrowserOpen] = useState(false);
   return (
     <div className="flex flex-col gap-5">
       <SettingsCard>
@@ -342,14 +346,18 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
               label="Model"
               hint="The character's appearance images go to the model as references, so their face stays the same. Seedream takes several photos; FLUX Kontext and PuLID use the main one. Without photos, each model draws from the text alone."
             >
-              <Select aria-label="fal.ai model" value={imageModel} onChange={(e) => setImageModel(e.target.value)}>
-                {falImageModelList.map((model) => (
-                  <option key={model.value} value={model.value}>
-                    {model.label}
-                  </option>
-                ))}
-              </Select>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select aria-label="fal.ai model" value={imageModel} onChange={(e) => setImageModel(e.target.value)}>
+                  {[...falImageModelList, ...Object.entries(customFalModels()).filter(([id]) => !falImageModelList.some((m) => m.value === id)).map(([value, m]) => ({ value, label: m.label }))].map((model) => (
+                    <option key={model.value} value={model.value}>
+                      {model.label}
+                    </option>
+                  ))}
+                </Select>
+                <Button type="button" variant="outline" onClick={() => setFalBrowserOpen(true)}>Browse all fal.ai models</Button>
+              </div>
             </SettingsRow>
+            <FalModelBrowser open={falBrowserOpen} onOpenChange={setFalBrowserOpen} apiKey={falApiKey} onPick={setImageModel} />
           </>
         ) : imageProvider === 'glm' ? (
           <>

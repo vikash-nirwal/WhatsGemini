@@ -1,6 +1,7 @@
 import { NormalizedImage } from "../types";
 import { ContentBlockedError, ImageGenCallOptions, ImageGenCallResult, ImageProviderAdapter, ModelOption, ProviderRuntimeConfig } from "./types";
 import { collectReferences, extensionFor, toBlob, toDataUri, withReferenceLegend } from "./referenceImages";
+import { customFalModels } from "./falCatalog";
 
 // fal.ai's queue API, called straight from the browser: queue.fal.run,
 // rest.fal.ai (file uploads) and fal.media (results) all answer CORS
@@ -19,7 +20,7 @@ interface FalModel {
   // The endpoint used when the picture has reference photos, and the field
   // they go in. A single-image field gets only the main reference.
   referenceEndpoint: string;
-  referenceField: "image_urls" | "image_url" | "reference_image_url";
+  referenceField: string; // image_urls, image_url, reference_image_url, ... (a list when it ends in "urls")
   maxReferences: number;
   referenceSize: SizeStyle;
   // The endpoint used without reference photos.
@@ -202,7 +203,8 @@ const generateImage = async (opts: ImageGenCallOptions, config: ProviderRuntimeC
 
   // A model left over from another provider (say gpt-image-1 after switching)
   // falls back to the default rather than failing.
-  const model = FAL_IMAGE_MODELS[opts.model] || FAL_IMAGE_MODELS[DEFAULT_FAL_IMAGE_MODEL];
+  // Or one picked from fal's own list, set up from its schema (falCatalog).
+  const model = FAL_IMAGE_MODELS[opts.model] || customFalModels()[opts.model] || FAL_IMAGE_MODELS[DEFAULT_FAL_IMAGE_MODEL];
   const refs = collectReferences(opts, model.maxReferences);
 
   let endpoint: string;
@@ -212,7 +214,7 @@ const generateImage = async (opts: ImageGenCallOptions, config: ProviderRuntimeC
     endpoint = model.referenceEndpoint;
     input = {
       prompt: withReferenceLegend(opts.prompt, refs.names),
-      [model.referenceField]: model.referenceField === "image_urls" ? urls : urls[0],
+      [model.referenceField]: model.referenceField.endsWith("urls") ? urls : urls[0],
       ...sizeParams(model.referenceSize, opts.aspectRatio),
     };
   } else {

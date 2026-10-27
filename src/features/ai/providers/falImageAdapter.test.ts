@@ -155,3 +155,20 @@ test("a rejected submission surfaces fal's validation message", async () => {
   global.fetch = jest.fn(async () => reply({ detail: [{ loc: ["body", "prompt"], msg: "field required" }] }, 422)) as unknown as typeof fetch;
   await expect(falImageAdapter.generateImage({ model: "fal-ai/flux-pro/kontext", prompt: "p" }, config)).rejects.toThrow("fal.ai error: field required");
 });
+
+test("a model picked from fal's list is called the way its schema says (2026-10-27)", async () => {
+  localStorage.setItem("fal_custom_models", JSON.stringify({
+    "fal-ai/nano-banana-pro/edit": { label: "Nano Banana Pro edit", referenceEndpoint: "fal-ai/nano-banana-pro/edit", referenceField: "image_urls", maxReferences: 4, referenceSize: "aspect_ratio", textEndpoint: "fal-ai/nano-banana-pro", textSize: "image_size" },
+  }));
+  let calls = mockFal();
+  await falImageAdapter.generateImage({ model: "fal-ai/nano-banana-pro/edit", prompt: "a cat", aspectRatio: "3:4" }, config);
+  expect(submitOf(calls).url).toBe("https://queue.fal.run/fal-ai/nano-banana-pro");
+  expect(submitOf(calls).body).toEqual({ prompt: "a cat", image_size: "portrait_4_3" });
+  calls = mockFal();
+  await falImageAdapter.generateImage({ model: "fal-ai/nano-banana-pro/edit", prompt: "a cat", aspectRatio: "3:4", referenceImages: [ref(1), ref(2)] } as any, config);
+  const submit = submitOf(calls);
+  expect(submit.url).toBe("https://queue.fal.run/fal-ai/nano-banana-pro/edit");
+  expect(submit.body.image_urls).toHaveLength(2);
+  expect(submit.body.aspect_ratio).toBe("3:4");
+  localStorage.removeItem("fal_custom_models");
+});
