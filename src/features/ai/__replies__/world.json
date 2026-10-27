@@ -1,0 +1,128 @@
+[
+  {
+    "note": "good event",
+    "at": 10,
+    "kind": "world-event",
+    "model": "fixture",
+    "instruction": "Harbor Bay: a foggy fishing town.\nAnswer with exactly three lines, nothing else:\nTITLE: <a short name, at most 6 words>\nWHAT: <one or two sentences: what's happening, as everyone here knows it>\nDAYS: <how many days it lasts, 1 to 7>",
+    "reply": "TITLE: The Lantern Festival\nWHAT: Paper lanterns line the harbor for three nights, and the bakery is selling out by noon.\nDAYS: 3",
+    "expect": { "event": "parsed", "DAYS": "parsed" }
+  },
+  {
+    "note": "malformed: markdown headings in place of TITLE/WHAT lines, DAYS spelled out",
+    "at": 11,
+    "kind": "world-event",
+    "model": "fixture",
+    "instruction": "TITLE: <a short name, at most 6 words>",
+    "reply": "## Title\nThe Big Storm\n## What\nA storm knocks out the power across town.\nDAYS: two",
+    "expect": { "event": "malformed", "DAYS": "malformed" }
+  },
+  {
+    "note": "good secret with gossip",
+    "at": 12,
+    "kind": "secret",
+    "model": "fixture",
+    "instruction": "Answer with:\nSECRET: <one sentence, third person, what Kai is hiding from Mira>\nGOSSIP: <Jo's text to Sam letting it slip>",
+    "reply": "SECRET: Kai has already put a deposit on the boat with the money Mira lent him for rent.\nGOSSIP: ok don't tell anyone but kai's been weird about money\nlike REALLY weird",
+    "expect": { "SECRET": "parsed", "GOSSIP": "parsed" }
+  },
+  {
+    "note": "missing gossip; secret in quotes is fine",
+    "at": 13,
+    "kind": "secret",
+    "model": "fixture",
+    "instruction": "Answer with:\nSECRET: <one sentence>\nGOSSIP: <Jo's text to Sam>",
+    "reply": "SECRET: \"Kai is planning to leave town at the end of the month.\"",
+    "expect": { "SECRET": "parsed", "GOSSIP": "missing" }
+  },
+  {
+    "note": "good arc",
+    "at": 14,
+    "kind": "world-arc",
+    "model": "fixture",
+    "instruction": "Answer only with:\nTITLE: <a short name>\nBEAT: <first beat>\nBEAT: <next beat>\n...",
+    "reply": "TITLE: The Missing Nets\nBEAT 1: Nets go missing from three boats overnight, and Kai is blamed.\nBEAT 2: Mira finds a torn net behind the clinic.\nBEAT 3: The harbor master calls a town meeting.",
+    "expect": { "arc": "parsed" }
+  },
+  {
+    "note": "malformed: a numbered list, no BEAT tags",
+    "at": 15,
+    "kind": "world-arc",
+    "model": "fixture",
+    "instruction": "Answer only with:\nTITLE: <a short name>\nBEAT: <first beat>",
+    "reply": "TITLE: The Missing Nets\n1. Nets go missing.\n2. Kai is blamed.\n3. The truth comes out.",
+    "expect": { "arc": "malformed" }
+  },
+  {
+    "note": "good hangouts",
+    "at": 16,
+    "kind": "hangouts",
+    "model": "fixture",
+    "instruction": "Places in Harbor Bay: The Docks, Salt Cafe, Clinic.\nPeople who need a usual spot, where they spend most of their free time or work:\n- Kai Moreno: a barista saving for a boat\n- Mira Okafor: a nurse\nGive each one the place that fits them best, using only the places listed. Answer with one line each, nothing else:\n<name> | <place>",
+    "reply": "Kai Moreno | Salt Cafe\nMira Okafor | Clinic",
+    "expect": { "lines": "parsed" }
+  },
+  {
+    "note": "malformed: a place not on the map, with a colon instead of a bar",
+    "at": 17,
+    "kind": "hangouts",
+    "model": "fixture",
+    "instruction": "Places in Harbor Bay: The Docks, Salt Cafe, Clinic.\n- Kai Moreno: a barista\n- Mira Okafor: a nurse\n<name> | <place>",
+    "reply": "Kai Moreno | the lighthouse\nMira Okafor: Clinic",
+    "expect": { "lines": "malformed" }
+  },
+  {
+    "note": "good: JSON in a fence",
+    "at": 18,
+    "kind": "cast-suggestions",
+    "model": "fixture",
+    "instruction": "Reply with only JSON: [{\"name\": \"full name\", \"idea\": \"one line\", \"tieWith\": \"\", \"tie\": \"\"}]",
+    "reply": "```json\n[{\"name\": \"Rosa Lin\", \"idea\": \"Kai's older sister, back from the city after a divorce\", \"tieWith\": \"Kai Moreno\", \"tie\": \"older sister\"},]\n```",
+    "expect": { "json": "parsed" }
+  },
+  {
+    "note": "malformed: JSON cut off",
+    "at": 19,
+    "kind": "cast-suggestions",
+    "model": "fixture",
+    "instruction": "\"tieWith\"",
+    "reply": "[{\"name\": \"Rosa Lin\", \"idea\": \"Kai's older sis",
+    "expect": { "json": "malformed" }
+  },
+  {
+    "note": "good gap lives with a tie",
+    "at": 20,
+    "kind": "gap-lives",
+    "model": "fixture",
+    "instruction": "Harbor Bay: a foggy fishing town.\n2 weeks have just passed there.\nThe people:\n- Kai Moreno: a barista\n- Mira Okafor: a nurse\nAnswer with lines like these, nothing else:\nLIFE: <name> | <sentence>\nTIE: <name> | <name> | <what the second is to the first now> | <what the first is to the second now>",
+    "reply": "LIFE: Kai Moreno | Kai bought the old boat and spent every evening fixing it.\nLIFE: Mira Okafor | Mira moved to day shifts at the clinic.\nTIE: Kai Moreno | Mira Okafor | girlfriend | boyfriend",
+    "expect": { "LIFE": "parsed", "TIE": "parsed" }
+  },
+  {
+    "note": "malformed: names and text with a colon",
+    "at": 21,
+    "kind": "gap-lives",
+    "model": "fixture",
+    "instruction": "The people:\n- Kai Moreno: a barista\n- Mira Okafor: a nurse\nLIFE: <name> | <sentence>",
+    "reply": "LIFE: Kai Moreno: bought the old boat.\nLIFE: Mira Okafor: moved to day shifts.",
+    "expect": { "LIFE": "malformed" }
+  },
+  {
+    "note": "good factions",
+    "at": 22,
+    "kind": "factions",
+    "model": "fixture",
+    "instruction": "Harbor Bay: a foggy fishing town.\nPeople here, and how they're tied:\n- Kai Moreno: a barista\n- Rosa Lin: his sister\n- Mira Okafor: a nurse\n- Jo Park: a nurse\nAnswer with one line each, nothing else:\nGROUP: <name> | <family or faction> | <member names, comma separated> | <one line on what they're like>",
+    "reply": "GROUP: The Morenos | family | Kai Moreno, Rosa Lin | loud, loyal, always at the docks\nGROUP: Night Shift | faction | Mira Okafor, Jo Park | tired, funny, protective",
+    "expect": { "GROUP": "parsed" }
+  },
+  {
+    "note": "malformed: one member only",
+    "at": 23,
+    "kind": "factions",
+    "model": "fixture",
+    "instruction": "- Kai Moreno: a barista\n- Mira Okafor: a nurse\nGROUP: <name> | <family or faction> | <member names, comma separated> | <one line on what they're like>",
+    "reply": "GROUP: The Loners | faction | Kai Moreno | keeps to himself",
+    "expect": { "GROUP": "malformed" }
+  }
+]

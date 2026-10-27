@@ -1,0 +1,92 @@
+[
+  {
+    "note": "good fold",
+    "at": 30,
+    "kind": "memory-fold",
+    "model": "fixture",
+    "instruction": "Fold what Kai Moreno knows into one short paragraph of their memory, at most 60 words, in the third person.",
+    "reply": "Kai knows Mira lent him rent money and that Jo told him the harbor master is retiring; he's keeping the boat deposit from Mira.",
+    "expect": { "text": "parsed" }
+  },
+  {
+    "note": "malformed: chatter before the paragraph",
+    "at": 31,
+    "kind": "memory-fold",
+    "model": "fixture",
+    "instruction": "Fold what Kai Moreno knows into one short paragraph of their memory.",
+    "reply": "Sure! Here's the paragraph:\nKai knows Mira lent him rent money.",
+    "expect": { "text": "malformed" }
+  },
+  {
+    "note": "good goal",
+    "at": 32,
+    "kind": "goal",
+    "model": "fixture",
+    "instruction": "What does Kai Moreno want this week? Reply with one sentence in the third person, nothing else.",
+    "reply": "Kai wants to talk the harbor master down to a price he can pay for the old boat.",
+    "expect": { "text": "parsed" }
+  },
+  {
+    "note": "missing: empty reply",
+    "at": 33,
+    "kind": "goal",
+    "model": "fixture",
+    "instruction": "What does Kai Moreno want this week?",
+    "reply": "   ",
+    "expect": { "text": "missing" }
+  },
+  {
+    "note": "good life event",
+    "at": 34,
+    "kind": "life-event",
+    "model": "fixture",
+    "instruction": "Something just happened in Mira Okafor's life that changes it a little or a lot.",
+    "reply": "Mira was offered a head nurse job in the city.",
+    "expect": { "text": "parsed" }
+  },
+  {
+    "note": "malformed: too short",
+    "at": 35,
+    "kind": "life-event",
+    "model": "fixture",
+    "instruction": "Something just happened in Mira Okafor's life.",
+    "reply": "Moved.",
+    "expect": { "text": "malformed" }
+  },
+  {
+    "note": "good reputation",
+    "at": 36,
+    "kind": "reputation",
+    "model": "fixture",
+    "instruction": "Write Sam's reputation in Harbor Bay: two or three sentences.",
+    "reply": "People say Sam is the newcomer who asks too many questions. Some think they're charming; Jo thinks they're a reporter.",
+    "expect": { "text": "parsed" }
+  },
+  {
+    "note": "malformed: wrapped in a code fence",
+    "at": 37,
+    "kind": "reputation",
+    "model": "fixture",
+    "instruction": "Write Sam's reputation in Harbor Bay.",
+    "reply": "```\nPeople say Sam is the newcomer who asks too many questions.\n```",
+    "expect": { "text": "malformed" }
+  },
+  {
+    "note": "good first text",
+    "at": 38,
+    "kind": "first-text",
+    "model": "fixture",
+    "instruction": "You are Aria, texting Sam.",
+    "reply": "saw a dog in a raincoat and thought of you 🐶",
+    "expect": { "text": "parsed" }
+  },
+  {
+    "note": "not checked: no parser reads statuses",
+    "at": 39,
+    "kind": "status",
+    "model": "fixture",
+    "instruction": "Write Aria's status.",
+    "reply": "Rainy shift, cozy cafe",
+    "expect": null
+  }
+]
