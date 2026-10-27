@@ -15,6 +15,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 - **No-server batch (#187–#201, 2026-10-26):** all fifteen built and committed one by one (see "What's built").
 - **A world that knows what it knows (#203–#208, 2026-10-27):** built, pushed (a814c27) and deployed (gh-pages 747a085) on 2026-10-27, with status comment replies, image tone levels, the reply-lock fix and tap to see deleted texts. Not tried with real models: whether they use SHARED/NEW/GOAL lines reliably.
 - **World engine (#209–#215, 2026-10-27):** all seven built and committed one by one; pushed (d9e631e) and deployed (gh-pages e8b9bfb) on 2026-10-27. #214 and #215 were built in parallel lanes and merged after a combined check. The same session fixed fal.ai's "At least one image URL is required" (c490290) and stopped character names going to image models (7ebc568). Not tried with real models: the world-turn JSON, the catch-up story, and how the numbers feel over real weeks.
+- **More convincing worlds (#216–#223, 2026-10-27):** all built. #216 and #217 were committed one by one; #218–#223 share one commit because they touch the same engine files. The user asked for the suites to run once at the end: unit all green; the full UI run had 1339 passed and 2 failed, both flaky before this work too (group-plans:50 and group-chats:96, see working notes). Not pushed or deployed. Not tried with real models.
 - **Next up:** nothing queued. #132 (real-model tuning) waits on the user's testing; Drive backup (#54) waits on their OAuth client ID.
 - **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
 - **How the new-ideas run went:** #42, #43, #12+#44 and #45 ran in fresh sessions; from #46 on they were built in the coordinating session, because new sessions can't be started over Remote Control. Each item was committed only after every suite passed.
@@ -99,6 +100,14 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #213 | Catch-up that fits the absence | done | 2026-10-27 |
 | #214 | Prompt replay harness | done | 2026-10-27, lane |
 | #215 | World switches travel | done | 2026-10-27, lane |
+| #216 | Talk that fits the era and the place | done | 2026-10-27 |
+| #217 | Reasons behind the numbers | done | 2026-10-27 |
+| #218 | Background people | done | 2026-10-27 |
+| #219 | Events with consequences | done | 2026-10-27 |
+| #220 | Canon check | done | 2026-10-27 |
+| #221 | Goals that collide | done | 2026-10-27 |
+| #222 | A year with a rhythm | done | 2026-10-27 |
+| #223 | Uneven activity | done | 2026-10-27 |
 | #148 | Revamp: design tokens and type | done | 2026-10-25 |
 | #149 | Revamp: core components | done | 2026-10-25 |
 | #150 | Revamp: navigation shell | done | 2026-10-25; terminal keeps its drawer and sidebar |
@@ -123,6 +132,14 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **Uneven activity (#223):** features/world/activity.ts `talkativeness` (personality words, a week's life-event tone) and `paceFactor`, applied to talk gaps in pickNextTalk and `dueTalkPairs`; no switch, it averages to the old pace (decided 2026-10-27). Talk and world-turn prompts say not every talk settles anything.
+- **A year with a rhythm (#222):** features/world/rhythm.ts `seasonOf` (in every `buildSceneNow` line), `traditionFrom`/`traditionDue`/`heldAgain`, `World.traditions`; aftermath asks TRADITION, `holdTradition` in worldLifeCheck restarts it on its date (events switch). No anniversaries of one-off events yet.
+- **Goals that collide (#221):** goals.ts `buildGoalPrompt` with others' goals and an AGAINST line, `parseGoalAgainst`, `goalsClash`, `clashLine`; `goal.against`. A clash adds tension (with why), shortens the pair's talk gap and goes into the talk prompt; reaching a goal leaves the other low.
+- **Canon check (#220):** features/world/canon.ts `canonOf` (departures, big life turns, `World.canon`), `canonLine`, `worldContext` (canon plus people around, for any background prompt; pass everyone in the world, the dead included), `isGone` (engineState drops the dead from background life; `engineState().everyone` keeps them), `bringsBackGone` drops talk, events, life events and aftermath that put them back on stage.
+- **Events with consequences (#219):** features/world/aftermath.ts; `writeAftermath` job (events switch) marks `event.aftermathAt`, writes `World.placeStates` (in the scene line and the Places list), a canon fact (and a public timeline entry) and a life event. Reply kind `aftermath`.
+- **Background people (#218):** features/world/extras.ts; world switch `extras` (off, travels with world files); `World.extras` (30 at most); PERSON lines in world talk and a `people` field in world turns add them; "People around" on CurrentWorldHero with Remove.
+- **Reasons behind the numbers (#217):** `Bond.why` (last 3) and `Mood.why`; `nudgeBond`/`nudgeMood` take a cause; `reasonOf`/`moodReasonOf` (14 days) feed `standingLine`, the map's bond words and the catch-up facts. A kept secret's reason never says what it is.
+- **Talk that fits the era (#216):** features/world/talkMedium.ts: `talkByOf` (World.talkBy, else the era's words), `talkSettingFor` (in person when places put both at one pin), gap factors, prompt opening and format (the texts wording is unchanged, tests match on it); `WorldTalk.medium/place`, Peek's label, "How they talk" in WorldLifeControls.
 - **Catch-up story (#213):** features/world/catchUp.ts (`driftWhileAway`, `catchUpFacts`, `buildCatchUpPrompt`) and engine/catchUpJob.ts, run by LifeTicker after the catch-up ticks for worlds with `worldTurn` on and 12 h+ away; `World.catchUp {text, from, to}` (claimed with empty text first so numbers never drift twice), shown in AwayCard with `catchUpTitle`. Kept out of the timeline so it never feeds prompts.
 - **World turns (#212):** world switch `worldTurn` (off by default, travels with world files). features/world/worldTurn.ts (`dueTalkPairs`, `buildWorldTurnPrompt`, `parseWorldTurn`, JSON) and engine/worldTurnJob.ts (first job in `worldLifeCheck`, every 4 h life-scaled, `World.lastTurnAt`). Such worlds skip the separate talk, event and life-event jobs. Talk effects shared with world talk in engine/shared.ts `afterTalk` (order matters: tie entries last, the pulse shows the newest).
 - **Numbers under the story (#211):** features/world/bonds.ts: `Character.bonds` (closeness −100..100 fading to the tie's baseline, tension 0..100 fading) and `Character.mood`. Nudged by talks, ties, friendships, secrets, life-event tone and goals; with drift on they shorten charged pairs' talk gaps (`talkGapFor`), let strained ties change (`tieUnderStrain`), add `standingLine` to the talk prompt and weight life-event and secret picks. The relationship map lists `bondWords`.
@@ -367,6 +384,8 @@ Facts that save the next session time.
 - **ChatPage render order:** `scene` is built before `activePersona` is declared, so anything `scene` computes during render must not touch later `const`s (a letter note did, and crashed the chat only once a letter existed). Fill such fields after their inputs, as `scene.letterNote` is.
 - **Toasts and the pointer in UI tests:** sonner pauses a toast while the pointer is over it. A test that clicks a menu item near the top of the screen leaves the pointer where the next toast appears; that toast then never closes and covers the header buttons on phones. Move the mouse away after such a click (see `chatAction` in `e2e/chapters.spec.ts`).
 - **`group-plans.spec.ts:50` is flaky on its own** (about 1 in 8 repeats, before the 2026-10-27 work too): the reminder or the outcome sometimes doesn't show within its 15 s. Not looked into yet.
+- **`group-chats.spec.ts:96` is flaky on its own** (about 3 in 16 repeats, before the 2026-10-27 work too). Not looked into yet.
+- **Full UI run from a scratch worktree:** pass `--shard=n/4` (file arguments don't match from there); each shard takes about 5 minutes.
 - **Parallel UI runs flake:** two full Playwright runs at once (or one beside other specs) failed a few timing-sensitive tests (group-plans:50, group-chats:96, world-time:52, world-life newcomer) that pass alone. Run full suites one at a time.
 - **Every helper reply kind needs a fixture:** the replay test fails if a kind in `REPLY_KINDS` has no good example in `features/ai/__replies__/`.
 - `e2e/important-dates.spec.ts` "dates are found in the character's memory" failed once on tablet in a full run (2026-10-22) and passed on every re-run: flaky, not yet looked into.
@@ -375,6 +394,7 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
+- 2026-10-27 (convincing worlds): Built #216–#223 from the user's question about realism; for #218–#223 the user asked for the suites only at the end (unit green; full UI 1339 passed, 2 pre-existing flakes). Also: the final run of the earlier batch caught the scheduler waking up to 10 s late, now fixed.
 - 2026-10-27 (world engine): Reviewed the world engine and built #209–#215 from it; #214/#215 ran as parallel agent lanes. Also fixed fal.ai's Seedream "At least one image URL is required" fallback and kept character names out of image prompts (both asked mid-session). Unit suites green at each commit. Final full UI run: 1332 passed, 1 failed (the flaky group-plans:50, see working notes). The scheduler now wakes exactly when the next check is due (one timer, not a 10 s beat), as the old per-job timers did. Pushed (d9e631e) and deployed (gh-pages e8b9bfb) at the user's OK.
 - 2026-10-27 (the user's report: fal.ai "Field required"): (deployed, gh-pages f756008) edit models picked from fal's list (e.g. Nano Banana Pro edit) mark only the prompt required, so pictures without reference photos went to the edit endpoint. Image-to-image models now pair with their text-to-image sibling; ones saved before fall back to it, then to Seedream; errors name the missing field. Not tried with a real fal key.
 - 2026-10-27 (the user's ask: characters talking to each other didn't know the world or their chats): #203–#208 built - the timeline is the one record with audiences, one knowledge function feeds Peek talks, groups of theirs, group side talks and your chats, talks share one clock and place, hearsay rides on the talk call, old knowledge folds, goals behind a switch. Hearsay is in the same call rather than a separate helper call (cheaper), which differs from the first plan. Also: tap a deleted text to see what it said. Unit 1176 pass, build pass, 13 world/chat UI specs on desktop pass (48); full UI suite not run.
