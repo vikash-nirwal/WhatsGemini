@@ -153,7 +153,7 @@ test("an image flagged by the safety checker is reported as blocked", async () =
 
 test("a rejected submission surfaces fal's validation message", async () => {
   global.fetch = jest.fn(async () => reply({ detail: [{ loc: ["body", "prompt"], msg: "field required" }] }, 422)) as unknown as typeof fetch;
-  await expect(falImageAdapter.generateImage({ model: "fal-ai/flux-pro/kontext", prompt: "p" }, config)).rejects.toThrow("fal.ai error: field required");
+  await expect(falImageAdapter.generateImage({ model: "fal-ai/flux-pro/kontext", prompt: "p" }, config)).rejects.toThrow("fal.ai error: prompt: field required");
 });
 
 test("a model picked from fal's list is called the way its schema says (2026-10-27)", async () => {
@@ -171,4 +171,26 @@ test("a model picked from fal's list is called the way its schema says (2026-10-
   expect(submit.body.image_urls).toHaveLength(2);
   expect(submit.body.aspect_ratio).toBe("3:4");
   localStorage.removeItem("fal_custom_models");
+});
+
+test("an edit model saved to run without a photo falls back to its text-to-image sibling (2026-10-27)", async () => {
+  // How Nano Banana Pro edit was set up from its schema, which marks only the prompt required.
+  localStorage.setItem("fal_custom_models", JSON.stringify({
+    "fal-ai/nano-banana-pro/edit": { label: "Nano Banana Pro edit", referenceEndpoint: "fal-ai/nano-banana-pro/edit", referenceField: "image_urls", maxReferences: 4, referenceSize: "aspect_ratio", textEndpoint: "fal-ai/nano-banana-pro/edit", textSize: "aspect_ratio" },
+  }));
+  const ok = mockFal();
+  const answer = global.fetch as jest.Mock;
+  global.fetch = jest.fn(async (input: RequestInfo | URL, init: RequestInit = {}) => {
+    if (String(input) === "https://queue.fal.run/fal-ai/nano-banana-pro/edit") return reply({ detail: [{ loc: ["body", "image_urls"], msg: "Field required" }] }, 422);
+    return answer(input, init);
+  }) as unknown as typeof fetch;
+  const result = await falImageAdapter.generateImage({ model: "fal-ai/nano-banana-pro/edit", prompt: "a cat", aspectRatio: "3:4" }, config);
+  expect(result.images).toHaveLength(1);
+  expect(submitOf(ok).url).toBe("https://queue.fal.run/fal-ai/nano-banana-pro");
+  expect(submitOf(ok).body).toEqual({ prompt: "a cat", aspect_ratio: "3:4" });
+});
+
+test("says which field fal wanted", async () => {
+  global.fetch = jest.fn(async () => reply({ detail: [{ loc: ["body", "image_urls"], msg: "Field required" }] }, 422)) as unknown as typeof fetch;
+  await expect(falImageAdapter.generateImage({ model: "fal-ai/bytedance/seedream/v4/edit", prompt: "p" }, config)).rejects.toThrow("image_urls: Field required");
 });

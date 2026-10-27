@@ -1,7 +1,7 @@
 import { NormalizedImage } from "../types";
 import { ContentBlockedError, ImageGenCallOptions, ImageGenCallResult, ImageProviderAdapter, ModelOption, ProviderRuntimeConfig } from "./types";
 import { collectReferences, extensionFor, toBlob, toDataUri, withReferenceLegend } from "./referenceImages";
-import { customFalModels } from "./falCatalog";
+import { customFalModels, FALLBACK_TEXT_ENDPOINT, textSiblingsOf } from "./falCatalog";
 
 // fal.ai's queue API, called straight from the browser: queue.fal.run,
 // rest.fal.ai (file uploads) and fal.media (results) all answer CORS
@@ -103,8 +103,13 @@ const sizeParams = (style: SizeStyle, aspectRatio: string | undefined): Record<s
 
 const describeDetail = (detail: unknown): string | undefined => {
   if (typeof detail === "string") return detail;
-  // Validation errors come back as a list of { loc, msg }.
-  if (Array.isArray(detail)) return detail.map((d) => d?.msg || JSON.stringify(d)).join("; ");
+  // Validation errors come back as a list of { loc, msg }; the field's name
+  // says what's missing ("image_urls: Field required").
+  if (Array.isArray(detail))
+    return detail.map((d) => {
+      const field = Array.isArray(d?.loc) ? d.loc.filter((l: unknown) => l !== "body").join(".") : "";
+      return d?.msg ? `${field ? `${field}: ` : ""}${d.msg}` : JSON.stringify(d);
+    }).join("; ");
   return undefined;
 };
 
@@ -222,7 +227,22 @@ const generateImage = async (opts: ImageGenCallOptions, config: ProviderRuntimeC
     input = { prompt: opts.prompt, ...sizeParams(model.textSize, opts.aspectRatio) };
   }
 
-  const output = await runQueue(endpoint, input, apiKey, opts.signal);
+  // An edit model picked before 2026-10-27 may be set to run without a
+  // photo, which it can't ("Field required"): then its text-to-image
+  // sibling, and the default text model last.
+  const fallbacks = refs.images.length === 0 && model.textEndpoint === model.referenceEndpoint && model.maxReferences > 0
+    ? [...textSiblingsOf(endpoint).map((id) => ({ id, input })), { id: FALLBACK_TEXT_ENDPOINT, input: { prompt: opts.prompt, ...sizeParams("image_size", opts.aspectRatio) } }]
+    : [];
+  let output: any;
+  for (const attempt of [{ id: endpoint, input }, ...fallbacks]) {
+    try {
+      output = await runQueue(attempt.id, attempt.input, apiKey, opts.signal);
+      break;
+    } catch (err: any) {
+      const last = attempt.id === (fallbacks[fallbacks.length - 1]?.id ?? endpoint);
+      if (last || opts.signal?.aborted || !/field required|not found|404|405/i.test(err?.message || "")) throw err;
+    }
+  }
   // FLUX's safety checker returns a black image and flags it rather than
   // failing the request.
   if (Array.isArray(output?.has_nsfw_concepts) && output.has_nsfw_concepts.some(Boolean)) {

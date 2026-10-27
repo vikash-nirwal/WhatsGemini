@@ -8,7 +8,7 @@ export const FAL_MODELS_API = "https://api.fal.ai/v1/models";
 const LS_CATALOG = "fal_model_catalog";
 const LS_CUSTOM = "fal_custom_models";
 const CATALOG_FOR_MS = 24 * 60 * 60 * 1000;
-const FALLBACK_TEXT_ENDPOINT = "fal-ai/bytedance/seedream/v4/text-to-image";
+export const FALLBACK_TEXT_ENDPOINT = "fal-ai/bytedance/seedream/v4/text-to-image";
 
 export type FalSizeStyle = "image_size" | "aspect_ratio" | "resolution_mode" | "none";
 
@@ -89,13 +89,21 @@ const sizeStyleOf = (schema: Schema | undefined): FalSizeStyle => {
 
 const REFERENCE_FIELDS = ["image_urls", "reference_image_urls", "image_url", "reference_image_url", "input_image_url"];
 
+// The text-to-image models an edit model may go with, likeliest first:
+// fal names them alike (nano-banana-pro/edit and nano-banana-pro).
+export const textSiblingsOf = (id: string) =>
+  Array.from(new Set([id.replace(/\/edit$/, ""), id.replace(/\/edit$/, "/text-to-image"), id.replace(/\/image-to-image$/, "/text-to-image"), id.replace(/\/image-to-image$/, "")])).filter((c) => c !== id);
+
 // How to call a model, from its schema (and, for an edit model that needs a
-// photo, the text-to-image model that goes with it).
-export const setupFromSchema = (id: string, name: string, schema: Schema | undefined, text?: { id: string; schema: Schema | undefined }): FalModelSetup => {
+// photo, the text-to-image model that goes with it). `editModel`: fal lists
+// it under image-to-image. Their schemas often mark only the prompt as
+// required, though the model fails without a photo ("Field required", the
+// user's report 2026-10-27), so the category counts too.
+export const setupFromSchema = (id: string, name: string, schema: Schema | undefined, text?: { id: string; schema: Schema | undefined }, editModel = false): FalModelSetup => {
   const props = schema?.properties || {};
   const field = REFERENCE_FIELDS.find((f) => f in props);
   const many = field ? props[field]?.type === "array" : false;
-  const needsPhoto = Boolean(field && schema?.required?.includes(field));
+  const needsPhoto = Boolean(field && (editModel || schema?.required?.includes(field)));
   const own: FalSizeStyle = sizeStyleOf(schema);
   return {
     label: name,
@@ -115,13 +123,13 @@ export const addFalModel = async (entry: FalCatalogEntry, catalog: FalCatalogEnt
   const schema = await inputSchema(entry.id, apiKey, fetchFn);
   const props = schema?.properties || {};
   const field = REFERENCE_FIELDS.find((f) => f in props);
+  const editModel = entry.category === "image-to-image";
   let text: { id: string; schema: Schema | undefined } | undefined;
-  if (field && schema?.required?.includes(field)) {
-    const candidates = [entry.id.replace(/\/edit$/, ""), entry.id.replace(/\/edit$/, "/text-to-image"), entry.id.replace(/\/image-to-image$/, "/text-to-image")];
-    const match = candidates.find((c) => c !== entry.id && catalog.some((m) => m.id === c && m.category === "text-to-image"));
+  if (field && (editModel || schema?.required?.includes(field))) {
+    const match = textSiblingsOf(entry.id).find((c) => catalog.some((m) => m.id === c && m.category === "text-to-image"));
     if (match) text = { id: match, schema: await inputSchema(match, apiKey, fetchFn).catch(() => undefined) };
   }
-  const setup = setupFromSchema(entry.id, entry.name, schema, text);
+  const setup = setupFromSchema(entry.id, entry.name, schema, text, editModel);
   write(LS_CUSTOM, { ...customFalModels(), [entry.id]: setup });
   return setup;
 };

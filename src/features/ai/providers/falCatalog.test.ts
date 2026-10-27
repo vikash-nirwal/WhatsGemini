@@ -26,6 +26,10 @@ test("a model is set up from its schema", () => {
   expect(t2i).toMatchObject({ maxReferences: 0, textEndpoint: "y", textSize: "image_size" });
   const optional = setupFromSchema("z", "Z", { properties: { prompt: {}, image_url: { type: "string" } }, required: ["prompt"] });
   expect(optional).toMatchObject({ referenceField: "image_url", maxReferences: 1, textEndpoint: "z", textSize: "none" });
+  // An image-to-image model whose schema marks only the prompt required
+  // still needs a photo (Nano Banana Pro edit, 2026-10-27).
+  const nano = setupFromSchema("n/edit", "N edit", { properties: { prompt: {}, image_urls: { type: "array" }, aspect_ratio: {} }, required: ["prompt"] }, { id: "n", schema: { properties: { aspect_ratio: {} } } }, true);
+  expect(nano).toMatchObject({ textEndpoint: "n", textSize: "aspect_ratio", referenceField: "image_urls" });
 });
 
 test("a picked edit model finds its text-to-image partner and is kept", async () => {
