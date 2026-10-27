@@ -4,7 +4,7 @@ What's built, what's open and what a new session needs to know. [ROADMAP.md](ROA
 
 ## Where we stand
 
-- **State (2026-10-27):** every item through #234 is built, pushed and deployed (main abf65aa, gh-pages 983f614); #224–#233 came from the memory reviews and #234 (points) from the user, not the roadmap. Backup gaps closed (#235), built, not yet committed or deployed.
+- **State (2026-10-27):** every item through #235 is built, pushed and deployed (main a191324, gh-pages 1803d87); #224–#233 came from the memory reviews and #234 (points) and #235 (backup gaps) from the user.
 - **Open:** #132 real-model tuning waits on the user's testing with their key (turn on "Keep helper replies" in Settings › Spending first, then replay them, #214). Drive backup (#54) is built but needs the user's Google OAuth client ID (steps in Settings › Data).
 - **Skipped:** #135 location sharing (dropped by the user), #139 circles (became worlds, #145). Voice features and calls wait for an AI voice model (see Decisions).
 - **Not tried with real models or services:** most prompts from #81 on, image providers with real keys, notifications and background sync on real phones, the in-browser model. ROADMAP.md › "Untried" lists them.
