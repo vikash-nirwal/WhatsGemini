@@ -4,7 +4,7 @@ What's built, what's open and what a new session needs to know. [ROADMAP.md](ROA
 
 ## Where we stand
 
-- **State (2026-10-27):** every roadmap item through #223 is built, pushed and deployed (main 3074552, gh-pages 0d541c4). The memory-flow review's fixes and bridges (#224–#230) are built, not yet committed or deployed.
+- **State (2026-10-27):** every item through #230 is built, pushed and deployed (main 1343876, gh-pages a46a424); #224–#230 came from the memory-flow review, not the roadmap.
 - **Open:** #132 real-model tuning waits on the user's testing with their key (turn on "Keep helper replies" in Settings › Spending first, then replay them, #214). Drive backup (#54) is built but needs the user's Google OAuth client ID (steps in Settings › Data).
 - **Skipped:** #135 location sharing (dropped by the user), #139 circles (became worlds, #145). Voice features and calls wait for an AI voice model (see Decisions).
 - **Not tried with real models or services:** most prompts from #81 on, image providers with real keys, notifications and background sync on real phones, the in-browser model. ROADMAP.md › "Untried" lists them.
@@ -98,5 +98,5 @@ Facts that save the next session time.
 
 Newest first. Older sessions are in the git history.
 
-- 2026-10-27: Reviewed how memory moves between chats, groups, adventures and worlds. Fixed world talks kept per holder, not per pair (#224); recall skipped once "where things stand" existed (#225); replies missing the world's state (#226); pinned group facts dropped first (#227); "you texted" for letters and in-person talks. Built memory bridges #228–#230.
+- 2026-10-27: Reviewed how memory moves between chats, groups, adventures and worlds. Fixed world talks kept per holder, not per pair (#224); recall skipped once "where things stand" existed (#225); replies missing the world's state (#226); pinned group facts dropped first (#227); "you texted" for letters and in-person talks. Built memory bridges #228–#230. Pushed and deployed.
 - 2026-10-27: Reviewed the world engine and built #209–#223 (#214 and #215 as parallel lanes), fixed fal.ai's "At least one image URL is required" fallback, kept names out of image prompts, and fixed the scheduler waking up to 10 s late. Deployed twice. Trimmed PROGRESS.md and ROADMAP.md and removed the finished revamp's design briefs and screenshots.
