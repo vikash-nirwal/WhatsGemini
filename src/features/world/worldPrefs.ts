@@ -98,3 +98,38 @@ export const talkLengthFor = (worldId: number | null) =>
 // does; others unless their "keep living" switch is off.
 export const livingIn = (worldId: number | null, currentWorldId: number | null) =>
   worldId === currentWorldId || loadWorldPrefs(worldId).keepLiving !== false;
+
+// Every world's prefs at once, for the full backup (#215), keyed as stored:
+// a world's id, or "mine".
+export const allWorldPrefs = (): Record<string, WorldPrefs> => loadAll();
+
+// Writes every world's prefs at once, for restoring a backup (#215). The
+// caller has already decided what to keep from this device and what to take
+// from the backup, so this replaces the whole set.
+export const replaceAllWorldPrefs = (all: Record<string, WorldPrefs>): void => {
+  try {
+    localStorage.setItem(LS_WORLD_PREFS, JSON.stringify(all));
+  } catch {
+    // Storage can be refused; the restore still brings back everything else.
+  }
+  window.dispatchEvent(new Event("world-prefs"));
+};
+
+// What of a world's prefs goes with it to another person (#215): the switches
+// and talk choices that make the world what it is. Keep living, the call cap
+// and quiet hours stay behind: they're about how much this device spends and
+// when its owner sleeps, which the person you share with should choose for
+// themself. Only values that differ from the defaults are kept, so a share
+// link grows by a few bytes at most. Import runs it too, so a file written by
+// hand can't slip anything else in.
+const TRAVELLING_SWITCHES: (WorldFeature | "peek")[] = ["events", "drift", "arrivals", "places", "reputation", "introductions", "secrets", "goals", "peek"];
+export const travellingPrefs = (prefs: WorldPrefs | undefined): WorldPrefs => {
+  const out: WorldPrefs = {};
+  if (!prefs || typeof prefs !== "object") return out;
+  for (const k of TRAVELLING_SWITCHES) if (prefs[k] === true) out[k] = true;
+  const length = prefs.talkLength;
+  if (typeof length === "number" && Number.isFinite(length) && length !== DEFAULT_TALK_LENGTH) {
+    out.talkLength = Math.min(MAX_TALK_LENGTH, Math.max(2, Math.round(length)));
+  }
+  return out;
+};

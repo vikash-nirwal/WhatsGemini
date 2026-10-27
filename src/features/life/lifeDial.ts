@@ -47,3 +47,9 @@ export const LIFE_HINT: Record<LifeLevel, string> = {
   normal: "Characters text, post and write at their usual pace.",
   lively: "About twice as much: more texts, statuses and letters, and more calls on your key.",
 };
+
+// Restoring a backup (#215): takes the saved level only if it's one we know,
+// so an odd value in a file can't leave the dial in a state it can't show.
+export const restoreLifeDial = (raw: unknown): void => {
+  if (typeof raw === "string" && (LIFE_LEVELS as string[]).includes(raw)) saveLifeDial(raw as LifeLevel);
+};

@@ -3,7 +3,7 @@ import { CHAT_PROVIDER_META } from "../features/ai/providers/registry";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { CostMarker } from "src/components/molecules/SettingRow";
 import { SegmentedControl } from "src/components/molecules/SegmentedControl";
-import { LIFE_HINT, LIFE_LEVELS, LifeLevel, loadLifeDial, saveLifeDial } from "../features/life/lifeDial";
+import { LIFE_HINT, LIFE_LEVELS, LifeLevel, LS_LIFE_DIAL, loadLifeDial, restoreLifeDial, saveLifeDial } from "../features/life/lifeDial";
 import { useMediaQuery } from "src/hooks/useMediaQuery";
 import { useCurrentWorld } from "src/hooks/useWorld";
 import { useNavigate, useParams } from "react-router-dom";
@@ -34,6 +34,7 @@ import { CHAT_PROVIDERS, IMAGE_PROVIDERS } from "../features/ai/providers/regist
 import { useModal } from "../contexts/ModalContext";
 import { fetchChats } from "../features/chatSlice";
 import { fetchCharacters } from "../features/characterSlice";
+import { fetchWorlds } from "../features/worldSlice";
 import {
   // DEFAULT_CHAT_LENGTH,
   // DEFAULT_OUTPUT_TOKENS,
@@ -587,6 +588,9 @@ const SettingsPage = () => {
     // Read at export time from the spending store (#42), which lives outside Redux.
     [LS_SPENDING_LEDGER]: getSpendingSnapshot().ledger,
     [LS_SPENDING_BUDGET]: getSpendingSnapshot().budget,
+    // Read from storage rather than state, so a change made on the Life
+    // screen since this page opened is the one saved (#215).
+    [LS_LIFE_DIAL]: loadLifeDial(),
   }), [selectedModel, maxOutputTokens, replyLengthLimit, compressThreshold, temperature, samplers, roleplayStyle, safetySettings, maxChatLength, fontSize, imageResolution, geminiImageSize, portraitSaveSize, portraitResizeEnabled, emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials, textingMode, recapAfterDays, personas, activePersonaId]);
 
   const downloadJson = (data: unknown, filename: string) => {
@@ -686,6 +690,10 @@ const SettingsPage = () => {
     // double-counts) spending recorded in this browser.
     if (settings[LS_SPENDING_LEDGER] && typeof settings[LS_SPENDING_LEDGER] === "object") importLedger(settings[LS_SPENDING_LEDGER]);
     if (settings[LS_SPENDING_BUDGET] && typeof settings[LS_SPENDING_BUDGET] === "object") setBudget(settings[LS_SPENDING_BUDGET]);
+    if (settings[LS_LIFE_DIAL] !== undefined) {
+        restoreLifeDial(settings[LS_LIFE_DIAL]);
+        setLifeLevel(loadLifeDial());
+    }
   }, [dispatch]);
 
   const handleSettingsFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -712,11 +720,11 @@ const SettingsPage = () => {
   const handleExportFullBackup = async () => {
     try {
       const { getFullBackupZip } = await import("../services/backupService");
-      const { blob, chats, characters, imagesIncluded, imagesSkipped } = await getFullBackupZip(buildSettingsExport());
+      const { blob, chats, characters, worlds, imagesIncluded, imagesSkipped } = await getFullBackupZip(buildSettingsExport());
       const dateStr = new Date().toISOString().slice(0, 10);
       downloadBlob(blob, `kindred_backup_${dateStr}.zip`);
 
-      let message = `Backed up ${chats.length} chat(s) and ${characters.length} character(s)`;
+      let message = `Backed up ${chats.length} chat(s), ${characters.length} character(s) and ${worlds.length} world(s)`;
       message += imagesIncluded > 0 ? `, including ${imagesIncluded} image(s).` : ".";
       if (imagesSkipped > 0) message += ` ${imagesSkipped} local image(s) couldn't be read and were skipped.`;
       toast.success(message);
@@ -760,20 +768,22 @@ const SettingsPage = () => {
       const parsed = await parseBackupFile(file);
       const { data, imageFilenames } = parsed;
 
-      let confirmMessage = `This will add ${data.chats.length} chat(s) and ${data.characters.length} character(s) to your existing library (nothing will be overwritten or removed).`;
+      const worldCount = Array.isArray(data.worlds) ? data.worlds.length : 0;
+      let confirmMessage = `This will add ${data.chats.length} chat(s), ${data.characters.length} character(s) and ${worldCount} world(s) to your existing library (nothing will be overwritten or removed).`;
       if (imageFilenames.length > 0) confirmMessage += ` It also includes ${imageFilenames.length} local image(s).`;
       confirmMessage += " Continue?";
 
       const confirmed = await showConfirm("Restore Backup", confirmMessage);
       if (!confirmed) return;
 
-      const { chatsRestored, charactersRestored, imagesRestored } = await applyParsedBackup(parsed);
+      const { chatsRestored, charactersRestored, worldsRestored, imagesRestored } = await applyParsedBackup(parsed);
       if (data.settings) applyImportedSettings(data.settings);
 
       dispatch(fetchChats());
       dispatch(fetchCharacters());
+      dispatch(fetchWorlds());
 
-      let message = `Restored ${chatsRestored} chat(s) and ${charactersRestored} character(s)`;
+      let message = `Restored ${chatsRestored} chat(s), ${charactersRestored} character(s) and ${worldsRestored} world(s)`;
       message += imagesRestored > 0 ? `, including ${imagesRestored} image(s).` : ".";
       toast.success(message);
     } catch (err) {

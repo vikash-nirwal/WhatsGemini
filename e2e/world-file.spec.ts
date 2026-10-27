@@ -49,6 +49,8 @@ test("export a world with its people, and import it as a fresh copy", async ({ p
   await patch(page, KAI.id, { worldId: 1, ties: [{ withId: ARIA.id, tie: "your sister" }] });
   await page.reload();
   await openRoute(page, "/worlds");
+  // Its switches go with it (#215); the call cap is this device's own.
+  await page.evaluate(() => localStorage.setItem("world_prefs", JSON.stringify({ 1: { events: true, callCap: 3 } })));
 
   const downloading = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export Harbour Town" }).click();
@@ -58,6 +60,7 @@ test("export a world with its people, and import it as a fresh copy", async ({ p
   const file = JSON.parse(text);
   expect(file.cast.map((c: any) => c.name).sort()).toEqual(["Aria", "Kai"]);
   expect(text).not.toContain("afraid of boats");
+  expect(file.prefs).toEqual({ events: true });
 
   await page.getByLabel("Import a world file").setInputFiles({ name: "harbour-town.world.json", mimeType: "application/json", buffer: Buffer.from(text) });
   await expect(page.getByText("Harbour Town imported, with its people")).toBeVisible();
@@ -67,6 +70,7 @@ test("export a world with its people, and import it as a fresh copy", async ({ p
   const kai = copies.find((c) => c.name === "Kai");
   expect(aria.ties).toEqual([{ withId: kai.id, tie: "your brother" }]);
   expect(aria.memory).toBeUndefined();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("world_prefs") || "{}")["2"])).toEqual({ events: true });
 });
 
 // #197: a world shared as a link (and a QR code), opened from the link.
