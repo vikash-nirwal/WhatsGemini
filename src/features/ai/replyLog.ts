@@ -35,6 +35,7 @@ export const REPLY_KINDS = [
   "first-text", // FirstTexter, GoBetween, news and plan texts: cleanFirstText
   "world-turn", // worldTurnJob (#212): one JSON object with talks, event, life
   "catch-up", // catchUpJob (#213): a few sentences of what you missed
+  "aftermath", // writeAftermath (#219): PLACE / FACT / LIFE / TRADITION lines
 ] as const;
 export type ReplyKind = (typeof REPLY_KINDS)[number];
 

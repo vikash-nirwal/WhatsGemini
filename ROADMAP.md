@@ -34,11 +34,17 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 **Wave 3: with the features they belong to**
 - The canvas's boards for Peek (#145), blocking (#133), event invites (#134), disappearing messages (#136), stickers (#137), the activity log (#131), "where things stand" (#142) and "While you were away" (#130) are built with those items; they get no numbers of their own.
 
-## More convincing worlds (#216–#217, picked 2026-10-27)
+## More convincing worlds (#216–#223, picked 2026-10-27)
 
-From the user's question about making worlds more realistic; the other ideas (background people, events with consequences, a canon check, goals that collide, a yearly rhythm, uneven activity) wait for the user's pick.
+From the user's question about making worlds more realistic; the user asked for all of them, with the suites run once at the end.
 
 - **#216 Talk that fits the era and the place (M).** World talk always asked for "a text conversation", even where news travels by letter, and any two people could talk anywhere. A world talks by texts or letters (from its era, or set by hand); two people at the same place on the map (places on) talk in person there instead, and do so sooner. Letters are fewer and longer, and slower to come. Peek says which.
+- **#218 Background people (M).** A per-world switch (off by default): a light roster of people who aren't characters (the landlord, the baker's assistant), with who they're tied to. Background prompts are told to reuse them; talks and world turns can add new ones. Shown on the Worlds page, where you can remove them.
+- **#219 Events with consequences (M).** With events on, an event that ends leaves an aftermath, in one helper call: a place's state for a while ("closed for repairs"), a lasting fact, a life event for whoever it hit hardest. Place states show in every prompt's time-and-place line.
+- **#220 Canon check (M).** Settled facts per world (lasting facts, big life events like a marriage or a death, who has left) go into background prompts as things never to contradict, and generated talk, life events and events that put someone gone back on stage are dropped.
+- **#221 Goals that collide (S).** With goals on, a new goal is picked knowing what others want and may set itself against one of them; colliding goals add tension (with why), lean talk between the two towards it, and the one who gets there first leaves the other low.
+- **#222 A year with a rhythm (S).** A world event can become a yearly tradition (asked in its aftermath) and comes back on its date, with no model call; every world's time-and-place line says the season (the world's own calendar, or the real one).
+- **#223 Uneven activity (S).** How often someone talks follows who they are (chatty, shy) and what's going on (a hard week makes them withdraw, good news makes them talk more), averaging out to today's pace; talks are told not every one needs to settle anything.
 - **#217 Reasons behind the numbers (S).** Closeness, tension and mood (#211) keep a short cause when something moves them (a tie that changed, a secret, a life event, a goal), and the talk prompt, the catch-up story and the relationship map say why, not only that.
 
 ## Smaller follow-ups

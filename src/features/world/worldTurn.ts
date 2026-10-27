@@ -4,6 +4,8 @@ import { goalLine } from "./goals";
 import { MAX_EVENT_DAYS } from "./worldEvents";
 import { awakeAt } from "../character/firstTexts";
 import { linesFor, TalkSetting } from "./talkMedium";
+import { paceFactor } from "./activity";
+import type { FoundPerson } from "./extras";
 import { knowEachOther, talksBetween } from "./worldTalk";
 
 // One world-turn call (#212). With the switch on, a world's talk, events
@@ -28,7 +30,8 @@ export const dueTalkPairs = (cast: Character[], now: number, gapMs: number, max 
       const [a, b] = cast[i].id < cast[j].id ? [cast[i], cast[j]] : [cast[j], cast[i]];
       if (!knowEachOther(a, b) || !awakeAt(a, now) || !awakeAt(b, now)) continue;
       const last = talksBetween(cast, a.id, b.id).reduce((m, t) => Math.max(m, t.at), 0);
-      if (now - last >= gapMs) pairs.push({ pair: [a, b], last });
+      // Each at their own pace (#223).
+      if (now - last >= gapMs * paceFactor(a, b, now)) pairs.push({ pair: [a, b], last });
     }
   }
   return pairs.sort((x, y) => x.last - y.last).slice(0, max).map((p) => p.pair);
@@ -41,6 +44,7 @@ export interface WorldTurnAsk {
   event: boolean; // the world may start one event
   life: boolean; // one person may have a life event
   tie: boolean; // a talk may change a tie
+  people?: boolean; // name anyone new who came up (#218)
 }
 
 const tieOf = (c: Character, other: Character) => c.ties?.find((t) => t.withId === other.id)?.tie?.replace(/^your\s+/i, "");
@@ -59,7 +63,7 @@ const personLine = (c: Character, cast: Character[], now: number) => {
     `- ${c.name}: ${[c.description, c.prompt].filter(Boolean).join(" ").replace(/\s+/g, " ").slice(0, 220)}`,
     ties.length ? `  Ties: ${ties.join(", ")}` : "",
     mood <= -30 ? "  Has been low lately." : mood >= 30 ? "  In high spirits lately." : "",
-    c.goal && goalLine(c) ? `  ${goalLine(c)}` : "",
+    c.goal && goalLine(c) ? `  ${goalLine(c)}${c.goal.against !== undefined && cast.some((x) => x.id === c.goal!.against) ? ` (at odds with ${cast.find((x) => x.id === c.goal!.against)!.name}'s)` : ""}` : "",
     c.lifeEvents?.length ? `  Lately: ${c.lifeEvents.slice(-2).map((e) => e.text).join(" ")}` : "",
   ].filter(Boolean).join("\n");
 };
@@ -73,10 +77,11 @@ export const buildWorldTurnPrompt = (
   world: World,
   cast: Character[],
   ask: WorldTurnAsk,
-  { userName, recent, happening, storyline, sceneNow, now }: { userName: string; recent: string[]; happening?: string; storyline?: string; sceneNow?: string; now: number }
+  { userName, recent, happening, storyline, sceneNow, now, context = [] }: { userName: string; recent: string[]; happening?: string; storyline?: string; sceneNow?: string; now: number; context?: string[] }
 ) => [
   `You move the life of ${world.name} on by a few hours: ${world.premise}${world.era ? ` (${world.era})` : ""}. ${userName} lives here too but isn't part of this; don't decide anything for ${userName}.`,
   ...(world.godTruths?.length ? [`Simply true in this world (never question it): ${world.godTruths.join("; ")}.`] : []),
+  ...context,
   ...(sceneNow ? [sceneNow] : []),
   ...(happening ? [`Going on now: ${happening}`] : []),
   ...(storyline ? [`The storyline: ${storyline}`] : []),
@@ -90,16 +95,20 @@ export const buildWorldTurnPrompt = (
     ? [`- "talks": up to two short conversations, only between these pairs: ${ask.pairs.map(([a, b], i) => `${a.name} & ${b.name}${tieOf(a, b) ? ` (${tieOf(a, b)})` : ""}${pairSetting(ask, i)}`).join("; ")}. Each 2 to ${ask.maxLines} lines, plain and in character: texts, unless a pair is marked as letters (fewer, longer, in the manner of the time) or in person (spoken, at that place). Let them pick up what's going on in their lives and the world.${ask.tie ? ` Only if a talk really changes how they stand, give it "tie": "<what the second is to the first now> | <what the first is to the second now>".` : ""}`]
     : ['- "talks": [] (nobody is due to talk).']),
   ask.event ? `- "event": something that happens to the whole place in the coming days (a festival, a storm, a scandal, a closing), growing out of what's going on, or null if nothing fits. Fields: "title" (a few words), "what" (one or two sentences), "days" (1 to ${MAX_EVENT_DAYS}).` : '- "event": null.',
+  // Uneven, like real life (#223).
+  "- Not everything settles in a turn: plans can stay vague and threads can wait.",
+  ...(ask.people ? ['- "people": anyone who came up by name for the first time and isn\'t one of the people above, as {"name": "...", "about": "who they are, a few words", "whose": "like Kai\'s landlord, or empty"}; [] if nobody.'] : []),
   ask.life ? '- "life": one thing that happens in one person\'s own life (a new job, a move, an illness, good news), fitting who they are and what they want, or null. Fields: "name", "what" (one sentence, past tense).' : '- "life": null.',
   "",
   "Answer with JSON only, no commentary:",
-  `{"talks": [{"between": ["Name", "Name"], "texts": [{"from": "Name", "text": "..."}]${ask.tie ? ', "tie": "..."' : ""}}], "event": ${ask.event ? '{"title": "...", "what": "...", "days": 3}' : "null"}, "life": ${ask.life ? '{"name": "...", "what": "..."}' : "null"}}`,
+  `{"talks": [{"between": ["Name", "Name"], "texts": [{"from": "Name", "text": "..."}]${ask.tie ? ', "tie": "..."' : ""}}], "event": ${ask.event ? '{"title": "...", "what": "...", "days": 3}' : "null"}, "life": ${ask.life ? '{"name": "...", "what": "..."}' : "null"}${ask.people ? ', "people": []' : ""}}`,
 ].join("\n");
 
 export interface WorldTurnResult {
   talks: { a: Character; b: Character; lines: { speakerId: number; text: string }[]; setting?: TalkSetting; tie?: string }[];
   event?: { title: string; text: string; days: number };
   life?: { who: Character; text: string };
+  people?: FoundPerson[];
 }
 
 // The JSON object in a reply, fenced or not; also what the replay
@@ -157,7 +166,10 @@ export const parseWorldTurn = (reply: string, cast: Character[], ask: WorldTurnA
   const l = data.life;
   const who = ask.life && l && typeof l === "object" ? find(l.name) : undefined;
   const lifeText = who ? str(l.what ?? l.text, 300) : "";
-  return { talks, ...(event ? { event } : {}), ...(who && lifeText ? { life: { who, text: lifeText } } : {}) };
+  const people: FoundPerson[] = ask.people && Array.isArray(data.people)
+    ? data.people.map((p: any) => ({ name: str(p?.name, 40), about: str(p?.about, 80), whose: str(p?.whose, 60) })).filter((p: FoundPerson) => p.name && p.about).map((p: FoundPerson) => (p.whose ? p : { name: p.name, about: p.about }))
+    : [];
+  return { talks, ...(event ? { event } : {}), ...(who && lifeText ? { life: { who, text: lifeText } } : {}), ...(people.length ? { people } : {}) };
 };
 
 export const eventFromTurn = (event: NonNullable<WorldTurnResult["event"]>, id: string, now: number) => ({ id, title: event.title, text: event.text, at: now, endsAt: now + event.days * DAY });

@@ -27,9 +27,11 @@ export const pickLifeSubject = (cast: Character[], now: number, rand: () => numb
   return from.length ? from[Math.floor(rand() * from.length)] : undefined;
 };
 
-export const buildLifeEventPrompt = (character: Character, world: Pick<World, "name" | "premise" | "era">, people: string[]) =>
+// `context` (#218, #220): what's settled here and the people around.
+export const buildLifeEventPrompt = (character: Character, world: Pick<World, "name" | "premise" | "era">, people: string[], context: string[] = []) =>
   [
     `${character.name} lives in ${world.name}: ${world.premise}${world.era ? ` (${world.era})` : ""}`,
+    ...context,
     `About ${character.name}: ${[character.description, character.prompt].filter(Boolean).join(" ").slice(0, 500)}`,
     character.lifeEvents?.length ? `What happened to them lately: ${character.lifeEvents.slice(-3).map((e) => e.text).join("; ")}` : "",
     people.length ? `People in their life: ${people.slice(0, 8).join(", ")}` : "",

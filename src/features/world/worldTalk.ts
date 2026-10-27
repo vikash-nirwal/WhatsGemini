@@ -1,4 +1,5 @@
 import { settingFormat, settingOpening, TalkSetting } from "./talkMedium";
+import { PERSON_ASK } from "./extras";
 import { Character, World, WorldTalk } from "../../types";
 import { worldOf } from "./currentWorld";
 import { SHARE_ASK } from "./knowledge";
@@ -121,7 +122,7 @@ const TOPIC_ASK = (t: TalkTopic, a: Character, b: Character, userName: string, w
 export const buildWorldTalkPrompt = (
   a: Character,
   b: Character,
-  { world, userName, maxLines, previous, topic = "lives", knows, news, askTie, groups, sceneNow, share, goals, standing, setting = { kind: "texts" } }: {
+  { world, userName, maxLines, previous, topic = "lives", knows, news, askTie, groups, sceneNow, share, goals, standing, setting = { kind: "texts" }, extras, askPeople, canon }: {
     world?: World;
     userName: string;
     maxLines: number;
@@ -136,6 +137,9 @@ export const buildWorldTalkPrompt = (
     goals?: boolean; // what each wants this week leans the talk (#208)
     standing?: string; // how close or tense they are lately, and their moods (#211)
     setting?: TalkSetting; // texts, letters, or in person somewhere (#216)
+    extras?: string; // the people around who aren't characters (#218)
+    askPeople?: boolean; // ask for a PERSON line when someone new comes up (#218)
+    canon?: string; // what's settled in this world (#220)
   }
 ) => {
   const who = (c: Character, other: Character) =>
@@ -151,11 +155,13 @@ export const buildWorldTalkPrompt = (
     `${settingOpening(setting, a.name, b.name)}, who know each other${world ? ` and live in ${world.name}: ${world.premise}` : ""}. ${userName} isn't in it.`,
     // God mode (#160): what the author made true holds here too.
     ...(world?.godTruths?.length ? [`Simply true in this world (never question it): ${world.godTruths.join("; ")}.`] : []),
+    ...(canon ? [canon] : []),
     ...(sceneNow ? [sceneNow] : []),
     "",
     who(a, b),
     who(b, a),
     ...(standing ? [standing] : []),
+    ...(extras ? [extras] : []),
     ...(topic === "user" ? ["", knowing(a), knowing(b)].filter((x): x is string => x !== undefined) : []),
     ...(previous?.lines.length ? ["", "The last time they texted:", ...previous.lines.map((l) => `${names[l.speakerId] || "?"}: ${l.text}`)] : []),
     ...(share?.text ? ["", share.text] : []),
@@ -170,6 +176,9 @@ export const buildWorldTalkPrompt = (
     topic === "user" ? "" : `- ${userName} can come up in passing if it's natural, but it's not the point.`,
     `- Plain text, in character, ${setting.kind === "in person" ? "no stage directions beyond a brief gesture" : "no stage directions"}. Don't settle big story points or decide anything for ${userName}.`,
     ...(share ? SHARE_ASK(share.items.length > 0) : []),
+    // Uneven, like real talk (#223): not everything gets settled.
+    "- Not every talk settles something: plans can stay vague, a question can go unanswered, a thread can wait for next time.",
+    askPeople ? PERSON_ASK : "",
     goals && (a.goal || b.goal) ? `- What they want this week can steer the talk: asking for help, a favour, a lead. ${GOAL_ASK.slice(2)}` : "",
     askTie ? `- Only if this conversation really changes how they stand with each other (a falling-out, making up, getting together, breaking up, becoming friends), end with one more line: TIE: <what ${b.name} is to ${a.name} now> | <what ${a.name} is to ${b.name} now>. Most conversations change nothing; then leave it out.` : "",
   ].filter(Boolean).join("\n");

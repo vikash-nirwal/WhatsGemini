@@ -14,12 +14,13 @@ export interface WorldPrefs {
   introductions?: boolean; // people introduce you to people they know (#167)
   secrets?: boolean; // secrets between characters (#170)
   goals?: boolean; // what each wants this week (#208)
+  extras?: boolean; // people around who aren't characters (#218)
   worldTurn?: boolean; // one call per world turn for talk, events and lives, and a catch-up story (#212, #213)
   callCap?: number; // background calls a day at most (#192); unset = no limit
   quietHours?: [number, number]; // hours when nothing runs in the background (#192), e.g. [23, 8]
 }
 
-export type WorldFeature = "events" | "drift" | "arrivals" | "places" | "reputation" | "introductions" | "secrets" | "goals" | "worldTurn";
+export type WorldFeature = "events" | "drift" | "arrivals" | "places" | "reputation" | "introductions" | "secrets" | "goals" | "worldTurn" | "extras";
 
 export const DEFAULT_TALK_LENGTH = 10;
 export const MAX_TALK_LENGTH = 20;
@@ -123,7 +124,7 @@ export const replaceAllWorldPrefs = (all: Record<string, WorldPrefs>): void => {
 // themself. Only values that differ from the defaults are kept, so a share
 // link grows by a few bytes at most. Import runs it too, so a file written by
 // hand can't slip anything else in.
-const TRAVELLING_SWITCHES: (WorldFeature | "peek")[] = ["events", "drift", "arrivals", "places", "reputation", "introductions", "secrets", "goals", "worldTurn", "peek"];
+const TRAVELLING_SWITCHES: (WorldFeature | "peek")[] = ["events", "drift", "arrivals", "places", "reputation", "introductions", "secrets", "goals", "worldTurn", "extras", "peek"];
 export const travellingPrefs = (prefs: WorldPrefs | undefined): WorldPrefs => {
   const out: WorldPrefs = {};
   if (!prefs || typeof prefs !== "object") return out;

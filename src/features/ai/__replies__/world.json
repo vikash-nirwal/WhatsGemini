@@ -212,5 +212,29 @@
     "expect": {
       "text": "missing"
     }
+  },
+  {
+    "note": "good aftermath",
+    "at": 60,
+    "kind": "aftermath",
+    "model": "fixture",
+    "instruction": "Harbor Bay: a foggy fishing town.\n\"The Long Storm\" is over: A gale kept every boat in the harbor.\nWhat did it leave behind? Answer with any of these lines that fit, and nothing else; leave out what doesn't:\nFACT: <one lasting change everyone here knows, one sentence>\nTRADITION: <yes if people here would hold it again every year, otherwise no>",
+    "reply": "FACT: The old pier is gone for good.\nTRADITION: no",
+    "expect": {
+      "TRADITION": "parsed",
+      "FACT": "parsed"
+    }
+  },
+  {
+    "note": "aftermath without the tradition line",
+    "at": 61,
+    "kind": "aftermath",
+    "model": "fixture",
+    "instruction": "Harbor Bay: a foggy fishing town.\n\"The Long Storm\" is over: A gale kept every boat in the harbor.\nWhat did it leave behind? Answer with any of these lines that fit, and nothing else; leave out what doesn't:\nFACT: <one lasting change everyone here knows, one sentence>\nTRADITION: <yes if people here would hold it again every year, otherwise no>",
+    "reply": "The storm wrecked the pier.",
+    "expect": {
+      "TRADITION": "missing",
+      "FACT": "missing"
+    }
   }
 ]

@@ -129,7 +129,7 @@ describe("one time and place (#205)", () => {
     expect(line).toContain("Tuesday evening");
     expect(line).toContain("Jon is at Café");
     expect(line).toContain("same place");
-    expect(buildSceneNow(undefined, [jon, eva], evening)).toBe("Right now it's Tuesday evening. Keep to the hour and where they are.");
+    expect(buildSceneNow(undefined, [jon, eva], evening)).toBe("Right now it's Tuesday evening, autumn. Keep to the hour and where they are.");
   });
 
   it("uses the world's own calendar when it keeps one", () => {

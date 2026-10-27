@@ -19,6 +19,8 @@ import { parseTieChange, WORLD_TALK_GAP_MS } from "../worldTalk";
 import { buildWorldTurnPrompt, dueTalkPairs, eventFromTurn, parseWorldTurn, WORLD_TURN_GAP_MS, worldTurnDue, WorldTurnAsk } from "../worldTurn";
 import { afterTalk, tellTheNews } from "./shared";
 import { talkSettingFor } from "../talkMedium";
+import { bringsBackGone, goneIn, worldContext } from "../canon";
+import { addExtras } from "../extras";
 import { EngineDispatch, engineState, GetState } from "./state";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -39,6 +41,7 @@ export const worldTurn = (now: number) => async (dispatch: EngineDispatch, getSt
       event: cast.length >= 2 && featureOn(w.id, "events") && eventDue(w, now, lifeScaled(EVENT_GAP_MS)),
       life: cast.length > 0 && featureOn(w.id, "arrivals") && lifeEventDue(w, now, lifeScaled(LIFE_GAP_MS)),
       tie: featureOn(w.id, "drift"),
+      people: featureOn(w.id, "extras"),
     };
   };
   const anything = (ask: WorldTurnAsk) => ask.pairs.length > 0 || ask.event || ask.life;
@@ -61,17 +64,28 @@ export const worldTurn = (now: number) => async (dispatch: EngineDispatch, getSt
     .map((e) => e.text);
   const event = activeEvents(world, now)[0];
   const reply = await dispatch(generateAssistText({
-    instruction: buildWorldTurnPrompt(world, cast, ask, { userName, recent, happening: event ? `${event.title}: ${event.text}` : undefined, storyline: arcLine(arcActive(world)), sceneNow: buildSceneNow(world, cast, now), now }),
+    instruction: buildWorldTurnPrompt(world, cast, ask, { userName, recent, happening: event ? `${event.title}: ${event.text}` : undefined, storyline: arcLine(arcActive(world)), sceneNow: buildSceneNow(world, cast, now), now, context: worldContext(world, [], engineState(getState).everyone.filter((c) => c.worldId === world.id), record) }),
     background: true,
     activity: { at: now, kind: "event", text: `Time moved on in ${world.name}`, name: world.name },
     worldId: world.id,
     replyKind: "world-turn",
   })).unwrap();
-  const turn = parseWorldTurn(reply, cast, ask);
-  if (!turn) return;
+  const parsed = parseWorldTurn(reply, cast, ask);
+  if (!parsed) return;
+  // Anything that puts someone who has died back on stage is dropped (#220).
+  const gone = goneIn(engineState(getState).everyone, world.id);
+  const back = (text: string) => bringsBackGone(text, gone);
+  const turn = {
+    ...parsed,
+    talks: parsed.talks.filter((t) => !t.lines.some((l) => back(l.text))),
+    event: parsed.event && !back(`${parsed.event.title} ${parsed.event.text}`) ? parsed.event : undefined,
+    life: parsed.life && !back(parsed.life.text) ? parsed.life : undefined,
+  };
   for (const t of turn.talks) {
     await dispatch(afterTalk({ a: t.a, b: t.b, worldId: world.id, world, lines: t.lines, setting: t.setting, change: t.tie ? parseTieChange(`TIE: ${t.tie}`) : undefined, now }));
   }
+  // Someone new came up by name (#218).
+  if (turn.people?.length) await dispatch(patchWorld(world.id, (w) => ({ extras: addExtras(w.extras, turn.people!, cast, now) })));
   if (turn.event) {
     const fresh = engineState(getState).worlds.find((w) => w.id === world.id);
     const made = eventFromTurn(turn.event, newEventId(), now);

@@ -739,7 +739,7 @@ export interface Character {
   keptSecrets?: KeptSecret[]; // what they hide from people in their world (#170)
   lifeEvents?: { text: string; at: number }[]; // things that happened in their life over story time (#164), newest last
   knownSummary?: string; // older things they knew or heard, folded into one line (#207)
-  goal?: { text: string; setAt: number; progress?: string }; // what they want this week (#208)
+  goal?: { text: string; setAt: number; progress?: string; against?: number }; // what they want this week (#208); against: whose goal it works against (#221)
   dayMood?: { date: string; mood: string }; // today's mood picked by hand; mood "" = a good day
   spreadsRumors?: boolean; // what you tell them can get around (#98)
   rumors?: Rumor[]; // rumors they heard about you
@@ -954,6 +954,10 @@ export interface World {
   newcomer?: { name: string; idea: string; tieWith?: string; tie?: string; at: number }; // someone who just arrived, waiting for you to welcome them
   lastTurnAt?: number; // when the world last had a world turn (#212)
   catchUp?: { text: string; from: number; to: number }; // the story of your last absence (#213)
+  extras?: { name: string; about: string; tiedTo?: number; at: number }[]; // people around who aren't characters (#218)
+  placeStates?: { pinId: string; text: string; until: number }[]; // how a place is for a while, after an event (#219)
+  canon?: string[]; // lasting facts nothing may contradict (#219, #220)
+  traditions?: { id: string; title: string; text: string; month: number; day: number; days: number; lastYear?: number }[]; // yearly events, on the world's calendar (#222)
 }
 
 // A secret one character keeps from another (#170). You may hear it as
@@ -1013,6 +1017,7 @@ export interface WorldEvent {
   at: number;
   endsAt: number;
   byYou?: boolean; // you started it
+  aftermathAt?: number; // when its consequences were written (#219)
 }
 
 // A world's calendar (#147). `day` counts days from the start of `year`'s

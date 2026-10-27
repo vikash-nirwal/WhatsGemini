@@ -20,7 +20,10 @@ import { moveArcOn, startWorldEvent } from "../startEvent";
 import { loadTimeline, logToTimeline } from "../timeline";
 import { buildCastSuggestionsPrompt, castLiteOf, parseCastSuggestions } from "../worldAssist";
 import { advanceArc, arcActive, BEAT_GAP_MS, nextBeatDue } from "../worldArcs";
-import { buildEventIdeaPrompt, EVENT_GAP_MS, eventDue, parseEvent } from "../worldEvents";
+import { activeEvents, buildEventIdeaPrompt, EVENT_GAP_MS, eventDue, newEventId, parseEvent } from "../worldEvents";
+import { addPlaceState, aftermathDue, buildAftermathPrompt, parseAftermath } from "../aftermath";
+import { heldAgain, traditionDue, traditionFrom, yearPosition } from "../rhythm";
+import { addCanon, bringsBackGone, goneIn, worldContext } from "../canon";
 import { addLifeEvent, buildLifeEventPrompt, cleanLifeEvent, LIFE_GAP_MS, lifeEventDue, NEWCOMER_GAP_MS, newcomerDue, pickLifeSubject } from "../worldLife";
 import { featureOn } from "../worldPrefs";
 import { lifeEventTone, lifeWeight, nudgeBond, nudgeMood, secretWeight } from "../bonds";
@@ -34,6 +37,9 @@ import { worldTurn } from "./worldTurnJob";
 // secrets, and plans resolve. Each job serves at most one world a check,
 // the one it served longest ago that's due (fairOrder), and reads the
 // store again after every model call.
+
+// Everyone in a world, the dead included: canon (#220) needs their story.
+const everyoneIn = (getState: GetState, worldId: number) => engineState(getState).everyone.filter((c) => c.worldId === worldId);
 
 type Job = (now: number) => (dispatch: EngineDispatch, getState: GetState) => Promise<void>;
 
@@ -94,12 +100,14 @@ export const startOwnEvent: Job = (now) => async (dispatch, getState) => {
   // The check is recorded first, so a failed one waits a whole gap.
   await dispatch(patchWorld(world.id, { lastEventCheckAt: now }));
   const reply = await dispatch(generateAssistText({
-    instruction: buildEventIdeaPrompt(world, castOf(characters, world.id).map((c) => c.name), world.events || []),
+    instruction: buildEventIdeaPrompt(world, castOf(characters, world.id).map((c) => c.name), world.events || [], undefined, worldContext(world, [], everyoneIn(getState, world.id), await loadTimeline(world.id))),
     background: true,
     activity: { at: now, kind: "event", text: `Something happened in ${world.name}`, name: world.name },
     worldId: world.id,
   })).unwrap();
-  const event = parseEvent(reply, now);
+  // Never one that puts someone who has died back on stage (#220).
+  const parsed = parseEvent(reply, now);
+  const event = parsed && !bringsBackGone(`${parsed.title} ${parsed.text}`, goneIn(engineState(getState).everyone, world.id)) ? parsed : undefined;
   const fresh = engineState(getState).worlds.find((w) => w.id === world.id);
   if (!event || !fresh) return;
   await dispatch(startWorldEvent(fresh, event));
@@ -117,8 +125,8 @@ export const moveLivesOn: Job = (now) => async (dispatch, getState) => {
   const who = pickLifeSubject(castOf(characters, world.id), now, Math.random, featureOn(world.id, "drift") ? (c) => lifeWeight(c, now) : undefined);
   if (!who) return;
   const people = (who.ties || []).map((t) => characters.find((c) => c.id === t.withId)?.name).filter((n): n is string => Boolean(n));
-  const text = cleanLifeEvent(await dispatch(generateAssistText({ instruction: buildLifeEventPrompt(who, world, people), background: true, activity: { at: now, kind: "event", text: `Something happened in ${who.name}'s life`, characterId: who.id, name: who.name } })).unwrap());
-  if (!text) return;
+  const text = cleanLifeEvent(await dispatch(generateAssistText({ instruction: buildLifeEventPrompt(who, world, people, worldContext(world, [who], everyoneIn(getState, world.id), await loadTimeline(world.id))), background: true, activity: { at: now, kind: "event", text: `Something happened in ${who.name}'s life`, characterId: who.id, name: who.name } })).unwrap());
+  if (!text || bringsBackGone(text, goneIn(engineState(getState).everyone, world.id))) return;
   // Good news lifts their mood, bad news sinks it (#211).
   await dispatch(patchCharacter(who.id, (latest) => ({ ...addLifeEvent(latest, text, now), ...nudgeMood(latest, lifeEventTone(text), now, text) })));
   // Their own news (#203): it travels by talk, and by them texting you.
@@ -264,10 +272,65 @@ export const sendDigest: Job = (now) => async (_dispatch, getState) => {
   if (shown) markDigest(now);
 };
 
+// Events with consequences (#219): an event that has ended leaves
+// something behind - a place's state, a lasting fact, a turn in someone's
+// life - and may become a yearly tradition (#222).
+export const writeAftermath: Job = (now) => async (dispatch, getState) => {
+  const { worlds, characters } = engineState(getState);
+  const world = pickWorld("aftermath", worlds, now, (w) => featureOn(w.id, "events") && aftermathDue(w, now));
+  if (!world) return;
+  const event = aftermathDue(world, now)!;
+  // Marked first, so a failed one isn't asked again.
+  await dispatch(patchWorld(world.id, (w) => ({ events: (w.events || []).map((e) => (e.id === event.id ? { ...e, aftermathAt: now } : e)) })));
+  const cast = castOf(characters, world.id);
+  const pins = world.map?.pins || [];
+  const reply = await dispatch(generateAssistText({
+    instruction: buildAftermathPrompt(world, event, cast.map((c) => c.name), pins, worldContext(world, [], everyoneIn(getState, world.id), await loadTimeline(world.id))),
+    background: true,
+    activity: { at: now, kind: "event", text: `${event.title} left its mark on ${world.name}`, name: world.name },
+    worldId: world.id,
+    replyKind: "aftermath",
+  })).unwrap();
+  const parsed = parseAftermath(reply, cast, pins, now);
+  // Nothing that puts someone who has died back on stage (#220).
+  const gone = goneIn(engineState(getState).everyone, world.id);
+  const after = { ...parsed, fact: parsed.fact && !bringsBackGone(parsed.fact, gone) ? parsed.fact : undefined, life: parsed.life && !bringsBackGone(parsed.life.text, gone) ? parsed.life : undefined };
+  await dispatch(patchWorld(world.id, (w) => ({
+    ...(after.place ? { placeStates: addPlaceState(w.placeStates, after.place, now) } : {}),
+    ...(after.fact ? { canon: addCanon(w.canon, after.fact) } : {}),
+    ...(after.tradition && !(w.traditions || []).some((t) => t.title.toLowerCase() === event.title.toLowerCase()) ? { traditions: [...(w.traditions || []), traditionFrom(w, event)] } : {}),
+  })));
+  if (after.fact) void logToTimeline(world.id, { kind: "event", text: after.fact, at: now }, world.storyTime);
+  if (after.life) {
+    const { who, text } = after.life;
+    await dispatch(patchCharacter(who.id, (latest) => ({ ...addLifeEvent(latest, text, now), ...nudgeMood(latest, lifeEventTone(text), now, text) })));
+    void logToTimeline(world.id, { kind: "event", text, characterIds: [who.id], audience: "private", at: now }, world.storyTime);
+  }
+};
+
+// Traditions (#222): one whose day has come is held again, no model call.
+export const holdTradition: Job = (now) => async (dispatch, getState) => {
+  const { worlds } = engineState(getState);
+  const world = pickWorld("traditions", worlds, now, (w) => featureOn(w.id, "events") && traditionDue(w, now) && !activeEvents(w, now).length);
+  if (!world) return;
+  const tradition = traditionDue(world, now)!;
+  const year = yearPosition(world, now).year;
+  await dispatch(patchWorld(world.id, (w) => ({ traditions: (w.traditions || []).map((t) => (t.id === tradition.id ? { ...t, lastYear: year } : t)) })));
+  const fresh = engineState(getState).worlds.find((w) => w.id === world.id);
+  if (!fresh) return;
+  const event = heldAgain(tradition, newEventId(), now);
+  await dispatch(startWorldEvent(fresh, event));
+  toast(`${world.name}: ${event.title}`, { description: "Back again, as every year." });
+  void notifyWorld({ title: `${world.name}: ${event.title}`, body: "Back again, as every year.", path: "/worlds" });
+  await dispatch(tellTheNews(world, `${event.title} is on again, as every year`, [], now));
+};
+
 const JOBS: [string, Job][] = [
   ["Storyline", moveStorylines],
   ["Digest", sendDigest],
   ["World turn", worldTurn],
+  ["Aftermath", writeAftermath],
+  ["Tradition", holdTradition],
   ["Places", fillPlaces],
   ["Run-in", runIntoYou],
   ["World event", startOwnEvent],

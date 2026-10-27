@@ -32,6 +32,8 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
   const pins = current?.map?.pins || [];
   // Who is where right now (#165); a place opens to start a scene there.
   const here = prefs.places ? whoIsWhere(cast, pins, Date.now()) : {};
+  // How a place is after an event (#219), while it lasts.
+  const stateOf = (pinId: string) => current?.placeStates?.find((x) => x.pinId === pinId && x.until > Date.now())?.text;
   const [openPin, setOpenPin] = useState<MapPin | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
   const [timeOpen, setTimeOpen] = useState(false);
@@ -98,6 +100,24 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
               <p className="text-[13.5px] leading-[19px] text-muted-foreground">{current.reputation?.text || "Nothing yet. Word gets around in a few days."}</p>
             </section>
           )}
+          {/* People around them (#218): names that recur, with whose they are. */}
+          {current && prefs.extras && (
+            <section aria-label="People around" className="flex flex-col gap-1.5">
+              <h3 className="text-[17px] font-bold text-foreground">People around</h3>
+              {current.extras?.length ? (
+                <ul className="flex flex-col gap-1">
+                  {current.extras.map((e) => (
+                    <li key={e.name} className="flex items-center gap-2 text-[13.5px]">
+                      <span className="min-w-0 flex-1 truncate"><span className="font-semibold text-foreground">{e.name}</span> <span className="text-muted-foreground">{e.about}{e.tiedTo !== undefined && cast.find((c) => c.id === e.tiedTo) ? `, ${cast.find((c) => c.id === e.tiedTo)!.name}'s` : ""}</span></span>
+                      <button type="button" aria-label={`Remove ${e.name}`} onClick={() => void dispatch(patchWorld(current.id, (w) => ({ extras: (w.extras || []).filter((x) => x.name !== e.name) })))} className="text-[12.5px] font-semibold text-subtle hover:text-foreground">Remove</button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[13.5px] text-muted-foreground">Nobody yet. People who come up in their talk will be kept here.</p>
+              )}
+            </section>
+          )}
           <h3 className="text-[17px] font-bold text-foreground">Places</h3>
           {current?.map?.image && prefs.places && pins.length > 0 ? (
             <LiveMap image={current.map.image} pins={pins} here={here} youAt={youAt} onOpenPin={setOpenPin} />
@@ -121,7 +141,7 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
                 <li key={p.id}>
                   <button type="button" disabled={!prefs.places} onClick={() => setOpenPin(p)} aria-label={`${p.name}${here[p.id]?.length ? `, ${here[p.id].map((c) => c.name).join(", ")} here` : ""}`} className="flex w-full items-center gap-2.5 rounded-lg py-1 text-left text-[13.5px] font-semibold text-foreground enabled:hover:bg-raised">
                     <FaMapMarkerAlt size={12} className="flex-none text-primary-text" />
-                    <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                    <span className="min-w-0 flex-1 truncate">{p.name}{stateOf(p.id) && <span className="font-normal text-muted-foreground"> · {stateOf(p.id)}</span>}</span>
                     <span className="flex -space-x-1.5">
                       {(here[p.id] || []).slice(0, 4).map((c) => <CharacterAvatar key={c.id} name={c.name} accent={c.accent} imageSrc={avatarOf(c)} size={22} />)}
                     </span>

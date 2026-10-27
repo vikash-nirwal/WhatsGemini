@@ -6,6 +6,8 @@ import { pickWorldTalk, WORLD_TALK_GAP_MS } from "../worldTalk";
 import { featureOn } from "../worldPrefs";
 import { talkGapFor } from "../bonds";
 import { settingGapFactor, talkSettingFor } from "../talkMedium";
+import { paceFactor } from "../activity";
+import { goalsClash } from "../goals";
 
 // The pair who talk next (#145, #209). Worlds take turns, My world among
 // them: the one whose people talked longest ago (by this job's turns) goes
@@ -22,7 +24,9 @@ export const pickNextTalk = (characters: Character[], worlds: Parameters<typeof 
     // (#216).
     const world = worlds.find((w) => w.id === worldId);
     const drift = featureOn(worldId, "drift");
-    const gapFor = (a: Character, b: Character) => (drift ? talkGapFor(opts.gapMs, a, b, now) : opts.gapMs) * settingGapFactor(talkSettingFor(a, b, world, now));
+    // Each at their own pace (#223), and sooner when their goals clash (#221).
+    const gapFor = (a: Character, b: Character) =>
+      (drift ? talkGapFor(opts.gapMs, a, b, now) : opts.gapMs) * settingGapFactor(talkSettingFor(a, b, world, now)) * paceFactor(a, b, now) * (goalsClash(a, b) ? 0.6 : 1);
     const pair = pickWorldTalk(characters, worlds, now, { ...opts, worldAllowed: (w) => w === worldId, gapFor });
     if (pair) {
       markServed("world-talk", worldId, now);

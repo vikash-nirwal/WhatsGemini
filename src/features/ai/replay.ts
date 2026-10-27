@@ -6,6 +6,8 @@ import { cleanGoal, parseGoalProgress } from "../world/goals";
 import { parseEvent } from "../world/worldEvents";
 import { readWorldTurnJson } from "../world/worldTurn";
 import { cleanCatchUp } from "../world/catchUp";
+import { parseAftermath } from "../world/aftermath";
+import { parsePeople } from "../world/extras";
 import { parseSecret } from "../world/secrets";
 import { parseArc } from "../world/worldArcs";
 import { parseHangouts } from "../world/places";
@@ -94,6 +96,7 @@ export const REPLAY_CHECKS: Record<string, { label: string; checks: Check[] }> =
     checks: [
       talkLines("Name: text lines", (reply, ctx) => parseOffscreenTalk(reply, pairOf(ctx), 20)),
       { id: "TIE", label: "TIE: x | y", optional: true, asked: asks("TIE"), present: hasLine("TIE"), parses: (reply) => Boolean(parseTieChange(reply)) },
+      { id: "PERSON", label: "PERSON: name | who | whose", optional: true, asked: asks("PERSON"), present: hasLine("PERSON"), parses: (reply) => parsePeople(reply).length > 0 },
       SHARED_CHECK,
       NEW_CHECK,
       { id: "GOAL", label: "GOAL: name: progress", optional: true, asked: asks("GOAL"), present: hasLine("GOAL"), parses: (reply, ctx) => parseGoalProgress(reply, ctx.cast).length > 0 },
@@ -113,6 +116,13 @@ export const REPLAY_CHECKS: Record<string, { label: string; checks: Check[] }> =
     label: "World turn",
     checks: [
       { id: "json", label: "JSON with talks, event, life", present: (reply) => reply.includes("{"), parses: (reply) => Array.isArray((readWorldTurnJson(reply) as { talks?: unknown } | undefined)?.talks) },
+    ],
+  },
+  aftermath: {
+    label: "Event aftermath",
+    checks: [
+      { id: "TRADITION", label: "TRADITION: yes or no", present: hasLine("TRADITION"), parses: (reply) => /^[\s*_-]*TRADITION\s*:\s*\**\s*(yes|no)\b/im.test(reply) },
+      { id: "FACT", label: "FACT: a sentence", optional: true, present: hasLine("FACT"), parses: (reply) => Boolean(parseAftermath(reply, [], [], 0).fact) },
     ],
   },
   "catch-up": { label: "What you missed", checks: [plain("A few sentences", cleanCatchUp)] },

@@ -6,7 +6,10 @@ import { parseOffscreenTalk } from "../../chat/offscreenTalk";
 import { factsAboutUser } from "../../character/intimacy";
 import { worldOf } from "../currentWorld";
 import { factionsOf } from "../factions";
-import { buildGoalPrompt, cleanGoal, needsGoal, parseGoalProgress } from "../goals";
+import { buildGoalPrompt, clashLine, cleanGoal, goalsClash, needsGoal, parseGoalAgainst, parseGoalProgress } from "../goals";
+import { bringsBackGone, canonLine, canonOf, goneIn } from "../canon";
+import { addExtras, extrasLine, parsePeople } from "../extras";
+import { patchWorld } from "../../worldSlice";
 import { applyShared, buildFoldPrompt, buildKnowsNote, buildShareSection, cleanFold, foldDue, markFolded, parseNewFact, parseShared } from "../knowledge";
 import { buildSceneNow } from "../sceneNow";
 import { editTimeline, loadTimeline, logToTimeline } from "../timeline";
@@ -14,7 +17,7 @@ import { arcActive, arcLine } from "../worldArcs";
 import { activeEvents } from "../worldEvents";
 import { featureOn, talkLengthFor } from "../worldPrefs";
 import { buildWorldTalkPrompt, parseTieChange, pickTalkTopic, recencyOf, talksBetween, tieMayChange, UserKnowledge } from "../worldTalk";
-import { nudgeMood, standingLine, tieUnderStrain } from "../bonds";
+import { nudgeBond, nudgeMood, standingLine, tieUnderStrain } from "../bonds";
 import { afterTalk } from "./shared";
 import { linesFor, talkSettingFor } from "../talkMedium";
 import { EngineDispatch, engineState, GetState } from "./state";
@@ -53,7 +56,8 @@ export const worldTalkTurn = (now: number) => async (dispatch: EngineDispatch, g
   // the talk is about, and the prompt hears how the two stand lately.
   const drift = featureOn(worldId, "drift");
   const askTie = drift && (tieMayChange(topic) || tieUnderStrain(a, b.id, now) || tieUnderStrain(b, a.id, now));
-  const standing = drift ? standingLine(a, b, now) : undefined;
+  // Goals that clash (#221) are on their minds whether or not drift is on.
+  const standing = [drift ? standingLine(a, b, now) : undefined, featureOn(worldId, "goals") ? clashLine(a, b) : undefined].filter(Boolean).join(" ") || undefined;
   // What each knows from the world's record (#204), at one shared time and
   // place (#205).
   const record = await loadTimeline(worldId);
@@ -63,20 +67,42 @@ export const worldTalkTurn = (now: number) => async (dispatch: EngineDispatch, g
   const goals = featureOn(worldId, "goals");
   const wanting = goals ? [a, b].find((c) => needsGoal(c, now)) : undefined;
   if (wanting) {
-    const goal = cleanGoal(await dispatch(generateAssistText({
-      instruction: buildGoalPrompt(wanting, talkWorld?.name, buildKnowsNote(wanting, record, characters, now)),
+    // Knowing what the others here want, so it may clash with one (#221).
+    const others = characters.filter((c) => c.id !== wanting.id && worldOf(c, worlds) === worldId && c.goal && !needsGoal(c, now));
+    const goalReply = await dispatch(generateAssistText({
+      instruction: buildGoalPrompt(wanting, talkWorld?.name, buildKnowsNote(wanting, record, characters, now), others.map((c) => ({ name: c.name, goal: c.goal!.text }))),
       background: true,
       activity: { at: now, kind: "other", text: `${wanting.name} decided what they want this week`, characterId: wanting.id, name: wanting.name },
-    })).unwrap());
-    if (goal) await dispatch(patchCharacter(wanting.id, { goal: { text: goal, setAt: now } }));
+      replyKind: "goal",
+    })).unwrap();
+    const goal = cleanGoal(goalReply);
+    const against = goal ? parseGoalAgainst(goalReply, others) : undefined;
+    const rival = others.find((c) => c.id === against);
+    if (goal) await dispatch(patchCharacter(wanting.id, (latest) => ({ goal: { text: goal, setAt: now, ...(rival ? { against: rival.id } : {}) }, ...(rival ? nudgeBond(latest, rival.id, { tension: 15 }, now, `they both want things that can't both happen: ${goal}`) : {}) })));
+    if (goal && rival) await dispatch(patchCharacter(rival.id, (latest) => nudgeBond(latest, wanting.id, { tension: 15 }, now, `${wanting.name}'s plans this week get in the way`)));
   }
   const [ga, gb] = [a, b].map((c) => fresh(c.id) || c);
+  // What's settled here (#220) and the people around (#218).
+  const cast = characters.filter((c) => worldOf(c, worlds) === worldId);
+  const extrasOn = Boolean(talkWorld) && featureOn(worldId, "extras");
+  const talkContext = {
+    // Everyone's story counts for canon, the dead's too.
+    canon: canonLine(canonOf(talkWorld, engineState(getState).everyone.filter((c) => worldOf(c, worlds) === worldId), record)),
+    extras: extrasOn ? extrasLine(talkWorld, [a, b], cast) : undefined,
+    askPeople: extrasOn,
+  };
   const reply = await dispatch(generateAssistText({
-    instruction: buildWorldTalkPrompt(ga, gb, { goals, world: talkWorld, userName, maxLines, previous, topic, news, askTie, standing, setting, groups, sceneNow: buildSceneNow(talkWorld, [a, b], now), share, knows: { [a.id]: knowledge(a), [b.id]: knowledge(b) } }),
+    instruction: buildWorldTalkPrompt(ga, gb, { goals, world: talkWorld, userName, maxLines, previous, topic, news, askTie, standing, setting, ...talkContext, groups, sceneNow: buildSceneNow(talkWorld, [a, b], now), share, knows: { [a.id]: knowledge(a), [b.id]: knowledge(b) } }),
     background: true,
     activity: { at: now, kind: "talk", text: `${a.name} and ${b.name} texted`, characterId: a.id, name: a.name },
   })).unwrap();
-  const lines = parseOffscreenTalk(reply, pair, maxLines);
+  // A talk that puts someone who has died back on stage is dropped (#220).
+  const parsedLines = parseOffscreenTalk(reply, pair, maxLines);
+  const gone = goneIn(engineState(getState).everyone, talkWorld?.id);
+  const lines = parsedLines.some((l) => bringsBackGone(l.text, gone)) ? [] : parsedLines;
+  // Someone new came up by name (#218): they join the people around.
+  const people = extrasOn && lines.length ? parsePeople(reply) : [];
+  if (people.length && talkWorld) await dispatch(patchWorld(talkWorld.id, (w) => ({ extras: addExtras(w.extras, people, cast, now) })));
   // Hearsay (#206): what was passed on, and anything new about them.
   const told = lines.length ? parseShared(reply) : [];
   if (told.length) void editTimeline(worldId, (list) => applyShared(list, share.items, told, [a.id, b.id], now));
@@ -88,6 +114,10 @@ export const worldTalkTurn = (now: number) => async (dispatch: EngineDispatch, g
     if (!who?.goal) continue;
     await dispatch(patchCharacter(who.id, (latest) => ({ goal: step.done || !latest.goal ? undefined : { ...latest.goal, progress: step.progress }, ...(step.done ? nudgeMood(latest, 25, now, `got what they were after: ${who.goal!.text}`) : {}) })));
     if (step.done) void logToTimeline(worldId, { kind: "event", text: `${who.name} got what they were after: ${who.goal.text}`, characterIds: [who.id], audience: "private", at: now }, talkWorld?.storyTime);
+    // Whoever wanted it the other way is left low (#221).
+    for (const other of step.done ? engineState(getState).characters.filter((c) => c.id !== who.id && goalsClash(c, who)) : []) {
+      await dispatch(patchCharacter(other.id, (latest) => ({ ...nudgeMood(latest, -20, now, `${who.name} got there first`), ...(latest.goal?.against === who.id ? { goal: undefined } : {}) })));
+    }
   }
   // When they talked about you, the world's timeline notes it (#161).
   if (topic === "user" && lines.length) {
