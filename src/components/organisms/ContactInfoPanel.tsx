@@ -14,6 +14,7 @@ import { ScenePanelTabProps } from "./scene-panel/types";
 import ChatTab from "./scene-panel/ChatTab";
 import MemoryTab from "./scene-panel/MemoryTab";
 import RelationshipsSection from "./RelationshipsSection";
+import { featureOn } from "src/features/world/worldPrefs";
 import SecretsYouKnow from "./SecretsYouKnow";
 
 // Contact info (#151), as on the revamp canvas: the character everywhere,
@@ -67,6 +68,14 @@ const ContactInfoPanel: React.FC<ScenePanelTabProps> = (props) => {
             <div className="mt-2 w-full rounded-card bg-raised px-3.5 py-2.5 text-left ring-1 ring-inset ring-border">
               <div className="text-[12px] font-semibold text-subtle">Status · {formatRelativeTime(status.createdAt)}</div>
               <div className="mt-0.5 line-clamp-2 text-[13.5px] text-foreground">{status.text || "Photo"}</div>
+            </div>
+          )}
+          {/* Goals (#208): what they're after this week, while the switch is on. */}
+          {character.goal && featureOn(character.worldId, "goals") && (
+            <div data-slot="goal" className="mt-2 w-full rounded-card bg-raised px-3.5 py-2.5 text-left ring-1 ring-inset ring-border">
+              <div className="text-[12px] font-semibold text-subtle">Wants this week</div>
+              <div className="mt-0.5 text-[13.5px] text-foreground">{character.goal.text}</div>
+              {character.goal.progress && <div className="mt-0.5 text-[12.5px] text-muted-foreground">So far: {character.goal.progress}</div>}
             </div>
           )}
         </section>

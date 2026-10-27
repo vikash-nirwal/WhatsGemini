@@ -73,6 +73,7 @@ test("a living world in one tap", async ({ page }) => {
     await expect(life.getByRole("switch", { name: label })).toBeChecked();
   }
   await expect(life.getByRole("switch", { name: "Secrets between them" })).not.toBeChecked();
+  await expect(life.getByRole("switch", { name: "What each wants this week" })).not.toBeChecked();
   await life.getByRole("button", { name: "Turn all off" }).click();
   await expect(life.getByRole("switch", { name: "World events" })).not.toBeChecked();
 });

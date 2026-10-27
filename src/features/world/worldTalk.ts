@@ -1,6 +1,7 @@
 import { Character, World, WorldTalk } from "../../types";
 import { worldOf } from "./currentWorld";
 import { SHARE_ASK } from "./knowledge";
+import { GOAL_ASK, goalLine } from "./goals";
 
 // Life inside a world (#145): characters who know each other text on their
 // own, one helper call per exchange. Who talks follows "who knows whom"
@@ -118,7 +119,7 @@ const TOPIC_ASK = (t: TalkTopic, a: Character, b: Character, userName: string, w
 export const buildWorldTalkPrompt = (
   a: Character,
   b: Character,
-  { world, userName, maxLines, previous, topic = "lives", knows, news, askTie, groups, sceneNow, share }: {
+  { world, userName, maxLines, previous, topic = "lives", knows, news, askTie, groups, sceneNow, share, goals }: {
     world?: World;
     userName: string;
     maxLines: number;
@@ -130,10 +131,11 @@ export const buildWorldTalkPrompt = (
     groups?: Record<number, string[]>; // the families and factions each belongs to (#185)
     sceneNow?: string; // the time and where each of them is (#205)
     share?: { text?: string; items: unknown[] }; // what one knows that the other may not (#204, #206)
+    goals?: boolean; // what each wants this week leans the talk (#208)
   }
 ) => {
   const who = (c: Character, other: Character) =>
-    `${c.name}: ${[c.description, c.prompt].filter(Boolean).join(" ").slice(0, 500)}${tieOf(c, other) ? ` (${other.name} is ${c.name}'s ${tieOf(c, other)!.replace(/^your\s+/i, "")})` : ""}${c.dayLog?.text ? `\nTheir day so far: ${c.dayLog.text.slice(0, 300)}` : ""}${c.lifeEvents?.length ? `\nLately in their life: ${c.lifeEvents.slice(-2).map((e) => e.text).join(" ")}` : ""}${groups?.[c.id]?.length ? `\nBelongs to: ${groups[c.id].join(", ")} (loyal to their own)` : ""}`;
+    `${c.name}: ${[c.description, c.prompt].filter(Boolean).join(" ").slice(0, 500)}${tieOf(c, other) ? ` (${other.name} is ${c.name}'s ${tieOf(c, other)!.replace(/^your\s+/i, "")})` : ""}${c.dayLog?.text ? `\nTheir day so far: ${c.dayLog.text.slice(0, 300)}` : ""}${c.lifeEvents?.length ? `\nLately in their life: ${c.lifeEvents.slice(-2).map((e) => e.text).join(" ")}` : ""}${groups?.[c.id]?.length ? `\nBelongs to: ${groups[c.id].join(", ")} (loyal to their own)` : ""}${goals && goalLine(c) ? `\n${goalLine(c)}` : ""}`;
   const knowing = (c: Character) => {
     const k = knows?.[c.id];
     if (!k) return undefined;
@@ -163,6 +165,7 @@ export const buildWorldTalkPrompt = (
     topic === "user" ? "" : `- ${userName} can come up in passing if it's natural, but it's not the point.`,
     "- Plain text, in character, no stage directions. Don't settle big story points or decide anything for " + userName + ".",
     ...(share ? SHARE_ASK(share.items.length > 0) : []),
+    goals && (a.goal || b.goal) ? `- What they want this week can steer the talk: asking for help, a favour, a lead. ${GOAL_ASK.slice(2)}` : "",
     askTie ? `- Only if this conversation really changes how they stand with each other (a falling-out, making up, getting together, breaking up, becoming friends), end with one more line: TIE: <what ${b.name} is to ${a.name} now> | <what ${a.name} is to ${b.name} now>. Most conversations change nothing; then leave it out.` : "",
   ].filter(Boolean).join("\n");
 };

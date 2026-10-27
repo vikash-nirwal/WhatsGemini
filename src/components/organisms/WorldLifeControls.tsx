@@ -17,6 +17,7 @@ const FEATURES: [WorldFeature, string][] = [
   ["reputation", "Your reputation"],
   ["introductions", "Introductions to people they know"],
   ["secrets", "Secrets between them"],
+  ["goals", "What each wants this week"],
 ];
 
 const LENGTHS = Array.from({ length: MAX_TALK_LENGTH - 1 }, (_, i) => i + 2);

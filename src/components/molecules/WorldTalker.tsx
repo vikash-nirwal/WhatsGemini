@@ -9,6 +9,8 @@ import { channelId } from "src/features/channels/channels";
 import { editTimeline, loadTimeline, logToTimeline } from "src/features/world/timeline";
 import { applyShared, buildFoldPrompt, buildShareSection, cleanFold, foldDue, markFolded, parseNewFact, parseShared } from "src/features/world/knowledge";
 import { buildSceneNow } from "src/features/world/sceneNow";
+import { buildGoalPrompt, cleanGoal, needsGoal, parseGoalProgress } from "src/features/world/goals";
+import { buildKnowsNote } from "src/features/world/knowledge";
 import { activeEvents } from "src/features/world/worldEvents";
 import { factionsOf } from "src/features/world/factions";
 import { arcActive, arcLine } from "src/features/world/worldArcs";
@@ -70,10 +72,25 @@ const WorldTalker = () => {
         const askTie = featureOn(worldId, "drift") && tieMayChange(topic);
         // What each knows from the world's record (#204), at one shared
         // time and place (#205).
-        const share = buildShareSection([a, b], await loadTimeline(worldId), now, characters);
+        const record = await loadTimeline(worldId);
+        const share = buildShareSection([a, b], record, now, characters);
+        // Goals (#208): one of them without one this week picks it first,
+        // from who they are and what they know.
+        const goals = featureOn(worldId, "goals");
+        const wanting = goals ? [a, b].find((c) => needsGoal(c, now)) : undefined;
+        if (wanting) {
+          const goal = cleanGoal(await dispatch(generateAssistText({
+            instruction: buildGoalPrompt(wanting, talkWorld?.name, buildKnowsNote(wanting, record, characters, now)),
+            background: true,
+            activity: { at: now, kind: "other", text: `${wanting.name} decided what they want this week`, characterId: wanting.id, name: wanting.name },
+          })).unwrap());
+          const fresh = latest.current.characters.find((c) => c.id === wanting.id);
+          if (goal && fresh) await dispatch(updateCharacter({ ...fresh, goal: { text: goal, setAt: now } }));
+        }
+        const [ga, gb] = [a, b].map((c) => latest.current.characters.find((x) => x.id === c.id) || c);
         const sceneNow = buildSceneNow(talkWorld, [a, b], now);
         const reply = await dispatch(generateAssistText({
-          instruction: buildWorldTalkPrompt(a, b, { world: talkWorld, userName: persona?.name?.trim() || "the user", maxLines, previous, topic, news, askTie, groups, sceneNow, share, knows: { [a.id]: knowledge(a), [b.id]: knowledge(b) } }),
+          instruction: buildWorldTalkPrompt(ga, gb, { goals, world: talkWorld, userName: persona?.name?.trim() || "the user", maxLines, previous, topic, news, askTie, groups, sceneNow, share, knows: { [a.id]: knowledge(a), [b.id]: knowledge(b) } }),
           background: true,
           activity: { at: now, kind: "talk", text: `${a.name} and ${b.name} texted`, characterId: a.id, name: a.name },
         })).unwrap();
@@ -88,6 +105,13 @@ const WorldTalker = () => {
         if (told.length) void editTimeline(worldId, (list) => applyShared(list, share.items, told, [a.id, b.id], now));
         const fresh = lines.length ? parseNewFact(reply) : undefined;
         if (fresh) void logToTimeline(worldId, { kind: "talk", text: fresh, characterIds: [a.id, b.id], audience: "private", at: now }, w?.storyTime);
+        // A goal moved on, or reached (#208).
+        for (const step of goals && lines.length ? parseGoalProgress(reply, [a, b]) : []) {
+          const who = latest.current.characters.find((c) => c.id === step.id);
+          if (!who?.goal) continue;
+          await dispatch(updateCharacter({ ...who, goal: step.done ? undefined : { ...who.goal, progress: step.progress } }));
+          if (step.done) void logToTimeline(worldId, { kind: "event", text: `${who.name} got what they were after: ${who.goal.text}`, characterIds: [who.id], audience: "private", at: now }, w?.storyTime);
+        }
         if (topic === "user" && lines.length) {
           void logToTimeline(worldId, { kind: "talk", text: `${a.name} and ${b.name} talked about you`, characterIds: [a.id, b.id], at: now }, w?.storyTime);
         }

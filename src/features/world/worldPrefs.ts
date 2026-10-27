@@ -13,11 +13,12 @@ export interface WorldPrefs {
   reputation?: boolean; // how people there see you (#166)
   introductions?: boolean; // people introduce you to people they know (#167)
   secrets?: boolean; // secrets between characters (#170)
+  goals?: boolean; // what each wants this week (#208)
   callCap?: number; // background calls a day at most (#192); unset = no limit
   quietHours?: [number, number]; // hours when nothing runs in the background (#192), e.g. [23, 8]
 }
 
-export type WorldFeature = "events" | "drift" | "arrivals" | "places" | "reputation" | "introductions" | "secrets";
+export type WorldFeature = "events" | "drift" | "arrivals" | "places" | "reputation" | "introductions" | "secrets" | "goals";
 
 export const DEFAULT_TALK_LENGTH = 10;
 export const MAX_TALK_LENGTH = 20;

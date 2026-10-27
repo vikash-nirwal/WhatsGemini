@@ -739,6 +739,7 @@ export interface Character {
   keptSecrets?: KeptSecret[]; // what they hide from people in their world (#170)
   lifeEvents?: { text: string; at: number }[]; // things that happened in their life over story time (#164), newest last
   knownSummary?: string; // older things they knew or heard, folded into one line (#207)
+  goal?: { text: string; setAt: number; progress?: string }; // what they want this week (#208)
   dayMood?: { date: string; mood: string }; // today's mood picked by hand; mood "" = a good day
   spreadsRumors?: boolean; // what you tell them can get around (#98)
   rumors?: Rumor[]; // rumors they heard about you

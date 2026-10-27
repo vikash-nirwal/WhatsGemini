@@ -65,6 +65,7 @@ import { noteBudgetFor } from "../features/ai/utils/promptBudget";
 import { useWorldTimeline } from "../hooks/useWorld";
 import { buildHistoryNote } from "../features/world/timeline";
 import { audienceOf, buildKnowsNote } from "../features/world/knowledge";
+import { buildGoalNote } from "../features/world/goals";
 import { worldOf } from "../features/world/currentWorld";
 import { patchWorld, switchWorld } from "../features/worldSlice";
 import { buildMyStatusNote } from "../features/status/myStatuses";
@@ -275,6 +276,7 @@ const ChatPage = () => {
       tiesNoteFor({ ...speaker, ties: (speaker.ties || []).filter((t) => !roomCharacters.some((c) => c.id === t.withId)) }, characters),
       worldTalkNoteFor(speaker, characters, now),
       buildKnowsNote(speaker, worldTimeline, characters, now),
+      featureOn(speaker.worldId, "goals") ? buildGoalNote(speaker) : undefined,
       buildDayLogSection(speaker.name, dayLogText(speaker, now)),
       buildConcernsSection(speaker.name, speaker.concerns, now),
       buildLifeNote(speaker, now),
@@ -458,6 +460,7 @@ const ChatPage = () => {
   // everyone saw; each speaker's own knowledge comes with their notes.
   scene.historyNote = buildHistoryNote(isRoom ? worldTimeline.filter((e) => audienceOf(e) === "public") : worldTimeline, noteTime, 8, isRoom ? undefined : characterData?.id);
   scene.heardNote = mainStory ? buildKnowsNote(characterData, worldTimeline, characters, noteTime) : undefined;
+  scene.goalNote = mainStory && featureOn(chatWorldId, "goals") ? buildGoalNote(characterData) : undefined;
   scene.noteBudget = noteBudgetFor(maxContextTokensForNotes);
   if (featureOn(chatWorldId, "places")) {
     const placesWorld = worlds.find((w) => w.id === chatWorldId);
