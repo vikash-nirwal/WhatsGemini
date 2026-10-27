@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { registerTick } from "src/features/life/ticks";
+import { registerJob } from "src/features/life/scheduler";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
@@ -66,15 +66,8 @@ const GoBetween = () => {
         busy.current = false;
       }
     };
-    const first = window.setTimeout(check, FIRST_CHECK_MS);
-    const timer = window.setInterval(check, CHECK_EVERY_MS);
-    // Also run on demand: catch-up and Simulate a day (#191, #193).
-    const offTick = registerTick("go-between", () => check());
-    return () => {
-      offTick();
-      window.clearTimeout(first);
-      window.clearInterval(timer);
-    };
+    // On the scheduler (#209): its own checks, catch-up and Simulate a day.
+    return registerJob("go-between", { everyMs: CHECK_EVERY_MS, firstMs: FIRST_CHECK_MS }, () => check());
   }, [dispatch, navigate]);
 
   return null;

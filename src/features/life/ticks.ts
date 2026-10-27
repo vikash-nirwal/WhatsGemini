@@ -1,36 +1,20 @@
-// Life ticks (#191, #193): background jobs register the check they run on
-// their timers, so a run of them can be asked for on demand - spread across
-// your time away when you come back (catch-up), or a day's worth now
-// (Simulate a day). Each check is given the moment it stands for.
+import { jobNames, runEveryJob } from "./scheduler";
 
-type Tick = (at?: number) => Promise<unknown> | unknown;
-const jobs = new Map<string, Tick>();
+// Life ticks (#191, #193): every background job can be asked for a run on
+// demand - spread across your time away when you come back (catch-up), or
+// a day's worth now (Simulate a day). Each run is given the moment it
+// stands for. The jobs themselves are registered with the scheduler (#209).
 
-export const registerTick = (name: string, tick: Tick) => {
-  jobs.set(name, tick);
-  return () => {
-    if (jobs.get(name) === tick) jobs.delete(name);
-  };
-};
+export const tickJobs = jobNames;
 
-export const tickJobs = () => Array.from(jobs.keys());
-
-// Runs every job at each moment in turn, one at a time, so they don't all
-// call the model at once. `onStep` reports progress.
+// Runs every job at each moment in turn, one at a time through the
+// scheduler's queue, so they don't all call the model at once. `onStep`
+// reports progress.
 export const runTicks = async (moments: (number | undefined)[], onStep?: (done: number, total: number) => void) => {
-  const list = Array.from(jobs.values());
-  const total = moments.length * list.length;
+  const total = moments.length * jobNames().length;
   let done = 0;
-  for (const at of moments) {
-    for (const tick of list) {
-      try {
-        await tick(at);
-      } catch (err) {
-        console.warn("A life tick failed (non-fatal):", err);
-      }
-      onStep?.(++done, total);
-    }
-  }
+  const step = () => onStep?.(++done, total);
+  for (const at of moments) await runEveryJob(at, step);
 };
 
 // Catch-up (#193): moments spread across the absence, one for every few

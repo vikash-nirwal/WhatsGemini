@@ -1,4 +1,4 @@
-import { registerTick } from "src/features/life/ticks";
+import { registerJob } from "src/features/life/scheduler";
 import { useEffect, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { generateAssistText } from "src/features/aiSlice";
@@ -62,14 +62,7 @@ const ChannelPoster = () => {
     // The catch-up turn is claimed when the timer fires, not at mount (a
     // remount would otherwise lose it).
     // Catch-up for time away now runs through the life ticks (#193).
-    const first = window.setTimeout(() => check(), FIRST_CHECK_MS);
-    const timer = window.setInterval(check, CHECK_EVERY_MS);
-    const offTick = registerTick("channel", (at) => check(at));
-    return () => {
-      offTick();
-      window.clearTimeout(first);
-      window.clearInterval(timer);
-    };
+    return registerJob("channel", { everyMs: CHECK_EVERY_MS, firstMs: FIRST_CHECK_MS }, (at) => check(at));
   }, [dispatch]);
 
   return null;

@@ -3,7 +3,7 @@ import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { selectActivePersona } from "src/features/settingsSlice";
 import { theirTalkDue } from "src/features/chat/theirGroup";
 import { runTheirGroup } from "src/features/chat/runTheirGroup";
-import { registerTick } from "src/features/life/ticks";
+import { registerJob } from "src/features/life/scheduler";
 import { useLivingCharacters, useLivingChats } from "src/hooks/useWorld";
 
 const CHECK_EVERY_MS = 20 * 60 * 1000;
@@ -36,14 +36,7 @@ const TheirGroupTalker = () => {
         busy.current = false;
       }
     };
-    const first = window.setTimeout(() => void check(), FIRST_CHECK_MS);
-    const timer = window.setInterval(() => void check(), CHECK_EVERY_MS);
-    const offTick = registerTick("their-groups", (at) => check(at));
-    return () => {
-      offTick();
-      window.clearTimeout(first);
-      window.clearInterval(timer);
-    };
+    return registerJob("their-groups", { everyMs: CHECK_EVERY_MS, firstMs: FIRST_CHECK_MS }, (at) => check(at));
   }, [dispatch]);
 
   return null;

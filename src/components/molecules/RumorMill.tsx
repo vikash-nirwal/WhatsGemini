@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { registerTick } from "src/features/life/ticks";
+import { registerJob } from "src/features/life/scheduler";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { generateAssistText } from "src/features/aiSlice";
 import { updateCharacter } from "src/features/characterSlice";
@@ -53,15 +53,8 @@ const RumorMill = () => {
         busy.current = false;
       }
     };
-    const first = window.setTimeout(check, FIRST_CHECK_MS);
-    const timer = window.setInterval(check, CHECK_EVERY_MS);
-    // Also run on demand: catch-up and Simulate a day (#191, #193).
-    const offTick = registerTick("rumors", () => check());
-    return () => {
-      offTick();
-      window.clearTimeout(first);
-      window.clearInterval(timer);
-    };
+    // On the scheduler (#209): its own checks, catch-up and Simulate a day.
+    return registerJob("rumors", { everyMs: CHECK_EVERY_MS, firstMs: FIRST_CHECK_MS }, () => check());
   }, [dispatch]);
 
   return null;
