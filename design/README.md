@@ -1,12 +1,8 @@
-# Design references
+# Design reference
 
-- `screenshots/`: the app's main screens (26 each) on desktop (1280×800) and iPhone 14, in the default theme (cozy, dark) and the WhatsApp theme (light), with realistic sample content. Taken 2026-10-25.
-- `claude-design-prompt.md`: the brief for a spacious UI revamp in Claude Design; attach the screenshots with it.
-- `claude-design-second-pass.md`: a follow-up for the same canvas, after reviewing the first pass (https://claude.ai/artifact/M3jbFgiyZEipQ2G5PS5HSt): missing screens, "coming next" designs, accessibility fixes and four decisions with default answers.
-- `capture-screens.spec.ts`: the Playwright script that took them. To take them again, copy it into `e2e/`, run it, and delete the copy:
+- `canvas-system.css`: the stylesheet of the Claude Design canvas the UI revamp (#148–#157) followed (https://claude.ai/artifact/M3jbFgiyZEipQ2G5PS5HSt). `src/styles/tokens.css` takes its values from here.
+- `capture-screens.spec.ts`: a Playwright script that screenshots the app's main screens (desktop and iPhone, two themes), for a future design pass. To use it, copy it into `e2e/`, run it, and delete the copy:
 
 ```bash
 cp design/capture-screens.spec.ts e2e/zz-screens.spec.ts && npx playwright test e2e/zz-screens.spec.ts --project=desktop --project=iphone; rm e2e/zz-screens.spec.ts
 ```
-
-(The phone run in the default theme stops at its last, optional screen, the new-chat dialog, which is behind the drawer on phones; the other 26 are saved.)

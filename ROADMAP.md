@@ -1,60 +1,29 @@
 # Kindred roadmap
 
-What's still to build. Finished work is summarized in [PROGRESS.md](PROGRESS.md), and the details are in the git history. Item numbers stay the same as in earlier versions of this file, so old commits and notes still match.
+What's left to build. What's built is mapped in [PROGRESS.md](PROGRESS.md); the details are in the git history. Item numbers never change; new ideas take the next free number (next: #224).
 
 Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
----
+## Open
 
-Items up to #129 are built (the last batch, #113–#129 "Your own WhatsApp", on 2026-10-24). New ideas get the next free numbers.
+- **#132 Real-model tuning pass (S, blocked on the user).** The user uses the app with their own key, with "Keep helper replies" on (Settings › Spending), and exports them; Claude replays them (#214) and fixes the prompts and parsers that slip. See "Untried" below for what to watch.
 
-## Your own WhatsApp, part 2 (#130–#142, picked 2026-10-25)
+## Untried
 
-Picked by the user from the ideas after #113–#129. No voice features until the app has an AI voice model (see PROGRESS.md › Decisions).
+Built and unit/UI-tested with mocks, never with the real thing.
 
-- **#132 Real-model tuning pass (S).** The user tries #81 onward and the latest fixes with their own key and reports what's off; Claude fixes it. Watch: how often the tags (`[Re:]`, `[Fwd:]`, `[Contact:]`, `[Poll:]`, `[Group name:]`, story tags) are used, the helper prompts' output, statuses keeping to the timeline, group rounds.
-- **#139 Circles.** Folded into worlds (#145): the world is the circle.
+- **Chat tags:** `[Re:]`, `[Fwd:]`, `[Contact:]`, `[Poll:]`, `[Group name:]`, `[Sticker:]`, `[Secret revealed: n]`, story tags (`[Upset:]`, `[Made up]`, `[Lie:]`, `[Lie caught: n]`, `[Rumor raised]`). Chat replies aren't in the reply log yet, so these need reading by hand.
+- **Helper prompts:** first texts, dreams, rumors, statuses and the feed, channels, profile changes, letters, day logs, preoccupations, recaps, character drafts (also from a photo); all the world prompts (talk with TIE / SHARED / NEW / GOAL / PERSON lines, events, life events, newcomers, reputation, introductions, secrets, storylines, factions, plans, world turns, the catch-up story, aftermath, goal AGAINST lines). The weights behind #211 and the prompt budget's priorities are first guesses.
+- **Services:** image providers with real keys (Wan from Singapore, fal.ai uploads and safety flags, OpenAI `input_fidelity`/`image[]`, ComfyUI node names, SD WebUI), vision APIs, Open-Meteo and Nager.Date, Google Drive backup (needs the user's OAuth client ID), the in-browser model (needs a GPU) and the embedding download.
+- **Devices:** notifications in the installed app, Android Chrome and an iPhone Home Screen app; Android background sync; voice on real phones and Windows; ambient sound on iPhone; `h-dvh` on a real iPhone.
 
-## Worlds (#143–#147, picked 2026-10-25)
+## Ideas not built
 
-The user's idea, replacing circles: the app holds several worlds, each its own space with its own people, chats, news and social life; you switch between them like accounts. Decisions (asked one by one, 2026-10-25): a character can join several worlds with separate memory in each; you're part of every world, with a persona per world or your default; other worlds keep running, with a per-world switch; worlds can have optional story time; the existing Worlds gallery becomes the world manager.
+Leftovers worth picking up alongside related work.
 
-
-## Reset (#158, the user's request, 2026-10-25)
-
-
-## UI revamp (#148–#157, picked 2026-10-25)
-
-A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp" (https://claude.ai/artifact/M3jbFgiyZEipQ2G5PS5HSt, 59 boards after two passes; its stylesheet is saved as `design/canvas-system.css`, and the briefs are in `design/`). The canvas shows cozy and Messenger, light and dark; the other five themes map onto the same tokens. Decisions (2026-10-25): no "Favourites" filter; the WhatsApp theme is called "Messenger"; all Drama settings stay per chat; forwarding and contact cards stay inside one world. Keep every feature: regroup and restyle, don't remove.
-
-**Wave 1 (#148–#151) is built** (2026-10-25; see PROGRESS.md). Left from it for later items: the life dial and presets in Contact info's "Their life" (with #131), Block and Clear chat there (with #133), search inside a chat (not built yet), and docking the composer below the messages instead of floating it (#152–#156 can pick it up).
-
-**Wave 2: the other screens**
-
-**Wave 3: with the features they belong to**
-- The canvas's boards for Peek (#145), blocking (#133), event invites (#134), disappearing messages (#136), stickers (#137), the activity log (#131), "where things stand" (#142) and "While you were away" (#130) are built with those items; they get no numbers of their own.
-
-## Smaller follow-ups
-
-Leftovers noted while building the finished items. Pick them up alongside related work.
-
-- **#216–#223 (2026-10-27):** not tried with real models: letters and in-person talk, PERSON lines, the aftermath, goal AGAINST lines, and how often the canon check drops something real. Season words follow northern seasons on the real calendar. No anniversaries of one-off events. Background people aren't in 1:1 chats or group talk yet, only world talk, world turns, events and life events.
-- **#209–#215 (2026-10-27):** not tried with real models: the world-turn JSON (#212) and the catch-up story (#213); how the numbers (#211) feel over real weeks, and their weights are a first guess. Chat replies' tags aren't in the reply log (#214). Backups still leave out adventures, channels and my statuses, and a restore into a library whose ids are taken doesn't remap characters' ties, talks, `knowsAbout` or kept secrets (#215). The 11 personal runners keep their logic in components (only the world engine moved to thunks).
-
-- **#187–#201 (2026-10-26):** not tried for real: the in-browser model for background life (needs a GPU), the embedding download for recall by meaning, the daily Drive backup with a real Google account, and Android background sync on a real phone. The prompt budget's priorities are a first guess; tune them with the inspector once real models are in use.
-
-- **#173–#186 (2026-10-26):** not tried with real models: the usual-spot, news-text, gap-lives, plan reminder and outcome, and group-talk prompts. Factions don't regroup the map. Plans resolve only for chats in living worlds while the app is open.
-
-- **#159–#172 (2026-10-26):** not tried with real models: the talk topics, the TIE line, event, life-event, newcomer, reputation, introduction, secret, storyline and faction prompts. All of it only runs while the app is open. God-mode truths, events and storylines don't reach letters or the feed's reactions yet. Factions don't cluster the map; plans, factions and storylines have no switch (you start them yourself).
-
-
-- **#113–#129 (2026-10-24):** not tried with real models or a real image provider: whether models use the new tags (`[Re: …]`, `[Fwd: …]`, `[Contact: …]`, `[Group name: …]`, `[Poll: …]`), the status, channel, About and poll-vote helper prompts, and photo statuses and profile photos. Swipe-to-reply has no UI test. Channels, your statuses' private replies and profile changes only happen while the app is open. You can't send view-once photos yourself yet. The phone shell is WhatsApp-theme only.
-
-- **Photos:** real vision APIs weren't tried (mocked only).
-- **Image providers:** try each with a real key: Wan from a Singapore workspace, fal.ai uploads and its safety flags, OpenAI's `input_fidelity` and `image[]` fields, and the ComfyUI templates' node names against a real server. An InstantID preset for the SD WebUI ControlNet (it needs two units). Image prompts per model aren't tried against real servers yet (the guides in `imagePromptGuide.ts` are a starting point).
-- **Notifications:** not tried on a real device: the installed app's service-worker path (`showNotification` and its `notificationclick`), Android Chrome, and an iPhone Home Screen app. Portraits saved to a local folder (`local:`) show the app icon instead of the avatar.
-- **Voice:** not tried with real voices or a real microphone: Android Chrome's continuous recognition (it can repeat earlier words; `readTranscript` rebuilds from all results to cope), iPhone Safari (needs Siri and dictation on), and voices on Windows. Paid TTS (OpenAI, ElevenLabs) could come later through the provider registry. Texting mode and the terminal theme have no hold-to-record animation. Chat rows show the character's description, not the last message, so "🎤 Voice message" only appears on search results.
-- **#81–#92 (2026-10-22):** not tried with real models: character from a photo (vision drafting), the feed's reactions and comment answers, the plan check, the gift-back pick, and whether models use the `[Secret revealed: n]` tag reliably. Ambient sound isn't tried on a phone (iPhone Safari needs a tap before audio starts; the first tap resumes it). Compare two models, gifts, plans, secrets and "On this day" are 1:1 only; rooms could follow. The feed's comments only come right after a post (no later trickle), and phones reach the feed only through the menu's status row.
-- **#109–#112 (2026-10-23):** not tried with real models or the real APIs: how the dated facts and the callback read, whether models keep to the writing profile, and Open-Meteo's and Nager.Date's real responses (mocked in tests). Embedding-based memory recall through the in-browser model (#55) is still an idea; relevance is keyword-based. Preoccupations are written only while the app is open. The routine (#7) and the schedule's presence run in the user's time zone, not the character's home. Holidays come from Nager.Date, which covers about 100 countries.
-- **#106–#108 (2026-10-23):** not tried with real models: how the mood note and the day's account read, whether models keep to the day log, and how the loose-texting note sounds. Slips are 1:1 only and don't show in the terminal theme or the novel view (texting mode doesn't either); a false start only happens for a reply that arrives while the chat is open. The day log needs the app open after 9 am. A mood is only known through the emotion tag, so a model that drops the tag leaves the mood to fade.
-- **#93–#105 (2026-10-23):** not tried with real models: whether they use the story tags (`[Upset: …]`, `[Made up]`, `[Lie: …]`, `[Lie caught: n]`, `[Rumor raised]`) reliably and sparingly, and how the first texts, dreams, rumors, teasers and flashback endings read. First texts and rumors only happen while the app is open (no background push). Fights, lies, jealousy, inside jokes, episodes and role reversal are 1:1 only; rooms could follow. Jealousy only counts 1:1 chats, not group chats. Role reversal leaves the scene tracker, secrets and other notes out while swapped.
+- **Worlds:** anniversaries of one-off events; background people in 1:1 and group chats; factions grouping the map; god-mode truths, events and storylines reaching letters and the feed; southern-hemisphere seasons.
+- **Chat:** gifts, plans, secrets, "On this day", fights, lies, jealousy, inside jokes, episodes, role reversal and compare two models in group chats (1:1 only today); sending view-once photos yourself; search inside a chat; a hold-to-record animation in texting mode and the terminal theme.
+- **Background life:** everything runs only while the app is open (the service worker can't call the AI); routines run in your time zone, not the character's home.
+- **Backups:** adventures, channels and your statuses aren't in backups; restoring into a library whose ids are taken doesn't relink characters' ties, talks, `knowsAbout` or kept secrets.
+- **Code:** the 11 personal background jobs still keep their logic in components (only the world engine moved to `features/world/engine/`); an InstantID preset for SD WebUI; paid TTS (after voice is back on the table).
+- **Tests:** swipe-to-reply has no UI test; fix the flaky specs listed in PROGRESS.md › Working notes.
