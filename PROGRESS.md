@@ -13,6 +13,7 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 - **Living worlds (#159–#172, 2026-10-26):** all fourteen built and committed one by one (see "What's built"); pushed (451f18f) and deployed (gh-pages 9c7995a) on 2026-10-26. Events, drifting ties, newcomers and life events, places, reputation, introductions and secrets each have a per-world switch, off by default (the user's call).
 - **World review fixes (#173–#186, 2026-10-26):** all fourteen built and committed one by one (see "What's built"), from the world mechanics review the user asked to act on.
 - **No-server batch (#187–#201, 2026-10-26):** all fifteen built and committed one by one (see "What's built").
+- **A world that knows what it knows (#203–#208, 2026-10-27):** built and committed (b83e17e, df981e8, goals after); not pushed. Earlier unpushed commits: status comment replies, image tone levels, the reply-lock fix, tap to see deleted texts. Not tried with real models: whether they use SHARED/NEW/GOAL lines reliably.
 - **Next up:** nothing queued. #132 (real-model tuning) waits on the user's testing; Drive backup (#54) waits on their OAuth client ID.
 - **Open questions for the user:** #54 Drive backup needs a Google OAuth client ID (steps are in Settings › Data) before it can be tried for real.
 - **How the new-ideas run went:** #42, #43, #12+#44 and #45 ran in fresh sessions; from #46 on they were built in the coordinating session, because new sessions can't be started over Remote Control. Each item was committed only after every suite passed.
@@ -84,6 +85,12 @@ Status values: `todo`, `in progress`, `done`, `skipped` (with a reason), `blocke
 | #200 | Better memory recall | done | 2026-10-25 |
 | #201 | Android background sync | done | 2026-10-25 |
 | #202 | Groups of theirs | done | 2026-10-27 |
+| #203 | World record with audiences | done | 2026-10-27 |
+| #204 | What each person knows | done | 2026-10-27 |
+| #205 | One time and place | done | 2026-10-27 |
+| #206 | Hearsay | done | 2026-10-27 |
+| #207 | Memory condensing | done | 2026-10-27 |
+| #208 | Goals | done | 2026-10-27 |
 | #148 | Revamp: design tokens and type | done | 2026-10-25 |
 | #149 | Revamp: core components | done | 2026-10-25 |
 | #150 | Revamp: navigation shell | done | 2026-10-25; terminal keeps its drawer and sidebar |
@@ -108,6 +115,12 @@ Smaller follow-ups are listed at the end of ROADMAP.md.
 
 One line per area. Pointers for when you need to work on it again.
 
+- **Goals (#208):** features/world/goals.ts; world switch `goals` (off by default, not part of Living world); WorldTalker picks one a week and reads `GOAL:` progress; `goalNote` in chats; Contact info shows "Wants this week".
+- **Memory condensing (#207):** `foldDue`/`buildFoldPrompt`/`markFolded` in knowledge.ts; WorldTalker folds at most one person per check into `Character.knownSummary`.
+- **Hearsay (#206):** talks end with `SHARED: n` and `NEW: ...` in the same call (no extra cost); `applyShared` records who heard what from whom, NEW lands as a private talk entry. Others' private news only passes through `spreadsRumors` characters; secrets never; non-talkers don't pass on what you told them.
+- **One time and place (#205):** features/world/sceneNow.ts `buildSceneNow` (world date or weekday, part of day, where each is by schedule/map) in all three talk prompts.
+- **What each person knows (#204):** features/world/knowledge.ts `knownTo`/`buildKnowsNote` (scene `heardNote`, and room speaker notes) and `buildShareSection` for WorldTalker, runTheirGroup and OffscreenTalker.
+- **World record with audiences (#203):** timeline entries carry `audience` (public/private/secret), `knownBy`, `heard`, `folded` (features/world/timeline.ts); old entries read by kind (`audienceOf` in knowledge.ts). Timeline writes are queued per world (`editTimeline`). The chat's history note only shows what that character could know.
 Android background sync: features/life/backgroundSync.ts (wakeNotices: tomorrow's plans once, a nudge after a quiet day; askForWakeUps registers periodic sync, tag kindred-tick, 12 h, when the installed app has the permission and notifications are on); service-worker.ts handles periodicsync by reading chats from IndexedDB and showing those notices (it can't run the AI or read the API key). Not tried on a real Android phone.
 Better memory recall: features/memory/semanticRecall.ts (opt-in, Settings > Text generation "Find memories by meaning"; all-MiniLM-L6-v2 through transformers.js loaded from jsDelivr at runtime; prepareRecall before every reply in ChatPage, recalled facts get a boost in selectRelevantFacts). A window.__kindredEmbed stand-in lets tests run without the download. Not tried with the real model download.
 Background chores on the in-browser model: features/life/onDevice.ts (a small WebLLM model, chosen in Settings > Spending's Life in the background, only with a usable GPU); generateAssistText runs background-life calls (those with an activity) on it, free, while other helper work stays on the helper model. Not tried on a real GPU.
@@ -343,6 +356,7 @@ Facts that save the next session time.
 
 Newest first. One or two lines per session.
 
+- 2026-10-27 (the user's ask: characters talking to each other didn't know the world or their chats): #203–#208 built - the timeline is the one record with audiences, one knowledge function feeds Peek talks, groups of theirs, group side talks and your chats, talks share one clock and place, hearsay rides on the talk call, old knowledge folds, goals behind a switch. Hearsay is in the same call rather than a separate helper call (cheaper), which differs from the first plan. Also: tap a deleted text to see what it said. Unit 1176 pass, build pass, 13 world/chat UI specs on desktop pass (48); full UI suite not run.
 - 2026-10-27 (the user's report: a reply that never shows, typing that never stops): two races between your reply and background life. Chat changes read the whole chat, changed it and wrote it back, so a background change (a news text, a notice, group talk, memory) could erase a reply saved at the same moment; now every change to a chat waits its turn (`dbService.withChatLock`, `lockedByChat` around the chat thunks, `patchChat`, reset and undo). And a background refresh read before your reply was saved put the older chat back on screen, leaving the chat looking unanswered (so its waiting dots stayed); refreshes now keep a chat that changed after they read it (`changedAt`, fetchChats `readAt`). Background life also waits while a reply is being written. Unit 1161 passed and the build passes; no UI suite and no deploy, at the user's request.
 - 2026-10-27 (images and status replies, the user's ask): added toning down for image prompts and universal prompt rules; fixed replying to comments on your status (there was no reply box); fixed stripImageContextTag, which hid any warning or note written after the [Image Context] tag. Unit 1158 passed and the build passes; the full UI suite was stopped at the user's request (the image, status and settings UI tests passed).
 - 2026-10-27 (fal.ai models, the user's ask): added browsing and picking any fal.ai image model; fal's models API needs no key but rate-limits without one, so the app sends yours. Not tried with real fal.ai calls (the API was checked by hand; tests fake it). Pushed (0b0dcef) and deployed (gh-pages e0887a5) with the user's OK.
