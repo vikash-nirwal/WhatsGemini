@@ -25,6 +25,8 @@ import { addLifeEvent, buildLifeEventPrompt, cleanLifeEvent, LIFE_GAP_MS, lifeEv
 import { featureOn } from "../worldPrefs";
 import { lifeEventTone, lifeWeight, nudgeBond, nudgeMood, secretWeight } from "../bonds";
 import { EngineDispatch, engineState, GetState } from "./state";
+import { tellTheNews } from "./shared";
+import { worldTurn } from "./worldTurnJob";
 
 // A world's own life (#162-#184), moved out of WorldEventWatcher (#209):
 // its storyline moves on, it starts events, lives move on and newcomers
@@ -44,11 +46,6 @@ const pickWorld = (job: string, worlds: World[], now: number, due: (w: World) =>
   return world;
 };
 
-// The news reaches you (#178): one or two people close to it text you.
-const tellTheNews = (world: World, news: string, about: number[], now: number) => async (dispatch: EngineDispatch, getState: GetState) => {
-  const { characters, chats, userName } = engineState(getState);
-  await dispatch(shareNews({ world, cast: castOf(characters, world.id), chats, userName, news, about, now }));
-};
 
 // Storylines (#169) move to their next beat on their own; no AI call.
 export const moveStorylines: Job = (now) => async (dispatch, getState) => {
@@ -89,10 +86,10 @@ export const runIntoYou: Job = (now) => async (dispatch, getState) => {
   await dispatch(shareNews({ world, cast: there, chats, userName, news: `${userName} is at ${place.name} right now, and so are you - you've just spotted them`, about: there.map((c) => c.id), max: 1, now }));
 };
 
-// World events (#162).
+// World events (#162). A world on world turns (#212) gets them there.
 export const startOwnEvent: Job = (now) => async (dispatch, getState) => {
   const { worlds, characters } = engineState(getState);
-  const world = pickWorld("events", worlds, now, (w) => castOf(characters, w.id).length >= 2 && featureOn(w.id, "events") && eventDue(w, now, lifeScaled(EVENT_GAP_MS)));
+  const world = pickWorld("events", worlds, now, (w) => castOf(characters, w.id).length >= 2 && featureOn(w.id, "events") && !featureOn(w.id, "worldTurn") && eventDue(w, now, lifeScaled(EVENT_GAP_MS)));
   if (!world) return;
   // The check is recorded first, so a failed one waits a whole gap.
   await dispatch(patchWorld(world.id, { lastEventCheckAt: now }));
@@ -111,10 +108,10 @@ export const startOwnEvent: Job = (now) => async (dispatch, getState) => {
   await dispatch(tellTheNews(world, `${event.title}: ${event.text}`, [], now));
 };
 
-// Life events (#164).
+// Life events (#164). A world on world turns (#212) gets them there.
 export const moveLivesOn: Job = (now) => async (dispatch, getState) => {
   const { worlds, characters } = engineState(getState);
-  const world = pickWorld("lives", worlds, now, (w) => castOf(characters, w.id).length > 0 && featureOn(w.id, "arrivals") && lifeEventDue(w, now, lifeScaled(LIFE_GAP_MS)));
+  const world = pickWorld("lives", worlds, now, (w) => castOf(characters, w.id).length > 0 && featureOn(w.id, "arrivals") && !featureOn(w.id, "worldTurn") && lifeEventDue(w, now, lifeScaled(LIFE_GAP_MS)));
   if (!world) return;
   await dispatch(patchWorld(world.id, { lastLifeAt: now }));
   const who = pickLifeSubject(castOf(characters, world.id), now, Math.random, featureOn(world.id, "drift") ? (c) => lifeWeight(c, now) : undefined);
@@ -269,6 +266,7 @@ export const sendDigest: Job = (now) => async (_dispatch, getState) => {
 const JOBS: [string, Job][] = [
   ["Storyline", moveStorylines],
   ["Digest", sendDigest],
+  ["World turn", worldTurn],
   ["Places", fillPlaces],
   ["Run-in", runIntoYou],
   ["World event", startOwnEvent],

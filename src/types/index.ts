@@ -949,6 +949,7 @@ export interface World {
   factions?: Faction[]; // families and factions (#171)
   lastNewcomerAt?: number; // when the world last suggested a newcomer (#164)
   newcomer?: { name: string; idea: string; tieWith?: string; tie?: string; at: number }; // someone who just arrived, waiting for you to welcome them
+  lastTurnAt?: number; // when the world last had a world turn (#212)
 }
 
 // A secret one character keeps from another (#170). You may hear it as

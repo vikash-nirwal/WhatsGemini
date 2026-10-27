@@ -18,6 +18,8 @@ const FEATURES: [WorldFeature, string][] = [
   ["introductions", "Introductions to people they know"],
   ["secrets", "Secrets between them"],
   ["goals", "What each wants this week"],
+  // One call per world turn (#212): talk, events and lives written together.
+  ["worldTurn", "One call per world turn"],
 ];
 
 const LENGTHS = Array.from({ length: MAX_TALK_LENGTH - 1 }, (_, i) => i + 2);

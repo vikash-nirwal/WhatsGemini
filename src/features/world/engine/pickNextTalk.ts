@@ -13,7 +13,9 @@ import { talkGapFor } from "../bonds";
 // out the others.
 export const pickNextTalk = (characters: Character[], worlds: Parameters<typeof pickWorldTalk>[1], now: number): [Character, Character] | undefined => {
   const opts = { gapMs: lifeScaled(WORLD_TALK_GAP_MS), awake: (c: Character) => awakeAt(c, now) };
-  for (const worldId of fairOrder("world-talk", [null, ...worlds.map((w) => w.id)], (id) => id, now)) {
+  // A world on world turns (#212) has its talk there.
+  const ids = [null, ...worlds.map((w) => w.id).filter((id) => !featureOn(id, "worldTurn"))];
+  for (const worldId of fairOrder("world-talk", ids, (id) => id, now)) {
     // With drift on (#211), people who are close or tense talk more often.
     const gapFor = featureOn(worldId, "drift") ? (a: Character, b: Character) => talkGapFor(opts.gapMs, a, b, now) : undefined;
     const pair = pickWorldTalk(characters, worlds, now, { ...opts, worldAllowed: (w) => w === worldId, gapFor });

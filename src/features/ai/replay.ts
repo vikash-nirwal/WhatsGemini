@@ -4,6 +4,7 @@ import { parseTieChange } from "../world/worldTalk";
 import { cleanFold, parseNewFact, parseShared } from "../world/knowledge";
 import { cleanGoal, parseGoalProgress } from "../world/goals";
 import { parseEvent } from "../world/worldEvents";
+import { readWorldTurnJson } from "../world/worldTurn";
 import { parseSecret } from "../world/secrets";
 import { parseArc } from "../world/worldArcs";
 import { parseHangouts } from "../world/places";
@@ -107,6 +108,12 @@ export const REPLAY_CHECKS: Record<string, { label: string; checks: Check[] }> =
   },
   "memory-fold": { label: "Memory condensing", checks: [plain("One paragraph", cleanFold)] },
   goal: { label: "Goal for the week", checks: [plain("One sentence", cleanGoal)] },
+  "world-turn": {
+    label: "World turn",
+    checks: [
+      { id: "json", label: "JSON with talks, event, life", present: (reply) => reply.includes("{"), parses: (reply) => Array.isArray((readWorldTurnJson(reply) as { talks?: unknown } | undefined)?.talks) },
+    ],
+  },
   "world-event": {
     label: "World event",
     checks: [

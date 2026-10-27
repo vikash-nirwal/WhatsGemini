@@ -33,6 +33,7 @@ export const REPLY_KINDS = [
   "reputation", // WorldEventWatcher: cleanReputation
   "factions", // FactionsSection: GROUP lines
   "first-text", // FirstTexter, GoBetween, news and plan texts: cleanFirstText
+  "world-turn", // worldTurnJob (#212): one JSON object with talks, event, life
 ] as const;
 export type ReplyKind = (typeof REPLY_KINDS)[number];
 
