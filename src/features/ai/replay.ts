@@ -5,6 +5,7 @@ import { cleanFold, parseNewFact, parseShared } from "../world/knowledge";
 import { cleanGoal, parseGoalProgress } from "../world/goals";
 import { parseEvent } from "../world/worldEvents";
 import { readWorldTurnJson } from "../world/worldTurn";
+import { cleanCatchUp } from "../world/catchUp";
 import { parseSecret } from "../world/secrets";
 import { parseArc } from "../world/worldArcs";
 import { parseHangouts } from "../world/places";
@@ -114,6 +115,7 @@ export const REPLAY_CHECKS: Record<string, { label: string; checks: Check[] }> =
       { id: "json", label: "JSON with talks, event, life", present: (reply) => reply.includes("{"), parses: (reply) => Array.isArray((readWorldTurnJson(reply) as { talks?: unknown } | undefined)?.talks) },
     ],
   },
+  "catch-up": { label: "What you missed", checks: [plain("A few sentences", cleanCatchUp)] },
   "world-event": {
     label: "World event",
     checks: [

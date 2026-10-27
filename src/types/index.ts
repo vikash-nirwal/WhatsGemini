@@ -950,6 +950,7 @@ export interface World {
   lastNewcomerAt?: number; // when the world last suggested a newcomer (#164)
   newcomer?: { name: string; idea: string; tieWith?: string; tie?: string; at: number }; // someone who just arrived, waiting for you to welcome them
   lastTurnAt?: number; // when the world last had a world turn (#212)
+  catchUp?: { text: string; from: number; to: number }; // the story of your last absence (#213)
 }
 
 // A secret one character keeps from another (#170). You may hear it as

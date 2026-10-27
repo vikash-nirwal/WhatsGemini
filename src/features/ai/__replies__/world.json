@@ -190,5 +190,27 @@
     "expect": {
       "json": "malformed"
     }
+  },
+  {
+    "note": "good catch-up",
+    "at": 50,
+    "kind": "catch-up",
+    "model": "fixture",
+    "instruction": "Sam has been away from Harbor Bay (a foggy fishing town) for 5 days. Tell them what they missed, like a friend catching them up.\n\nWhat happened and how people are now:\n- The Lantern Festival: paper lanterns line the harbor\n- Kai got the job at the docks\n- Aria and Kai: close, tense",
+    "reply": "The harbor glowed all week with lanterns for the festival. Kai finally got the job at the docks, and Aria has been proud of him, though the two of them have been snapping at each other lately.",
+    "expect": {
+      "text": "parsed"
+    }
+  },
+  {
+    "note": "empty catch-up",
+    "at": 51,
+    "kind": "catch-up",
+    "model": "fixture",
+    "instruction": "Sam has been away from Harbor Bay (a foggy fishing town) for 5 days. Tell them what they missed, like a friend catching them up.\n\nWhat happened and how people are now:\n- The Lantern Festival: paper lanterns line the harbor\n- Kai got the job at the docks\n- Aria and Kai: close, tense",
+    "reply": "",
+    "expect": {
+      "text": "missing"
+    }
   }
 ]
