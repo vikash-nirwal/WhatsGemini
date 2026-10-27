@@ -84,7 +84,7 @@ export const worldTurn = (now: number) => async (dispatch: EngineDispatch, getSt
   }
   if (turn.life) {
     const { who, text } = turn.life;
-    await dispatch(patchCharacter(who.id, (latest) => ({ ...addLifeEvent(latest, text, now), ...nudgeMood(latest, lifeEventTone(text), now) })));
+    await dispatch(patchCharacter(who.id, (latest) => ({ ...addLifeEvent(latest, text, now), ...nudgeMood(latest, lifeEventTone(text), now, text) })));
     void logToTimeline(world.id, { kind: "event", text, characterIds: [who.id], audience: "private", at: now }, world.storyTime);
     // Only when no event already sent someone to tell you, so a turn
     // brings one text, not two.

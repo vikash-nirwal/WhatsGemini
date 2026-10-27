@@ -15,11 +15,13 @@ export interface Bond {
   closeness: number; // -100 (can't stand them) .. 100 (couldn't be closer)
   tension: number; // 0 (easy) .. 100 (about to break)
   at: number; // when it was last nudged
+  why?: { text: string; at: number }[]; // what moved it lately, newest last (#217)
 }
 
 export interface Mood {
   value: number; // -100 (as low as it gets) .. 100 (on top of the world)
   at: number;
+  why?: string; // what moved it last (#217)
 }
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -58,19 +60,36 @@ export const bondOf = (c: Pick<Character, "bonds" | "ties">, otherId: number, no
   const base = tieBaseline(tieWith(c, otherId));
   const b = c.bonds?.find((x) => x.withId === otherId);
   if (!b) return { withId: otherId, closeness: base, tension: 0, at: now };
-  return { withId: otherId, closeness: fade(b.closeness, base, now - b.at, CLOSENESS_HALF_LIFE), tension: fade(b.tension, 0, now - b.at, TENSION_HALF_LIFE), at: now };
+  return { withId: otherId, closeness: fade(b.closeness, base, now - b.at, CLOSENESS_HALF_LIFE), tension: fade(b.tension, 0, now - b.at, TENSION_HALF_LIFE), at: now, ...(b.why ? { why: b.why } : {}) };
 };
 
 export const moodOf = (c: Pick<Character, "mood">, now: number): number => (c.mood ? fade(c.mood.value, 0, now - c.mood.at, MOOD_HALF_LIFE) : 0);
 
 // The fields a nudge changes, for patchCharacter.
-export const nudgeBond = (c: Pick<Character, "bonds" | "ties">, otherId: number, { closeness = 0, tension = 0 }: { closeness?: number; tension?: number }, now: number): Pick<Character, "bonds"> => {
+// `why` (#217): what moved it, in a few words, kept with the last few.
+export const nudgeBond = (c: Pick<Character, "bonds" | "ties">, otherId: number, { closeness = 0, tension = 0 }: { closeness?: number; tension?: number }, now: number, why?: string): Pick<Character, "bonds"> => {
   const b = bondOf(c, otherId, now);
-  const next: Bond = { withId: otherId, closeness: clamp(b.closeness + closeness, -100, 100), tension: clamp(b.tension + tension, 0, 100), at: now };
+  const reasons = why ? [...(b.why || []), { text: why.slice(0, 160), at: now }].slice(-KEEP_WHY) : b.why;
+  const next: Bond = { withId: otherId, closeness: clamp(b.closeness + closeness, -100, 100), tension: clamp(b.tension + tension, 0, 100), at: now, ...(reasons ? { why: reasons } : {}) };
   return { bonds: [...(c.bonds || []).filter((x) => x.withId !== otherId), next] };
 };
 
-export const nudgeMood = (c: Pick<Character, "mood">, delta: number, now: number): Pick<Character, "mood"> => ({ mood: { value: clamp(moodOf(c, now) + delta, -100, 100), at: now } });
+export const nudgeMood = (c: Pick<Character, "mood">, delta: number, now: number, why?: string): Pick<Character, "mood"> => {
+  const why2 = why && delta ? why.slice(0, 160) : c.mood?.why;
+  return { mood: { value: clamp(moodOf(c, now) + delta, -100, 100), at: now, ...(why2 ? { why: why2 } : {}) } };
+};
+
+// Reasons (#217): the latest cause that's still recent, so a prompt can
+// say why two people are tense, not only that they are. Older causes have
+// faded with the numbers they moved.
+const KEEP_WHY = 3;
+const WHY_FOR = 14 * DAY;
+export const reasonOf = (c: Pick<Character, "bonds" | "ties">, otherId: number, now: number): string | undefined => {
+  const why = c.bonds?.find((b) => b.withId === otherId)?.why;
+  const last = why?.[why.length - 1];
+  return last && now - last.at < WHY_FOR ? last.text : undefined;
+};
+export const moodReasonOf = (c: Pick<Character, "mood">, now: number): string | undefined => (c.mood?.why && now - c.mood.at < WHY_FOR ? c.mood.why : undefined);
 
 // What moves them. A talk brings two people a little closer and eases
 // things; a tie that changes moves closeness towards the new tie's resting
@@ -116,14 +135,22 @@ export const standingLine = (a: Pick<Character, "id" | "name" | "bonds" | "ties"
   const tension = Math.max(ab.tension, ba.tension);
   const drift = (ab.closeness - tieBaseline(tieWith(a, b.id)) + ba.closeness - tieBaseline(tieWith(b, a.id))) / 2;
   const parts: string[] = [];
-  if (tension >= 70) parts.push(`things between ${a.name} and ${b.name} are close to breaking`);
-  else if (tension >= 40) parts.push(`things between ${a.name} and ${b.name} have been tense lately`);
-  if (drift >= 25) parts.push(`they've grown closer than they used to be`);
-  else if (drift <= -25) parts.push(`they've drifted apart`);
+  // Why (#217), once, on the first thing it explains.
+  let why = reasonOf(a, b.id, now) || reasonOf(b, a.id, now);
+  const because = () => {
+    const text = why ? ` (${why})` : "";
+    why = undefined;
+    return text;
+  };
+  if (tension >= 70) parts.push(`things between ${a.name} and ${b.name} are close to breaking${because()}`);
+  else if (tension >= 40) parts.push(`things between ${a.name} and ${b.name} have been tense lately${because()}`);
+  if (drift >= 25) parts.push(`they've grown closer than they used to be${because()}`);
+  else if (drift <= -25) parts.push(`they've drifted apart${because()}`);
   for (const c of [a, b]) {
     const m = moodOf(c, now);
-    if (m <= -30) parts.push(`${c.name} has been low lately`);
-    else if (m >= 30) parts.push(`${c.name} is in high spirits`);
+    const moodWhy = moodReasonOf(c, now);
+    if (m <= -30) parts.push(`${c.name} has been low lately${moodWhy ? ` (${moodWhy})` : ""}`);
+    else if (m >= 30) parts.push(`${c.name} is in high spirits${moodWhy ? ` (${moodWhy})` : ""}`);
   }
   return parts.length ? `How they are lately: ${parts.join("; ")}. Let it show without saying it outright.` : undefined;
 };

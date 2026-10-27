@@ -86,7 +86,7 @@ export const worldTalkTurn = (now: number) => async (dispatch: EngineDispatch, g
   for (const step of goals && lines.length ? parseGoalProgress(reply, [a, b]) : []) {
     const who = fresh(step.id);
     if (!who?.goal) continue;
-    await dispatch(patchCharacter(who.id, (latest) => ({ goal: step.done || !latest.goal ? undefined : { ...latest.goal, progress: step.progress }, ...(step.done ? nudgeMood(latest, 25, now) : {}) })));
+    await dispatch(patchCharacter(who.id, (latest) => ({ goal: step.done || !latest.goal ? undefined : { ...latest.goal, progress: step.progress }, ...(step.done ? nudgeMood(latest, 25, now, `got what they were after: ${who.goal!.text}`) : {}) })));
     if (step.done) void logToTimeline(worldId, { kind: "event", text: `${who.name} got what they were after: ${who.goal.text}`, characterIds: [who.id], audience: "private", at: now }, talkWorld?.storyTime);
   }
   // When they talked about you, the world's timeline notes it (#161).

@@ -1,5 +1,5 @@
 import { Character, World } from "../../types";
-import { bondWords, moodOf, nudgeBond } from "./bonds";
+import { bondWords, moodOf, moodReasonOf, nudgeBond, reasonOf } from "./bonds";
 import { audienceOf } from "./knowledge";
 import type { TimelineEntry } from "./timeline";
 
@@ -69,11 +69,15 @@ export const catchUpFacts = (cast: Character[], entries: TimelineEntry[], lastSe
     for (const t of c.ties || []) {
       if (t.withId < c.id || !named(t.withId)) continue;
       const words = bondWords(c, t.withId, openedAt);
-      if (words) standing.push(`${c.name} and ${named(t.withId)}: ${words}`);
+      // With why, when something recent moved it (#217).
+      const other = cast.find((x) => x.id === t.withId);
+      const why = words && (reasonOf(c, t.withId, openedAt) || (other && reasonOf(other, c.id, openedAt)));
+      if (words) standing.push(`${c.name} and ${named(t.withId)}: ${words}${why ? ` (${why})` : ""}`);
     }
     const mood = moodOf(c, openedAt);
-    if (mood <= -30) standing.push(`${c.name} has been low`);
-    else if (mood >= 30) standing.push(`${c.name} is in high spirits`);
+    const moodWhy = moodReasonOf(c, openedAt);
+    if (mood <= -30) standing.push(`${c.name} has been low${moodWhy ? ` (${moodWhy})` : ""}`);
+    else if (mood >= 30) standing.push(`${c.name} is in high spirits${moodWhy ? ` (${moodWhy})` : ""}`);
   }
   return [...happened, ...standing.slice(0, 8)];
 };

@@ -36,8 +36,9 @@ export const afterTalk = (
   const nowA = fresh(a.id);
   const nowB = fresh(b.id);
   if (nowA && nowB && becameFriends(engineState(getState).characters, nowA, nowB)) {
-    await dispatch(patchCharacter(a.id, (latest) => ({ ...withTie(latest, nowB, "your friend", "your friend")[0], ...nudgeBond(latest, b.id, BECAME_FRIENDS, now) })));
-    await dispatch(patchCharacter(b.id, (latest) => ({ ...withTie(nowA, latest, "your friend", "your friend")[1], ...nudgeBond(latest, a.id, BECAME_FRIENDS, now) })));
+    const why = `${a.name} and ${b.name} became friends`;
+    await dispatch(patchCharacter(a.id, (latest) => ({ ...withTie(latest, nowB, "your friend", "your friend")[0], ...nudgeBond(latest, b.id, BECAME_FRIENDS, now, why) })));
+    await dispatch(patchCharacter(b.id, (latest) => ({ ...withTie(nowA, latest, "your friend", "your friend")[1], ...nudgeBond(latest, a.id, BECAME_FRIENDS, now, why) })));
     void logToTimeline(worldId, { kind: "tie", text: `${a.name} and ${b.name} became friends`, characterIds: [a.id, b.id], at: now }, world?.storyTime);
   }
   const freshA = fresh(a.id);
@@ -47,9 +48,9 @@ export const afterTalk = (
   // The change moves the numbers too (#211): towards the new tie, with
   // tension left behind when it's for the worse.
   const beforeB = freshB.ties?.find((t) => t.withId === a.id)?.tie;
-  await dispatch(patchCharacter(a.id, (latest) => ({ ...withTie(latest, freshB, change.bToA, change.aToB)[0], ...nudgeBond(latest, b.id, tieShift(before, change.bToA), now) })));
-  await dispatch(patchCharacter(b.id, (latest) => ({ ...withTie(freshA, latest, change.bToA, change.aToB)[1], ...nudgeBond(latest, a.id, tieShift(beforeB, change.aToB || change.bToA), now) })));
   const what = `${b.name} is now ${a.name}'s ${bare(change.bToA)}${before ? ` (was ${bare(before)})` : ""}`;
+  await dispatch(patchCharacter(a.id, (latest) => ({ ...withTie(latest, freshB, change.bToA, change.aToB)[0], ...nudgeBond(latest, b.id, tieShift(before, change.bToA), now, what) })));
+  await dispatch(patchCharacter(b.id, (latest) => ({ ...withTie(freshA, latest, change.bToA, change.aToB)[1], ...nudgeBond(latest, a.id, tieShift(beforeB, change.aToB || change.bToA), now, what) })));
   void logToTimeline(worldId, { kind: "tie", text: what, characterIds: [a.id, b.id], at: now }, world?.storyTime);
   toast(`${a.name} and ${b.name}`, { description: what });
 };

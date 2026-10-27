@@ -1,6 +1,6 @@
 import { Character, Chat } from "../../types";
 import { STAGE_LABELS } from "./relationshipStages";
-import { bondWords } from "../world/bonds";
+import { bondWords, reasonOf } from "../world/bonds";
 
 // The relationship map (#138): who knows whom (#74, shared groups), how they
 // feel about each other (#24, a group's room feelings), and each bond with
@@ -73,7 +73,9 @@ export const buildRelationshipMap = (characters: Character[], chats: Chat[], now
     for (const b of c.bonds || []) {
       const l = link(c.id, b.withId);
       const words = l && bondWords(c, b.withId, now);
-      if (l && words) l.feelings.push(`${c.name} about ${names.get(b.withId)}: ${words}`);
+      // And why, when something recent moved it (#217).
+      const why = words && reasonOf(c, b.withId, now);
+      if (l && words) l.feelings.push(`${c.name} about ${names.get(b.withId)}: ${words}${why ? ` (${why})` : ""}`);
     }
   }
   return { nodes, links: Array.from(links.values()) };

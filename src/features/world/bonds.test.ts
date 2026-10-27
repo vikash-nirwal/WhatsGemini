@@ -1,4 +1,4 @@
-import { bondOf, bondWords, intensity, lifeEventTone, moodOf, nudgeBond, nudgeMood, standingLine, talkGapFor, tieBaseline, tieShift, tieUnderStrain, weightedPick } from "./bonds";
+import { bondOf, bondWords, intensity, lifeEventTone, moodOf, moodReasonOf, nudgeBond, nudgeMood, reasonOf, standingLine, TALKED, talkGapFor, tieBaseline, tieShift, tieUnderStrain, weightedPick } from "./bonds";
 import { buildRelationshipMap } from "../character/relationshipMap";
 import { Character, Chat } from "../../types";
 
@@ -81,4 +81,18 @@ test("the relationship map says how close or tense, once it has moved (#211)", (
   const { links } = buildRelationshipMap([tense, kai], chats, NOW);
   expect(links[0].feelings).toContain("Aria about Kai: close, tense");
   expect(bondWords(kai, 1, NOW)).toBe("close");
+});
+
+test("the numbers keep why they moved, and say it while it's recent (#217)", () => {
+  let a = { ...aria, ...nudgeBond(aria, 2, { tension: 30 }, NOW, "an argument about the boat") };
+  a = { ...a, ...nudgeBond(a, 2, { tension: 30 }, NOW, "Kai found out about the money") };
+  a = { ...a, ...nudgeBond(a, 2, TALKED, NOW) };
+  expect(a.bonds![0].why!.map((w) => w.text)).toEqual(["an argument about the boat", "Kai found out about the money"]);
+  expect(reasonOf(a, 2, NOW)).toBe("Kai found out about the money");
+  expect(reasonOf(a, 2, NOW + 15 * DAY)).toBeUndefined();
+  const low = { ...a, ...nudgeMood(a, -40, NOW, "lost the job at the docks") };
+  expect(moodReasonOf(low, NOW)).toBe("lost the job at the docks");
+  expect(standingLine(low, kai, NOW)).toBe("How they are lately: things between Aria and Kai have been tense lately (Kai found out about the money); Aria has been low lately (lost the job at the docks). Let it show without saying it outright.");
+  const chats = [{ id: 1, characterIds: [1] }, { id: 2, characterIds: [2] }] as Chat[];
+  expect(buildRelationshipMap([a, kai], chats, NOW).links[0].feelings).toContain("Aria about Kai: close, tense (Kai found out about the money)");
 });

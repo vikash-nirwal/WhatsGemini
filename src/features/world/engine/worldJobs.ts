@@ -120,7 +120,7 @@ export const moveLivesOn: Job = (now) => async (dispatch, getState) => {
   const text = cleanLifeEvent(await dispatch(generateAssistText({ instruction: buildLifeEventPrompt(who, world, people), background: true, activity: { at: now, kind: "event", text: `Something happened in ${who.name}'s life`, characterId: who.id, name: who.name } })).unwrap());
   if (!text) return;
   // Good news lifts their mood, bad news sinks it (#211).
-  await dispatch(patchCharacter(who.id, (latest) => ({ ...addLifeEvent(latest, text, now), ...nudgeMood(latest, lifeEventTone(text), now) })));
+  await dispatch(patchCharacter(who.id, (latest) => ({ ...addLifeEvent(latest, text, now), ...nudgeMood(latest, lifeEventTone(text), now, text) })));
   // Their own news (#203): it travels by talk, and by them texting you.
   void logToTimeline(world.id, { kind: "event", text, characterIds: [who.id], audience: "private", at: now }, world.storyTime);
   await dispatch(tellTheNews(world, text, [who.id], now));
@@ -196,7 +196,7 @@ export const keepSecret: Job = (now) => async (dispatch, getState) => {
   if (!parsed) return;
   const told = gossip && parsed.gossip ? gossip : undefined;
   // Hiding something puts a strain on it, from the keeper's side (#211).
-  await dispatch(patchCharacter(keeper.id, (latest) => ({ ...addSecret(latest, { id: `sec-${now.toString(36)}`, fromId: from.id, text: parsed.secret, at: now, ...(told ? { heardFrom: told.id } : {}) }), ...nudgeBond(latest, from.id, { tension: 10 }, now) })));
+  await dispatch(patchCharacter(keeper.id, (latest) => ({ ...addSecret(latest, { id: `sec-${now.toString(36)}`, fromId: from.id, text: parsed.secret, at: now, ...(told ? { heardFrom: told.id } : {}) }), ...nudgeBond(latest, from.id, { tension: 10 }, now, `${keeper.name} is keeping something from ${from.name}`) })));
   if (!told) return;
   const chat = engineState(getState).chats.find((ch) => ch.characterIds?.length === 1 && ch.characterIds[0] === told.id && !ch.whatIf);
   if (!chat?.id) return;
@@ -217,8 +217,9 @@ export const surfaceSecret: Job = (now) => async (dispatch, getState) => {
   const how = HOW_IT_CAME_OUT[Math.floor(Math.random() * HOW_IT_CAME_OUT.length)]!;
   const facts = surfacedFacts(keeper.name, from.name, secret.text, how);
   // It coming out hurts both (#211): the one it was kept from most.
-  await dispatch(patchCharacter(keeper.id, (latest) => ({ memory: [...(latest.memory || []), facts.forKeeper], keptSecrets: (latest.keptSecrets || []).map((s) => (s.id === secret.id ? { ...s, outAt: now, how } : s)), ...nudgeBond(latest, from.id, { tension: 25 }, now), ...nudgeMood(latest, -25, now) })));
-  await dispatch(patchCharacter(from.id, (latest) => ({ memory: [...(latest.memory || []), facts.forFrom], ...nudgeBond(latest, keeper.id, { closeness: -25, tension: 40 }, now), ...nudgeMood(latest, -30, now) })));
+  const outWhy = `${from.name} found out what ${keeper.name} was hiding: ${secret.text}`;
+  await dispatch(patchCharacter(keeper.id, (latest) => ({ memory: [...(latest.memory || []), facts.forKeeper], keptSecrets: (latest.keptSecrets || []).map((s) => (s.id === secret.id ? { ...s, outAt: now, how } : s)), ...nudgeBond(latest, from.id, { tension: 25 }, now, outWhy), ...nudgeMood(latest, -25, now, `${from.name} found out what they were hiding`) })));
+  await dispatch(patchCharacter(from.id, (latest) => ({ memory: [...(latest.memory || []), facts.forFrom], ...nudgeBond(latest, keeper.id, { closeness: -25, tension: 40 }, now, outWhy), ...nudgeMood(latest, -30, now, `found out what ${keeper.name} was hiding`) })));
   void logToTimeline(world.id, { kind: "event", text: facts.timeline, characterIds: [keeper.id, from.id], audience: "private", at: now }, world.storyTime);
   toast(`${world.name}: ${facts.timeline}`, { description: secret.text });
   void notifyWorld({ title: `${world.name}: ${facts.timeline}`, body: secret.text, path: `/worlds/${world.id}/timeline` });
