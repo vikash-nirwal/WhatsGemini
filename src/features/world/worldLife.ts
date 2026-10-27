@@ -51,8 +51,11 @@ export const addLifeEvent = (character: Character, text: string, at: number): Ch
 });
 
 // For their own prompts: what happened in their life the last few weeks.
+// The life events the life note shows, so other notes can leave them out.
+export const recentLifeEvents = (character: Pick<Character, "lifeEvents"> | undefined, now: number) => (character?.lifeEvents || []).filter((e) => now - e.at < NOTE_FOR_MS);
+
 export const buildLifeNote = (character: Pick<Character, "lifeEvents"> | undefined, now: number): string | undefined => {
-  const recent = (character?.lifeEvents || []).filter((e) => now - e.at < NOTE_FOR_MS);
+  const recent = recentLifeEvents(character, now);
   if (!recent.length) return undefined;
   const ago = (at: number) => {
     const days = Math.round((now - at) / DAY);

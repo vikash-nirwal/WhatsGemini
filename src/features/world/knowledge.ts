@@ -178,3 +178,20 @@ export const applyShared = (entries: TimelineEntry[], items: Shareable[], number
     return fresh.length ? { ...e, heard: [...(e.heard || []), ...fresh.map((id) => ({ id, from: share.tellerId, at }))] } : e;
   });
 };
+
+// One fact, one place (#231). A life event is kept on the character and
+// logged to the timeline, and a moment from your own chat (#230) is logged
+// for others to hear, so the same line could reach a reply up to four
+// times: in the life note, what they know, the history and the canon. The
+// notes that a character's own prompt already carries are left out of
+// what's built from the timeline for them.
+const sameText = (a: string, b: string) => a.toLowerCase().replace(/[\s.!]+$/g, "").trim() === b.toLowerCase().replace(/[\s.!]+$/g, "").trim();
+export const echoesOwnNotes = (e: TimelineEntry, character: Pick<Character, "id">, lifeShown: { text: string }[]) =>
+  // Their own chat's moments: they were there, and their memory has it.
+  (e.kind === "you" && e.characterIds?.length === 1 && e.characterIds[0] === character.id) ||
+  // Their own life events, which the life note already gives with when.
+  (e.characterIds?.length === 1 && e.characterIds[0] === character.id && lifeShown.some((l) => sameText(l.text, e.text)));
+
+// The entries buildKnowsNote shows, so the history note can skip them.
+export const knowsNoteEntryIds = (character: Pick<Character, "id">, entries: TimelineEntry[], now: number): Set<string> =>
+  new Set(knownTo(character.id, entries, now).filter((i) => audienceOf(i.entry) !== "public").map((i) => i.entry.id));

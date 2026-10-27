@@ -14,9 +14,15 @@ import { featureOn } from "./worldPrefs";
 // to hear none of it: someone who died a fortnight ago, out of the last few
 // timeline entries, could be talked about as alive in your private chat.
 
-// What's settled: always sent, like god mode's truths.
-export const buildCanonNote = (world: World | undefined, cast: Character[], timeline: TimelineEntry[]): string | undefined =>
-  world ? canonLine(canonOf(world, cast.filter((c) => c.worldId === world.id), timeline)) : undefined;
+// What's settled: always sent, like god mode's truths. `shown` is what the
+// prompt already says elsewhere (their own recent life events), left out
+// so it isn't said twice (#231).
+const norm = (t: string) => t.toLowerCase().replace(/[\s.!]+$/g, "").trim();
+export const buildCanonNote = (world: World | undefined, cast: Character[], timeline: TimelineEntry[], shown: string[] = []): string | undefined => {
+  if (!world) return undefined;
+  const skip = new Set(shown.map(norm));
+  return canonLine(canonOf(world, cast.filter((c) => c.worldId === world.id), timeline).filter((f) => !skip.has(norm(f))));
+};
 
 // The season and how places are, for everyone in the chat.
 export const buildWorldNowNote = (world: World | undefined, now: number): string | undefined => {

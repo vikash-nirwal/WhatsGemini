@@ -51,7 +51,7 @@ import { logToTimeline } from "../features/world/timeline";
 import { buildCanonNote, buildInnerStateNote, buildWorldNowNote } from "../features/world/worldNow";
 import { logChatMoment } from "../features/world/chatMoments";
 import { activeEvents, buildEventsNote } from "../features/world/worldEvents";
-import { buildLifeNote } from "../features/world/worldLife";
+import { buildLifeNote, recentLifeEvents } from "../features/world/worldLife";
 import { buildWhereNote, buildYouAtNote, whereIs, whereYouAre } from "../features/world/places";
 import { buildReputationNote } from "../features/world/reputation";
 import { arcActive, buildArcNote } from "../features/world/worldArcs";
@@ -66,7 +66,7 @@ import { LIMITS as THEIR_LIMITS } from "../features/chat/theirGroup";
 import { noteBudgetFor } from "../features/ai/utils/promptBudget";
 import { useWorldTimeline } from "../hooks/useWorld";
 import { buildHistoryNote } from "../features/world/timeline";
-import { audienceOf, buildKnowsNote } from "../features/world/knowledge";
+import { audienceOf, buildKnowsNote, echoesOwnNotes, knowsNoteEntryIds } from "../features/world/knowledge";
 import { buildGoalNote } from "../features/world/goals";
 import { worldOf } from "../features/world/currentWorld";
 import { patchWorld, switchWorld } from "../features/worldSlice";
@@ -277,7 +277,7 @@ const ChatPage = () => {
     return [
       tiesNoteFor({ ...speaker, ties: (speaker.ties || []).filter((t) => !roomCharacters.some((c) => c.id === t.withId)) }, characters),
       worldTalkNoteFor(speaker, characters, now),
-      buildKnowsNote(speaker, worldTimeline, characters, now),
+      buildKnowsNote(speaker, worldTimeline.filter((e) => !echoesOwnNotes(e, speaker, recentLifeEvents(speaker, now))), characters, now),
       featureOn(speaker.worldId, "goals") ? buildGoalNote(speaker) : undefined,
       buildDayLogSection(speaker.name, dayLogText(speaker, now)),
       buildConcernsSection(speaker.name, speaker.concerns, now),
@@ -461,14 +461,19 @@ const ChatPage = () => {
   scene.factionNote = !isRoom ? buildFactionNote(characterData, worlds.find((w) => w.id === chatWorldId), characters) : undefined;
   // Only the history this character could know (#203): in a group, what
   // everyone saw; each speaker's own knowledge comes with their notes.
-  scene.historyNote = buildHistoryNote(isRoom ? worldTimeline.filter((e) => audienceOf(e) === "public") : worldTimeline, noteTime, 8, isRoom ? undefined : characterData?.id);
-  scene.heardNote = mainStory ? buildKnowsNote(characterData, worldTimeline, characters, noteTime) : undefined;
+  // One fact, one place (#231): what their own notes already carry is left
+  // out of what's built from the timeline, and history skips what they know.
+  const lifeShown = mainStory ? recentLifeEvents(characterData, noteTime) : [];
+  const ownTimeline = !isRoom && characterData ? worldTimeline.filter((e) => !echoesOwnNotes(e, characterData, lifeShown)) : worldTimeline;
+  scene.heardNote = mainStory ? buildKnowsNote(characterData, ownTimeline, characters, noteTime) : undefined;
+  const inHeard = scene.heardNote && characterData ? knowsNoteEntryIds(characterData, ownTimeline, noteTime) : new Set<string>();
+  scene.historyNote = buildHistoryNote(isRoom ? worldTimeline.filter((e) => audienceOf(e) === "public") : ownTimeline.filter((e) => !inHeard.has(e.id)), noteTime, 8, isRoom ? undefined : characterData?.id);
   scene.goalNote = mainStory && featureOn(chatWorldId, "goals") ? buildGoalNote(characterData) : undefined;
   // The world as it is now (#211, #218-#222), which the world engine's own
   // prompts already hear: what's settled, the season and places, and the
   // character's own mood and bonds. A what-if isn't this world's now.
   const nowWorld = currentChat?.whatIf ? undefined : worlds.find((w) => w.id === chatWorldId);
-  scene.canonNote = buildCanonNote(nowWorld, characters, worldTimeline);
+  scene.canonNote = buildCanonNote(nowWorld, characters, worldTimeline, lifeShown.map((e) => e.text));
   scene.worldNowNote = buildWorldNowNote(nowWorld, noteTime);
   scene.innerNote = mainStory ? buildInnerStateNote(characterData, nowWorld, characters, noteTime) : undefined;
   scene.noteBudget = noteBudgetFor(maxContextTokensForNotes);

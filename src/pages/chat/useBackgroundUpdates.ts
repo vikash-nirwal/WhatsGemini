@@ -7,6 +7,7 @@ import { patchCharacter } from "../../features/characterSlice";
 import { applyMemoryChanges, carryMemoryCategories } from "../../features/ai/utils/memoryExtraction";
 import { carryMemoryDates } from "../../features/ai/utils/memoryTime";
 import { groupFactsFor, rememberFacts } from "../../features/memory/sharedMoments";
+import { condenseMemoryIfDue } from "../../features/memory/condenseJob";
 import { appendDiaryEntry } from "../../features/ai/utils/diary";
 import { formatTranscript, TranscriptNames } from "../../features/ai/utils/chatHistoryUtils";
 import { trimToLatestSummary } from "../../features/ai/utils/transcript";
@@ -97,6 +98,7 @@ export const useBackgroundUpdates = ({
       const existingMemory = chatScopedMemory ? (currentChat?.memory || []) : (speaker.memory || []);
       const pinned = chatScopedMemory ? (currentChat?.pinnedMemory || []) : (speaker.pinnedMemory || []);
       const names = transcriptNames();
+      const userName = activePersona?.name?.trim() || "the user";
       const changes = await dispatch(
         extractCharacterMemory({
           recentMessages,
@@ -125,7 +127,10 @@ export const useBackgroundUpdates = ({
             const { facts, categories } = groupFactsFor(currentChat.title, changes.added, changes.categories);
             const now = Date.now();
             for (const member of roomCharacters) await dispatch(patchCharacter(member.id, (fresh) => rememberFacts(fresh, facts, categories, now)));
+            for (const member of roomCharacters) void dispatch(condenseMemoryIfDue({ kind: "character", id: member.id, name: member.name }, userName));
           }
+          // Old facts fold into a few lines once the list is long (#232).
+          void dispatch(condenseMemoryIfDue({ kind: "chat", id: chatIdNum, name: isRoom ? currentChat?.title || "the group" : speaker.name }, userName));
         } else {
           // Re-read the character before writing: `speaker` was captured
           // before the extraction call, and saving it whole would undo
@@ -136,6 +141,7 @@ export const useBackgroundUpdates = ({
             memoryDates: carryMemoryDates(merged, pinned, fresh.memoryDates, existingMemory, changes, Date.now()),
             ...(memoryStanding ? { memoryStanding } : {}),
           })));
+          void dispatch(condenseMemoryIfDue({ kind: "character", id: speaker.id, name: speaker.name }, userName));
         }
       }
     } catch (err) {
