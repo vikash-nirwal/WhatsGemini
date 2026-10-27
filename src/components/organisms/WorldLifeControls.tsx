@@ -6,6 +6,8 @@ import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { updateCharacter } from "src/features/characterSlice";
 import { inWorld } from "src/features/world/currentWorld";
 import { LIFE_PRESETS, lifeOf, presetOf } from "src/features/character/lifePresets";
+import { patchWorld } from "src/features/worldSlice";
+import { talkByOf } from "src/features/world/talkMedium";
 
 // Living-world features (#162-#166), off until switched on. My world has no
 // map, events or reputation of its own, so only drifting ties apply there.
@@ -33,6 +35,7 @@ export const WorldLifeControls = ({ worldId, name }: { worldId: number | null; n
   // off was silent). Shows the preset they share, or "Mixed".
   const dispatch = useAppDispatch();
   const { worlds } = useCurrentWorld();
+  const world = worlds.find((w) => w.id === worldId);
   const residents = useAppSelector((state) => state.character.characters).filter(inWorld(worldId, worlds));
   const presets = Array.from(new Set(residents.map((c) => presetOf(lifeOf(c)) || "custom")));
   const shared = presets.length === 1 ? presets[0] : residents.length ? "mixed" : "";
@@ -62,6 +65,17 @@ export const WorldLifeControls = ({ worldId, name }: { worldId: number | null; n
             {shared === "mixed" && <option value="mixed">Mixed</option>}
             {shared === "custom" && <option value="custom">Custom</option>}
             {LIFE_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </Select>
+        </label>
+      )}
+      {/* How they talk when apart (#216): from the era unless set here. */}
+      {world && (
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span className="flex-1">How they talk</span>
+          <Select aria-label={`How people in ${name} talk`} value={world.talkBy || ""} onChange={(e) => void dispatch(patchWorld(world.id, { talkBy: (e.target.value || undefined) as "texts" | "letters" | undefined }))} className="h-8 w-[150px]">
+            <option value="">{`From the era (${talkByOf({ era: world.era }) === "letters" ? "letters" : "texts"})`}</option>
+            <option value="texts">Texts</option>
+            <option value="letters">Letters</option>
           </Select>
         </label>
       )}

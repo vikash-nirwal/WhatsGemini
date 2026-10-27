@@ -16,6 +16,7 @@ import { featureOn, talkLengthFor } from "../worldPrefs";
 import { buildWorldTalkPrompt, parseTieChange, pickTalkTopic, recencyOf, talksBetween, tieMayChange, UserKnowledge } from "../worldTalk";
 import { nudgeMood, standingLine, tieUnderStrain } from "../bonds";
 import { afterTalk } from "./shared";
+import { linesFor, talkSettingFor } from "../talkMedium";
 import { EngineDispatch, engineState, GetState } from "./state";
 import { pickNextTalk } from "./pickNextTalk";
 
@@ -31,8 +32,10 @@ export const worldTalkTurn = (now: number) => async (dispatch: EngineDispatch, g
   const worldId = worldOf(a, worlds);
   const fresh = (id: number) => engineState(getState).characters.find((c) => c.id === id);
   const previous = talksBetween(characters, a.id, b.id).slice(-1)[0];
-  const maxLines = talkLengthFor(worldId);
   const talkWorld = worlds.find((w) => w.id === worldId);
+  // Texts, letters, or in person where they both are (#216).
+  const setting = talkSettingFor(a, b, talkWorld, now);
+  const maxLines = linesFor(setting, talkLengthFor(worldId));
   // A topic each time (#159), now and then the user - with what each of
   // them actually knows about them. A world event going on (#162) is the
   // news before the storyline and the channel's last post.
@@ -69,7 +72,7 @@ export const worldTalkTurn = (now: number) => async (dispatch: EngineDispatch, g
   }
   const [ga, gb] = [a, b].map((c) => fresh(c.id) || c);
   const reply = await dispatch(generateAssistText({
-    instruction: buildWorldTalkPrompt(ga, gb, { goals, world: talkWorld, userName, maxLines, previous, topic, news, askTie, standing, groups, sceneNow: buildSceneNow(talkWorld, [a, b], now), share, knows: { [a.id]: knowledge(a), [b.id]: knowledge(b) } }),
+    instruction: buildWorldTalkPrompt(ga, gb, { goals, world: talkWorld, userName, maxLines, previous, topic, news, askTie, standing, setting, groups, sceneNow: buildSceneNow(talkWorld, [a, b], now), share, knows: { [a.id]: knowledge(a), [b.id]: knowledge(b) } }),
     background: true,
     activity: { at: now, kind: "talk", text: `${a.name} and ${b.name} texted`, characterId: a.id, name: a.name },
   })).unwrap();
@@ -92,7 +95,7 @@ export const worldTalkTurn = (now: number) => async (dispatch: EngineDispatch, g
   }
   // Kept, closer, friends, a changed tie (#145, #163, #181, #211), last,
   // as before, so a changed tie is the newest thing in the record.
-  await dispatch(afterTalk({ a, b, worldId, world: talkWorld, lines, change: askTie && lines.length ? parseTieChange(reply) : undefined, now }));
+  await dispatch(afterTalk({ a, b, worldId, world: talkWorld, lines, setting, change: askTie && lines.length ? parseTieChange(reply) : undefined, now }));
   // Memory condensing (#207): one of them who knows a lot folds the oldest
   // into a line, at most one a check.
   const timeline = await loadTimeline(worldId);

@@ -3,6 +3,7 @@ import { bondWords, moodOf } from "./bonds";
 import { goalLine } from "./goals";
 import { MAX_EVENT_DAYS } from "./worldEvents";
 import { awakeAt } from "../character/firstTexts";
+import { linesFor, TalkSetting } from "./talkMedium";
 import { knowEachOther, talksBetween } from "./worldTalk";
 
 // One world-turn call (#212). With the switch on, a world's talk, events
@@ -35,6 +36,7 @@ export const dueTalkPairs = (cast: Character[], now: number, gapMs: number, max 
 
 export interface WorldTurnAsk {
   pairs: [Character, Character][]; // who may talk this turn (they know each other and are due)
+  settings?: TalkSetting[]; // how each pair talks (#216), by index; unset = texts
   maxLines: number;
   event: boolean; // the world may start one event
   life: boolean; // one person may have a life event
@@ -62,6 +64,11 @@ const personLine = (c: Character, cast: Character[], now: number) => {
   ].filter(Boolean).join("\n");
 };
 
+const pairSetting = (ask: WorldTurnAsk, i: number) => {
+  const s = ask.settings?.[i];
+  return s?.kind === "letters" ? " [letters]" : s?.kind === "in person" ? ` [in person${s.place ? ` at ${s.place}` : ""}]` : "";
+};
+
 export const buildWorldTurnPrompt = (
   world: World,
   cast: Character[],
@@ -80,7 +87,7 @@ export const buildWorldTurnPrompt = (
   "",
   "This turn, write:",
   ...(ask.pairs.length
-    ? [`- "talks": up to two short text conversations, only between these pairs: ${ask.pairs.map(([a, b]) => `${a.name} & ${b.name}${tieOf(a, b) ? ` (${tieOf(a, b)})` : ""}`).join("; ")}. Each 2 to ${ask.maxLines} texts, plain and in character, the way these two text. Let them pick up what's going on in their lives and the world.${ask.tie ? ` Only if a talk really changes how they stand, give it "tie": "<what the second is to the first now> | <what the first is to the second now>".` : ""}`]
+    ? [`- "talks": up to two short conversations, only between these pairs: ${ask.pairs.map(([a, b], i) => `${a.name} & ${b.name}${tieOf(a, b) ? ` (${tieOf(a, b)})` : ""}${pairSetting(ask, i)}`).join("; ")}. Each 2 to ${ask.maxLines} lines, plain and in character: texts, unless a pair is marked as letters (fewer, longer, in the manner of the time) or in person (spoken, at that place). Let them pick up what's going on in their lives and the world.${ask.tie ? ` Only if a talk really changes how they stand, give it "tie": "<what the second is to the first now> | <what the first is to the second now>".` : ""}`]
     : ['- "talks": [] (nobody is due to talk).']),
   ask.event ? `- "event": something that happens to the whole place in the coming days (a festival, a storm, a scandal, a closing), growing out of what's going on, or null if nothing fits. Fields: "title" (a few words), "what" (one or two sentences), "days" (1 to ${MAX_EVENT_DAYS}).` : '- "event": null.',
   ask.life ? '- "life": one thing that happens in one person\'s own life (a new job, a move, an illness, good news), fitting who they are and what they want, or null. Fields: "name", "what" (one sentence, past tense).' : '- "life": null.',
@@ -90,7 +97,7 @@ export const buildWorldTurnPrompt = (
 ].join("\n");
 
 export interface WorldTurnResult {
-  talks: { a: Character; b: Character; lines: { speakerId: number; text: string }[]; tie?: string }[];
+  talks: { a: Character; b: Character; lines: { speakerId: number; text: string }[]; setting?: TalkSetting; tie?: string }[];
   event?: { title: string; text: string; days: number };
   life?: { who: Character; text: string };
 }
@@ -130,17 +137,18 @@ export const parseWorldTurn = (reply: string, cast: Character[], ask: WorldTurnA
     const [x, y] = Array.isArray(t?.between) ? t.between.map(find) : [];
     const pair = x && y && ask.pairs.find(([p, q]) => (p.id === x.id && q.id === y.id) || (p.id === y.id && q.id === x.id));
     if (!pair || talks.some((k) => k.a.id === pair[0].id && k.b.id === pair[1].id)) continue;
+    const setting = ask.settings?.[ask.pairs.indexOf(pair)];
     const lines = (Array.isArray(t.texts) ? t.texts : [])
       .map((l: any) => ({ who: find(l?.from), text: str(l?.text, 400) }))
       .filter((l: { who?: Character; text: string }) => l.text && l.who && (l.who.id === pair[0].id || l.who.id === pair[1].id))
-      .slice(0, ask.maxLines)
+      .slice(0, setting ? linesFor(setting, ask.maxLines) : ask.maxLines)
       .map((l: { who: Character; text: string }) => ({ speakerId: l.who.id, text: l.text }));
     if (lines.length < 2) continue;
     // Stored on the lower id of the two (#145); the tie reads from the first named.
     const [a, b] = pair[0].id < pair[1].id ? pair : [pair[1], pair[0]];
     const tie = ask.tie ? str(t.tie, 130) : "";
     const flipped = tie && x!.id !== a.id ? tie.split("|").map((part: string) => part.trim()).reverse().join(" | ") : tie;
-    talks.push({ a, b, lines, ...(flipped ? { tie: flipped } : {}) });
+    talks.push({ a, b, lines, ...(setting ? { setting } : {}), ...(flipped ? { tie: flipped } : {}) });
   }
   const e = data.event;
   const title = ask.event && e && typeof e === "object" ? str(e.title, 80) : "";

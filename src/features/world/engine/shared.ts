@@ -7,6 +7,7 @@ import { shareNews } from "../shareNews";
 import { logToTimeline } from "../timeline";
 import { addWorldTalk, becameFriends } from "../worldTalk";
 import { EngineDispatch, engineState, GetState } from "./state";
+import type { TalkSetting } from "../talkMedium";
 
 // What the world engine's jobs share (#209, #212): the news reaching you,
 // and what a talk between two people leaves behind - whether it came from
@@ -25,11 +26,11 @@ const bare = (tie: string) => tie.replace(/^your\s+/i, "");
 // (#181), and a tie the talk changed is changed both ways (#163). `a` is
 // the one the talk is stored on.
 export const afterTalk = (
-  { a, b, worldId, world, lines, change, now }: { a: Character; b: Character; worldId: number | null; world?: World; lines: { speakerId: number; text: string }[]; change?: { bToA: string; aToB: string }; now: number }
+  { a, b, worldId, world, lines, setting, change, now }: { a: Character; b: Character; worldId: number | null; world?: World; lines: { speakerId: number; text: string }[]; setting?: TalkSetting; change?: { bToA: string; aToB: string }; now: number }
 ) => async (dispatch: EngineDispatch, getState: GetState) => {
   const fresh = (id: number) => engineState(getState).characters.find((c) => c.id === id);
   // Saved even when empty, so a failed attempt waits for the next gap.
-  await dispatch(patchCharacter(a.id, (latest) => ({ ...addWorldTalk(latest, { id: `wt-${now.toString(36)}`, withId: b.id, at: now, lines }), ...(lines.length ? nudgeBond(latest, b.id, TALKED, now) : {}) })));
+  await dispatch(patchCharacter(a.id, (latest) => ({ ...addWorldTalk(latest, { id: `wt-${now.toString(36)}`, withId: b.id, at: now, lines, ...(setting && setting.kind !== "texts" ? { medium: setting.kind, ...(setting.place ? { place: setting.place } : {}) } : {}) }), ...(lines.length ? nudgeBond(latest, b.id, TALKED, now) : {}) })));
   if (!lines.length) return;
   await dispatch(patchCharacter(b.id, (latest) => nudgeBond(latest, a.id, TALKED, now)));
   const nowA = fresh(a.id);

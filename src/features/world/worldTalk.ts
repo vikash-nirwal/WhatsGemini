@@ -1,3 +1,4 @@
+import { settingFormat, settingOpening, TalkSetting } from "./talkMedium";
 import { Character, World, WorldTalk } from "../../types";
 import { worldOf } from "./currentWorld";
 import { SHARE_ASK } from "./knowledge";
@@ -120,7 +121,7 @@ const TOPIC_ASK = (t: TalkTopic, a: Character, b: Character, userName: string, w
 export const buildWorldTalkPrompt = (
   a: Character,
   b: Character,
-  { world, userName, maxLines, previous, topic = "lives", knows, news, askTie, groups, sceneNow, share, goals, standing }: {
+  { world, userName, maxLines, previous, topic = "lives", knows, news, askTie, groups, sceneNow, share, goals, standing, setting = { kind: "texts" } }: {
     world?: World;
     userName: string;
     maxLines: number;
@@ -134,6 +135,7 @@ export const buildWorldTalkPrompt = (
     share?: { text?: string; items: unknown[] }; // what one knows that the other may not (#204, #206)
     goals?: boolean; // what each wants this week leans the talk (#208)
     standing?: string; // how close or tense they are lately, and their moods (#211)
+    setting?: TalkSetting; // texts, letters, or in person somewhere (#216)
   }
 ) => {
   const who = (c: Character, other: Character) =>
@@ -146,7 +148,7 @@ export const buildWorldTalkPrompt = (
   const names = { [a.id]: a.name, [b.id]: b.name };
   const tie = tieOf(a, b)?.replace(/^your\s+/i, "");
   return [
-    `Write a text conversation between ${a.name} and ${b.name}, who know each other${world ? ` and live in ${world.name}: ${world.premise}` : ""}. ${userName} isn't in it.`,
+    `${settingOpening(setting, a.name, b.name)}, who know each other${world ? ` and live in ${world.name}: ${world.premise}` : ""}. ${userName} isn't in it.`,
     // God mode (#160): what the author made true holds here too.
     ...(world?.godTruths?.length ? [`Simply true in this world (never question it): ${world.godTruths.join("; ")}.`] : []),
     ...(sceneNow ? [sceneNow] : []),
@@ -160,13 +162,13 @@ export const buildWorldTalkPrompt = (
     "",
     `What it's about this time: ${TOPIC_ASK(topic, a, b, userName, world?.name, news, groups)}`,
     "",
-    `- 2 to ${maxLines} short texts, each starting with the sender's name and a colon, like "${a.name}: ...". Not strictly alternating: people double-text, trail off, reply late.`,
+    settingFormat(setting, a.name, maxLines),
     tie || a.knowsAbout?.includes(b.id) || b.knowsAbout?.includes(a.id)
-      ? `- Text the way ${tie ? `a ${tie} and ` : "people "}who know each other this well do: siblings bicker, exes are careful, old friends use shorthand, new acquaintances are polite.`
+      ? `- ${setting.kind === "texts" ? "Text" : setting.kind === "letters" ? "Write" : "Talk"} the way ${tie ? `a ${tie} and ` : "people "}who know each other this well do: siblings bicker, exes are careful, old friends use shorthand, new acquaintances are polite.`
       // Neighbours in the same world who've never been connected (#181).
       : `- They only know each other a little, as people in the same place do: polite, curious, a bit careful - no shared history unless it comes up here.`,
     topic === "user" ? "" : `- ${userName} can come up in passing if it's natural, but it's not the point.`,
-    "- Plain text, in character, no stage directions. Don't settle big story points or decide anything for " + userName + ".",
+    `- Plain text, in character, ${setting.kind === "in person" ? "no stage directions beyond a brief gesture" : "no stage directions"}. Don't settle big story points or decide anything for ${userName}.`,
     ...(share ? SHARE_ASK(share.items.length > 0) : []),
     goals && (a.goal || b.goal) ? `- What they want this week can steer the talk: asking for help, a favour, a lead. ${GOAL_ASK.slice(2)}` : "",
     askTie ? `- Only if this conversation really changes how they stand with each other (a falling-out, making up, getting together, breaking up, becoming friends), end with one more line: TIE: <what ${b.name} is to ${a.name} now> | <what ${a.name} is to ${b.name} now>. Most conversations change nothing; then leave it out.` : "",

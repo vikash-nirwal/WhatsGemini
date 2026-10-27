@@ -6,6 +6,7 @@ import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { useAppSelector } from "src/store/hooks";
 import { avatarOf } from "src/features/character/profileChanges";
 import { worldThreads } from "src/features/world/worldTalk";
+import { settingLabel } from "src/features/world/talkMedium";
 import { useCurrentWorld, useWorldPrefs } from "src/hooks/useWorld";
 import { formatRelativeTime } from "src/utils/formatRelativeTime";
 import { cn } from "src/utils/cn";
@@ -32,7 +33,7 @@ const PeekPage = () => {
         <ol aria-label="Their texts" className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-1.5">
           {open.talks.map((talk) => (
             <li key={talk.id} className="flex flex-col gap-1.5">
-              <div className="self-center my-2 rounded-full bg-raised px-3 py-0.5 text-[11.5px] text-subtle">{formatRelativeTime(talk.at)}</div>
+              <div className="self-center my-2 rounded-full bg-raised px-3 py-0.5 text-[11.5px] text-subtle">{formatRelativeTime(talk.at)}{settingLabel(talk) ? ` · ${settingLabel(talk)}` : ""}</div>
               {talk.lines.map((line, i) => {
                 const right = line.speakerId === open.b.id;
                 return (

@@ -18,6 +18,7 @@ import { featureOn, talkLengthFor } from "../worldPrefs";
 import { parseTieChange, WORLD_TALK_GAP_MS } from "../worldTalk";
 import { buildWorldTurnPrompt, dueTalkPairs, eventFromTurn, parseWorldTurn, WORLD_TURN_GAP_MS, worldTurnDue, WorldTurnAsk } from "../worldTurn";
 import { afterTalk, tellTheNews } from "./shared";
+import { talkSettingFor } from "../talkMedium";
 import { EngineDispatch, engineState, GetState } from "./state";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -30,8 +31,10 @@ export const worldTurn = (now: number) => async (dispatch: EngineDispatch, getSt
   const castOf = (w: World) => characters.filter((c) => c.worldId === w.id);
   const askFor = (w: World): WorldTurnAsk => {
     const cast = castOf(w);
+    const pairs = dueTalkPairs(cast, now, lifeScaled(WORLD_TALK_GAP_MS));
     return {
-      pairs: dueTalkPairs(cast, now, lifeScaled(WORLD_TALK_GAP_MS)),
+      pairs,
+      settings: pairs.map(([a, b]) => talkSettingFor(a, b, w, now)),
       maxLines: Math.min(8, talkLengthFor(w.id)),
       event: cast.length >= 2 && featureOn(w.id, "events") && eventDue(w, now, lifeScaled(EVENT_GAP_MS)),
       life: cast.length > 0 && featureOn(w.id, "arrivals") && lifeEventDue(w, now, lifeScaled(LIFE_GAP_MS)),
@@ -67,7 +70,7 @@ export const worldTurn = (now: number) => async (dispatch: EngineDispatch, getSt
   const turn = parseWorldTurn(reply, cast, ask);
   if (!turn) return;
   for (const t of turn.talks) {
-    await dispatch(afterTalk({ a: t.a, b: t.b, worldId: world.id, world, lines: t.lines, change: t.tie ? parseTieChange(`TIE: ${t.tie}`) : undefined, now }));
+    await dispatch(afterTalk({ a: t.a, b: t.b, worldId: world.id, world, lines: t.lines, setting: t.setting, change: t.tie ? parseTieChange(`TIE: ${t.tie}`) : undefined, now }));
   }
   if (turn.event) {
     const fresh = engineState(getState).worlds.find((w) => w.id === world.id);

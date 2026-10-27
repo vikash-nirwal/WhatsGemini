@@ -854,6 +854,8 @@ export interface WorldTalk {
   withId: number; // the other character; the talk is stored on the lower id of the two
   at: number;
   lines: { speakerId: number; text: string }[];
+  medium?: "letters" | "in person"; // how they talked (#216); unset = texts
+  place?: string; // where, in person
 }
 
 // One user persona - "Myself", "Elven Mage", etc. The active one (see
@@ -934,6 +936,7 @@ export interface World {
   map?: WorldMap; // a picture of the world with its places pinned (#66)
   personaId?: string; // who you are in this world (#143); unset = your active persona
   era?: string; // era or technology (#144), e.g. "Medieval: news travels by letter"
+  talkBy?: "texts" | "letters"; // how people here talk when apart (#216); unset = from the era
   godTruths?: string[]; // god mode (#160): what you made true; every chat and life here carries it
   storyTime?: StoryTime; // the world's own calendar (#147); unset = your clock
   events?: WorldEvent[]; // world events (#162), newest last

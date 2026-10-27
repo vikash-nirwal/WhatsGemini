@@ -34,6 +34,13 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 **Wave 3: with the features they belong to**
 - The canvas's boards for Peek (#145), blocking (#133), event invites (#134), disappearing messages (#136), stickers (#137), the activity log (#131), "where things stand" (#142) and "While you were away" (#130) are built with those items; they get no numbers of their own.
 
+## More convincing worlds (#216–#217, picked 2026-10-27)
+
+From the user's question about making worlds more realistic; the other ideas (background people, events with consequences, a canon check, goals that collide, a yearly rhythm, uneven activity) wait for the user's pick.
+
+- **#216 Talk that fits the era and the place (M).** World talk always asked for "a text conversation", even where news travels by letter, and any two people could talk anywhere. A world talks by texts or letters (from its era, or set by hand); two people at the same place on the map (places on) talk in person there instead, and do so sooner. Letters are fewer and longer, and slower to come. Peek says which.
+- **#217 Reasons behind the numbers (S).** Closeness, tension and mood (#211) keep a short cause when something moves them (a tie that changed, a secret, a life event, a goal), and the talk prompt, the catch-up story and the relationship map say why, not only that.
+
 ## Smaller follow-ups
 
 Leftovers noted while building the finished items. Pick them up alongside related work.
