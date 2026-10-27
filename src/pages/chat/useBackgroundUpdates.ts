@@ -19,7 +19,9 @@ import { latestStorySummary } from "../../features/chat/recap";
 import { applyPlanChanges, buildPlansPrompt, mentionsOpenPlan, mentionsPlan, openPlans, parsePlansReply } from "../../features/chat/sharedPlans";
 import { generateNodeId } from "../../features/chat/messageTree";
 import { logChatMoment } from "../../features/world/chatMoments";
-import { STAGE_LABELS } from "../../features/character/relationshipStages";
+import { STAGE_LABELS, STAGES } from "../../features/character/relationshipStages";
+import { nudgePoints, pointsMoveIn, YOU_MOMENTS } from "../../features/world/pointsNotes";
+import { tieBaseline } from "../../features/world/bonds";
 import { addJokes, buildJokesPrompt, jokeCheckDue, parseJokesReply } from "../../features/chat/insideJokes";
 import { AI, DIARY_INTERVAL, MEMORY_EXTRACTION_INTERVAL } from "../../utils/constants";
 import { Character, Chat, Message, RoleplayStyle, UserProfile } from "../../types";
@@ -256,9 +258,12 @@ export const useBackgroundUpdates = ({
     const suggestion = currentChat?.relationshipSuggestion;
     if (!chatIdNum || !suggestion || !characterData) return;
     // Kept for the relationship map (#138): what it was, and when it changed.
+    // Points (#234): a warmer label brings them closer, a cooler one apart.
+    const warmer = tieBaseline(suggestion.to) >= tieBaseline(suggestion.from || characterData.relationship);
     void dispatch(patchCharacter(characterData.id, (fresh) => ({
       relationship: suggestion.to,
       relationshipHistory: [...(fresh.relationshipHistory || []), { from: fresh.relationship || suggestion.from || "", to: suggestion.to, at: Date.now() }].slice(-10),
+      ...(pointsMoveIn(currentChat) ? nudgePoints(fresh, "you", warmer ? YOU_MOMENTS.closer : YOU_MOMENTS.apart, Date.now(), `became your ${suggestion.to}`) : {}),
     })));
     dispatch(updateChatOptions({ chatId: chatIdNum, patch: { relationshipSuggestion: undefined } }));
     toast.success(`${characterData.name} and you: ${suggestion.to}`);
@@ -324,6 +329,9 @@ export const useBackgroundUpdates = ({
     if (!chatIdNum || !currentChat?.stageSuggestion) return;
     dispatch(updateChatOptions({ chatId: chatIdNum, patch: { stage: currentChat.stageSuggestion, stageSuggestion: undefined } }));
     if (characterData) dispatch(logChatMoment(currentChat, characterData, `${characterData.name} and you: ${STAGE_LABELS[currentChat.stageSuggestion].toLowerCase()} now${currentChat.stage ? ` (was ${STAGE_LABELS[currentChat.stage].toLowerCase()})` : ""}`));
+    const up = !currentChat.stage || STAGES.indexOf(currentChat.stageSuggestion) > STAGES.indexOf(currentChat.stage);
+    const next = currentChat.stageSuggestion;
+    if (characterData && pointsMoveIn(currentChat)) void dispatch(patchCharacter(characterData.id, (fresh) => nudgePoints(fresh, "you", up ? YOU_MOMENTS.closer : YOU_MOMENTS.apart, Date.now(), `you're ${STAGE_LABELS[next].toLowerCase()} now`)));
   };
   const dismissStage = () => {
     if (chatIdNum) dispatch(updateChatOptions({ chatId: chatIdNum, patch: { stageSuggestion: undefined } }));

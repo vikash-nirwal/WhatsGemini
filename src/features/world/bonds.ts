@@ -1,4 +1,6 @@
 import { Character } from "../../types";
+import { deltasFromBond, movePoints, Points, traitsFrom } from "./points";
+import { featureOn, loadWorldPrefs } from "./worldPrefs";
 
 // Numbers under the story (#211). Ties were only words ("your friend"),
 // so nothing measured how two people were doing, and every choice - who
@@ -16,6 +18,7 @@ export interface Bond {
   tension: number; // 0 (easy) .. 100 (about to break)
   at: number; // when it was last nudged
   why?: { text: string; at: number }[]; // what moved it lately, newest last (#217)
+  points?: Points; // their traits toward this person, 0-10, with the world's Points on (#234)
 }
 
 export interface Mood {
@@ -60,17 +63,19 @@ export const bondOf = (c: Pick<Character, "bonds" | "ties">, otherId: number, no
   const base = tieBaseline(tieWith(c, otherId));
   const b = c.bonds?.find((x) => x.withId === otherId);
   if (!b) return { withId: otherId, closeness: base, tension: 0, at: now };
-  return { withId: otherId, closeness: fade(b.closeness, base, now - b.at, CLOSENESS_HALF_LIFE), tension: fade(b.tension, 0, now - b.at, TENSION_HALF_LIFE), at: now, ...(b.why ? { why: b.why } : {}) };
+  return { withId: otherId, closeness: fade(b.closeness, base, now - b.at, CLOSENESS_HALF_LIFE), tension: fade(b.tension, 0, now - b.at, TENSION_HALF_LIFE), at: now, ...(b.why ? { why: b.why } : {}), ...(b.points ? { points: b.points } : {}) };
 };
 
 export const moodOf = (c: Pick<Character, "mood">, now: number): number => (c.mood ? fade(c.mood.value, 0, now - c.mood.at, MOOD_HALF_LIFE) : 0);
 
 // The fields a nudge changes, for patchCharacter.
 // `why` (#217): what moved it, in a few words, kept with the last few.
-export const nudgeBond = (c: Pick<Character, "bonds" | "ties">, otherId: number, { closeness = 0, tension = 0 }: { closeness?: number; tension?: number }, now: number, why?: string): Pick<Character, "bonds"> => {
+// With the world's Points on (#234), the same nudge moves the traits too.
+export const nudgeBond = (c: Pick<Character, "bonds" | "ties" | "worldId">, otherId: number, { closeness = 0, tension = 0 }: { closeness?: number; tension?: number }, now: number, why?: string): Pick<Character, "bonds"> => {
   const b = bondOf(c, otherId, now);
   const reasons = why ? [...(b.why || []), { text: why.slice(0, 160), at: now }].slice(-KEEP_WHY) : b.why;
-  const next: Bond = { withId: otherId, closeness: clamp(b.closeness + closeness, -100, 100), tension: clamp(b.tension + tension, 0, 100), at: now, ...(reasons ? { why: reasons } : {}) };
+  const points = featureOn(c.worldId, "points") ? movePoints(b.points, traitsFrom(loadWorldPrefs(c.worldId ?? null).traits), tieBaseline(tieWith(c, otherId)), deltasFromBond(closeness, tension), now, why) : b.points;
+  const next: Bond = { withId: otherId, closeness: clamp(b.closeness + closeness, -100, 100), tension: clamp(b.tension + tension, 0, 100), at: now, ...(reasons ? { why: reasons } : {}), ...(points ? { points } : {}) };
   return { bonds: [...(c.bonds || []).filter((x) => x.withId !== otherId), next] };
 };
 

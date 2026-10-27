@@ -50,6 +50,7 @@ import { addTruth, buildGodDirective, buildGodTruthsSection } from "../features/
 import { logToTimeline } from "../features/world/timeline";
 import { buildCanonNote, buildInnerStateNote, buildWorldNowNote } from "../features/world/worldNow";
 import { logChatMoment } from "../features/world/chatMoments";
+import { buildPointsNote, nudgePoints, pointsMoveIn, YOU_MOMENTS } from "../features/world/pointsNotes";
 import { activeEvents, buildEventsNote } from "../features/world/worldEvents";
 import { buildLifeNote, recentLifeEvents } from "../features/world/worldLife";
 import { buildWhereNote, buildYouAtNote, whereIs, whereYouAre } from "../features/world/places";
@@ -289,6 +290,7 @@ const ChatPage = () => {
       buildMyStatusNote(userName, myStatuses, speaker.id, now),
       ownChatNoteFor(speaker, chats, userName),
       buildInnerStateNote(speaker, world, characters, now),
+      pointsMoveIn(currentChat) ? buildPointsNote(speaker, userName, roomCharacters, now, { group: true }) : undefined,
     ].filter(Boolean).join("\n\n") || undefined;
   };
 
@@ -477,6 +479,8 @@ const ChatPage = () => {
   scene.canonNote = buildCanonNote(nowWorld, characters, worldTimeline, lifeShown.map((e) => e.text));
   scene.worldNowNote = buildWorldNowNote(nowWorld, noteTime);
   scene.innerNote = mainStory ? buildInnerStateNote(characterData, nowWorld, characters, noteTime) : undefined;
+  // Points (#234): how they score you and the people they feel most about.
+  scene.pointsNote = mainStory && pointsMoveIn(currentChat) ? buildPointsNote(characterData, userNameForNotes, characters, noteTime) : undefined;
   scene.noteBudget = noteBudgetFor(maxContextTokensForNotes);
   if (featureOn(chatWorldId, "places")) {
     const placesWorld = worlds.find((w) => w.id === chatWorldId);
@@ -1273,6 +1277,7 @@ const ChatPage = () => {
     try {
       await dispatch(patchCharacter(characterData.id, (fresh) => ({ gifts: [...(fresh.gifts || []), { id: newGiftId(), what, at: Date.now(), from: "you", chatId: chatIdNum }] })));
       dispatch(logChatMoment(currentChat, characterData, `You gave ${characterData.name} ${what}`));
+      if (pointsMoveIn(currentChat)) await dispatch(patchCharacter(characterData.id, (fresh) => nudgePoints(fresh, "you", YOU_MOMENTS.gift, Date.now(), `you gave them ${what}`)));
       await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text: giftMessage(what) }));
       await sendCharacterFollowup(undefined, buildGiftReactionDirective(what, activePersona?.name?.trim() || "The user"));
     } catch (err) {
@@ -2474,11 +2479,13 @@ const ChatPage = () => {
     if (!confirmed) return;
     await dispatch(setBlocked({ chatId: chatIdNum, blocked: { by: "you", at: Date.now() }, notice: `You blocked ${name}` }));
     dispatch(logChatMoment(currentChat, characterData, `You blocked ${name}`));
+    if (pointsMoveIn(currentChat)) void dispatch(patchCharacter(characterData.id, (fresh) => nudgePoints(fresh, "you", YOU_MOMENTS.blocked, Date.now(), "you blocked them")));
   };
   const unblockCharacter = () => {
     if (!chatIdNum || !characterData) return;
     void dispatch(setBlocked({ chatId: chatIdNum, blocked: null, notice: `You unblocked ${characterData.name}` }));
     dispatch(logChatMoment(currentChat, characterData, `You unblocked ${characterData.name}`));
+    if (pointsMoveIn(currentChat)) void dispatch(patchCharacter(characterData.id, (fresh) => nudgePoints(fresh, "you", YOU_MOMENTS.unblocked, Date.now(), "you unblocked them")));
   };
 
   const chatActions: HeaderAction[] = [

@@ -21,6 +21,7 @@ import { addLie, catchLie, standingLies } from "../../features/chat/lies";
 import { markRumorRaised, pendingRumors } from "../../features/character/rumors";
 import { patchCharacter } from "../../features/characterSlice";
 import { logChatMoment } from "../../features/world/chatMoments";
+import { nudgePoints, pointsMoveIn, replyPointsPatches, YOU_MOMENTS } from "../../features/world/pointsNotes";
 import { mergeState } from "../../features/chat/sceneState";
 import { gameLabel, GameOutcome } from "../../features/chat/miniGames";
 import { buildNextIdeasPrompt } from "../../features/chat/coWriting";
@@ -103,6 +104,7 @@ export const useReplyEffects = ({
     if (chatIdNum && payload?.blocks && !isRoom && characterData && !currentChat?.blocked) {
       void dispatch(setBlocked({ chatId: chatIdNum, blocked: { by: "them", at: Date.now() }, notice: `${characterData.name} blocked you` }));
       dispatch(logChatMoment(currentChat, characterData, `${characterData.name} blocked you`));
+      if (pointsMoveIn(currentChat)) void dispatch(patchCharacter(characterData.id, (fresh) => nudgePoints(fresh, "you", YOU_MOMENTS.blocked, Date.now(), `blocked you`)));
     }
     if (payload?.patchedUp) void patchUp(payload.patchedUp);
     if (!chatIdNum || (!payload?.replyQuote && !payload?.forward && !payload?.contact && !payload?.invite && !payload?.sticker)) return;
@@ -269,6 +271,20 @@ export const useReplyEffects = ({
     // A fight, and making up, are the world's to hear of (chatMoments.ts).
     if (speaker && effects.upset) dispatch(logChatMoment(currentChat, speaker, `${speaker.name} and you fell out: ${payload!.storyTags!.upset}`));
     if (speaker && effects.madeUp) dispatch(logChatMoment(currentChat, speaker, `${speaker.name} and you made up${currentChat?.conflict?.about ? ` after falling out over ${currentChat.conflict.about}` : ""}`));
+    // Points (#234): what the reply said moved, and what this moment does.
+    if (speaker && pointsMoveIn(currentChat)) {
+      const tagged = payload?.storyTags?.points;
+      const moments = [effects.upset && ([YOU_MOMENTS.upset, `fell out with you over ${payload!.storyTags!.upset}`] as const), effects.madeUp && ([YOU_MOMENTS.madeUp, "made up with you"] as const), effects.lieCaught && ([YOU_MOMENTS.lieCaught, "caught lying to you"] as const)].filter(Boolean) as (readonly [Record<string, number>, string])[];
+      if (tagged?.length || moments.length) {
+        const said = (payload?.text || "").replace(/\s+/g, " ").trim().slice(0, 80);
+        await dispatch(patchCharacter(speaker.id, (fresh) => {
+          let c = fresh;
+          for (const [deltas, why] of moments) c = { ...c, ...nudgePoints(c, "you", deltas, now, why) };
+          const fromTags = tagged?.length ? replyPointsPatches(c, tagged, isRoom ? roomCharacters : [c], now, said ? `when they said "${said}"` : "in your chat") : {};
+          return { ...(c.youPoints !== fresh.youPoints ? { youPoints: c.youPoints } : {}), ...(c.bonds !== fresh.bonds ? { bonds: c.bonds } : {}), ...fromTags };
+        }));
+      }
+    }
     if (effects.upset) toast.info(`${speaker?.name || "They"} ${speaker?.name ? "is" : "are"} upset with you`);
     if (effects.madeUp) toast.success("You made up");
     if (speaker && (effects.rumor || dreamt)) {

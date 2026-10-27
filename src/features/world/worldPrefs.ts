@@ -16,11 +16,13 @@ export interface WorldPrefs {
   goals?: boolean; // what each wants this week (#208)
   extras?: boolean; // people around who aren't characters (#218)
   worldTurn?: boolean; // one call per world turn for talk, events and lives, and a catch-up story (#212, #213)
+  points?: boolean; // traits scored 0-10 toward you and each other (#234)
+  traits?: string[]; // the world's own traits for points (#234); unset = the defaults
   callCap?: number; // background calls a day at most (#192); unset = no limit
   quietHours?: [number, number]; // hours when nothing runs in the background (#192), e.g. [23, 8]
 }
 
-export type WorldFeature = "events" | "drift" | "arrivals" | "places" | "reputation" | "introductions" | "secrets" | "goals" | "worldTurn" | "extras";
+export type WorldFeature = "events" | "drift" | "arrivals" | "places" | "reputation" | "introductions" | "secrets" | "goals" | "worldTurn" | "extras" | "points";
 
 export const DEFAULT_TALK_LENGTH = 10;
 export const MAX_TALK_LENGTH = 20;
@@ -124,11 +126,16 @@ export const replaceAllWorldPrefs = (all: Record<string, WorldPrefs>): void => {
 // themself. Only values that differ from the defaults are kept, so a share
 // link grows by a few bytes at most. Import runs it too, so a file written by
 // hand can't slip anything else in.
-const TRAVELLING_SWITCHES: (WorldFeature | "peek")[] = ["events", "drift", "arrivals", "places", "reputation", "introductions", "secrets", "goals", "worldTurn", "extras", "peek"];
+const TRAVELLING_SWITCHES: (WorldFeature | "peek")[] = ["events", "drift", "arrivals", "places", "reputation", "introductions", "secrets", "goals", "worldTurn", "extras", "points", "peek"];
 export const travellingPrefs = (prefs: WorldPrefs | undefined): WorldPrefs => {
   const out: WorldPrefs = {};
   if (!prefs || typeof prefs !== "object") return out;
   for (const k of TRAVELLING_SWITCHES) if (prefs[k] === true) out[k] = true;
+  // The world's own traits (#234): short words, a few at most.
+  if (Array.isArray(prefs.traits)) {
+    const traits = prefs.traits.filter((t): t is string => typeof t === "string").map((t) => t.trim().toLowerCase().slice(0, 24)).filter(Boolean).slice(0, 8);
+    if (traits.length) out.traits = traits;
+  }
   const length = prefs.talkLength;
   if (typeof length === "number" && Number.isFinite(length) && length !== DEFAULT_TALK_LENGTH) {
     out.talkLength = Math.min(MAX_TALK_LENGTH, Math.max(2, Math.round(length)));

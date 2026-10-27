@@ -625,6 +625,7 @@ export interface SceneContext {
   canonNote?: string; // what's settled in this world, never to contradict (#220)
   worldNowNote?: string; // the season and how places are after an event (#219, #222)
   innerNote?: string; // their own mood and charged bonds lately, the people around them (#211, #218)
+  pointsNote?: string; // their 0-10 traits toward you and others, and the tag to move them (#234)
   noteBudget?: number; // characters the notes may take (#187), from the model's window
 }
 
@@ -635,7 +636,7 @@ export interface SceneContext {
 // 5 = never dropped (rules and what's true), 1 = first to go.
 const NOTE_PRIORITY: [keyof SceneContext, NotePriority][] = [
   ["knowsNote", 2], ["tiesNote", 3], ["worldTalkNote", 3], ["groupsNote", 4], ["letterNote", 4], ["onThisDayNote", 2], ["giftsNote", 3], ["plansNote", 3], ["secretsNote", 3],
-  ["godNote", 5], ["eventNote", 4], ["arcNote", 4], ["historyNote", 2], ["heardNote", 3], ["goalNote", 3], ["youAtNote", 4], ["keptNote", 4], ["factionNote", 3], ["lifeNote", 4], ["reputationNote", 3], ["canonNote", 5], ["worldNowNote", 3], ["innerNote", 3],
+  ["godNote", 5], ["eventNote", 4], ["arcNote", 4], ["historyNote", 2], ["heardNote", 3], ["goalNote", 3], ["youAtNote", 4], ["keptNote", 4], ["factionNote", 3], ["lifeNote", 4], ["reputationNote", 3], ["canonNote", 5], ["worldNowNote", 3], ["innerNote", 3], ["pointsNote", 4],
   ["whatIfNote", 5], ["dayNote", 4], ["dayMoodNote", 4], ["moodNote", 4], ["jokesNote", 3], ["conflictNote", 5], ["liesNote", 4], ["jealousyNote", 3], ["dreamNote", 5],
   ["hookNote", 5], ["slipsNote", 5], ["callbackNote", 4], ["concernsNote", 3], ["placeNote", 3], ["statusNote", 4], ["quoteNote", 5], ["groupNote", 5], ["profileNote", 2],
   ["disappearingNote", 5], ["inviteNote", 5], ["stickerNote", 5], ["blockNote", 5], ["timePassedNote", 5],

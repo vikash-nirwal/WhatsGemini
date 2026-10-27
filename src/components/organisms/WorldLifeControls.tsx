@@ -8,6 +8,48 @@ import { inWorld } from "src/features/world/currentWorld";
 import { LIFE_PRESETS, lifeOf, presetOf } from "src/features/character/lifePresets";
 import { patchWorld } from "src/features/worldSlice";
 import { talkByOf } from "src/features/world/talkMedium";
+import { cleanTrait, DEFAULT_TRAITS, MAX_TRAITS, traitsFrom } from "src/features/world/points";
+import { FaTimes } from "react-icons/fa";
+import { useState } from "react";
+
+// The traits a world keeps points for (#234): the defaults until you change
+// them; renaming is removing one and adding another.
+const TraitsEditor = ({ traits, custom, name, onChange }: { traits: string[]; custom: boolean; name: string; onChange: (traits: string[] | undefined) => void }) => {
+  const [adding, setAdding] = useState("");
+  const add = () => {
+    const t = cleanTrait(adding);
+    if (t && !traits.includes(t) && traits.length < MAX_TRAITS) onChange([...traits, t]);
+    setAdding("");
+  };
+  return (
+    <div className="flex flex-col gap-2 sm:col-span-2" role="group" aria-label={`Traits in ${name}`}>
+      <span className="text-sm font-medium text-foreground">Traits they score (0-10)</span>
+      <ul className="flex flex-wrap gap-1.5">
+        {traits.map((t) => (
+          <li key={t} className="flex items-center gap-1 rounded-full bg-raised py-1 pl-3 pr-1.5 text-[13px] capitalize text-foreground ring-1 ring-inset ring-border">
+            {t}
+            <button type="button" aria-label={`Remove ${t}`} disabled={traits.length <= 1} onClick={() => onChange(traits.filter((x) => x !== t))} className="rounded-full p-1 text-subtle hover:text-foreground disabled:opacity-40">
+              <FaTimes size={10} aria-hidden />
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className="flex items-center gap-2">
+        <input
+          value={adding}
+          onChange={(e) => setAdding(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+          placeholder={traits.length >= MAX_TRAITS ? `${MAX_TRAITS} at most` : "Add a trait: loyalty, fear…"}
+          disabled={traits.length >= MAX_TRAITS}
+          aria-label="New trait"
+          className="h-8 min-w-0 flex-1 rounded-lg bg-raised px-2.5 text-[13px] text-foreground ring-1 ring-inset ring-border"
+        />
+        <button type="button" onClick={add} disabled={!adding.trim() || traits.length >= MAX_TRAITS} className="text-[13px] font-bold text-primary-text hover:underline disabled:opacity-40">Add</button>
+        {custom && <button type="button" onClick={() => onChange(undefined)} className="text-[13px] font-bold text-primary-text hover:underline">{`Defaults (${DEFAULT_TRAITS.length})`}</button>}
+      </div>
+    </div>
+  );
+};
 
 // Living-world features (#162-#166), off until switched on. My world has no
 // map, events or reputation of its own, so only drifting ties apply there.
@@ -24,7 +66,13 @@ const FEATURES: [WorldFeature, string][] = [
   ["worldTurn", "One call per world turn"],
   // People around them (#218): a roster of names that recur.
   ["extras", "People around them"],
+  // Points (#234): traits scored 0-10 toward you and each other.
+  ["points", "Points toward you and each other"],
 ];
+
+// Which switches My world has: it has no map, events or reputation of its
+// own, but ties drift and points work the same there.
+const IN_MY_WORLD: WorldFeature[] = ["drift", "points"];
 
 const LENGTHS = Array.from({ length: MAX_TALK_LENGTH - 1 }, (_, i) => i + 2);
 
@@ -57,9 +105,10 @@ export const WorldLifeControls = ({ worldId, name }: { worldId: number | null; n
           </button>
         </div>
       )}
-      {FEATURES.filter(([key]) => worldId != null || key === "drift").map(([key, label]) => (
+      {FEATURES.filter(([key]) => worldId != null || IN_MY_WORLD.includes(key)).map(([key, label]) => (
         <ToggleSwitch key={key} checked={Boolean(prefs[key])} onChange={(on) => update({ [key]: on })} label={label} />
       ))}
+      {prefs.points && <TraitsEditor traits={traitsFrom(prefs.traits)} custom={Boolean(prefs.traits?.length)} name={name} onChange={(traits) => update({ traits })} />}
       {residents.length > 0 && (
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           <span className="flex-1">Everyone here lives like</span>

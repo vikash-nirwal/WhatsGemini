@@ -4,7 +4,7 @@ What's built, what's open and what a new session needs to know. [ROADMAP.md](ROA
 
 ## Where we stand
 
-- **State (2026-10-27):** every item through #233 is built, pushed and deployed (main 974ceb6, gh-pages c7e7bea); #224–#233 came from the memory reviews, not the roadmap.
+- **State (2026-10-27):** every item through #233 is built, pushed and deployed (main 974ceb6, gh-pages c7e7bea); #224–#233 came from the memory reviews, not the roadmap. Points (#234, the user's ask) is built, not yet committed or deployed.
 - **Open:** #132 real-model tuning waits on the user's testing with their key (turn on "Keep helper replies" in Settings › Spending first, then replay them, #214). Drive backup (#54) is built but needs the user's Google OAuth client ID (steps in Settings › Data).
 - **Skipped:** #135 location sharing (dropped by the user), #139 circles (became worlds, #145). Voice features and calls wait for an AI voice model (see Decisions).
 - **Not tried with real models or services:** most prompts from #81 on, image providers with real keys, notifications and background sync on real phones, the in-browser model. ROADMAP.md › "Untried" lists them.
@@ -43,7 +43,7 @@ A map, by area: item numbers and where the code lives. Paths are under `src/` un
 **Worlds**
 - Spaces and switching (#143 `currentWorld.ts`, `hooks/useWorld.ts`), wizard (#144), worlds keep running (#146 `worldPrefs.ts` `livingIn`), story time (#147 `storyTime.ts`), timeline with audiences and what each knows (#161, #203, #204 `timeline.ts`, `knowledge.ts`), hearsay (#206), one time and place (#205 `sceneNow.ts`), world brief (`worldBrief.ts`), god mode (#160), pulse (`pulse.ts`), Peek (`pages/PeekPage.tsx`), export, import and share links (#172 `worldFile.ts`, `importWorld.ts`), live map (#66 `worldMap.ts`).
 - World engine (#209): thunks in `features/world/engine/` (`worldJobs.ts` `worldLifeCheck` runs every world job; `worldTalkTurn.ts`; `pickNextTalk.ts`; `worldTurnJob.ts`; `catchUpJob.ts`; `shared.ts` `afterTalk`, `tellTheNews`; `state.ts` `engineState`, which drops the dead). `WorldTalker.tsx` and `WorldEventWatcher.tsx` only register them.
-- Per-world switches, all off by default (`worldPrefs.ts` `featureOn`, toggles in `WorldLifeControls.tsx`): events (#162 `worldEvents.ts`, `startEvent.ts`), drift (#163), arrivals and life events (#164 `worldLife.ts`), places (#165, #177, #183 `places.ts`), reputation (#166), introductions (#167), secrets (#170, #184), goals (#208, #221 `goals.ts`), one call per world turn (#212, #213 `worldTurn.ts`, `catchUp.ts`), people around them (#218 `extras.ts`). Storylines (#169 `worldArcs.ts`), factions (#171), group plans (#168, #184, #195 `groupPlans.ts`) have no switch.
+- Per-world switches, all off by default (`worldPrefs.ts` `featureOn`, toggles in `WorldLifeControls.tsx`): events (#162 `worldEvents.ts`, `startEvent.ts`), drift (#163), arrivals and life events (#164 `worldLife.ts`), places (#165, #177, #183 `places.ts`), reputation (#166), introductions (#167), secrets (#170, #184), goals (#208, #221 `goals.ts`), one call per world turn (#212, #213 `worldTurn.ts`, `catchUp.ts`), people around them (#218 `extras.ts`), points (#234 `points.ts` storage and the `[Points: …]` tag, `pointsNotes.ts` notes and moments, sliders in `PointsSection.tsx` on Contact info, traits in `WorldLifeControls.tsx`; My world has it too). Storylines (#169 `worldArcs.ts`), factions (#171), group plans (#168, #184, #195 `groupPlans.ts`) have no switch.
 - Talk between characters (#145, #159, #181 `worldTalk.ts`), talk that fits the era and place (#216 `talkMedium.ts`), numbers under the story with reasons (#211, #217 `bonds.ts`), events with consequences (#219 `aftermath.ts`), canon (#220 `canon.ts` `worldContext`), seasons and traditions (#222 `rhythm.ts`), uneven pace (#223 `activity.ts`), news texts (#178 `news.ts`, `shareNews.ts`), the world as it is now in replies to you: canon, season, places, their mood and bonds, people around (#226 `worldNow.ts`), one fact in one note: a reply's life, knows, history and canon notes skip what another already says, and a character isn't told their own chat's moments back (#231 `knowledge.ts` `echoesOwnNotes`), talks kept per pair (#224), time skips and undo (`passWorldTime.ts`, `timeSkipUndo.ts`).
 - Call limits and quiet hours per world (#192), notifications and digest for world happenings (#194).
 
@@ -65,6 +65,7 @@ Choices a later session shouldn't revisit.
 - (user) No new voice features or calls until the app has an AI voice model.
 - (user) Worlds: a character can join several worlds with separate memory; the user is in every world (a persona per world, else the default); other worlds keep running unless switched off; story time is optional per world.
 - (user) Background world features each sit behind a per-world switch, **off by default**. Exceptions decided 2026-10-27: the canon check, seasons and uneven pace (#220, #222, #223) need none.
+- (user) Points (#234): per world, off by default; traits are a default five (affection, trust, respect, attraction, rivalry) the world can edit, up to 8; scores are 0-10 toward you and each person, stored on bonds (`Bond.points`, `Character.youPoints`); moved by reply tags (1-2 a step), world life through bond nudges, moments with you, fading back over 3 weeks, and sliders on Contact info. Scene meters (#71) stay per chat.
 - Memory bridges (#228–#230): a freeform adventure (no world) and a what-if, "this chat only" or disappearing-messages chat stay apart; group facts are copied to members, not moved.
 - (user) UI revamp: no "Favourites" filter; the WhatsApp theme is shown as "Messenger" (stored id `whatsapp`); Drama settings stay per chat; forwarding and contact cards stay inside one world.
 - (user) Character names never go to image models; SD WebUI still uses the name to pick its local face model.
@@ -98,6 +99,7 @@ Facts that save the next session time.
 
 Newest first. Older sessions are in the git history.
 
+- 2026-10-27: Points toward you and each other, a per-world switch (#234).
 - 2026-10-27: Statuses and their comments reach 1:1 replies (#233).
 - 2026-10-27: Memory for less context and better recall: one fact in one note (#231), condensing old facts instead of dropping them at the cap (#232).
 - 2026-10-27: Reviewed how memory moves between chats, groups, adventures and worlds. Fixed world talks kept per holder, not per pair (#224); recall skipped once "where things stand" existed (#225); replies missing the world's state (#226); pinned group facts dropped first (#227); "you texted" for letters and in-person talks. Built memory bridges #228–#230. Pushed and deployed.

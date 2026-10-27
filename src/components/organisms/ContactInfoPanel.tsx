@@ -14,6 +14,7 @@ import { ScenePanelTabProps } from "./scene-panel/types";
 import ChatTab from "./scene-panel/ChatTab";
 import MemoryTab from "./scene-panel/MemoryTab";
 import RelationshipsSection from "./RelationshipsSection";
+import PointsSection from "./PointsSection";
 import { featureOn } from "src/features/world/worldPrefs";
 import SecretsYouKnow from "./SecretsYouKnow";
 
@@ -82,6 +83,7 @@ const ContactInfoPanel: React.FC<ScenePanelTabProps> = (props) => {
         <div className="flex flex-col gap-[22px] border-t border-border px-[18px] py-[18px]">
           <ChatTab {...props} groups={["alive", "inner", "texting", "relationship", "look"]} />
           <RelationshipsSection character={character} />
+          <PointsSection character={character} />
           <SecretsYouKnow character={character} />
           <MemoryTab {...props} />
           {!blockedByThem(chat) && (

@@ -1,4 +1,5 @@
 import { MessageNote } from "../../types";
+import { extractPointsTags, PointsChange, stripStreamingPoints } from "../world/points";
 
 // Story tags (#97, #98, #100): short tags a reply can close with, which the
 // app strips and acts on - the character got upset or made up with you, told
@@ -11,6 +12,7 @@ export interface StoryTags {
   lie?: string; // the truth
   lieCaught?: number; // 1-based, into the standing lies the prompt listed
   rumorRaised?: boolean;
+  points?: PointsChange[]; // how they feel moved (#234), toward you or someone named
 }
 
 const UPSET = /\n?[ \t]*\[\s*upset\s*:\s*([^\]\n]*)\]\s*/i;
@@ -52,16 +54,19 @@ export const extractStoryTags = (text: string): { text: string; tags: StoryTags 
     out = cut(out, rumor);
     tags.rumorRaised = true;
   }
+  const points = extractPointsTags(out);
+  out = points.text;
+  if (points.changes.length) tags.points = points.changes;
   return { text: out.trim(), tags };
 };
 
 export const hasStoryTags = (tags: StoryTags | undefined): boolean =>
-  Boolean(tags && (tags.upset || tags.madeUp || tags.lie || tags.lieCaught || tags.rumorRaised));
+  Boolean(tags && (tags.upset || tags.madeUp || tags.lie || tags.lieCaught || tags.rumorRaised || tags.points?.length));
 
 // While streaming: whole tags, and one still being typed at the very end.
 export const stripStreamingStoryTags = (text: string): string =>
   [UPSET, MADE_UP, LIE_CAUGHT, LIE, RUMOR]
-    .reduce((out, re) => out.replace(new RegExp(re.source, "gi"), "\n"), text)
+    .reduce((out, re) => out.replace(new RegExp(re.source, "gi"), "\n"), stripStreamingPoints(text))
     .replace(/\[\s*(u(p(s(e(t[^\]]*)?)?)?)?|m(a(d(e[^\]]*)?)?)?|l(i(e[^\]]*)?)?|r(u(m[^\]]*)?)?)$/i, "")
     .trimEnd();
 

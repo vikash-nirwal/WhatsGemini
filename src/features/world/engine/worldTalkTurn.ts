@@ -19,6 +19,7 @@ import { featureOn, talkLengthFor } from "../worldPrefs";
 import { buildWorldTalkPrompt, parseTieChange, pickTalkTopic, recencyOf, talksBetween, tieMayChange, UserKnowledge } from "../worldTalk";
 import { nudgeBond, nudgeMood, standingLine, tieUnderStrain } from "../bonds";
 import { afterTalk } from "./shared";
+import { pointsLine } from "../pointsNotes";
 import { linesFor, talkSettingFor } from "../talkMedium";
 import { EngineDispatch, engineState, GetState } from "./state";
 import { pickNextTalk } from "./pickNextTalk";
@@ -57,7 +58,8 @@ export const worldTalkTurn = (now: number) => async (dispatch: EngineDispatch, g
   const drift = featureOn(worldId, "drift");
   const askTie = drift && (tieMayChange(topic) || tieUnderStrain(a, b.id, now) || tieUnderStrain(b, a.id, now));
   // Goals that clash (#221) are on their minds whether or not drift is on.
-  const standing = [drift ? standingLine(a, b, now) : undefined, featureOn(worldId, "goals") ? clashLine(a, b) : undefined].filter(Boolean).join(" ") || undefined;
+  // Points (#234): how each scores the other, with that switch on.
+  const standing = [drift ? standingLine(a, b, now) : undefined, featureOn(worldId, "goals") ? clashLine(a, b) : undefined, pointsLine(a, b, now)].filter(Boolean).join(" ") || undefined;
   // What each knows from the world's record (#204), at one shared time and
   // place (#205).
   const record = await loadTimeline(worldId);

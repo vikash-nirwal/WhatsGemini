@@ -54,5 +54,5 @@ export const NOTE_NAMES: Record<string, string> = {
   factionNote: "their family or faction", lifeNote: "their life events", reputationNote: "your reputation", dayNote: "their day",
   dayMoodNote: "their mood today", moodNote: "a lingering mood", jokesNote: "inside jokes", liesNote: "lies", jealousyNote: "jealousy",
   dreamNote: "a dream", callbackNote: "an old memory", concernsNote: "what's on their mind", placeNote: "where they are", statusNote: "statuses",
-  profileNote: "their About line",
+  profileNote: "their About line", canonNote: "what's settled", worldNowNote: "the season and places", innerNote: "their mood and bonds", pointsNote: "their points",
 };
