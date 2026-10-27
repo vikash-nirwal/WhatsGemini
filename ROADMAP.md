@@ -34,21 +34,11 @@ A calmer, more spacious UI from the Claude Design canvas "WhatsGemini UI revamp"
 **Wave 3: with the features they belong to**
 - The canvas's boards for Peek (#145), blocking (#133), event invites (#134), disappearing messages (#136), stickers (#137), the activity log (#131), "where things stand" (#142) and "While you were away" (#130) are built with those items; they get no numbers of their own.
 
-## World engine (#209–#215, picked 2026-10-27)
-
-From the world engine review the user asked to act on (2026-10-27). Today the engine is 13 background components, each with its own timer; the features each have their own prompt and don't feed one another. #209 → #213 build on each other, in order; #214 and #215 stand alone.
-
-- **#209 One world scheduler (L).** One loop in place of the 13 timers: jobs register with a due check, a rough cost and the world they're for; the scheduler takes turns between worlds fairly (no `worlds.find` order bias, no one pair across all worlds), applies call caps and quiet hours in one place, and moves job logic out of components into testable modules. Ticks (catch-up, Simulate a day) run through it.
-- **#210 Safe character saves (S).** `patchCharacter(id, changes or fn of latest)` like `patchWorld`, used by every background job, so a job and your chat can't overwrite each other's changes to one character.
-- **#211 Numbers under the story (M).** Ties get closeness and tension (−/+), people a mood; talks, events and secrets nudge them. The numbers pick who talks, which ties are close to changing and whom a life event or secret involves, so choosing costs no call. Shown in the relationship map. Off-by-default rule: the numbers are always kept, and only change what happens in worlds with drift on.
-- **#212 One world-turn call (M).** Behind a per-world switch (off by default): every few hours one structured call gets the world's state and returns talk summaries, an event and life events together, so they fit one another, in place of separate calls for each.
-- **#213 Catch-up that fits the absence (M).** While you're away the numbers move on without the model; on return one call narrates the gap ("this week in …") from what changed, so a week away feels like a week. Behind the same switch as #212.
-- **#214 Prompt replay harness (M).** Keep the last helper replies per kind (opt-in, on this device), export them, and run every tag/line parser (TIE, SHARED, NEW, GOAL, events, secrets, …) over saved replies, reporting how often each is missing or malformed. Feeds #132.
-- **#215 World switches travel (S).** World prefs (switches, call cap, quiet hours, talk length) and the life dial go into backups and world files, and come back on restore or import.
-
 ## Smaller follow-ups
 
 Leftovers noted while building the finished items. Pick them up alongside related work.
+
+- **#209–#215 (2026-10-27):** not tried with real models: the world-turn JSON (#212) and the catch-up story (#213); how the numbers (#211) feel over real weeks, and their weights are a first guess. Chat replies' tags aren't in the reply log (#214). Backups still leave out adventures, channels and my statuses, and a restore into a library whose ids are taken doesn't remap characters' ties, talks, `knowsAbout` or kept secrets (#215). The 11 personal runners keep their logic in components (only the world engine moved to thunks).
 
 - **#187–#201 (2026-10-26):** not tried for real: the in-browser model for background life (needs a GPU), the embedding download for recall by meaning, the daily Drive backup with a real Google account, and Android background sync on a real phone. The prompt budget's priorities are a first guess; tune them with the inspector once real models are in use.
 

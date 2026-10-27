@@ -21,7 +21,9 @@ interface Job {
   nextAt: number;
 }
 
-const HEARTBEAT_MS = 10 * 1000;
+// The longest the timer waits at once, so a clock change or a sleeping
+// laptop never leaves jobs waiting long past their time.
+const MAX_WAIT_MS = 60 * 1000;
 const jobs = new Map<string, Job>();
 const waiting = new Set<string>(); // heartbeat runs queued or under way
 let chain: Promise<unknown> = Promise.resolve();
@@ -46,19 +48,35 @@ export const beat = (now = Date.now()) => {
     if (job.nextAt > now || waiting.has(job.name)) continue;
     job.nextAt = now + job.timing.everyMs;
     waiting.add(job.name);
-    void enqueue(job.name, () => job.run()).finally(() => waiting.delete(job.name));
+    void enqueue(job.name, () => job.run()).finally(() => {
+      waiting.delete(job.name);
+      arm();
+    });
   }
 };
 
-const startHeartbeat = () => {
-  if (heartbeat === undefined) heartbeat = window.setInterval(() => beat(), HEARTBEAT_MS);
-};
-
+// One timer, set for the next check that's due: checks land when they're
+// due, as each job's own timers did, and nothing wakes in between. A job
+// still running is left out until it finishes (which arms again), so a
+// slow one can't spin the timer.
 const stopHeartbeat = () => {
   if (heartbeat === undefined) return;
-  window.clearInterval(heartbeat);
+  window.clearTimeout(heartbeat);
   heartbeat = undefined;
 };
+
+function arm() {
+  stopHeartbeat();
+  const next = Math.min(...Array.from(jobs.values()).filter((j) => !waiting.has(j.name)).map((j) => j.nextAt));
+  if (!Number.isFinite(next)) return;
+  heartbeat = window.setTimeout(() => {
+    heartbeat = undefined;
+    beat();
+    arm();
+  }, Math.min(MAX_WAIT_MS, Math.max(0, next - Date.now())));
+}
+
+const startHeartbeat = () => arm();
 
 // Registers a job; the returned function takes it off again (a component
 // that unmounts). Registering the same name again replaces it but keeps its

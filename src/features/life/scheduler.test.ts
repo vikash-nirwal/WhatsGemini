@@ -94,3 +94,30 @@ test("worlds in quiet hours or at their call cap are left out", () => {
   localStorage.setItem(`world_calls_mine_${new Date().toISOString().slice(0, 10)}`, "1");
   expect(fairOrder("x", [{ id: 1 }, { id: 2 }, { id: null }], (w) => w.id).map((w) => w.id)).toEqual([1]);
 });
+
+test("checks land when they're due, not on a coarse beat", async () => {
+  jest.useFakeTimers();
+  // Runs go through a promise queue, so let it settle after each step.
+  const settle = async () => {
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+  };
+  try {
+    const at: number[] = [];
+    const start = Date.now();
+    registerJob("a", { everyMs: 20 * MIN, firstMs: MIN }, () => void at.push(Date.now() - start));
+    jest.advanceTimersByTime(MIN - 1);
+    await settle();
+    expect(at).toEqual([]);
+    jest.advanceTimersByTime(1);
+    await settle();
+    expect(at).toEqual([MIN]);
+    for (let i = 0; i < 20; i++) {
+      jest.advanceTimersByTime(MIN);
+      await settle();
+    }
+    expect(at).toEqual([MIN, 21 * MIN]);
+  } finally {
+    resetScheduler();
+    jest.useRealTimers();
+  }
+});
