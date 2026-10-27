@@ -60,7 +60,7 @@ test("a backup is encrypted, uploaded to the app folder, and restored with its p
   await page.getByLabel(/Backup passphrase/).fill(PASSPHRASE);
   await list.getByRole("button", { name: /Restore the backup from/ }).click();
   await page.getByRole("button", { name: "Confirm" }).click();
-  await expect(page.getByText(/Restored \d+ chat\(s\), \d+ character\(s\) and \d+ world\(s\)/)).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/Restored \d+ chat\(s\), \d+ character\(s\), \d+ world\(s\)/)).toBeVisible({ timeout: 20_000 });
 });
 
 test("the buttons wait for a client ID and a long enough passphrase", async ({ page }) => {

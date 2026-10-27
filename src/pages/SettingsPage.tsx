@@ -35,6 +35,9 @@ import { useModal } from "../contexts/ModalContext";
 import { fetchChats } from "../features/chatSlice";
 import { fetchCharacters } from "../features/characterSlice";
 import { fetchWorlds } from "../features/worldSlice";
+import { fetchAdventures } from "../features/adventureSlice";
+import { loadChannels } from "../features/channelSlice";
+import { loadMyStatuses } from "../features/myStatusSlice";
 import {
   // DEFAULT_CHAT_LENGTH,
   // DEFAULT_OUTPUT_TOKENS,
@@ -720,11 +723,11 @@ const SettingsPage = () => {
   const handleExportFullBackup = async () => {
     try {
       const { getFullBackupZip } = await import("../services/backupService");
-      const { blob, chats, characters, worlds, imagesIncluded, imagesSkipped } = await getFullBackupZip(buildSettingsExport());
+      const { blob, chats, characters, worlds, adventures, imagesIncluded, imagesSkipped } = await getFullBackupZip(buildSettingsExport());
       const dateStr = new Date().toISOString().slice(0, 10);
       downloadBlob(blob, `kindred_backup_${dateStr}.zip`);
 
-      let message = `Backed up ${chats.length} chat(s), ${characters.length} character(s) and ${worlds.length} world(s)`;
+      let message = `Backed up ${chats.length} chat(s), ${characters.length} character(s), ${worlds.length} world(s)${adventures.length ? ` and ${adventures.length} adventure(s)` : ""}`;
       message += imagesIncluded > 0 ? `, including ${imagesIncluded} image(s).` : ".";
       if (imagesSkipped > 0) message += ` ${imagesSkipped} local image(s) couldn't be read and were skipped.`;
       toast.success(message);
@@ -769,21 +772,26 @@ const SettingsPage = () => {
       const { data, imageFilenames } = parsed;
 
       const worldCount = Array.isArray(data.worlds) ? data.worlds.length : 0;
-      let confirmMessage = `This will add ${data.chats.length} chat(s), ${data.characters.length} character(s) and ${worldCount} world(s) to your existing library (nothing will be overwritten or removed).`;
+      const adventureCount = Array.isArray(data.adventures) ? data.adventures.length : 0;
+      let confirmMessage = `This will add ${data.chats.length} chat(s), ${data.characters.length} character(s), ${worldCount} world(s)${adventureCount ? `, ${adventureCount} adventure(s)` : ""} to your existing library (nothing will be overwritten or removed).`;
       if (imageFilenames.length > 0) confirmMessage += ` It also includes ${imageFilenames.length} local image(s).`;
       confirmMessage += " Continue?";
 
       const confirmed = await showConfirm("Restore Backup", confirmMessage);
       if (!confirmed) return;
 
-      const { chatsRestored, charactersRestored, worldsRestored, imagesRestored } = await applyParsedBackup(parsed);
+      const { chatsRestored, charactersRestored, worldsRestored, adventuresRestored, imagesRestored } = await applyParsedBackup(parsed);
       if (data.settings) applyImportedSettings(data.settings);
 
       dispatch(fetchChats());
       dispatch(fetchCharacters());
       dispatch(fetchWorlds());
+      // Adventures, channels and your statuses come back too (#235).
+      dispatch(fetchAdventures());
+      dispatch(loadChannels());
+      dispatch(loadMyStatuses());
 
-      let message = `Restored ${chatsRestored} chat(s), ${charactersRestored} character(s) and ${worldsRestored} world(s)`;
+      let message = `Restored ${chatsRestored} chat(s), ${charactersRestored} character(s), ${worldsRestored} world(s)${adventuresRestored ? ` and ${adventuresRestored} adventure(s)` : ""}`;
       message += imagesRestored > 0 ? `, including ${imagesRestored} image(s).` : ".";
       toast.success(message);
     } catch (err) {

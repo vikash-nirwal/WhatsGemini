@@ -21,9 +21,8 @@ Built and unit/UI-tested with mocks, never with the real thing.
 
 Leftovers worth picking up alongside related work.
 
-- **Worlds:** anniversaries of one-off events; background people in 1:1 and group chats; factions grouping the map; god-mode truths, events and storylines reaching letters and the feed; southern-hemisphere seasons.
+- **Worlds:** anniversaries of one-off events; factions grouping the map; god-mode truths, events and storylines reaching letters and the feed; southern-hemisphere seasons.
 - **Chat:** gifts, plans, secrets, "On this day", fights, lies, jealousy, inside jokes, episodes, role reversal and compare two models in group chats (1:1 only today); sending view-once photos yourself; search inside a chat; a hold-to-record animation in texting mode and the terminal theme.
 - **Background life:** everything runs only while the app is open (the service worker can't call the AI); routines run in your time zone, not the character's home.
-- **Backups:** adventures, channels and your statuses aren't in backups; restoring into a library whose ids are taken doesn't relink characters' ties, talks, `knowsAbout` or kept secrets.
 - **Code:** the 11 personal background jobs still keep their logic in components (only the world engine moved to `features/world/engine/`); an InstantID preset for SD WebUI; paid TTS (after voice is back on the table).
 - **Tests:** swipe-to-reply has no UI test; fix the flaky specs listed in PROGRESS.md › Working notes.

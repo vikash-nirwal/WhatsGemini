@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import { dbService } from "./dbService";
-import { Chat, Character, Message, ConversationTree, UserProfile, World } from "../types";
+import { Adventure, Channel, Chat, Character, Message, ConversationTree, MyStatus, UserProfile, World } from "../types";
+import { IdMaps, localImagesIn, rehomeTalks, remapAdventure, remapChannel, remapCharacter, remapChat, remapMessage, remapMyStatus, remapTreeRefs, remapWorld } from "./backupRemap";
 import { LS_USER_PERSONAS } from "../utils/constants";
 import { appendEntry, editTimeline, loadTimeline, TimelineEntry } from "../features/world/timeline";
 import { allWorldPrefs, replaceAllWorldPrefs, WorldPrefs } from "../features/world/worldPrefs";
@@ -22,15 +23,26 @@ export interface BackupData {
   worlds?: World[];
   timelines?: Record<string, TimelineEntry[]>; // keyed by world id, or "mine" for My world
   worldPrefs?: Record<string, WorldPrefs>; // the same keys
+  // Adventures, channels and your own statuses (#235). Older backups have
+  // none, and restore without them as before.
+  adventures?: Adventure[];
+  channels?: Channel[];
+  myStatuses?: MyStatus[];
 }
+
+const CHANNELS_KEY = "channels";
+const MY_STATUSES_KEY = "my_statuses";
 
 const MINE = "mine";
 
 export const getFullBackupData = async (): Promise<BackupData> => {
-  const [chats, characters, worlds] = await Promise.all([
+  const [chats, characters, worlds, adventures, channels, myStatuses] = await Promise.all([
     dbService.getAllChats(),
     dbService.getAllCharacters(),
     dbService.getAllWorlds(),
+    dbService.getAllAdventures(),
+    dbService.getSetting(CHANNELS_KEY) as Promise<Channel[] | undefined>,
+    dbService.getSetting(MY_STATUSES_KEY) as Promise<MyStatus[] | undefined>,
   ]);
   // Only worlds that still exist: deleting a world leaves its timeline and
   // prefs behind on this device, and they'd have nothing to restore onto.
@@ -51,6 +63,9 @@ export const getFullBackupData = async (): Promise<BackupData> => {
     worlds,
     timelines,
     worldPrefs,
+    adventures,
+    channels: channels || [],
+    myStatuses: myStatuses || [],
   };
 };
 
@@ -65,20 +80,15 @@ export const remapIdArray = (ids: number[] | undefined, idMap: Map<number, numbe
 // chat's flat `content` and every node's message inside its `tree`
 // (branching means the same message can live in more than one place). Same
 // "drop rather than dangle" rule as remapIdArray.
+// It now follows every character a message names (#235: quoted statuses,
+// replies, polls, contact cards, reactions, an adventure's moods), not only
+// its speaker; see backupRemap.ts.
 export const remapMessageSpeaker = (message: Message, idMap: Map<number, number>): Message => {
-  if (message.speakerId == null) return message;
-  const remapped = idMap.get(message.speakerId);
-  return remapped != null ? { ...message, speakerId: remapped } : { ...message, speakerId: undefined };
+  const m = remapMessage(message, idMap);
+  return message.speakerId != null && m.speakerId == null ? { ...m, speakerId: undefined } : m;
 };
 
-export const remapTree = (tree: ConversationTree | undefined, idMap: Map<number, number>): ConversationTree | undefined => {
-  if (!tree) return tree;
-  return {
-    nodes: Object.fromEntries(
-      Object.entries(tree.nodes).map(([nodeId, node]) => [nodeId, { ...node, message: remapMessageSpeaker(node.message, idMap) }])
-    ),
-  };
-};
+export const remapTree = (tree: ConversationTree | undefined, idMap: Map<number, number>): ConversationTree | undefined => remapTreeRefs(tree, idMap);
 
 // Restores chats and characters as new records - never overwrites or collides
 // with anything already in the database, so it's safe to run against a browser
@@ -97,9 +107,9 @@ export const remapTree = (tree: ConversationTree | undefined, idMap: Map<number,
 export const restoreChatsAndCharacters = async (
   chats: Chat[],
   characters: Character[],
-  options: { keepIds?: boolean; worldIdOf?: (id: number | undefined) => number | undefined } = {}
+  options: { keepIds?: boolean; worldIdOf?: (id: number | undefined) => number | undefined; worldMap?: Map<number, number> } = {}
 ): Promise<{ chatsRestored: number; charactersRestored: number; idMap: Map<number, number>; chatIdMap: Map<number, number> }> => {
-  const { keepIds = false, worldIdOf = (id) => id } = options;
+  const { keepIds = false, worldIdOf = (id) => id, worldMap = new Map<number, number>() } = options;
   const idMap = new Map<number, number>();
   const chatIdMap = new Map<number, number>();
   const withWorld = <T extends { worldId?: number }>(record: T): T => {
@@ -124,9 +134,14 @@ export const restoreChatsAndCharacters = async (
     const { id, characterId, characterIds, content, tree, mutedParticipantIds, ...rest } = chat as Chat & { characterId?: number | null };
     const sourceIds = Array.isArray(characterIds) ? characterIds : (characterId != null ? [characterId] : []);
 
+    // Everything else the chat names follows too (#235); a what-if's parent
+    // chat only has its new id once every chat is in, so it waits.
+    const maps: IdMaps = { characters: idMap, chats: chatIdMap, worlds: worldMap };
+    const relinked = keepIds ? null : remapChat({ ...rest, characterIds: sourceIds, mutedParticipantIds, content: content || [], tree } as Chat, maps);
     const newId = await dbService.addChat(withWorld({
       ...(keepIds && id != null ? { id } : {}),
       ...rest,
+      ...(relinked ? { ...relinked, whatIf: rest.whatIf } : {}),
       characterIds: remapIdArray(sourceIds, idMap) || [],
       mutedParticipantIds: remapIdArray(mutedParticipantIds, idMap),
       content: (content || []).map((m) => remapMessageSpeaker(m, idMap)),
@@ -134,6 +149,26 @@ export const restoreChatsAndCharacters = async (
     }));
     if (id != null) chatIdMap.set(id, newId);
     chatsRestored++;
+  }
+
+  // Second pass, on new ids only (#235): what characters name - ties, talks
+  // (moved to whichever of the two now has the lower id), who knows whom,
+  // secrets, rumors, likes, a letter's chat - and a what-if's parent chat.
+  if (!keepIds) {
+    const maps: IdMaps = { characters: idMap, chats: chatIdMap, worlds: worldMap };
+    const restored = characters.filter((c) => c.id != null && idMap.has(c.id)).map((c) => ({ ...remapCharacter(c, maps), id: idMap.get(c.id)! }));
+    for (const c of rehomeTalks(restored)) {
+      const saved = await dbService.getCharacterById(c.id);
+      await dbService.updateCharacter({ ...saved, ...c, worldId: saved.worldId });
+    }
+    for (const chat of chats) {
+      const parent = chat.whatIf?.parentChatId;
+      const newId = chat.id != null ? chatIdMap.get(chat.id) : undefined;
+      if (parent == null || newId == null) continue;
+      const next = chatIdMap.get(parent);
+      const { parentChatId: _p, ...whatIf } = chat.whatIf!;
+      await dbService.patchChat(newId, { whatIf: next != null ? { ...whatIf, parentChatId: next } : whatIf });
+    }
   }
 
   return { chatsRestored, charactersRestored: characters.length, idMap, chatIdMap };
@@ -171,7 +206,7 @@ const idsFree = <T extends { id?: number }>(here: T[], incoming: T[]) => {
 // backup's.
 export const restoreLibrary = async (
   data: BackupData
-): Promise<{ chatsRestored: number; charactersRestored: number; worldsRestored: number }> => {
+): Promise<{ chatsRestored: number; charactersRestored: number; worldsRestored: number; adventuresRestored: number }> => {
   const worlds = Array.isArray(data.worlds) ? data.worlds : [];
   const [chatsHere, charactersHere, worldsHere] = await Promise.all([dbService.getAllChats(), dbService.getAllCharacters(), dbService.getAllWorlds()]);
   const keepIds = idsFree(chatsHere, data.chats) && idsFree(charactersHere, data.characters) && idsFree(worldsHere, worlds);
@@ -186,18 +221,38 @@ export const restoreLibrary = async (
   // the world id they had, as restores always did.
   const worldIdOf = (id: number | undefined) => (id == null || !Array.isArray(data.worlds) ? id : worldMap.get(id));
 
-  const { chatsRestored, charactersRestored, idMap, chatIdMap } = await restoreChatsAndCharacters(data.chats, data.characters, { keepIds, worldIdOf });
+  const { chatsRestored, charactersRestored, idMap, chatIdMap } = await restoreChatsAndCharacters(data.chats, data.characters, { keepIds, worldIdOf, worldMap });
+  const maps: IdMaps = { characters: idMap, chats: chatIdMap, worlds: worldMap };
 
-  // Groups name their members and their group chat, which only now have ids.
+  // Groups name their members and their group chat, and the people around
+  // name whose they are, which only now have ids.
   if (!keepIds) {
     for (const world of worlds) {
-      if (world.id == null || !world.factions?.length) continue;
-      const factions = world.factions.map(({ chatId, ...f }) => {
-        const newChatId = chatId != null ? chatIdMap.get(chatId) : undefined;
-        return { ...f, memberIds: remapIdArray(f.memberIds, idMap) || [], ...(newChatId != null ? { chatId: newChatId } : {}) };
-      });
-      await dbService.updateWorld({ ...world, id: worldMap.get(world.id)!, factions });
+      if (world.id == null || (!world.factions?.length && !world.extras?.length)) continue;
+      await dbService.updateWorld({ ...remapWorld(world, maps), id: worldMap.get(world.id)! });
     }
+  }
+
+  // Adventures, channels and your statuses (#235), added beside what's here.
+  // With ids kept, the maps send each id to itself, so the same code serves.
+  const outerMaps = maps;
+  let adventuresRestored = 0;
+  const adventuresHere = Array.isArray(data.adventures) && data.adventures.length ? await dbService.getAllAdventures() : [];
+  const adventureIdsTaken = new Set(adventuresHere.map((a) => a.id));
+  for (const adventure of Array.isArray(data.adventures) ? data.adventures : []) {
+    const { id, ...rest } = remapAdventure(adventure, outerMaps);
+    await dbService.addAdventure(keepIds && id != null && !adventureIdsTaken.has(id) ? ({ id, ...rest } as Adventure) : rest);
+    adventuresRestored++;
+  }
+  if (Array.isArray(data.channels) && data.channels.length) {
+    const here: Channel[] = (await dbService.getSetting(CHANNELS_KEY)) || [];
+    const incoming = data.channels.flatMap((ch) => { const next = remapChannel(ch, outerMaps); return next && !here.some((h) => h.id === next.id) ? [next] : []; });
+    if (incoming.length) await dbService.setSetting(CHANNELS_KEY, [...here, ...incoming]);
+  }
+  if (Array.isArray(data.myStatuses) && data.myStatuses.length) {
+    const here: MyStatus[] = (await dbService.getSetting(MY_STATUSES_KEY)) || [];
+    const incoming = data.myStatuses.filter((s) => !here.some((h) => h.id === s.id)).map((s) => remapMyStatus(s, outerMaps));
+    if (incoming.length) await dbService.setSetting(MY_STATUSES_KEY, [...here, ...incoming].sort((a, b) => a.createdAt - b.createdAt));
   }
 
   const targetOf = (key: string): number | null | undefined => (key === MINE ? null : worldMap.get(Number(key)));
@@ -221,43 +276,17 @@ export const restoreLibrary = async (
     replaceAllWorldPrefs(next);
   }
 
-  return { chatsRestored, charactersRestored, worldsRestored: worlds.length };
+  return { chatsRestored, charactersRestored, worldsRestored: worlds.length, adventuresRestored };
 };
 
-const LOCAL_IMAGE_PREFIX = "local:";
 
-// Walks message.images / character.avatar / character.appearanceImages /
-// character.gallery / persona.avatar / persona.appearanceImages and collects
-// the bare filenames behind every `local:<filename>` reference. Worlds now
-// travel in the backup too (#215), so their cover and map pictures do.
-const collectLocalImageFilenames = (chats: Chat[], characters: Character[], personas: UserProfile[], worlds: World[] = []): string[] => {
-  const filenames = new Set<string>();
-  const collect = (value: unknown) => {
-    if (typeof value === "string") {
-      if (value.startsWith(LOCAL_IMAGE_PREFIX)) filenames.add(value.substring(LOCAL_IMAGE_PREFIX.length));
-    } else if (Array.isArray(value)) {
-      value.forEach(collect);
-    }
-  };
-
-  for (const chat of chats) {
-    for (const message of chat.content) collect(message.images);
-  }
-  for (const character of characters) {
-    collect(character.avatar);
-    collect(character.appearanceImages);
-    collect(character.gallery);
-  }
-  for (const persona of personas) {
-    collect(persona.avatar);
-    collect(persona.appearanceImages);
-  }
-  for (const world of worlds) {
-    collect(world.coverImage);
-    collect(world.map?.image);
-  }
-
-  return Array.from(filenames);
+// Every `local:` picture the backup's records name, wherever it sits
+// (#235: albums, stickers, mood portraits, outfits, status photos and
+// adventure scenes were missing), plus the personas' pictures.
+const collectLocalImageFilenames = (data: Pick<BackupData, "chats" | "characters" | "worlds" | "adventures" | "myStatuses" | "channels">, personas: UserProfile[]): string[] => {
+  const found = new Set<string>();
+  for (const part of [data.chats, data.characters, data.worlds, data.adventures, data.myStatuses, personas]) localImagesIn(part, found);
+  return Array.from(found);
 };
 
 // Bundles chats, characters, and settings alongside the actual bytes of every
@@ -267,10 +296,10 @@ const collectLocalImageFilenames = (chats: Chat[], characters: Character[], pers
 // the JSON portion of the backup still restores fine without them.
 export const getFullBackupZip = async (
   settings: unknown
-): Promise<{ blob: Blob; chats: Chat[]; characters: Character[]; worlds: World[]; imagesIncluded: number; imagesSkipped: number }> => {
+): Promise<{ blob: Blob; chats: Chat[]; characters: Character[]; worlds: World[]; adventures: Adventure[]; imagesIncluded: number; imagesSkipped: number }> => {
   const backupData = await getFullBackupData();
   const personas = ((settings as Record<string, unknown>)?.[LS_USER_PERSONAS] as UserProfile[] | undefined) || [];
-  const filenames = collectLocalImageFilenames(backupData.chats, backupData.characters, personas, backupData.worlds);
+  const filenames = collectLocalImageFilenames(backupData, personas);
 
   const zip = new JSZip();
   zip.file(BACKUP_ZIP_JSON_ENTRY, JSON.stringify({ ...backupData, settings }, null, 2));
@@ -294,7 +323,7 @@ export const getFullBackupZip = async (
   }
 
   const blob = await zip.generateAsync({ type: "blob" });
-  return { blob, chats: backupData.chats, characters: backupData.characters, worlds: backupData.worlds || [], imagesIncluded, imagesSkipped };
+  return { blob, chats: backupData.chats, characters: backupData.characters, worlds: backupData.worlds || [], adventures: backupData.adventures || [], imagesIncluded, imagesSkipped };
 };
 
 export interface ParsedBackup {
@@ -339,8 +368,8 @@ export const parseBackupFile = async (file: File): Promise<ParsedBackup> => {
 // than failing the whole restore.
 export const applyParsedBackup = async (
   parsed: ParsedBackup
-): Promise<{ chatsRestored: number; charactersRestored: number; worldsRestored: number; imagesRestored: number }> => {
-  const { chatsRestored, charactersRestored, worldsRestored } = await restoreLibrary(parsed.data);
+): Promise<{ chatsRestored: number; charactersRestored: number; worldsRestored: number; adventuresRestored: number; imagesRestored: number }> => {
+  const { chatsRestored, charactersRestored, worldsRestored, adventuresRestored } = await restoreLibrary(parsed.data);
 
   let imagesRestored = 0;
   if (parsed.zip && parsed.imageFilenames.length > 0) {
@@ -364,5 +393,5 @@ export const applyParsedBackup = async (
     }
   }
 
-  return { chatsRestored, charactersRestored, worldsRestored, imagesRestored };
+  return { chatsRestored, charactersRestored, worldsRestored, adventuresRestored, imagesRestored };
 };
