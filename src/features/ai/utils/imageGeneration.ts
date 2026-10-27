@@ -2,6 +2,7 @@ import { AISafetySettings, SDImageParams, ArtStyle, LocalImageSettings } from ".
 import { appendCharacterImages } from "./imageProcessing";
 import { generateSDImage } from "./sdWebuiUtils";
 import { UsageInfo } from "../types";
+import { looksBlocked, toneLadder, ToneLevel, toneLevel, toneRetryOn } from "./imageTone";
 import { ChatProviderAdapter, ContentBlockedError, ImageProviderAdapter, NamedReferenceImages, ProviderRuntimeConfig } from "../providers/types";
 import { IMAGE_PROVIDERS } from "../providers/registry";
 import { ART_STYLE_CLAUSES, DEFAULT_ART_STYLE } from "../../../utils/constants";
@@ -25,8 +26,10 @@ export interface RoomReferenceCharacter {
 // as history), but isn't meant for the user to actually see or get when
 // copying the message. Callers that render/copy message text should run it
 // through this first; the DB/history copy stays untouched.
+// Only the tag itself: it used to match through to the end of the text, so a
+// warning or note added after it (a failed or toned-down picture) vanished.
 export const stripImageContextTag = (text: string): string =>
-  text.replace(/\n*\[Image Context:[\s\S]*?\]\s*$/i, "").trimEnd();
+  text.replace(/[ \t]*\n*\[Image Context:[^\]]*\]/gi, "").trimEnd();
 
 export interface ImageDerivationResult {
   derivedImagePrompt: string;
@@ -259,9 +262,34 @@ export const generateImage = async (
   // mode, for the SD WebUI and ComfyUI.
   localImageSettings?: LocalImageSettings,
   // The character's art style; ComfyUI picks its checkpoint by it.
-  artStyle?: ArtStyle
+  artStyle?: ArtStyle,
+  // Toning down (2026-10-27): rewrites the prompt at a level, on the text
+  // model. Without it, prompts go as written.
+  rewrite?: (prompt: string, level: 1 | 2 | 3) => Promise<string>
 ): Promise<ImageGenerationResult> => {
-  try {
+  // The chosen level first, then - if a service blocks it and retrying is on -
+  // each stricter one, keeping the picture's idea.
+  const ladder = rewrite ? toneLadder(toneLevel(), toneRetryOn()) : [0 as ToneLevel];
+  let lastError: unknown;
+  for (const level of ladder) {
+    if (signal?.aborted) break;
+    const prompt = level === 0 || !rewrite ? derivedImagePrompt : await rewrite(derivedImagePrompt, level as 1 | 2 | 3).catch(() => derivedImagePrompt);
+    try {
+      const result = await drawOnce(prompt);
+      return level > 0 && level !== ladder[0] ? { ...result, warning: `\n\n[Note: the picture was toned down to level ${level} so the image service would draw it.]` } : result;
+    } catch (err) {
+      lastError = err;
+      const message = err instanceof Error ? err.message : String(err);
+      if (!(err instanceof ContentBlockedError) && !looksBlocked(message)) break;
+    }
+  }
+  console.error("Image generation failed:", lastError);
+  // The provider's own message says what to fix (a ComfyUI started
+  // without CORS, a missing node, a rejected key), so pass it on.
+  const reason = lastError instanceof Error && lastError.message ? `: ${lastError.message.slice(0, 300)}` : " due to API error";
+  return { images: [], warning: `\n\n[Warning: Image generation failed${reason}.]` };
+
+  async function drawOnce(derivedImagePrompt: string): Promise<ImageGenerationResult> {
     if (useSdWebui) {
       const images = await generateSDImage(derivedImagePrompt, derivedParams, characterImages, characterName, signal, localImageSettings);
       return { images };
@@ -294,11 +322,5 @@ export const generateImage = async (
       imageConfig
     );
     return { images: result.images, usage: result.usage };
-  } catch (err) {
-    console.error("Image generation failed:", err);
-    // The provider's own message says what to fix (a ComfyUI started
-    // without CORS, a missing node, a rejected key), so pass it on.
-    const reason = err instanceof Error && err.message ? `: ${err.message.slice(0, 300)}` : " due to API error";
-    return { images: [], warning: `\n\n[Warning: Image generation failed${reason}.]` };
   }
 };

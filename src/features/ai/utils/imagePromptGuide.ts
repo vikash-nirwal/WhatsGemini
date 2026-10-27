@@ -146,6 +146,10 @@ export const buildImagePromptRequest = ({
     lockInstruction || "",
     extra || "",
     `How to write it for this model: ${t.guide}`,
+    // Rules every model benefits from (2026-10-27): image models draw what's
+    // visible and don't know the characters, so story, names and feelings
+    // that can't be seen only add noise.
+    "Make it work: one clear moment, the main subject first. Only what can be seen - leave out dialogue, thoughts, backstory and anything that happened before or after. Describe people by how they look (the model doesn't know them); use a name only where reference photos are named. Keep every given look (hair, eyes, clothes) exactly. Say the framing (selfie at arm's length, close-up, full body, wide shot) and where the light comes from. Text in the picture only if the scene needs it, in quotes.",
     t.wantsParams
       ? `Reply in exactly this format:\nPROMPT:\n<the prompt>\nPARAMS:\n<a JSON object with the best "steps" (15-40), "cfg_scale" (1-15), "sampler_name", "width" and "height" for this checkpoint and subject, e.g. portrait 832x1216 for SDXL or 512x768 for SD 1.5; {} if the defaults are fine>`
       : "Reply with only the prompt: no label, quotes or explanation.",

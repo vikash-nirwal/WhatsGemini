@@ -146,3 +146,9 @@ describe("parseSceneReply", () => {
     expect(parseSceneReply("PROMPT:\na cafe\n\nSUMMARY:\nHi!", "hey")).toEqual({ scene: "a cafe", reply: "Hi!" });
   });
 });
+
+test("hiding the image-context tag keeps a note after it (2026-10-27)", () => {
+  const { stripImageContextTag } = require("./imageGeneration");
+  expect(stripImageContextTag("Here's me! [Image Context: Aria waving]\n\n[Note: the picture was toned down to level 1.]")).toBe("Here's me!\n\n[Note: the picture was toned down to level 1.]");
+  expect(stripImageContextTag("Here's me! [Image Context: Aria waving]")).toBe("Here's me!");
+});

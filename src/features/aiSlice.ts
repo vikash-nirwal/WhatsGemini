@@ -1,4 +1,5 @@
 import { extractInvite } from "./chat/invites";
+import { buildToneRewritePrompt, cleanToneRewrite } from "./ai/utils/imageTone";
 import { buildWorldBrief, withWorldBrief } from "./world/worldBrief";
 import { backgroundAllowed, countBackgroundCall, featureOn } from "./world/worldPrefs";
 import { cachedTimeline } from "./world/timeline";
@@ -121,6 +122,14 @@ const rewordForTagModel = async (settings: RootState["settings"], target: ImageP
   } catch {
     return description;
   }
+};
+
+// Toning down an image prompt (2026-10-27), on the helper model: the same
+// picture at a stricter content level. Falls back to the prompt as it was.
+const toneRewriter = (settings: RootState["settings"]) => async (prompt: string, level: 1 | 2 | 3): Promise<string> => {
+  const helper = await resolveHelperCall(settings);
+  const result = await helper.adapter.generateOnce(buildToneRewritePrompt(prompt, level), helper.model, helper.config);
+  return cleanToneRewrite(result.text, prompt);
 };
 
 // Async Thunk for generating AI response
@@ -279,7 +288,7 @@ export const generateAIResponse = createAsyncThunk(
           const imageResult = await generateImage(
             imageProviderId, imageConfig, useSdWebui, imageModelName, derivation.derivedImagePrompt, derivation.derivedParams,
             characterImages, characterName, settings.safetySettings, signal, settings.geminiImageSize, undefined, otherRoomCharacters, localImageSettings,
-            artStyle || DEFAULT_ART_STYLE
+            artStyle || DEFAULT_ART_STYLE, toneRewriter(settings)
           );
           trackUsage(imageResult.usage, imageProviderId, imageModelName);
           generatedImages = imageResult.images;
@@ -712,7 +721,7 @@ export const generateBackdropImage = createAsyncThunk(
         imageProviderId, imageConfig, useSdWebui, settings.imageModel,
         await rewordForTagModel(settings, target, buildBackdropPrompt(setting, ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE])),
         useSdWebui ? { width: 1024, height: 576 } : {},
-        undefined, undefined, settings.safetySettings, undefined, settings.geminiImageSize, "16:9", undefined, undefined, artStyle || DEFAULT_ART_STYLE
+        undefined, undefined, settings.safetySettings, undefined, settings.geminiImageSize, "16:9", undefined, undefined, artStyle || DEFAULT_ART_STYLE, toneRewriter(settings)
       );
       if (!result.images || result.images.length === 0) throw new Error(result.warning?.replace(/^\s*\[Warning:\s*|\]\s*$/g, "") || "No image was generated. Check your image provider in Settings.");
       return result.images[0];
@@ -738,7 +747,7 @@ export const generateWorldMapImage = createAsyncThunk(
         imageProviderId, imageConfig, useSdWebui, settings.imageModel,
         await rewordForTagModel(settings, target, buildMapPrompt(world, places, ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE])),
         useSdWebui ? { width: 1024, height: 768 } : {},
-        undefined, undefined, settings.safetySettings, undefined, settings.geminiImageSize, "4:3", undefined, undefined, artStyle || DEFAULT_ART_STYLE
+        undefined, undefined, settings.safetySettings, undefined, settings.geminiImageSize, "4:3", undefined, undefined, artStyle || DEFAULT_ART_STYLE, toneRewriter(settings)
       );
       if (!result.images || result.images.length === 0) throw new Error(result.warning?.replace(/^\s*\[Warning:\s*|\]\s*$/g, "") || "No image was generated. Check your image provider in Settings.");
       return result.images[0];
@@ -808,7 +817,7 @@ export const generateAvatarImage = createAsyncThunk(
         imageProviderId, imageConfig, useSdWebui, imageModelName,
         prompt, {}, // no SD-specific params
         appearanceImages, name,
-        settings.safetySettings, undefined, settings.geminiImageSize, "3:4", undefined, localImageSettings, artStyle || DEFAULT_ART_STYLE
+        settings.safetySettings, undefined, settings.geminiImageSize, "3:4", undefined, localImageSettings, artStyle || DEFAULT_ART_STYLE, toneRewriter(settings)
       );
 
       if (!result.images || result.images.length === 0) {
@@ -892,7 +901,7 @@ export const generateAdventureSceneImage = createAsyncThunk(
         imageProviderId, imageConfig, useSdWebui, imageModelName, imagePrompt,
         useSdWebui ? { width: 768, height: 512 } : {},
         undefined, undefined, settings.safetySettings, undefined, settings.geminiImageSize, "16:9",
-        references.length > 0 ? references : undefined, undefined, artStyle || DEFAULT_ART_STYLE
+        references.length > 0 ? references : undefined, undefined, artStyle || DEFAULT_ART_STYLE, toneRewriter(settings)
       );
       trackUsage(result.usage, imageProviderId, imageModelName);
 

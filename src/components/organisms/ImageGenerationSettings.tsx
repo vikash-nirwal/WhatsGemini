@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { saveTone, TONE_LEVELS, ToneLevel, toneLevel, toneRetryOn } from "src/features/ai/utils/imageTone";
 import { FalModelBrowser } from "./FalModelBrowser";
 import { customFalModels } from "src/features/ai/providers/falCatalog";
 import { cn } from '../../utils/cn';
@@ -139,6 +140,8 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
   const { is } = useColorTheme();
   // fal.ai's whole model list (the user's ask, 2026-10-27).
   const [falBrowserOpen, setFalBrowserOpen] = useState(false);
+  const [tone, setTone] = useState<ToneLevel>(toneLevel);
+  const [toneRetry, setToneRetry] = useState(toneRetryOn);
   return (
     <div className="flex flex-col gap-5">
       <SettingsCard>
@@ -442,6 +445,17 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
         <div className="p-5">
           <SettingsCardHeader title="Output" />
         </div>
+
+        {/* Toning down (2026-10-27): the text model rewrites the prompt at a
+            level, keeping the picture's idea. */}
+        <SettingsRow label="Tone down prompts" hint={TONE_LEVELS.find((t) => t.level === tone)?.hint} align="start">
+          <Select aria-label="Tone down prompts" value={String(tone)} onChange={(e) => { const level = Number(e.target.value) as ToneLevel; setTone(level); saveTone(level, toneRetry); }}>
+            {TONE_LEVELS.map((t) => <option key={t.level} value={String(t.level)}>{t.name}</option>)}
+          </Select>
+        </SettingsRow>
+        <SettingsRow label="If a picture is blocked, try again toned down" hint="The same picture at the next level up, as far as level 3." align="start">
+          <ToggleSwitch checked={toneRetry} onChange={(on) => { setToneRetry(on); saveTone(tone, on); }} label={<span className="sr-only">If a picture is blocked, try again toned down</span>} />
+        </SettingsRow>
 
         <SettingsRow label="Base prompt" hint="Prepended whenever an image is requested." align="start">
           <TextArea

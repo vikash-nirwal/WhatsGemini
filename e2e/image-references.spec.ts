@@ -109,6 +109,38 @@ test.describe("fal.ai", () => {
   });
 });
 
+// Toning down (2026-10-27): a picture the service blocks is tried again
+// toned down by the text model, keeping its idea.
+test.describe("fal.ai, toned down when blocked", () => {
+  test.use({
+    seed: { messages: 2 },
+    localStorageOverrides: { image_provider: "fal", image_model: "fal-ai/bytedance/seedream/v4/edit", provider_api_key_fal: "test-fal-key" },
+  });
+
+  test("a blocked picture is rewritten a level up and drawn", async ({ page, mockAI }) => {
+    mockAI.reply((req) => (req.prompt.includes("Rewrite this image prompt") ? "Aria waving at the camera, softly lit, tasteful selfie" : DERIVATION_REPLY));
+    const prompts: string[] = [];
+    await page.route("https://rest.fal.ai/storage/upload/initiate*", (route) => route.fulfill({ json: { upload_url: "https://v3b.fal.media/upload/ref-1", file_url: "https://v3b.fal.media/files/ref-1.png" } }));
+    await page.route("https://v3b.fal.media/upload/ref-1", (route) => route.fulfill({ status: 200, body: "" }));
+    await page.route("https://queue.fal.run/**", (route) => {
+      const request = route.request();
+      if (request.method() === "POST") {
+        prompts.push(request.postDataJSON().prompt);
+        if (prompts.length === 1) return route.fulfill({ status: 422, json: { detail: "Content policy violation: the prompt was flagged." } });
+        return route.fulfill({ json: { request_id: "req-2", status_url: "https://queue.fal.run/fal-ai/bytedance/requests/req-2/status", response_url: "https://queue.fal.run/fal-ai/bytedance/requests/req-2" } });
+      }
+      if (request.url().endsWith("/status")) return route.fulfill({ json: { status: "COMPLETED" } });
+      return route.fulfill({ json: { images: [{ url: RESULT_DATA_URL }] } });
+    });
+
+    await requestPictureFromAria(page);
+    expect(prompts).toHaveLength(2);
+    expect(prompts[1]).toContain("tasteful selfie");
+    expect(mockAI.requests.find((r) => r.prompt.includes("Rewrite this image prompt"))!.prompt).toContain("Level 1, light");
+    await expect(chatMessages(page).getByText("toned down to level 1", { exact: false })).toBeVisible();
+  });
+});
+
 test.describe("OpenAI", () => {
   test.use({
     seed: { messages: 2 },

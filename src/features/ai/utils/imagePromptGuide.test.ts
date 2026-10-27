@@ -99,3 +99,10 @@ describe("the prompt-writing call", () => {
     expect(parseImagePromptReply("PROMPT:\na cat on a sofa\n\nSUMMARY:\nHere you go!", false).prompt).toBe("a cat on a sofa");
   });
 });
+
+test("every image prompt is written to what can be seen (2026-10-27)", () => {
+  const { buildImagePromptRequest, resolveImagePromptTarget } = require("./imagePromptGuide");
+  const request = buildImagePromptRequest({ target: resolveImagePromptTarget({ providerId: "fal", imageModel: "fal-ai/flux/dev" }), scene: "Aria laughing at the pier" });
+  expect(request).toContain("Only what can be seen");
+  expect(request).toContain("Describe people by how they look");
+});
