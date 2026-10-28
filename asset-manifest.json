@@ -1,11 +1,11 @@
 {
   "files": {
-    "main.css": "/WhatsGemini/static/css/main.29127cbf.css",
-    "main.js": "/WhatsGemini/static/js/main.bee22ace.js",
-    "static/js/5117.558b0161.chunk.js": "/WhatsGemini/static/js/5117.558b0161.chunk.js",
+    "main.css": "/WhatsGemini/static/css/main.f5d8a3ad.css",
+    "main.js": "/WhatsGemini/static/js/main.853b83e7.js",
+    "static/js/5117.940af711.chunk.js": "/WhatsGemini/static/js/5117.940af711.chunk.js",
     "static/js/3220.16882acf.chunk.js": "/WhatsGemini/static/js/3220.16882acf.chunk.js",
     "static/js/4067.c811a1ca.chunk.js": "/WhatsGemini/static/js/4067.c811a1ca.chunk.js",
-    "static/js/1358.185f3dd6.chunk.js": "/WhatsGemini/static/js/1358.185f3dd6.chunk.js",
+    "static/js/1358.028b89a5.chunk.js": "/WhatsGemini/static/js/1358.028b89a5.chunk.js",
     "static/js/9455.bdcdbb6b.chunk.js": "/WhatsGemini/static/js/9455.bdcdbb6b.chunk.js",
     "static/js/2627.abdb4b25.chunk.js": "/WhatsGemini/static/js/2627.abdb4b25.chunk.js",
     "static/js/8753.55f5aaea.chunk.js": "/WhatsGemini/static/js/8753.55f5aaea.chunk.js",
@@ -14,7 +14,7 @@
     "static/js/2663.f0d5ad90.chunk.js": "/WhatsGemini/static/js/2663.f0d5ad90.chunk.js",
     "static/js/9459.f8e00166.chunk.js": "/WhatsGemini/static/js/9459.f8e00166.chunk.js",
     "static/js/1277.bf3aa6e0.chunk.js": "/WhatsGemini/static/js/1277.bf3aa6e0.chunk.js",
-    "static/js/4482.7d5239e6.chunk.js": "/WhatsGemini/static/js/4482.7d5239e6.chunk.js",
+    "static/js/4482.66bca5e1.chunk.js": "/WhatsGemini/static/js/4482.66bca5e1.chunk.js",
     "static/js/9440.84848e1c.chunk.js": "/WhatsGemini/static/js/9440.84848e1c.chunk.js",
     "static/js/3328.f4ef52e8.chunk.js": "/WhatsGemini/static/js/3328.f4ef52e8.chunk.js",
     "static/js/6567.81f7dcc7.chunk.js": "/WhatsGemini/static/js/6567.81f7dcc7.chunk.js",
@@ -322,12 +322,12 @@
     "static/js/318.a5281988.chunk.js": "/WhatsGemini/static/js/318.a5281988.chunk.js",
     "service-worker.js": "/WhatsGemini/service-worker.js",
     "index.html": "/WhatsGemini/index.html",
-    "main.29127cbf.css.map": "/WhatsGemini/static/css/main.29127cbf.css.map",
-    "main.bee22ace.js.map": "/WhatsGemini/static/js/main.bee22ace.js.map",
-    "5117.558b0161.chunk.js.map": "/WhatsGemini/static/js/5117.558b0161.chunk.js.map",
+    "main.f5d8a3ad.css.map": "/WhatsGemini/static/css/main.f5d8a3ad.css.map",
+    "main.853b83e7.js.map": "/WhatsGemini/static/js/main.853b83e7.js.map",
+    "5117.940af711.chunk.js.map": "/WhatsGemini/static/js/5117.940af711.chunk.js.map",
     "3220.16882acf.chunk.js.map": "/WhatsGemini/static/js/3220.16882acf.chunk.js.map",
     "4067.c811a1ca.chunk.js.map": "/WhatsGemini/static/js/4067.c811a1ca.chunk.js.map",
-    "1358.185f3dd6.chunk.js.map": "/WhatsGemini/static/js/1358.185f3dd6.chunk.js.map",
+    "1358.028b89a5.chunk.js.map": "/WhatsGemini/static/js/1358.028b89a5.chunk.js.map",
     "9455.bdcdbb6b.chunk.js.map": "/WhatsGemini/static/js/9455.bdcdbb6b.chunk.js.map",
     "2627.abdb4b25.chunk.js.map": "/WhatsGemini/static/js/2627.abdb4b25.chunk.js.map",
     "8753.55f5aaea.chunk.js.map": "/WhatsGemini/static/js/8753.55f5aaea.chunk.js.map",
@@ -336,7 +336,7 @@
     "2663.f0d5ad90.chunk.js.map": "/WhatsGemini/static/js/2663.f0d5ad90.chunk.js.map",
     "9459.f8e00166.chunk.js.map": "/WhatsGemini/static/js/9459.f8e00166.chunk.js.map",
     "1277.bf3aa6e0.chunk.js.map": "/WhatsGemini/static/js/1277.bf3aa6e0.chunk.js.map",
-    "4482.7d5239e6.chunk.js.map": "/WhatsGemini/static/js/4482.7d5239e6.chunk.js.map",
+    "4482.66bca5e1.chunk.js.map": "/WhatsGemini/static/js/4482.66bca5e1.chunk.js.map",
     "9440.84848e1c.chunk.js.map": "/WhatsGemini/static/js/9440.84848e1c.chunk.js.map",
     "3328.f4ef52e8.chunk.js.map": "/WhatsGemini/static/js/3328.f4ef52e8.chunk.js.map",
     "6567.81f7dcc7.chunk.js.map": "/WhatsGemini/static/js/6567.81f7dcc7.chunk.js.map",
@@ -644,7 +644,7 @@
     "318.a5281988.chunk.js.map": "/WhatsGemini/static/js/318.a5281988.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.29127cbf.css",
-    "static/js/main.bee22ace.js"
+    "static/css/main.f5d8a3ad.css",
+    "static/js/main.853b83e7.js"
   ]
 }
