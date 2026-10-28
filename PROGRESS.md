@@ -4,7 +4,7 @@ What's built, what's open and what a new session needs to know. [ROADMAP.md](ROA
 
 ## Where we stand
 
-- **State (2026-10-27):** every item through #238 is built, pushed and deployed, with the god mode change of 2026-10-28, the image playground (#238), and character photo uploads without a save folder (main c22353e, gh-pages 6b8b543); #224–#233 came from the memory reviews, #234–#237 (points, backup gaps, meeting first, the wizard's AI help) and the fal.ai fix of 2026-10-28 from the user.
+- **State (2026-10-27):** every item through #238 is built, pushed and deployed, with the god mode change of 2026-10-28, the image playground (#238), character photo uploads without a save folder, and world announcements (main ce5f130, gh-pages 36a100f); #224–#233 came from the memory reviews, #234–#237 (points, backup gaps, meeting first, the wizard's AI help) and the fal.ai fix of 2026-10-28 from the user.
 - **Open:** #132 real-model tuning waits on the user's testing with their key (turn on "Keep helper replies" in Settings › Spending first, then replay them, #214). Drive backup (#54) is built but needs the user's Google OAuth client ID (steps in Settings › Data).
 - **Skipped:** #135 location sharing (dropped by the user), #139 circles (became worlds, #145). Voice features and calls wait for an AI voice model (see Decisions).
 - **Not tried with real models or services:** most prompts from #81 on, image providers with real keys, notifications and background sync on real phones, the in-browser model. ROADMAP.md › "Untried" lists them.
