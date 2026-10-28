@@ -1,4 +1,4 @@
-import { addTruth, buildGodDirective, buildGodTruthsSection, removeTruth } from "./godMode";
+import { addTruth, buildGodTruthsSection, removeTruth } from "./godMode";
 
 describe("god mode (#160)", () => {
   it("keeps truths without repeats, and removes them", () => {
@@ -15,6 +15,8 @@ describe("god mode (#160)", () => {
     const s = buildGodTruthsSection(["Aria and Kai are married"])!;
     expect(s).toContain("never question, doubt, argue with or comment on them");
     expect(s).toContain("- Aria and Kai are married");
-    expect(buildGodDirective("The bakery burned down")).toContain('"The bakery burned down"');
+    // It changes facts, not who anyone is (2026-10-28).
+    expect(s).toContain("A truth changes only what it says");
+    expect(s).toContain("Never narrate, announce or act out a truth");
   });
 });

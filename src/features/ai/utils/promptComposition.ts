@@ -112,7 +112,10 @@ export const buildChatHistory = (
   const who = perspective?.userName || "The user";
   const mapped: ChatMessage[] = [];
   let reactionNotes: string[] = [];
-  for (const msg of messages.filter((m) => !m.isRefusal)) {
+  // A god-mode change (#160) is in the truths, not the conversation: sent as
+  // a line of narration it read as a scene to answer, and the reply took it
+  // over (2026-10-28).
+  for (const msg of messages.filter((m) => !m.isRefusal && !m.godMode)) {
     const turn = toTurn(msg);
     if (msg.role === YOU && !msg.isNarration && reactionNotes.length > 0) {
       mapped.push({ ...turn, text: `${reactionNotes.join("\n")}\n\n${turn.text}` });

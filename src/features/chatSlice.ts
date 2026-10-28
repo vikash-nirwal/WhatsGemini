@@ -99,9 +99,12 @@ export const addPreparedChat = createAsyncThunk("chat/addPrepared", async (chat:
   }
 });
 
-export const addMessage = createAsyncThunk(
+export type AddMessageArgs = { godMode?: boolean; at?: number; chatId: number; role: string; text: string; images?: string[], isImageRequest?: boolean, videos?: string[], isVideoRequest?: boolean, videoPrompt?: string, isImpersonated?: boolean, emotion?: string, imagePrompt?: string, imageParams?: any, speakerId?: number, isRefusal?: boolean, isNarration?: boolean, thoughts?: string, isVoiceNote?: boolean, beat?: number, choices?: Message["choices"], secretRevealed?: boolean, notes?: Message["notes"], swapped?: boolean, noGreeting?: boolean, quotedStatus?: Message["quotedStatus"], replyTo?: Message["replyTo"], forward?: Message["forward"], poll?: Message["poll"] };
+
+// `saved` goes with the result: the chat as written, for addMessage.fulfilled.
+export const addMessage = createAsyncThunk<Message[], AddMessageArgs, { fulfilledMeta: { saved: Chat } }>(
   "chat/addMessage",
-  lockedByChat(async ({ chatId, role, text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration, thoughts, isVoiceNote, beat, choices, secretRevealed, notes, swapped, noGreeting, quotedStatus, replyTo, forward, poll, at, godMode }: { godMode?: boolean; at?: number; chatId: number; role: string; text: string; images?: string[], isImageRequest?: boolean, videos?: string[], isVideoRequest?: boolean, videoPrompt?: string, isImpersonated?: boolean, emotion?: string, imagePrompt?: string, imageParams?: any, speakerId?: number, isRefusal?: boolean, isNarration?: boolean, thoughts?: string, isVoiceNote?: boolean, beat?: number, choices?: Message["choices"], secretRevealed?: boolean, notes?: Message["notes"], swapped?: boolean, noGreeting?: boolean, quotedStatus?: Message["quotedStatus"], replyTo?: Message["replyTo"], forward?: Message["forward"], poll?: Message["poll"] }, { dispatch, getState, rejectWithValue }) => {
+  lockedByChat(async ({ chatId, role, text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration, thoughts, isVoiceNote, beat, choices, secretRevealed, notes, swapped, noGreeting, quotedStatus, replyTo, forward, poll, at, godMode }: AddMessageArgs, { dispatch, getState, rejectWithValue, fulfillWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
 
@@ -158,7 +161,10 @@ export const addMessage = createAsyncThunk(
 
       await dbService.updateChat(chat);
       dispatch(fetchChats()); // Refresh state
-      return chat.content;
+      // The saved chat goes on screen too (see addMessage.fulfilled): this
+      // marks the chat as changed, and a refresh that read it before the
+      // write would otherwise keep a copy on screen without the message.
+      return fulfillWithValue(chat.content, { saved: chat });
     } catch (error) {
       return handleDbError(error, rejectWithValue);
     }
@@ -816,12 +822,21 @@ const chatSlice = createSlice({
         const readAt = (action.meta as { readAt?: number }).readAt ?? 0;
         state.chats = action.payload.map((chat) => {
           const local = state.chats.find((c) => c.id === chat.id);
-          return local && chat.id != null && (state.changedAt[chat.id] || 0) > readAt ? local : chat;
+          // The same millisecond counts as after: a save often marks the
+          // chat in the very millisecond its own refresh starts reading.
+          return local && chat.id != null && (state.changedAt[chat.id] || 0) >= readAt ? local : chat;
         });
       })
       .addCase(fetchChats.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
+      })
+      // The chat as just saved, message included (2026-10-28: a god-mode
+      // change, which no reply follows, could stay off screen).
+      .addCase(addMessage.fulfilled, (state, action) => {
+        const saved = (action.meta as { saved?: Chat }).saved;
+        const i = saved ? state.chats.findIndex((c) => c.id === saved.id) : -1;
+        if (saved && i >= 0) state.chats[i] = saved;
       })
       .addCase(fetchChatById.rejected, (state, action) => {
         state.error = action.payload as string;

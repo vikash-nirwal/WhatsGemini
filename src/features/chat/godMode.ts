@@ -2,6 +2,12 @@
 // the scene - and it simply becomes true. Characters accept it without
 // questioning or remarking on it. Kept as truths a world (or, outside one, a
 // chat) carries in every prompt.
+//
+// It changes facts, nothing else (the user's report, 2026-10-28): it used to
+// send the change into the chat as narration and have the character answer
+// it at once, so the reply took over - narrating the change, playing the
+// scene out. Now nobody answers it; the story carries on when you do, and
+// every reply from then on keeps to it.
 
 export const MAX_TRUTHS = 40;
 
@@ -19,9 +25,6 @@ export const removeTruth = (truths: string[] | undefined, text: string) => {
 // For every reply in that world (or chat): above the character's own notes.
 export const buildGodTruthsSection = (truths: string[]) =>
   truths.length
-    ? `Truths of this story, set by the author. They are simply true and always have been. Accept them completely: never question, doubt, argue with or comment on them as strange or new; let your words, memories and actions fit them, even where they contradict what came before.\n${truths.map((t) => `- ${t}`).join("\n")}`
+    ? `Truths of this story, set by the author. They are simply true and always have been. Accept them completely: never question, doubt, argue with or comment on them as strange or new; let your words, memories and actions fit them, even where they contradict what came before. A truth changes only what it says: everyone stays who they are otherwise, and you keep your own personality, voice and part in the conversation. Never narrate, announce or act out a truth; just live in it.\n${truths.map((t) => `- ${t}`).join("\n")}`
     : undefined;
 
-// For the reply right after a change: carry on in the changed world.
-export const buildGodDirective = (text: string) =>
-  `The author just made this true: "${text.trim()}". It is simply how things are now, and always were. Carry on naturally in a world where it's true - don't question it, don't call it sudden, and don't explain it away.`;

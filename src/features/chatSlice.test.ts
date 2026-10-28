@@ -1,5 +1,5 @@
 import { configureStore } from "@reduxjs/toolkit";
-import chatReducer, { fetchChats, updateChatOptions } from "./chatSlice";
+import chatReducer, { addMessage, fetchChats, updateChatOptions } from "./chatSlice";
 import { dbService } from "../services/dbService";
 import { Chat } from "../types";
 
@@ -9,6 +9,8 @@ jest.mock("../services/dbService", () => {
   const service: any = {
     getAllChats: jest.fn(),
     patchChat: jest.fn(),
+    getChatById: jest.fn(),
+    updateChat: jest.fn(),
     async withChatLock(id: number, run: () => Promise<unknown>) {
       const before = locks.get(id) || Promise.resolve();
       let release!: () => void;
@@ -55,3 +57,23 @@ test("a refresh read before a chat changed doesn't put the older copy back", asy
   expect(store.getState().chat.chats[0].content).toHaveLength(2);
 });
 
+
+// 2026-10-28: a god-mode change, which no reply follows, stayed off screen.
+// addMessage marked the chat as changed without putting the saved chat on
+// screen, so its own refresh was refused and the old copy stayed.
+test("a saved message is on screen at once, whatever the refreshes read", async () => {
+  const store = makeStore();
+  (dbService.getAllChats as jest.Mock).mockResolvedValueOnce([chat(["hi"])]);
+  await store.dispatch(fetchChats());
+  // Every refresh from here reads the chat as it was before the save.
+  (dbService.getAllChats as jest.Mock).mockResolvedValue([chat(["hi"])]);
+  (dbService.getChatById as jest.Mock).mockResolvedValueOnce(chat(["hi"]));
+  (dbService.updateChat as jest.Mock).mockResolvedValueOnce(1);
+  await new Promise((r) => setTimeout(r, 5));
+  await store.dispatch(addMessage({ chatId: 1, role: "you", text: "Aria owns a garage", godMode: true }));
+  await new Promise((r) => setTimeout(r, 5));
+  const content = store.getState().chat.chats[0].content;
+  expect(content.map((m) => m.txt)).toEqual(["hi", "Aria owns a garage"]);
+  expect(content[1].godMode).toBe(true);
+  (dbService.getAllChats as jest.Mock).mockReset();
+});
