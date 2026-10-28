@@ -268,13 +268,18 @@ export const insertCompressionSummary = createAsyncThunk(
 // flattened content and, if present, its tree node, without moving it.
 export const updateChatMessage = createAsyncThunk(
   "chat/updateChatMessage",
-  lockedByChat(async ({ chatId, messageId, patch }: { chatId: number; messageId: string; patch: Partial<Message> }, { rejectWithValue }) => {
+  // `patch` may be worked out from the message as saved (reactions: two
+  // members reacting at once each keep theirs), inside the chat's lock.
+  lockedByChat(async ({ chatId, messageId, patch }: { chatId: number; messageId: string; patch: Partial<Message> | ((saved: Message) => Partial<Message>) }, { rejectWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
-      chat.content = chat.content.map((m) => (m.id === messageId ? { ...m, ...patch } : m));
       const node = chat.tree?.nodes[messageId];
+      const saved = node?.message || chat.content.find((m) => m.id === messageId);
+      if (!saved) return { chatId, content: chat.content, tree: chat.tree };
+      const change = typeof patch === "function" ? patch(saved) : patch;
+      chat.content = chat.content.map((m) => (m.id === messageId ? { ...m, ...change } : m));
       if (chat.tree && node) {
-        chat.tree = { nodes: { ...chat.tree.nodes, [messageId]: { ...node, message: { ...node.message, ...patch } } } };
+        chat.tree = { nodes: { ...chat.tree.nodes, [messageId]: { ...node, message: { ...node.message, ...change } } } };
       }
       await dbService.updateChat(chat);
       return { chatId, content: chat.content, tree: chat.tree };

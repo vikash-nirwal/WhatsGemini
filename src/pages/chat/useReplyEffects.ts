@@ -27,6 +27,7 @@ import { gameLabel, GameOutcome } from "../../features/chat/miniGames";
 import { buildNextIdeasPrompt } from "../../features/chat/coWriting";
 import { browserLanguageName, buildTranslatePrompt } from "../../features/chat/languagePractice";
 import { AI, YOU } from "../../utils/constants";
+import { reactionTarget, withCharacterReaction } from "../../features/chat/reactions";
 import { Character, Chat, Message, MessageNote, Poll, PollVote, SceneState, UserProfile } from "../../types";
 
 export interface ReplyEffectDeps {
@@ -344,11 +345,13 @@ export const useReplyEffects = ({
 
   // A character's emoji reaction (#11) goes on the user message its reply
   // answered: the latest real user line in the context it was given.
+  // Kept with everyone else's (reactions.ts); in a group it can be to
+  // another member's message, not only yours.
   const saveCharacterReaction = async (reaction: string | undefined, answered: Message[], speakerId?: number) => {
-    if (!reaction || !chatIdNum) return;
-    const target = [...answered].reverse().find((m) => m.role === YOU && !m.isNarration && !m.isSystem && !m.isCompressionSummary);
+    if (!reaction || !chatIdNum || speakerId == null) return;
+    const target = reactionTarget(answered, speakerId, isRoom);
     if (!target?.id) return;
-    await dispatch(updateChatMessage({ chatId: chatIdNum, messageId: target.id, patch: { characterReaction: { emoji: reaction, speakerId } } }));
+    await dispatch(updateChatMessage({ chatId: chatIdNum, messageId: target.id, patch: (saved) => withCharacterReaction(saved, speakerId, reaction) }));
   };
 
   // Language practice (#67): the fix for your last message sits under it.

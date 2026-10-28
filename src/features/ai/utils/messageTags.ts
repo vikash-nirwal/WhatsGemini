@@ -47,8 +47,9 @@ export const extractThoughts = (text: string): { text: string; thoughts?: string
 
 export const REACTION_EMOJIS = ["❤️", "😂", "😮", "😢", "😡", "👍"];
 
-export const buildReactionDirective = (): string =>
-  `Now and then, when it feels natural (not every time), you can react to the user's last message with an emoji, like a messaging app reaction: put [React: <emoji>] at the very start of your reply, using one of ${REACTION_EMOJIS.join(" ")}. Then write your reply as usual. Never explain the tag.`;
+// `whose`: in a group the last message may be another member's (2026-10-28).
+export const buildReactionDirective = (whose = "the user's"): string =>
+  `Now and then, when it feels natural (not every time), you can react to ${whose} last message with an emoji, like a messaging app reaction: put [React: <emoji>] at the very start of your reply, using one of ${REACTION_EMOJIS.join(" ")}. Then write your reply as usual. Never explain the tag.`;
 
 const REACTION_TAG_LEADING = /^[\s*_]*\[\s*react(?:ion|ed)?\s*:\s*([^\]\n]{1,16}?)\s*\][\s*_.,!]*\n*/i;
 

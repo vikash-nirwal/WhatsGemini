@@ -1,6 +1,7 @@
 import { stickerFor } from "../../features/character/stickers";
 import { sentWhileBlocked } from "../../features/chat/blocking";
 import { DISAPPEAR_LABEL, willDisappear } from "../../features/chat/disappearing";
+import { reactionRows } from "../../features/chat/reactions";
 import React, { useRef, useEffect, useCallback, useMemo, useState } from "react";
 import { avatarOf } from "../../features/character/profileChanges";
 import { FaCheck, FaTimes, FaArrowDown, FaClock, FaMicrophone } from "react-icons/fa";
@@ -593,7 +594,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
     offscreenDispatch(updateChatOptions({ chatId, patch: { offscreenTalks: offscreenTalks.map((t) => (t.id === id ? { ...t, seen: true } : t)) } }));
   };
 
-  // Who left a character reaction (#11) on one of your messages.
+  // Who left a character's reaction (#11), on any message.
   const resolveReactor = (speakerId?: number) =>
     (speakerId != null && characters?.find((c) => c.id === speakerId)?.name) || character?.name || characterName;
 
@@ -880,7 +881,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
                     runEnd={runs.ends[i]}
                     inRoom={Boolean(isRoom)}
                     disappears={disappearing && willDisappear({ disappearing }, msg) ? DISAPPEAR_LABEL[disappearing.after] : undefined}
-                    reactorName={msg.characterReaction ? resolveReactor(msg.characterReaction.speakerId) : undefined}
+                    reactions={reactionRows(msg, (id) => resolveReactor(id) || "They")}
                     voice={msg.role === YOU ? undefined : speaker?.voice}
                   />
                   {character && lettersAfter.get(i)?.map((letter) => (

@@ -48,6 +48,7 @@ import { buildTimePassedNote, buildTimePassedOpener, describeGap, gapDays, TimeP
 import { skipStoryTime } from "../features/world/storyTime";
 import { addTruth, buildGodTruthsSection } from "../features/chat/godMode";
 import { buildAnnouncementsNote } from "../features/world/announcements";
+import { withCharacterReaction } from "../features/chat/reactions";
 import { logToTimeline } from "../features/world/timeline";
 import { buildCanonNote, buildInnerStateNote, buildWorldNowNote } from "../features/world/worldNow";
 import { logChatMoment } from "../features/world/chatMoments";
@@ -179,7 +180,9 @@ const ChatPage = () => {
   const chats = useAppSelector((state) => state.chat.chats);
   const pendingFollowups = useAppSelector((state) => state.chat.pendingFollowups);
   const characters = useAppSelector((state) => state.character.characters);
-  const aiLoading = useAppSelector((state) => state.ai.loading);
+  // This chat's own reply only: one still being written elsewhere goes on
+  // there and doesn't hold this chat up.
+  const aiLoading = useAppSelector((state) => state.ai.loadingKeys.includes(chatId ? String(Number(chatId)) : ""));
   const aiCompressing = useAppSelector((state) => state.ai.compressing);
   const aiTokenCount = useAppSelector((state) => state.ai.tokenCount);
   const aiCostEstimate = useAppSelector((state) => state.ai.costEstimate);
@@ -1771,7 +1774,7 @@ const ChatPage = () => {
           // The character's reaction (#11) and a language correction (#67)
           // go on the edited message itself.
           const editedPatch = {
-            ...(payloadObj?.reaction ? { characterReaction: { emoji: payloadObj.reaction, speakerId: speaker.id } } : {}),
+            ...(payloadObj?.reaction ? withCharacterReaction(treeForReply.nodes[editedNodeId]?.message || {}, speaker.id, payloadObj.reaction) : {}),
             ...(payloadObj?.correction && currentChat?.language ? { correction: payloadObj.correction } : {}),
           };
           const treeWithReaction = Object.keys(editedPatch).length > 0 && treeForReply.nodes[editedNodeId]
@@ -1901,7 +1904,7 @@ const ChatPage = () => {
         };
         // A new answer brings its own reaction (#11), or none.
         const treeWithReaction = !isFollowup && parentId && tree.nodes[parentId]
-          ? updateNodeMessage(tree, parentId, { ...tree.nodes[parentId].message, characterReaction: payloadObj?.reaction ? { emoji: payloadObj.reaction, speakerId: speaker.id } : undefined })
+          ? updateNodeMessage(tree, parentId, { ...tree.nodes[parentId].message, ...withCharacterReaction(tree.nodes[parentId].message, speaker.id, payloadObj?.reaction) })
           : tree;
         const { tree: newTree, nodeId: newNodeId } = addChildNode(treeWithReaction, parentId, newMessage);
         const newContent = flattenPath(newTree, newNodeId);

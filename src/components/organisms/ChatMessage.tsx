@@ -17,7 +17,8 @@ import { Button } from "src/components/atoms/button";
 import { Card, CardContent } from "src/components/atoms/card";
 import { TermLink } from "src/components/atoms/TermLink";
 import { NsfwBlur } from "src/components/molecules/NsfwBlur";
-import { InnerThoughts, ReactionBadge, ReactionPicker, ReactionRow } from "src/components/molecules/MessageExtras";
+import { InnerThoughts, ReactionPicker, ReactionRow, ReactionsBadge } from "src/components/molecules/MessageExtras";
+import type { ReactionRow as ReactionEntry } from "src/features/chat/reactions";
 import { REACTION_EMOJIS } from "src/features/ai/utils/messageTags";
 import { splitIntoTexts } from "../../features/ai/utils/textingMode";
 import { planSlips, SlipLevel } from "../../features/ai/utils/textingSlips";
@@ -69,7 +70,7 @@ interface ChatMessageProps {
   voterName?: (voter: "you" | number) => string; // names on a poll's votes (#124)
   onOpenContact?: (msg: Message) => void; // message a shared contact (#128)
   onAnswerInvite?: (msg: Message, answer: "accepted" | "declined") => void; // an event invite (#134)
-  reactorName?: string; // who left msg.characterReaction, for its label
+  reactions?: ReactionEntry[]; // everyone's reactions to it, yours and the characters' (reactions.ts)
   // Texting mode (#6): show a reply as several bubbles. visibleParts limits
   // how many are shown while a new reply is being revealed; receipt is the
   // read tick on your own messages.
@@ -196,7 +197,7 @@ const ChatMessage = React.memo(({
   voterName,
   onOpenContact,
   onAnswerInvite,
-  reactorName,
+  reactions,
   texting = false,
   visibleParts,
   receipt,
@@ -607,9 +608,9 @@ const ChatMessage = React.memo(({
           {languageBlock}
           {secretNote}
           {canTranslate && <TermLink label="translate" onClick={handleTranslate} disabled={translating} className="mt-1" />}
-          {(msg.reaction || msg.characterReaction) && (
+          {reactions && reactions.length > 0 && (
             <div className="mt-1 text-[12px] text-muted-foreground">
-              # {isUser ? `${reactorName || "they"} reacted ${msg.characterReaction?.emoji}` : `you reacted ${msg.reaction}`}
+              # {reactions.map((r) => `${r.you ? "you" : r.who} reacted ${r.emoji}`).join(", ")}
             </div>
           )}
           {viewOnceBadge}
@@ -744,7 +745,7 @@ const ChatMessage = React.memo(({
   const metaTone = isUser ? "text-bubble-out-meta" : "text-bubble-meta";
   // A reply that is only a sticker shows it without a bubble (#137).
   const stickerOnly = Boolean(stickerSrc && !stripImageContextTag(msg.txt || "").trim() && !msg.images?.length);
-  const hasReaction = Boolean((!isUser && msg.reaction) || (isUser && msg.characterReaction));
+  const hasReaction = Boolean(reactions?.length);
   const showMeta = Boolean(msg.timestamp || receipt || siblingInfo || disappears);
 
   const meta = showMeta ? (
@@ -983,10 +984,8 @@ const ChatMessage = React.memo(({
 
           {meta}
 
-          {!isUser && msg.reaction && <ReactionBadge emoji={msg.reaction} side="right" label={`You reacted ${msg.reaction}`} />}
-          {isUser && msg.characterReaction && (
-            <ReactionBadge emoji={msg.characterReaction.emoji} side="left" label={`${reactorName || "They"} reacted ${msg.characterReaction.emoji}`} />
-          )}
+          {/* Bottom left on every bubble: the time sits bottom right. */}
+          {reactions && reactions.length > 0 && <ReactionsBadge rows={reactions} side="left" />}
         </div>
   );
 

@@ -1,8 +1,8 @@
-import React, { useState } from "react";
-import { toast } from "sonner";
+import React from "react";
 import { Button } from "src/components/atoms/button";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
-import { useAppDispatch } from "src/store/hooks";
+import { useAppDispatch, useAppSelector } from "src/store/hooks";
+import { runningTask, runTask } from "src/features/tasks/tasksSlice";
 import { patchWorld } from "src/features/worldSlice";
 import { addSuggestedPerson } from "src/features/world/addPerson";
 import { useWorldCharacters } from "src/hooks/useWorld";
@@ -13,20 +13,15 @@ import { World } from "src/types";
 export const NewcomerCard = ({ world }: { world: World }) => {
   const dispatch = useAppDispatch();
   const residents = useWorldCharacters();
-  const [busy, setBusy] = useState(false);
+  // A task (tasksSlice): writing them up goes on if you leave.
+  const busy = useAppSelector((state) => Boolean(runningTask(state, "newcomer", String(world.id))));
   const sg = world.newcomer;
   if (!sg) return null;
-  const welcome = async () => {
-    setBusy(true);
-    try {
+  const welcome = () => {
+    void dispatch(runTask({ kind: "newcomer", key: String(world.id), label: `Writing up ${sg.name}`, path: "/characters", done: () => ({ title: `${sg.name} lives in ${world.name} now` }), failed: `Couldn't write ${sg.name} up. Try again.` }, async () => {
       await dispatch(addSuggestedPerson(world, sg, residents));
       await dispatch(patchWorld(world.id, { newcomer: undefined }));
-      toast.success(`${sg.name} lives in ${world.name} now`);
-    } catch {
-      toast.error(`Couldn't write ${sg.name} up. Try again.`);
-    } finally {
-      setBusy(false);
-    }
+    })).catch(() => undefined);
   };
   return (
     <section aria-label="Someone new" className="flex items-start gap-3 rounded-card bg-primary/[0.08] p-3 ring-1 ring-inset ring-primary/40">
@@ -36,7 +31,7 @@ export const NewcomerCard = ({ world }: { world: World }) => {
         <div className="text-[14px] font-bold text-foreground">{sg.name}{sg.tieWith && <span className="font-normal text-muted-foreground"> · {sg.tieWith}'s {sg.tie}</span>}</div>
         <p className="text-[13px] leading-[18px] text-muted-foreground">{sg.idea}</p>
         <div className="mt-2 flex gap-2">
-          <Button type="button" size="sm" disabled={busy} onClick={() => void welcome()}>{busy ? "Welcoming..." : `Welcome ${sg.name}`}</Button>
+          <Button type="button" size="sm" disabled={busy} onClick={welcome}>{busy ? "Welcoming..." : `Welcome ${sg.name}`}</Button>
           <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void dispatch(patchWorld(world.id, { newcomer: undefined }))}>Let them pass</Button>
         </div>
       </div>

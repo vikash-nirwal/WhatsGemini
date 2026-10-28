@@ -328,7 +328,7 @@ export const generateAIResponse = createAsyncThunk(
             chatConfig
           );
         } finally {
-          if (streamKey) dispatch(clearStreamingReply());
+          if (streamKey) dispatch(clearStreamingReply(streamKey));
         }
         trackUsage(streamed.usage, chatProviderId, selectedModel);
         response = streamed.text;
@@ -444,17 +444,29 @@ interface AIState {
   // streamKey (ChatPage uses the chat id) so a view only shows its own.
   streamingReply: { key: string; text: string } | null;
   response: string;
-  loading: boolean;
+  loading: boolean; // any reply under way
+  // Which replies are under way, by streamKey ("" for one without), so a
+  // chat only looks busy while its own reply is written (2026-10-28: leave
+  // a chat mid-reply and every other chat showed it typing and wouldn't send).
+  loadingKeys: string[];
   compressing: boolean;
   error: string | null;
   tokenCount: number;
   costEstimate: number;
 }
 
+// One reply finished: its key goes (one copy, if the same chat had two).
+const dropLoadingKey = (state: AIState, key: string | undefined) => {
+  const i = state.loadingKeys.indexOf(key ?? "");
+  if (i >= 0) state.loadingKeys.splice(i, 1);
+  state.loading = state.loadingKeys.length > 0;
+};
+
 const initialState: AIState = {
   streamingReply: null,
   response: "",
   loading: false,
+  loadingKeys: [],
   compressing: false,
   error: null,
   tokenCount: 0,
@@ -1018,24 +1030,26 @@ const aiSlice = createSlice({
     setStreamingReply: (state, action: PayloadAction<{ key: string; text: string }>) => {
       state.streamingReply = action.payload;
     },
-    clearStreamingReply: (state) => {
-      state.streamingReply = null;
+    // Only its own: another chat's reply may be streaming meanwhile.
+    clearStreamingReply: (state, action: PayloadAction<string | undefined>) => {
+      if (!action.payload || state.streamingReply?.key === action.payload) state.streamingReply = null;
     },
   },
   extraReducers: (builder) => {
     builder
-      .addCase(generateAIResponse.pending, (state) => {
+      .addCase(generateAIResponse.pending, (state, action) => {
+        state.loadingKeys.push(action.meta.arg.streamKey ?? "");
         state.loading = true;
         state.error = null;
       })
       .addCase(generateAIResponse.fulfilled, (state, action) => {
-        state.loading = false;
+        dropLoadingKey(state, action.meta.arg.streamKey);
         state.response = action.payload.text;
         state.tokenCount = action.payload.tokenCount;
         state.costEstimate = action.payload.costEstimate;
       })
       .addCase(generateAIResponse.rejected, (state, action) => {
-        state.loading = false;
+        dropLoadingKey(state, action.meta.arg.streamKey);
         state.error = action.payload as string;
       })
       .addCase(compressChatHistory.pending, (state) => {

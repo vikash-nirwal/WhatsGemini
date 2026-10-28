@@ -12,6 +12,7 @@ import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { useWorldCharacters } from "src/hooks/useWorld";
 import { generatePlaygroundImage, PlaygroundPerson } from "src/features/aiSlice";
 import { selectActivePersona } from "src/features/settingsSlice";
+import { outputAdded, runningTask, runTask } from "src/features/tasks/tasksSlice";
 import { avatarOf } from "src/features/character/profileChanges";
 import { lockedLookFor } from "src/features/ai/utils/appearanceLock";
 import { IMAGE_PROVIDER_META } from "src/features/ai/providers/registry";
@@ -40,6 +41,11 @@ interface Result {
   ms: number;
   warning?: string;
 }
+
+// A picture under way, to stop it from this page even after you left and
+// came back (the request outlives the page; see tasksSlice).
+let stopRunning: (() => void) | null = null;
+const PLAYGROUND = "playground";
 
 const ImagePlaygroundPage = () => {
   const dispatch = useAppDispatch();
@@ -70,10 +76,11 @@ const ImagePlaygroundPage = () => {
   const firstStyle = characters.find((c) => String(c.id) === picked[0])?.artStyle;
   const [style, setStyle] = useState<ArtStyle | "">("");
   const [model, setModel] = useState("");
-  const [busy, setBusy] = useState(false);
+  // A task (tasksSlice): a picture goes on being made if you leave, and it
+  // and the ones before it are here when you come back (until the app closes).
+  const busy = useAppSelector((state) => Boolean(runningTask(state, PLAYGROUND, PLAYGROUND)));
+  const results = useAppSelector((state) => state.tasks.outputs[PLAYGROUND]) as Result[] | undefined ?? [];
   const [error, setError] = useState<string | null>(null);
-  const [results, setResults] = useState<Result[]>([]);
-  const running = useRef<{ abort: () => void } | null>(null);
 
   const provider = IMAGE_PROVIDER_META.find((p) => p.id === settings.imageProvider)?.label || settings.imageProvider;
   const modelChoices = settings.imageProvider === "fal" ? [...FAL_IMAGE_MODEL_OPTIONS, ...Object.entries(customFalModels()).map(([value, m]) => ({ value, label: m.label }))] : [];
@@ -84,23 +91,34 @@ const ImagePlaygroundPage = () => {
 
   const generate = async (text = prompt) => {
     if (!text.trim() || busy) return;
-    setBusy(true);
     setError(null);
     const people: PlaygroundPerson[] = picked.map((key) => {
       const c = characters.find((x) => String(x.id) === key);
       return { name: nameOf(key), images: photosOf(key).filter((p) => !(off[key] || []).includes(p)), ...(c ? { visualTags: lockedLookFor(c) } : {}) };
     });
-    const request = dispatch(generatePlaygroundImage({ prompt: text, people, aspectRatio: ratio, artStyle: (style || firstStyle || DEFAULT_ART_STYLE) as ArtStyle, writeWithAI, addLocks, model: model.trim() || undefined }));
-    running.current = request;
+    const ask = { prompt: text, people, aspectRatio: ratio, artStyle: (style || firstStyle || DEFAULT_ART_STYLE) as ArtStyle, writeWithAI, addLocks, model: model.trim() || undefined };
     try {
-      const r = await request.unwrap();
+      const r = await dispatch(runTask({
+        kind: PLAYGROUND,
+        key: PLAYGROUND,
+        label: "Making a picture",
+        path: "/images",
+        done: (made: { images: string[] }) => (made.images.length ? { title: "Your picture is ready" } : undefined),
+        failed: "The picture wasn't made.",
+      }, async () => {
+        const request = dispatch(generatePlaygroundImage(ask));
+        stopRunning = () => request.abort();
+        try {
+          const made = await request.unwrap();
+          if (made.images.length) dispatch(outputAdded({ key: PLAYGROUND, first: true, item: { id: `r${Date.now()}`, images: made.images, prompt: made.prompt, asked: text, people: people.map((p) => `${p.name} (${p.images.length})`), model: made.model, ms: made.ms, warning: made.warning } as Result }));
+          return made;
+        } finally {
+          stopRunning = null;
+        }
+      }));
       if (!r.images.length) setError(r.warning || "No picture came back. Check your image provider in Settings.");
-      else setResults((list) => [{ id: `r${Date.now()}`, images: r.images, prompt: r.prompt, asked: text, people: people.map((p) => `${p.name} (${p.images.length})`), model: r.model, ms: r.ms, warning: r.warning }, ...list]);
     } catch (err) {
       setError(typeof err === "string" ? err : err instanceof Error ? err.message : "Couldn't make the picture.");
-    } finally {
-      running.current = null;
-      setBusy(false);
     }
   };
 
@@ -175,12 +193,12 @@ const ImagePlaygroundPage = () => {
             {error && <p role="alert" className="text-[13px] text-destructive">{error}</p>}
             <div className="flex gap-2">
               <Button type="button" onClick={() => void generate()} disabled={busy || !prompt.trim()}><FaMagic size={11} /> {busy ? "Drawing..." : "Generate"}</Button>
-              {busy && <Button type="button" variant="outline" onClick={() => running.current?.abort()}><FaStop size={10} /> Stop</Button>}
+              {busy && <Button type="button" variant="outline" onClick={() => stopRunning?.()}><FaStop size={10} /> Stop</Button>}
             </div>
           </Card>
 
           <section aria-label="Pictures" className="flex flex-col gap-4">
-            {results.length === 0 && <p className="rounded-card bg-surface p-6 text-center text-[13px] text-subtle ring-1 ring-inset ring-border">Pictures show up here. They stay on this page only.</p>}
+            {results.length === 0 && <p className="rounded-card bg-surface p-6 text-center text-[13px] text-subtle ring-1 ring-inset ring-border">Pictures show up here. They're kept until you close the app, and nothing goes to your chats.</p>}
             {results.map((r) => (
               <Card key={r.id} className="flex flex-col gap-3 p-4" data-slot="playground-result">
                 {r.images.map((src, i) => (

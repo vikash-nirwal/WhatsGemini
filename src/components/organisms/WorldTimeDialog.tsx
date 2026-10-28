@@ -9,6 +9,7 @@ import { selectActivePersona } from "src/features/settingsSlice";
 import { describeGap, TIME_UNITS, TimeUnit } from "src/features/chat/passTime";
 import { passWorldTime, undoWorldTime } from "src/features/world/passWorldTime";
 import { canUndo, loadSnapshot } from "src/features/world/timeSkipUndo";
+import { runningTask, runTask } from "src/features/tasks/tasksSlice";
 import { useCurrentWorld, useWorldCharacters, useWorldChats } from "src/hooks/useWorld";
 
 // Pass the time for the whole world you're in (the user's ask, 2026-10-26),
@@ -23,7 +24,8 @@ export const WorldTimeDialog = ({ open, onOpenChange }: { open: boolean; onOpenC
   const [unit, setUnit] = useState<TimeUnit>("days");
   const [note, setNote] = useState("");
   const [theyTextFirst, setTheyTextFirst] = useState(true);
-  const [busy, setBusy] = useState(false);
+  // A task (tasksSlice): it goes on if you leave, and shows when you're back.
+  const busy = useAppSelector((state) => Boolean(runningTask(state, "pass-time", String(currentWorldId ?? "mine"))));
   const n = Number(amount);
   // Undo the last skip (#189), while nothing's happened since.
   const [undoable, setUndoable] = useState<string | undefined>();
@@ -37,18 +39,19 @@ export const WorldTimeDialog = ({ open, onOpenChange }: { open: boolean; onOpenC
     else toast.error("Can't undo it now: the story has moved on since.");
     onOpenChange(false);
   };
-  const pass = async () => {
-    setBusy(true);
-    try {
-      const texted = await dispatch(passWorldTime({ world: current, worldId: currentWorldId, chats, characters, userName: persona?.name?.trim() || "the user" }, { amount: n, unit, note: note.trim(), theyTextFirst }));
-      toast.success(`${describeGap(n, unit)} later in ${name}${texted ? ` · ${texted} texted you` : ""}`, { action: { label: "Undo", onClick: () => void undo() } });
-      onOpenChange(false);
-      setNote("");
-    } catch {
-      toast.error("Couldn't pass the time. Try again.");
-    } finally {
-      setBusy(false);
-    }
+  const pass = () => {
+    const gap = describeGap(n, unit);
+    const ask = { amount: n, unit, note: note.trim(), theyTextFirst };
+    onOpenChange(false);
+    setNote("");
+    void dispatch(runTask({
+      kind: "pass-time",
+      key: String(currentWorldId ?? "mine"),
+      label: `${gap} passing in ${name}`,
+      path: "/worlds",
+      done: (texted: number) => ({ title: `${gap} later in ${name}${texted ? ` · ${texted} texted you` : ""}`, action: { label: "Undo", onClick: () => void undo() } }),
+      failed: "Couldn't pass the time. Try again.",
+    }, () => dispatch(passWorldTime({ world: current, worldId: currentWorldId, chats, characters, userName: persona?.name?.trim() || "the user" }, ask)))).catch(() => undefined);
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

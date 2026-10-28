@@ -14,6 +14,7 @@ import { avatarOf } from "src/features/character/profileChanges";
 import { buildFactionsPrompt, factionScenario, newFactionId, parseFactions } from "src/features/world/factions";
 import { logToTimeline } from "src/features/world/timeline";
 import { useWorldCharacters } from "src/hooks/useWorld";
+import { outputsSet, runningTask, runTask } from "src/features/tasks/tasksSlice";
 import { Faction, World } from "src/types";
 
 // Families and factions (#171) on the current world: suggested from the
@@ -24,8 +25,12 @@ export const FactionsSection = ({ world }: { world: World }) => {
   const cast = useWorldCharacters();
   const chats = useAppSelector((state) => state.chat.chats);
   const persona = useAppSelector(selectActivePersona);
-  const [suggested, setSuggested] = useState<Faction[]>([]);
-  const [busy, setBusy] = useState(false);
+  // Suggesting is a task (tasksSlice): leave while it thinks, and the
+  // suggestions are here when you come back.
+  const outKey = `factions-${world.id}`;
+  const suggested = (useAppSelector((state) => state.tasks.outputs[outKey]) as Faction[] | undefined) || [];
+  const setSuggested = (change: (list: Faction[]) => Faction[]) => dispatch(outputsSet({ key: outKey, items: change(suggested) }));
+  const busy = useAppSelector((state) => Boolean(runningTask(state, "factions", String(world.id))));
   const [making, setMaking] = useState(false);
   const [name, setName] = useState("");
   const [chosen, setChosen] = useState<number[]>([]);
@@ -38,17 +43,12 @@ export const FactionsSection = ({ world }: { world: World }) => {
     setSuggested((list) => list.filter((x) => x.id !== f.id));
     void logToTimeline(world.id, { kind: "you", text: `${f.name} formed: ${f.memberIds.map(nameOf).filter(Boolean).join(", ")}`, characterIds: f.memberIds }, world.storyTime);
   };
-  const suggest = async () => {
-    setBusy(true);
-    try {
+  const suggest = () => {
+    void dispatch(runTask({ kind: "factions", key: String(world.id), label: `Suggesting groups in ${world.name}`, path: "/worlds", quiet: true }, async () => {
       const found = parseFactions(await dispatch(generateAssistText({ instruction: buildFactionsPrompt(world, cast, groups) })).unwrap(), cast);
       if (!found.length) throw new Error("none");
-      setSuggested(found);
-    } catch {
-      toast.error("No groups came back. Try again, or make one yourself.");
-    } finally {
-      setBusy(false);
-    }
+      dispatch(outputsSet({ key: outKey, items: found }));
+    })).catch(() => toast.error("No groups came back. Try again, or make one yourself."));
   };
   const openChat = async (f: Faction) => {
     const existing = chats.find((c) => c.id === f.chatId);
@@ -65,7 +65,7 @@ export const FactionsSection = ({ world }: { world: World }) => {
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-[17px] font-bold text-foreground">Families and factions</h3>
         <span className="flex gap-3">
-          <button type="button" disabled={busy} onClick={() => void suggest()} className="flex items-center gap-1 text-[13.5px] font-bold text-primary-text hover:underline"><FaMagic size={11} /> {busy ? "Thinking..." : "Suggest"}</button>
+          <button type="button" disabled={busy} onClick={suggest} className="flex items-center gap-1 text-[13.5px] font-bold text-primary-text hover:underline"><FaMagic size={11} /> {busy ? "Thinking..." : "Suggest"}</button>
           <button type="button" onClick={() => setMaking((v) => !v)} className="text-[13.5px] font-bold text-primary-text hover:underline">New group</button>
         </span>
       </div>

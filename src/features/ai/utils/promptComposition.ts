@@ -459,10 +459,12 @@ export const buildSystemInstruction = (
   if (character.emotionPortraits?.enabled || options.emotionTag) {
     sections.push(buildEmotionDirective(character.emotionPortraits?.customEmotions));
   }
-  // A reaction is to your message, so only when you spoke last (in a group,
-  // a member answering another member has nothing of yours to react to).
+  // A reaction is to the last message someone else sent: yours, or in a
+  // group another member's (2026-10-28: members never reacted to each other).
   const lastSpoken = (recentMessages || []).filter((m) => !m.isSystem && !m.isNarration && !m.isRoomEvent && !m.isCompressionSummary).pop();
+  const othersLast = lastSpoken && lastSpoken.role !== YOU && lastSpoken.speakerId != null && lastSpoken.speakerId !== character.id;
   if (options.roleplayStyle?.characterReactions && (!lastSpoken || lastSpoken.role === YOU)) sections.push(buildReactionDirective());
+  else if (options.roleplayStyle?.characterReactions && othersLast) sections.push(buildReactionDirective("the other member's"));
   if (character.innerThoughts || options.roomThoughts) sections.push(buildThoughtsDirective());
   if (extraDirectives && extraDirectives.length > 0) {
     sections.push(...extraDirectives);

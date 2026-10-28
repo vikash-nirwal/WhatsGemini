@@ -7,6 +7,7 @@ import aiReducer from "../features/aiSlice";
 import settingsReducer from "../features/settingsSlice";
 import myStatusReducer from "../features/myStatusSlice";
 import channelReducer from "../features/channelSlice";
+import tasksReducer from "../features/tasks/tasksSlice";
 import {
   LS_AI_MODEL,
   LS_MAX_CHAT_LENGTH,
@@ -61,6 +62,7 @@ export const store = configureStore({
     settings: settingsReducer,
     myStatus: myStatusReducer,
     channels: channelReducer,
+    tasks: tasksReducer,
   },
   devTools: process.env.NODE_ENV !== "production", // Enable Redux DevTools in development
 });

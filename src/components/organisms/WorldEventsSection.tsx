@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FaBolt, FaMagic } from "react-icons/fa";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "src/components/molecules/dialog";
@@ -11,7 +11,8 @@ import { generateAssistText } from "src/features/aiSlice";
 import { activeEvents, buildEventIdeaPrompt, daysLeft, newEventId, parseEvent } from "src/features/world/worldEvents";
 import { endWorldEvent, startWorldEvent } from "src/features/world/startEvent";
 import { useWorldCharacters } from "src/hooks/useWorld";
-import { World } from "src/types";
+import { outputsSet, runningTask, runTask } from "src/features/tasks/tasksSlice";
+import { World, WorldEvent } from "src/types";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -22,28 +23,35 @@ export const WorldEventsSection = ({ world }: { world: World }) => {
   const cast = useWorldCharacters();
   const chats = useAppSelector((state) => state.chat.chats);
   const persona = useAppSelector(selectActivePersona);
+  // Suggesting is a task (tasksSlice): leave while it thinks, and the idea
+  // is in the form when you come back.
+  const outKey = `event-${world.id}`;
+  const idea = (useAppSelector((state) => state.tasks.outputs[outKey]) as WorldEvent[] | undefined)?.[0];
+  const busy = useAppSelector((state) => Boolean(runningTask(state, "event-idea", String(world.id))));
   const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("");
-  const [text, setText] = useState("");
-  const [days, setDays] = useState("3");
-  const [busy, setBusy] = useState(false);
+  const [title, setTitle] = useState(idea?.title || "");
+  const [text, setText] = useState(idea?.text || "");
+  const [days, setDays] = useState(idea ? String(Math.round((idea.endsAt - idea.at) / DAY)) : "3");
   const now = Date.now();
   const events = activeEvents(world, now);
+  // An idea that comes back while you're here fills the form.
+  const ideaId = idea?.id;
+  useEffect(() => {
+    if (!idea) return;
+    setTitle(idea.title);
+    setText(idea.text);
+    setDays(String(Math.round((idea.endsAt - idea.at) / DAY)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ideaId]);
 
-  const suggest = async () => {
-    setBusy(true);
-    try {
+  const suggest = () => {
+    const at = Date.now();
+    void dispatch(runTask({ kind: "event-idea", key: String(world.id), label: `Thinking of an event in ${world.name}`, quiet: true }, async () => {
       const reply = await dispatch(generateAssistText({ instruction: buildEventIdeaPrompt(world, cast.map((c) => c.name), world.events || [], [title, text].filter(Boolean).join(": ") || undefined) })).unwrap();
-      const idea = parseEvent(reply, now);
-      if (!idea) throw new Error("unreadable");
-      setTitle(idea.title);
-      setText(idea.text);
-      setDays(String(Math.round((idea.endsAt - idea.at) / DAY)));
-    } catch {
-      toast.error("No idea came back. Try again, or write it yourself.");
-    } finally {
-      setBusy(false);
-    }
+      const made = parseEvent(reply, at);
+      if (!made) throw new Error("unreadable");
+      dispatch(outputsSet({ key: outKey, items: [made] }));
+    })).catch(() => toast.error("No idea came back. Try again, or write it yourself."));
   };
 
   const start = async () => {
@@ -56,13 +64,14 @@ export const WorldEventsSection = ({ world }: { world: World }) => {
     setTitle("");
     setText("");
     setDays("3");
+    dispatch(outputsSet({ key: outKey, items: [] }));
   };
 
   return (
     <section aria-label="World events" className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between">
         <h3 className="text-[17px] font-bold text-foreground">Happening now</h3>
-        <button type="button" onClick={() => setOpen(true)} className="text-[13.5px] font-bold text-primary-text hover:underline">Start an event</button>
+        <button type="button" onClick={() => setOpen(true)} className="text-[13.5px] font-bold text-primary-text hover:underline">{busy ? "Thinking of one..." : idea ? "Your event idea is ready" : "Start an event"}</button>
       </div>
       {events.length === 0 ? (
         <p className="text-[13.5px] text-muted-foreground">Nothing special. Every few days the world has an event of its own: a festival, a storm, a scandal.</p>
@@ -94,7 +103,7 @@ export const WorldEventsSection = ({ world }: { world: World }) => {
               days
             </label>
             <div className="flex gap-2">
-              <Button type="button" variant="outline" disabled={busy} onClick={() => void suggest()}>
+              <Button type="button" variant="outline" disabled={busy} onClick={suggest}>
                 <FaMagic size={12} /> {busy ? "Thinking..." : title.trim() || text.trim() ? "Flesh it out" : "Suggest one"}
               </Button>
               <Button type="button" className="flex-1" disabled={!title.trim() || busy} onClick={() => void start()}>Make it happen</Button>

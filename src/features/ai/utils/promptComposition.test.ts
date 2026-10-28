@@ -322,11 +322,13 @@ describe("reactions and inner thoughts (#10, #11)", () => {
     }).text || "";
     expect(both).toContain("<thoughts>...</thoughts>");
     expect(both).toContain("[React: <emoji>]");
-    // In a group, a member answering another member has nothing of yours to react to.
-    const afterMember = buildSystemInstruction(makeCharacter(), undefined, undefined, undefined, [msg(YOU, "hi"), msg(AI, "Hey", 1)], ["Kai"], undefined, undefined, {
-      roleplayStyle: { ...DEFAULT_ROLEPLAY_STYLE, characterReactions: true },
-    }).text || "";
-    expect(afterMember).not.toContain("[React:");
+    // In a group, a member answering another member may react to theirs
+    // (2026-10-28); never to their own message.
+    const style = { roleplayStyle: { ...DEFAULT_ROLEPLAY_STYLE, characterReactions: true } };
+    const afterMember = buildSystemInstruction(makeCharacter({ id: 2 }), undefined, undefined, undefined, [msg(YOU, "hi"), msg(AI, "Hey", 1)], ["Kai"], undefined, undefined, style).text || "";
+    expect(afterMember).toContain("react to the other member's last message");
+    const afterSelf = buildSystemInstruction(makeCharacter({ id: 1 }), undefined, undefined, undefined, [msg(YOU, "hi"), msg(AI, "Hey", 1)], ["Kai"], undefined, undefined, style).text || "";
+    expect(afterSelf).not.toContain("[React:");
   });
 
   it("tells a group member who the others are", () => {

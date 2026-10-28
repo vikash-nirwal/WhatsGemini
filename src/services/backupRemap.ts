@@ -47,6 +47,7 @@ export const remapMessage = (message: Message, ids: Map<number, number>): Messag
   if (m.poll) m = { ...m, poll: { ...m.poll, votes: m.poll.votes.flatMap((v) => { const voter = who(v.voter, ids); return voter === undefined ? [] : [{ ...v, voter }]; }) } };
   if (m.contactCard?.characterId != null) m = { ...m, contactCard: one(m.contactCard, "characterId", ids) };
   if (m.characterReaction?.speakerId != null) m = { ...m, characterReaction: one(m.characterReaction, "speakerId", ids) };
+  if (m.reactions) m = { ...m, reactions: m.reactions.flatMap((r) => { const by = ids.get(r.by); return by != null ? [{ ...r, by }] : []; }) };
   if (m.castEmotions) m = { ...m, castEmotions: Object.fromEntries(Object.entries(m.castEmotions).flatMap(([id, mood]) => { const next = ids.get(Number(id)); return next != null ? [[next, mood]] : []; })) };
   return m;
 };

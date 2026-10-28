@@ -251,3 +251,33 @@ test("in a lively group, whoever you address answers", async ({ page, mockAI }) 
   await waitForReplyDone(page);
   expect(speakerOf(mockAI.requests.filter((r) => r.stream)[0].messages)).toBe("Kai");
 });
+
+// Who reacted (the user's report, 2026-10-28): in a group every member's
+// reaction is kept, members react to each other too, and the badge lists
+// who reacted with what.
+test("members react to you and to each other, and you can see who", async ({ page, mockAI }) => {
+  mockAI.reply((req) => {
+    if (req.prompt.includes("Who would naturally reply")) return "Kai, Aria";
+    if (req.prompt.includes("You are the narrator of a group roleplay")) return "";
+    const speaker = speakerOf(req.messages);
+    if (speaker === "Kai") return "[React: ❤️]\nCongrats!";
+    if (speaker === "Aria") return systemOf(req.messages).includes("react to the other member's last message") ? "[React: 😂]\nKai's being sweet." : "No reaction offered.";
+    return "OK";
+  });
+  await openChat(page, 2);
+  await openRoomPanel(page, "Group");
+  await page.getByRole("button", { name: "Natural", exact: true }).click();
+  await page.getByRole("button", { name: "Close scene panel" }).click();
+
+  await sendMessage(page, "I got the job!");
+  await expect(messageBubble(page, "Kai's being sweet.")).toBeVisible({ timeout: 15_000 });
+  await waitForReplyDone(page);
+
+  // Kai reacted to yours; Aria to Kai's.
+  await expect(messageBubble(page, "I got the job!").getByRole("button", { name: "Who reacted: Kai reacted ❤️" })).toBeVisible();
+  const kais = messageBubble(page, "Congrats!");
+  await kais.getByRole("button", { name: "Who reacted: Aria reacted 😂" }).click();
+  const list = page.getByRole("menu", { name: "Who reacted" });
+  await expect(list).toContainText("1 reaction");
+  await expect(list.getByRole("menuitem", { name: "😂 Aria" })).toBeVisible();
+});

@@ -77,7 +77,8 @@ export interface Message {
   reaction?: string; // the user's emoji reaction to this message (#11)
   // The character's emoji reaction to this (user) message (#11), and who
   // reacted in a room.
-  characterReaction?: { emoji: string; speakerId?: number };
+  characterReaction?: { emoji: string; speakerId?: number }; // the old way: one only (reactions.ts reads both)
+  reactions?: { emoji: string; by: number }[]; // every character's reaction to this message, one each
   castEmotions?: Record<number, string>; // adventure narrator turns: character id -> mood for each NPC in the scene
   imagePrompt?: string; // The derived SD prompt used to generate this image
   videoPrompt?: string; // The derived prompt used to generate this video

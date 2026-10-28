@@ -45,7 +45,7 @@ test("a reply's thoughts are hidden until tapped, and its reaction lands on your
   await reply.getByRole("button", { name: "💭 Inner thoughts" }).click();
   await expect(reply.getByText("I knew they could do it.")).toBeVisible();
 
-  await expect(messageBubble(page, "I passed my exam!").getByRole("img", { name: "Aria reacted ❤️" })).toBeVisible();
+  await expect(messageBubble(page, "I passed my exam!").getByRole("button", { name: "Who reacted: Aria reacted ❤️" })).toBeVisible();
 
   // The thoughts directive was sent; the thought itself never goes back.
   expect(mockAI.requests[0].messages[0].content).toContain("<thoughts>...</thoughts>");
@@ -64,10 +64,10 @@ test("your reaction shows on the reply and the character is told about it", asyn
     await page.getByRole("group", { name: "React" }).getByRole("button", { name: "React with 😂" }).click();
   } else {
     await reply.hover();
-    await reply.getByRole("button", { name: "React" }).click();
+    await reply.getByRole("button", { name: "React", exact: true }).click();
     await page.getByRole("menuitem", { name: "React with 😂" }).click();
   }
-  await expect(reply.getByRole("img", { name: "You reacted 😂" })).toBeVisible();
+  await expect(reply.getByRole("button", { name: "Who reacted: You reacted 😂" })).toBeVisible();
 
   await sendMessage(page, "Ha, anyway.");
   await expect.poll(() => mockAI.requests.length).toBe(1);
@@ -80,10 +80,10 @@ test("your reaction shows on the reply and the character is told about it", asyn
     await page.getByRole("group", { name: "React" }).getByRole("button", { name: "Remove 😂 reaction" }).click();
   } else {
     await reply.hover();
-    await reply.getByRole("button", { name: "React" }).click();
+    await reply.getByRole("button", { name: "React", exact: true }).click();
     await page.getByRole("menuitem", { name: "Remove 😂 reaction" }).click();
   }
-  await expect(reply.getByRole("img", { name: "You reacted 😂" })).toHaveCount(0);
+  await expect(reply.getByRole("button", { name: "Who reacted: You reacted 😂" })).toHaveCount(0);
 });
 
 test.describe("in the terminal theme", () => {

@@ -82,3 +82,30 @@ test("a picture with a character's photo, as written, with another model, and no
   expect(await chatLength(page)).toBe(before);
   expect(await page.evaluate(() => localStorage.getItem("image_model"))).toBe("fal-ai/bytedance/seedream/v4/edit");
 });
+
+// Background tasks (2026-10-28): leave while a picture is being made, and
+// it's there when you come back.
+test("a picture finishes after you leave the playground", async ({ page }) => {
+  let release = () => {};
+  const gate = new Promise<void>((r) => { release = r; });
+  await page.route("https://queue.fal.run/**", async (route) => {
+    const request = route.request();
+    if (request.method() === "POST") return route.fulfill({ json: { request_id: "req-2", status_url: "https://queue.fal.run/fal-ai/x/requests/req-2/status", response_url: "https://queue.fal.run/fal-ai/x/requests/req-2" } });
+    if (request.url().endsWith("/status")) {
+      await gate;
+      return route.fulfill({ json: { status: "COMPLETED" } });
+    }
+    return route.fulfill({ json: { images: [{ url: RESULT }] } });
+  });
+  await openRoute(page, "/images");
+  await page.getByText("Write the prompt for the model with AI, as chats do").click();
+  await page.getByRole("textbox", { name: "Prompt", exact: true }).fill("A lighthouse in fog");
+  await page.getByRole("button", { name: "Generate" }).click();
+  await expect(page.getByText("Making a picture...")).toBeVisible();
+
+  await openRoute(page, "/characters");
+  release();
+  await expect(page.getByText("Your picture is ready")).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "View" }).click();
+  await expect(page.locator('[data-slot="playground-result"]').getByRole("img", { name: "A lighthouse in fog" })).toHaveAttribute("src", RESULT);
+});

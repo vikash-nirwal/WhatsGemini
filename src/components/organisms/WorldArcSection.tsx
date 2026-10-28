@@ -10,6 +10,7 @@ import { selectActivePersona } from "src/features/settingsSlice";
 import { arcActive, buildArcPrompt, parseArc } from "src/features/world/worldArcs";
 import { endWorldArc, moveArcOn, startWorldArc } from "src/features/world/startEvent";
 import { useWorldCharacters } from "src/hooks/useWorld";
+import { outputsSet, runningTask, runTask } from "src/features/tasks/tasksSlice";
 import { World, WorldArc } from "src/types";
 import { cn } from "src/utils/cn";
 
@@ -22,22 +23,21 @@ export const WorldArcSection = ({ world }: { world: World }) => {
   const persona = useAppSelector(selectActivePersona);
   const [open, setOpen] = useState(false);
   const [idea, setIdea] = useState("");
-  const [draft, setDraft] = useState<WorldArc | undefined>();
-  const [busy, setBusy] = useState(false);
+  // Writing it is a task (tasksSlice): leave while it's written, and the
+  // draft waits here for you.
+  const outKey = `arc-${world.id}`;
+  const draft = (useAppSelector((state) => state.tasks.outputs[outKey]) as WorldArc[] | undefined)?.[0];
+  const setDraft = (d: WorldArc | undefined) => dispatch(outputsSet({ key: outKey, items: d ? [d] : [] }));
+  const busy = useAppSelector((state) => Boolean(runningTask(state, "arc", String(world.id))));
   const arc = arcActive(world);
 
-  const write = async () => {
-    setBusy(true);
-    try {
+  const write = () => {
+    void dispatch(runTask({ kind: "arc", key: String(world.id), label: `Writing a storyline for ${world.name}`, quiet: true }, async () => {
       const reply = await dispatch(generateAssistText({ instruction: buildArcPrompt(world, cast.map((c) => c.name), persona?.name?.trim() || "the user", idea) })).unwrap();
       const made = parseArc(reply, Date.now());
       if (!made) throw new Error("unreadable");
       setDraft(made);
-    } catch {
-      toast.error("No storyline came back. Try again.");
-    } finally {
-      setBusy(false);
-    }
+    })).catch(() => toast.error("No storyline came back. Try again."));
   };
   const begin = async () => {
     if (!draft) return;
@@ -52,7 +52,7 @@ export const WorldArcSection = ({ world }: { world: World }) => {
     <section aria-label="Storyline" className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between">
         <h3 className="text-[17px] font-bold text-foreground">Storyline</h3>
-        {!arc && <button type="button" onClick={() => setOpen(true)} className="text-[13.5px] font-bold text-primary-text hover:underline">Start a storyline</button>}
+        {!arc && <button type="button" onClick={() => setOpen(true)} className="text-[13.5px] font-bold text-primary-text hover:underline">{busy ? "Writing one..." : draft ? "Your storyline is ready" : "Start a storyline"}</button>}
       </div>
       {!arc ? (
         <p className="text-[13.5px] text-muted-foreground">{world.arc?.doneAt ? `"${world.arc.title}" has ended.` : "None yet. A storyline unfolds across the world over a few weeks, with you in it."}</p>
@@ -77,7 +77,7 @@ export const WorldArcSection = ({ world }: { world: World }) => {
             <DialogTitle className="pt-1">Start a storyline</DialogTitle>
             <DialogDescription>A story that runs across {world.name} for a few weeks, in chapters: in their chats, statuses, the news and their talk. You're in it.</DialogDescription>
             <TextArea aria-label="Storyline idea" value={idea} onChange={(e) => setIdea(e.target.value)} placeholder="An idea (optional), e.g. someone is stealing from the boats" className="min-h-[60px] resize-none" />
-            <Button type="button" variant="outline" disabled={busy} onClick={() => void write()}><FaMagic size={12} /> {busy ? "Writing..." : draft ? "Write another" : "Write it"}</Button>
+            <Button type="button" variant="outline" disabled={busy} onClick={write}><FaMagic size={12} /> {busy ? "Writing..." : draft ? "Write another" : "Write it"}</Button>
             {draft && (
               <div className="flex flex-col gap-1.5 rounded-card bg-sunken p-3">
                 <div className="text-[14px] font-bold text-foreground">{draft.title}</div>
