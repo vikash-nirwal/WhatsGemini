@@ -37,6 +37,8 @@ it("relinks a group's own references", () => {
 });
 
 it("relinks the people around, channels, and moves talks to the lower id", () => {
+  // Takes on an announcement follow their people; a missing one is dropped.
+  expect(remapWorld({ id: 3, name: "W", premise: "", announcements: [{ id: "a", text: "News", at: 1, takes: { 2: "You cheer.", 9: "You sulk." } }] }, maps).announcements).toEqual([{ id: "a", text: "News", at: 1, takes: { 12: "You cheer." } }]);
   expect(remapWorld({ id: 3, name: "W", premise: "", extras: [{ name: "Tom", about: "landlord", tiedTo: 2, at: 1 }, { name: "Ann", about: "", tiedTo: 9, at: 1 }] }, maps).extras).toEqual([{ name: "Tom", about: "landlord", tiedTo: 12, at: 1 }, { name: "Ann", about: "", at: 1 }]);
   expect(remapChannel({ id: "world-3", kind: "world", refId: 3, followedAt: 0, posts: [] }, maps)?.id).toBe("world-13");
   expect(remapChannel({ id: "character-9", kind: "character", refId: 9, followedAt: 0, posts: [] }, maps)).toBeUndefined();

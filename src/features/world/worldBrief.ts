@@ -3,6 +3,7 @@ import { formatStoryDate } from "./storyTime";
 import { activeEvents } from "./worldEvents";
 import { arcActive } from "./worldArcs";
 import { TimelineEntry } from "./timeline";
+import { announcementsLine } from "./announcements";
 
 const historyLine = (entries: TimelineEntry[], now: number) => {
   const past = entries.filter((e) => ["event", "arc", "arrival", "departure", "time"].includes(e.kind) && now - e.at >= 86_400_000).slice(-3);
@@ -22,6 +23,7 @@ export const buildWorldBrief = (world: World | undefined, now: number, opts: { e
     // weekday some prompts carry; their time of day still sets the rhythm.
     world.storyTime ? `It's ${formatStoryDate(world.storyTime, now)} there, by the world's own calendar: any real weekday or date further down doesn't apply, only the time of day does.` : "",
     world.godTruths?.length ? `Simply true there (never question it): ${world.godTruths.join("; ")}.` : "",
+    announcementsLine(world),
     opts.events ? activeEvents(world, now).map((e) => `Going on: ${e.title} (${e.text}).`).join(" ") : "",
     arcActive(world) ? `The story there right now: ${arcActive(world)!.beats[arcActive(world)!.step]}` : "",
     // A little of the past (#179), so what they write can remember it.

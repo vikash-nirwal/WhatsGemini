@@ -36,6 +36,7 @@ export const REPLY_KINDS = [
   "world-turn", // worldTurnJob (#212): one JSON object with talks, event, life
   "catch-up", // catchUpJob (#213): a few sentences of what you missed
   "aftermath", // writeAftermath (#219): PLACE / FACT / LIFE / TRADITION lines
+  "announcement", // announceToWorld: NAME :: take :: status lines
 ] as const;
 export type ReplyKind = (typeof REPLY_KINDS)[number];
 
@@ -57,6 +58,7 @@ const FINGERPRINTS: [ReplyKind, RegExp][] = [
   ["life-event", /^Something just happened in .+'s life/m],
   ["reputation", /^Write .+'s reputation in /m],
   ["factions", /^GROUP: <name> \|/m],
+  ["announcement", /^NAME :: how they take it/m],
 ];
 
 export const guessReplyKind = (instruction: string): ReplyKind | undefined => FINGERPRINTS.find(([, re]) => re.test(instruction))?.[0];

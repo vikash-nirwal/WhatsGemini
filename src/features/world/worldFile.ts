@@ -77,7 +77,9 @@ export const relink = (file: WorldFile, idOf: Record<number, number>) => {
     (ties[a] = ties[a] || []).push({ withId: b, tie: t.tie });
   }
   const factions = (file.world.factions || []).map((f) => ({ ...f, memberIds: f.memberIds.map((id) => idOf[id]).filter((id): id is number => id !== undefined) }));
-  return { ties, factions };
+  // Each person's take on an announcement is kept by their id.
+  const announcements = (file.world.announcements || []).map((a) => ({ ...a, ...(a.takes ? { takes: Object.fromEntries(Object.entries(a.takes).flatMap(([id, t]) => (idOf[Number(id)] !== undefined ? [[idOf[Number(id)], t]] : []))) } : {}) }));
+  return { ties, factions, announcements };
 };
 
 export const worldFileName = (name: string) => `${name.trim().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "").toLowerCase() || "world"}.world.json`;

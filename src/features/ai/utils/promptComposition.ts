@@ -615,6 +615,7 @@ export interface SceneContext {
   blockNote?: string; // a block you or a friend are part of (#133)
   timePassedNote?: string; // how long has passed in the story since you last talked
   godNote?: string; // god mode truths (#160) of this chat's world, or of this chat
+  announceNote?: string; // what was announced to the whole world, and how this person took it
   eventNote?: string; // world events going on now (#162)
   lifeNote?: string; // what happened in their life lately (#164)
   reputationNote?: string; // what people in the world say about you (#166)
@@ -639,7 +640,7 @@ export interface SceneContext {
 // 5 = never dropped (rules and what's true), 1 = first to go.
 const NOTE_PRIORITY: [keyof SceneContext, NotePriority][] = [
   ["knowsNote", 2], ["tiesNote", 3], ["worldTalkNote", 3], ["groupsNote", 4], ["letterNote", 4], ["onThisDayNote", 2], ["giftsNote", 3], ["plansNote", 3], ["secretsNote", 3],
-  ["godNote", 5], ["eventNote", 4], ["arcNote", 4], ["historyNote", 2], ["heardNote", 3], ["goalNote", 3], ["youAtNote", 4], ["keptNote", 4], ["factionNote", 3], ["lifeNote", 4], ["reputationNote", 3], ["canonNote", 5], ["worldNowNote", 3], ["innerNote", 3], ["pointsNote", 4],
+  ["godNote", 5], ["announceNote", 5], ["eventNote", 4], ["arcNote", 4], ["historyNote", 2], ["heardNote", 3], ["goalNote", 3], ["youAtNote", 4], ["keptNote", 4], ["factionNote", 3], ["lifeNote", 4], ["reputationNote", 3], ["canonNote", 5], ["worldNowNote", 3], ["innerNote", 3], ["pointsNote", 4],
   ["whatIfNote", 5], ["dayNote", 4], ["dayMoodNote", 4], ["moodNote", 4], ["jokesNote", 3], ["conflictNote", 5], ["liesNote", 4], ["jealousyNote", 3], ["dreamNote", 5],
   ["hookNote", 5], ["slipsNote", 5], ["callbackNote", 4], ["concernsNote", 3], ["placeNote", 3], ["statusNote", 4], ["quoteNote", 5], ["groupNote", 5], ["profileNote", 2],
   ["disappearingNote", 5], ["inviteNote", 5], ["stickerNote", 5], ["blockNote", 5], ["timePassedNote", 5],

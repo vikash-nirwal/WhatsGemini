@@ -1,4 +1,5 @@
 import { Character, World } from "../../types";
+import { announcementsLine } from "./announcements";
 import { bondWords, moodOf } from "./bonds";
 import { goalLine } from "./goals";
 import { MAX_EVENT_DAYS } from "./worldEvents";
@@ -83,6 +84,7 @@ export const buildWorldTurnPrompt = (
 ) => [
   `You move the life of ${world.name} on by a few hours: ${world.premise}${world.era ? ` (${world.era})` : ""}. ${userName} lives here too but isn't part of this; don't decide anything for ${userName}.`,
   ...(world.godTruths?.length ? [`Simply true in this world (never question it): ${world.godTruths.join("; ")}.`] : []),
+  ...(announcementsLine(world) ? [announcementsLine(world)] : []),
   ...context,
   ...(sceneNow ? [sceneNow] : []),
   ...(happening ? [`Going on now: ${happening}`] : []),

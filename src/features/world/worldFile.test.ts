@@ -18,6 +18,9 @@ test("reading checks it's a world; ties and groups move to the new ids", () => {
   const { ties, factions } = relink(file, { 1: 11, 2: 12 });
   expect(ties).toEqual({ 11: [{ withId: 12, tie: "your brother" }], 12: [{ withId: 11, tie: "your sister" }] });
   expect(factions[0].memberIds).toEqual([11, 12]);
+  // Each person's take on an announcement follows them too.
+  const announced = relink({ ...file, world: { ...file.world, announcements: [{ id: "a", text: "News", at: 1, takes: { 1: "You cheer.", 7: "You sulk." } }] } }, { 1: 11, 2: 12 });
+  expect(announced.announcements).toEqual([{ id: "a", text: "News", at: 1, takes: { 11: "You cheer." } }]);
   expect(worldFileName("Harbour Town!")).toBe("harbour-town.world.json");
 });
 

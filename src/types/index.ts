@@ -940,6 +940,7 @@ export interface World {
   era?: string; // era or technology (#144), e.g. "Medieval: news travels by letter"
   talkBy?: "texts" | "letters"; // how people here talk when apart (#216); unset = from the era
   godTruths?: string[]; // god mode (#160): what you made true; every chat and life here carries it
+  announcements?: WorldAnnouncement[]; // god mode for the whole world (2026-10-28): news everyone hears and takes their own way
   storyTime?: StoryTime; // the world's own calendar (#147); unset = your clock
   events?: WorldEvent[]; // world events (#162), newest last
   lastEventCheckAt?: number; // when the world last considered an event of its own
@@ -1013,6 +1014,15 @@ export interface GroupPlan {
 
 // Something happening to everyone in a world (#162): a festival, a storm, a
 // scandal. While it lasts it's in every chat, status, post and talk there.
+// An announcement to a whole world (announcements.ts): what was declared,
+// and how each person there took it (character id -> their take).
+export interface WorldAnnouncement {
+  id: string;
+  text: string;
+  at: number;
+  takes?: Record<number, string>;
+}
+
 export interface WorldEvent {
   id: string;
   title: string;

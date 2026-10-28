@@ -16,6 +16,7 @@ import { buildReputationPrompt } from "../world/reputation";
 import { buildCastSuggestionsPrompt } from "../world/worldAssist";
 import { buildOffscreenTalkPrompt } from "../chat/offscreenTalk";
 import { buildTheirGroupPrompt } from "../chat/theirGroup";
+import { buildTakesPrompt } from "../world/announcements";
 import { Character } from "../../types";
 
 type Fixture = ReplyLogEntry & { note: string; expect: Record<string, string> | null };
@@ -91,6 +92,7 @@ describe("guessReplyKind", () => {
     ["gap-lives", buildGapLivesPrompt(world, "2 weeks", undefined, [kai, mira], true)],
     ["reputation", buildReputationPrompt(world, "Sam", [kai], [])],
     ["factions", buildFactionsPrompt(world, [kai, mira], [])],
+    ["announcement", buildTakesPrompt(world, "The harbor is closed.", [kai, mira])],
   ])("%s", (kind, prompt) => {
     expect(guessReplyKind(prompt)).toBe(kind);
   });

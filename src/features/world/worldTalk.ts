@@ -3,6 +3,7 @@ import { PERSON_ASK } from "./extras";
 import { Character, World, WorldTalk } from "../../types";
 import { worldOf } from "./currentWorld";
 import { SHARE_ASK } from "./knowledge";
+import { announcementsLine } from "./announcements";
 import { GOAL_ASK, goalLine } from "./goals";
 import { Acquaintance, acquainted, Meeting, meetingLine } from "./meetings";
 
@@ -162,6 +163,8 @@ export const buildWorldTalkPrompt = (
       : `${settingOpening(setting, a.name, b.name)}, who know each other${world ? ` and live in ${world.name}: ${world.premise}` : ""}. ${userName} isn't in it.`,
     // God mode (#160): what the author made true holds here too.
     ...(world?.godTruths?.length ? [`Simply true in this world (never question it): ${world.godTruths.join("; ")}.`] : []),
+    // Announcements: news they both heard, each taking it their own way.
+    ...(announcementsLine(world, [a, b]) ? [announcementsLine(world, [a, b])] : []),
     ...(canon ? [canon] : []),
     ...(sceneNow ? [sceneNow] : []),
     "",

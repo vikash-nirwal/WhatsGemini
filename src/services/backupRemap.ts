@@ -120,6 +120,8 @@ export const remapWorld = (world: World, maps: IdMaps): World => ({
   ...world,
   ...(world.factions ? { factions: world.factions.map((f) => ({ ...one(f, "chatId", maps.chats), memberIds: remapIds(f.memberIds, maps.characters) || [] })) } : {}),
   ...(world.extras ? { extras: world.extras.map((e) => one(e, "tiedTo", maps.characters)) } : {}),
+  // How each person took an announcement, kept by their id.
+  ...(world.announcements ? { announcements: world.announcements.map((a) => (a.takes ? { ...a, takes: Object.fromEntries(Object.entries(a.takes).flatMap(([id, t]) => { const to = maps.characters.get(Number(id)); return to != null ? [[to, t]] : []; })) } : a)) } : {}),
 });
 
 // Your statuses: who saw, liked, commented and replied, and the world they

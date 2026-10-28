@@ -47,6 +47,7 @@ import { worldTalkNoteFor } from "../features/world/worldTalk";
 import { buildTimePassedNote, buildTimePassedOpener, describeGap, gapDays, TimePassed, timePassedInScope, timePassedNotice, TimeUnit } from "../features/chat/passTime";
 import { skipStoryTime } from "../features/world/storyTime";
 import { addTruth, buildGodTruthsSection } from "../features/chat/godMode";
+import { buildAnnouncementsNote } from "../features/world/announcements";
 import { logToTimeline } from "../features/world/timeline";
 import { buildCanonNote, buildInnerStateNote, buildWorldNowNote } from "../features/world/worldNow";
 import { logChatMoment } from "../features/world/chatMoments";
@@ -290,6 +291,8 @@ const ChatPage = () => {
       buildMyStatusNote(userName, myStatuses, speaker.id, now),
       ownChatNoteFor(speaker, chats, userName),
       buildInnerStateNote(speaker, world, characters, now),
+      // How this speaker took what was announced to their world.
+      speaker.id !== undefined && world?.announcements?.some((x) => x.takes?.[speaker.id!]) ? `How ${speaker.name} took what was announced: ${world.announcements.flatMap((x) => (x.takes?.[speaker.id!] ? [`"${x.text}": ${x.takes[speaker.id!]}`] : [])).slice(-4).join("; ")}` : undefined,
       pointsMoveIn(currentChat) ? buildPointsNote(speaker, userName, roomCharacters, now, { group: true }) : undefined,
     ].filter(Boolean).join("\n\n") || undefined;
   };
@@ -455,6 +458,9 @@ const ChatPage = () => {
   // Time passed (the user's ask): every member knows how long it's been.
   // God mode (#160): the truths of this chat's world, or of this chat.
   scene.godNote = buildGodTruthsSection([...(worlds.find((w) => w.id === currentChat?.worldId)?.godTruths || []), ...(currentChat?.godTruths || [])]);
+  // Announcements to the world: the news, and how this person took it (in
+  // a group, each speaker's take comes with their own notes).
+  scene.announceNote = currentChat?.whatIf ? undefined : buildAnnouncementsNote(worlds.find((w) => w.id === chatWorldId), isRoom ? undefined : characterData?.id, Date.now());
   // Living-world features (#162-#166) only where they're switched on.
   // Life events come from the newcomers switch or from passing the time
   // (#180); whichever wrote them, they're part of their life.

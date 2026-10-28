@@ -18,6 +18,7 @@ import { parseFactions } from "../world/factions";
 import { parseOffscreenTalk } from "../chat/offscreenTalk";
 import { parseTheirLines } from "../chat/theirGroup";
 import { cleanFirstText } from "../character/firstTexts";
+import { parseTakes } from "../world/announcements";
 
 // Prompt replay (#214): saved helper replies run through the same parsers
 // the world engine uses, to see how often each tag or line comes back
@@ -124,6 +125,10 @@ export const REPLAY_CHECKS: Record<string, { label: string; checks: Check[] }> =
       { id: "TRADITION", label: "TRADITION: yes or no", present: hasLine("TRADITION"), parses: (reply) => /^[\s*_-]*TRADITION\s*:\s*\**\s*(yes|no)\b/im.test(reply) },
       { id: "FACT", label: "FACT: a sentence", optional: true, present: hasLine("FACT"), parses: (reply) => Boolean(parseAftermath(reply, [], [], 0).fact) },
     ],
+  },
+  announcement: {
+    label: "Takes on an announcement",
+    checks: [{ id: "TAKES", label: "NAME :: take :: status lines", present: (reply) => reply.includes("::"), parses: (reply, ctx) => Object.keys(parseTakes(reply, ctx.cast as never).takes).length > 0 }],
   },
   "catch-up": { label: "What you missed", checks: [plain("A few sentences", cleanCatchUp)] },
   "world-event": {

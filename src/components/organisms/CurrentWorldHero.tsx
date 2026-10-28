@@ -6,6 +6,7 @@ import { avatarOf } from "src/features/character/profileChanges";
 import { formatStoryDate } from "src/features/world/storyTime";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { WorldEventsSection } from "./WorldEventsSection";
+import { WorldAnnouncementsSection } from "./WorldAnnouncementsSection";
 import { NewcomerCard } from "./NewcomerCard";
 import { PlaceDialog } from "./PlaceDialog";
 import { GroupPlanDialog } from "./GroupPlanDialog";
@@ -90,6 +91,7 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
           </dl>
         </div>
         <div className="flex flex-col gap-3">
+          {current && <WorldAnnouncementsSection world={current} />}
           {current && prefs.arrivals && <NewcomerCard world={current} />}
           {current && prefs.events && <WorldEventsSection world={current} />}
           {current && <WorldArcSection world={current} />}

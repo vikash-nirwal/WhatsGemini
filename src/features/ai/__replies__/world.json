@@ -236,5 +236,16 @@
       "TRADITION": "missing",
       "FACT": "missing"
     }
+  },
+  {
+    "note": "good takes on an announcement",
+    "at": 61,
+    "kind": "announcement",
+    "model": "fixture",
+    "instruction": "Harbor Bay: a foggy fishing town.\nIt has just been announced to everyone in Harbor Bay, and it is real: The harbor is closed.\n- Kai: Kai lives here\n- Mira: Mira lives here\nAnswer with one line per person, nothing else, in this form:\nNAME :: how they take it and what they'll do, in one sentence, in the second person (\"You...\") :: a short status they post about it in their own voice, or - for none",
+    "reply": "Kai :: You're furious and start organising the other fishermen. :: Not leaving my boat to rot.\nMira :: You quietly see a chance to sell rides out by land. :: -",
+    "expect": {
+      "TAKES": "parsed"
+    }
   }
 ]

@@ -1,6 +1,7 @@
 import { Adventure, AdventureChoice, Character, ContentRating, Message, RoleplayStyle, UserProfile, World } from "../../../types";
 import { DEFAULT_ADVENTURE_CHOICE_COUNT, EMOTIONS } from "../../../utils/constants";
 import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
+import { announcementsLine } from "../../world/announcements";
 import { getEmotionVocabulary } from "./emotionUtils";
 import { effectiveContentRating } from "../../character/contentRating";
 import { NSFW_CONTENT_RULE, SFW_CONTENT_RULE } from "./promptComposition";
@@ -67,6 +68,11 @@ export const buildAdventureSystemInstruction = (
     if (world.settingDetails) worldParts.push(world.settingDetails);
     if (world.tone) worldParts.push(`Tone: ${world.tone}.`);
     sections.push(worldParts.join("\n"));
+    // What the author made true there, quietly or by announcing it to
+    // everyone, holds in a story set in the world too.
+    if (world.godTruths?.length) sections.push(`Simply true in this world (never question it): ${world.godTruths.join("; ")}.`);
+    const announced = announcementsLine(world, cast);
+    if (announced) sections.push(`${announced} People react to it as themselves.`);
   }
 
   if (world?.loreEntries && world.loreEntries.length > 0) {
