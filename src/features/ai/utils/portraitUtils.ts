@@ -154,19 +154,54 @@ export const generatePlaceholderPortraitBlob = (name: string, accent: [string, s
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Failed to export image."))), "image/png");
   });
 
-// Saves a blob into the user's configured Image Save Directory and returns
-// the local: ref other components already know how to resolve (DisplayImage,
-// appendCharacterImages). Throws if no directory is configured - callers
-// show that as an inline error the same way AvatarCropDialog already does.
-export const savePortraitBlob = async (blob: Blob, prefix: string): Promise<string> => {
-  const dirHandle = await dbService.getSetting("image_save_directory");
-  if (!dirHandle) {
-    throw new Error("Set an Image Save Directory in Settings first.");
+// A picture too big to keep in the app itself, made smaller: at most
+// `maxSide` pixels on its longer side, as JPEG unless it's a PNG small
+// enough to keep its transparency (mood portraits cut out of their
+// background).
+export const shrinkForApp = async (blob: Blob, maxSide = 1280): Promise<string> => {
+  const url = URL.createObjectURL(blob);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("Couldn't read that picture."));
+      el.src = url;
+    });
+    const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+    if (scale === 1 && blob.size < 600_000) return blobToDataUrl(blob);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return blobToDataUrl(blob);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const png = blob.type === "image/png" && canvas.width * canvas.height <= 512 * 683;
+    return canvas.toDataURL(png ? "image/png" : "image/jpeg", 0.88);
+  } finally {
+    URL.revokeObjectURL(url);
   }
-  const filename = `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.png`;
-  const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
-  const writable = await fileHandle.createWritable();
-  await writable.write(blob);
-  await writable.close();
-  return `local:${filename}`;
+};
+
+// Saves a picture and returns a ref DisplayImage and the image providers
+// can read. Into your Image Save Directory when there is one (a local:
+// ref); otherwise - no folder picked, or a browser that can't pick one,
+// like Safari and phones (the user's report, 2026-10-28: there was no way
+// to give a character a photo) - kept in the app as a smaller data: URL.
+export const savePortraitBlob = async (blob: Blob, prefix: string, maxSide?: number): Promise<string> => {
+  const dirHandle = await dbService.getSetting("image_save_directory").catch(() => undefined);
+  if (dirHandle) {
+    try {
+      const ext = blob.type === "image/jpeg" ? "jpg" : blob.type === "image/webp" ? "webp" : "png";
+      const filename = `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.${ext}`;
+      const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return `local:${filename}`;
+    } catch (err) {
+      // A folder whose permission lapsed: keep it in the app instead.
+      console.warn("Couldn't save to the Image Save Directory; keeping the picture in the app:", err);
+    }
+  }
+  return shrinkForApp(blob, maxSide);
 };

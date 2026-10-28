@@ -7,7 +7,7 @@ import { SettingsCard } from 'src/components/molecules/settings-card';
 import { CharacterAvatar } from 'src/components/molecules/CharacterAvatar';
 import { DisplayImage } from 'src/components/molecules/DisplayImage';
 import AvatarCropDialog from './AvatarCropDialog';
-import { dbService } from '../../services/dbService';
+import { savePortraitBlob } from '../../features/ai/utils/portraitUtils';
 import { cn } from '../../utils/cn';
 import { useColorTheme } from '../../hooks/useColorTheme';
 import { BASIC_SKILLS } from '../../features/adventure/skillChecks';
@@ -139,22 +139,10 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
     if (!persona) return;
 
     try {
-      const dirHandle = await dbService.getSetting("image_save_directory");
-      if (!dirHandle) {
-        alert("Please select an Image Save Directory in Settings first to use file persistence.");
-        return;
-      }
-
+      // Your Image Save Directory, or kept in the app when there's none
+      // (savePortraitBlob), as for characters.
       const newImageRefs: string[] = [];
-      for (const file of Array.from(files)) {
-        const ext = file.name.split('.').pop() || 'png';
-        const filename = `persona_ref_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`;
-        const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
-        const writable = await fileHandle.createWritable();
-        await writable.write(file);
-        await writable.close();
-        newImageRefs.push(`local:${filename}`);
-      }
+      for (const file of Array.from(files)) newImageRefs.push(await savePortraitBlob(file, "persona_ref"));
 
       onUpdatePersona({ ...persona, appearanceImages: [...(persona.appearanceImages || []), ...newImageRefs] });
     } catch (err: any) {
@@ -162,7 +150,7 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
       if (err?.name === 'NotAllowedError') {
         alert("Permission to write to directory was denied. Please re-select the directory in Settings.");
       } else {
-        alert("Failed to save image files to the local directory.");
+        alert("Couldn't add that picture. Try another one.");
       }
     }
   };

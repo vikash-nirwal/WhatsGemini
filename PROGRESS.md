@@ -4,7 +4,7 @@ What's built, what's open and what a new session needs to know. [ROADMAP.md](ROA
 
 ## Where we stand
 
-- **State (2026-10-27):** every item through #238 is built, pushed and deployed, with the god mode change of 2026-10-28, and the image playground (#238) (main c64a120, gh-pages d24a036); #224–#233 came from the memory reviews, #234–#237 (points, backup gaps, meeting first, the wizard's AI help) and the fal.ai fix of 2026-10-28 from the user.
+- **State (2026-10-27):** every item through #238 is built, pushed and deployed, with the god mode change of 2026-10-28, and the image playground (#238) (main c64a120, gh-pages d24a036); character photo uploads without a save folder are built, not yet committed or deployed; #224–#233 came from the memory reviews, #234–#237 (points, backup gaps, meeting first, the wizard's AI help) and the fal.ai fix of 2026-10-28 from the user.
 - **Open:** #132 real-model tuning waits on the user's testing with their key (turn on "Keep helper replies" in Settings › Spending first, then replay them, #214). Drive backup (#54) is built but needs the user's Google OAuth client ID (steps in Settings › Data).
 - **Skipped:** #135 location sharing (dropped by the user), #139 circles (became worlds, #145). Voice features and calls wait for an AI voice model (see Decisions).
 - **Not tried with real models or services:** most prompts from #81 on, image providers with real keys, notifications and background sync on real phones, the in-browser model. ROADMAP.md › "Untried" lists them.
@@ -48,7 +48,7 @@ A map, by area: item numbers and where the code lives. Paths are under `src/` un
 - Call limits and quiet hours per world (#192), notifications and digest for world happenings (#194).
 
 **Characters and images**
-- Editor steps, quick create, from one line or a photo (#45, #92, #154 `characterDraft.ts`), life presets (`lifePresets.ts`), wardrobe (#50), private albums (#75), schedule.
+- Editor steps, quick create, from one line or a photo (#45, #92, #154 `characterDraft.ts`), "Upload a picture" on step 1 (their first reference image is their picture), life presets (`lifePresets.ts`), wardrobe (#50), private albums (#75), schedule.
 - Images: locked look in every prompt (`appearanceLock.ts`), reference photos per provider (`referenceImages.ts`), prompt guides per model (`imagePromptGuide.ts`), toning down (`imageTone.ts`), no names to image models (`hideNames.ts`), fal.ai catalog (`falCatalog.ts`), ComfyUI (`comfyuiAdapter.ts`), SD WebUI (`sdWebuiUtils.ts`), per-character local settings (#40), reference sheet, image playground (#238 `pages/ImagePlaygroundPage.tsx` at `/images`, `generatePlaygroundImage` in `aiSlice.ts`: pick people and their reference photos, prompt as written or written by AI, locked looks, shape, art style, another model; nothing saved; linked from Settings › Images and a character's menu).
 
 **App-wide**
@@ -68,6 +68,7 @@ Choices a later session shouldn't revisit.
 - (user) Points (#234): per world, off by default; traits are a default five (affection, trust, respect, attraction, rivalry) the world can edit, up to 8; scores are 0-10 toward you and each person, stored on bonds (`Bond.points`, `Character.youPoints`); moved by reply tags (1-2 a step), world life through bond nudges, moments with you, fading back over 3 weeks, and sliders on Contact info. Scene meters (#71) stay per chat.
 - (user) Who talks (#236): only people who know each other (a tie, `knowsAbout`, `met`, a shared group chat or faction) talk on their own and react to statuses; strangers in a made world meet first, in person. In My world they stay strangers until you tie them. Replaces 2026-10-26's "everyone in a made world knows everyone".
 - (user) World wizard AI (#237): fitting someone from another world is per person and reviewed, never automatic; it may change job and background, look and clothes (face and body kept), how they talk, opening and scenario; name, personality and relationships stay. Ties you make or edit are kept on "Suggest again".
+- Pictures are kept in the Image Save Directory when there is one, otherwise in the app as a smaller data: URL (`savePortraitBlob`, `shrinkForApp` in `portraitUtils.ts`): phones and Safari can't pick a folder.
 - (user) God mode changes facts only: nothing answers a change, and the change isn't a line in the conversation; the truths list carries it, and a truth changes only what it says.
 - Memory bridges (#228–#230): a freeform adventure (no world) and a what-if, "this chat only" or disappearing-messages chat stay apart; group facts are copied to members, not moved.
 - (user) UI revamp: no "Favourites" filter; the WhatsApp theme is shown as "Messenger" (stored id `whatsapp`); Drama settings stay per chat; forwarding and contact cards stay inside one world.
@@ -102,6 +103,7 @@ Facts that save the next session time.
 
 Newest first. Older sessions are in the git history.
 
+- 2026-10-28: Character and persona photos could only be uploaded with an Image Save Directory picked (impossible on phones and Safari), and step 1 offered only Generate Avatar: "Upload a picture" added to step 1, and photos fall back to being kept in the app.
 - 2026-10-28: Image playground at `/images` (#238).
 - 2026-10-28: God mode no longer takes over the reply: it saves the fact, nobody answers it, and later replies keep to it. Fixed with it: a message could stay off screen when no reply followed (`addMessage` now puts the saved chat in the store, and a refresh read in the same millisecond as a change keeps the newer copy), and a god change typed while a reply was coming was silently dropped.
 - 2026-10-28: World wizard: fit people to the world and change anyone with AI, connections with history, kept edits and a closeness dial (#237).

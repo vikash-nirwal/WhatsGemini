@@ -541,35 +541,22 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     }
   };
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Reference photos (and the first, their picture): kept in your Image
+  // Save Directory, or in the app when there's none (savePortraitBlob).
+  // `asMain`: the photo goes first, as their picture, and opens the crop.
+  const mainPhotoInputRef = useRef<HTMLInputElement>(null);
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>, asMain = false) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
     try {
-      const dirHandle = await dbService.getSetting("image_save_directory");
-      if (!dirHandle) {
-         alert("Please select an Image Save Directory in Settings first to use file persistence.");
-         return;
-      }
-
       const newImageRefs: string[] = [];
-
-      for (const file of Array.from(files)) {
-         const ext = file.name.split('.').pop() || 'png';
-         const filename = `char_ref_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`;
-
-         const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
-         const writable = await fileHandle.createWritable();
-         await writable.write(file);
-         await writable.close();
-
-         newImageRefs.push(`local:${filename}`);
-      }
+      for (const file of Array.from(files)) newImageRefs.push(await savePortraitBlob(file, "char_ref"));
 
       // If the user had no portrait yet and is adding their first image, open
       // the crop dialog so they can reframe it to the 3:4 portrait aspect.
-      const isFirstPortrait = appearanceImages.length === 0 && newImageRefs.length > 0;
-      setAppearanceImages((prev) => [...prev, ...newImageRefs]);
+      const isFirstPortrait = asMain || (appearanceImages.length === 0 && newImageRefs.length > 0);
+      setAppearanceImages((prev) => (asMain ? [...newImageRefs, ...prev] : [...prev, ...newImageRefs]));
 
       if (isFirstPortrait) {
         // Create a temporary object URL from the original file for the crop canvas.
@@ -578,12 +565,8 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
         setCropDialogOpen(true);
       }
     } catch (err: any) {
-      console.error("Error saving image files to directory:", err);
-      if (err.name === 'NotAllowedError') {
-         alert("Permission to write to directory was denied. Please re-select the directory in Settings.");
-      } else {
-         alert("Failed to save image files to the local directory.");
-      }
+      console.error("Error adding pictures:", err);
+      alert(err?.message || "Couldn't add that picture. Try another one.");
     }
 
     event.target.value = ''; // Reset input
@@ -1093,6 +1076,12 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   )}
                 </div>
                 <div className="flex flex-col gap-1.5 justify-center min-w-0 flex-1">
+                  {/* Their picture from a photo of yours (2026-10-28): it goes
+                      first in the reference images, and opens the crop. */}
+                  <Button type="button" variant="panel" onClick={() => mainPhotoInputRef.current?.click()} className="h-auto w-full px-3 py-1.5 text-xs font-medium border border-border hover:border-primary hover:text-primary">
+                    <FaUpload size={11} /> {appearanceImages[0] ? "Upload a new picture" : "Upload a picture"}
+                  </Button>
+                  <input ref={mainPhotoInputRef} type="file" accept="image/*" aria-label="Upload a picture" data-testid="main-photo-input" className="hidden" onChange={(e) => void handleImageUpload(e, true)} />
                   <AvatarGenerateButton
                     name={name}
                     appearance={appearance}
