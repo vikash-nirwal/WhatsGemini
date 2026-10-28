@@ -210,3 +210,49 @@ test("says which field fal wanted", async () => {
   global.fetch = jest.fn(async () => reply({ detail: [{ loc: ["body", "image_urls"], msg: "Field required" }] }, 422)) as unknown as typeof fetch;
   await expect(falImageAdapter.generateImage({ model: "fal-ai/bytedance/seedream/v4/edit", prompt: "p" }, config)).rejects.toThrow("image_urls: Field required");
 });
+
+// The user's report, 2026-10-28: a model picked from fal's list whose
+// schema hid its photo field was saved as needing none, so it ran with a
+// prompt only and failed with no way out.
+describe("a model set up as needing no photo that needs one", () => {
+  const hidden = { label: "Edit", referenceEndpoint: "fal-ai/some/edit", referenceField: "image_url", maxReferences: 0, referenceSize: "image_size", textEndpoint: "fal-ai/some/edit", textSize: "image_size" };
+  const failsWithoutPhoto = () => {
+    const ok = mockFal();
+    const answer = global.fetch as jest.Mock;
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init: RequestInit = {}) => {
+      const body = typeof init.body === "string" ? JSON.parse(init.body) : undefined;
+      if (String(input) === "https://queue.fal.run/fal-ai/some/edit" && !body?.image_urls?.length) return reply({ detail: [{ loc: ["body", "image_urls"], msg: "At least one image URL is required." }] }, 422);
+      return answer(input, init);
+    }) as unknown as typeof fetch;
+    return ok;
+  };
+  beforeEach(() => localStorage.setItem("fal_custom_models", JSON.stringify({ "fal-ai/some/edit": hidden })));
+  afterEach(() => localStorage.removeItem("fal_custom_models"));
+
+  it("sends the reference photos in the field fal named, and remembers it", async () => {
+    const calls = failsWithoutPhoto();
+    const result = await falImageAdapter.generateImage({ model: "fal-ai/some/edit", prompt: "a selfie", referenceImages: [ref(1), ref(2)] }, config);
+    expect(result.images).toHaveLength(1);
+    expect(submitOf(calls).body.image_urls).toEqual(["https://v3b.fal.media/files/ref-1.jpg", "https://v3b.fal.media/files/ref-2.jpg"]);
+    expect(JSON.parse(localStorage.getItem("fal_custom_models")!)["fal-ai/some/edit"]).toMatchObject({ referenceField: "image_urls", maxReferences: 4, textEndpoint: "fal-ai/bytedance/seedream/v4/text-to-image" });
+  });
+
+  it("without photos falls back to its text sibling, then the default text model", async () => {
+    let calls = failsWithoutPhoto();
+    expect((await falImageAdapter.generateImage({ model: "fal-ai/some/edit", prompt: "a street" }, config)).images).toHaveLength(1);
+    expect(submitOf(calls).url).toBe("https://queue.fal.run/fal-ai/some");
+    // With no sibling to be found, the default text model.
+    calls = failsWithoutPhoto();
+    const answer = global.fetch as jest.Mock;
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init: RequestInit = {}) => (/fal-ai\/some(\/text-to-image)?$/.test(String(input)) ? reply({ detail: "Not Found" }, 404) : answer(input, init))) as unknown as typeof fetch;
+    expect((await falImageAdapter.generateImage({ model: "fal-ai/some/edit", prompt: "a street" }, config)).images).toHaveLength(1);
+    expect(submitOf(calls).url).toBe("https://queue.fal.run/fal-ai/bytedance/seedream/v4/text-to-image");
+  });
+});
+
+test("reads the missing photo field from fal's message", () => {
+  const { missingPhotoField } = require("./falImageAdapter");
+  expect(missingPhotoField("fal.ai error: image_urls: At least one image URL is required.")).toBe("image_urls");
+  expect(missingPhotoField("fal.ai error: image_url: Field required")).toBe("image_url");
+  expect(missingPhotoField("fal.ai error: prompt: field required")).toBeUndefined();
+});

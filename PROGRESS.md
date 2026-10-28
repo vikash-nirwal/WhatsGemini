@@ -4,7 +4,7 @@ What's built, what's open and what a new session needs to know. [ROADMAP.md](ROA
 
 ## Where we stand
 
-- **State (2026-10-27):** every item through #235 is built, pushed and deployed (main a191324, gh-pages 1803d87); #224–#233 came from the memory reviews and #234 (points) and #235 (backup gaps) from the user.
+- **State (2026-10-27):** every item through #235 is built, pushed and deployed (main a191324, gh-pages 1803d87); #224–#233 came from the memory reviews and #234 (points) and #235 (backup gaps) from the user. A second fal.ai "At least one image URL is required" fix (2026-10-28) is built, not yet committed or deployed.
 - **Open:** #132 real-model tuning waits on the user's testing with their key (turn on "Keep helper replies" in Settings › Spending first, then replay them, #214). Drive backup (#54) is built but needs the user's Google OAuth client ID (steps in Settings › Data).
 - **Skipped:** #135 location sharing (dropped by the user), #139 circles (became worlds, #145). Voice features and calls wait for an AI voice model (see Decisions).
 - **Not tried with real models or services:** most prompts from #81 on, image providers with real keys, notifications and background sync on real phones, the in-browser model. ROADMAP.md › "Untried" lists them.
@@ -99,6 +99,7 @@ Facts that save the next session time.
 
 Newest first. Older sessions are in the git history.
 
+- 2026-10-28: fal.ai "image_urls: At least one image URL is required" again: a model picked from fal's list whose schema hid its photo field was saved as taking none, so it ran with a prompt only and the fallback (edit models only) never applied. Now any model that says a photo field is required gets this picture's reference photos in that field (remembered for next time), or else its text sibling and the default text model.
 - 2026-10-27: Backups carry adventures, channels, your statuses and every local picture; restoring into a taken library relinks ties, talks, secrets and the rest (#235). ROADMAP: dropped the backup gaps, and "background people in chats", which #226 already did.
 - 2026-10-27: Points toward you and each other, a per-world switch (#234).
 - 2026-10-27: Statuses and their comments reach 1:1 replies (#233).

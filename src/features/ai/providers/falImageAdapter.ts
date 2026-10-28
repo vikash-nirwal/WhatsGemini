@@ -1,7 +1,7 @@
 import { NormalizedImage } from "../types";
 import { ContentBlockedError, ImageGenCallOptions, ImageGenCallResult, ImageProviderAdapter, ModelOption, ProviderRuntimeConfig } from "./types";
 import { collectReferences, extensionFor, toBlob, toDataUri, withReferenceLegend } from "./referenceImages";
-import { customFalModels, FALLBACK_TEXT_ENDPOINT, textSiblingsOf } from "./falCatalog";
+import { customFalModels, FALLBACK_TEXT_ENDPOINT, rememberReferenceField, textSiblingsOf } from "./falCatalog";
 
 // fal.ai's queue API, called straight from the browser: queue.fal.run,
 // rest.fal.ai (file uploads) and fal.media (results) all answer CORS
@@ -100,6 +100,11 @@ const sizeParams = (style: SizeStyle, aspectRatio: string | undefined): Record<s
   if (style === "resolution_mode" && KONTEXT_RATIOS.includes(aspectRatio)) return { resolution_mode: aspectRatio };
   return {};
 };
+
+// The photo field an error says is missing ("image_urls: At least one
+// image URL is required.", "image_url: Field required").
+export const missingPhotoField = (message: string): string | undefined =>
+  message.match(/\b((?:reference_|input_)?image_urls?)\s*:[^;]*required/i)?.[1]?.toLowerCase();
 
 const describeDetail = (detail: unknown): string | undefined => {
   if (typeof detail === "string") return detail;
@@ -227,22 +232,38 @@ const generateImage = async (opts: ImageGenCallOptions, config: ProviderRuntimeC
     input = { prompt: opts.prompt, ...sizeParams(model.textSize, opts.aspectRatio) };
   }
 
-  // An edit model picked before 2026-10-27 may be set to run without a
-  // photo, which it can't: then its text-to-image sibling, and the default
-  // text model last. Models say so in their own words ("Field required",
-  // Seedream's "At least one image URL is required."), so any "required"
-  // counts.
-  const fallbacks = refs.images.length === 0 && model.textEndpoint === model.referenceEndpoint && model.maxReferences > 0
-    ? [...textSiblingsOf(endpoint).map((id) => ({ id, input })), { id: FALLBACK_TEXT_ENDPOINT, input: { prompt: opts.prompt, ...sizeParams("image_size", opts.aspectRatio) } }]
+  // A model run without a photo that needs one fails in its own words
+  // ("Field required", Seedream's "At least one image URL is required.").
+  // When fal names the field and this picture has reference photos, they go
+  // there and the field is remembered (a model picked from the list whose
+  // schema hid it); otherwise its text-to-image sibling, then the default
+  // text model. Any model, not only the ones known to be edit models: a
+  // setup that thought it needed no photo used to fail with no way out.
+  const fallbacks = refs.images.length === 0
+    ? [...textSiblingsOf(endpoint).map((id) => ({ id, input })), ...(endpoint === FALLBACK_TEXT_ENDPOINT ? [] : [{ id: FALLBACK_TEXT_ENDPOINT, input: { prompt: opts.prompt, ...sizeParams("image_size", opts.aspectRatio) } }])]
     : [];
+  const attempts: { id: string; input: Record<string, unknown> }[] = [{ id: endpoint, input }, ...fallbacks];
   let output: any;
-  for (const attempt of [{ id: endpoint, input }, ...fallbacks]) {
+  for (let i = 0; i < attempts.length; i++) {
+    const attempt = attempts[i];
     try {
       output = await runQueue(attempt.id, attempt.input, apiKey, opts.signal);
       break;
     } catch (err: any) {
-      const last = attempt.id === (fallbacks[fallbacks.length - 1]?.id ?? endpoint);
-      if (last || opts.signal?.aborted || !/required|not found|404|405/i.test(err?.message || "")) throw err;
+      const message: string = err?.message || "";
+      const field = i === 0 && refs.images.length === 0 ? missingPhotoField(message) : undefined;
+      const photos = field ? collectReferences(opts, field.endsWith("urls") ? 10 : 1) : undefined;
+      if (field && photos?.images.length) {
+        const urls = await Promise.all(photos.images.map((img, n) => uploadReference(img, n, apiKey, opts.signal)));
+        try {
+          output = await runQueue(attempt.id, { prompt: withReferenceLegend(opts.prompt, photos.names), [field]: field.endsWith("urls") ? urls : urls[0], ...sizeParams(model.referenceSize, opts.aspectRatio) }, apiKey, opts.signal);
+          rememberReferenceField(attempt.id, field);
+          break;
+        } catch {
+          // Then the text models below, as if no photo had helped.
+        }
+      }
+      if (i === attempts.length - 1 || opts.signal?.aborted || !/required|not found|404|405/i.test(message)) throw err;
     }
   }
   // FLUX's safety checker returns a black image and flags it rather than

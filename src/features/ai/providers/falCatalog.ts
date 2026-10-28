@@ -118,6 +118,17 @@ export const setupFromSchema = (id: string, name: string, schema: Schema | undef
 
 export const customFalModels = (): Record<string, FalModelSetup> => read<Record<string, FalModelSetup>>(LS_CUSTOM) || {};
 
+// A model picked from the list whose schema didn't show where its photo
+// goes (the user's report, 2026-10-28: "image_urls: At least one image URL
+// is required."): once fal names the field, it's kept, so the next picture
+// sends the references there from the start.
+export const rememberReferenceField = (id: string, field: string) => {
+  const setup = customFalModels()[id];
+  if (!setup) return;
+  const many = field.endsWith("urls");
+  write(LS_CUSTOM, { ...customFalModels(), [id]: { ...setup, referenceField: field, maxReferences: many ? Math.max(setup.maxReferences, 4) : 1, textEndpoint: setup.textEndpoint === id ? FALLBACK_TEXT_ENDPOINT : setup.textEndpoint } });
+};
+
 // Sets up a model picked from the list and keeps it for the adapter.
 export const addFalModel = async (entry: FalCatalogEntry, catalog: FalCatalogEntry[], apiKey?: string, fetchFn: typeof fetch = fetch): Promise<FalModelSetup> => {
   const schema = await inputSchema(entry.id, apiKey, fetchFn);
