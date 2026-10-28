@@ -134,11 +134,16 @@ describe("relationships that drift (#163)", () => {
   });
 });
 
-test("people in the same made world know each other; in My world only by ties", () => {
+// The user's report, 2026-10-28: strangers in one world texted as if they'd
+// always known each other. Only the acquainted talk on their own (#236).
+test("people in the same world are strangers until they're tied, have met, or share a group", () => {
   const { knowEachOther } = require("./worldTalk");
-  expect(knowEachOther({ id: 1, name: "A", worldId: 3 }, { id: 2, name: "B", worldId: 3 })).toBe(true);
-  expect(knowEachOther({ id: 1, name: "A" }, { id: 2, name: "B" })).toBe(false);
-  expect(knowEachOther({ id: 1, name: "A", worldId: 3 }, { id: 2, name: "B", worldId: 4 })).toBe(false);
+  const a = { id: 1, name: "A", worldId: 3 }, b = { id: 2, name: "B", worldId: 3 };
+  expect(knowEachOther(a, b)).toBe(false);
+  expect(knowEachOther({ ...a, met: [2] }, b)).toBe(true);
+  expect(knowEachOther(a, b, { chats: [{ characterIds: [1, 2, 5] }] })).toBe(true);
+  expect(knowEachOther(a, b, { chats: [{ characterIds: [1, 2], whatIf: { kind: "universe" } }] })).toBe(false);
+  expect(knowEachOther(a, b, { world: { factions: [{ memberIds: [1, 2] }] } })).toBe(true);
 });
 
 describe("strangers become friends (#181)", () => {

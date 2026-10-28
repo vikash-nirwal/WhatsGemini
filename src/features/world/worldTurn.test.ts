@@ -19,10 +19,12 @@ test("a turn is due every few hours", () => {
 });
 
 test("pairs due to talk: they know each other, longest quiet first", () => {
-  const talked = addWorldTalk(aria, { id: "t", withId: 2, at: NOW - HOUR, lines: [] });
-  // Everyone in one world knows each other (#181), so all three pairs.
-  expect(dueTalkPairs(cast, NOW, 6 * HOUR).map(([a, b]) => [a.id, b.id])).toEqual([[1, 2], [1, 3], [2, 3]]);
-  expect(dueTalkPairs([talked, kai, mara], NOW, 6 * HOUR).map(([a, b]) => [a.id, b.id])).toEqual([[1, 3], [2, 3]]);
+  // Mara is a stranger to both (#236) until she's met them or shares a group.
+  expect(dueTalkPairs(cast, NOW, 6 * HOUR).map(([a, b]) => [a.id, b.id])).toEqual([[1, 2]]);
+  const known = [{ ...aria, met: [3] }, kai, mara];
+  expect(dueTalkPairs(known, NOW, 6 * HOUR, 4, { chats: [{ characterIds: [2, 3] }] }).map(([a, b]) => [a.id, b.id])).toEqual([[1, 2], [1, 3], [2, 3]]);
+  const talked = addWorldTalk(known[0], { id: "t", withId: 2, at: NOW - HOUR, lines: [] });
+  expect(dueTalkPairs([talked, kai, mara], NOW, 6 * HOUR, 4, { chats: [{ characterIds: [2, 3] }] }).map(([a, b]) => [a.id, b.id])).toEqual([[1, 3], [2, 3]]);
 });
 
 test("the prompt names the pairs and asks only for what's allowed", () => {

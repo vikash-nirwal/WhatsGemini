@@ -29,11 +29,11 @@ const DAY = 24 * 60 * 60 * 1000;
 // talk, the event and the life event that would each have been a call of
 // their own, and each lands the way those jobs land them.
 export const worldTurn = (now: number) => async (dispatch: EngineDispatch, getState: GetState) => {
-  const { worlds, characters, userName } = engineState(getState);
+  const { worlds, characters, userName, chats } = engineState(getState);
   const castOf = (w: World) => characters.filter((c) => c.worldId === w.id);
   const askFor = (w: World): WorldTurnAsk => {
     const cast = castOf(w);
-    const pairs = dueTalkPairs(cast, now, lifeScaled(WORLD_TALK_GAP_MS));
+    const pairs = dueTalkPairs(cast, now, lifeScaled(WORLD_TALK_GAP_MS), 4, { chats, world: w });
     return {
       pairs,
       settings: pairs.map(([a, b]) => talkSettingFor(a, b, w, now)),

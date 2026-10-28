@@ -14,7 +14,9 @@ import { withDefaultLife } from "../features/character/lifePresets";
 import SuggestField from "src/components/molecules/SuggestField";
 import { buildCharacterDraftPrompt, CharacterDraft, parseCharacterDraft } from "../features/character/characterDraft";
 import { rootOf, worldCopy } from "../features/character/card";
-import { applyTies, buildConnectionsPrompt, castIdea, CastMember, parseConnections, WorldTie } from "../features/world/worldWizard";
+import { applyTies, buildConnectionsPrompt, castIdea, CastMember, Closeness, CLOSENESS_LABELS, mergeSuggested, parseConnections, WorldTie } from "../features/world/worldWizard";
+import { currentFit, fitCardOf, FitHistory } from "../features/world/fitToWorld";
+import CastFitPanel from "src/components/organisms/CastFitPanel";
 import { worldName, worldOf } from "../features/world/currentWorld";
 import { circleLayout } from "../features/character/relationshipMap";
 import { avatarOf } from "../features/character/profileChanges";
@@ -35,7 +37,12 @@ const NEW_PERSONA = "__new_persona";
 // Someone in the new world's cast: a person from another world (joining as a
 // copy) or one drafted for this world.
 // `memories`: someone from another world comes with what they remember, or fresh.
-type Member = CastMember & ({ kind: "existing"; character: Character; memories?: boolean } | { kind: "new"; draft: CharacterDraft });
+// `fit`: what AI changed for this world (#237), laid over their card on Create.
+type Member = CastMember & { fit?: FitHistory } & ({ kind: "existing"; character: Character; memories?: boolean } | { kind: "new"; draft: CharacterDraft });
+
+// Their card as it came, before any change here.
+const baseCardOf = (m: Member) => fitCardOf(m.kind === "existing" ? m.character : m.draft);
+const bareTie = (tie: string) => tie.replace(/^your\s+/i, "");
 
 // A live preview of the connections (#157), as on the canvas: you in the
 // middle, the cast around you, their ties as labelled lines.
@@ -106,6 +113,7 @@ const WorldWizardPage = () => {
   const [drafting, setDrafting] = useState(false);
   const [ties, setTies] = useState<WorldTie[]>([]);
   const [proposing, setProposing] = useState(false);
+  const [closeness, setCloseness] = useState<Closeness>("mix");
   const [personaId, setPersonaId] = useState("");
   const [living, setLiving] = useState(false);
   // AI help (#144): field suggestions, filling the rest, suggested people.
@@ -166,7 +174,7 @@ const WorldWizardPage = () => {
       const key = `n${Date.now()}`;
       setCast((list) => [...list, { key, kind: "new", draft, name: draft.name, description: draft.description, withYou: draft.relationship || "" }]);
       // The tie goes straight into Connections, both ways.
-      if (other && tie) setTies((list) => [...list, { a: other.key, b: key, aToB: `your ${tie.replace(/^your\s+/i, "")}`, bToA: `your ${mirrorTie(tie.replace(/^your\s+/i, ""))}` }]);
+      if (other && tie) setTies((list) => [...list, { a: other.key, b: key, aToB: `your ${tie.replace(/^your\s+/i, "")}`, bToA: `your ${mirrorTie(tie.replace(/^your\s+/i, ""))}`, kept: true }]);
       setIdea("");
       setLinkKey("");
       setLinkTie("");
@@ -177,14 +185,21 @@ const WorldWizardPage = () => {
     }
   };
 
+  // The mapper (#237) sees each person as changed here, keeps the ties you
+  // made or edited, and leaves who someone is to you when you typed it.
+  const mapperCast = (): CastMember[] => cast.map((m) => {
+    const card = { ...baseCardOf(m), ...currentFit(m.fit) };
+    return { key: m.key, name: m.name, description: card.description || m.description, about: card.prompt, withYou: m.withYou, withYouSet: m.withYouSet };
+  });
   const proposeConnections = async () => {
     setProposing(true);
     setError(null);
     try {
-      const reply = await dispatch(generateAssistText({ instruction: buildConnectionsPrompt(world, cast, userName) })).unwrap();
-      const parsed = parseConnections(reply, cast);
-      setTies(parsed.ties);
-      setCast((list) => list.map((m) => (parsed.withYou[m.key] ? { ...m, withYou: parsed.withYou[m.key] } : m)));
+      const people = mapperCast();
+      const reply = await dispatch(generateAssistText({ instruction: buildConnectionsPrompt(world, people, userName, { kept: ties.filter((t) => t.kept), closeness }) })).unwrap();
+      const parsed = parseConnections(reply, people);
+      setTies((list) => mergeSuggested(list, parsed.ties));
+      setCast((list) => list.map((m) => (parsed.withYou[m.key] && !m.withYouSet ? { ...m, withYou: parsed.withYou[m.key] } : m)));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't suggest connections. Try again.");
     } finally {
@@ -236,7 +251,7 @@ const WorldWizardPage = () => {
       const draft = parseCharacterDraft(await dispatch(generateAssistText({ instruction: buildCharacterDraftPrompt({ idea: castIdea(`${sg.name}: ${sg.idea}`, world, connection) }) })).unwrap());
       const key = `n${Date.now()}`;
       setCast((list) => [...list, { key, kind: "new", draft: { ...draft, name: sg.name }, name: sg.name, description: draft.description || sg.idea, withYou: draft.relationship || "" }]);
-      if (other && sg.tie) setTies((list) => [...list, { a: other.key, b: key, aToB: `your ${sg.tie}`, bToA: `your ${mirrorTie(sg.tie!)}` }]);
+      if (other && sg.tie) setTies((list) => [...list, { a: other.key, b: key, aToB: `your ${sg.tie}`, bToA: `your ${mirrorTie(sg.tie!)}`, kept: true }]);
       setSuggestions((list) => list.filter((x) => x.name !== sg.name));
     } catch (err) {
       setError(err instanceof Error ? err.message : `Couldn't add ${sg.name}.`);
@@ -249,11 +264,14 @@ const WorldWizardPage = () => {
   const addConnection = () => {
     for (const a of cast) for (const b of cast) {
       if (a.key === b.key || ties.some((t) => (t.a === a.key && t.b === b.key) || (t.a === b.key && t.b === a.key))) continue;
-      setTies((list) => [...list, { a: a.key, b: b.key, aToB: "your friend", bToA: "your friend" }]);
+      setTies((list) => [...list, { a: a.key, b: b.key, aToB: "your friend", bToA: "your friend", kept: true }]);
       return;
     }
   };
-  const setTie = (i: number, patch: Partial<WorldTie>) => setTies((list) => list.map((t, j) => (j === i ? { ...t, ...patch } : t)));
+  // Anything you change in a connection is yours to keep (#237).
+  const setTie = (i: number, patch: Partial<WorldTie>) => setTies((list) => list.map((t, j) => (j === i ? { ...t, ...patch, kept: true } : t)));
+  // Who this person is to the others, for their rewrite.
+  const tiesFor = (key: string) => ties.flatMap((t) => (t.a === key ? [`${nameOf(t.b)} is their ${bareTie(t.aToB)}`] : t.b === key ? [`${nameOf(t.a)} is their ${bareTie(t.bToA)}`] : []));
 
   const create = async () => {
     setCreating(true);
@@ -266,7 +284,10 @@ const WorldWizardPage = () => {
         const base = m.kind === "existing"
           ? worldCopy(m.character, saved.id, { memories: m.memories })
           : withDefaultLife({ ...m.draft, first_mes: m.draft.first_mes || undefined, accent: CHARACTER_SWATCHES[Math.floor(Math.random() * CHARACTER_SWATCHES.length)], worldId: saved.id });
-        const c = await dispatch(addCharacter({ ...base, relationship: m.withYou.trim() || base.relationship } as Omit<Character, "id">)).unwrap();
+        // What AI changed for this world (#237); a new opening leaves the old
+        // alternate openings behind, written for somewhere else.
+        const fit = currentFit(m.fit);
+        const c = await dispatch(addCharacter({ ...base, ...fit, ...(fit.first_mes ? { alternateGreetings: undefined } : {}), relationship: m.withYou.trim() || base.relationship } as Omit<Character, "id">)).unwrap();
         idOf[m.key] = c.id;
         made.push(c);
       }
@@ -346,11 +367,12 @@ const WorldWizardPage = () => {
               {cast.length > 0 && (
                 <ul aria-label="Cast" className="flex flex-col gap-1">
                   {cast.map((m) => (
-                    <li key={m.key} className="flex items-center gap-3 rounded-xl bg-raised px-3 py-2">
+                    <li key={m.key} className="flex flex-col gap-2 rounded-xl bg-raised px-3 py-2">
+                    <div className="flex items-center gap-3">
                       <CharacterAvatar name={m.name} imageSrc={m.kind === "existing" ? avatarOf(m.character) : undefined} size={36} />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-[14.5px] font-semibold text-foreground">{m.name}</div>
-                        <div className="truncate text-[12.5px] text-muted-foreground">{m.kind === "new" ? "New" : `From ${worldName(worldOf(m.character, worlds), worlds)}`}{m.description ? ` · ${m.description}` : ""}</div>
+                        <div className="truncate text-[12.5px] text-muted-foreground">{m.kind === "new" ? "New" : `From ${worldName(worldOf(m.character, worlds), worlds)}`}{(currentFit(m.fit).description || m.description) ? ` · ${currentFit(m.fit).description || m.description}` : ""}</div>
                       </div>
                       {m.kind === "existing" && (
                         <label className="flex items-center gap-2 text-[12.5px] text-muted-foreground" title="With their memories, or a fresh start here">
@@ -359,6 +381,18 @@ const WorldWizardPage = () => {
                         </label>
                       )}
                       <Button type="button" variant="ghost" size="icon" aria-label={`Remove ${m.name}`} onClick={() => { setCast((list) => list.filter((x) => x.key !== m.key)); setTies((list) => list.filter((t) => t.a !== m.key && t.b !== m.key)); }}><FaTimes size={12} /></Button>
+                    </div>
+                    {/* Fit to this world, or change with AI (#237). */}
+                    <CastFitPanel
+                      name={m.name}
+                      base={baseCardOf(m)}
+                      traits={m.kind === "existing" ? m.character.personalityTraits : m.draft.personalityTraits}
+                      joining={m.kind === "existing"}
+                      world={world}
+                      ties={tiesFor(m.key)}
+                      history={m.fit}
+                      onChange={(fit) => setCast((list) => list.map((x) => (x.key === m.key ? { ...x, fit } : x)))}
+                    />
                     </li>
                   ))}
                 </ul>
@@ -410,8 +444,15 @@ const WorldWizardPage = () => {
             <Card className="p-6 flex flex-col gap-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="font-semibold text-[15px] text-foreground flex items-center gap-2"><FaLink size={13} className="text-subtle" /> How they're connected</h3>
-                <Button type="button" variant="outline" onClick={() => void proposeConnections()} disabled={proposing}><FaMagic size={11} /> {proposing ? "Thinking..." : ties.length ? "Suggest again" : "Suggest connections"}</Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* How many know each other (#237). */}
+                  <Select aria-label="How connected" value={closeness} onChange={(e) => setCloseness(e.target.value as Closeness)} className="h-9 w-[130px]">
+                    {(Object.keys(CLOSENESS_LABELS) as Closeness[]).map((k) => <option key={k} value={k}>{CLOSENESS_LABELS[k]}</option>)}
+                  </Select>
+                  <Button type="button" variant="outline" onClick={() => void proposeConnections()} disabled={proposing}><FaMagic size={11} /> {proposing ? "Thinking..." : ties.length ? "Suggest again" : "Suggest connections"}</Button>
+                </div>
               </div>
+              {ties.some((t) => t.kept) && <p className="-mt-2 text-xs text-subtle">Connections you made or changed stay when you suggest again.</p>}
               <ul aria-label="Connections" className="flex flex-col gap-2">
                 {ties.map((t, i) => (
                   <li key={`${t.a}-${t.b}-${i}`} className="flex flex-wrap items-center gap-2 rounded-xl bg-raised px-3 py-2 text-[13.5px]">
@@ -427,6 +468,8 @@ const WorldWizardPage = () => {
                     <span className="text-subtle">and {nameOf(t.a)} is their</span>
                     <TextInput list="tie-choices" aria-label={`What ${nameOf(t.a)} is to ${nameOf(t.b)}`} value={t.bToA.replace(/^your\s+/i, "")} onChange={(e) => setTie(i, { bToA: `your ${e.target.value}` })} className="h-8 w-[160px]" />
                     <Button type="button" variant="ghost" size="icon" aria-label="Remove connection" onClick={() => setTies((list) => list.filter((_, j) => j !== i))}><FaTimes size={12} /></Button>
+                    {/* How they know each other (#237): their chats and talks use it. */}
+                    <TextInput aria-label={`How ${nameOf(t.a)} and ${nameOf(t.b)} know each other`} value={t.story || ""} onChange={(e) => setTie(i, { story: e.target.value })} placeholder="How they know each other, e.g. grew up next door" className="h-8 w-full basis-full" />
                   </li>
                 ))}
               </ul>
@@ -441,7 +484,7 @@ const WorldWizardPage = () => {
                   {cast.map((m) => (
                     <li key={m.key} className="flex items-center gap-3">
                       <span className="w-[120px] truncate text-[13.5px] font-semibold">{m.name}</span>
-                      <TextInput list="you-choices" aria-label={`${m.name} to you`} value={m.withYou} onChange={(e) => setCast((list) => list.map((x) => (x.key === m.key ? { ...x, withYou: e.target.value } : x)))} placeholder="e.g. Neighbour you've never spoken to" className="flex-1" />
+                      <TextInput list="you-choices" aria-label={`${m.name} to you`} value={m.withYou} onChange={(e) => setCast((list) => list.map((x) => (x.key === m.key ? { ...x, withYou: e.target.value, withYouSet: true } : x)))} placeholder="e.g. Neighbour you've never spoken to" className="flex-1" />
                     </li>
                   ))}
                 </ul>

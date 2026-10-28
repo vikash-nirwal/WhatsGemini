@@ -24,13 +24,13 @@ export const RelationshipsSection = ({ character }: { character: Character }) =>
   const me = characters.find((c) => c.id === character.id) || character;
   const sameWorld = characters.filter((c) => c.id !== me.id && worldOf(c, worlds) === worldOf(me, worlds));
   const ties = tiesOf(me, characters);
-  const [editing, setEditing] = useState<{ otherId: number | null; toMe: string; toThem: string } | null>(null);
+  const [editing, setEditing] = useState<{ otherId: number | null; toMe: string; toThem: string; story: string } | null>(null);
   const others = sameWorld.filter((c) => editing?.otherId === c.id || !ties.some((t) => t.other.id === c.id));
   const other = sameWorld.find((c) => c.id === editing?.otherId);
 
   const save = async () => {
     if (!editing || !other || !editing.toMe.trim()) return;
-    const [a, b] = withTie(me, other, editing.toMe, editing.toThem);
+    const [a, b] = withTie(me, other, editing.toMe, editing.toThem, editing.story);
     await dispatch(updateCharacter(a));
     await dispatch(updateCharacter(b));
     const world = worlds.find((w) => w.id === me.worldId);
@@ -56,8 +56,9 @@ export const RelationshipsSection = ({ character }: { character: Character }) =>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[14px] font-semibold text-foreground">{t.other.name} · {t.toMe}</span>
                 {t.toThem && <span className="block truncate text-[12.5px] text-subtle">{me.name} is {t.other.name}'s {t.toThem}</span>}
+                {t.story && <span className="block text-[12.5px] text-muted-foreground">{t.story}</span>}
               </span>
-              <Button type="button" variant="ghost" size="icon" className="h-9 w-9" aria-label={`Edit ${me.name} and ${t.other.name}`} onClick={() => setEditing({ otherId: t.other.id, toMe: t.toMe, toThem: t.toThem })}><FaPen size={11} /></Button>
+              <Button type="button" variant="ghost" size="icon" className="h-9 w-9" aria-label={`Edit ${me.name} and ${t.other.name}`} onClick={() => setEditing({ otherId: t.other.id, toMe: t.toMe, toThem: t.toThem, story: t.story || "" })}><FaPen size={11} /></Button>
               <Button type="button" variant="ghost" size="icon" className="h-9 w-9" aria-label={`Remove ${me.name} and ${t.other.name}`} onClick={() => void remove(t.other)}><FaTimes size={12} /></Button>
             </li>
           ))}
@@ -79,6 +80,10 @@ export const RelationshipsSection = ({ character }: { character: Character }) =>
                 {me.name} is {other.name}'s
                 <Input value={editing.toThem} onChange={(e) => setEditing({ ...editing, toThem: e.target.value })} placeholder="little brother, ex, rival at work…" />
               </label>
+              <label className="flex flex-col gap-1 text-[12.5px] text-muted-foreground">
+                How they know each other
+                <Input value={editing.story} onChange={(e) => setEditing({ ...editing, story: e.target.value })} placeholder="grew up next door; fell out over the boat…" />
+              </label>
             </>
           )}
           <div className="flex justify-end gap-2">
@@ -88,7 +93,7 @@ export const RelationshipsSection = ({ character }: { character: Character }) =>
         </div>
       ) : (
         others.length > 0 && (
-          <button type="button" onClick={() => setEditing({ otherId: null, toMe: "", toThem: "" })} className="flex min-h-12 w-full items-center gap-2 border-t border-border text-[14px] font-semibold text-primary-text">
+          <button type="button" onClick={() => setEditing({ otherId: null, toMe: "", toThem: "", story: "" })} className="flex min-h-12 w-full items-center gap-2 border-t border-border text-[14px] font-semibold text-primary-text">
             <FaPlus size={11} /> Add a relationship
           </button>
         )

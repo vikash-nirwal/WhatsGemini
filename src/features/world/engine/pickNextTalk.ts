@@ -1,4 +1,5 @@
-import { Character } from "../../../types";
+import { Character, Chat } from "../../../types";
+import { acquainted } from "../meetings";
 import { awakeAt } from "../../character/firstTexts";
 import { lifeScaled } from "../../life/lifeDial";
 import { fairOrder, markServed } from "../../life/scheduler";
@@ -14,7 +15,8 @@ import { goalsClash } from "../goals";
 // first, and within it the pair who've gone longest without talking.
 // Picking one pair across every world let a world with many people crowd
 // out the others.
-export const pickNextTalk = (characters: Character[], worlds: Parameters<typeof pickWorldTalk>[1], now: number): [Character, Character] | undefined => {
+// `chats`: people in a group chat together know each other (#236).
+export const pickNextTalk = (characters: Character[], worlds: Parameters<typeof pickWorldTalk>[1], now: number, chats: Chat[] = []): [Character, Character] | undefined => {
   const opts = { gapMs: lifeScaled(WORLD_TALK_GAP_MS), awake: (c: Character) => awakeAt(c, now) };
   // A world on world turns (#212) has its talk there.
   const ids = [null, ...worlds.map((w) => w.id).filter((id) => !featureOn(id, "worldTurn"))];
@@ -27,7 +29,7 @@ export const pickNextTalk = (characters: Character[], worlds: Parameters<typeof 
     // Each at their own pace (#223), and sooner when their goals clash (#221).
     const gapFor = (a: Character, b: Character) =>
       (drift ? talkGapFor(opts.gapMs, a, b, now) : opts.gapMs) * settingGapFactor(talkSettingFor(a, b, world, now)) * paceFactor(a, b, now) * (goalsClash(a, b) ? 0.6 : 1);
-    const pair = pickWorldTalk(characters, worlds, now, { ...opts, worldAllowed: (w) => w === worldId, gapFor });
+    const pair = pickWorldTalk(characters, worlds, now, { ...opts, worldAllowed: (w) => w === worldId, gapFor, known: (a, b) => acquainted(a, b, { chats, world }) });
     if (pair) {
       markServed("world-talk", worldId, now);
       return pair;

@@ -4,6 +4,7 @@ import { Character, World, WorldTalk } from "../../types";
 import { worldOf } from "./currentWorld";
 import { SHARE_ASK } from "./knowledge";
 import { GOAL_ASK, goalLine } from "./goals";
+import { Acquaintance, acquainted, Meeting, meetingLine } from "./meetings";
 
 // Life inside a world (#145): characters who know each other text on their
 // own, one helper call per exchange. Who talks follows "who knows whom"
@@ -16,11 +17,11 @@ const NOTE_FRESH_MS = 2 * 24 * 60 * 60 * 1000;
 
 const holderOf = (a: number, b: number) => Math.min(a, b);
 
-// People in the same made world know each other too: a world you never set
-// connections for used to have no talk at all (the user's report,
-// 2026-10-26). My world stays as it was - there, only ties and knowsAbout.
-export const knowEachOther = (a: Character, b: Character) =>
-  Boolean(a.knowsAbout?.includes(b.id) || b.knowsAbout?.includes(a.id) || a.ties?.some((t) => t.withId === b.id) || b.ties?.some((t) => t.withId === a.id) || (a.worldId != null && a.worldId === b.worldId));
+// Whether two people know each other well enough to talk on their own. Only
+// the acquainted do (#236): tied, knowing of each other, having met, in a
+// group or a family together. Strangers in a made world meet first
+// (meetings.ts), so a world you never set connections for still comes alive.
+export const knowEachOther = (a: Character, b: Character, ctx?: Acquaintance) => acquainted(a, b, ctx);
 
 export const talksBetween = (characters: Character[], a: number, b: number): WorldTalk[] => {
   const holder = characters.find((c) => c.id === holderOf(a, b));
@@ -38,14 +39,15 @@ export const pickWorldTalk = (
     awake = (): boolean => true,
     worldAllowed = (): boolean => true,
     gapFor,
-  }: { gapMs?: number; awake?: (c: Character) => boolean; worldAllowed?: (worldId: number | null) => boolean; gapFor?: (a: Character, b: Character) => number } = {}
+    known = knowEachOther,
+  }: { gapMs?: number; awake?: (c: Character) => boolean; worldAllowed?: (worldId: number | null) => boolean; gapFor?: (a: Character, b: Character) => number; known?: (a: Character, b: Character) => boolean } = {}
 ): [Character, Character] | undefined => {
   let best: { pair: [Character, Character]; last: number } | undefined;
   for (let i = 0; i < characters.length; i++) {
     for (let j = i + 1; j < characters.length; j++) {
       const a = characters[i], b = characters[j];
       const world = worldOf(a, worlds);
-      if (world !== worldOf(b, worlds) || !worldAllowed(world) || !knowEachOther(a, b)) continue;
+      if (world !== worldOf(b, worlds) || !worldAllowed(world) || !known(a, b)) continue;
       const last = talksBetween(characters, a.id, b.id).reduce((m, t) => Math.max(m, t.at), 0);
       if (now - last < (gapFor ? gapFor(a, b) : gapMs) || !awake(a) || !awake(b)) continue;
       if (!best || last < best.last) best = { pair: a.id < b.id ? [a, b] : [b, a], last };
@@ -55,6 +57,8 @@ export const pickWorldTalk = (
 };
 
 const tieOf = (from: Character, to: Character) => from.ties?.find((t) => t.withId === to.id)?.tie;
+// How they know each other (#237), from either side.
+const storyOf = (from: Character, to: Character) => from.ties?.find((t) => t.withId === to.id)?.story || to.ties?.find((t) => t.withId === from.id)?.story;
 
 // What a talk is about (#159): picked each time so their threads vary, and
 // so the user - whom the roleplay is for - comes up now and then.
@@ -122,7 +126,7 @@ const TOPIC_ASK = (t: TalkTopic, a: Character, b: Character, userName: string, w
 export const buildWorldTalkPrompt = (
   a: Character,
   b: Character,
-  { world, userName, maxLines, previous, topic = "lives", knows, news, askTie, groups, sceneNow, share, goals, standing, setting = { kind: "texts" }, extras, askPeople, canon }: {
+  { world, userName, maxLines, previous, topic = "lives", knows, news, askTie, groups, sceneNow, share, goals, standing, setting = { kind: "texts" }, extras, askPeople, canon, meeting }: {
     world?: World;
     userName: string;
     maxLines: number;
@@ -140,10 +144,11 @@ export const buildWorldTalkPrompt = (
     extras?: string; // the people around who aren't characters (#218)
     askPeople?: boolean; // ask for a PERSON line when someone new comes up (#218)
     canon?: string; // what's settled in this world (#220)
+    meeting?: Meeting; // their first meeting (#236)
   }
 ) => {
   const who = (c: Character, other: Character) =>
-    `${c.name}: ${[c.description, c.prompt].filter(Boolean).join(" ").slice(0, 500)}${tieOf(c, other) ? ` (${other.name} is ${c.name}'s ${tieOf(c, other)!.replace(/^your\s+/i, "")})` : ""}${c.dayLog?.text ? `\nTheir day so far: ${c.dayLog.text.slice(0, 300)}` : ""}${c.lifeEvents?.length ? `\nLately in their life: ${c.lifeEvents.slice(-2).map((e) => e.text).join(" ")}` : ""}${groups?.[c.id]?.length ? `\nBelongs to: ${groups[c.id].join(", ")} (loyal to their own)` : ""}${goals && goalLine(c) ? `\n${goalLine(c)}` : ""}`;
+    `${c.name}: ${[c.description, c.prompt].filter(Boolean).join(" ").slice(0, 500)}${tieOf(c, other) ? ` (${other.name} is ${c.name}'s ${tieOf(c, other)!.replace(/^your\s+/i, "")}${storyOf(c, other) ? `: ${storyOf(c, other)}` : ""})` : ""}${c.dayLog?.text ? `\nTheir day so far: ${c.dayLog.text.slice(0, 300)}` : ""}${c.lifeEvents?.length ? `\nLately in their life: ${c.lifeEvents.slice(-2).map((e) => e.text).join(" ")}` : ""}${groups?.[c.id]?.length ? `\nBelongs to: ${groups[c.id].join(", ")} (loyal to their own)` : ""}${goals && goalLine(c) ? `\n${goalLine(c)}` : ""}`;
   const knowing = (c: Character) => {
     const k = knows?.[c.id];
     if (!k) return undefined;
@@ -152,7 +157,9 @@ export const buildWorldTalkPrompt = (
   const names = { [a.id]: a.name, [b.id]: b.name };
   const tie = tieOf(a, b)?.replace(/^your\s+/i, "");
   return [
-    `${settingOpening(setting, a.name, b.name)}, who know each other${world ? ` and live in ${world.name}: ${world.premise}` : ""}. ${userName} isn't in it.`,
+    meeting
+      ? `${settingOpening(setting, a.name, b.name)}${world ? `, who both live in ${world.name}: ${world.premise}` : ""}. ${meetingLine(meeting, userName)}`
+      : `${settingOpening(setting, a.name, b.name)}, who know each other${world ? ` and live in ${world.name}: ${world.premise}` : ""}. ${userName} isn't in it.`,
     // God mode (#160): what the author made true holds here too.
     ...(world?.godTruths?.length ? [`Simply true in this world (never question it): ${world.godTruths.join("; ")}.`] : []),
     ...(canon ? [canon] : []),
@@ -166,10 +173,11 @@ export const buildWorldTalkPrompt = (
     ...(previous?.lines.length ? ["", previous.medium === "letters" ? "Their last letters:" : previous.medium === "in person" ? "The last time they talked:" : "The last time they texted:", ...previous.lines.map((l) => `${names[l.speakerId] || "?"}: ${l.text}`)] : []),
     ...(share?.text ? ["", share.text] : []),
     "",
-    `What it's about this time: ${TOPIC_ASK(topic, a, b, userName, world?.name, news, groups)}`,
+    meeting ? "What it's about: who they are, what they do, how they know the town and the people in it; small talk that may or may not go somewhere." : `What it's about this time: ${TOPIC_ASK(topic, a, b, userName, world?.name, news, groups)}`,
     "",
     settingFormat(setting, a.name, maxLines),
-    tie || a.knowsAbout?.includes(b.id) || b.knowsAbout?.includes(a.id)
+    meeting ? "- Strangers meeting: no shared history, no nicknames, nothing either couldn't know yet."
+    : tie || a.knowsAbout?.includes(b.id) || b.knowsAbout?.includes(a.id)
       ? `- ${setting.kind === "texts" ? "Text" : setting.kind === "letters" ? "Write" : "Talk"} the way ${tie ? `a ${tie} and ` : "people "}who know each other this well do: siblings bicker, exes are careful, old friends use shorthand, new acquaintances are polite.`
       // Neighbours in the same world who've never been connected (#181).
       : `- They only know each other a little, as people in the same place do: polite, curious, a bit careful - no shared history unless it comes up here.`,

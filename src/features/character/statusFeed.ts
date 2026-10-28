@@ -1,3 +1,4 @@
+import { acquainted } from "../world/meetings";
 import { Character, CharacterStatus, Chat, StatusComment } from "../../types";
 import { statusLifetimeMs } from "./statusUpdates";
 
@@ -17,13 +18,14 @@ export interface FeedPeer {
   feeling?: string; // how they feel about the poster, from a shared room (#24)
 }
 
-// Who would see the poster's status: room-mates and characters who know of
-// them, either way round.
+// Who would see the poster's status: whoever knows them (#236) - tied,
+// having met, knowing of them, or in a group chat together - never a
+// stranger who happens to live in the same world.
 export const feedPeersFor = (poster: Character, characters: Character[], chats: Chat[]): FeedPeer[] => {
   const rooms = chats.filter((c) => (c.characterIds?.length || 0) > 1 && c.characterIds!.includes(poster.id));
   return characters
     .filter((c) => c.id !== poster.id)
-    .filter((c) => rooms.some((r) => r.characterIds!.includes(c.id)) || c.knowsAbout?.includes(poster.id) || poster.knowsAbout?.includes(c.id))
+    .filter((c) => acquainted(c, poster, { chats: rooms }))
     .slice(0, MAX_PEERS)
     .map((c) => ({
       character: c,

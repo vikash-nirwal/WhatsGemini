@@ -23,6 +23,8 @@ import { pointsLine } from "../pointsNotes";
 import { linesFor, talkSettingFor } from "../talkMedium";
 import { EngineDispatch, engineState, GetState } from "./state";
 import { pickNextTalk } from "./pickNextTalk";
+import { dueMeeting, metWith } from "../meetings";
+import type { TalkSetting } from "../talkMedium";
 
 // Life inside a world (#145): two characters who know each other text on
 // their own, one pair per check, on the helper model. You only see it
@@ -30,15 +32,21 @@ import { pickNextTalk } from "./pickNextTalk";
 // afterwards are read from the same reply.
 export const worldTalkTurn = (now: number) => async (dispatch: EngineDispatch, getState: GetState) => {
   const { characters, worlds, userName, chats, channels } = engineState(getState);
-  const pair = pickNextTalk(characters, worlds, now);
+  // Strangers meet first (#236): a made world due a meeting has one, in
+  // person, before anyone's usual talk. Claimed first, so a failed call
+  // waits for the next day rather than trying again at once.
+  const meeting = dueMeeting(characters, worlds, chats, now);
+  if (meeting) await dispatch(patchWorld(meeting.a.worldId!, { lastMeetingAt: now }));
+  const pair: [Character, Character] | undefined = meeting ? (meeting.a.id < meeting.b.id ? [meeting.a, meeting.b] : [meeting.b, meeting.a]) : pickNextTalk(characters, worlds, now, chats);
   if (!pair) return;
   const [a, b] = pair;
   const worldId = worldOf(a, worlds);
   const fresh = (id: number) => engineState(getState).characters.find((c) => c.id === id);
-  const previous = talksBetween(characters, a.id, b.id).slice(-1)[0];
+  const previous = meeting ? undefined : talksBetween(characters, a.id, b.id).slice(-1)[0];
   const talkWorld = worlds.find((w) => w.id === worldId);
-  // Texts, letters, or in person where they both are (#216).
-  const setting = talkSettingFor(a, b, talkWorld, now);
+  // Texts, letters, or in person where they both are (#216); a first
+  // meeting is always in person.
+  const setting: TalkSetting = meeting ? { kind: "in person", ...(meeting.place ? { place: meeting.place } : {}) } : talkSettingFor(a, b, talkWorld, now);
   const maxLines = linesFor(setting, talkLengthFor(worldId));
   // A topic each time (#159), now and then the user - with what each of
   // them actually knows about them. A world event going on (#162) is the
@@ -56,7 +64,7 @@ export const worldTalkTurn = (now: number) => async (dispatch: EngineDispatch, g
   // With drift on, a tie that's under strain (#211) may change whatever
   // the talk is about, and the prompt hears how the two stand lately.
   const drift = featureOn(worldId, "drift");
-  const askTie = drift && (tieMayChange(topic) || tieUnderStrain(a, b.id, now) || tieUnderStrain(b, a.id, now));
+  const askTie = !meeting && drift && (tieMayChange(topic) || tieUnderStrain(a, b.id, now) || tieUnderStrain(b, a.id, now));
   // Goals that clash (#221) are on their minds whether or not drift is on.
   // Points (#234): how each scores the other, with that switch on.
   const standing = [drift ? standingLine(a, b, now) : undefined, featureOn(worldId, "goals") ? clashLine(a, b) : undefined, pointsLine(a, b, now)].filter(Boolean).join(" ") || undefined;
@@ -94,7 +102,7 @@ export const worldTalkTurn = (now: number) => async (dispatch: EngineDispatch, g
     askPeople: extrasOn,
   };
   const reply = await dispatch(generateAssistText({
-    instruction: buildWorldTalkPrompt(ga, gb, { goals, world: talkWorld, userName, maxLines, previous, topic, news, askTie, standing, setting, ...talkContext, groups, sceneNow: buildSceneNow(talkWorld, [a, b], now), share, knows: { [a.id]: knowledge(a), [b.id]: knowledge(b) } }),
+    instruction: buildWorldTalkPrompt(ga, gb, { goals, world: talkWorld, userName, maxLines, previous, topic, news, askTie, standing, setting, ...talkContext, groups, sceneNow: buildSceneNow(talkWorld, [a, b], now), share, knows: { [a.id]: knowledge(a), [b.id]: knowledge(b) }, ...(meeting ? { meeting } : {}) }),
     background: true,
     activity: { at: now, kind: "talk", text: `${a.name} and ${b.name} texted`, characterId: a.id, name: a.name },
   })).unwrap();
@@ -128,6 +136,12 @@ export const worldTalkTurn = (now: number) => async (dispatch: EngineDispatch, g
   // Kept, closer, friends, a changed tie (#145, #163, #181, #211), last,
   // as before, so a changed tie is the newest thing in the record.
   await dispatch(afterTalk({ a, b, worldId, world: talkWorld, lines, setting, change: askTie && lines.length ? parseTieChange(reply) : undefined, now }));
+  // They've met (#236): from now on they may talk on their own.
+  if (meeting && lines.length) {
+    await dispatch(patchCharacter(a.id, (latest) => metWith(latest, b.id)));
+    await dispatch(patchCharacter(b.id, (latest) => metWith(latest, a.id)));
+    void logToTimeline(worldId, { kind: "tie", text: `${a.name} and ${b.name} met${meeting.via ? ` (${meeting.via.name} introduced them)` : meeting.place ? ` at ${meeting.place}` : ""}`, characterIds: [a.id, b.id, ...(meeting.via ? [meeting.via.id] : [])], audience: "private", at: now }, talkWorld?.storyTime);
+  }
   // Memory condensing (#207): one of them who knows a lot folds the oldest
   // into a line, at most one a check.
   const timeline = await loadTimeline(worldId);

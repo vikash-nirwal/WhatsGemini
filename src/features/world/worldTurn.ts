@@ -7,6 +7,7 @@ import { linesFor, TalkSetting } from "./talkMedium";
 import { paceFactor } from "./activity";
 import type { FoundPerson } from "./extras";
 import { knowEachOther, talksBetween } from "./worldTalk";
+import type { Acquaintance } from "./meetings";
 
 // One world-turn call (#212). With the switch on, a world's talk, events
 // and life events come from one structured call every few hours instead of
@@ -23,12 +24,13 @@ export const worldTurnDue = (world: Pick<World, "lastTurnAt">, now: number, gapM
 
 // Who may talk this turn: pairs who know each other, are both awake and
 // haven't talked for a while, longest-quiet first, a few at most.
-export const dueTalkPairs = (cast: Character[], now: number, gapMs: number, max = 4): [Character, Character][] => {
+// `ctx`: group chats and factions count as knowing each other (#236).
+export const dueTalkPairs = (cast: Character[], now: number, gapMs: number, max = 4, ctx?: Acquaintance): [Character, Character][] => {
   const pairs: { pair: [Character, Character]; last: number }[] = [];
   for (let i = 0; i < cast.length; i++) {
     for (let j = i + 1; j < cast.length; j++) {
       const [a, b] = cast[i].id < cast[j].id ? [cast[i], cast[j]] : [cast[j], cast[i]];
-      if (!knowEachOther(a, b) || !awakeAt(a, now) || !awakeAt(b, now)) continue;
+      if (!knowEachOther(a, b, ctx) || !awakeAt(a, now) || !awakeAt(b, now)) continue;
       const last = talksBetween(cast, a.id, b.id).reduce((m, t) => Math.max(m, t.at), 0);
       // Each at their own pace (#223).
       if (now - last >= gapMs * paceFactor(a, b, now)) pairs.push({ pair: [a, b], last });

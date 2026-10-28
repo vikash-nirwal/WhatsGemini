@@ -719,6 +719,7 @@ export interface Character {
   writesLetters?: boolean; // writes you a letter after a few days away (#61)
   intimacy?: IntimacyProfile; // romance details, sent only when the scene is romantic (#73)
   knowsAbout?: number[]; // other characters whose bond with you this one knows of (#74)
+  met?: number[]; // people in their world they've met, with no tie yet (#236)
   album?: AlbumPhoto[]; // private album (#75)
   gifts?: Gift[]; // given both ways, oldest first (#82)
   secrets?: CharacterSecret[]; // #81
@@ -815,7 +816,7 @@ export interface Character {
   cardOf?: number;
   // How they're tied to others in their world (#144): "your older brother",
   // "your rival at the shipyard". Set by the world wizard; per world.
-  ties?: { withId: number; tie: string }[];
+  ties?: { withId: number; tie: string; story?: string }[]; // story: how they know each other (#237)
   bonds?: import("../features/world/bonds").Bond[]; // how close and how tense with each person they know (#211)
   mood?: import("../features/world/bonds").Mood; // their own mood, fading back to even (#211)
   youPoints?: import("../features/world/points").Points; // their traits toward you, 0-10, with the world's Points on (#234)
@@ -954,6 +955,7 @@ export interface World {
   lastNewcomerAt?: number; // when the world last suggested a newcomer (#164)
   newcomer?: { name: string; idea: string; tieWith?: string; tie?: string; at: number }; // someone who just arrived, waiting for you to welcome them
   lastTurnAt?: number; // when the world last had a world turn (#212)
+  lastMeetingAt?: number; // when two strangers here last met (#236)
   catchUp?: { text: string; from: number; to: number }; // the story of your last absence (#213)
   extras?: { name: string; about: string; tiedTo?: number; at: number }[]; // people around who aren't characters (#218)
   placeStates?: { pinId: string; text: string; until: number }[]; // how a place is for a while, after an event (#219)
