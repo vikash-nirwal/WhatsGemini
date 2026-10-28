@@ -10,7 +10,7 @@ import { useColorTheme } from "../hooks/useColorTheme";
 import { addCharacter, deleteCharacter } from "../features/characterSlice";
 import { addChat, fetchChats } from "../features/chatSlice";
 import { useNavigate } from "react-router-dom";
-import { FaTrash, FaEdit, FaDownload, FaImages, FaPlus, FaEllipsisV, FaSearch, FaCopy, FaFileImage, FaUpload, FaBook, FaUndo } from "react-icons/fa";
+import { FaTrash, FaEdit, FaDownload, FaImages, FaPlus, FaEllipsisV, FaSearch, FaCopy, FaFileImage, FaUpload, FaBook, FaUndo, FaMagic } from "react-icons/fa";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "src/components/molecules/dropdown-menu";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { setShowNsfwCharacters } from "../features/settingsSlice";
@@ -248,6 +248,11 @@ const CharacterPage = () => {
       <DropdownMenuItem onSelect={() => navigate(`/characters/${char.id}/gallery`)}>
         <FaImages className="mr-2 h-4 w-4" />
         <span>View Gallery</span>
+      </DropdownMenuItem>
+      {/* The image playground (#238), with them picked. */}
+      <DropdownMenuItem onSelect={() => navigate(`/images?character=${char.id}`)}>
+        <FaMagic className="mr-2 h-4 w-4" />
+        <span>Try pictures</span>
       </DropdownMenuItem>
       <DropdownMenuItem onSelect={() => handleExportCharacter(char)}>
         <FaDownload className="mr-2 h-4 w-4" />

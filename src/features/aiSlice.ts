@@ -13,8 +13,9 @@ import { performChatCompression, buildValidHistory, buildAutoCompressedMessages,
 import { AI, getModelPricing, ART_STYLE_CLAUSES, DEFAULT_ART_STYLE } from "../utils/constants";
 import { getProviderApiKey, getOllamaBaseUrl, getWanBaseUrl } from "./ai/utils/settings";
 import { extractAndSaveBase64ImagesLocally, stripLeakedBase64 } from "./ai/utils/apiUtils";
-import { composeImagePrompt, deriveImagePrompt, generateImage, IMAGE_PROMPT_REFUSED_MESSAGE, IMAGE_PROMPT_REFUSED_WARNING, RoomReferenceCharacter } from "./ai/utils/imageGeneration";
+import { composeImagePrompt, deriveImagePrompt, generateImage, IMAGE_PROMPT_REFUSED_MESSAGE, IMAGE_PROMPT_REFUSED_WARNING, ImagePromptRefusedError, RoomReferenceCharacter } from "./ai/utils/imageGeneration";
 import { ImagePromptTarget, resolveImagePromptTarget } from "./ai/utils/imagePromptGuide";
+import { nameLabels, withoutNames } from "./ai/utils/hideNames";
 import { generateVideo } from "./ai/utils/videoGeneration";
 import { extractEmotionTag } from "./ai/utils/emotionUtils";
 import { extractCorrection, extractReactionTag, extractThoughts } from "./ai/utils/messageTags";
@@ -925,6 +926,59 @@ export const generateAdventureSceneImage = createAsyncThunk(
     } catch (error: any) {
       console.error("Adventure scene image error:", error);
       return rejectWithValue(error.message || "Failed to illustrate the scene.");
+    }
+  }
+);
+
+// The image playground (#238): a picture from your own prompt and the
+// reference photos you pick, with the image provider from Settings, to try
+// prompts, models and references without a chat. Nothing is saved: the
+// picture comes back as data for the page, and no chat, character or
+// album is touched.
+export interface PlaygroundPerson {
+  name: string;
+  images: string[]; // the reference photos chosen for this try
+  visualTags?: string; // their locked look (#34), when "add locked looks" is on
+}
+export const generatePlaygroundImage = createAsyncThunk(
+  "ai/generatePlaygroundImage",
+  async (
+    { prompt, people, aspectRatio, artStyle, writeWithAI, addLocks, model }: { prompt: string; people: PlaygroundPerson[]; aspectRatio: string; artStyle: ArtStyle; writeWithAI: boolean; addLocks: boolean; model?: string },
+    { getState, rejectWithValue, signal }
+  ) => {
+    try {
+      const settings = (getState() as RootState).settings;
+      const imageProviderId = settings.imageProvider;
+      const useSdWebui = imageProviderId === "sdwebui";
+      const imageConfig = useSdWebui ? { apiKey: null } : await resolveProviderConfig(imageProviderId, IMAGE_PROVIDERS[imageProviderId]?.capabilities.requiresBaseUrl || false);
+      const imageModelName = model?.trim() || settings.imageModel;
+      const target = resolveImagePromptTarget({ providerId: imageProviderId, imageModel: imageModelName, sdWebuiModel: settings.sdWebuiModel, hasReference: people.some((p) => p.images.length > 0), artStyle });
+      // As written, or written by the helper the way a chat picture is.
+      let finalPrompt = prompt.trim();
+      if (writeWithAI) {
+        const helper = await resolveHelperCall(settings);
+        finalPrompt = (await composeImagePrompt(helper.adapter, helper.config, helper.model, { target, scene: finalPrompt, baseStyle: settings.imageGenPrompt, artStyleClause: ART_STYLE_CLAUSES[artStyle], safetySettings: settings.safetySettings, signal })).prompt;
+      }
+      if (addLocks) finalPrompt = applyAppearanceLocks(finalPrompt, people.flatMap((p) => (p.visualTags?.trim() ? [{ name: p.name, visualTags: p.visualTags.trim() }] : [])), target.tags ? "tags" : "sentences");
+      const started = Date.now();
+      // One person goes as the picture's subject, as in a 1:1 chat; several
+      // go as named references, as in a group. Everyone picked is named so
+      // their name is kept from the image model, photos or not.
+      const group = people.length > 1;
+      const one = people[0];
+      const result = await generateImage(
+        imageProviderId, imageConfig, useSdWebui, imageModelName, finalPrompt, {},
+        group || !one?.images.length ? undefined : one.images, group ? undefined : one?.name,
+        settings.safetySettings, signal, settings.geminiImageSize, aspectRatio,
+        group ? people.map((p) => ({ name: p.name, images: p.images })) : undefined,
+        undefined, artStyle, toneRewriter(settings)
+      );
+      // The prompt as the image model got it: names swapped the same way.
+      const sent = withoutNames(finalPrompt, nameLabels(group ? [undefined, ...people.map((p) => p.name)] : [one?.name]));
+      return { images: result.images, prompt: sent, warning: result.warning?.replace(/^\s*\[Warning: |\]\s*$/g, "").trim() || undefined, ms: Date.now() - started, model: imageModelName, provider: imageProviderId };
+    } catch (error: any) {
+      if (error instanceof ImagePromptRefusedError) return rejectWithValue(IMAGE_PROMPT_REFUSED_MESSAGE);
+      return rejectWithValue(error?.message || "Couldn't make the picture.");
     }
   }
 );

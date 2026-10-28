@@ -982,6 +982,13 @@ const SettingsPage = () => {
                   />
                 )}
 
+                {/* The image playground (#238): try it out without a chat. */}
+                {selectedSection === "image" && (
+                  <button type="button" onClick={() => navigate("/images")} className="mb-3 flex w-full items-center justify-between rounded-card bg-raised px-4 py-3 text-left text-[14px] font-semibold text-foreground ring-1 ring-inset ring-border hover:ring-primary/50">
+                    <span>Image playground<span className="block text-[12.5px] font-normal text-muted-foreground">Try prompts, models and reference photos without touching your chats</span></span>
+                    <span aria-hidden className="text-primary-text">›</span>
+                  </button>
+                )}
                 {selectedSection === "image" && (
                   <ImageGenerationSettings
                     imageProvider={imageProvider}

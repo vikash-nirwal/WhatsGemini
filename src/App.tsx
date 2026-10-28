@@ -65,6 +65,7 @@ const WorldGalleryPage = lazy(() => import("./pages/WorldGalleryPage"));
 const WorldEditorPage = lazy(() => import("./pages/WorldEditorPage"));
 const WorldWizardPage = lazy(() => import("./pages/WorldWizardPage"));
 const PeekPage = lazy(() => import("./pages/PeekPage"));
+const ImagePlaygroundPage = lazy(() => import("./pages/ImagePlaygroundPage"));
 const AdventureGalleryPage = lazy(() => import("./pages/AdventureGalleryPage"));
 const AdventureWizardPage = lazy(() => import("./pages/AdventureWizardPage"));
 const AdventurePage = lazy(() => import("./pages/AdventurePage"));
@@ -282,6 +283,7 @@ const AppContent = () => {
                 <Route path="/settings/:section" element={<SettingsPage />} />
                 <Route path="/updates" element={<UpdatesPage />} />
                 <Route path="/starred" element={<StarredPage />} />
+                <Route path="/images" element={<ImagePlaygroundPage />} />
                 <Route path="/channels/:channelId" element={<ChannelPage />} />
                 <Route path="/" element={<EmptyChatState />} />
                 <Route path="*" element={<NotFound />} />

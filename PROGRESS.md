@@ -4,7 +4,7 @@ What's built, what's open and what a new session needs to know. [ROADMAP.md](ROA
 
 ## Where we stand
 
-- **State (2026-10-27):** every item through #237 is built, pushed and deployed, with the god mode change of 2026-10-28 (main 4819585, gh-pages fc65d74); #224–#233 came from the memory reviews, #234–#237 (points, backup gaps, meeting first, the wizard's AI help) and the fal.ai fix of 2026-10-28 from the user.
+- **State (2026-10-27):** every item through #237 is built, pushed and deployed, with the god mode change of 2026-10-28 (main 4819585, gh-pages fc65d74); the image playground (#238) is built, not yet committed or deployed; #224–#233 came from the memory reviews, #234–#237 (points, backup gaps, meeting first, the wizard's AI help) and the fal.ai fix of 2026-10-28 from the user.
 - **Open:** #132 real-model tuning waits on the user's testing with their key (turn on "Keep helper replies" in Settings › Spending first, then replay them, #214). Drive backup (#54) is built but needs the user's Google OAuth client ID (steps in Settings › Data).
 - **Skipped:** #135 location sharing (dropped by the user), #139 circles (became worlds, #145). Voice features and calls wait for an AI voice model (see Decisions).
 - **Not tried with real models or services:** most prompts from #81 on, image providers with real keys, notifications and background sync on real phones, the in-browser model. ROADMAP.md › "Untried" lists them.
@@ -49,7 +49,7 @@ A map, by area: item numbers and where the code lives. Paths are under `src/` un
 
 **Characters and images**
 - Editor steps, quick create, from one line or a photo (#45, #92, #154 `characterDraft.ts`), life presets (`lifePresets.ts`), wardrobe (#50), private albums (#75), schedule.
-- Images: locked look in every prompt (`appearanceLock.ts`), reference photos per provider (`referenceImages.ts`), prompt guides per model (`imagePromptGuide.ts`), toning down (`imageTone.ts`), no names to image models (`hideNames.ts`), fal.ai catalog (`falCatalog.ts`), ComfyUI (`comfyuiAdapter.ts`), SD WebUI (`sdWebuiUtils.ts`), per-character local settings (#40), reference sheet.
+- Images: locked look in every prompt (`appearanceLock.ts`), reference photos per provider (`referenceImages.ts`), prompt guides per model (`imagePromptGuide.ts`), toning down (`imageTone.ts`), no names to image models (`hideNames.ts`), fal.ai catalog (`falCatalog.ts`), ComfyUI (`comfyuiAdapter.ts`), SD WebUI (`sdWebuiUtils.ts`), per-character local settings (#40), reference sheet, image playground (#238 `pages/ImagePlaygroundPage.tsx` at `/images`, `generatePlaygroundImage` in `aiSlice.ts`: pick people and their reference photos, prompt as written or written by AI, locked looks, shape, art style, another model; nothing saved; linked from Settings › Images and a character's menu).
 
 **App-wide**
 - Spending limit (#42 `features/spending/`), notifications (#43), voice and voice notes (#12, #44), calls (#56), in-browser model (#55 `webllmAdapter.ts`), backups (manual zip, daily, Drive: `services/backupService.ts`, `features/backup/autoBackup.ts`, `services/driveBackup.ts`; worlds, timelines and world switches included, #215; adventures, channels, your statuses and every `local:` picture, and a restore into a taken library relinks everything that names a character, chat or world, talks moved to the new lower id, #235 `services/backupRemap.ts`), helper reply log and replay (#214 `features/ai/replyLog.ts`, `replay.ts`, `scripts/replay-replies.js`), adventures (`features/adventure/`).
@@ -102,6 +102,7 @@ Facts that save the next session time.
 
 Newest first. Older sessions are in the git history.
 
+- 2026-10-28: Image playground at `/images` (#238).
 - 2026-10-28: God mode no longer takes over the reply: it saves the fact, nobody answers it, and later replies keep to it. Fixed with it: a message could stay off screen when no reply followed (`addMessage` now puts the saved chat in the store, and a refresh read in the same millisecond as a change keeps the newer copy), and a god change typed while a reply was coming was silently dropped.
 - 2026-10-28: World wizard: fit people to the world and change anyone with AI, connections with history, kept edits and a closeness dial (#237).
 - 2026-10-28: Strangers in a world no longer text each other un-introduced (the user's report): they meet first (#236).

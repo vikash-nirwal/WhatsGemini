@@ -91,6 +91,7 @@ const pages: PageCase[] = [
   { name: "character editor", route: "/characters/new", ready: (p) => expect(p.getByRole("textbox", { name: "Character Name" })).toBeVisible({ timeout: 30_000 }) },
   { name: "settings", route: "/settings/profile", ready: (p) => expect(p.getByRole("button", { name: "Back" }).first()).toBeVisible({ timeout: 30_000 }) },
   { name: "image settings", route: "/settings/image", ready: (p) => expect(p.getByTestId("prompt-style")).toBeVisible({ timeout: 30_000 }) },
+  { name: "image playground", route: "/images?character=1", ready: (p) => expect(p.getByRole("button", { name: "Generate" })).toBeVisible({ timeout: 30_000 }) },
   { name: "spending", route: "/settings/spending", storage: SPENDING_STORAGE, ready: (p) => expect(p.getByRole("list", { name: "Spending by provider this month" })).toBeVisible({ timeout: 30_000 }) },
   { name: "adventure gallery", route: "/adventures", seed: { adventure: true }, ready: (p) => expect(p.getByText("The Sunken Archive").first()).toBeVisible({ timeout: 30_000 }) },
   { name: "adventure", route: "/adventures/1", seed: { adventure: true }, ready: (p) => expect(p.getByText(ADVENTURE_OPENING)).toBeVisible({ timeout: 30_000 }) },
