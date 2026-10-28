@@ -59,8 +59,11 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
         <h2 className="relative font-serif text-[34px] font-medium leading-[40px] md:text-[40px] md:leading-[44px]">{name}</h2>
         <p className="relative max-w-[640px] text-[15px] leading-[22px] opacity-90">{current?.premise || "Everyone from before worlds, and anyone you haven't put in one."}</p>
       </div>
-      <div className="grid gap-5 p-5 md:grid-cols-[1.3fr_1fr] md:p-6">
-        <div className="flex flex-col gap-3">
+      {/* minmax(0, …): a plain fr column grows to fit its widest line, so a
+          long faction name pushed the right column past the card and
+          squeezed the cast; now long lines truncate instead. */}
+      <div className="grid gap-5 p-5 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] md:p-6">
+        <div className="flex min-w-0 flex-col gap-3">
           <div className="flex items-center justify-between">
             <h3 className="text-[17px] font-bold text-foreground">Cast · {cast.length}</h3>
             <span className="flex gap-4">
@@ -90,7 +93,7 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
             <div><dt className="text-[12px] text-subtle">You here</dt><dd className="font-semibold text-foreground">{you?.name || "Your active persona"}</dd></div>
           </dl>
         </div>
-        <div className="flex flex-col gap-3">
+        <div className="flex min-w-0 flex-col gap-3">
           {current && <WorldAnnouncementsSection world={current} />}
           {current && prefs.arrivals && <NewcomerCard world={current} />}
           {current && prefs.events && <WorldEventsSection world={current} />}

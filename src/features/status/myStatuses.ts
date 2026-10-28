@@ -1,5 +1,6 @@
-import { Character, Chat, MyStatus, StatusComment } from "../../types";
+import { Character, Chat, MyStatus, StatusComment, World } from "../../types";
 import { statusLifetimeMs } from "../character/statusUpdates";
+import { worldOf } from "../world/currentWorld";
 
 // Your own statuses (#117): you post a text or photo status, and the
 // characters you chat with see it over the next minutes: "Seen by", likes,
@@ -18,6 +19,13 @@ export const newMyStatusId = () => `my-${Date.now().toString(36)}-${Math.random(
 
 // A day as long as you set it (#140), like the characters' statuses.
 export const liveMyStatuses = (statuses: MyStatus[], now: number, lifetime: number = statusLifetimeMs()): MyStatus[] => statuses.filter((s) => now - s.createdAt < lifetime);
+
+// Yours posted in one world (the user's report, 2026-10-28: a status posted
+// in one world showed in every world). Only its people saw it, so only
+// there is it shown, and only there do replies hear of it. A status from a
+// world since deleted counts as My world's, like everything else of it.
+export const myStatusesIn = (statuses: MyStatus[], worldId: number | null, worlds: World[]): MyStatus[] =>
+  statuses.filter((s) => worldOf(s, worlds) === worldId);
 
 export const addMyStatus = (statuses: MyStatus[], status: MyStatus): MyStatus[] => [...statuses, status].slice(-KEEP);
 

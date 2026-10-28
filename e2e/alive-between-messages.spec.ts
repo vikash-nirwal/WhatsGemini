@@ -202,3 +202,29 @@ test("a character can leave you on read and answer later", async ({ page, mockAI
   expect(JSON.stringify(replies(mockAI.requests)[0].messages)).toContain("is only answering now");
   await expect.poll(async () => (await readRow(page, "chats", 1)).leftOnReadUntil).toBeUndefined();
 });
+
+// The wait is said out loud, and asking for a reply ends it (the user's
+// report, 2026-10-28): it used to look like a failed reply, and a reply you
+// asked for left the wait running - a second "late" reply came later.
+test("being left on read shows, and asking for a reply ends it", async ({ page, mockAI }) => {
+  await page.clock.install({ time: MORNING });
+  mockAI.reply("ok ok, I'm here");
+  await openChat(page);
+  await openContactInfo(page);
+  await page.getByRole("combobox", { name: "Aria leaves you on read" }).click();
+  await page.getByRole("option", { name: "Always" }).click();
+  await closeContact(page);
+
+  await sendMessage(page, "Coffee later?");
+  await expect(page.getByText("read it, and will answer in a while")).toBeVisible();
+  expect(replies(mockAI.requests)).toHaveLength(0);
+
+  await headerAction(page, "Make Aria send a follow-up now");
+  await expect(messageBubble(page, "ok ok, I'm here")).toBeVisible({ timeout: 15_000 });
+  await expect.poll(async () => (await readRow(page, "chats", 1)).leftOnReadUntil).toBeUndefined();
+  await expect(page.getByText("read it, and will answer in a while")).toHaveCount(0);
+  // No second reply when the old wait would have run out.
+  await page.clock.fastForward(26 * 60_000);
+  await page.waitForTimeout(500);
+  expect(replies(mockAI.requests)).toHaveLength(1);
+});

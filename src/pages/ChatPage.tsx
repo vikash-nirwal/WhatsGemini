@@ -72,7 +72,7 @@ import { audienceOf, buildKnowsNote, echoesOwnNotes, knowsNoteEntryIds } from ".
 import { buildGoalNote } from "../features/world/goals";
 import { worldOf } from "../features/world/currentWorld";
 import { patchWorld, switchWorld } from "../features/worldSlice";
-import { buildMyStatusNote } from "../features/status/myStatuses";
+import { buildMyStatusNote, myStatusesIn } from "../features/status/myStatuses";
 import { buildStatusesNote } from "../features/status/statusNote";
 import { buildForwardDirective, buildQuoteDirective, quoteTextOf } from "../features/chat/replyQuotes";
 import { buildGroupDirective } from "../features/chat/groupLife";
@@ -257,7 +257,9 @@ const ChatPage = () => {
   useEffect(() => {
     if (chatWorldId !== undefined && chatWorldId !== (worlds.some((w) => w.id === currentWorldId) ? currentWorldId : null)) dispatch(switchWorld(chatWorldId));
   }, [chatWorldId, currentWorldId, worlds, dispatch]);
-  const myStatuses = useAppSelector((state) => state.myStatus.statuses);
+  // Yours from this chat's world only (2026-10-28): nobody elsewhere saw them.
+  const allMyStatuses = useAppSelector((state) => state.myStatus.statuses);
+  const myStatuses = useMemo(() => myStatusesIn(allMyStatuses, chatWorldId ?? null, worlds), [allMyStatuses, chatWorldId, worlds]);
   // A phone call (#56): replies are spoken, and what you say is sent as voice messages.
   const [inCall, setInCall] = useState(false);
   // Shown while a realistic schedule (#7) holds a reply back.
@@ -1003,6 +1005,10 @@ const ChatPage = () => {
     // `messages` was silently skipping the image bonus.
     const freshChat = await dispatch(fetchChatById(chatIdNum)).unwrap();
     const { content: freshMessages } = getOrBuildTree(freshChat);
+    // Left on read (#126): any reply ends the wait. Asked for one yourself,
+    // the wait used to carry on - your next messages still went unanswered
+    // and a second, "late" reply came on its own later.
+    if (freshChat.leftOnReadUntil) await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { leftOnReadUntil: undefined } }));
 
     const speaker = (forcedSpeakerId != null ? roomCharacters.find((c) => c.id === forcedSpeakerId) : undefined)
       || resolveNextSpeaker(roomCharacters, freshMessages, unavailableIds)

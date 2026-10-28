@@ -180,6 +180,10 @@ const StreamingBubble = ({ text, charInitials, accent, imageSrc, showAvatar }: {
 // Shown while an autonomous follow-up's random delay is still counting down
 // - distinct from TypingIndicator (which means a reply is actually
 // generating) so the two are never shown at once.
+// Left on read (#126): said out loud (the user's report, 2026-10-28: with
+// only the read ticks to go by, it looked like the reply had failed).
+const LEFT_ON_READ_NOTE = "read it, and will answer in a while";
+
 const FollowupIndicator = ({ charInitials, accent, imageSrc, note, showAvatar }: { charInitials: string; accent?: [string, string]; imageSrc?: string; note?: string; showAvatar?: boolean }) => (
   <PendingRow charInitials={charInitials} accent={accent} imageSrc={imageSrc} showAvatar={showAvatar}>
     <div className="flex h-9 items-center gap-1.5 rounded-bubble rounded-bl-[6px] bg-bubble-in px-3.5 shadow-bubble">
@@ -993,6 +997,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
                 <TerminalCursorLine name={characterName} note={recordingVoiceNote ? "recording audio..." : undefined} />
               ) : awayNote || isFollowupPending ? (
                 <TerminalCursorLine name={characterName} note={awayNote || "thinking of reaching out..."} />
+              ) : seenNoReply ? (
+                <TerminalCursorLine name={characterName} note={LEFT_ON_READ_NOTE} />
               ) : null
             ) : aiLoading && streamingText && !textingMode && !recordingVoiceNote ? (
               <StreamingBubble text={streamingText} charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} showAvatar={isRoom} />
@@ -1000,6 +1006,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
               <TypingIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} recording={aiLoading && recordingVoiceNote} showAvatar={isRoom} />
             ) : awayNote || isFollowupPending ? (
               <FollowupIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} note={awayNote || undefined} showAvatar={isRoom} />
+            ) : seenNoReply ? (
+              <FollowupIndicator charInitials={charInitials} accent={character?.accent} imageSrc={currentEmotionImageSrc} note={LEFT_ON_READ_NOTE} showAvatar={isRoom} />
             ) : null}
             <div ref={chatEndRef} />
           </div>

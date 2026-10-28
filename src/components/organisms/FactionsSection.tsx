@@ -71,14 +71,18 @@ export const FactionsSection = ({ world }: { world: World }) => {
       </div>
       {groups.length === 0 && suggested.length === 0 && !making && <p className="text-[13.5px] text-muted-foreground">No groups yet. Families, crews and rival camps stick together and get their own group chat.</p>}
       {groups.map((f) => (
-        <div key={f.id} className="flex items-center gap-3 rounded-card bg-sunken p-3">
-          <span className="flex -space-x-2">{f.memberIds.slice(0, 4).map((id) => { const c = cast.find((x) => x.id === id); return c ? <CharacterAvatar key={id} name={c.name} accent={c.accent} imageSrc={avatarOf(c)} size={26} /> : null; })}</span>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[14px] font-bold text-foreground">{f.name} <span className="font-normal text-subtle">· {f.kind}</span></div>
-            <div className="truncate text-[12.5px] text-muted-foreground">{f.about || f.memberIds.map(nameOf).filter(Boolean).join(", ")}</div>
+        <div key={f.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card bg-sunken p-3">
+          <span className="flex flex-none -space-x-2">{f.memberIds.slice(0, 4).map((id) => { const c = cast.find((x) => x.id === id); return c ? <CharacterAvatar key={id} name={c.name} accent={c.accent} imageSrc={avatarOf(c)} size={26} /> : null; })}</span>
+          {/* At least 150px for the name: narrower, the buttons wrap below. */}
+          <div className="min-w-[150px] flex-1">
+            {/* Two lines each, not one: the column is narrow beside the cast. */}
+            <div className="line-clamp-2 break-words text-[14px] font-bold leading-[18px] text-foreground">{f.name} <span className="font-normal text-subtle">· {f.kind}</span></div>
+            <div className="line-clamp-2 text-[12.5px] leading-[17px] text-muted-foreground">{f.about || f.memberIds.map(nameOf).filter(Boolean).join(", ")}</div>
           </div>
+          <span className="ml-auto flex flex-none items-center gap-3">
           <Button type="button" size="sm" variant="outline" onClick={() => void openChat(f)}>Group chat</Button>
           <button type="button" aria-label={`Remove ${f.name}`} onClick={() => void save(groups.filter((g) => g.id !== f.id))} className="text-[12.5px] font-semibold text-subtle hover:text-foreground">Remove</button>
+          </span>
         </div>
       ))}
       {suggested.length > 0 && (

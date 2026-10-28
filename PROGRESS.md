@@ -104,6 +104,7 @@ Facts that save the next session time.
 
 Newest first. Older sessions are in the git history.
 
+- 2026-10-28: Three fixes from the user's report. The Worlds page broke once "Families and factions" had long names (the hero's `fr` columns grew to fit them; now `minmax(0, …)`, and faction rows wrap). Your statuses showed in every world; now only in the world they were posted in (`myStatusesIn`), in Updates and in reply prompts. Replies that "didn't come" were left on read (#126) with only the read ticks to show it: the wait now says so in the chat, and any reply, including one you ask for, ends it (it used to keep running and send a second late reply).
 - 2026-10-28: World announcements: god mode for a whole world on the Worlds page. Each person's take is asked for (8 per call), remembered, and posted as a status by those who post them; one or two close to you text you. World truths set quietly in chats are listed there too, and adventures now keep to truths and announcements.
 - 2026-10-28: Character and persona photos could only be uploaded with an Image Save Directory picked (impossible on phones and Safari), and step 1 offered only Generate Avatar: "Upload a picture" added to step 1, and photos fall back to being kept in the app.
 - 2026-10-28: Image playground at `/images` (#238).

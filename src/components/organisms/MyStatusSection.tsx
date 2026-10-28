@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { FaChevronDown, FaEye, FaGlobe, FaHeart, FaImage, FaPlus, FaRegComment, FaTimes, FaTrash, FaArrowRight } from "react-icons/fa";
 import { cn } from "src/utils/cn";
@@ -7,7 +7,7 @@ import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { selectActivePersona } from "src/features/settingsSlice";
 import { changeMyStatuses } from "src/features/myStatusSlice";
 import { readPhoto } from "src/features/chat/photoAttachments";
-import { addMyStatus, happened, liveMyStatuses, newMyStatusId } from "src/features/status/myStatuses";
+import { addMyStatus, happened, liveMyStatuses, myStatusesIn, newMyStatusId } from "src/features/status/myStatuses";
 import { decideMyStatusReactions } from "src/features/status/decideReactions";
 import { replyToStatusComment } from "src/features/status/replyToComment";
 import { STATUS_COLORS } from "src/features/status/statusLook";
@@ -36,9 +36,11 @@ const FullScreen = ({ open, onOpenChange, title, background, children }: { open:
 export const MyStatusSection = ({ variant }: { variant: "tile" | "row" }) => {
   const dispatch = useAppDispatch();
   const persona = useAppSelector(selectActivePersona);
-  const statuses = useAppSelector((state) => state.myStatus.statuses);
+  const allStatuses = useAppSelector((state) => state.myStatus.statuses);
   const characters = useWorldCharacters();
-  const { name: worldName, currentWorldId } = useCurrentWorld();
+  const { name: worldName, currentWorldId, worlds } = useCurrentWorld();
+  // Only the ones posted in this world: its people are the ones who saw them.
+  const statuses = useMemo(() => myStatusesIn(allStatuses, currentWorldId, worlds), [allStatuses, currentWorldId, worlds]);
   const [composing, setComposing] = useState(false);
   const [viewing, setViewing] = useState(false);
   const [text, setText] = useState("");

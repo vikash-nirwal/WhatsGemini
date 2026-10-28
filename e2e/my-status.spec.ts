@@ -92,3 +92,30 @@ test("a status whose first decision failed is retried, and still seen", async ({
   await expect(viewer.getByRole("list", { name: "Seen by" })).toContainText("Aria");
   await expect(viewer.getByLabel("liked it")).toBeVisible();
 });
+
+// A status stays in the world you posted it in (the user's report,
+// 2026-10-28: it showed in every world).
+test("a status posted in one world isn't shown in another", async ({ page, mockAI }) => {
+  mockAI.reply("[]");
+  await openRoute(page, "/worlds/new");
+  await page.locator("#world-name").fill("Harbour Town");
+  await page.locator("#world-premise").fill("A rainy port.");
+  await page.getByRole("button", { name: "Create World" }).click();
+  await page.getByRole("button", { name: "Switch to Harbour Town" }).click();
+
+  await openRoute(page, "/updates");
+  const mine = page.getByRole("region", { name: "My status" });
+  await mine.getByRole("button", { name: "Add a status" }).click();
+  const dialog = page.getByRole("dialog", { name: "New status" });
+  await dialog.getByLabel("Status text").fill("Fog over the harbour");
+  await dialog.getByRole("button", { name: "Post" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(mine.getByRole("button", { name: "View my status" })).toBeVisible();
+
+  // In My world there's nothing of yours to view.
+  await openRoute(page, "/worlds");
+  await page.getByRole("button", { name: "Switch to My world" }).click();
+  await openRoute(page, "/updates");
+  await expect(mine.getByRole("button", { name: "Add a status" })).toBeVisible();
+  await expect(mine.getByRole("button", { name: "View my status" })).toHaveCount(0);
+});
