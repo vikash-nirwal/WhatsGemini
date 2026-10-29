@@ -819,10 +819,15 @@ const ChatPage = () => {
         lateReplyRef.current = false;
       }
     };
-    const timer = window.setTimeout(() => void fire(), Math.max(0, leftOnReadUntil - Date.now()));
+    // Switched to Never, they answer now (the user's report, 2026-10-29): a
+    // wait started while it was on, by a life preset or in a restored
+    // backup, used to carry on with the switch off, so the chat said "will
+    // answer in a while" for a character who never leaves you on read.
+    const wait = characterData.leavesOnRead ? Math.max(0, leftOnReadUntil - Date.now()) : 0;
+    const timer = window.setTimeout(() => void fire(), wait);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatIdNum, leftOnReadUntil, characterData?.id]);
+  }, [chatIdNum, leftOnReadUntil, characterData?.id, Boolean(characterData?.leavesOnRead)]);
 
   // Quoted replies (#119): the message your next one answers.
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);

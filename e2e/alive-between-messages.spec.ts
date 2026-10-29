@@ -228,3 +228,28 @@ test("being left on read shows, and asking for a reply ends it", async ({ page, 
   await page.waitForTimeout(500);
   expect(replies(mockAI.requests)).toHaveLength(1);
 });
+
+// Switching it off ends a wait already running (the user's report,
+// 2026-10-29): the switch read Never while the chat still said "will answer
+// in a while".
+test("switching leaving on read off makes them answer now", async ({ page, mockAI }) => {
+  await page.clock.install({ time: MORNING });
+  mockAI.reply("here, sorry!");
+  await openChat(page);
+  await openContactInfo(page);
+  await page.getByRole("combobox", { name: "Aria leaves you on read" }).click();
+  await page.getByRole("option", { name: "Always" }).click();
+  await closeContact(page);
+
+  await sendMessage(page, "Coffee later?");
+  await expect(page.getByText("read it, and will answer in a while")).toBeVisible();
+
+  await openContactInfo(page);
+  await page.getByRole("combobox", { name: "Aria leaves you on read" }).click();
+  await page.getByRole("option", { name: "Never" }).click();
+  await closeContact(page);
+  await expect(messageBubble(page, "here, sorry!")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("read it, and will answer in a while")).toHaveCount(0);
+  await expect.poll(async () => (await readRow(page, "chats", 1)).leftOnReadUntil).toBeUndefined();
+  expect(replies(mockAI.requests)).toHaveLength(1);
+});
