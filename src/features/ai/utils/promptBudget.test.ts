@@ -16,9 +16,11 @@ test("over budget: lowest priority first, later ones first within a priority, ru
 });
 
 test("long notes are capped; the budget follows the model's window", () => {
-  expect(fitNotes([note("big", 5000, 3)], undefined).kept[0].text.length).toBe(1800);
-  expect(fitNotes([note("rule", 5000, 5)], undefined).kept[0].text.length).toBe(5000);
+  expect(fitNotes([note("big", 5000, 3)], undefined).kept[0].text.length).toBe(1200);
+  expect(fitNotes([note("rule", 5000, 5)], undefined).kept[0].text.length).toBe(2400);
+  expect(fitNotes([note("short rule", 300, 5)], undefined).kept[0].text.length).toBe(300);
   expect(noteBudgetFor(8_000)).toBe(4_800);
-  expect(noteBudgetFor(1_000_000)).toBe(24_000);
+  // A big window no longer means a big prompt (2026-10-29: 25 KB a reply).
+  expect(noteBudgetFor(1_000_000)).toBe(8_000);
   expect(noteBudgetFor(2_000)).toBe(3_000);
 });

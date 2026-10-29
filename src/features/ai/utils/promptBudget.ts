@@ -14,19 +14,27 @@ export interface PromptNote {
   priority: NotePriority; // 5 never dropped
 }
 
-const MAX_NOTE_CHARS = 1800;
+// Smaller since 2026-10-29 (the user's report: the system prompt alone was
+// 25 KB in a chat of 50-60 messages). A large window let the notes take up
+// to 24,000 characters, sent again with every reply, when the few that
+// matter most fit in a third of that; a note past 1,200 characters is
+// detail the reply rarely uses.
+const MAX_NOTE_CHARS = 1200;
+// Rules and what's true are never dropped, but still bounded, so a long
+// list of them can't crowd out everything else.
+const MAX_RULE_CHARS = 2400;
 
 // Roughly 15% of the model's window for notes, in characters (about 4 per
 // token), within sensible bounds.
 export const noteBudgetFor = (contextTokens: number | undefined) =>
-  Math.round(Math.min(24_000, Math.max(3_000, (contextTokens || 32_000) * 0.15 * 4)));
+  Math.round(Math.min(8_000, Math.max(3_000, (contextTokens || 32_000) * 0.15 * 4)));
 
-const capped = (text: string) => (text.length > MAX_NOTE_CHARS ? `${text.slice(0, MAX_NOTE_CHARS - 3).trimEnd()}...` : text);
+const capped = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 3).trimEnd()}...` : text);
 
 // Keeps notes in their original order; drops the lowest priority (and,
 // within one, the latest listed) until the rest fit.
 export const fitNotes = (notes: PromptNote[], budget: number | undefined): { kept: PromptNote[]; dropped: string[] } => {
-  const sized = notes.map((n) => (n.priority === 5 ? n : { ...n, text: capped(n.text) }));
+  const sized = notes.map((n) => ({ ...n, text: capped(n.text, n.priority === 5 ? MAX_RULE_CHARS : MAX_NOTE_CHARS) }));
   if (!budget) return { kept: sized, dropped: [] };
   let total = sized.reduce((sum, n) => sum + n.text.length, 0);
   const order = sized.map((n, i) => ({ n, i })).filter(({ n }) => n.priority < 5).sort((a, b) => a.n.priority - b.n.priority || b.i - a.i);
