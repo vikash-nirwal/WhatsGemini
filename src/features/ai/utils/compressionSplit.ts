@@ -22,3 +22,35 @@ export const splitForCompression = (compressible: Message[], compressThresholdMe
   const tailSize = Math.max(1, Math.floor(compressThresholdMessages / 2));
   return Math.max(0, compressible.length - tailSize);
 };
+
+// By size (2026-10-30): the newest `keepTokens` of the chat stay word for
+// word; once the visible part has grown half as much again past that, the
+// rest is folded into the summary. The headroom works as halving does above:
+// one summary call per real batch of new conversation, not one per message.
+// A long chat summarised for the first time folds at most `maxChunkTokens`
+// of its oldest messages per pass, so no single summary call is enormous;
+// the next sends fold the rest.
+export const SIZE_HEADROOM = 1.5;
+export const MAX_CHUNK_TOKENS = 30000;
+
+export const splitForTokens = (compressible: Message[], keepTokens: number, tokensOf: (m: Message) => number, maxChunkTokens = MAX_CHUNK_TOKENS): number => {
+  if (keepTokens <= 0) return 0;
+  const sizes = compressible.map(tokensOf);
+  const total = sizes.reduce((sum, n) => sum + n, 0);
+  if (total <= keepTokens * SIZE_HEADROOM) return 0;
+  // The newest messages that fit in keepTokens stay; at least one always does.
+  let tail = 0;
+  let split = compressible.length;
+  while (split > 1 && tail + sizes[split - 1] <= keepTokens) {
+    tail += sizes[split - 1];
+    split--;
+  }
+  if (split === compressible.length) split = compressible.length - 1;
+  // No more than maxChunkTokens folded in one pass.
+  let chunk = 0;
+  for (let i = 0; i < split; i++) {
+    chunk += sizes[i];
+    if (chunk > maxChunkTokens) return Math.max(i, 1);
+  }
+  return split;
+};

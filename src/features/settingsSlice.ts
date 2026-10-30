@@ -44,6 +44,8 @@ import {
   DEFAULT_SD_WEBUI_MODEL,
   LS_COMPRESS_THRESHOLD,
   DEFAULT_COMPRESS_THRESHOLD,
+  LS_HISTORY_KEEP_TOKENS,
+  DEFAULT_HISTORY_KEEP_TOKENS,
   LS_CHAT_PROVIDER,
   DEFAULT_CHAT_PROVIDER,
   LS_IMAGE_PROVIDER,
@@ -115,6 +117,7 @@ export interface SettingsState {
   maxOutputTokens: number;
   replyLengthLimit: number;
   compressThreshold: number;
+  historyKeepTokens: number; // recent chat kept word for word; older is summarised
   maxChatLength: number;
   temperature: number;
   samplers: SamplerSettings;
@@ -168,6 +171,7 @@ const initialState: SettingsState = {
   maxOutputTokens: getStoredValue(LS_MAX_OUTPUT_TOKENS, DEFAULT_OUTPUT_TOKENS),
   replyLengthLimit: getStoredValue(LS_REPLY_LENGTH_LIMIT, DEFAULT_REPLY_LENGTH_LIMIT),
   compressThreshold: getStoredValue(LS_COMPRESS_THRESHOLD, DEFAULT_COMPRESS_THRESHOLD),
+  historyKeepTokens: getStoredValue(LS_HISTORY_KEEP_TOKENS, DEFAULT_HISTORY_KEEP_TOKENS),
   maxChatLength: getStoredValue(LS_MAX_CHAT_LENGTH, DEFAULT_CHAT_LENGTH),
   temperature: getStoredValue(LS_TEMPRATURE, DEFAULT_TEMPRATURE),
   samplers: getStoredValue<SamplerSettings>(LS_SAMPLERS, {}) || {},
@@ -276,6 +280,9 @@ const settingsSlice = createSlice({
     setReplyLengthLimit: (state, action: PayloadAction<number>) => {
       state.replyLengthLimit = action.payload;
     },
+    setHistoryKeepTokens: (state, action: PayloadAction<number>) => {
+      state.historyKeepTokens = action.payload;
+    },
     setCompressThreshold: (state, action: PayloadAction<number>) => {
       state.compressThreshold = action.payload;
     },
@@ -364,6 +371,7 @@ export const {
   setMaxOutputTokens,
   setReplyLengthLimit,
   setCompressThreshold,
+  setHistoryKeepTokens,
   setMaxChatLength,
   setTemperature,
   setSamplers,

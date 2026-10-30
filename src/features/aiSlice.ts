@@ -1,3 +1,4 @@
+import { tagPurpose } from "./spending/tokenUsage";
 import { extractInvite } from "./chat/invites";
 import { buildToneRewritePrompt, cleanToneRewrite, looksBlocked } from "./ai/utils/imageTone";
 import { buildWorldBrief, withWorldBrief } from "./world/worldBrief";
@@ -134,6 +135,7 @@ const rewordForTagModel = async (settings: RootState["settings"], target: ImageP
 // picture at a stricter content level. Falls back to the prompt as it was.
 const toneRewriter = (settings: RootState["settings"]) => async (prompt: string, level: 1 | 2 | 3): Promise<string> => {
   const helper = await resolveHelperCall(settings);
+  tagPurpose("picture-prompt");
   const result = await helper.adapter.generateOnce(buildToneRewritePrompt(prompt, level), helper.model, helper.config);
   return cleanToneRewrite(result.text, prompt);
 };
@@ -232,6 +234,7 @@ export const generateAIResponse = createAsyncThunk(
           try {
             const helper = await resolveHelperCall(settings);
             if (modelSeesImages(helper.providerId, helper.model)) {
+              tagPurpose("photo");
               const described = await helper.adapter.generateChat({ model: helper.model, history: [], prompt: PHOTO_DESCRIPTION_PROMPT, promptImages: images, signal }, helper.config);
               trackUsage(described.usage, helper.providerId, helper.model);
               photoDescription = described.text.trim() || undefined;
@@ -319,6 +322,7 @@ export const generateAIResponse = createAsyncThunk(
         if (streamKey) dispatch(setStreamingReply({ key: streamKey, text: "" }));
         let streamed;
         try {
+          tagPurpose("reply");
           streamed = await chatAdapter.generateChat(
             {
               model: selectedModel,
@@ -505,10 +509,10 @@ const runAutoCompression = async (
   insert: (args: { afterMessageId?: string; afterIndex: number; summaryMessages: Message[] }) => Promise<Message[]>
 ): Promise<{ messages: Message[]; tokens: number; cost: number; error?: string }> => {
   try {
-    if (settings.compressThreshold <= 0) return { messages, tokens: 0, cost: 0 };
+    if (settings.compressThreshold <= 0 && settings.historyKeepTokens <= 0) return { messages, tokens: 0, cost: 0 };
     const helper = await resolveHelperCall(settings);
 
-    const result = await buildAutoCompressedMessages(helper.adapter, helper.config, helper.model, messages, settings.compressThreshold, names);
+    const result = await buildAutoCompressedMessages(helper.adapter, helper.config, helper.model, messages, settings.compressThreshold, names, settings.historyKeepTokens);
     // `error` lets the caller tell the user compression is failing (e.g. a
     // content filter rejecting the transcript) instead of it silently
     // never happening while the history keeps growing.
@@ -604,6 +608,7 @@ export const writeDiaryEntry = createAsyncThunk(
     try {
       const helper = await resolveHelperCall((getState() as RootState).settings);
       const prompt = buildDiaryPrompt(charName, userName, formatTranscript(recentMessages, names), previousEntry, others);
+      tagPurpose("memory");
       const result = await helper.adapter.generateOnce(prompt, helper.model, helper.config);
       return cleanDiaryEntry(result.text);
     } catch (error: any) {
@@ -621,6 +626,7 @@ export const writeRecap = createAsyncThunk(
     try {
       const helper = await resolveHelperCall((getState() as RootState).settings);
       const prompt = buildRecapPrompt(formatTranscript(recentForRecap(messages), names), latestStorySummary(messages), names.charName || "the character", names.userName || "the user");
+      tagPurpose("memory");
       const result = await helper.adapter.generateOnce(prompt, helper.model, helper.config);
       const text = cleanRecap(result.text);
       if (!text) throw new Error("The recap came back empty.");
@@ -657,6 +663,7 @@ export const generateAssistTextWithImage = createAsyncThunk(
       if (!call) {
         throw new Error("Your chat model can't see pictures. Pick one that can (a GPT-4o, Claude, Gemini or vision model) in Settings › Text Generation, as the chat or helper model.");
       }
+      tagPurpose("helper");
       const result = await call.adapter.generateChat({ model: call.model, history: [], prompt: instruction, promptImages: images }, call.config);
       return result.text.trim();
     } catch (error: any) {
@@ -665,6 +672,11 @@ export const generateAssistTextWithImage = createAsyncThunk(
     }
   }
 );
+
+// What a helper call was for, in the token log (tokenUsage.ts): the
+// caller's own word for it, or background life by its kind.
+const backgroundPurpose = (activity: { kind: string } | undefined, purpose: string | undefined) =>
+  purpose || (activity ? `life:${activity.kind}` : "background");
 
 export const generateAssistText = createAsyncThunk(
   "ai/generateAssistText",
@@ -675,7 +687,7 @@ export const generateAssistText = createAsyncThunk(
   // `worldId`: the world a background call is about, when no character is
   // named in `activity`; either way its brief goes first (worldBrief.ts).
   // `replyKind` (#214): which prompt this is, for the helper reply log.
-  async ({ instruction, background = false, activity, worldId, replyKind }: { instruction: string; background?: boolean; activity?: Omit<ActivityEntry, "id" | "at" | "cost"> & { at?: number }; worldId?: number; replyKind?: ReplyKind }, { getState, rejectWithValue }) => {
+  async ({ instruction, background = false, activity, worldId, replyKind, purpose }: { instruction: string; background?: boolean; purpose?: string; activity?: Omit<ActivityEntry, "id" | "at" | "cost"> & { at?: number }; worldId?: number; replyKind?: ReplyKind }, { getState, rejectWithValue }) => {
     const keep = (reply: string, model: string) => void recordReply({ instruction, reply, model, kind: replyKind, fallbackKind: activity?.kind });
     try {
       const state = getState() as RootState;
@@ -698,12 +710,14 @@ export const generateAssistText = createAsyncThunk(
         if (local) {
           const adapter = CHAT_PROVIDERS.webllm;
           const config = await resolveProviderConfig("webllm", adapter.capabilities.requiresBaseUrl);
+          tagPurpose(backgroundPurpose(activity, purpose));
           const result = await adapter.generateOnce(withWorldBrief(instruction, brief), local, config);
           logActivity({ ...activity!, ...(briefWorld ? { world: briefWorld.name } : {}) });
           keep(result.text, local);
           return result.text.trim();
         }
         const helper = await resolveHelperCall(settings);
+        tagPurpose(backgroundPurpose(activity, purpose));
         const result = await helper.adapter.generateOnce(withWorldBrief(instruction, brief), helper.model, helper.config);
         if (activity) {
           const cost = isFreeProvider(helper.providerId) ? undefined : estimateCallCost({ kind: "text", providerId: helper.providerId, model: helper.model, usage: result.usage });
@@ -721,6 +735,7 @@ export const generateAssistText = createAsyncThunk(
       if (!chatConfig.apiKey && chatAdapter.capabilities.requiresApiKey) {
         throw new Error("API key is missing. Please log in.");
       }
+      tagPurpose("helper");
       const result = await chatAdapter.generateOnce(instruction, settings.selectedModel, chatConfig);
       keep(result.text, settings.selectedModel);
       return result.text.trim();
@@ -913,6 +928,7 @@ export const generateAdventureSceneImage = createAsyncThunk(
           ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE], settings.imageGenPrompt, sceneTarget,
           { castEmotions, requestedFocus, includeFullCast }
         );
+        tagPurpose("picture-prompt");
         const derivation = await chatAdapter.generateOnce(instruction, settings.selectedModel, chatConfig);
         trackUsage(derivation.usage, settings.chatProvider, settings.selectedModel);
         imagePrompt = derivation.text.trim() || narration;
@@ -1044,6 +1060,7 @@ export const writeCalibrationRules = createAsyncThunk(
   async ({ refused, accepted, model }: { refused: { level: number; prompt: string }[]; accepted: { level: number; prompt: string }; model: string }, { getState, rejectWithValue }) => {
     try {
       const helper = await resolveHelperCall((getState() as RootState).settings);
+      tagPurpose("picture-prompt");
       const result = await helper.adapter.generateOnce(buildCalibrationPrompt(refused, accepted, model), helper.model, helper.config);
       return cleanCalibrationRules(result.text);
     } catch (error: any) {

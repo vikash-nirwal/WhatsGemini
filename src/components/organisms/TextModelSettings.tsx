@@ -52,6 +52,8 @@ interface TextModelSettingsProps {
   setReplyLengthLimit: (chars: number) => void;
   compressThreshold: number;
   setCompressThreshold: (threshold: number) => void;
+  historyKeepTokens: number;
+  setHistoryKeepTokens: (tokens: number) => void;
   samplers: SamplerSettings;
   setSamplers: (samplers: SamplerSettings) => void;
   roleplayStyle: RoleplayStyle;
@@ -83,6 +85,8 @@ const TextModelSettings: React.FC<TextModelSettingsProps> = ({
   setReplyLengthLimit,
   compressThreshold,
   setCompressThreshold,
+  historyKeepTokens,
+  setHistoryKeepTokens,
   samplers,
   setSamplers,
   roleplayStyle,
@@ -259,6 +263,23 @@ const TextModelSettings: React.FC<TextModelSettingsProps> = ({
             value={replyLengthLimit}
             onChange={(e) => setReplyLengthLimit(Number(e.target.value))}
             placeholder="0 for no limit"
+            className="w-40"
+          />
+        </SettingsRow>
+
+        {/* By size (2026-10-30): the recent chat word for word, older summarised. */}
+        <SettingsRow
+          label="Keep word for word"
+          hint={`Tokens of recent chat sent as written${historyKeepTokens > 0 ? ` (about ${(Math.round((historyKeepTokens * 0.75) / 100) * 100).toLocaleString()} words, roughly ${Math.round(historyKeepTokens / 80).toLocaleString()} messages)` : ""}. Older messages are summarised into a note that keeps names, plans, promises and facts. 0 = never summarise by size.`}
+          align="start"
+        >
+          <TextInput
+            type="number"
+            min="0"
+            step="1000"
+            aria-label="Keep word for word"
+            value={historyKeepTokens}
+            onChange={(e) => setHistoryKeepTokens(Math.max(0, Number(e.target.value) || 0))}
             className="w-40"
           />
         </SettingsRow>

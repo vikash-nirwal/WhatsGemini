@@ -15,7 +15,7 @@ import {
   setSelectedModel, setImageModel, setVideoModel, setImageGenPrompt,
   setSdWebuiApiUrl, setSdWebuiBatchSize, setSdWebuiRefMode,
   setSdWebuiDenoising, setSdWebuiControlnetModel, setSdWebuiModels,
-  setSdWebuiModel, setMaxOutputTokens, setReplyLengthLimit, setCompressThreshold, setMaxChatLength,
+  setSdWebuiModel, setMaxOutputTokens, setReplyLengthLimit, setCompressThreshold, setHistoryKeepTokens, setMaxChatLength,
   setTemperature, setSamplers, setRoleplayStyle, setHelperModel, setPrivacy, setSafetySettings, setFontSize, setImageResolution, setGeminiImageSize, setPortraitSaveSize, setPortraitResizeEnabled,
   setChatProvider, setImageProvider, setOllamaBaseUrl,
   setEmotionPanelEnabled, setEmotionPopupEnabled, setEmotionPopupDuration, setAlwaysShowInitials, setTextingMode, setRecapAfterDays,
@@ -90,6 +90,7 @@ import {
   models,
   imageModels,
   LS_COMPRESS_THRESHOLD,
+  LS_HISTORY_KEEP_TOKENS,
   // DEFAULT_COMPRESS_THRESHOLD,
   LS_LAST_BACKUP_AT,
   LS_SPENDING_LEDGER,
@@ -109,6 +110,7 @@ import SafetySettings from "src/components/organisms/SafetySettings";
 import DataBackupSettings from "src/components/organisms/DataBackupSettings";
 import PrivacySettings from "src/components/organisms/PrivacySettings";
 import LifeSettings from "src/components/organisms/LifeSettings";
+import TokenUsageCard from "src/components/organisms/TokenUsageCard";
 import SpendingSettings from "src/components/organisms/SpendingSettings";
 import { getSpendingSnapshot, importLedger, setBudget } from "../features/spending/spending";
 import { formatRelativeTime } from "../utils/formatRelativeTime";
@@ -276,7 +278,7 @@ const SettingsPage = () => {
     personas, activePersonaId, chatProvider, imageProvider, ollamaBaseUrl, selectedModel, imageModel, videoModel,
     imageGenPrompt, sdWebuiApiUrl,
     sdWebuiBatchSize, sdWebuiRefMode, sdWebuiDenoising, sdWebuiControlnetModel, sdWebuiModels,
-    sdWebuiModel, maxOutputTokens, replyLengthLimit, compressThreshold, maxChatLength, temperature, samplers, roleplayStyle, helperProvider, helperModel, privacy,
+    sdWebuiModel, maxOutputTokens, replyLengthLimit, compressThreshold, historyKeepTokens, maxChatLength, temperature, samplers, roleplayStyle, helperProvider, helperModel, privacy,
     safetySettings, fontSize, imageResolution, geminiImageSize, portraitSaveSize, portraitResizeEnabled,
     emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials, textingMode, recapAfterDays,
   } = settings;
@@ -569,6 +571,7 @@ const SettingsPage = () => {
     [LS_MAX_OUTPUT_TOKENS]: maxOutputTokens,
     [LS_REPLY_LENGTH_LIMIT]: replyLengthLimit,
     [LS_COMPRESS_THRESHOLD]: compressThreshold,
+    [LS_HISTORY_KEEP_TOKENS]: historyKeepTokens,
     [LS_TEMPRATURE]: temperature,
     [LS_SAMPLERS]: samplers,
     [LS_ROLEPLAY_STYLE]: roleplayStyle,
@@ -594,7 +597,7 @@ const SettingsPage = () => {
     // Read from storage rather than state, so a change made on the Life
     // screen since this page opened is the one saved (#215).
     [LS_LIFE_DIAL]: loadLifeDial(),
-  }), [selectedModel, maxOutputTokens, replyLengthLimit, compressThreshold, temperature, samplers, roleplayStyle, safetySettings, maxChatLength, fontSize, imageResolution, geminiImageSize, portraitSaveSize, portraitResizeEnabled, emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials, textingMode, recapAfterDays, personas, activePersonaId]);
+  }), [selectedModel, maxOutputTokens, replyLengthLimit, compressThreshold, historyKeepTokens, temperature, samplers, roleplayStyle, safetySettings, maxChatLength, fontSize, imageResolution, geminiImageSize, portraitSaveSize, portraitResizeEnabled, emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials, textingMode, recapAfterDays, personas, activePersonaId]);
 
   const downloadJson = (data: unknown, filename: string) => {
     const jsonString = JSON.stringify(data, null, 2);
@@ -650,6 +653,7 @@ const SettingsPage = () => {
     if (settings[LS_MAX_OUTPUT_TOKENS]) dispatch(setMaxOutputTokens(settings[LS_MAX_OUTPUT_TOKENS]));
     if (settings[LS_REPLY_LENGTH_LIMIT] !== undefined) dispatch(setReplyLengthLimit(settings[LS_REPLY_LENGTH_LIMIT]));
     if (settings[LS_COMPRESS_THRESHOLD]) dispatch(setCompressThreshold(settings[LS_COMPRESS_THRESHOLD]));
+    if (typeof settings[LS_HISTORY_KEEP_TOKENS] === "number") dispatch(setHistoryKeepTokens(settings[LS_HISTORY_KEEP_TOKENS]));
     if (settings[LS_TEMPRATURE]) dispatch(setTemperature(settings[LS_TEMPRATURE]));
     if (settings[LS_SAMPLERS] && typeof settings[LS_SAMPLERS] === "object") dispatch(setSamplers(settings[LS_SAMPLERS]));
     if (settings[LS_ROLEPLAY_STYLE] && typeof settings[LS_ROLEPLAY_STYLE] === "object") dispatch(setRoleplayStyle({ ...DEFAULT_ROLEPLAY_STYLE, ...settings[LS_ROLEPLAY_STYLE] }));
@@ -971,6 +975,8 @@ const SettingsPage = () => {
                     setReplyLengthLimit={(val) => dispatch(setReplyLengthLimit(val))}
                     compressThreshold={compressThreshold}
                     setCompressThreshold={(val) => dispatch(setCompressThreshold(val))}
+                    historyKeepTokens={historyKeepTokens}
+                    setHistoryKeepTokens={(val) => dispatch(setHistoryKeepTokens(val))}
                     samplers={samplers}
                     setSamplers={(val) => dispatch(setSamplers(val))}
                     roleplayStyle={roleplayStyle}
@@ -1092,6 +1098,7 @@ const SettingsPage = () => {
                 {selectedSection === "spending" && (
                   <>
                     <LifeSettings />
+                    <TokenUsageCard />
                     <SpendingSettings />
                   </>
                 )}

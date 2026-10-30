@@ -34,6 +34,7 @@ import {
   LS_SD_WEBUI_MODELS,
   LS_SD_WEBUI_MODEL,
   LS_COMPRESS_THRESHOLD,
+  LS_HISTORY_KEEP_TOKENS,
   LS_CHAT_PROVIDER,
   LS_IMAGE_PROVIDER,
   LS_OLLAMA_BASE_URL,
@@ -94,6 +95,7 @@ store.subscribe(() => {
   localStorage.setItem(LS_MAX_OUTPUT_TOKENS, JSON.stringify(state.maxOutputTokens));
   localStorage.setItem(LS_REPLY_LENGTH_LIMIT, JSON.stringify(state.replyLengthLimit));
   localStorage.setItem(LS_COMPRESS_THRESHOLD, JSON.stringify(state.compressThreshold));
+  localStorage.setItem(LS_HISTORY_KEEP_TOKENS, JSON.stringify(state.historyKeepTokens));
   localStorage.setItem(LS_MAX_CHAT_LENGTH, JSON.stringify(state.maxChatLength));
   localStorage.setItem(LS_TEMPRATURE, JSON.stringify(state.temperature));
   localStorage.setItem(LS_SAMPLERS, JSON.stringify(state.samplers));

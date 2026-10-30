@@ -10,12 +10,15 @@ import { ON_DEVICE_MODELS, onDeviceModel, setOnDeviceModel } from "src/features/
 import { checkWebGPU } from "src/features/ai/providers/webllmAdapter";
 import { Select } from "src/components/molecules/form-controls/FormSelect";
 import HelperRepliesCard from "src/components/organisms/HelperRepliesCard";
+import ToggleSwitch from "src/components/atoms/ToggleSwitch";
+import { setStatusesOn, statusesOn } from "src/features/status/statusSwitch";
 
 // Life in the background (#131): the life dial and the activity log, in
 // Settings > Spending, since every entry is a call on your key.
 const LifeSettings = () => {
   const [level, setLevel] = useState<LifeLevel>(loadLifeDial);
   const [onDevice, setOnDevice] = useState(onDeviceModel);
+  const [statuses, setStatuses] = useState(statusesOn);
   const [gpuNote, setGpuNote] = useState<string | undefined>();
   // Only with a usable GPU: without one nothing would download or run.
   const pickOnDevice = async (value: string) => {
@@ -68,6 +71,10 @@ const LifeSettings = () => {
               { value: "lively", label: "Lively" },
             ]}
           />
+        </SettingsRow>
+        {/* Statuses off (2026-10-30): no posting or reacting, and none in prompts. */}
+        <SettingsRow label={<span className="inline-flex items-center gap-1.5">Statuses <CostMarker /></span>} hint={statuses ? "Characters post statuses and react to yours." : "Off: nobody posts statuses or reacts to yours, and chats don't mention them. Statuses already posted can still be read."} align="start">
+          <ToggleSwitch checked={statuses} onChange={(on) => { setStatuses(on); setStatusesOn(on); }} label={<span className="sr-only">Statuses</span>} />
         </SettingsRow>
         {/* Background life on this device (#199), free. */}
         <SettingsRow label="Run it on this device (free)" hint={onDevice ? `Background life uses ${onDevice.split("-q4")[0]} in this browser; the first time downloads it (about 1 GB). Chats still use your model.` : gpuNote || "Statuses, their own talk, life events and rumors on a small model in your browser instead of your key. Needs a recent browser with WebGPU."} align="start">

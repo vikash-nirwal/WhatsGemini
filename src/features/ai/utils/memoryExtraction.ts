@@ -1,3 +1,4 @@
+import { tagPurpose } from "../../spending/tokenUsage";
 import { MAX_MEMORY_ENTRIES } from "../../../utils/constants";
 import { MemoryCategory } from "../../../types";
 import { UsageInfo } from "../types";
@@ -151,6 +152,7 @@ export const extractMemoryChanges = async (
   names: { userName?: string; charName?: string } = {}
 ): Promise<MemoryExtractionResult> => {
   const prompt = buildMemoryExtractionPrompt(conversationText, memory, pinnedMemory, names);
+  tagPurpose("memory");
   const result = await adapter.generateOnce(prompt, selectedModel, config);
   return { changes: parseMemoryChanges(result.text, memory.length), usage: result.usage };
 };

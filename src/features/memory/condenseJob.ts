@@ -23,7 +23,7 @@ export const condenseMemoryIfDue = (owner: MemoryOwner, userName: string) => asy
     const before = await read();
     if (!condenseDue(before)) return;
     const folded = (before.memory || []).slice(0, CONDENSE_COUNT);
-    const reply = await dispatch(generateAssistText({
+    const reply = await dispatch(generateAssistText({ purpose: "memory",
       instruction: buildCondensePrompt(owner.name, userName, folded, before.memoryCategories),
       background: true,
       activity: { at: Date.now(), kind: "other", text: `${owner.name} sorted through old memories`, ...(owner.kind === "character" ? { characterId: owner.id } : {}), name: owner.name },

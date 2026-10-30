@@ -11,6 +11,7 @@ import { notifyChatMessage } from "src/features/notifications/notifications";
 import { AI } from "src/utils/constants";
 import { Chat } from "src/types";
 import { useElsewhereName, useLivingCharacters } from "src/hooks/useWorld";
+import { statusesOn } from "src/features/status/statusSwitch";
 
 const CHECK_EVERY_MS = 30 * 1000;
 const FIRST_CHECK_MS = 5 * 1000;
@@ -38,7 +39,7 @@ const MyStatusWatcher = () => {
 
   useEffect(() => {
     const check = async () => {
-      if (busy.current) return;
+      if (busy.current || !statusesOn()) return;
       const { statuses, chats, characters, privacy, path, elsewhere } = latest.current;
       // A status nobody's reactions were decided for yet - the call failed,
       // or the app closed right after posting - gets another go.

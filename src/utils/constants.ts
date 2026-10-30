@@ -29,6 +29,9 @@ export const DEFAULT_OUTPUT_TOKENS = 1000;
 export const DEFAULT_CHAT_LENGTH = 0;
 export const DEFAULT_AI_MODEL = "gemini-2.5-flash";
 export const DEFAULT_COMPRESS_THRESHOLD = 0; // Message count; 0 means do not compress automatically
+// Recent chat kept word for word, in tokens (about 9,000 English words);
+// older messages are summarised. 0 = never summarise by size (2026-10-30).
+export const DEFAULT_HISTORY_KEEP_TOKENS = 12000;
 export const DEFAULT_REPLY_LENGTH_LIMIT = 0; // 0 means no target length
 export const DEFAULT_AUTO_SELFIE_FREQUENCY = 15; // % chance, once a character's auto-selfie is enabled
 export const harmThresholds = [
@@ -386,6 +389,7 @@ export const DEFAULT_MATERIAL_PALETTE = "baseline";
 // Local storage variables
 export const LS_AI_MODEL = "ai_model";
 export const LS_COMPRESS_THRESHOLD = "compress_threshold";
+export const LS_HISTORY_KEEP_TOKENS = "history_keep_tokens";
 export const LS_IMAGE_MODEL = "image_model";
 export const DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image";
 // Wan is the only video provider today, and its exact model naming shifts

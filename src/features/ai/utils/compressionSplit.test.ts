@@ -1,4 +1,4 @@
-import { splitForCompression } from "./compressionSplit";
+import { splitForCompression, splitForTokens } from "./compressionSplit";
 import { YOU, AI } from "../../../utils/constants";
 import { Message } from "../../../types";
 
@@ -51,5 +51,27 @@ describe("splitForCompression", () => {
     // Sending one more message afterward must not immediately put the count
     // back over the threshold.
     expect(postCompressionLength + 1).toBeLessThanOrEqual(threshold);
+  });
+});
+
+describe("splitForTokens (by size, 2026-10-30)", () => {
+  const msgs = (n: number) => Array.from({ length: n }, (_, i) => ({ role: "you", txt: `m${i}` } as Message));
+  const tokens = (each: number) => () => each;
+
+  it("leaves a chat alone until it's half again past what's kept", () => {
+    expect(splitForTokens(msgs(15), 1000, tokens(100))).toBe(0); // 1,500 tokens: not past 1.5x
+    expect(splitForTokens(msgs(16), 1000, tokens(100))).toBe(6); // the newest 10 (1,000 tokens) stay
+  });
+
+  it("is off at 0", () => {
+    expect(splitForTokens(msgs(500), 0, tokens(100))).toBe(0);
+  });
+
+  it("always keeps the newest message, however long", () => {
+    expect(splitForTokens(msgs(3), 100, tokens(1000))).toBe(2);
+  });
+
+  it("folds at most a chunk per pass", () => {
+    expect(splitForTokens(msgs(1000), 1000, tokens(100), 5000)).toBe(50);
   });
 });

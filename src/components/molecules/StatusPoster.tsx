@@ -21,6 +21,7 @@ import { useLivingCharacters } from "src/hooks/useWorld";
 import { activeEvents, eventsLine } from "src/features/world/worldEvents";
 import { featureOn } from "src/features/world/worldPrefs";
 import { arcActive, arcLine } from "src/features/world/worldArcs";
+import { statusesOn } from "src/features/status/statusSwitch";
 
 const CHECK_EVERY_MS = 30 * 60 * 1000;
 const FIRST_CHECK_MS = 15 * 1000;
@@ -49,7 +50,7 @@ const StatusPoster = () => {
   useEffect(() => {
     // `at`: a catch-up turn back in your absence (#130), stamped with it.
     const check = async (at?: number) => {
-      if (busy.current) return;
+      if (busy.current || !statusesOn()) return;
       const now = at ?? Date.now();
       const due = charactersRef.current.find((c) => statusDue(c, now));
       if (!due) return;

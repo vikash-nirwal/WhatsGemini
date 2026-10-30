@@ -2,6 +2,7 @@ import { ChatProviderAdapter, ImageProviderAdapter, VideoProviderAdapter } from 
 import { UsageInfo } from "../ai/types";
 import { estimateTokens } from "../ai/utils/tokenEstimator";
 import { assertWithinBudget, recordSpend } from "./spending";
+import { recordTokens, takePurpose } from "./tokenUsage";
 
 // Wrappers that registry.ts puts around every provider adapter, like the
 // prompt inspector's withRequestLog, so every paid call (chat replies,
@@ -22,17 +23,24 @@ const usageOrEstimate = (usage: UsageInfo | undefined, inputTexts: (string | und
 
 export const withChatSpending = (adapter: ChatProviderAdapter): ChatProviderAdapter => ({
   ...adapter,
+  // The purpose (tokenUsage.ts) is taken first, before anything awaits.
   generateChat: async (opts, config) => {
+    const purpose = takePurpose();
     assertWithinBudget(adapter.id);
     const result = await adapter.generateChat(opts, config);
     const inputs = [opts.systemInstruction, ...opts.history.map((m) => m.text), opts.prompt];
-    recordSpend({ kind: "text", providerId: adapter.id, model: opts.model, usage: usageOrEstimate(result.usage, inputs, result.text) });
+    const usage = usageOrEstimate(result.usage, inputs, result.text);
+    recordSpend({ kind: "text", providerId: adapter.id, model: opts.model, usage });
+    recordTokens(purpose, usage);
     return result;
   },
   generateOnce: async (prompt, model, config, systemInstruction) => {
+    const purpose = takePurpose();
     assertWithinBudget(adapter.id);
     const result = await adapter.generateOnce(prompt, model, config, systemInstruction);
-    recordSpend({ kind: "text", providerId: adapter.id, model, usage: usageOrEstimate(result.usage, [systemInstruction, prompt], result.text) });
+    const usage = usageOrEstimate(result.usage, [systemInstruction, prompt], result.text);
+    recordSpend({ kind: "text", providerId: adapter.id, model, usage });
+    recordTokens(purpose, usage);
     return result;
   },
 });

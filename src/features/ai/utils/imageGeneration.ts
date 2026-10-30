@@ -1,3 +1,4 @@
+import { tagPurpose } from "../../spending/tokenUsage";
 import { nameLabels, withoutNames } from "./hideNames";
 import { AISafetySettings, SDImageParams, ArtStyle, LocalImageSettings } from "../../../types";
 import { appendCharacterImages } from "./imageProcessing";
@@ -136,6 +137,7 @@ SCENE:
 REPLY:
 ${summaryInstruction} MUST INCLUDE: At the end of your response, append [Image Context: <short visual description of the picture>] so you can remember what you sent in future turns.>`;
 
+  tagPurpose("picture-prompt");
   const sceneResult = await chatAdapter.generateChat(
     {
       model: selectedModel,
@@ -219,6 +221,7 @@ export const composeImagePrompt = async (
   { target, scene, baseStyle, artStyleClause, lockInstruction, extra, safetySettings, signal }: { target: ImagePromptTarget; scene: string; baseStyle?: string; artStyleClause?: string; lockInstruction?: string; extra?: string; safetySettings?: AISafetySettings; signal?: AbortSignal }
 ): Promise<{ prompt: string; params: Record<string, unknown>; usage?: UsageInfo }> => {
   try {
+    tagPurpose("picture-prompt");
     const result = await chatAdapter.generateChat(
       { model, history: [], prompt: buildImagePromptRequest({ target, scene, baseStyle, artStyleClause, lockInstruction, extra }), temperature: 0.7, safetySettings, signal },
       chatConfig

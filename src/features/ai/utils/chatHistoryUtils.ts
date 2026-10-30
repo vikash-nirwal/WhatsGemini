@@ -1,9 +1,11 @@
+import { tagPurpose } from "../../spending/tokenUsage";
 import { getModelPricing } from "../../../utils/constants";
 import { ChatMessage, UsageInfo } from "../types";
 import { ChatProviderAdapter, ProviderRuntimeConfig } from "../providers/types";
 import { Message } from "../../../types";
 import { formatTranscript, TranscriptNames, countSeedMessages, latestSummaryIndex, buildSummaryMessages } from "./transcript";
-import { splitForCompression } from "./compressionSplit";
+import { splitForCompression, splitForTokens } from "./compressionSplit";
+import { estimateTokens } from "./tokenEstimator";
 
 // Pure helpers live in transcript.ts (testable without the provider registry's
 // ESM imports) and are re-exported here for existing callers.
@@ -48,11 +50,14 @@ Open threads: unresolved goals, promises, secrets, plans, and questions left han
 Important details: names, items held, injuries, facts established about the user and the world, and the user's stated preferences.
 Style: the language used (e.g. English, Hinglish), tone, narration style (e.g. first/third person, *actions* in asterisks), and the current emotional state of each character.
 
-If the text contains an earlier summary, merge it in rather than repeating it. Use the characters' real names. Do not continue the story or address anyone; output only the summary.
+Keep the details: exact names and nicknames, numbers, dates and times, places, promises and plans with when they're due, gifts, inside jokes, and everything the user said about themselves, their life, likes and dislikes. If you're unsure whether a detail matters, keep it. Leave out only small talk and repetition. Be as long as the story needs.
+
+If the text contains an earlier summary, merge it in rather than repeating it, carrying over every detail from it that's still true. Use the characters' real names. Do not continue the story or address anyone; output only the summary.
 
 Conversation:
 ${transcript}`;
 
+  tagPurpose("summary");
   const result = await adapter.generateOnce(prompt, selectedModel, config, systemInstruction);
   return { summary: result.text.trim(), usage: result.usage };
 };
@@ -77,16 +82,20 @@ export const buildAutoCompressedMessages = async (
   selectedModel: string,
   messages: Message[],
   compressThresholdMessages: number,
-  names?: TranscriptNames
+  names?: TranscriptNames,
+  // By size (2026-10-30): the newest this many tokens stay word for word.
+  keepTokens = 0
 ): Promise<{ compressed: boolean; summaryMessages?: Message[]; afterIndex?: number; usage?: UsageInfo; error?: string }> => {
-  if (compressThresholdMessages <= 0) return { compressed: false };
+  if (compressThresholdMessages <= 0 && keepTokens <= 0) return { compressed: false };
 
   const latest = latestSummaryIndex(messages);
   const windowStart = latest >= 0 ? latest : countSeedMessages(messages);
   const compressible = messages.slice(windowStart);
-  if (compressible.length <= compressThresholdMessages) return { compressed: false };
-
-  const splitIndex = splitForCompression(compressible, compressThresholdMessages);
+  // Either rule can call for a summary; when both do, the one that keeps
+  // more word for word wins.
+  const byCount = compressThresholdMessages > 0 && compressible.length > compressThresholdMessages ? splitForCompression(compressible, compressThresholdMessages) : 0;
+  const bySize = splitForTokens(compressible, keepTokens, (m) => estimateTokens(m.txt));
+  const splitIndex = byCount && bySize ? Math.min(byCount, bySize) : byCount || bySize;
   if (splitIndex <= 1) return { compressed: false };
 
   const oldChunk = compressible.slice(0, splitIndex);
