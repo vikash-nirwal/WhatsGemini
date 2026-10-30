@@ -9,6 +9,9 @@ import { MemoryCategory } from "src/types";
 import { Input } from "src/components/atoms/input";
 import { Button } from "src/components/atoms/button";
 import { MAX_MEMORY_ENTRIES } from "src/utils/constants";
+import { CONDENSE_AT } from "src/features/memory/condense";
+import { condenseMemoryIfDue, MemoryOwner } from "src/features/memory/condenseJob";
+import { selectActivePersona } from "src/features/settingsSlice";
 import { cn } from "src/utils/cn";
 import { groupMemoryFacts, MEMORY_CATEGORY_LABELS, nextMemoryCategory } from "src/features/ai/utils/memoryExtraction";
 import { formatLearned, memoryDatesFor } from "src/features/ai/utils/memoryTime";
@@ -198,6 +201,23 @@ const MemoryTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, ch
                   </div>
                 )
 
+  // A long list folds its oldest facts on its own, one pass per memory
+  // update; this does it now, until it's short again (condense.ts).
+  const [tidying, setTidying] = useState(false);
+  const userName = useAppSelector(selectActivePersona)?.name?.trim() || "the user";
+  const tidy = async () => {
+    const owner: MemoryOwner | undefined = chatScoped && chatId
+      ? { kind: "chat", id: chatId, name: isRoom ? chat?.title || "the group" : character?.name || "the character" }
+      : character ? { kind: "character", id: character.id, name: character.name } : undefined;
+    if (!owner) return;
+    setTidying(true);
+    try {
+      await dispatch(condenseMemoryIfDue(owner, userName, 10));
+    } finally {
+      setTidying(false);
+    }
+  };
+
   // "Where things stand" (#142): written with each memory update; replies
   // get it instead of a list of facts. The facts below stay the source.
   const standing = chatScoped ? chat?.memoryStanding : character?.memoryStanding;
@@ -243,7 +263,14 @@ const MemoryTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, ch
           <div>
             <div className="flex items-baseline justify-between mb-2">
               <span data-slot="section-title" className="text-[11px] tracking-[0.1em] uppercase text-subtle font-semibold">{isRoom ? "Group Memory" : "Memory"}</span>
-              <span className="text-[11px] text-primary">{memory.length + pinned.length} facts</span>
+              <span className="flex items-baseline gap-2">
+                {memory.length > CONDENSE_AT && (
+                  <Button type="button" variant="link" size="sm" className="h-auto p-0 text-[11px]" disabled={tidying} onClick={() => void tidy()} title="Fold the oldest facts into a few lines, until the list is short again">
+                    {tidying ? "Tidying..." : "Tidy up"}
+                  </Button>
+                )}
+                <span className="text-[11px] text-primary">{memory.length + pinned.length} facts</span>
+              </span>
             </div>
             {!isRoom && character && (
               <div className="mb-2.5">

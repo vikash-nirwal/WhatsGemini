@@ -28,9 +28,12 @@ export const rememberFacts = (c: Pick<Character, "memory" | "pinnedMemory" | "me
   };
 };
 
+// How a group's facts are labelled in a member's own memory.
+export const groupLabel = (groupTitle: string) => `In the group "${groupTitle}"`;
+
 // A group's new facts, as each member will remember them.
 export const groupFactsFor = (groupTitle: string, added: string[], categories: Record<string, MemoryCategory> | undefined) => {
-  const where = `In the group "${groupTitle}"`;
+  const where = groupLabel(groupTitle);
   const facts = added.map((f) => labelled(where, f));
   const labelledCategories = categories ? Object.fromEntries(added.flatMap((f) => (categories[f] ? [[labelled(where, f), categories[f]]] : []))) : undefined;
   return { facts, categories: labelledCategories };

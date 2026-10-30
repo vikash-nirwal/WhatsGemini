@@ -3,6 +3,7 @@ import { avatarOf } from "../../features/character/profileChanges";
 import { useNavigate } from "react-router-dom";
 import { FaPlus, FaSearch, FaTimes } from "react-icons/fa";
 import { useAppDispatch } from "../../store/hooks";
+import { catchUpOnJoin } from "../../features/memory/joiningJob";
 import { updateChatMutedParticipants, addChatParticipant, branchChatWithParticipant, removeChatParticipant, renameGroupChat } from "../../features/chatSlice";
 import { Character } from "../../types";
 import { CharacterAvatar } from "./CharacterAvatar";
@@ -53,10 +54,14 @@ const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({ chatId, character
   // already a room just adds the new member in place - there's no single-
   // character identity left to protect there.
   const handleInvite = async (id: number) => {
+    // Whoever joins catches up on what came before (joining.ts).
     if (characters.length > 1) {
-      dispatch(addChatParticipant({ chatId, characterId: id }));
       setInviting(false);
       setSearch("");
+      // After the add is saved, so the newcomer is among the members it reads.
+      void dispatch(addChatParticipant({ chatId, characterId: id })).then((r) => {
+        if (addChatParticipant.fulfilled.match(r)) void dispatch(catchUpOnJoin({ chatId, characterId: id }));
+      });
       return;
     }
 
@@ -64,6 +69,7 @@ const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({ chatId, character
     const result = await dispatch(branchChatWithParticipant({ chatId, characterId: id }));
     setBranching(false);
     if (branchChatWithParticipant.fulfilled.match(result)) {
+      void dispatch(catchUpOnJoin({ chatId: result.payload.id, characterId: id, fromChatId: chatId }));
       onClose();
       navigate(`/chat/${result.payload.id}`);
       return;

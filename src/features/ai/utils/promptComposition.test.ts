@@ -107,6 +107,17 @@ describe("buildSystemInstruction", () => {
     expect(text).toContain("Everyone is soaked.");
   });
 
+  it("in a room, leaves out the speaker's own copies of that group's facts, which the group section already has", () => {
+    const character = makeCharacter({ memory: ["Likes tea.", 'In the group "Bonfire": Sam can\'t swim.', 'In the group "Picnic": Ana brought cake.'] });
+    const room = (memory: string[]) => buildSystemInstruction(character, undefined, undefined, undefined, undefined, ["Beck"], undefined, memory, { groupTitle: "Bonfire" }).text;
+    const text = room(["Sam can't swim."]);
+    expect(text).not.toContain('In the group "Bonfire"');
+    expect(text).toContain('In the group "Picnic": Ana brought cake.');
+    expect(text).toContain("Likes tea.");
+    // A group with no memory of its own yet keeps them.
+    expect(room([])).toContain('In the group "Bonfire": Sam can\'t swim.');
+  });
+
   it("in a room with no group scenario/memory set, omits both sections rather than falling back to the character's own scenario", () => {
     const character = makeCharacter({ scenario: "A quiet cafe.", memory: ["Likes tea."] });
     const { text } = buildSystemInstruction(character, undefined, undefined, undefined, undefined, ["Beck"]);

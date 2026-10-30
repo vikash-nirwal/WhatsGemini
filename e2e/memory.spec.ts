@@ -125,3 +125,22 @@ test("the character editor's memory card groups facts the same way", async ({ pa
   await expect(page.getByRole("group", { name: "About you" })).toContainText("Arin collects maps.");
   await expect(page.getByRole("group", { name: "Other" })).toHaveCount(0);
 });
+
+// A long memory can be tidied by hand (2026-10-30): the oldest facts fold
+// into a few lines, pass after pass, until the list is short again.
+test("a long memory can be tidied up", async ({ page, mockAI }) => {
+  await openChat(page);
+  await writeMemory(page, Array.from({ length: 100 }, (_, i) => `Old fact number ${i}.`));
+  await page.reload();
+  await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
+  let pass = 0;
+  mockAI.reply((req) => (req.prompt.includes("oldest memories") ? `[story] Folded memory ${++pass}.\n[user] Folded detail ${pass}.` : "Mock reply"));
+  await openScene(page);
+  const panel = page.locator('[data-slot="side-panel"]');
+  await expect(panel.getByText("100 facts")).toBeVisible();
+  await panel.getByRole("button", { name: "Tidy up" }).click();
+  // 100 → 72: one pass of 30 into 2 brings it under the threshold.
+  await expect(panel.getByText("72 facts")).toBeVisible({ timeout: 15_000 });
+  await expect(panel.getByText("Folded memory 1.")).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Tidy up" })).toHaveCount(0);
+});

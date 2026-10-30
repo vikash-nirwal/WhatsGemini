@@ -49,7 +49,7 @@ export const WorldSummariseCard = ({ world }: { world: World }) => {
         set(i, "running");
         try {
           if (item.kind === "memory") {
-            await dispatch(condenseMemoryIfDue({ kind: "character", id: item.id, name: item.name }, userName));
+            await dispatch(condenseMemoryIfDue({ kind: "character", id: item.id, name: item.name }, userName, 10));
             set(i, "done");
             continue;
           }

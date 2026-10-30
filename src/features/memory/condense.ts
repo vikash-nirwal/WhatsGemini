@@ -8,9 +8,12 @@ import { Character, MemoryCategory, MemoryFactDates } from "../../types";
 // model: repeats merged, what's no longer true dropped, what matters kept.
 // The list stays small enough to send and to pick from, and the old things
 // are still remembered, roughly, the way people remember.
-
-export const CONDENSE_AT = 150;
-export const CONDENSE_COUNT = 40;
+//
+// CONDENSE_AT was 150 until 2026-10-30: replies only ever see 30 facts, but
+// every memory update sends the whole list, and group facts copied to each
+// member filled lists fast. At 80 a list stays between about 50 and 80.
+export const CONDENSE_AT = 80;
+export const CONDENSE_COUNT = 30;
 export const CONDENSE_INTO = 8;
 
 export type Memoryful = Pick<Character, "memory" | "pinnedMemory" | "memoryCategories" | "memoryDates">;

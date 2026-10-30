@@ -1,5 +1,6 @@
 import { buildPastSection } from "../../chat/whatIf";
 import { recalledFor } from "../../memory/semanticRecall";
+import { groupLabel } from "../../memory/sharedMoments";
 import { fitNotes, NotePriority, recordDropped } from "./promptBudget";
 import { MemoryFactDates, Character, ChatGame, ChatLanguage, Intensity, RelationshipStage, LoreEntry, Message, RoleplayStyle, SceneState, StoryScript, UserProfile, World } from "../../../types";
 import { YOU } from "../../../utils/constants";
@@ -175,6 +176,7 @@ export interface PromptOptions {
   roomLoreEntries?: LoreEntry[]; // every OTHER room member's lorebook, matched alongside the speaker's own
   groupPinnedMemory?: string[]; // Chat.pinnedMemory, room only
   groupStanding?: string; // the room's "where things stand" (#142)
+  groupTitle?: string; // the room's title, which labels its facts in each member's own memory
   // Room only: whether every OTHER member is also effectively NSFW. A room is
   // only as permissive as its most restrictive member.
   roomAllowsNsfw?: boolean;
@@ -402,7 +404,13 @@ export const buildSystemInstruction = (
   }
   // Pinned facts always go in; the rest are picked by relevance once the
   // list is longer than MEMORY_PROMPT_LIMIT.
-  const ownMemory = options.memoryOverride || { memory: character.memory || [], pinned: character.pinnedMemory || [], standing: character.memoryStanding?.text };
+  const baseMemory = options.memoryOverride || { memory: character.memory || [], pinned: character.pinnedMemory || [], standing: character.memoryStanding?.text };
+  // In a group, the copies of its own facts in the speaker's memory
+  // (sharedMoments.ts) are left out while the group still has its own: the
+  // group's section below carries them, so they only took places other
+  // memories could use.
+  const ownCopy = isRoomTurn && options.groupTitle && (groupMemory?.length || options.groupStanding) ? `${groupLabel(options.groupTitle)}:` : undefined;
+  const ownMemory = ownCopy ? { ...baseMemory, memory: baseMemory.memory.filter((f) => !f.startsWith(ownCopy)) } : baseMemory;
   // "Where things stand" (#142): when there is one, it replaces the
   // word-matched facts (it was written from all of them); pinned facts
   // still go in word for word.
@@ -555,6 +563,7 @@ export interface RoomContext {
   groupMemory?: string[]; // the room's own Chat.memory - facts learned in this room, shared by every participant
   groupPinnedMemory?: string[]; // the room's own Chat.pinnedMemory
   groupStanding?: string; // the room's "where things stand" (#142)
+  groupTitle?: string; // the room's title (Chat.title)
   otherAppearanceLocks?: AppearanceLock[]; // every OTHER member's locked look (#34)
   relationshipNotes?: string; // what this speaker feels about the others (#24)
   thoughts?: boolean; // the room shows every member's inner thoughts (#10)
@@ -701,6 +710,7 @@ export const buildTurnContext = (
       roomLoreEntries: roomContext?.otherLoreEntries,
       groupPinnedMemory: roomContext?.groupPinnedMemory,
       groupStanding: roomContext?.groupStanding,
+      groupTitle: roomContext?.groupTitle,
       roomAllowsNsfw: roomContext?.othersAllowNsfw,
       memoryOverride: scene?.memoryOverride,
       world: scene?.world,

@@ -119,6 +119,7 @@ export const roomContextFor = (speaker: Character, members: Character[], chat: C
     groupMemory: chat?.memory,
     groupPinnedMemory: chat?.pinnedMemory,
     groupStanding: chat?.memoryStanding?.text,
+    groupTitle: chat?.title,
     otherAppearanceLocks: appearanceLocksFor(others),
     // How each of the others is tied to this speaker (#74, #144), so a
     // brother and sister don't talk like acquaintances.

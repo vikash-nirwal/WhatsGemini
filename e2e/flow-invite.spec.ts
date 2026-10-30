@@ -24,7 +24,8 @@ test("invite a second character into a 1:1 chat to make it a group chat", async 
   mockAI.reply("Fine, I'll help.");
   await sendMessage(page, "Can you both help me?");
   await expect(page.getByText("Fine, I'll help.").first()).toBeVisible();
-  const prompt = mockAI.requests[0].messages.map((m) => m.content).join("\n");
+  // The reply's request, not the newcomer's memory catch-up.
+  const prompt = mockAI.requests.filter((r) => r.stream).pop()!.messages.map((m) => m.content).join("\n");
   expect(prompt).toContain("Kai");
 });
 
@@ -84,4 +85,37 @@ test("someone invited into a world's 1:1 keeps the world and joins in context", 
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(1000);
   expect(mockAI.requests.length).toBe(before);
+});
+
+// Memory when someone joins (2026-10-30): the 1:1's latest messages go into
+// Aria's memory right away, and Kai keeps the gist of what came before he
+// arrived, labelled with the group.
+test("whoever is pulled into a chat catches up on memory", async ({ page, mockAI }) => {
+  await openChat(page, 1);
+  mockAI.reply((req) => {
+    const text = [req.prompt, ...(req.messages || []).map((m: any) => String(m.content))].join("\n");
+    if (text.includes("has just been added to an ongoing conversation")) return "[story] Vik and Aria are planning a trip to the coast";
+    if (text.includes("maintaining long-term memory")) return "[user] Vik wants to see the sea\nSTANDING: Vik and Aria are planning a trip.";
+    return "Mock reply";
+  });
+  await headerAction(page, "Invite someone");
+  await page.getByRole("button", { name: "Invite someone", exact: true }).last().click();
+  await page.getByRole("textbox", { name: "Search characters to invite" }).fill("Ka");
+  await page.getByRole("button", { name: /^KA Kai/ }).click();
+  await expect(page).not.toHaveURL(/#\/chat\/1$/);
+  const title = await page.evaluate(async () => {
+    const db: IDBDatabase = await new Promise((r) => { const q = indexedDB.open("ChatAppDB"); q.onsuccess = () => r(q.result); });
+    const all: any[] = await new Promise((r) => { const g = db.transaction("chats").objectStore("chats").getAll(); g.onsuccess = () => r(g.result); });
+    db.close();
+    return all.find((c) => (c.characterIds || []).length === 2 && c.id !== 2)?.title;
+  });
+
+  const memories = async () => page.evaluate(async () => {
+    const db: IDBDatabase = await new Promise((r) => { const q = indexedDB.open("ChatAppDB"); q.onsuccess = () => r(q.result); });
+    const all: any[] = await new Promise((r) => { const g = db.transaction("characters").objectStore("characters").getAll(); g.onsuccess = () => r(g.result); });
+    db.close();
+    return Object.fromEntries(all.map((c) => [c.name, c.memory || []]));
+  });
+  await expect.poll(async () => (await memories()).Kai, { timeout: 15_000 }).toContain(`In the group "${title}": Vik and Aria are planning a trip to the coast`);
+  await expect.poll(async () => (await memories()).Aria).toContain("Vik wants to see the sea");
 });
