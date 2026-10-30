@@ -76,6 +76,7 @@ import { patchWorld, switchWorld } from "../features/worldSlice";
 import { buildMyStatusNote, myStatusesIn } from "../features/status/myStatuses";
 import { buildStatusesNote } from "../features/status/statusNote";
 import { statusesOn } from "../features/status/statusSwitch";
+import { buildArrivalDirective } from "../features/chat/arrival";
 import { buildForwardDirective, buildQuoteDirective, quoteTextOf } from "../features/chat/replyQuotes";
 import { buildGroupDirective } from "../features/chat/groupLife";
 import { buildProfileNote } from "../features/character/profileChanges";
@@ -1145,6 +1146,27 @@ const ChatPage = () => {
     runBackgroundUpdates((aiAddResult.payload as Message[]) || [], speaker);
     return speaker;
   };
+
+  // Someone just added (Chat.arrivals, 2026-10-30) speaks first, with the
+  // conversation in front of them. The mark is cleared before they reply,
+  // so a reload never makes them say hello twice.
+  const arriving = useRef(false);
+  const arrivalId = currentChat?.arrivals?.[0];
+  useEffect(() => {
+    if (arrivalId == null || !chatIdNum || aiLoading || arriving.current) return;
+    const who = roomCharacters.find((c) => c.id === arrivalId);
+    if (!who) return;
+    arriving.current = true;
+    void (async () => {
+      try {
+        await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { arrivals: (currentChat?.arrivals || []).slice(1) } }));
+        await sendCharacterFollowup(who.id, buildArrivalDirective(who.name, userNameForNotes));
+      } finally {
+        arriving.current = false;
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arrivalId, chatIdNum, aiLoading, roomCharacters]);
 
   // A room message a character started on their own gets the same round a
   // message of yours does (#22, #23): the others answer by the turn mode,

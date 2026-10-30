@@ -562,6 +562,7 @@ export interface Chat {
   moodTint?: boolean; // the background takes a soft colour from the character's mood (#90)
   plans?: SharedPlan[]; // plans made together (#84)
   planTracking?: boolean; // a helper check notices plans in the chat (#84)
+  arrivals?: number[]; // just added to the chat; each says hello in its context, once (2026-10-30)
   revealedSecrets?: string[]; // ids of the character's secrets told in this chat (#81)
   insideJokes?: InsideJoke[]; // #96
   jokeTracking?: boolean; // a helper check notices inside jokes (#96)

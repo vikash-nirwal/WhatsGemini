@@ -292,7 +292,7 @@ export const updateChatMessage = createAsyncThunk(
 // Updates simple per-chat switches, leaving content and tree untouched.
 export const updateChatOptions = createAsyncThunk(
   "chat/updateChatOptions",
-  async ({ chatId, patch }: { chatId: number; patch: Partial<Pick<Chat, "replySuggestions" | "textingMode" | "worldId" | "backdrop" | "relationshipSuggestions" | "relationshipCheckedAt" | "relationshipSuggestion" | "sceneTracker" | "sceneState" | "recap" | "storyScript" | "game" | "gameScore" | "turnMode" | "narrator" | "roomRelationships" | "innerThoughts" | "offscreenTalk" | "offscreenTalks" | "arcCheckedAt" | "arcSuggestion" | "language" | "coWriting" | "stage" | "stageCheckedAt" | "stageSuggestion" | "meters" | "boldness" | "choiceMoments" | "moodTint" | "plans" | "planTracking" | "revealedSecrets" | "ambient" | "insideJokes" | "jokeTracking" | "jokesCheckedAt" | "conflicts" | "conflict" | "jealousy" | "lies" | "toldLies" | "whatIf" | "pendingHook" | "roleSwap" | "moodCarry" | "mood" | "callbackAt" | "readAt" | "muted" | "archived" | "leftOnReadUntil" | "disappearing" | "blocked" | "timePassed" | "godTruths" | "groupPlan" | "theirs">> }, { rejectWithValue }) => {
+  async ({ chatId, patch }: { chatId: number; patch: Partial<Pick<Chat, "arrivals" | "replySuggestions" | "textingMode" | "worldId" | "backdrop" | "relationshipSuggestions" | "relationshipCheckedAt" | "relationshipSuggestion" | "sceneTracker" | "sceneState" | "recap" | "storyScript" | "game" | "gameScore" | "turnMode" | "narrator" | "roomRelationships" | "innerThoughts" | "offscreenTalk" | "offscreenTalks" | "arcCheckedAt" | "arcSuggestion" | "language" | "coWriting" | "stage" | "stageCheckedAt" | "stageSuggestion" | "meters" | "boldness" | "choiceMoments" | "moodTint" | "plans" | "planTracking" | "revealedSecrets" | "ambient" | "insideJokes" | "jokeTracking" | "jokesCheckedAt" | "conflicts" | "conflict" | "jealousy" | "lies" | "toldLies" | "whatIf" | "pendingHook" | "roleSwap" | "moodCarry" | "mood" | "callbackAt" | "readAt" | "muted" | "archived" | "leftOnReadUntil" | "disappearing" | "blocked" | "timePassed" | "godTruths" | "groupPlan" | "theirs">> }, { rejectWithValue }) => {
     try {
       await dbService.patchChat(chatId, patch);
       return { chatId, patch };
@@ -498,10 +498,8 @@ export const addChatParticipant = createAsyncThunk(
         timestamp: Date.now(),
       });
 
-      if (character?.first_mes) {
-        const txt = applyMacros(character.first_mes, { char: character.name, user: resolvePersonaName(getState, chat) || "User" });
-        pushMessage({ role: AI, txt, speakerId: character.id, id: generateNodeId(), timestamp: Date.now() });
-      }
+      // The newcomer speaks in the chat's context, not a fixed greeting.
+      chat.arrivals = [...(chat.arrivals || []), characterId];
 
       await dbService.updateChat(chat);
       dispatch(fetchChats());
@@ -532,7 +530,20 @@ export const branchChatWithParticipant = createAsyncThunk(
 
       const character = await dbService.getCharacterById(characterId).catch(() => undefined);
 
+      // The group carries on the same conversation, so it keeps the chat's
+      // settings - its world above all: without it the group counted as My
+      // world, and opening it switched you there (the user's report,
+      // 2026-10-30). What belongs to the 1:1 alone (its memory, read and
+      // pinned state, pending waits and suggestions) starts fresh.
+      const {
+        id: _id, title: _title, timestamp: _timestamp, content: _content, tree: _tree, activeLeafId: _leaf, characterIds: _ids,
+        memory: _memory, pinnedMemory: _pinnedMemory, memoryStanding: _standing, memoryCategories: _categories, memoryDates: _dates,
+        pinned: _pinned, readAt: _readAt, archived: _archived, leftOnReadUntil: _leftOnRead, callbackAt: _callback,
+        replySuggestions: _suggestions, arcCheckedAt: _arcChecked, arcSuggestion: _arcSuggestion, offscreenTalk: _offscreen, arrivals: _arrivals,
+        ...settings
+      } = original;
       const branched: Omit<Chat, "id"> = {
+        ...settings,
         title: character?.name ? `${original.title} + ${character.name}` : original.title,
         timestamp: Date.now(),
         content: [...original.content],
@@ -540,10 +551,9 @@ export const branchChatWithParticipant = createAsyncThunk(
         mutedParticipantIds: original.mutedParticipantIds ? [...original.mutedParticipantIds] : undefined,
         tree: original.tree ? { nodes: { ...original.tree.nodes } } : undefined,
         activeLeafId: original.activeLeafId ?? null,
-        authorNote: original.authorNote,
         worldTags: original.worldTags ? [...original.worldTags] : undefined,
-        personaId: original.personaId,
         memory: [],
+        arrivals: [characterId],
       };
 
       const pushMessage = (message: Message) => {
@@ -565,10 +575,8 @@ export const branchChatWithParticipant = createAsyncThunk(
         timestamp: Date.now(),
       });
 
-      if (character?.first_mes) {
-        const txt = applyMacros(character.first_mes, { char: character.name, user: resolvePersonaName(getState, original) || "User" });
-        pushMessage({ role: AI, txt, speakerId: character.id, id: generateNodeId(), timestamp: Date.now() });
-      }
+      // No fixed greeting: the newcomer speaks once the chat opens, with the
+      // conversation in front of them (Chat.arrivals, ChatPage).
 
       const id = await dbService.addChat(branched);
       const newChat = { id, ...branched } as Chat;
