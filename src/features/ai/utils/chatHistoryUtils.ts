@@ -4,7 +4,7 @@ import { ChatMessage, UsageInfo } from "../types";
 import { ChatProviderAdapter, ProviderRuntimeConfig } from "../providers/types";
 import { Message } from "../../../types";
 import { formatTranscript, TranscriptNames, countSeedMessages, latestSummaryIndex, buildSummaryMessages } from "./transcript";
-import { splitForCompression, splitForTokens } from "./compressionSplit";
+import { foldSplit } from "./compressionSplit";
 import { estimateTokens } from "./tokenEstimator";
 
 // Pure helpers live in transcript.ts (testable without the provider registry's
@@ -91,12 +91,8 @@ export const buildAutoCompressedMessages = async (
   const latest = latestSummaryIndex(messages);
   const windowStart = latest >= 0 ? latest : countSeedMessages(messages);
   const compressible = messages.slice(windowStart);
-  // Either rule can call for a summary; when both do, the one that keeps
-  // more word for word wins.
-  const byCount = compressThresholdMessages > 0 && compressible.length > compressThresholdMessages ? splitForCompression(compressible, compressThresholdMessages) : 0;
-  const bySize = splitForTokens(compressible, keepTokens, (m) => estimateTokens(m.txt));
-  const splitIndex = byCount && bySize ? Math.min(byCount, bySize) : byCount || bySize;
-  if (splitIndex <= 1) return { compressed: false };
+  const splitIndex = foldSplit(compressible, compressThresholdMessages, keepTokens, (m) => estimateTokens(m.txt));
+  if (!splitIndex) return { compressed: false };
 
   const oldChunk = compressible.slice(0, splitIndex);
 

@@ -54,3 +54,14 @@ export const splitForTokens = (compressible: Message[], keepTokens: number, toke
   }
   return split;
 };
+
+// Where to fold a chat's visible part (from its latest summary on), by
+// either rule: a message count or a size. When both call for it, the one
+// that keeps more word for word wins. 0 = nothing to fold. Shared by the
+// summary on send and the world's "Summarise" button, so both agree.
+export const foldSplit = (compressible: Message[], thresholdMessages: number, keepTokens: number, tokensOf: (m: Message) => number, maxChunkTokens = MAX_CHUNK_TOKENS): number => {
+  const byCount = thresholdMessages > 0 && compressible.length > thresholdMessages ? splitForCompression(compressible, thresholdMessages) : 0;
+  const bySize = splitForTokens(compressible, keepTokens, tokensOf, maxChunkTokens);
+  const split = byCount && bySize ? Math.min(byCount, bySize) : byCount || bySize;
+  return split > 1 ? split : 0;
+};

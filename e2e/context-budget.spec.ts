@@ -71,3 +71,42 @@ test.describe("tokens", () => {
     await expect(card.getByRole("row", { name: /Chat and adventure replies/ })).toBeVisible();
   });
 });
+
+test.describe("a whole world", () => {
+  test.use({ seed: { messages: 30 }, localStorageOverrides: { history_keep_tokens: "100" } });
+
+  test("Summarise this world catches up its long chats at once", async ({ page, mockAI }) => {
+    mockAI.reply((req) => (req.prompt.includes("Summarize the following roleplay conversation") ? "Story so far: Aria and the user talked about their days." : "Mock reply"));
+    await openRoute(page, "/worlds/new");
+    await page.locator("#world-name").fill("Harbour Town");
+    await page.locator("#world-premise").fill("A rainy port.");
+    await page.getByRole("button", { name: "Create World" }).click();
+    await expect(page.getByRole("button", { name: "Switch to Harbour Town" })).toBeVisible();
+    const worldId = await page.evaluate(async (ariaId) => {
+      const db: IDBDatabase = await new Promise((r) => { const q = indexedDB.open("ChatAppDB"); q.onsuccess = () => r(q.result); });
+      const worlds: any[] = await new Promise((r) => { const q = db.transaction("worlds").objectStore("worlds").getAll(); q.onsuccess = () => r(q.result); });
+      const id = worlds.find((w) => w.name === "Harbour Town").id;
+      const tx = db.transaction("characters", "readwrite");
+      const store = tx.objectStore("characters");
+      const get = store.get(ariaId);
+      get.onsuccess = () => store.put({ ...get.result, worldId: id });
+      await new Promise((r) => { tx.oncomplete = r; });
+      db.close();
+      return id;
+    }, ARIA.id);
+    await page.reload();
+    await openRoute(page, `/worlds/${worldId}/edit`);
+    await page.reload();
+
+    const card = page.getByLabel("Summarise this world");
+    await expect(card.getByText(/1 to do: about 1 call/)).toBeVisible({ timeout: 30_000 });
+    await expect(card.getByRole("list", { name: "To summarise" })).toContainText("chat");
+    await card.getByRole("button", { name: "Summarise now" }).click();
+    await expect(card.getByRole("list", { name: "To summarise" })).toContainText("Done", { timeout: 15_000 });
+    expect(mockAI.requests.filter((r) => r.prompt.includes("Summarize the following roleplay conversation"))).toHaveLength(1);
+
+    // The summary is in the chat, and the next reply starts from it.
+    await openChat(page);
+    await expect(page.getByText("Aria and the user talked about their days.").first()).toBeVisible({ timeout: 30_000 });
+  });
+});

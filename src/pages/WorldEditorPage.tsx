@@ -21,6 +21,7 @@ import Header from "src/components/organisms/Header";
 import { TextInput, ChipSelectField } from "src/components/molecules/form-controls";
 import LorebookStep from "./CharacterEditorPage/steps/LorebookStep";
 import { WorldVoiceFields } from "src/components/molecules/WorldVoiceFields";
+import { WorldSummariseCard } from "src/components/organisms/WorldSummariseCard";
 import { TAG_PRESETS, WORLD_ERA_PRESETS, WORLD_TONE_PRESETS } from "../utils/constants";
 
 const makeLoreEntryId = () => `lore_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
@@ -232,6 +233,8 @@ const WorldEditorPage = () => {
           </Card>
 
           {editWorld && <WorldCastCard world={{ ...editWorld, name: name || editWorld.name, premise: premise || editWorld.premise, tone, era }} />}
+
+          {editWorld && <WorldSummariseCard world={editWorld} />}
 
           <StoryTimeEditor value={storyTime} onChange={setStoryTime} />
 
