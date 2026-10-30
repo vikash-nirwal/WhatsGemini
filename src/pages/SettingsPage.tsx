@@ -102,7 +102,7 @@ import {
   WAN_REFERENCE_MODELS,
 } from "../utils/constants";
 import { FAL_IMAGE_MODEL_OPTIONS } from "../features/ai/providers/falImageAdapter";
-import { AISafetySettings, UserProfile } from "../types";
+import { AISafetySettings, HarmCategoryKey, UserProfile } from "../types";
 import { dbService } from "../services/dbService";
 import ChatInterfaceSettings from "src/components/organisms/ChatInterfaceSettings";
 import SafetySettings from "src/components/organisms/SafetySettings";
@@ -552,7 +552,7 @@ const SettingsPage = () => {
   // Redux automatically handles syncing to localStorage via store.subscribe, 
   // so we don't need the 100-line useEffect for localStorage synchronization anymore.
   
-  const handleSafetyChange = useCallback((category: keyof AISafetySettings, value: string) => {
+  const handleSafetyChange = useCallback((category: HarmCategoryKey, value: string) => {
     dispatch(setSafetySettings({ ...safetySettings, [category]: value }));
   }, [dispatch, safetySettings]);
 
@@ -800,7 +800,7 @@ const SettingsPage = () => {
     }
   };
 
-  const safetyCategories: (keyof AISafetySettings)[] = useMemo(
+  const safetyCategories: (HarmCategoryKey)[] = useMemo(
     () => ["harassment", "hate_speech", "sexual", "dangerous"],
     []
   );
@@ -1006,6 +1006,8 @@ const SettingsPage = () => {
                     falApiKey={falApiKey}
                     setFalApiKey={handleSetFalApiKey}
                     falImageModelList={FAL_IMAGE_MODEL_OPTIONS}
+                    falSafetyChecker={safetySettings.falSafetyChecker !== false}
+                    setFalSafetyChecker={(on) => dispatch(setSafetySettings({ ...safetySettings, falSafetyChecker: on }))}
                     glmApiKey={glmImageApiKey}
                     setGlmApiKey={handleSetGlmImageApiKey}
                     glmImageModelList={glmImageModelList}

@@ -2,7 +2,7 @@ import React from 'react';
 import { FaShieldAlt } from 'react-icons/fa';
 import { cn } from '../../utils/cn';
 import { useColorTheme } from '../../hooks/useColorTheme';
-import { AISafetySettings } from '../../types';
+import { AISafetySettings, HarmCategoryKey } from '../../types';
 import { harmThresholds } from '../../utils/constants';
 import { SettingsCard, SettingsRow } from 'src/components/molecules/settings-card';
 import { SegmentedControl } from 'src/components/molecules/SegmentedControl';
@@ -10,8 +10,8 @@ import { SegmentedControl } from 'src/components/molecules/SegmentedControl';
 interface SafetySettingsProps {
   chatProvider: string;
   safetySettings: AISafetySettings;
-  safetyCategories: (keyof AISafetySettings)[];
-  onSafetyChange: (category: keyof AISafetySettings, value: string) => void;
+  safetyCategories: (HarmCategoryKey)[];
+  onSafetyChange: (category: HarmCategoryKey, value: string) => void;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {

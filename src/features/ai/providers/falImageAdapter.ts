@@ -171,12 +171,21 @@ const toDataUrl = async (url: string): Promise<string> => {
   }
 };
 
-const runQueue = async (endpoint: string, input: Record<string, unknown>, apiKey: string, signal?: AbortSignal): Promise<any> => {
+// What turns fal's safety checker off. Most models take
+// enable_safety_checker; FLUX pro models have a tolerance from 1 (strict) to
+// 5 (loosest the API allows) instead. Other fields are ignored by models
+// that don't have them, so sending both is safe.
+export const safetyOffParams = (endpoint: string): Record<string, unknown> => ({
+  enable_safety_checker: false,
+  ...(endpoint.startsWith("fal-ai/flux-pro") ? { safety_tolerance: "5" } : {}),
+});
+
+const runQueue = async (endpoint: string, input: Record<string, unknown>, apiKey: string, signal?: AbortSignal, safetyOff = false): Promise<any> => {
   const auth = { Authorization: `Key ${apiKey}` };
   const submit = await fetch(`${QUEUE_URL}/${endpoint}`, {
     method: "POST",
     headers: { ...auth, "Content-Type": "application/json" },
-    body: JSON.stringify(input),
+    body: JSON.stringify(safetyOff ? { ...input, ...safetyOffParams(endpoint) } : input),
     signal,
   });
   if (!submit.ok) throw new Error(`fal.ai error: ${await extractErrorMessage(submit)}`);
@@ -210,6 +219,8 @@ const runQueue = async (endpoint: string, input: Record<string, unknown>, apiKey
 const generateImage = async (opts: ImageGenCallOptions, config: ProviderRuntimeConfig): Promise<ImageGenCallResult> => {
   if (!config.apiKey) throw new Error("A fal.ai API key is required.");
   const apiKey = config.apiKey;
+  // Off only when the user switched it off; a missing setting keeps it on.
+  const safetyOff = opts.safetySettings?.falSafetyChecker === false;
 
   // A model left over from another provider (say gpt-image-1 after switching)
   // falls back to the default rather than failing.
@@ -247,7 +258,7 @@ const generateImage = async (opts: ImageGenCallOptions, config: ProviderRuntimeC
   for (let i = 0; i < attempts.length; i++) {
     const attempt = attempts[i];
     try {
-      output = await runQueue(attempt.id, attempt.input, apiKey, opts.signal);
+      output = await runQueue(attempt.id, attempt.input, apiKey, opts.signal, safetyOff);
       break;
     } catch (err: any) {
       const message: string = err?.message || "";
@@ -256,7 +267,7 @@ const generateImage = async (opts: ImageGenCallOptions, config: ProviderRuntimeC
       if (field && photos?.images.length) {
         const urls = await Promise.all(photos.images.map((img, n) => uploadReference(img, n, apiKey, opts.signal)));
         try {
-          output = await runQueue(attempt.id, { prompt: withReferenceLegend(opts.prompt, photos.names), [field]: field.endsWith("urls") ? urls : urls[0], ...sizeParams(model.referenceSize, opts.aspectRatio) }, apiKey, opts.signal);
+          output = await runQueue(attempt.id, { prompt: withReferenceLegend(opts.prompt, photos.names), [field]: field.endsWith("urls") ? urls : urls[0], ...sizeParams(model.referenceSize, opts.aspectRatio) }, apiKey, opts.signal, safetyOff);
           rememberReferenceField(attempt.id, field);
           break;
         } catch {

@@ -256,3 +256,26 @@ test("reads the missing photo field from fal's message", () => {
   expect(missingPhotoField("fal.ai error: image_url: Field required")).toBe("image_url");
   expect(missingPhotoField("fal.ai error: prompt: field required")).toBeUndefined();
 });
+
+describe("fal's safety checker", () => {
+  const harm = { harassment: "BLOCK_NONE", hate_speech: "BLOCK_NONE", sexual: "BLOCK_NONE", dangerous: "BLOCK_NONE" };
+
+  it("is left to fal's default unless switched off", async () => {
+    const calls = mockFal();
+    await falImageAdapter.generateImage({ model: "fal-ai/bytedance/seedream/v4/edit", prompt: "a cat", safetySettings: harm }, config);
+    expect(submitOf(calls).body).not.toHaveProperty("enable_safety_checker");
+  });
+
+  it("is turned off when the switch is off", async () => {
+    const calls = mockFal();
+    await falImageAdapter.generateImage({ model: "fal-ai/bytedance/seedream/v4/edit", prompt: "a cat", safetySettings: { ...harm, falSafetyChecker: false } }, config);
+    expect(submitOf(calls).body.enable_safety_checker).toBe(false);
+    expect(submitOf(calls).body).not.toHaveProperty("safety_tolerance");
+  });
+
+  it("FLUX pro also gets the loosest tolerance", async () => {
+    const calls = mockFal();
+    await falImageAdapter.generateImage({ model: "fal-ai/flux-pro/kontext", prompt: "p", referenceImages: [ref(1)], safetySettings: { ...harm, falSafetyChecker: false } }, config);
+    expect(submitOf(calls).body).toMatchObject({ enable_safety_checker: false, safety_tolerance: "5" });
+  });
+});

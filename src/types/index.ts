@@ -916,11 +916,17 @@ export interface RoleplayStyle {
   customInstructions: string;
 }
 
+// The four Gemini harm categories, without fal's switch.
+export type HarmCategoryKey = "harassment" | "hate_speech" | "sexual" | "dangerous";
+
 export interface AISafetySettings {
   harassment: string;
   hate_speech: string;
   sexual: string;
   dangerous: string;
+  // fal.ai's own checker on generated images. Missing means on: it's only
+  // turned off when the user switches it off in image settings.
+  falSafetyChecker?: boolean;
 }
 
 // A reusable setting/universe a story can be played out in - the Adventure

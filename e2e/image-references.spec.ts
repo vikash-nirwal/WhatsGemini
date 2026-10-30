@@ -108,6 +108,33 @@ test.describe("fal.ai", () => {
     expect(body.prompt).toContain("the character waving at the camera");
     expect(body.prompt).not.toContain("Aria");
   });
+
+  // The user's ask, 2026-10-30: fal's checker can be switched off; it's on by default.
+  test("switching the safety checker off in Settings turns it off at fal", async ({ page }) => {
+    let body: any = null;
+    await page.route("https://rest.fal.ai/storage/upload/initiate*", (route) =>
+      route.fulfill({ json: { upload_url: "https://v3b.fal.media/upload/ref-1", file_url: "https://v3b.fal.media/files/ref-1.png" } })
+    );
+    await page.route("https://v3b.fal.media/upload/ref-1", (route) => route.fulfill({ status: 200, body: "" }));
+    await page.route("https://queue.fal.run/**", (route) => {
+      const request = route.request();
+      if (request.method() === "POST") {
+        body = request.postDataJSON();
+        return route.fulfill({ json: { request_id: "req-1", status_url: "https://queue.fal.run/fal-ai/bytedance/requests/req-1/status", response_url: "https://queue.fal.run/fal-ai/bytedance/requests/req-1" } });
+      }
+      if (request.url().endsWith("/status")) return route.fulfill({ json: { status: "COMPLETED" } });
+      return route.fulfill({ json: { images: [{ url: RESULT_DATA_URL }] } });
+    });
+
+    await openRoute(page, "/settings/image");
+    const checker = page.getByRole("switch", { name: "fal.ai safety checker" });
+    await expect(checker).toBeChecked();
+    await checker.click();
+    await expect(checker).not.toBeChecked();
+
+    await requestPictureFromAria(page);
+    expect(body.enable_safety_checker).toBe(false);
+  });
 });
 
 // Toning down (2026-10-27): a picture the service blocks is tried again

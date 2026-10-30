@@ -33,6 +33,8 @@ interface ImageGenerationSettingsProps {
   falApiKey: string;
   setFalApiKey: (key: string) => void;
   falImageModelList: { value: string; label: string }[];
+  falSafetyChecker: boolean;
+  setFalSafetyChecker: (on: boolean) => void;
   glmApiKey: string;
   setGlmApiKey: (key: string) => void;
   glmImageModelList: { value: string; label: string }[];
@@ -97,6 +99,8 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
   falApiKey,
   setFalApiKey,
   falImageModelList,
+  falSafetyChecker,
+  setFalSafetyChecker,
   glmApiKey,
   setGlmApiKey,
   glmImageModelList,
@@ -359,6 +363,11 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
                 </Select>
                 <Button type="button" variant="outline" onClick={() => setFalBrowserOpen(true)}>Browse all fal.ai models</Button>
               </div>
+            </SettingsRow>
+            {/* The user's ask, 2026-10-30: fal's checker blacks out pictures it flags.
+                On by default; Kindred's own adult rules apply either way. */}
+            <SettingsRow label="Safety checker" hint="fal.ai checks each picture and blocks ones it flags as explicit. Turning it off only removes fal's filter: Kindred's 18+ rules for characters still apply, and so do fal.ai's terms." align="start">
+              <ToggleSwitch checked={falSafetyChecker} onChange={setFalSafetyChecker} label={<span className="sr-only">fal.ai safety checker</span>} />
             </SettingsRow>
             <FalModelBrowser open={falBrowserOpen} onOpenChange={setFalBrowserOpen} apiKey={falApiKey} onPick={setImageModel} />
           </>
