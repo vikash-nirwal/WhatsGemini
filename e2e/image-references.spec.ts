@@ -155,6 +155,27 @@ test.describe("fal.ai", () => {
     expect(sent.body.enable_safety_checker).toBe(false);
   });
 
+  // Any SDXL checkpoint (2026-10-30): set in Settings, sent with the face photo.
+  test("SDXL with your own checkpoint sends the checkpoint, a LoRA and the face", async ({ page }) => {
+    const sent = await mockFalSubmit(page);
+    await openRoute(page, "/settings/image");
+    await page.getByRole("combobox", { name: "fal.ai model" }).click();
+    await page.getByRole("option", { name: "SDXL with your own checkpoint and LoRAs" }).click();
+    await page.getByRole("textbox", { name: "Checkpoint" }).fill("someone/illustrious-xl");
+    await page.getByRole("button", { name: "Add a link" }).click();
+    await page.getByLabel("LoRA 1 link").fill("https://huggingface.co/someone/style/resolve/main/style.safetensors");
+    await page.getByText("How to add a checkpoint or LoRA").click();
+    await expect(page.getByText("From Hugging Face")).toBeVisible();
+
+    await requestPictureFromAria(page);
+    expect(sent.body).toMatchObject({
+      model_name: "someone/illustrious-xl",
+      loras: [{ path: "https://huggingface.co/someone/style/resolve/main/style.safetensors", scale: 0.8 }],
+      image_encoder_path: "h94/IP-Adapter",
+    });
+    expect(sent.body.ip_adapter[0].ip_adapter_image_url).toBe("https://v3b.fal.media/files/ref-1.png");
+  });
+
   test("Off for 18+ leaves it on for a character who isn't 18+", async ({ page }) => {
     const sent = await mockFalSubmit(page);
     await pickChecker(page, "Off for 18+");

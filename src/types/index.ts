@@ -970,6 +970,8 @@ export interface World {
   placeStates?: { pinId: string; text: string; until: number }[]; // how a place is for a while, after an event (#219)
   canon?: string[]; // lasting facts nothing may contradict (#219, #220)
   traditions?: { id: string; title: string; text: string; month: number; day: number; days: number; lastYear?: number }[]; // yearly events, on the world's calendar (#222)
+  language?: string; // the language everyone here speaks and writes in (2026-10-30); unset = the chat's own
+  replyLengthLimit?: number; // reply length target for chats here, in characters (2026-10-30); unset = Settings' own
 }
 
 // A secret one character keeps from another (#170). You may hear it as

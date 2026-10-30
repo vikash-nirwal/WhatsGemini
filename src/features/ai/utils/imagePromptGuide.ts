@@ -1,4 +1,5 @@
 import type { ArtStyle } from "../../../types";
+import { FAL_LORA_ENDPOINT, loadFalLora } from "../providers/falLora";
 import { loadComfySettings, loadCustomWorkflows, templateForCharacter, templateOptionsFor } from "../comfyui/settings";
 
 // Each image model wants its prompt written its own way: Stable Diffusion 1.5
@@ -110,6 +111,12 @@ export const resolveImagePromptTarget = ({ providerId, imageModel, sdWebuiModel,
       }
     }
     case "fal":
+      // Your own SDXL checkpoint (falLora.ts): tags in its own style, as
+      // for the same checkpoint in ComfyUI.
+      if (model === FAL_LORA_ENDPOINT) {
+        const { checkpoint } = loadFalLora();
+        return target(dialectForCheckpoint(checkpoint, "sdxl"), `fal.ai SDXL${checkpoint ? ` with the checkpoint "${checkpoint}"` : ""}`);
+      }
       return target(/flux|kontext/i.test(model) ? "flux" : "prose", `fal.ai ${model.includes("seedream") ? "Seedream" : model || "image model"}`);
     case "openai":
       return target("prose", `OpenAI ${model || "gpt-image-1"}`);

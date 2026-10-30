@@ -20,6 +20,7 @@ import { Card } from "src/components/atoms/card";
 import Header from "src/components/organisms/Header";
 import { TextInput, ChipSelectField } from "src/components/molecules/form-controls";
 import LorebookStep from "./CharacterEditorPage/steps/LorebookStep";
+import { WorldVoiceFields } from "src/components/molecules/WorldVoiceFields";
 import { TAG_PRESETS, WORLD_ERA_PRESETS, WORLD_TONE_PRESETS } from "../utils/constants";
 
 const makeLoreEntryId = () => `lore_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
@@ -47,6 +48,8 @@ const WorldEditorPage = () => {
   const [map, setMap] = useState<WorldMap | undefined>(undefined);
   const [personaId, setPersonaId] = useState(""); // who you are here (#143); "" = your active persona
   const [storyTime, setStoryTime] = useState<StoryTime | undefined>(undefined);
+  const [language, setLanguage] = useState("");
+  const [replyLength, setReplyLength] = useState(0);
   const personas = useAppSelector((state) => state.settings.personas);
 
   useEffect(() => {
@@ -61,6 +64,8 @@ const WorldEditorPage = () => {
       setMap(editWorld.map);
       setPersonaId(editWorld.personaId || "");
       setStoryTime(editWorld.storyTime);
+      setLanguage(editWorld.language || "");
+      setReplyLength(editWorld.replyLengthLimit || 0);
     } else {
       setName("");
       setPremise("");
@@ -72,6 +77,8 @@ const WorldEditorPage = () => {
       setMap(undefined);
       setPersonaId("");
       setStoryTime(undefined);
+      setLanguage("");
+      setReplyLength(0);
     }
   }, [editWorld]);
 
@@ -163,7 +170,7 @@ const WorldEditorPage = () => {
       return;
     }
     setSaveError(null);
-    const payload = { name: name.trim(), premise: premise.trim(), settingDetails: settingDetails.trim() || undefined, tone: tone.trim() || undefined, era: era.trim() || undefined, tags, loreEntries, map, personaId: personaId && personaId !== NEW_PERSONA ? personaId : undefined, storyTime };
+    const payload = { name: name.trim(), premise: premise.trim(), settingDetails: settingDetails.trim() || undefined, tone: tone.trim() || undefined, era: era.trim() || undefined, tags, loreEntries, map, personaId: personaId && personaId !== NEW_PERSONA ? personaId : undefined, storyTime, language: language.trim() || undefined, replyLengthLimit: replyLength || undefined };
     if (editWorld) {
       // Only the editor's fields (#173): events, storylines and the rest
       // written while it was open stay.
@@ -202,6 +209,7 @@ const WorldEditorPage = () => {
             <SuggestField id="world-details" label="Setting details (optional)" multiline value={settingDetails} onChange={setSettingDetails} hint="Longer background - history, factions, rules of the world." placeholder="History, factions, magic/tech rules, geography..." onSuggest={() => assist.suggestField("details", draftWorld, residents)} />
             <SuggestField id="world-tone" label="Tone" value={tone} onChange={setTone} options={WORLD_TONE_PRESETS} placeholder="e.g. Whimsical fairy-tale horror" onSuggest={() => assist.suggestField("tone", draftWorld, residents)} />
             <SuggestField id="world-era" label="Era or technology" value={era} onChange={setEra} options={WORLD_ERA_PRESETS} hint="A medieval world can still 'text': messages stand for letters or messengers." placeholder="e.g. Today, phones and all" onSuggest={() => assist.suggestField("era", draftWorld, residents)} />
+            <WorldVoiceFields idPrefix="world" language={language} onLanguage={setLanguage} replyLength={replyLength} onReplyLength={setReplyLength} />
             <ChipSelectField label="Tags" value={tags} onChange={setTags} presets={TAG_PRESETS} placeholder="Add a tag..." />
             <div className="flex flex-col gap-1.5">
               <label htmlFor="world-persona" className="text-sm font-medium text-foreground">You in this world</label>

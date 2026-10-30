@@ -2,6 +2,7 @@ import { Character, World } from "../../types";
 import { extrasLine } from "./extras";
 import type { TimelineEntry } from "./timeline";
 import { featureOn } from "./worldPrefs";
+import { worldLanguageLine } from "./worldVoice";
 
 // A canon check (#220). The more a world writes about itself, the more it
 // contradicts itself: someone who died turns up at the market, a couple who
@@ -37,7 +38,7 @@ export const worldContext = (world: World | undefined, people: Pick<Character, "
   if (!world) return [];
   const canon = canonLine(canonOf(world, cast, timeline));
   const extras = featureOn(world.id, "extras") ? extrasLine(world, people, cast) : undefined;
-  return [canon, extras].filter((x): x is string => Boolean(x));
+  return [worldLanguageLine(world), canon, extras].filter((x): x is string => Boolean(x));
 };
 
 // Generated text that puts someone who has died back on stage: it names

@@ -2,6 +2,7 @@ import { NormalizedImage } from "../types";
 import { ContentBlockedError, ImageGenCallOptions, ImageGenCallResult, ImageProviderAdapter, ModelOption, ProviderRuntimeConfig } from "./types";
 import { collectReferences, extensionFor, toBlob, toDataUri, withReferenceLegend } from "./referenceImages";
 import { customFalModels, FALLBACK_TEXT_ENDPOINT, rememberReferenceField, textSiblingsOf } from "./falCatalog";
+import { buildFalLoraInput, FAL_LORA_ENDPOINT, loadFalLora } from "./falLora";
 
 // fal.ai's queue API, called straight from the browser: queue.fal.run,
 // rest.fal.ai (file uploads) and fal.media (results) all answer CORS
@@ -65,6 +66,17 @@ export const FAL_IMAGE_MODELS: Record<string, FalModel> = {
     maxReferences: 1,
     referenceSize: "resolution_mode",
     textEndpoint: "fal-ai/flux/dev",
+    textSize: "image_size",
+  },
+  // Any SDXL checkpoint and LoRAs, set in Settings (falLora.ts). It has its
+  // own request; these fields only list it.
+  [FAL_LORA_ENDPOINT]: {
+    label: "SDXL with your own checkpoint and LoRAs",
+    referenceEndpoint: FAL_LORA_ENDPOINT,
+    referenceField: "ip_adapter",
+    maxReferences: 1,
+    referenceSize: "image_size",
+    textEndpoint: FAL_LORA_ENDPOINT,
     textSize: "image_size",
   },
   "fal-ai/flux-pulid": {
@@ -131,20 +143,26 @@ const extractErrorMessage = async (response: Response): Promise<string> => {
 // every model accepts; only some models document data URIs. So each
 // reference is uploaded the same way (initiate, then PUT the bytes), and
 // only if that fails does it go inline as a data URI.
+// Uploads a file to fal's storage (initiate, then PUT the bytes) and
+// returns the URL fal's models can read it from.
+export const uploadFalFile = async (file: Blob, contentType: string, fileName: string, apiKey: string, signal?: AbortSignal): Promise<string> => {
+  const initiate = await fetch(STORAGE_INITIATE_URL, {
+    method: "POST",
+    headers: { Authorization: `Key ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ content_type: contentType, file_name: fileName }),
+    signal,
+  });
+  if (!initiate.ok) throw new Error(await extractErrorMessage(initiate));
+  const { upload_url: uploadUrl, file_url: fileUrl } = await initiate.json();
+  if (!uploadUrl || !fileUrl) throw new Error("no upload URL returned");
+  const put = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": contentType }, body: file, signal });
+  if (!put.ok) throw new Error(`${put.status} ${put.statusText}`);
+  return fileUrl;
+};
+
 const uploadReference = async (image: NormalizedImage, index: number, apiKey: string, signal?: AbortSignal): Promise<string> => {
   try {
-    const initiate = await fetch(STORAGE_INITIATE_URL, {
-      method: "POST",
-      headers: { Authorization: `Key ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ content_type: image.mimeType, file_name: `reference-${index + 1}.${extensionFor(image.mimeType)}` }),
-      signal,
-    });
-    if (!initiate.ok) throw new Error(await extractErrorMessage(initiate));
-    const { upload_url: uploadUrl, file_url: fileUrl } = await initiate.json();
-    if (!uploadUrl || !fileUrl) throw new Error("no upload URL returned");
-    const put = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": image.mimeType }, body: toBlob(image), signal });
-    if (!put.ok) throw new Error(`${put.status} ${put.statusText}`);
-    return fileUrl;
+    return await uploadFalFile(toBlob(image), image.mimeType, `reference-${index + 1}.${extensionFor(image.mimeType)}`, apiKey, signal);
   } catch (err: any) {
     if (signal?.aborted) throw err;
     console.warn("fal.ai upload failed, sending the reference inline:", err?.message);
@@ -222,6 +240,17 @@ const generateImage = async (opts: ImageGenCallOptions, config: ProviderRuntimeC
   // Off only when the user switched it off; a missing setting keeps it on.
   const safetyOff = opts.safetySettings?.falSafetyChecker === false;
 
+  // Any SDXL checkpoint (fal-ai/lora): its own input, with the main reference
+  // photo only as the face to keep.
+  if (opts.model === FAL_LORA_ENDPOINT) {
+    const settings = loadFalLora();
+    const size = sizeParams("image_size", opts.aspectRatio);
+    buildFalLoraInput(settings, opts.prompt, size); // fails before any upload when there's no checkpoint
+    const face = settings.keepFace ? collectReferences(opts, 1).images[0] : undefined;
+    const faceUrl = face ? await uploadReference(face, 0, apiKey, opts.signal) : undefined;
+    return toResult(await runQueue(FAL_LORA_ENDPOINT, buildFalLoraInput(settings, opts.prompt, size, faceUrl), apiKey, opts.signal, safetyOff));
+  }
+
   // A model left over from another provider (say gpt-image-1 after switching)
   // falls back to the default rather than failing.
   // Or one picked from fal's own list, set up from its schema (falCatalog).
@@ -277,7 +306,11 @@ const generateImage = async (opts: ImageGenCallOptions, config: ProviderRuntimeC
       if (i === attempts.length - 1 || opts.signal?.aborted || !/required|not found|404|405/i.test(message)) throw err;
     }
   }
-  // FLUX's safety checker returns a black image and flags it rather than
+  return toResult(output);
+};
+
+const toResult = async (output: any): Promise<ImageGenCallResult> => {
+  // fal's safety checker returns a black image and flags it rather than
   // failing the request.
   if (Array.isArray(output?.has_nsfw_concepts) && output.has_nsfw_concepts.some(Boolean)) {
     throw new ContentBlockedError("fal.ai", "safety checker");

@@ -125,6 +125,7 @@ import { stripLeakedBase64 } from "../features/ai/utils/apiUtils";
 import { buildSystemInstruction, buildTurnContext, AUTO_REPLY_DIRECTIVE, FOLLOWUP_CONTINUATION_PROMPT, RoomContext, SceneContext } from "../features/ai/utils/promptComposition";
 import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
 import { allAdults, effectiveContentRating } from "../features/character/contentRating";
+import { replyLengthFor } from "../features/world/worldVoice";
 import { resolveNextSpeaker, parseMention, stripSpeakerPrefix, getActiveParticipants } from "../features/ai/utils/roomRouting";
 import { everyoneAfter, MAX_CHAIN } from "../features/ai/utils/roomTurns";
 import { buildReactDirective, pickLively, REACT_CHANCE } from "../features/ai/utils/roomFlow";
@@ -186,7 +187,7 @@ const ChatPage = () => {
   const aiCompressing = useAppSelector((state) => state.ai.compressing);
   const aiTokenCount = useAppSelector((state) => state.ai.tokenCount);
   const aiCostEstimate = useAppSelector((state) => state.ai.costEstimate);
-  const replyLengthLimit = useAppSelector((state) => state.settings.replyLengthLimit);
+  const settingsReplyLength = useAppSelector((state) => state.settings.replyLengthLimit);
   const appTextingMode = useAppSelector((state) => state.settings.textingMode);
   const chatProvider = useAppSelector((state) => state.settings.chatProvider);
   const selectedModel = useAppSelector((state) => state.settings.selectedModel);
@@ -254,6 +255,8 @@ const ChatPage = () => {
     [currentChat?.mutedParticipantIds, currentChat?.sceneTracker, currentChat?.sceneState, isRoom, roomCharacters]
   );
   const worlds = useAppSelector((state) => state.world.worlds);
+  // A world's own reply length wins over the one in Settings (2026-10-30).
+  const replyLengthLimit = replyLengthFor(currentChat?.worldId != null ? worlds.find((w) => w.id === currentChat.worldId) : undefined, settingsReplyLength);
   const worldPersonaId = worlds.find((w) => w.id === currentChat?.worldId)?.personaId; // who you are in this chat's world (#143)
   // A chat opened from another world (a notification, a toast, a link)
   // takes you to that world (#146), so the list beside it matches.

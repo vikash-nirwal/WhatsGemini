@@ -279,3 +279,44 @@ describe("fal's safety checker", () => {
     expect(submitOf(calls).body).toMatchObject({ enable_safety_checker: false, safety_tolerance: "5" });
   });
 });
+
+describe("SDXL with your own checkpoint (fal-ai/lora)", () => {
+  const saveLora = (s: object) => localStorage.setItem("fal_lora_settings", JSON.stringify(s));
+  afterEach(() => localStorage.removeItem("fal_lora_settings"));
+
+  it("sends the checkpoint, LoRAs and the face photo through IP-Adapter", async () => {
+    saveLora({ checkpoint: "someone/illustrious-xl", loras: [{ path: "https://huggingface.co/a/b/resolve/main/style.safetensors", scale: 0.7 }, { path: " ", scale: 1 }], negativePrompt: "blurry", keepFace: true });
+    const calls = mockFal();
+    await falImageAdapter.generateImage({ model: "fal-ai/lora", prompt: "1girl, smiling", referenceImages: [ref(1), ref(2)], aspectRatio: "3:4" }, config);
+    const submit = submitOf(calls);
+    expect(submit.url).toBe("https://queue.fal.run/fal-ai/lora");
+    expect(submit.body).toMatchObject({
+      model_name: "someone/illustrious-xl",
+      prompt: "1girl, smiling",
+      negative_prompt: "blurry",
+      loras: [{ path: "https://huggingface.co/a/b/resolve/main/style.safetensors", scale: 0.7 }],
+      image_size: "portrait_4_3",
+      image_encoder_path: "h94/IP-Adapter",
+    });
+    expect(submit.body.ip_adapter).toEqual([expect.objectContaining({ ip_adapter_image_url: "https://v3b.fal.media/files/ref-1.jpg", path: "h94/IP-Adapter" })]);
+    // Only the main photo is uploaded.
+    expect(calls.filter((c) => c.url.includes("/storage/upload/initiate"))).toHaveLength(1);
+  });
+
+  it("leaves the face out when Keep the face is off", async () => {
+    saveLora({ checkpoint: "someone/xl", loras: [], negativePrompt: "", keepFace: false });
+    const calls = mockFal();
+    await falImageAdapter.generateImage({ model: "fal-ai/lora", prompt: "p", referenceImages: [ref(1)], safetySettings: { harassment: "", hate_speech: "", sexual: "", dangerous: "", falSafetyChecker: false } }, config);
+    const submit = submitOf(calls);
+    expect(submit.body).not.toHaveProperty("ip_adapter");
+    expect(submit.body).not.toHaveProperty("loras");
+    expect(submit.body.enable_safety_checker).toBe(false);
+    expect(calls.filter((c) => c.url.includes("/storage/upload/initiate"))).toHaveLength(0);
+  });
+
+  it("asks for a checkpoint before sending anything", async () => {
+    const calls = mockFal();
+    await expect(falImageAdapter.generateImage({ model: "fal-ai/lora", prompt: "p", referenceImages: [ref(1)] }, config)).rejects.toThrow(/checkpoint/);
+    expect(calls).toHaveLength(0);
+  });
+});

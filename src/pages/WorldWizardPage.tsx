@@ -12,6 +12,7 @@ import { useWorldAssist } from "../hooks/useWorldAssist";
 import { CastSuggestion, castLiteOf, mirrorTie } from "../features/world/worldAssist";
 import { withDefaultLife } from "../features/character/lifePresets";
 import SuggestField from "src/components/molecules/SuggestField";
+import { WorldVoiceFields } from "src/components/molecules/WorldVoiceFields";
 import { buildCharacterDraftPrompt, CharacterDraft, parseCharacterDraft } from "../features/character/characterDraft";
 import { rootOf, worldCopy } from "../features/character/card";
 import { applyTies, buildConnectionsPrompt, castIdea, CastMember, Closeness, CLOSENESS_LABELS, mergeSuggested, parseConnections, WorldTie } from "../features/world/worldWizard";
@@ -103,7 +104,9 @@ const WorldWizardPage = () => {
   const [premise, setPremise] = useState("");
   const [tone, setTone] = useState("");
   const [era, setEra] = useState("");
-  const world = { name: name.trim(), premise: premise.trim(), tone: tone.trim() || undefined, era: era.trim() || undefined };
+  const [language, setLanguage] = useState("");
+  const [replyLength, setReplyLength] = useState(0);
+  const world = { name: name.trim(), premise: premise.trim(), tone: tone.trim() || undefined, era: era.trim() || undefined, language: language.trim() || undefined, replyLengthLimit: replyLength || undefined };
 
   const [cast, setCast] = useState<Member[]>([]);
   const [idea, setIdea] = useState("");
@@ -336,6 +339,7 @@ const WorldWizardPage = () => {
               <SuggestField id="wizard-premise" label="Premise" multiline value={premise} onChange={setPremise} hint="Every chat in this world gets it." placeholder="Where it is, what's unusual about it, what life is like there." onSuggest={() => assist.suggestField("premise", draftWorld)} />
               <SuggestField id="wizard-tone" label="Tone" value={tone} onChange={setTone} options={WORLD_TONE_PRESETS} placeholder="e.g. Cozy small-town drama" onSuggest={() => assist.suggestField("tone", draftWorld)} />
               <SuggestField id="wizard-era" label="Era or technology" value={era} onChange={setEra} options={WORLD_ERA_PRESETS} hint="A medieval world can still 'text': messages stand for letters or messengers." placeholder="e.g. Today, phones and all" onSuggest={() => assist.suggestField("era", draftWorld)} />
+            <WorldVoiceFields idPrefix="wizard" language={language} onLanguage={setLanguage} replyLength={replyLength} onReplyLength={setReplyLength} />
             </Card>
           )}
 

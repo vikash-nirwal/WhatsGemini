@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { saveTone, TONE_LEVELS, ToneLevel, toneLevel, toneRetryOn } from "src/features/ai/utils/imageTone";
 import { FalModelBrowser } from "./FalModelBrowser";
+import { FalLoraSettings } from "./FalLoraSettings";
+import { FAL_LORA_ENDPOINT } from "src/features/ai/providers/falLora";
 import { customFalModels } from "src/features/ai/providers/falCatalog";
 import { cn } from '../../utils/cn';
 import { useColorTheme } from '../../hooks/useColorTheme';
@@ -381,6 +383,7 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
                 options={FAL_SAFETY_OPTIONS}
               />
             </SettingsRow>
+            {imageModel === FAL_LORA_ENDPOINT && <FalLoraSettings apiKey={falApiKey} />}
             <FalModelBrowser open={falBrowserOpen} onOpenChange={setFalBrowserOpen} apiKey={falApiKey} onPick={setImageModel} />
           </>
         ) : imageProvider === 'glm' ? (

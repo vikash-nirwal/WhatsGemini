@@ -6,6 +6,7 @@ import { SHARE_ASK } from "./knowledge";
 import { announcementsLine } from "./announcements";
 import { GOAL_ASK, goalLine } from "./goals";
 import { Acquaintance, acquainted, Meeting, meetingLine } from "./meetings";
+import { worldLanguageLine } from "./worldVoice";
 
 // Life inside a world (#145): characters who know each other text on their
 // own, one helper call per exchange. Who talks follows "who knows whom"
@@ -161,6 +162,7 @@ export const buildWorldTalkPrompt = (
     meeting
       ? `${settingOpening(setting, a.name, b.name)}${world ? `, who both live in ${world.name}: ${world.premise}` : ""}. ${meetingLine(meeting, userName)}`
       : `${settingOpening(setting, a.name, b.name)}, who know each other${world ? ` and live in ${world.name}: ${world.premise}` : ""}. ${userName} isn't in it.`,
+    ...(worldLanguageLine(world) ? [worldLanguageLine(world)!] : []),
     // God mode (#160): what the author made true holds here too.
     ...(world?.godTruths?.length ? [`Simply true in this world (never question it): ${world.godTruths.join("; ")}.`] : []),
     // Announcements: news they both heard, each taking it their own way.

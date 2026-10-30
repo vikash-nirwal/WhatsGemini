@@ -27,10 +27,11 @@ const PeekPage = () => {
     return (
       <div className="w-full h-dvh flex flex-col">
         <Header title={`${open.a.name} & ${open.b.name}`} subtitle={`Their own texts in ${name}`} onBack={() => navigate("/peek")} />
-        <div role="note" className="mx-4 mt-3 flex items-center gap-2 rounded-xl bg-raised px-3 py-2 text-[13px] text-muted-foreground">
+        <div role="note" className="mx-4 mt-3 w-[calc(100%-2rem)] max-w-[828px] self-center flex items-center gap-2 rounded-xl bg-raised px-3 py-2 text-[13px] text-muted-foreground">
           <FaEye aria-hidden /> You're reading, not in this chat. They don't know you can see it.
         </div>
-        <ol aria-label="Their texts" className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-1.5">
+        <div className="flex-1 overflow-y-auto">
+        <ol aria-label="Their texts" className="w-full max-w-[860px] mx-auto px-4 py-4 flex flex-col gap-1.5">
           {open.talks.map((talk) => (
             <li key={talk.id} className="flex flex-col gap-1.5">
               <div className="self-center my-2 rounded-full bg-raised px-3 py-0.5 text-[11.5px] text-subtle">{formatRelativeTime(talk.at)}{settingLabel(talk) ? ` · ${settingLabel(talk)}` : ""}</div>
@@ -46,6 +47,7 @@ const PeekPage = () => {
             </li>
           ))}
         </ol>
+        </div>
       </div>
     );
   }
@@ -54,6 +56,8 @@ const PeekPage = () => {
     <div className="w-full h-dvh flex flex-col">
       <Header title="Peek" subtitle={`Their own texts in ${name}`} onBack={() => navigate("/")} />
       <div className="flex-1 overflow-y-auto p-2">
+        {/* Centred like the other pages, instead of stretching across a wide screen. */}
+        <div className="w-full max-w-[860px] mx-auto">
         {!prefs.peek ? (
           <p className="px-4 py-6 text-center text-sm text-muted-foreground">Peek is off for {name}. Turn it on in <Link to="/worlds" className="text-primary-text underline">Worlds</Link>.</p>
         ) : threads.length === 0 ? (
@@ -83,6 +87,7 @@ const PeekPage = () => {
             })}
           </ul>
         )}
+        </div>
       </div>
     </div>
   );

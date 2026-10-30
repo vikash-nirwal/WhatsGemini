@@ -10,6 +10,7 @@ import { buildSkillCheckDirective } from "../../adventure/skillChecks";
 import { selectRelevantFacts } from "./memoryRelevance";
 import { buildStoryScriptSection } from "../../chat/storyScript";
 import type { ImagePromptTarget } from "./imagePromptGuide";
+import { worldLanguageLine } from "../../world/worldVoice";
 
 // Delimiters the narrator is instructed to wrap its suggested next actions
 // in, at the end of every reply - parsed back out by parseAdventureChoices
@@ -67,6 +68,7 @@ export const buildAdventureSystemInstruction = (
     const worldParts = [`Setting: ${world.name}`, world.premise];
     if (world.settingDetails) worldParts.push(world.settingDetails);
     if (world.tone) worldParts.push(`Tone: ${world.tone}.`);
+    if (worldLanguageLine(world)) worldParts.push(worldLanguageLine(world)!);
     sections.push(worldParts.join("\n"));
     // What the author made true there, quietly or by announcing it to
     // everyone, holds in a story set in the world too.

@@ -22,6 +22,7 @@ import { buildDatesSection } from "../../character/importantDates";
 import { buildScheduleSection } from "../../character/schedule";
 import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
 import { buildStoryTimeSection } from "../../world/storyTime";
+import { worldLanguageLine } from "../../world/worldVoice";
 import { applyMacros } from "./macros";
 import { countProtectedPrefix, trimToLatestSummary } from "./transcript";
 import { selectMentionedFacts, selectRelevantFacts } from "./memoryRelevance";
@@ -353,6 +354,8 @@ export const buildSystemInstruction = (
     // A world's era (#144): a medieval world still "texts" here, so the
     // character treats each message as whatever this world has instead.
     if (w.era?.trim()) parts.push(`Era and technology: ${trimEnd(w.era)}. Your messages here stand for however people in this world reach each other (a letter, a messenger, a call); keep what you know and own true to the era.`);
+    const language = worldLanguageLine(w);
+    if (language) parts.push(language);
     parts.push("Stay consistent with this world's places, history and rules.");
     sections.push(parts.join("\n"));
   }
