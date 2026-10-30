@@ -1,4 +1,4 @@
-import { test, expect, openChat, chatMessages } from "./fixtures";
+import { test, expect, openChat, chatMessages, pickMenuItem } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // Narrative tools: "Write my reply" (#15) and "Surprise me" (#18).
@@ -9,7 +9,7 @@ const chatAction = async (page: Page, name: string | RegExp) => {
   const direct = page.getByRole("button", { name });
   if (await direct.first().isVisible()) return direct.first().click();
   await page.getByRole("button", { name: "More options", exact: true }).last().click();
-  await page.getByRole("menuitem", { name }).click();
+  await pickMenuItem(page, name);
 };
 
 // "Write my reply" sits in the composer's "+" menu on every screen size.

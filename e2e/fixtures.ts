@@ -337,7 +337,26 @@ export const headerAction = async (page: Page, label: string) => {
     return;
   }
   await header.getByRole("button", { name: "More options" }).locator("visible=true").click();
-  await page.getByRole("menuitem", { name: label, exact: true }).click();
+  await pickMenuItem(page, label, true);
+};
+
+// Clicks an item of the open menu, opening its sections in turn when it's
+// in one of them (2026-10-30: the chat menu's items are grouped).
+export const pickMenuItem = async (page: Page, name: string | RegExp, exact = false) => {
+  const item = page.getByRole("menuitem", { name, exact }).locator("visible=true");
+  const shown = () => item.first().waitFor({ state: "visible", timeout: 800 }).then(() => true, () => false);
+  if (!(await shown())) {
+    const subs = page.locator('[role="menuitem"][aria-expanded]');
+    const count = await subs.count();
+    for (let i = 0; i < count; i++) {
+      await subs.nth(i).click();
+      if (await shown()) break;
+    }
+  }
+  await item.first().click();
+  // A menu holds the keyboard until it has closed: text typed before then
+  // goes nowhere.
+  await expect(page.getByRole("menu")).toHaveCount(0);
 };
 
 export const sendMessage = async (page: Page, text: string) => {

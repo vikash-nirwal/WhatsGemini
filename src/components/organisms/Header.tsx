@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { FaBars, FaArrowLeft, FaSun, FaMoon, FaUserFriends, FaHatWizard, FaCog, FaEllipsisV, FaQuestionCircle } from "react-icons/fa";
+import { FaBars, FaArrowLeft, FaSun, FaMoon, FaUserFriends, FaHatWizard, FaCog, FaEllipsisV, FaQuestionCircle, FaChevronDown } from "react-icons/fa";
 import { useSidebar } from "../../contexts/SidebarContext";
 import { ThemeContext } from "../../contexts/ThemeContext";
 import { useColorTheme } from "../../hooks/useColorTheme";
@@ -38,6 +38,20 @@ export interface HeaderAction {
   labelled?: boolean;
 }
 
+// A titled group is a section of the "more" menu that opens in place (the
+// user's ask, 2026-10-30: a chat's menu had grown to some thirty items in
+// one list). In place, not as a side submenu: on a phone that opened off
+// the screen. Its primary actions still stand alone in the header.
+export interface HeaderGroup {
+  title: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  actions: HeaderAction[];
+}
+
+type AnyGroup = HeaderAction[] | HeaderGroup;
+const actionsOf = (g: AnyGroup) => (Array.isArray(g) ? g : g.actions);
+const withActions = (g: AnyGroup, actions: HeaderAction[]): AnyGroup => (Array.isArray(g) ? actions : { ...g, actions });
+
 interface HeaderProps {
   title: React.ReactNode;
   subtitle?: React.ReactNode;
@@ -52,7 +66,7 @@ interface HeaderProps {
   titleLabel?: string;
   // Page-specific action groups (e.g. Chat's Export/Compress/Follow-up),
   // rendered before the built-in App/Session groups, each separated by a divider.
-  actionGroups?: HeaderAction[][];
+  actionGroups?: AnyGroup[];
 }
 
 // Circular per the canvas spec ("Header icon buttons: Button size='icon'
@@ -84,6 +98,11 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, online = true, avatar,
   // the tab screens have the tab bar instead of the drawer.
   const shell = usePhoneShell();
   const [showShortcuts, setShowShortcuts] = useState(false);
+  // The "more" menu's open section; every section starts closed.
+  const [openSection, setOpenSection] = useState<string | null>(null);
+  const menuOpenChange = (open: boolean) => {
+    if (!open) setOpenSection(null);
+  };
 
   // Global "?" shortcut to open the help overlay - guarded so it doesn't
   // fire while the user is actually typing "?" into a text field.
@@ -118,20 +137,17 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, online = true, avatar,
     { icon: FaCog, label: "Settings", onClick: () => navigate("/settings/profile"), active: isSettings, primary: appPrimary },
   ];
 
-  const groups = [...actionGroups, appGroup].filter((g) => g.length > 0);
+  const groups = [...actionGroups, appGroup].filter((g) => actionsOf(g).length > 0);
 
   // Desktop only shows `primary`-flagged actions as standalone icons;
   // everything else (from every group, app/session groups included) moves
   // into one trailing "more" menu - the same collapsed shape the mobile
   // menu below already uses for the full set.
-  const primaryActions = groups.flatMap((group) => group.filter((action) => action.primary));
-  const overflowGroups = groups.map((group) => group.filter((action) => !action.primary)).filter((g) => g.length > 0);
+  const primaryActions = groups.flatMap((group) => actionsOf(group).filter((action) => action.primary));
+  const overflowGroups = groups.map((group) => withActions(group, actionsOf(group).filter((action) => !action.primary))).filter((g) => actionsOf(g).length > 0);
 
-  const renderMenuGroups = (groupsToRender: HeaderAction[][]) =>
-    groupsToRender.map((group, gi) => (
-      <React.Fragment key={gi}>
-        {gi > 0 && <DropdownMenuSeparator />}
-        {group.map((action, ai) => (
+  const renderItems = (actions: HeaderAction[]) =>
+    actions.map((action, ai) => (
           <DropdownMenuItem
             key={ai}
             onSelect={action.onClick}
@@ -144,20 +160,56 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, online = true, avatar,
             <action.icon className="mr-2 h-4 w-4" />
             <span>{action.label}</span>
           </DropdownMenuItem>
-        ))}
-      </React.Fragment>
     ));
+
+  // Untitled groups are listed as they are; titled ones follow each other
+  // as sections, with a divider before and after the run of them.
+  const renderMenuGroups = (groupsToRender: AnyGroup[]) =>
+    groupsToRender.map((group, gi) => {
+      const prev = groupsToRender[gi - 1];
+      const divider = gi > 0 && (Array.isArray(group) || Array.isArray(prev));
+      const open = !Array.isArray(group) && openSection === group.title;
+      return (
+        <React.Fragment key={gi}>
+          {divider && <DropdownMenuSeparator />}
+          {Array.isArray(group) ? (
+            renderItems(group)
+          ) : (
+            <>
+              <DropdownMenuItem
+                // Opens the section, leaving the menu open.
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setOpenSection(open ? null : group.title);
+                }}
+                aria-expanded={open}
+                className={cn(group.actions.some((a) => a.active) && "text-primary focus:text-primary")}
+              >
+                <group.icon className="mr-2 h-4 w-4" />
+                <span className="flex-1">{group.title}</span>
+                <FaChevronDown className={cn("ml-3 h-3 w-3 text-muted-foreground transition-transform", open && "rotate-180")} />
+              </DropdownMenuItem>
+              {open && (
+                <div role="group" aria-label={group.title} className="ml-3 border-l border-border pl-1">
+                  {renderItems(group.actions)}
+                </div>
+              )}
+            </>
+          )}
+        </React.Fragment>
+      );
+    });
 
   if (is("terminal")) {
     // Chat pages pass an avatar; they read as `~/chats/ name.log`, every
     // other page as `~/title`.
     const isChatPage = Boolean(avatar);
-    const moreMenu = (menuGroups: HeaderAction[][]) => (
-      <DropdownMenu>
+    const moreMenu = (menuGroups: AnyGroup[]) => (
+      <DropdownMenu onOpenChange={menuOpenChange}>
         <DropdownMenuTrigger asChild>
           <TermLink label="..." aria-label="More options" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">{renderMenuGroups(menuGroups)}</DropdownMenuContent>
+        <DropdownMenuContent align="end" className="max-h-[80vh] overflow-y-auto">{renderMenuGroups(menuGroups)}</DropdownMenuContent>
       </DropdownMenu>
     );
     return (
@@ -294,26 +346,26 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, online = true, avatar,
           </Tooltip>
         ))}
         {overflowGroups.length > 0 && (
-          <DropdownMenu>
+          <DropdownMenu onOpenChange={menuOpenChange}>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon" aria-label="More options" className={iconBtnClass}>
                 <FaEllipsisV size={15} />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">{renderMenuGroups(overflowGroups)}</DropdownMenuContent>
+            <DropdownMenuContent align="end" className="max-h-[80vh] overflow-y-auto">{renderMenuGroups(overflowGroups)}</DropdownMenuContent>
           </DropdownMenu>
         )}
       </div>
 
       {/* Phones and tablets: everything collapses into one menu so buttons stop crowding the header */}
       <div className="lg:hidden">
-        <DropdownMenu>
+        <DropdownMenu onOpenChange={menuOpenChange}>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" aria-label="More options" className={iconBtnClass}>
               <FaEllipsisV size={15} />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">{renderMenuGroups(groups)}</DropdownMenuContent>
+          <DropdownMenuContent align="end" className="max-h-[80vh] overflow-y-auto">{renderMenuGroups(groups)}</DropdownMenuContent>
         </DropdownMenu>
       </div>
 

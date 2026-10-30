@@ -1,4 +1,4 @@
-import { test, expect, openChat, openRoute, sendMessage, chatMessages, openContactInfo } from "./fixtures";
+import { test, expect, openChat, openRoute, sendMessage, chatMessages, openContactInfo, pickMenuItem } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // Character diary (#5): with the diary on, crossing the 30-message mark gets
@@ -11,7 +11,7 @@ const chatAction = async (page: Page, name: string | RegExp) => {
   const direct = page.getByRole("button", { name });
   if (await direct.first().isVisible()) return direct.first().click();
   await page.getByRole("button", { name: "More options", exact: true }).last().click();
-  await page.getByRole("menuitem", { name }).click();
+  await pickMenuItem(page, name);
 };
 
 const ENTRY = "Arin finally laughed at one of my jokes today. I pretended not to care.";

@@ -1,4 +1,4 @@
-import { test, expect, openChat, messageAction } from "./fixtures";
+import { test, expect, openChat, messageAction, pickMenuItem } from "./fixtures";
 import type { Page } from "@playwright/test";
 import fs from "fs";
 
@@ -10,7 +10,7 @@ const chatAction = async (page: Page, name: string | RegExp) => {
   const direct = page.getByRole("button", { name });
   if (await direct.first().isVisible()) return direct.first().click();
   await page.getByRole("button", { name: "More options", exact: true }).last().click();
-  await page.getByRole("menuitem", { name }).click();
+  await pickMenuItem(page, name);
 };
 
 

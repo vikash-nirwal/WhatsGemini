@@ -112,7 +112,7 @@ import { appendDiaryEntry } from "../features/ai/utils/diary";
 import { PovDialog } from "../components/organisms/PovDialog";
 import { WhatIfDialog } from "../components/organisms/WhatIfDialog";
 import MessageInput from "src/components/organisms/MessageInput";
-import Header, { HeaderAction } from "src/components/organisms/Header";
+import Header, { HeaderAction, HeaderGroup } from "src/components/organisms/Header";
 import PortraitPreviewModal from "src/components/organisms/PortraitPreviewModal";
 import AutoReplyModal from "src/components/organisms/AutoReplyModal";
 import PersonaModal from "src/components/organisms/PersonaModal";
@@ -2508,91 +2508,120 @@ const ChatPage = () => {
     if (pointsMoveIn(currentChat)) void dispatch(patchCharacter(characterData.id, (fresh) => nudgePoints(fresh, "you", YOU_MOMENTS.unblocked, Date.now(), "you unblocked them")));
   };
 
-  const chatActions: HeaderAction[] = [
-    { icon: FaBookOpen, label: "Export as story (Markdown)", onClick: handleExportStory },
-    ...(!isRoom && characterData ? [{ icon: FaImages, label: `${characterData.name}'s album`, onClick: () => setAlbumOpen(true) }] : []),
-    { icon: FaDownload, label: "Export chat (backup file)", onClick: handleExport },
-    ...(messages.length > 0
-      ? [{ icon: FaHistory, label: "Rewind last turn", onClick: handleRewindLastTurn, disabled: aiLoading, danger: true }]
-      : []),
-    ...(canEndChapter
-      ? [{ icon: FaBookmark, label: endingChapter ? "Ending the chapter..." : "End chapter (summarize it and start the next)", onClick: handleEndChapter, disabled: aiLoading || endingChapter }]
-      : []),
-    ...(canEndChapter && !isRoom && characterData
-      ? [{ icon: FaFilm, label: endingEpisode ? "Ending the episode..." : "End episode (on a cliffhanger)", onClick: handleEndEpisode, disabled: aiLoading || endingEpisode }]
-      : []),
-    ...(!isRoom && characterData && messages.filter((m) => !m.isSystem).length > 2
-      ? [{ icon: FaEye, label: `${characterData.name}'s side of the story`, onClick: handlePov, disabled: aiLoading || (povOpen && !povText) }]
-      : []),
-    ...(mainStory && characterData
-      ? [
-          { icon: FaHourglassStart, label: "Flashback (a scene from their past)", onClick: () => setWhatIfKind("flashback") },
-          { icon: FaGlobe, label: "What-if universe", onClick: () => setWhatIfKind("universe") },
-        ]
-      : []),
-    ...(currentChat?.whatIf?.kind === "flashback" && !currentChat.whatIf.endedAt && messages.length > 2
-      ? [{ icon: FaHourglassStart, label: endingFlashback ? "Ending the flashback..." : "End flashback (add it to their past)", onClick: handleEndFlashback, disabled: aiLoading || endingFlashback }]
-      : []),
-    ...(!isRoom && characterData && messages.length > 0
-      ? currentChat?.roleSwap
-        ? [{ icon: FaExchangeAlt, label: "Swap back", onClick: handleEndSwap, active: true }]
-        : [
-            { icon: FaExchangeAlt, label: `Swap roles (you write as ${characterData.name})`, onClick: () => handleStartSwap(false), disabled: aiLoading },
-            { icon: FaExchangeAlt, label: "Body swap (in the story)", onClick: () => handleStartSwap(true), disabled: aiLoading },
-          ]
-      : []),
-    ...(canCompress
-      ? [{ icon: FaCompressArrowsAlt, label: "Summarize and compress older messages to save tokens", onClick: handleCompress, disabled: aiCompressing }]
-      : []),
-    ...(messages.length > 0
-      ? [{ icon: FaBolt, label: isRoom ? "Make the next bot send a follow-up now" : `Make ${characterData?.name || "them"} send a follow-up now`, onClick: handleManualFollowup, disabled: aiLoading, shortLabel: "follow-up" }]
-      : []),
-    ...(messages.length > 0
-      ? [
-          { icon: FaDiceD20, label: "Surprise me (the next reply brings a twist)", onClick: handleSurprise, disabled: aiLoading },
-          { icon: FaTheaterMasks, label: "Scenario cards", onClick: () => setScenarioOpen(true), disabled: aiLoading },
-          { icon: FaForward, label: "Pass the time", onClick: () => setTimeSkipOpen(true), disabled: aiLoading },
-        ]
-      : []),
-    ...(!isRoom && characterData && messages.length > 0
-      ? [{ icon: FaGift, label: `Give ${characterData.name} a gift`, onClick: () => setGiftOpen(true) }]
-      : []),
-    ...(!isRoom && characterData && messages[messages.length - 1]?.role === AI
-      ? [{ icon: FaBalanceScale, label: "Compare two models (the latest reply)", onClick: () => { setCompareResult(null); setCompareOpen(true); }, disabled: aiLoading }]
-      : []),
-    ...(messages.length > 0
-      ? [{ icon: FaLayerGroup, label: "Draw an event card (a random event happens)", onClick: handleDrawEvent, disabled: aiLoading }]
-      : []),
-    ...(!isRoom && characterData && isRecognitionSupported() && isSpeechSupported()
-      ? [{ icon: FaPhoneAlt, label: `Call ${characterData.name}`, onClick: () => setInCall(true), disabled: aiLoading || inCall }]
-      : []),
-    ...(hasBranches(currentChat?.tree)
-      ? [{ icon: FaCodeBranch, label: "Branch map (every storyline in this chat)", onClick: () => setBranchMapOpen(true) }]
-      : []),
-    ...(isRoom
-      ? [{ icon: FaPoll, label: "Create poll", onClick: () => setPollOpen(true), disabled: aiLoading }]
-      : []),
-    ...(!isRoom && characterData
-      ? [{ icon: FaGamepad, label: "Play a game", onClick: () => setGameOpen(true), disabled: aiLoading || Boolean(currentChat?.game) }]
-      : []),
-    { icon: FaClock, label: "Auto follow-up settings", onClick: () => setIsAutoReplyModalOpen(true), active: autoReplySettings.enabled },
-    // #151: the header keeps three things - the title (Contact info), this
-    // and "more"; the rest of these live in the more menu.
-    { icon: FaSlidersH, label: "Scene & story", onClick: () => { setSceneOpen((v) => !v); setParticipantsOpen(false); setContactOpen(false); }, active: sceneOpen, primary: true, labelled: true, shortLabel: "scene" },
-    ...(roomCharacters.length > 0
-      ? [{ icon: FaUsers, label: isRoom ? "Participants" : "Invite someone", onClick: () => { setParticipantsOpen((v) => !v); setSceneOpen(false); setContactOpen(false); }, active: participantsOpen, shortLabel: "people" }]
-      : []),
-    ...(characterData
-      ? [{ icon: FaUserCircle, label: "View current portrait", onClick: () => setPortraitPreviewOpen(true) }]
-      : []),
-    ...(!isRoom && characterData && !blockedByThem(currentChat)
-      ? [blockedByYou(currentChat)
-          ? { icon: FaBan, label: `Unblock ${characterData.name}`, onClick: unblockCharacter }
-          : { icon: FaBan, label: `Block ${characterData.name}`, onClick: () => void blockCharacter(), danger: true }]
-      : []),
-    ...(personas.length > 1
-      ? [{ icon: FaUserCircle, label: `Persona: ${activePersona?.name || "None"}`, onClick: () => setIsPersonaModalOpen(true), active: Boolean(currentChat?.personaId) }]
-      : []),
+  // The chat's menu in sections (the user's ask, 2026-10-30: some thirty
+  // items in one list). Everyday ones stay at the top; the rest sit in
+  // submenus by what they're for.
+  const chatActions: (HeaderAction[] | HeaderGroup)[] = [
+    [
+      // #151: the header keeps three things - the title (Contact info), this
+      // and "more"; the rest of these live in the more menu.
+      { icon: FaSlidersH, label: "Scene & story", onClick: () => { setSceneOpen((v) => !v); setParticipantsOpen(false); setContactOpen(false); }, active: sceneOpen, primary: true, labelled: true, shortLabel: "scene" },
+      ...(messages.length > 0
+        ? [{ icon: FaBolt, label: isRoom ? "Make the next bot send a follow-up now" : `Make ${characterData?.name || "them"} send a follow-up now`, onClick: handleManualFollowup, disabled: aiLoading, shortLabel: "follow-up" }]
+        : []),
+      { icon: FaClock, label: "Auto follow-up settings", onClick: () => setIsAutoReplyModalOpen(true), active: autoReplySettings.enabled },
+      ...(roomCharacters.length > 0
+        ? [{ icon: FaUsers, label: isRoom ? "Participants" : "Invite someone", onClick: () => { setParticipantsOpen((v) => !v); setSceneOpen(false); setContactOpen(false); }, active: participantsOpen, shortLabel: "people" }]
+        : []),
+      ...(!isRoom && characterData && isRecognitionSupported() && isSpeechSupported()
+        ? [{ icon: FaPhoneAlt, label: `Call ${characterData.name}`, onClick: () => setInCall(true), disabled: aiLoading || inCall }]
+        : []),
+      ...(personas.length > 1
+        ? [{ icon: FaUserCircle, label: `Persona: ${activePersona?.name || "None"}`, onClick: () => setIsPersonaModalOpen(true), active: Boolean(currentChat?.personaId) }]
+        : []),
+    ],
+    {
+      icon: FaTheaterMasks,
+      title: "Story moments",
+      actions: [
+        ...(messages.length > 0
+          ? [
+              { icon: FaDiceD20, label: "Surprise me (the next reply brings a twist)", onClick: handleSurprise, disabled: aiLoading },
+              { icon: FaLayerGroup, label: "Draw an event card (a random event happens)", onClick: handleDrawEvent, disabled: aiLoading },
+              { icon: FaTheaterMasks, label: "Scenario cards", onClick: () => setScenarioOpen(true), disabled: aiLoading },
+              { icon: FaForward, label: "Pass the time", onClick: () => setTimeSkipOpen(true), disabled: aiLoading },
+            ]
+          : []),
+        ...(!isRoom && characterData && messages.filter((m) => !m.isSystem).length > 2
+          ? [{ icon: FaEye, label: `${characterData.name}'s side of the story`, onClick: handlePov, disabled: aiLoading || (povOpen && !povText) }]
+          : []),
+        ...(mainStory && characterData
+          ? [
+              { icon: FaHourglassStart, label: "Flashback (a scene from their past)", onClick: () => setWhatIfKind("flashback") },
+              { icon: FaGlobe, label: "What-if universe", onClick: () => setWhatIfKind("universe") },
+            ]
+          : []),
+        ...(currentChat?.whatIf?.kind === "flashback" && !currentChat.whatIf.endedAt && messages.length > 2
+          ? [{ icon: FaHourglassStart, label: endingFlashback ? "Ending the flashback..." : "End flashback (add it to their past)", onClick: handleEndFlashback, disabled: aiLoading || endingFlashback }]
+          : []),
+        ...(!isRoom && characterData && messages.length > 0
+          ? currentChat?.roleSwap
+            ? [{ icon: FaExchangeAlt, label: "Swap back", onClick: handleEndSwap, active: true }]
+            : [
+                { icon: FaExchangeAlt, label: `Swap roles (you write as ${characterData.name})`, onClick: () => handleStartSwap(false), disabled: aiLoading },
+                { icon: FaExchangeAlt, label: "Body swap (in the story)", onClick: () => handleStartSwap(true), disabled: aiLoading },
+              ]
+          : []),
+      ],
+    },
+    {
+      icon: FaGamepad,
+      title: "Play together",
+      actions: [
+        ...(!isRoom && characterData
+          ? [{ icon: FaGamepad, label: "Play a game", onClick: () => setGameOpen(true), disabled: aiLoading || Boolean(currentChat?.game) }]
+          : []),
+        ...(!isRoom && characterData && messages.length > 0
+          ? [{ icon: FaGift, label: `Give ${characterData.name} a gift`, onClick: () => setGiftOpen(true) }]
+          : []),
+        ...(isRoom
+          ? [{ icon: FaPoll, label: "Create poll", onClick: () => setPollOpen(true), disabled: aiLoading }]
+          : []),
+      ],
+    },
+    {
+      icon: FaBookmark,
+      title: "Chapters and history",
+      actions: [
+        ...(canEndChapter
+          ? [{ icon: FaBookmark, label: endingChapter ? "Ending the chapter..." : "End chapter (summarize it and start the next)", onClick: handleEndChapter, disabled: aiLoading || endingChapter }]
+          : []),
+        ...(canEndChapter && !isRoom && characterData
+          ? [{ icon: FaFilm, label: endingEpisode ? "Ending the episode..." : "End episode (on a cliffhanger)", onClick: handleEndEpisode, disabled: aiLoading || endingEpisode }]
+          : []),
+        ...(hasBranches(currentChat?.tree)
+          ? [{ icon: FaCodeBranch, label: "Branch map (every storyline in this chat)", onClick: () => setBranchMapOpen(true) }]
+          : []),
+        ...(!isRoom && characterData && messages[messages.length - 1]?.role === AI
+          ? [{ icon: FaBalanceScale, label: "Compare two models (the latest reply)", onClick: () => { setCompareResult(null); setCompareOpen(true); }, disabled: aiLoading }]
+          : []),
+        ...(canCompress
+          ? [{ icon: FaCompressArrowsAlt, label: "Summarize and compress older messages to save tokens", onClick: handleCompress, disabled: aiCompressing }]
+          : []),
+        ...(messages.length > 0
+          ? [{ icon: FaHistory, label: "Rewind last turn", onClick: handleRewindLastTurn, disabled: aiLoading, danger: true }]
+          : []),
+      ],
+    },
+    {
+      icon: FaDownload,
+      title: "Save and share",
+      actions: [
+        ...(!isRoom && characterData ? [{ icon: FaImages, label: `${characterData.name}'s album`, onClick: () => setAlbumOpen(true) }] : []),
+        ...(characterData
+          ? [{ icon: FaUserCircle, label: "View current portrait", onClick: () => setPortraitPreviewOpen(true) }]
+          : []),
+        { icon: FaBookOpen, label: "Export as story (Markdown)", onClick: handleExportStory },
+        { icon: FaDownload, label: "Export chat (backup file)", onClick: handleExport },
+      ],
+    },
+    [
+      ...(!isRoom && characterData && !blockedByThem(currentChat)
+        ? [blockedByYou(currentChat)
+            ? { icon: FaBan, label: `Unblock ${characterData.name}`, onClick: unblockCharacter }
+            : { icon: FaBan, label: `Block ${characterData.name}`, onClick: () => void blockCharacter(), danger: true }]
+        : []),
+    ],
   ];
 
   return (
@@ -2617,7 +2646,7 @@ const ChatPage = () => {
         }
         onTitleClick={isRoom ? () => { setParticipantsOpen(true); setSceneOpen(false); setContactOpen(false); } : characterData ? () => { setContactOpen((v) => !v); setSceneOpen(false); setParticipantsOpen(false); } : undefined}
         titleLabel={isRoom ? "Open the group's members" : `Open ${characterData ? `${characterData.name}'s` : "their"} contact info`}
-        actionGroups={[chatActions]}
+        actionGroups={chatActions}
       />
 
       <PortraitPreviewModal
@@ -2801,6 +2830,7 @@ const ChatPage = () => {
           mutedParticipantIds={currentChat?.mutedParticipantIds}
           onForceReply={handleForceReply}
           onDraftReply={characterData ? handleDraftReply : undefined}
+          onFollowup={messages.length > 0 ? { label: isRoom ? "Next bot sends a follow-up" : `${characterData?.name || "They"} sends a follow-up`, run: handleManualFollowup } : undefined}
           draftInjection={draftInjection}
         />
         )}

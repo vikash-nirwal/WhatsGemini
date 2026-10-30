@@ -1,4 +1,4 @@
-import { test, expect, openChat, sendMessage, chatMessages } from "./fixtures";
+import { test, expect, openChat, sendMessage, chatMessages, pickMenuItem } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // "End chapter" (#4): the conversation so far becomes a titled chapter with
@@ -11,7 +11,7 @@ const chatAction = async (page: Page, name: string | RegExp) => {
   const direct = page.getByRole("button", { name });
   if (await direct.first().isVisible()) return direct.first().click();
   await page.getByRole("button", { name: "More options", exact: true }).last().click();
-  await page.getByRole("menuitem", { name }).click();
+  await pickMenuItem(page, name);
   // The long menu leaves the pointer near the top, where the next toast
   // appears; a hovered toast never closes, and would cover the header.
   await page.mouse.move(1, (page.viewportSize()?.height || 800) - 1);

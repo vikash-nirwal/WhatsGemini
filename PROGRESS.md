@@ -105,6 +105,7 @@ Facts that save the next session time.
 
 Newest first. Older sessions are in the git history.
 
+- 2026-10-30: The chat's "more" menu in sections (the user's ask: some thirty items in one list). Everyday items at the top; Story moments, Play together, Chapters and history, Save and share open in place (`HeaderGroup` in `Header.tsx`; side submenus opened off a phone's screen). The composer's "+" menu has "X sends a follow-up". UI tests reach grouped items through `pickMenuItem` (e2e/fixtures.ts), which also waits for the menu to close.
 - 2026-10-29: Smaller system prompt (the user saw 25 KB in a 50-60 message chat): the scene notes (#187) now take at most 8,000 characters whatever the model's window (was 24,000 on Gemini), each note at most 1,200, and never-dropped rules at most 2,400 each (`promptBudget.ts`). Not yet measured on the user's real chat.
 - 2026-10-29: Left on read set to Never now ends a wait already running, so the character answers at once (the user's report: the chat said "will answer in a while" with the switch off; the wait had started while it was on). ChatPage's late-reply effect fires at once when `leavesOnRead` is off.
 - 2026-10-28: Who reacted (the user's report): every character's reaction is kept (`Message.reactions`, one each, `features/chat/reactions.ts`; the old single `characterReaction` is read too), group members react to each other's messages as well as yours, and the badge (bottom left, each emoji once with a count) opens a list of who reacted with what.

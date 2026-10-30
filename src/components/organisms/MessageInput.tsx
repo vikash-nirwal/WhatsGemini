@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo, lazy, Suspense } from "react";
 import { avatarOf } from "../../features/character/profileChanges";
-import { FaCrown, FaPaperPlane, FaStop, FaCog, FaImage, FaVideo, FaTimes, FaMask, FaUserFriends, FaCommentSlash, FaPlus, FaMagic, FaMicrophone, FaMicrophoneAlt, FaPaperclip } from "react-icons/fa";
+import { FaCrown, FaPaperPlane, FaStop, FaCog, FaImage, FaVideo, FaTimes, FaMask, FaUserFriends, FaCommentSlash, FaPlus, FaMagic, FaMicrophone, FaMicrophoneAlt, FaPaperclip, FaBolt } from "react-icons/fa";
 import { cn } from "../../utils/cn";
 import { Button } from "src/components/atoms/button";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
@@ -23,6 +23,9 @@ interface MessageInputProps {
   // "Write my reply" (#15): asks the AI for a draft of your next message and
   // puts it in the box to edit; resolves to null when it couldn't.
   onDraftReply?: () => Promise<string | null>;
+  // "Send a follow-up now", here as well as in the chat's menu (the user's
+  // ask, 2026-10-30): it's what you reach for while typing, or instead of it.
+  onFollowup?: { label: string; run: () => void };
   // Replaces the usual "Message ..." placeholder (co-writing mode, #68).
   placeholderText?: string;
   // Text pushed into the box from outside (a tapped reply suggestion); a new
@@ -157,6 +160,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   mutedParticipantIds,
   onForceReply,
   onDraftReply,
+  onFollowup,
   draftInjection,
   replyPreview,
   onCancelReply,
@@ -691,6 +695,12 @@ const MessageInput: React.FC<MessageInputProps> = ({
       ariaLabel: "Write my reply", active: drafting, toggle: false, disabled: disabled || drafting,
       onClick: handleDraftReply,
       activeClass: "bg-primary/[0.12] text-primary", activeButtonClass: "bg-primary/[0.14] text-primary hover:bg-primary/[0.2] animate-pulse",
+    }] : []),
+    ...(onFollowup ? [{
+      key: "followup", icon: FaBolt, label: onFollowup.label, title: `${onFollowup.label} - without you writing anything`,
+      ariaLabel: onFollowup.label, active: false, toggle: false, disabled,
+      onClick: onFollowup.run,
+      activeClass: "", activeButtonClass: "",
     }] : []),
     ...(recognitionSupported ? [{
       key: "dictate", icon: FaMicrophoneAlt, label: dictating ? "Stop dictating" : "Dictate", title: "Dictate: speak and your words appear in the box",
