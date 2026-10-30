@@ -1,5 +1,6 @@
 import type { ArtStyle } from "../../../types";
 import { FAL_LORA_ENDPOINT, loadFalLora } from "../providers/falLora";
+import { calibrationGuide, calibrationKey, loadCalibration } from "./imageCalibration";
 import { loadComfySettings, loadCustomWorkflows, templateForCharacter, templateOptionsFor } from "../comfyui/settings";
 
 // Each image model wants its prompt written its own way: Stable Diffusion 1.5
@@ -85,9 +86,18 @@ export interface TargetInput {
   referenceMode?: string; // the character's local reference mode (#40), which picks a ComfyUI template
   artStyle?: ArtStyle; // picks the ComfyUI checkpoint, when one is set for the style
   isVideo?: boolean;
+  falCheckpoint?: string; // a character's preset's fal SDXL checkpoint, instead of Settings'
 }
 
-export const resolveImagePromptTarget = ({ providerId, imageModel, sdWebuiModel, hasReference = false, referenceMode, artStyle, isVideo }: TargetInput): ImagePromptTarget => {
+// The content test's rules for this model (imageCalibration.ts), added to
+// what the prompt writer is told, so its first prompt is one the model draws.
+export const resolveImagePromptTarget = (input: TargetInput): ImagePromptTarget => {
+  const base = baseTarget(input);
+  const rules = input.isVideo ? undefined : calibrationGuide(loadCalibration(calibrationKey(input.providerId, input.imageModel, input.falCheckpoint)));
+  return rules ? { ...base, guide: `${base.guide} ${rules}` } : base;
+};
+
+const baseTarget = ({ providerId, imageModel, sdWebuiModel, hasReference = false, referenceMode, artStyle, isVideo, falCheckpoint }: TargetInput): ImagePromptTarget => {
   if (isVideo) {
     return { ...target("prose", "Wan text-to-video"), guide: `${GUIDES.prose} Also say how things move over the few seconds of the clip, and how the camera moves (a slow push in, a pan, handheld).` };
   }
@@ -114,7 +124,7 @@ export const resolveImagePromptTarget = ({ providerId, imageModel, sdWebuiModel,
       // Your own SDXL checkpoint (falLora.ts): tags in its own style, as
       // for the same checkpoint in ComfyUI.
       if (model === FAL_LORA_ENDPOINT) {
-        const { checkpoint } = loadFalLora();
+        const checkpoint = falCheckpoint ?? loadFalLora().checkpoint;
         return target(dialectForCheckpoint(checkpoint, "sdxl"), `fal.ai SDXL${checkpoint ? ` with the checkpoint "${checkpoint}"` : ""}`);
       }
       return target(/flux|kontext/i.test(model) ? "flux" : "prose", `fal.ai ${model.includes("seedream") ? "Seedream" : model || "image model"}`);

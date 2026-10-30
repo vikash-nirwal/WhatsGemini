@@ -243,7 +243,7 @@ const generateImage = async (opts: ImageGenCallOptions, config: ProviderRuntimeC
   // Any SDXL checkpoint (fal-ai/lora): its own input, with the main reference
   // photo only as the face to keep.
   if (opts.model === FAL_LORA_ENDPOINT) {
-    const settings = loadFalLora();
+    const settings = opts.falLora ?? loadFalLora();
     const size = sizeParams("image_size", opts.aspectRatio);
     buildFalLoraInput(settings, opts.prompt, size); // fails before any upload when there's no checkpoint
     const face = settings.keepFace ? collectReferences(opts, 1).images[0] : undefined;

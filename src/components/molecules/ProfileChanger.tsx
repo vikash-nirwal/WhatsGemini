@@ -45,7 +45,7 @@ const ProfileChanger = () => {
         let photo: string | undefined;
         if (about && photoChangeDue(changer)) {
           try {
-            const drawn = await dispatch(generateAvatarImage({ name: changer.name, appearance: changer.appearance, visualTags: changer.visualTags, appearanceImages: changer.appearanceImages, artStyle: changer.artStyle, hint: photoHint(about), localImageSettings: changer.localImageSettings })).unwrap();
+            const drawn = await dispatch(generateAvatarImage({ imagePresetId: changer.imagePresetId, name: changer.name, appearance: changer.appearance, visualTags: changer.visualTags, appearanceImages: changer.appearanceImages, artStyle: changer.artStyle, hint: photoHint(about), localImageSettings: changer.localImageSettings })).unwrap();
             photo = drawn.images?.[0];
           } catch (err) {
             console.warn("Profile photo failed (non-fatal):", err);

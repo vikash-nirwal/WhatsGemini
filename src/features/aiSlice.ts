@@ -1,5 +1,5 @@
 import { extractInvite } from "./chat/invites";
-import { buildToneRewritePrompt, cleanToneRewrite } from "./ai/utils/imageTone";
+import { buildToneRewritePrompt, cleanToneRewrite, looksBlocked } from "./ai/utils/imageTone";
 import { buildWorldBrief, withWorldBrief } from "./world/worldBrief";
 import { backgroundAllowed, countBackgroundCall, featureOn } from "./world/worldPrefs";
 import { cachedTimeline } from "./world/timeline";
@@ -38,6 +38,8 @@ import type { NormalizedImage } from "./ai/types";
 import { extractMemoryChanges } from "./ai/utils/memoryExtraction";
 import { looksLikePromptRefusal, looksLikeRefusal } from "./ai/utils/refusal";
 import { imageSafetyFor } from "./ai/utils/imageSafety";
+import { buildCalibrationPrompt, cleanCalibrationRules } from "./ai/utils/imageCalibration";
+import { imageSetupFor } from "./ai/imagePresets";
 import { allAdults } from "./character/contentRating";
 import { CHAT_PROVIDERS, IMAGE_PROVIDERS, VIDEO_PROVIDERS } from "./ai/providers/registry";
 import { ProviderRuntimeConfig } from "./ai/providers/types";
@@ -140,10 +142,13 @@ const toneRewriter = (settings: RootState["settings"]) => async (prompt: string,
 
 export const generateAIResponse = createAsyncThunk(
   "ai/generateResponse",
-  async ({ prompt, history = [], systemInstruction, postHistoryNote, streamKey, characterImages, adultImages, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters, protectedCount, modelOverride, appearanceLocks, localImageSettings, promptImages, keepChoices }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, postHistoryNote?: string, streamKey?: string, characterImages?: string[], adultImages?: boolean, characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[], protectedCount?: number, modelOverride?: Character["modelOverride"], appearanceLocks?: AppearanceLock[], localImageSettings?: LocalImageSettings, promptImages?: string[], keepChoices?: boolean }, { getState, dispatch, rejectWithValue, signal }) => {
+  async ({ prompt, history = [], systemInstruction, postHistoryNote, streamKey, characterImages, adultImages, imagePresetId, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters, protectedCount, modelOverride, appearanceLocks, localImageSettings, promptImages, keepChoices }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, postHistoryNote?: string, streamKey?: string, characterImages?: string[], adultImages?: boolean, imagePresetId?: string, characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[], protectedCount?: number, modelOverride?: Character["modelOverride"], appearanceLocks?: AppearanceLock[], localImageSettings?: LocalImageSettings, promptImages?: string[], keepChoices?: boolean }, { getState, dispatch, rejectWithValue, signal }) => {
     try {
       const state = getState() as RootState;
       const settings = state.settings;
+      // The replying character's image preset, when they have one, for
+      // their pictures in place of Settings' (imagePresets.ts).
+      const { settings: imageSettings, overrides: imageOverrides } = imageSetupFor(settings, imagePresetId);
 
       // The replying character's own model settings (#32), falling back to
       // the app's text model settings for anything it doesn't set.
@@ -157,7 +162,7 @@ export const generateAIResponse = createAsyncThunk(
           : "API key is missing. Please log in.");
       }
 
-      const imageProviderId = settings.imageProvider;
+      const imageProviderId = imageSettings.imageProvider;
       const imageAdapter = IMAGE_PROVIDERS[imageProviderId] || IMAGE_PROVIDERS.gemini;
       const useSdWebui = imageProviderId === "sdwebui";
       const imageConfig = useSdWebui
@@ -175,7 +180,7 @@ export const generateAIResponse = createAsyncThunk(
       const videoModelName = settings.videoModel;
 
       const selectedModel = turnModel.model;
-      const imageModelName = settings.imageModel;
+      const imageModelName = imageSettings.imageModel;
 
       const turnConfig = {
         maxOutputTokens: settings.maxOutputTokens,
@@ -259,7 +264,7 @@ export const generateAIResponse = createAsyncThunk(
         // gets no extra camera-motion-specific instruction yet.
         const derivation = await deriveImagePrompt(
           chatAdapter, chatConfig, selectedModel, turnConfig, historyForSdk, fullPrompt,
-          settings.imageGenPrompt,
+          imageSettings.imageGenPrompt,
           resolveImagePromptTarget({
             providerId: imageProviderId,
             imageModel: imageModelName,
@@ -268,6 +273,7 @@ export const generateAIResponse = createAsyncThunk(
             referenceMode: localImageSettings?.referenceMode,
             artStyle: artStyle || DEFAULT_ART_STYLE,
             isVideo: isVideoRequest,
+            falCheckpoint: imageOverrides?.falLora?.checkpoint,
           }),
           existingImagePrompt, existingImageParams, signal, isCharacterInitiated, isAutoSelfie, artStyle, appearanceLocks
         );
@@ -291,8 +297,8 @@ export const generateAIResponse = createAsyncThunk(
 
           const imageResult = await generateImage(
             imageProviderId, imageConfig, useSdWebui, imageModelName, derivation.derivedImagePrompt, derivation.derivedParams,
-            characterImages, characterName, imageSafetyFor(settings.safetySettings, adultImages), signal, settings.geminiImageSize, undefined, otherRoomCharacters, localImageSettings,
-            artStyle || DEFAULT_ART_STYLE, toneRewriter(settings)
+            characterImages, characterName, imageSafetyFor(imageSettings.safetySettings, adultImages), signal, settings.geminiImageSize, undefined, otherRoomCharacters, localImageSettings,
+            artStyle || DEFAULT_ART_STYLE, toneRewriter(settings), imageOverrides
           );
           trackUsage(imageResult.usage, imageProviderId, imageModelName);
           generatedImages = imageResult.images;
@@ -785,19 +791,21 @@ export const generateWorldMapImage = createAsyncThunk(
 export const generateAvatarImage = createAsyncThunk(
   "ai/generateAvatarImage",
   async (
-    { name, appearance, visualTags, appearanceImages, emotion, artStyle, hint, localImageSettings }: { name: string; appearance?: string; visualTags?: string; appearanceImages?: string[]; emotion?: string; artStyle?: ArtStyle; hint?: string; localImageSettings?: LocalImageSettings },
+    { name, appearance, visualTags, appearanceImages, emotion, artStyle, hint, localImageSettings, imagePresetId }: { imagePresetId?: string; name: string; appearance?: string; visualTags?: string; appearanceImages?: string[]; emotion?: string; artStyle?: ArtStyle; hint?: string; localImageSettings?: LocalImageSettings },
     { getState, rejectWithValue }
   ) => {
     try {
       const state = getState() as RootState;
       const settings = state.settings;
+      // The character's own image preset, when they have one.
+      const { settings: imageSettings, overrides: imageOverrides } = imageSetupFor(settings, imagePresetId);
 
-      const imageProviderId = settings.imageProvider;
+      const imageProviderId = imageSettings.imageProvider;
       const useSdWebui = imageProviderId === "sdwebui";
       const imageConfig = useSdWebui
         ? { apiKey: null }
         : await resolveProviderConfig(imageProviderId, IMAGE_PROVIDERS[imageProviderId]?.capabilities.requiresBaseUrl || false);
-      const imageModelName = settings.imageModel;
+      const imageModelName = imageSettings.imageModel;
 
       // Build a portrait-optimized prompt from the character's appearance (no name: image models never get one, see hideNames.ts).
       // For an emotion portrait, the reference images (ideally including the
@@ -832,6 +840,7 @@ export const generateAvatarImage = createAsyncThunk(
         providerId: imageProviderId,
         imageModel: imageModelName,
         sdWebuiModel: settings.sdWebuiModel,
+        falCheckpoint: imageOverrides?.falLora?.checkpoint,
         hasReference: Boolean(appearanceImages?.length),
         referenceMode: localImageSettings?.referenceMode,
         artStyle: artStyle || DEFAULT_ART_STYLE,
@@ -842,7 +851,7 @@ export const generateAvatarImage = createAsyncThunk(
         imageProviderId, imageConfig, useSdWebui, imageModelName,
         prompt, {}, // no SD-specific params
         appearanceImages, name,
-        settings.safetySettings, undefined, settings.geminiImageSize, "3:4", undefined, localImageSettings, artStyle || DEFAULT_ART_STYLE, toneRewriter(settings)
+        imageSettings.safetySettings, undefined, settings.geminiImageSize, "3:4", undefined, localImageSettings, artStyle || DEFAULT_ART_STYLE, toneRewriter(settings), imageOverrides
       );
 
       if (!result.images || result.images.length === 0) {
@@ -993,6 +1002,52 @@ export const generatePlaygroundImage = createAsyncThunk(
     } catch (error: any) {
       if (error instanceof ImagePromptRefusedError) return rejectWithValue(IMAGE_PROMPT_REFUSED_MESSAGE);
       return rejectWithValue(error?.message || "Couldn't make the picture.");
+    }
+  }
+);
+
+// The content test (imageCalibration.ts), one step at a time so the page
+// can show each as it lands. A test picture is drawn once, with no tone-down
+// or retry, and has nobody's photos in it. It's an adult by its own prompt,
+// so "Off for 18+" counts it as one.
+export const drawTestPicture = createAsyncThunk(
+  "ai/drawTestPicture",
+  async ({ prompt, model }: { prompt: string; model?: string }, { getState, rejectWithValue, signal }) => {
+    try {
+      const settings = (getState() as RootState).settings;
+      const imageProviderId = settings.imageProvider;
+      const useSdWebui = imageProviderId === "sdwebui";
+      const imageConfig = useSdWebui ? { apiKey: null } : await resolveProviderConfig(imageProviderId, IMAGE_PROVIDERS[imageProviderId]?.capabilities.requiresBaseUrl || false);
+      const imageModelName = model?.trim() || settings.imageModel;
+      const result = await generateImage(imageProviderId, imageConfig, useSdWebui, imageModelName, prompt, {}, undefined, undefined, imageSafetyFor(settings.safetySettings, true), signal, settings.geminiImageSize, "3:4");
+      const warning = result.warning?.replace(/^\s*\[Warning: |\]\s*$/g, "").trim() || undefined;
+      return { images: result.images, blocked: !result.images.length && Boolean(warning && looksBlocked(warning)), warning };
+    } catch (error: any) {
+      return rejectWithValue(error?.message || "Couldn't make the test picture.");
+    }
+  }
+);
+
+export const toneDownTestPrompt = createAsyncThunk(
+  "ai/toneDownTestPrompt",
+  async ({ prompt, level }: { prompt: string; level: 1 | 2 | 3 }, { getState, rejectWithValue }) => {
+    try {
+      return await toneRewriter((getState() as RootState).settings)(prompt, level);
+    } catch (error: any) {
+      return rejectWithValue(error?.message || "Couldn't tone the prompt down.");
+    }
+  }
+);
+
+export const writeCalibrationRules = createAsyncThunk(
+  "ai/writeCalibrationRules",
+  async ({ refused, accepted, model }: { refused: { level: number; prompt: string }[]; accepted: { level: number; prompt: string }; model: string }, { getState, rejectWithValue }) => {
+    try {
+      const helper = await resolveHelperCall((getState() as RootState).settings);
+      const result = await helper.adapter.generateOnce(buildCalibrationPrompt(refused, accepted, model), helper.model, helper.config);
+      return cleanCalibrationRules(result.text);
+    } catch (error: any) {
+      return rejectWithValue(error?.message || "Couldn't write the rules.");
     }
   }
 );

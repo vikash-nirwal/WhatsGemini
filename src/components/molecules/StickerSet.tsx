@@ -24,7 +24,7 @@ export const StickerSet = ({ character }: { character: Character }) => {
     for (const mood of missing) {
       setDrawing(mood);
       try {
-        const drawn = await dispatch(generateAvatarImage({ name: character.name, appearance: character.appearance, visualTags: character.visualTags, appearanceImages: character.appearanceImages, artStyle: character.artStyle, emotion: mood, hint: stickerHint(mood), localImageSettings: character.localImageSettings })).unwrap();
+        const drawn = await dispatch(generateAvatarImage({ imagePresetId: character.imagePresetId, name: character.name, appearance: character.appearance, visualTags: character.visualTags, appearanceImages: character.appearanceImages, artStyle: character.artStyle, emotion: mood, hint: stickerHint(mood), localImageSettings: character.localImageSettings })).unwrap();
         const image = drawn.images?.[0];
         if (!image) continue;
         current = { ...current, stickers: [...(current.stickers || []), { id: `stk-${Date.now().toString(36)}-${mood.replace(/\s/g, "")}`, mood, image }] };

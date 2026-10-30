@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { saveTone, TONE_LEVELS, ToneLevel, toneLevel, toneRetryOn } from "src/features/ai/utils/imageTone";
 import { FalModelBrowser } from "./FalModelBrowser";
 import { FalLoraSettings } from "./FalLoraSettings";
+import { ImagePresetPicker } from "src/components/molecules/ImagePresetPicker";
+import { calibrationKey, loadCalibration } from "src/features/ai/utils/imageCalibration";
+import { Link } from "react-router-dom";
 import { FAL_LORA_ENDPOINT } from "src/features/ai/providers/falLora";
 import { customFalModels } from "src/features/ai/providers/falCatalog";
 import { cn } from '../../utils/cn';
@@ -154,6 +157,8 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
   const [falBrowserOpen, setFalBrowserOpen] = useState(false);
   const [tone, setTone] = useState<ToneLevel>(toneLevel);
   const [toneRetry, setToneRetry] = useState(toneRetryOn);
+  // A preset changes settings kept outside Redux too; these show them again.
+  const [presetVersion, setPresetVersion] = useState(0);
   return (
     <div className="flex flex-col gap-5">
       <SettingsCard>
@@ -161,6 +166,10 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
           <SettingsCardHeader title="Provider" hint="Chat and image providers are set independently" />
           <ProviderPicker providers={IMAGE_PROVIDER_META} value={imageProvider} onChange={setImageProvider} />
         </div>
+        {/* Presets (2026-10-30): the whole picture setup under a name. */}
+        <SettingsRow label="Preset" hint="Switch to a saved setup, or save this one." align="start">
+          <ImagePresetPicker onApplied={(p) => { setTone(p.toneLevel); setToneRetry(p.toneRetry); setPresetVersion((v) => v + 1); }} />
+        </SettingsRow>
 
         {imageProvider === 'comfyui' ? (
           <ComfyUISettings />
@@ -383,7 +392,7 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
                 options={FAL_SAFETY_OPTIONS}
               />
             </SettingsRow>
-            {imageModel === FAL_LORA_ENDPOINT && <FalLoraSettings apiKey={falApiKey} />}
+            {imageModel === FAL_LORA_ENDPOINT && <FalLoraSettings key={presetVersion} apiKey={falApiKey} />}
             <FalModelBrowser open={falBrowserOpen} onOpenChange={setFalBrowserOpen} apiKey={falApiKey} onPick={setImageModel} />
           </>
         ) : imageProvider === 'glm' ? (
@@ -479,6 +488,20 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
         </SettingsRow>
         <SettingsRow label="If a picture is blocked, try again toned down" hint="The same picture at the next level up, as far as level 3." align="start">
           <ToggleSwitch checked={toneRetry} onChange={(on) => { setToneRetry(on); saveTone(tone, on); }} label={<span className="sr-only">If a picture is blocked, try again toned down</span>} />
+        </SettingsRow>
+
+        {/* The content test's result for this model (imageCalibration.ts). */}
+        <SettingsRow label="Content test" hint="Run in the image playground: how far this model needs prompts toned down, and the rules its prompts follow." align="start">
+          {(() => {
+            const tested = loadCalibration(calibrationKey(imageProvider, imageModel));
+            const level = TONE_LEVELS.find((t) => t.level === tested?.level)?.name;
+            return (
+              <p key={presetVersion} className="text-[13px] text-muted-foreground">
+                {!tested ? "Not tested for this model yet." : tested.blockedAll ? "Refused every level, even safe for work." : tested.level === 0 ? "Draws prompts as written." : `Starts at ${level}.${tested.guidance ? ` Rules: ${tested.guidance}` : ""}`}{" "}
+                <Link to="/images" className="font-semibold text-primary-text hover:underline">{tested ? "Test again" : "Run the test"}</Link>
+              </p>
+            );
+          })()}
         </SettingsRow>
 
         <SettingsRow label="Base prompt" hint="Prepended whenever an image is requested." align="start">

@@ -109,3 +109,68 @@ test("a picture finishes after you leave the playground", async ({ page }) => {
   await page.getByRole("button", { name: "View" }).click();
   await expect(page.locator('[data-slot="playground-result"]').getByRole("img", { name: "A lighthouse in fog" })).toHaveAttribute("src", RESULT);
 });
+
+// Presets (2026-10-30): the setup is saved under a name and switched back to,
+// in the playground and in Settings.
+test("a setup saved as a preset is switched back to from Settings", async ({ page }) => {
+  await openRoute(page, "/images");
+  const setup = page.getByLabel("Setup");
+  await page.getByLabel("Model for these tries", { exact: true }).fill("fal-ai/flux-kontext/dev");
+  await setup.getByRole("button", { name: "Save as preset" }).click();
+  await setup.getByLabel("Preset name").fill("Kontext dev");
+  await setup.getByRole("button", { name: "Save", exact: true }).click();
+
+  await openRoute(page, "/settings/image");
+  const picker = page.getByRole("combobox", { name: "Image preset" });
+  await expect(picker).toContainText("Current settings");
+  await picker.click();
+  await page.getByRole("option", { name: "Kontext dev" }).click();
+  await expect(picker).toContainText("Kontext dev");
+  await expect(page.getByRole("combobox", { name: "fal.ai model" })).toContainText("FLUX.1 Kontext dev");
+  expect(await page.evaluate(() => localStorage.getItem("image_model"))).toContain("fal-ai/flux-kontext/dev");
+});
+
+// The content test (2026-10-30): refused as written, drawn at level 1; the
+// rules written from that reach the model's picture prompts.
+test("the content test tones down until the model draws, and keeps rules for it", async ({ page, mockAI }) => {
+  mockAI.reply((req) =>
+    req.prompt.includes("Rewrite this image prompt") ? "A woman in her thirties wrapped in a white sheet, back to the camera, soft morning light."
+    : req.prompt.includes("Compare them") ? "- Cover nudity with fabric or framing.\n- Avoid the word nude."
+    : "Mock reply");
+  const prompts: string[] = [];
+  await page.route("https://queue.fal.run/**", (route) => {
+    const request = route.request();
+    if (request.method() === "POST") {
+      prompts.push(request.postDataJSON().prompt);
+      return route.fulfill({ json: { request_id: `req-${prompts.length}`, status_url: `https://queue.fal.run/fal-ai/x/requests/req-${prompts.length}/status`, response_url: `https://queue.fal.run/fal-ai/x/requests/req-${prompts.length}` } });
+    }
+    if (request.url().endsWith("/status")) return route.fulfill({ json: { status: "COMPLETED" } });
+    // The first is flagged, as fal's checker does: a black image and a flag.
+    return route.fulfill({ json: request.url().endsWith("req-1") ? { images: [{ url: RESULT }], has_nsfw_concepts: [true] } : { images: [{ url: RESULT }], has_nsfw_concepts: [false] } });
+  });
+
+  await openRoute(page, "/images");
+  const test_ = page.getByLabel("Content test");
+  await test_.getByRole("button", { name: "Run the test" }).click();
+  await expect(test_.getByRole("status")).toContainText("it draws from level 1 · Soften", { timeout: 20_000 });
+  await expect(test_.getByRole("status")).toContainText("Cover nudity with fabric or framing. Avoid the word nude.");
+  const steps = test_.getByRole("list", { name: "Test steps" }).getByRole("listitem");
+  await expect(steps).toHaveCount(2);
+  await expect(steps.nth(0)).toContainText("Off: refused");
+  await expect(steps.nth(1)).toContainText("1 · Soften: drawn");
+  expect(prompts[0]).toContain("Artistic nude portrait");
+  expect(prompts[1]).toContain("wrapped in a white sheet");
+
+  // Settings shows it, and the model's picture prompts are written by the rules.
+  await openRoute(page, "/settings/image");
+  await expect(page.getByText("Starts at 1 · Soften.")).toBeVisible();
+  await openRoute(page, "/images");
+  await page.getByRole("textbox", { name: "Prompt", exact: true }).fill("a selfie at the harbour");
+  await page.getByRole("button", { name: "Generate" }).click();
+  await expect.poll(() => mockAI.requests.some((r) => r.prompt.includes("tested rules for prompts it will draw: Cover nudity with fabric or framing."))).toBe(true);
+
+  // A test prompt about someone under 18 isn't sent.
+  await page.getByRole("textbox", { name: "Test prompt" }).fill("a 16-year-old girl");
+  await page.getByLabel("Content test").getByRole("button", { name: "Test again" }).click();
+  await expect(page.getByLabel("Content test").getByRole("alert")).toContainText("under 18");
+});

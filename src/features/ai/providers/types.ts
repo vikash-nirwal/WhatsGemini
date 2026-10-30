@@ -75,6 +75,9 @@ export interface ImageGenCallOptions {
   // The character's art style. ComfyUI uses it to pick the checkpoint and
   // FaceID strength set for that style; other adapters ignore it.
   artStyle?: ArtStyle;
+  // fal's SDXL checkpoint and LoRAs from a character's preset, instead of
+  // the ones in Settings (falLora.ts).
+  falLora?: import("./falLora").FalLoraSettings;
 }
 
 export interface ImageGenCallResult {

@@ -822,6 +822,7 @@ export interface Character {
   mood?: import("../features/world/bonds").Mood; // their own mood, fading back to even (#211)
   youPoints?: import("../features/world/points").Points; // their traits toward you, 0-10, with the world's Points on (#234)
   talks?: WorldTalk[]; // their own conversations with others in their world (#145), kept on the lower id of the two
+  imagePresetId?: string; // an image preset (imagePresets.ts) for this character's pictures, in place of Settings' (2026-10-30)
   modelOverride?: {
     provider?: string; // chat provider id (a CHAT_PROVIDERS key)
     model?: string;

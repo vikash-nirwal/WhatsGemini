@@ -176,6 +176,30 @@ test.describe("fal.ai", () => {
     expect(sent.body.ip_adapter[0].ip_adapter_image_url).toBe("https://v3b.fal.media/files/ref-1.png");
   });
 
+  // A character's image preset (2026-10-30): their pictures use it instead
+  // of Settings, until it's set back.
+  test("a character with an image preset draws with its model", async ({ page }) => {
+    const sent = await mockFalSubmit(page);
+    const urls: string[] = [];
+    page.on("request", (r) => { if (r.method() === "POST" && r.url().startsWith("https://queue.fal.run/")) urls.push(r.url()); });
+    await page.addInitScript(() => localStorage.setItem("image_presets", JSON.stringify([{ id: "p1", name: "Kontext dev", provider: "fal", model: "fal-ai/flux-kontext/dev", basePrompt: "", toneLevel: 0, toneRetry: true }])));
+    await openRoute(page, `/characters/${ARIA.id}/edit`);
+    await editorStep(page, "Advanced");
+    await page.getByRole("combobox", { name: "Image preset for this character" }).click();
+    await page.getByRole("option", { name: "Kontext dev" }).click();
+    await page.getByRole("button", { name: /^Save/ }).first().click();
+    await expect.poll(() => page.evaluate(async (id) => {
+      const db: IDBDatabase = await new Promise((r) => { const q = indexedDB.open("ChatAppDB"); q.onsuccess = () => r(q.result); });
+      const c: any = await new Promise((r) => { const g = db.transaction("characters").objectStore("characters").get(id); g.onsuccess = () => r(g.result); });
+      db.close();
+      return c.imagePresetId;
+    }, ARIA.id)).toBe("p1");
+
+    await requestPictureFromAria(page, { imagePresetId: "p1" });
+    expect(urls[0]).toBe("https://queue.fal.run/fal-ai/flux-kontext/dev");
+    expect(sent.body.image_url).toBe("https://v3b.fal.media/files/ref-1.png");
+  });
+
   test("Off for 18+ leaves it on for a character who isn't 18+", async ({ page }) => {
     const sent = await mockFalSubmit(page);
     await pickChecker(page, "Off for 18+");

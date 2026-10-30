@@ -31,6 +31,7 @@ import { useModal } from "../contexts/ModalContext";
 import { CharacterModelOverride, cleanModelOverride } from "../features/ai/modelResolution";
 import { nextMemoryCategory } from "../features/ai/utils/memoryExtraction";
 import ModelOverrideSection from "./CharacterEditorPage/ModelOverrideSection";
+import ImagePresetSection from "./CharacterEditorPage/ImagePresetSection";
 import LocalImageSettingsSection from "./CharacterEditorPage/LocalImageSettingsSection";
 import ImportantDatesSection from "./CharacterEditorPage/ImportantDatesSection";
 import SecretsSection from "./CharacterEditorPage/SecretsSection";
@@ -180,6 +181,7 @@ const CharacterEditorPage = () => {
   const [loreEntries, setLoreEntries] = useState<LoreEntry[]>([]);
   const [personalityTraits, setPersonalityTraits] = useState<string[]>([]);
   const [modelOverride, setModelOverride] = useState<CharacterModelOverride | undefined>(undefined);
+  const [imagePresetId, setImagePresetId] = useState("");
   const [localImageSettings, setLocalImageSettings] = useState<LocalImageSettings | undefined>(undefined);
   const [importantDates, setImportantDates] = useState<ImportantDate[]>([]);
   const [secrets, setSecrets] = useState<CharacterSecret[]>([]);
@@ -242,6 +244,7 @@ const CharacterEditorPage = () => {
       setLoreEntries(source.loreEntries || []);
       setPersonalityTraits(source.personalityTraits || []);
       setModelOverride(source.modelOverride);
+      setImagePresetId(source.imagePresetId || "");
       setLocalImageSettings(source.localImageSettings);
       setImportantDates(source.importantDates || []);
       setSecrets(source.secrets || []);
@@ -281,6 +284,7 @@ const CharacterEditorPage = () => {
       setLoreEntries([]);
       setPersonalityTraits([]);
       setModelOverride(undefined);
+      setImagePresetId("");
       setLocalImageSettings(undefined);
       setImportantDates([]);
       setWardrobe([]);
@@ -493,7 +497,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
       return;
     }
     if (!checkContentRating()) return;
-    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), writingStyle: cleanWritingStyle(writingStyle), home, importantDates: cleanDates(importantDates), secrets: cleanSecrets(secrets), ...cleanWardrobe(wardrobe, currentOutfitId), schedule: cleanSchedule(schedule), intimacy, ...life, firstTextLimit: life.textsFirst && textsFirst.limit > 1 ? textsFirst.limit : undefined, about: profile.about.trim() || undefined }));
+    dispatch(addCharacter({ name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), imagePresetId: imagePresetId || undefined, localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), writingStyle: cleanWritingStyle(writingStyle), home, importantDates: cleanDates(importantDates), secrets: cleanSecrets(secrets), ...cleanWardrobe(wardrobe, currentOutfitId), schedule: cleanSchedule(schedule), intimacy, ...life, firstTextLimit: life.textsFirst && textsFirst.limit > 1 ? textsFirst.limit : undefined, about: profile.about.trim() || undefined }));
     navigate("/characters");
   };
 
@@ -511,7 +515,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     // Spread the stored record first: db.put replaces the whole row, so any
     // field this form doesn't own (memory, pinnedMemory, avatar, creatorNotes)
     // was being wiped on every save.
-    dispatch(updateCharacter({ ...editCharacter, id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), writingStyle: cleanWritingStyle(writingStyle), home, importantDates: cleanDates(importantDates), secrets: cleanSecrets(secrets), ...cleanWardrobe(wardrobe, currentOutfitId), schedule: cleanSchedule(schedule), intimacy, ...life, firstTextLimit: life.textsFirst && textsFirst.limit > 1 ? textsFirst.limit : undefined, about: profile.about.trim() || undefined }));
+    dispatch(updateCharacter({ ...editCharacter, id: editCharacter.id, name, description, tags, prompt, scenario, first_mes: firstMes, alternateGreetings: cleanGreetings(alternateGreetings), postHistoryInstructions: postHistoryInstructions.trim() || undefined, contentRating, adultsConfirmed: contentRating === "nsfw" && adultsConfirmed ? true : undefined, mes_example: mesExample, relationship, appearance, visualTags: visualTags.trim() || undefined, appearanceImages, artStyle, accent: CHARACTER_SWATCHES[accentIndex], gallery: editCharacter.gallery, autoSelfie: { enabled: autoSelfieEnabled, frequency: autoSelfieFrequency }, emotionPortraits: { enabled: emotionPortraitsEnabled, images: emotionPortraitImages, customEmotions }, loreEntries, personalityTraits, modelOverride: cleanModelOverride(modelOverride), imagePresetId: imagePresetId || undefined, localImageSettings: cleanLocalImageSettings(localImageSettings), voice: cleanVoice(voice), writingStyle: cleanWritingStyle(writingStyle), home, importantDates: cleanDates(importantDates), secrets: cleanSecrets(secrets), ...cleanWardrobe(wardrobe, currentOutfitId), schedule: cleanSchedule(schedule), intimacy, ...life, firstTextLimit: life.textsFirst && textsFirst.limit > 1 ? textsFirst.limit : undefined, about: profile.about.trim() || undefined }));
     if (options?.stay) {
       toast.success("Character saved");
     } else {
@@ -622,6 +626,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
         setGeneratingSheetView(view.label);
         const result = await dispatch(generateAvatarImage({
           name,
+          imagePresetId,
           appearance,
           visualTags,
           appearanceImages: appearanceImages.length > 0 ? appearanceImages.slice(0, 1) : undefined,
@@ -667,7 +672,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     setGeneratingEmotion(emotion);
     try {
       const referenceImages = appearanceImages.length > 0 ? appearanceImages : undefined;
-      const result = await dispatch(generateAvatarImage({ name, appearance, visualTags, appearanceImages: referenceImages, emotion, artStyle, hint: emotionHint.trim() || undefined, localImageSettings: cleanLocalImageSettings(localImageSettings) })).unwrap();
+      const result = await dispatch(generateAvatarImage({ imagePresetId, name, appearance, visualTags, appearanceImages: referenceImages, emotion, artStyle, hint: emotionHint.trim() || undefined, localImageSettings: cleanLocalImageSettings(localImageSettings) })).unwrap();
       if (result.images && result.images.length > 0) {
         // Generated against a chroma-key backdrop (see the emotion-only prompt
         // clause in aiSlice.ts) - strip it to real transparency before the crop
@@ -727,7 +732,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
         setGeneratingEmotion(emo);
         try {
           // eslint-disable-next-line no-await-in-loop
-          const result = await dispatch(generateAvatarImage({ name, appearance, visualTags, appearanceImages: referenceImages, emotion: emo, artStyle, hint: emotionHint.trim() || undefined, localImageSettings: cleanLocalImageSettings(localImageSettings) })).unwrap();
+          const result = await dispatch(generateAvatarImage({ imagePresetId, name, appearance, visualTags, appearanceImages: referenceImages, emotion: emo, artStyle, hint: emotionHint.trim() || undefined, localImageSettings: cleanLocalImageSettings(localImageSettings) })).unwrap();
           const dataUrl = result.images?.[0];
           if (!dataUrl) continue;
           // Same chroma-key strip as the single-emotion path above, just
@@ -1396,6 +1401,9 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                 <>
                   <Card className="p-6">
                     <ModelOverrideSection value={modelOverride} onChange={setModelOverride} />
+                    <div className="mt-4 border-t border-border pt-4">
+                      <ImagePresetSection value={imagePresetId} onChange={setImagePresetId} />
+                    </div>
                     <div className="mt-4 border-t border-border pt-4">
                       <LocalImageSettingsSection value={localImageSettings} onChange={setLocalImageSettings} />
                     </div>

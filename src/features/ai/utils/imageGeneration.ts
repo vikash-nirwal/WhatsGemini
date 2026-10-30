@@ -4,6 +4,8 @@ import { appendCharacterImages } from "./imageProcessing";
 import { generateSDImage } from "./sdWebuiUtils";
 import { UsageInfo } from "../types";
 import { looksBlocked, toneLadder, ToneLevel, toneLevel, toneRetryOn } from "./imageTone";
+import { calibrationKey, loadCalibration, startLevel } from "./imageCalibration";
+import type { ImageOverrides } from "../imagePresets";
 import { ChatProviderAdapter, ContentBlockedError, ImageProviderAdapter, NamedReferenceImages, ProviderRuntimeConfig } from "../providers/types";
 import { IMAGE_PROVIDERS } from "../providers/registry";
 import { ART_STYLE_CLAUSES, DEFAULT_ART_STYLE } from "../../../utils/constants";
@@ -266,11 +268,16 @@ export const generateImage = async (
   artStyle?: ArtStyle,
   // Toning down (2026-10-27): rewrites the prompt at a level, on the text
   // model. Without it, prompts go as written.
-  rewrite?: (prompt: string, level: 1 | 2 | 3) => Promise<string>
+  rewrite?: (prompt: string, level: 1 | 2 | 3) => Promise<string>,
+  // A character's image preset (imagePresets.ts): its tone-down and fal
+  // SDXL setup in place of the ones in Settings.
+  overrides?: ImageOverrides
 ): Promise<ImageGenerationResult> => {
   // The chosen level first, then - if a service blocks it and retrying is on -
   // each stricter one, keeping the picture's idea.
-  const ladder = rewrite ? toneLadder(toneLevel(), toneRetryOn()) : [0 as ToneLevel];
+  // A model the content test was run on starts at the level it drew.
+  const tone = overrides?.tone ?? { level: toneLevel(), retry: toneRetryOn() };
+  const ladder = rewrite ? toneLadder(startLevel(tone.level, loadCalibration(calibrationKey(imageProvider, imageModelName, overrides?.falLora?.checkpoint))), tone.retry) : [0 as ToneLevel];
   let lastError: unknown;
   for (const level of ladder) {
     if (signal?.aborted) break;
@@ -326,7 +333,7 @@ export const generateImage = async (
     }
 
     const result = await adapter.generateImage(
-      { model: imageModelName, prompt: derivedImagePrompt, referenceImages, referenceCharacters, signal, safetySettings, imageSize, aspectRatio, localImageSettings, artStyle },
+      { model: imageModelName, prompt: derivedImagePrompt, referenceImages, referenceCharacters, signal, safetySettings, imageSize, aspectRatio, localImageSettings, artStyle, ...(overrides?.falLora ? { falLora: overrides.falLora } : {}) },
       imageConfig
     );
     return { images: result.images, usage: result.usage };

@@ -22,12 +22,16 @@ import { ART_STYLES, DEFAULT_ART_STYLE } from "src/utils/constants";
 import { ArtStyle } from "src/types";
 import { cn } from "src/utils/cn";
 import { allAdults } from "src/features/character/contentRating";
+import { ImagePresetPicker } from "src/components/molecules/ImagePresetPicker";
+import { ImageContentTest } from "src/components/organisms/ImageContentTest";
 
 // The image playground (#238): try the image setup with any characters'
 // reference photos - a prompt as written or written like a chat picture,
 // their locked looks, an aspect ratio, another model - and see exactly
 // what was sent. Nothing here touches a chat, a character or an album:
-// pictures live on this page until you leave it, or download them.
+// pictures live on this page until you leave it, or download them. Presets
+// save the setup, and the content test finds what the model will draw
+// (2026-10-30).
 
 const RATIOS = ["1:1", "3:4", "9:16", "4:3", "16:9"];
 const YOU_KEY = "you";
@@ -131,10 +135,15 @@ const ImagePlaygroundPage = () => {
       <Header title="Image playground" subtitle="Try pictures without touching your chats" />
       <div className="flex-1 overflow-auto p-4 md:p-8">
         <div className="mx-auto grid w-full max-w-[1100px] items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <Card className="flex flex-col gap-4 p-5">
+          <div className="flex min-w-0 flex-col gap-5">
+          {/* The setup being tried, and presets of it (2026-10-30). */}
+          <Card className="flex flex-col gap-3 p-5" aria-label="Setup">
             <p className="text-[13px] text-muted-foreground">
               Using {provider}{settings.imageModel ? ` · ${settings.imageModel}` : ""}. <Link to="/settings/image" className="font-semibold text-primary-text hover:underline">Change in Settings</Link>
             </p>
+            <ImagePresetPicker tryModel={model} />
+          </Card>
+          <Card className="flex flex-col gap-4 p-5">
 
             <div>
               <p className="mb-2 text-sm font-medium text-foreground">Who's in it</p>
@@ -200,6 +209,8 @@ const ImagePlaygroundPage = () => {
               {busy && <Button type="button" variant="outline" onClick={() => stopRunning?.()}><FaStop size={10} /> Stop</Button>}
             </div>
           </Card>
+          <ImageContentTest tryModel={model} />
+          </div>
 
           <section aria-label="Pictures" className="flex flex-col gap-4">
             {results.length === 0 && <p className="rounded-card bg-surface p-6 text-center text-[13px] text-subtle ring-1 ring-inset ring-border">Pictures show up here. They're kept until you close the app, and nothing goes to your chats.</p>}
