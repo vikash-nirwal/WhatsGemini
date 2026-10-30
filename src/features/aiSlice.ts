@@ -277,6 +277,7 @@ export const generateAIResponse = createAsyncThunk(
             artStyle: artStyle || DEFAULT_ART_STYLE,
             isVideo: isVideoRequest,
             falCheckpoint: imageOverrides?.falLora?.checkpoint,
+            calibration: imageOverrides?.calibration,
           }),
           existingImagePrompt, existingImageParams, signal, isCharacterInitiated, isAutoSelfie, artStyle, appearanceLocks
         );
@@ -856,6 +857,7 @@ export const generateAvatarImage = createAsyncThunk(
         imageModel: imageModelName,
         sdWebuiModel: settings.sdWebuiModel,
         falCheckpoint: imageOverrides?.falLora?.checkpoint,
+        calibration: imageOverrides?.calibration,
         hasReference: Boolean(appearanceImages?.length),
         referenceMode: localImageSettings?.referenceMode,
         artStyle: artStyle || DEFAULT_ART_STYLE,

@@ -280,7 +280,7 @@ export const generateImage = async (
   // each stricter one, keeping the picture's idea.
   // A model the content test was run on starts at the level it drew.
   const tone = overrides?.tone ?? { level: toneLevel(), retry: toneRetryOn() };
-  const ladder = rewrite ? toneLadder(startLevel(tone.level, loadCalibration(calibrationKey(imageProvider, imageModelName, overrides?.falLora?.checkpoint))), tone.retry) : [0 as ToneLevel];
+  const ladder = rewrite ? toneLadder(startLevel(tone.level, overrides?.calibration ?? loadCalibration(calibrationKey(imageProvider, imageModelName, overrides?.falLora?.checkpoint))), tone.retry) : [0 as ToneLevel];
   let lastError: unknown;
   for (const level of ladder) {
     if (signal?.aborted) break;

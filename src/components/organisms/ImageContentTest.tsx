@@ -6,6 +6,8 @@ import { NsfwBlur } from "src/components/molecules/NsfwBlur";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { drawTestPicture, toneDownTestPrompt, writeCalibrationRules } from "src/features/aiSlice";
 import { calibrationKey, DEFAULT_TEST_PROMPT, ImageCalibration, loadCalibration, saveCalibration } from "src/features/ai/utils/imageCalibration";
+import { capturePreset, loadPresets, savePresets, withPreset } from "src/features/ai/imagePresets";
+import { TextInput } from "src/components/molecules/form-controls";
 import { TONE_LEVELS, ToneLevel } from "src/features/ai/utils/imageTone";
 import { looksLikePromptRefusal } from "src/features/ai/utils/refusal";
 import { detectMinorIndicators } from "src/features/character/contentRating";
@@ -37,6 +39,16 @@ export const ImageContentTest = ({ tryModel }: { tryModel?: string }) => {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const stopped = useRef(false);
+  // Saving the tested setup as a preset (the user's ask, 2026-10-30): the
+  // point of the test is a setup you can switch to, or give a character.
+  const [presetName, setPresetName] = useState("");
+  const [savedPreset, setSavedPreset] = useState<string | null>(null);
+  const saveAsPreset = () => {
+    const name = presetName.trim();
+    if (!name) return;
+    savePresets(withPreset(loadPresets(), capturePreset(name, settings, tryModel)));
+    setSavedPreset(name);
+  };
   const label = `${settings.imageProvider}${model ? ` · ${model}` : ""}`;
 
   const setStep = (i: number, patch: Partial<Step>) => setSteps((list) => list.map((s, j) => (j === i ? { ...s, ...patch } : s)));
@@ -114,6 +126,11 @@ export const ImageContentTest = ({ tryModel }: { tryModel?: string }) => {
             {saved.blockedAll ? "Tested: it refused every level, even safe for work." : saved.level === 0 ? "Tested: it draws prompts as written." : `Tested: it draws from level ${levelName(saved.level)}.`}
           </p>
           {saved.guidance && <p className="mt-1 text-muted-foreground">Rules for its prompts: {saved.guidance}</p>}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <TextInput aria-label="Preset name" value={presetName} onChange={(e) => { setPresetName(e.target.value); setSavedPreset(null); }} onKeyDown={(e) => e.key === "Enter" && saveAsPreset()} placeholder={`e.g. ${(model || settings.imageProvider).split("/").pop()} tested`} className="h-8 min-w-0 flex-1" />
+            <Button type="button" size="sm" disabled={!presetName.trim()} onClick={saveAsPreset}>Save as preset</Button>
+          </div>
+          {savedPreset && <p className="mt-1 text-[12.5px] text-muted-foreground">Saved as "{savedPreset}", with this result. Pick it in Settings › Images, or for a character in their editor › Advanced.</p>}
           <button type="button" className="mt-1 text-[12.5px] font-semibold text-primary-text hover:underline" onClick={() => { saveCalibration(key, undefined); setSaved(undefined); }}>Forget this result</button>
         </div>
       )}

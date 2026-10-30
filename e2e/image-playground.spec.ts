@@ -161,6 +161,15 @@ test("the content test tones down until the model draws, and keeps rules for it"
   expect(prompts[0]).toContain("Artistic nude portrait");
   expect(prompts[1]).toContain("wrapped in a white sheet");
 
+  // The tested setup is saved as a preset, result and all (2026-10-30).
+  await test_.getByLabel("Preset name").fill("Kontext tested");
+  await test_.getByRole("button", { name: "Save as preset" }).click();
+  await expect(test_.getByText('Saved as "Kontext tested", with this result.')).toBeVisible();
+  await expect(page.getByLabel("Setup").getByRole("combobox", { name: "Image preset" })).toContainText("Kontext tested");
+  await expect(page.getByLabel("Setup")).toContainText("With its content test: starts at 1 · Soften, with rules for its prompts.");
+  const presets = JSON.parse((await page.evaluate(() => localStorage.getItem("image_presets"))) || "[]");
+  expect(presets[0].calibration).toMatchObject({ level: 1, guidance: "Cover nudity with fabric or framing. Avoid the word nude." });
+
   // Settings shows it, and the model's picture prompts are written by the rules.
   await openRoute(page, "/settings/image");
   await expect(page.getByText("Starts at 1 · Soften.")).toBeVisible();

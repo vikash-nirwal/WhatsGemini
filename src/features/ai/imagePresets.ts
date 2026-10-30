@@ -1,6 +1,7 @@
 import { AISafetySettings } from "../../types";
 import { DEFAULT_FAL_LORA, FalLoraSettings, loadFalLora, saveFalLora } from "./providers/falLora";
 import { saveTone, toneLevel, ToneLevel, toneRetryOn } from "./utils/imageTone";
+import { calibrationKey, ImageCalibration, loadCalibration, saveCalibration } from "./utils/imageCalibration";
 
 // Image presets (the user's ask, 2026-10-30): a whole picture setup under a
 // name, saved from the image playground or Settings and switched to from
@@ -16,6 +17,9 @@ export interface ImagePreset {
   toneLevel: ToneLevel;
   toneRetry: boolean;
   falLora?: FalLoraSettings; // only for fal's SDXL model
+  // The content test's result for this model (imageCalibration.ts): its
+  // level and rules travel with the preset (the user's ask, 2026-10-30).
+  calibration?: ImageCalibration;
 }
 
 // The settings a preset reads and sets; the rest of the settings stay put.
@@ -37,18 +41,24 @@ export const loadPresets = (): ImagePreset[] => {
   }
 };
 
+export const PRESETS_CHANGED = "image-presets-changed";
+
+// Pickers on the same page (the playground's setup card, its content test)
+// hear about a save and show it.
 export const savePresets = (presets: ImagePreset[]) => {
   try {
     localStorage.setItem(LS_PRESETS, JSON.stringify(presets));
   } catch {
     // Storage full or blocked: the presets last until the page closes.
   }
+  window.dispatchEvent(new Event(PRESETS_CHANGED));
 };
 
 // The current setup as a preset. A model tried in the playground can stand
 // in for the one in Settings.
 export const capturePreset = (name: string, setup: ImageSetup, model?: string): ImagePreset => {
   const usedModel = model?.trim() || setup.imageModel;
+  const tested = loadCalibration(calibrationKey(setup.imageProvider, usedModel));
   return {
     id: `p${Date.now().toString(36)}`,
     name: name.trim(),
@@ -59,6 +69,7 @@ export const capturePreset = (name: string, setup: ImageSetup, model?: string): 
     toneLevel: toneLevel(),
     toneRetry: toneRetryOn(),
     ...(setup.imageProvider === "fal" && usedModel === "fal-ai/lora" ? { falLora: loadFalLora() } : {}),
+    ...(tested ? { calibration: tested } : {}),
   };
 };
 
@@ -83,12 +94,15 @@ export const isCurrentPreset = (preset: ImagePreset, setup: ImageSetup): boolean
 export const applyPresetStorage = (preset: ImagePreset) => {
   saveTone(preset.toneLevel, preset.toneRetry);
   if (preset.falLora) saveFalLora({ ...DEFAULT_FAL_LORA, ...preset.falLora });
+  // Its test result comes back with it, for its model.
+  if (preset.calibration) saveCalibration(calibrationKey(preset.provider, preset.model, preset.falLora?.checkpoint), preset.calibration);
 };
 
 // What a preset sets that isn't in Redux, for one picture.
 export interface ImageOverrides {
   tone?: { level: ToneLevel; retry: boolean };
   falLora?: FalLoraSettings;
+  calibration?: ImageCalibration;
 }
 
 export const presetById = (id: string | undefined): ImagePreset | undefined => (id ? loadPresets().find((p) => p.id === id) : undefined);
@@ -101,6 +115,6 @@ export const imageSetupFor = <S extends ImageSetup>(settings: S, presetId: strin
   if (!preset) return { settings };
   return {
     settings: { ...settings, imageProvider: preset.provider, imageModel: preset.model, imageGenPrompt: preset.basePrompt, safetySettings: { ...settings.safetySettings, falSafetyChecker: preset.falSafetyChecker } },
-    overrides: { tone: { level: preset.toneLevel, retry: preset.toneRetry }, ...(preset.falLora ? { falLora: { ...DEFAULT_FAL_LORA, ...preset.falLora } } : {}) },
+    overrides: { tone: { level: preset.toneLevel, retry: preset.toneRetry }, ...(preset.falLora ? { falLora: { ...DEFAULT_FAL_LORA, ...preset.falLora } } : {}), ...(preset.calibration ? { calibration: preset.calibration } : {}) },
   };
 };

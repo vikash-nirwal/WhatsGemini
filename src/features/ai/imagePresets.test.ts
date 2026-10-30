@@ -41,3 +41,17 @@ test("a character's preset replaces Settings for their pictures, until it's gone
   expect(imageSetupFor(setup, "deleted")).toEqual({ settings: setup });
   expect(imageSetupFor(setup, undefined)).toEqual({ settings: setup });
 });
+
+test("a preset keeps its model's content test result and brings it back", () => {
+  const tested = { level: 2 as const, guidance: "Cover nudity with fabric.", label: "fal · kontext", at: 1 };
+  localStorage.setItem("image_calibrations", JSON.stringify({ "fal:fal-ai/flux-kontext/dev": tested }));
+  const p = capturePreset("Kontext tested", setup);
+  expect(p.calibration).toEqual(tested);
+  // Forgotten, then the preset is picked again: the result is back.
+  localStorage.removeItem("image_calibrations");
+  applyPresetStorage(p);
+  expect(JSON.parse(localStorage.getItem("image_calibrations") || "{}")["fal:fal-ai/flux-kontext/dev"]).toEqual(tested);
+  // A character with this preset uses it for their pictures.
+  localStorage.setItem("image_presets", JSON.stringify([p]));
+  expect(imageSetupFor(setup, p.id).overrides?.calibration).toEqual(tested);
+});

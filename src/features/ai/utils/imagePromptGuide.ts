@@ -1,6 +1,6 @@
 import type { ArtStyle } from "../../../types";
 import { FAL_LORA_ENDPOINT, loadFalLora } from "../providers/falLora";
-import { calibrationGuide, calibrationKey, loadCalibration } from "./imageCalibration";
+import { calibrationGuide, calibrationKey, ImageCalibration, loadCalibration } from "./imageCalibration";
 import { loadComfySettings, loadCustomWorkflows, templateForCharacter, templateOptionsFor } from "../comfyui/settings";
 
 // Each image model wants its prompt written its own way: Stable Diffusion 1.5
@@ -87,13 +87,14 @@ export interface TargetInput {
   artStyle?: ArtStyle; // picks the ComfyUI checkpoint, when one is set for the style
   isVideo?: boolean;
   falCheckpoint?: string; // a character's preset's fal SDXL checkpoint, instead of Settings'
+  calibration?: ImageCalibration; // a character's preset's content test result, instead of the model's saved one
 }
 
 // The content test's rules for this model (imageCalibration.ts), added to
 // what the prompt writer is told, so its first prompt is one the model draws.
 export const resolveImagePromptTarget = (input: TargetInput): ImagePromptTarget => {
   const base = baseTarget(input);
-  const rules = input.isVideo ? undefined : calibrationGuide(loadCalibration(calibrationKey(input.providerId, input.imageModel, input.falCheckpoint)));
+  const rules = input.isVideo ? undefined : calibrationGuide(input.calibration ?? loadCalibration(calibrationKey(input.providerId, input.imageModel, input.falCheckpoint)));
   return rules ? { ...base, guide: `${base.guide} ${rules}` } : base;
 };
 
