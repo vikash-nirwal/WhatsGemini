@@ -33,8 +33,8 @@ interface ImageGenerationSettingsProps {
   falApiKey: string;
   setFalApiKey: (key: string) => void;
   falImageModelList: { value: string; label: string }[];
-  falSafetyChecker: boolean;
-  setFalSafetyChecker: (on: boolean) => void;
+  falSafetyChecker: boolean | "adults";
+  setFalSafetyChecker: (value: boolean | "adults") => void;
   glmApiKey: string;
   setGlmApiKey: (key: string) => void;
   glmImageModelList: { value: string; label: string }[];
@@ -81,6 +81,12 @@ const REF_MODE_OPTIONS = [
   { value: "img2img", label: "img2img" },
   { value: "controlnet", label: "ControlNet" },
   { value: "reactor", label: "Face swap" },
+];
+
+const FAL_SAFETY_OPTIONS = [
+  { value: "on", label: "On" },
+  { value: "adults", label: "Off for 18+" },
+  { value: "off", label: "Off" },
 ];
 
 const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
@@ -365,9 +371,15 @@ const ImageGenerationSettings: React.FC<ImageGenerationSettingsProps> = ({
               </div>
             </SettingsRow>
             {/* The user's ask, 2026-10-30: fal's checker blacks out pictures it flags.
-                On by default; Kindred's own adult rules apply either way. */}
-            <SettingsRow label="Safety checker" hint="fal.ai checks each picture and blocks ones it flags as explicit. Turning it off only removes fal's filter: Kindred's 18+ rules for characters still apply, and so do fal.ai's terms." align="start">
-              <ToggleSwitch checked={falSafetyChecker} onChange={setFalSafetyChecker} label={<span className="sr-only">fal.ai safety checker</span>} />
+                On by default; "Off for 18+" keeps it for any picture with an
+                SFW character in it, or none (imageSafetyFor). */}
+            <SettingsRow label="Safety checker" hint="fal.ai checks each picture and blocks ones it flags as explicit. Off for 18+ turns it off only in chats, scenes and playground pictures where everyone is an 18+ character; portraits, backdrops and maps keep it. Kindred's 18+ rules still apply, and so do fal.ai's terms." align="start">
+              <SegmentedControl
+                aria-label="fal.ai safety checker"
+                value={falSafetyChecker === "adults" ? "adults" : falSafetyChecker ? "on" : "off"}
+                onChange={(v) => setFalSafetyChecker(v === "adults" ? "adults" : v === "on")}
+                options={FAL_SAFETY_OPTIONS}
+              />
             </SettingsRow>
             <FalModelBrowser open={falBrowserOpen} onOpenChange={setFalBrowserOpen} apiKey={falApiKey} onPick={setImageModel} />
           </>

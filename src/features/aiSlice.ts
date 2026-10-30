@@ -37,6 +37,8 @@ import type { NormalizedImage } from "./ai/types";
 
 import { extractMemoryChanges } from "./ai/utils/memoryExtraction";
 import { looksLikePromptRefusal, looksLikeRefusal } from "./ai/utils/refusal";
+import { imageSafetyFor } from "./ai/utils/imageSafety";
+import { allAdults } from "./character/contentRating";
 import { CHAT_PROVIDERS, IMAGE_PROVIDERS, VIDEO_PROVIDERS } from "./ai/providers/registry";
 import { ProviderRuntimeConfig } from "./ai/providers/types";
 import { ChatMessage, UsageInfo } from "./ai/types";
@@ -138,7 +140,7 @@ const toneRewriter = (settings: RootState["settings"]) => async (prompt: string,
 
 export const generateAIResponse = createAsyncThunk(
   "ai/generateResponse",
-  async ({ prompt, history = [], systemInstruction, postHistoryNote, streamKey, characterImages, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters, protectedCount, modelOverride, appearanceLocks, localImageSettings, promptImages, keepChoices }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, postHistoryNote?: string, streamKey?: string, characterImages?: string[], characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[], protectedCount?: number, modelOverride?: Character["modelOverride"], appearanceLocks?: AppearanceLock[], localImageSettings?: LocalImageSettings, promptImages?: string[], keepChoices?: boolean }, { getState, dispatch, rejectWithValue, signal }) => {
+  async ({ prompt, history = [], systemInstruction, postHistoryNote, streamKey, characterImages, adultImages, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters, protectedCount, modelOverride, appearanceLocks, localImageSettings, promptImages, keepChoices }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, postHistoryNote?: string, streamKey?: string, characterImages?: string[], adultImages?: boolean, characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[], protectedCount?: number, modelOverride?: Character["modelOverride"], appearanceLocks?: AppearanceLock[], localImageSettings?: LocalImageSettings, promptImages?: string[], keepChoices?: boolean }, { getState, dispatch, rejectWithValue, signal }) => {
     try {
       const state = getState() as RootState;
       const settings = state.settings;
@@ -289,7 +291,7 @@ export const generateAIResponse = createAsyncThunk(
 
           const imageResult = await generateImage(
             imageProviderId, imageConfig, useSdWebui, imageModelName, derivation.derivedImagePrompt, derivation.derivedParams,
-            characterImages, characterName, settings.safetySettings, signal, settings.geminiImageSize, undefined, otherRoomCharacters, localImageSettings,
+            characterImages, characterName, imageSafetyFor(settings.safetySettings, adultImages), signal, settings.geminiImageSize, undefined, otherRoomCharacters, localImageSettings,
             artStyle || DEFAULT_ART_STYLE, toneRewriter(settings)
           );
           trackUsage(imageResult.usage, imageProviderId, imageModelName);
@@ -923,7 +925,7 @@ export const generateAdventureSceneImage = createAsyncThunk(
       const result = await generateImage(
         imageProviderId, imageConfig, useSdWebui, imageModelName, imagePrompt,
         useSdWebui ? { width: 768, height: 512 } : {},
-        undefined, undefined, settings.safetySettings, undefined, settings.geminiImageSize, "16:9",
+        undefined, undefined, imageSafetyFor(settings.safetySettings, allAdults(cast)), undefined, settings.geminiImageSize, "16:9",
         references.length > 0 ? references : undefined, undefined, artStyle || DEFAULT_ART_STYLE, toneRewriter(settings)
       );
       trackUsage(result.usage, imageProviderId, imageModelName);
@@ -955,7 +957,7 @@ export interface PlaygroundPerson {
 export const generatePlaygroundImage = createAsyncThunk(
   "ai/generatePlaygroundImage",
   async (
-    { prompt, people, aspectRatio, artStyle, writeWithAI, addLocks, model }: { prompt: string; people: PlaygroundPerson[]; aspectRatio: string; artStyle: ArtStyle; writeWithAI: boolean; addLocks: boolean; model?: string },
+    { prompt, people, adults, aspectRatio, artStyle, writeWithAI, addLocks, model }: { prompt: string; people: PlaygroundPerson[]; adults?: boolean; aspectRatio: string; artStyle: ArtStyle; writeWithAI: boolean; addLocks: boolean; model?: string },
     { getState, rejectWithValue, signal }
   ) => {
     try {
@@ -981,7 +983,7 @@ export const generatePlaygroundImage = createAsyncThunk(
       const result = await generateImage(
         imageProviderId, imageConfig, useSdWebui, imageModelName, finalPrompt, {},
         group || !one?.images.length ? undefined : one.images, group ? undefined : one?.name,
-        settings.safetySettings, signal, settings.geminiImageSize, aspectRatio,
+        imageSafetyFor(settings.safetySettings, adults), signal, settings.geminiImageSize, aspectRatio,
         group ? people.map((p) => ({ name: p.name, images: p.images })) : undefined,
         undefined, artStyle, toneRewriter(settings)
       );

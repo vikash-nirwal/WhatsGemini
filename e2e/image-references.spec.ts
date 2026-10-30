@@ -109,9 +109,10 @@ test.describe("fal.ai", () => {
     expect(body.prompt).not.toContain("Aria");
   });
 
-  // The user's ask, 2026-10-30: fal's checker can be switched off; it's on by default.
-  test("switching the safety checker off in Settings turns it off at fal", async ({ page }) => {
-    let body: any = null;
+  // The user's ask, 2026-10-30: fal's checker is on by default and can be
+  // turned off for every picture, or only where everyone is an 18+ character.
+  const mockFalSubmit = async (page: Page) => {
+    const sent: { body: any } = { body: null };
     await page.route("https://rest.fal.ai/storage/upload/initiate*", (route) =>
       route.fulfill({ json: { upload_url: "https://v3b.fal.media/upload/ref-1", file_url: "https://v3b.fal.media/files/ref-1.png" } })
     );
@@ -119,21 +120,46 @@ test.describe("fal.ai", () => {
     await page.route("https://queue.fal.run/**", (route) => {
       const request = route.request();
       if (request.method() === "POST") {
-        body = request.postDataJSON();
+        sent.body = request.postDataJSON();
         return route.fulfill({ json: { request_id: "req-1", status_url: "https://queue.fal.run/fal-ai/bytedance/requests/req-1/status", response_url: "https://queue.fal.run/fal-ai/bytedance/requests/req-1" } });
       }
       if (request.url().endsWith("/status")) return route.fulfill({ json: { status: "COMPLETED" } });
       return route.fulfill({ json: { images: [{ url: RESULT_DATA_URL }] } });
     });
-
+    return sent;
+  };
+  const pickChecker = async (page: Page, option: "On" | "Off for 18+" | "Off") => {
     await openRoute(page, "/settings/image");
-    const checker = page.getByRole("switch", { name: "fal.ai safety checker" });
-    await expect(checker).toBeChecked();
-    await checker.click();
-    await expect(checker).not.toBeChecked();
+    const control = page.getByRole("group", { name: "fal.ai safety checker" });
+    await expect(control.getByRole("button", { name: "On", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await control.getByRole("button", { name: option, exact: true }).click();
+    await expect(control.getByRole("button", { name: option, exact: true })).toHaveAttribute("aria-pressed", "true");
+  };
+  const ADULT = { contentRating: "nsfw", adultsConfirmed: true };
 
+  test("the safety checker set to Off is off at fal", async ({ page }) => {
+    const sent = await mockFalSubmit(page);
+    await pickChecker(page, "Off");
     await requestPictureFromAria(page);
-    expect(body.enable_safety_checker).toBe(false);
+    expect(sent.body.enable_safety_checker).toBe(false);
+  });
+
+  test("Off for 18+ is off for an 18+ character", async ({ page }) => {
+    const sent = await mockFalSubmit(page);
+    await pickChecker(page, "Off for 18+");
+    await addAppearanceImage(page, ADULT);
+    await openChat(page);
+    await sendMessage(page, "/image a selfie please");
+    // An 18+ character's pictures are blurred by default.
+    await expect(chatMessages(page).getByText("Tap to show").first()).toBeVisible({ timeout: 20_000 });
+    expect(sent.body.enable_safety_checker).toBe(false);
+  });
+
+  test("Off for 18+ leaves it on for a character who isn't 18+", async ({ page }) => {
+    const sent = await mockFalSubmit(page);
+    await pickChecker(page, "Off for 18+");
+    await requestPictureFromAria(page);
+    expect(sent.body).not.toHaveProperty("enable_safety_checker");
   });
 });
 

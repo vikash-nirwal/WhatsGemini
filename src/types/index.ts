@@ -924,9 +924,10 @@ export interface AISafetySettings {
   hate_speech: string;
   sexual: string;
   dangerous: string;
-  // fal.ai's own checker on generated images. Missing means on: it's only
-  // turned off when the user switches it off in image settings.
-  falSafetyChecker?: boolean;
+  // fal.ai's own checker on generated images. Missing means on. "adults"
+  // turns it off only for pictures where everyone is an 18+ character
+  // (imageSafetyFor); false turns it off for every picture.
+  falSafetyChecker?: boolean | "adults";
 }
 
 // A reusable setting/universe a story can be played out in - the Adventure

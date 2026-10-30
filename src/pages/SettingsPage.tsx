@@ -1006,8 +1006,8 @@ const SettingsPage = () => {
                     falApiKey={falApiKey}
                     setFalApiKey={handleSetFalApiKey}
                     falImageModelList={FAL_IMAGE_MODEL_OPTIONS}
-                    falSafetyChecker={safetySettings.falSafetyChecker !== false}
-                    setFalSafetyChecker={(on) => dispatch(setSafetySettings({ ...safetySettings, falSafetyChecker: on }))}
+                    falSafetyChecker={safetySettings.falSafetyChecker ?? true}
+                    setFalSafetyChecker={(value) => dispatch(setSafetySettings({ ...safetySettings, falSafetyChecker: value }))}
                     glmApiKey={glmImageApiKey}
                     setGlmApiKey={handleSetGlmImageApiKey}
                     glmImageModelList={glmImageModelList}

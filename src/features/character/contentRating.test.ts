@@ -1,4 +1,4 @@
-import { detectMinorIndicators, effectiveContentRating } from "./contentRating";
+import { allAdults, detectMinorIndicators, effectiveContentRating } from "./contentRating";
 import { Character } from "../../types";
 
 const char = (overrides: Partial<Character>): Character => ({ id: 1, name: "Mira", description: "", prompt: "Sly.", ...overrides });
@@ -44,5 +44,18 @@ describe("effectiveContentRating", () => {
 
   it("holds a confirmed NSFW card to SFW if its text indicates a minor", () => {
     expect(effectiveContentRating(char({ contentRating: "nsfw", adultsConfirmed: true, description: "A 16-year-old." }))).toBe("sfw");
+  });
+});
+
+describe("allAdults", () => {
+  const adult = char({ contentRating: "nsfw", adultsConfirmed: true });
+  it("needs everyone to be effectively NSFW", () => {
+    expect(allAdults([adult, char({ id: 2, contentRating: "nsfw", adultsConfirmed: true })])).toBe(true);
+    expect(allAdults([adult, char({ id: 2 })])).toBe(false);
+    expect(allAdults([char({ contentRating: "nsfw" })])).toBe(false); // not confirmed 18+
+    expect(allAdults([adult, undefined])).toBe(false);
+  });
+  it("is false with no one", () => {
+    expect(allAdults([])).toBe(false);
   });
 });

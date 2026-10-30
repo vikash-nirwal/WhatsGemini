@@ -21,6 +21,7 @@ import { customFalModels } from "src/features/ai/providers/falCatalog";
 import { ART_STYLES, DEFAULT_ART_STYLE } from "src/utils/constants";
 import { ArtStyle } from "src/types";
 import { cn } from "src/utils/cn";
+import { allAdults } from "src/features/character/contentRating";
 
 // The image playground (#238): try the image setup with any characters'
 // reference photos - a prompt as written or written like a chat picture,
@@ -96,7 +97,10 @@ const ImagePlaygroundPage = () => {
       const c = characters.find((x) => String(x.id) === key);
       return { name: nameOf(key), images: photosOf(key).filter((p) => !(off[key] || []).includes(p)), ...(c ? { visualTags: lockedLookFor(c) } : {}) };
     });
-    const ask = { prompt: text, people, aspectRatio: ratio, artStyle: (style || firstStyle || DEFAULT_ART_STYLE) as ArtStyle, writeWithAI, addLocks, model: model.trim() || undefined };
+    // Only when every picked person is an 18+ character can fal's checker
+    // be off under "Off for 18+ characters"; your persona never counts as one.
+    const adults = allAdults(picked.map((key) => characters.find((x) => String(x.id) === key)));
+    const ask = { prompt: text, people, adults, aspectRatio: ratio, artStyle: (style || firstStyle || DEFAULT_ART_STYLE) as ArtStyle, writeWithAI, addLocks, model: model.trim() || undefined };
     try {
       const r = await dispatch(runTask({
         kind: PLAYGROUND,

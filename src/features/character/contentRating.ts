@@ -78,3 +78,9 @@ export const effectiveContentRating = (c: Character | undefined): ContentRating 
   }
   return undefined;
 };
+
+// True when there's someone in the picture or chat and every one of them is
+// effectively NSFW. A single SFW or unrated member keeps the whole thing SFW,
+// the same rule rooms use for prompts (othersAllowNsfw).
+export const allAdults = (cast: (Character | undefined)[]): boolean =>
+  cast.length > 0 && cast.every((c) => effectiveContentRating(c) === "nsfw");
