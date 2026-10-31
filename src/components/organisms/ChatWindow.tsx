@@ -1,4 +1,5 @@
 import { stickerFor } from "../../features/character/stickers";
+import { unreadStart } from "../../features/chat/chatList";
 import { sentWhileBlocked } from "../../features/chat/blocking";
 import { DISAPPEAR_LABEL, willDisappear } from "../../features/chat/disappearing";
 import { reactionRows } from "../../features/chat/reactions";
@@ -54,6 +55,7 @@ import { messageInfoFor } from "../../features/chat/messageInfo";
 import { latestMood, tintFor } from "../../features/chat/moodTint";
 
 interface ChatWindowProps {
+  unreadSince?: { since?: number; until: number }; // the chat's read mark when it was opened, for the unread line
   onToggleBookmark?: (msg: Message) => void; // star / unstar a message (#21)
   onUndoSummary?: (msg: Message) => void; // take a compression or chapter back out
   onReact?: (msg: Message, emoji: string) => void; // your emoji reaction to a reply (#11)
@@ -200,7 +202,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc, note, showAvatar }:
   </PendingRow>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggestion, onAcceptStage, onDismissStage, coWriting = false, onSuggestNext, onTranslate, onReplyToLetter, arcSuggestion, onAcceptArc, onDismissArc, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, onReply, onViewOnce, onVote, onOpenContact, onAnswerInvite, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, contactOpen, onCloseContact, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ unreadSince, awayNote, onFork, stageSuggestion, onAcceptStage, onDismissStage, coWriting = false, onSuggestNext, onTranslate, onReplyToLetter, arcSuggestion, onAcceptArc, onDismissArc, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, onReply, onViewOnce, onVote, onOpenContact, onAnswerInvite, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, contactOpen, onCloseContact, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -257,6 +259,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
   // only if the user hadn't deliberately scrolled up to read history.
   const isScrolledUpRef = useRef(isScrolledUp);
   isScrolledUpRef.current = isScrolledUp;
+  // The unread line's jump (below), for the resize observer set up once.
+  const tryUnreadJumpRef = useRef<() => boolean>(() => false);
 
   // When the composer grows (more lines, a banner), stay pinned to the
   // newest message instead of letting it slide under the composer.
@@ -282,6 +286,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
     const observer = new ResizeObserver(() => {
       if (!isScrolledUpRef.current) {
         el.scrollTop = el.scrollHeight;
+        tryUnreadJumpRef.current();
       }
     });
     observer.observe(el);
@@ -452,6 +457,38 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
     }
     prevMessagesLengthRef.current = messages.length;
   }, [messages, aiLoading, isScrolledUp, streamingText, scrollToEnd]);
+
+  // The "N unread messages" line, as other chat apps have it: where the
+  // replies you haven't seen start. A chat with more unread than fits opens
+  // at the line instead of at the bottom, once per opening.
+  const unread = useMemo(() => (unreadSince ? unreadStart(filteredMessages, unreadSince.since, unreadSince.until) : undefined), [filteredMessages, unreadSince]);
+  // Tried again while the list settles (bubbles grow as fonts and images
+  // load, and a long chat renders in steps) for a moment after opening; not
+  // later, so a reply arriving while you read never pulls you up.
+  const unreadJumpRef = useRef<{ key: string; until: number; done: boolean } | null>(null);
+  const tryUnreadJump = useCallback(() => {
+    const el = scrollContainerRef.current;
+    const pending = unreadJumpRef.current;
+    if (!el || !pending || pending.done || Date.now() > pending.until) return false;
+    const line = el.querySelector<HTMLElement>('[data-slot="unread-divider"]');
+    if (!line) return false;
+    // Measured against the list's end, wherever it's scrolled to now: if the
+    // line still shows with the newest message at the bottom, stay there.
+    const target = Math.max(0, el.scrollTop + line.getBoundingClientRect().top - el.getBoundingClientRect().top - 8);
+    if (target >= el.scrollHeight - el.clientHeight) return false;
+    pending.done = true;
+    el.scrollTop = target;
+    isScrolledUpRef.current = true;
+    setIsScrolledUp(true);
+    return true;
+  }, []);
+  tryUnreadJumpRef.current = tryUnreadJump;
+  useEffect(() => {
+    const key = unread && unreadSince ? `${chatId}-${unreadSince.until}` : null;
+    if (!key) return;
+    if (unreadJumpRef.current?.key !== key) unreadJumpRef.current = { key, until: Date.now() + 1500, done: false };
+    tryUnreadJump();
+  }, [unread, unreadSince, chatId, tryUnreadJump]);
 
   const handleRegenerate = useCallback(
     (msg: Message) => {
@@ -823,6 +860,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ awayNote, onFork, stageSuggesti
                 const beatText = beatStartIndexes.has(i) && storyScript ? storyScript.beats[(msg.beat || 1) - 1]?.text : undefined;
                 const message = (
                   <React.Fragment key={msg.id || i}>
+                  {unread && msg.id === unread.id && (
+                    <div role="separator" aria-label={`${unread.count} unread ${unread.count === 1 ? "message" : "messages"}`} data-slot="unread-divider" className="my-3 flex justify-center">
+                      <span className="rounded-full bg-raised px-3.5 py-1 text-[12px] font-semibold text-muted-foreground ring-1 ring-inset ring-border">
+                        {unread.count} unread {unread.count === 1 ? "message" : "messages"}
+                      </span>
+                    </div>
+                  )}
                   {beatText !== undefined && (
                     <div role="separator" aria-label={`Beat ${msg.beat}`} className="flex items-center gap-3 mt-5 mb-1.5 text-[12px] text-subtle">
                       <span className="h-px flex-1 bg-border" />

@@ -56,3 +56,18 @@ export const lastPreview = (chat: Pick<Chat, "content">): ChatPreview | undefine
 // search is on (search finds them anyway).
 export const splitArchived = <T extends { chat: Pick<Chat, "archived"> }>(items: T[], searching: boolean): { shown: T[]; archived: T[] } =>
   searching ? { shown: items, archived: [] } : { shown: items.filter((i) => !i.chat.archived), archived: items.filter((i) => i.chat.archived) };
+
+// Where the unread messages start in an open chat, for the "3 unread
+// messages" line other chat apps show: the first reply that came in after
+// you last read the chat (`since`) and before you opened it (`until`), so
+// replies arriving while you're there don't move it. Gone once you've
+// written after them.
+export const unreadStart = (messages: Message[], since: number | undefined, until: number): { id: string; count: number } | undefined => {
+  if (since == null) return undefined;
+  const unread = (m: Message) => m.role === AI && !m.isSystem && !m.isCompressionSummary && !m.isNarration && !m.isRoomEvent && (m.timestamp || 0) > since && (m.timestamp || 0) <= until;
+  const first = messages.findIndex(unread);
+  if (first < 0 || !messages[first].id) return undefined;
+  const after = messages.slice(first);
+  if (after.some((m) => m.role === YOU && !m.isNarration)) return undefined;
+  return { id: messages[first].id!, count: after.filter(unread).length };
+};
