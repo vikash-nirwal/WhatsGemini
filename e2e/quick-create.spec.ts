@@ -50,3 +50,16 @@ test("the full editor opens with the draft filled in", async ({ page, mockAI }) 
   await page.getByRole("button", { name: "Full editor" }).click();
   await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Inês Moura");
 });
+
+// The user's request, 2026-10-31: the same box takes a detailed brief.
+test("a detailed brief is followed rather than used as a seed", async ({ page, mockAI }) => {
+  mockAI.reply(JSON.stringify(DRAFT));
+  const brief = "Inês Moura, 61, sang fado for thirty years and now runs a record shop in Lisbon.\nShe pretends not to care, but saves the best records for the user.";
+  await openRoute(page, "/characters/quick");
+  await page.getByLabel("Describe them in a line, or in detail").fill(brief);
+  await page.getByRole("button", { name: "Draft" }).click();
+  await expect(page.getByRole("region", { name: "Draft preview" })).toContainText("Inês Moura");
+  const draftCall = mockAI.requests.find((r) => r.prompt.includes("Description:"));
+  expect(draftCall?.prompt).toContain(`Description:\n${brief}`);
+  expect(draftCall?.prompt).toContain("keep every name, fact, trait");
+});

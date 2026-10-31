@@ -25,7 +25,7 @@ const BARNABY = {
 
 const MARGO = { ...BARNABY, name: "Margo Brine", prompt: "You are Margo Brine, the Gull's sharp-tongued cook." };
 
-const isDraftRequest = (req: MockAIRequest) => req.prompt.includes("one-line idea");
+const isDraftRequest = (req: MockAIRequest) => req.prompt.includes("one-line idea") || req.prompt.includes("from this description by the user");
 const draftRequests = (requests: MockAIRequest[]) => requests.filter(isDraftRequest);
 
 // Reads the saved characters straight from IndexedDB.
@@ -147,4 +147,28 @@ test("Try another redrafts, and NSFW is only asked for once confirmed 18+", asyn
   const another = draftRequests(mockAI.requests)[2].prompt;
   expect(another).toContain(`different from the previous draft, ${BARNABY.name}`);
   expect(another).toContain("clearly an adult (18 or older)");
+});
+
+// The user's request, 2026-10-31: a detailed brief, on several lines, is
+// followed rather than used as a seed.
+test("a detailed brief on several lines is drafted with all its details kept", async ({ page, mockAI }) => {
+  mockAI.reply(JSON.stringify(BARNABY));
+  const brief = "Barnaby Salt, cook aboard the Gull for twenty years.\nHe lost a brother at sea and writes him poems.\nHe calls the user \"lad\" and never swears.";
+
+  await openRoute(page, "/characters");
+  await page.getByRole("button", { name: "Create from an idea" }).click();
+  const dialog = page.getByRole("dialog", { name: "Create from an idea" });
+  await expect(dialog).toBeVisible({ timeout: 30_000 });
+  const box = dialog.getByRole("textbox", { name: "Your idea" });
+  await box.fill(brief);
+  await expect(box).toHaveValue(brief);
+  // Cmd/Ctrl+Enter drafts, since Enter alone starts a new line.
+  await box.press("ControlOrMeta+Enter");
+  await expect(dialog).toBeHidden();
+
+  const sent = draftRequests(mockAI.requests);
+  expect(sent).toHaveLength(1);
+  expect(sent[0].prompt).toContain(`Description:\n${brief}`);
+  expect(sent[0].prompt).toContain("invent only what it leaves out");
+  await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue(BARNABY.name);
 });

@@ -58,7 +58,7 @@ export const useWorldPrefs = (worldId: number | null): [WorldPrefs, (patch: Worl
 // Background jobs (#146) see the people (and group chats) of every world
 // that's still living: the one on screen, and others unless switched off.
 // Prefs changed in this tab ("world-prefs"), or in another tab or the
-// installed app on this device ("storage"; 2026-11-01: Auto replies switched
+// installed app on this device ("storage"; 2026-10-31: Auto replies switched
 // off in one tab left another posting statuses).
 const usePrefsVersion = () => {
   const [version, setVersion] = useState(0);

@@ -36,7 +36,7 @@ const QuickCreatePage = () => {
     setBusy(true);
     setError(null);
     try {
-      const instruction = buildCharacterDraftPrompt({ idea: idea.trim(), photo, avoidName: draft?.name });
+      const instruction = buildCharacterDraftPrompt({ idea: idea.trim(), typed: true, photo, avoidName: draft?.name });
       const text = photo
         ? await dispatch(generateAssistTextWithImage({ instruction, image: photo })).unwrap()
         : await dispatch(generateAssistText({ instruction, background: true })).unwrap();
@@ -99,9 +99,9 @@ const QuickCreatePage = () => {
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         <div className="mx-auto flex w-full max-w-[560px] flex-col gap-4">
           <div className="flex flex-col gap-2 rounded-[18px] bg-raised p-3 pb-2 ring-1 ring-inset ring-border">
-            <label htmlFor="quick-idea" className="text-[12px] font-bold text-subtle">Describe them in a line</label>
+            <label htmlFor="quick-idea" className="text-[12px] font-bold text-subtle">Describe them in a line, or in detail</label>
             <textarea id="quick-idea" value={idea} onChange={(e) => setIdea(e.target.value)} rows={3} placeholder="A retired singer who runs a record shop and pretends not to care about anyone."
-              className="w-full resize-none bg-transparent text-[15.5px] leading-6 text-foreground placeholder:text-subtle outline-none" />
+              className="max-h-72 min-h-[72px] w-full resize-none bg-transparent [field-sizing:content] text-[15.5px] leading-6 text-foreground placeholder:text-subtle outline-none" />
             {photo && (
               <div className="relative w-fit">
                 <img src={photo} alt="What you uploaded" className="h-20 rounded-lg" />

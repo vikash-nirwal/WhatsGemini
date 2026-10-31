@@ -18,7 +18,24 @@ export interface CharacterDraftRequest {
   avoidName?: string;
   // A photo to draft from (#92), as a data: URL; the idea is optional then.
   photo?: string;
+  // The idea is the user's own words, typed into the idea box. Only then
+  // can a long one be a detailed brief to follow (`isDetailedIdea`); the
+  // world's cast ideas are long because of the world they carry, not
+  // because they set every detail.
+  typed?: boolean;
 }
+
+// More than a line's worth, or written on several lines: a brief whose
+// details should all be kept, not a seed to grow a character from (the
+// user's request, 2026-10-31). Ideas under this keep being treated as one
+// line, so "grumpy pirate cook" still gets a character invented around it.
+const DETAILED_IDEA_CHARS = 180;
+export const isDetailedIdea = (idea: string) => {
+  const text = idea.trim();
+  return text.length > DETAILED_IDEA_CHARS || /\n\s*\S/.test(text);
+};
+
+const followRules = (subject: string) => `${subject} is detailed, so follow it closely: keep every name, fact, trait, relationship, piece of backstory, way of speaking and rule it gives, each in the field where it belongs, and invent only what it leaves out. Where it says how a field should be (the opening scene, the first message, how they look), do that instead of the defaults below.`;
 
 // Named like the Character fields they fill.
 export interface CharacterDraft {
@@ -51,17 +68,19 @@ const MAX_ALTERNATE_GREETINGS = 2;
 export const draftAllowsNsfw = ({ idea, contentRating, adultsConfirmed }: CharacterDraftRequest): boolean =>
   contentRating === "nsfw" && Boolean(adultsConfirmed) && detectMinorIndicators([idea]).length === 0;
 
-const DRAFT_SHAPE = `{
-  "name": "first name, or first and last name",
+// A detailed brief sets its own lengths: the short ones below would make the
+// model cut a backstory or a list of rules down to fit.
+const draftShape = (detailed: boolean) => `{
+  "name": "${detailed ? "the name the description gives, or else " : ""}first name, or first and last name",
   "description": "one sentence summing them up",
-  "personalityTraits": ["3 to 5 short traits, e.g. \\"grumpy\\""],
-  "prompt": "4 to 6 sentences of personality and behaviour, written as direct instructions to the character in the second person (\\"You are...\\"): who they are, how they talk, what they want, their quirks",
-  "scenario": "1 to 2 sentences setting the scene the roleplay opens in",
+  "personalityTraits": ["3 to ${detailed ? 6 : 5} short traits, e.g. \\"grumpy\\""],
+  "prompt": "${detailed ? "as many sentences as it takes to carry every detail of the description about who they are, their past, how they talk, what they want, their quirks and any rules for how they behave (at least 4)" : "4 to 6 sentences of personality and behaviour"}, written as direct instructions to the character in the second person (\\"You are...\\")${detailed ? "" : ": who they are, how they talk, what they want, their quirks"}",
+  "scenario": "${detailed ? "the scene the roleplay opens in, as the description sets it if it does, in 1 to 3 sentences" : "1 to 2 sentences setting the scene the roleplay opens in"}",
   "firstMessage": "their in-character opening message to the user, 1 to 3 sentences, *asterisks* for actions",
   "alternateGreetings": ["a different opening scene", "another different opening scene"],
   "exampleDialogue": "two short exchanges, each formatted as User: <line> then <name>: <reply>, separated by a blank line",
   "relationship": "a short tagline for their relationship with the user, e.g. \\"Rival\\" or \\"Old friend\\"",
-  "appearance": "2 to 3 sentences on how they look and dress",
+  "appearance": "${detailed ? "how they look and dress, keeping every detail the description gives, 2 to 5 sentences" : "2 to 3 sentences on how they look and dress"}",
   "visualTags": "comma-separated fixed visual traits for an image generator, 15 to 45 words: apparent age, build, skin tone, face, eye colour, hair, facial hair, marks, usual outfit; no mood, pose or setting"
 }`;
 
@@ -78,14 +97,24 @@ export const buildCharacterDraftPrompt = (request: CharacterDraftRequest): strin
     : "Keep everything safe for work: no sexual or explicit content, even if the idea hints at it.";
   const styleLabel = request.artStyle ? ART_STYLES.find((s) => s.value === request.artStyle)?.label : undefined;
   const style = styleLabel ? `\nPictures of them will be drawn in a ${styleLabel.toLowerCase()} style, so write the appearance to suit it.` : "";
+  const detailed = Boolean(request.typed) && isDetailedIdea(idea);
   const another = request.avoidName?.trim()
-    ? `\nThis is a second take: make it clearly different from the previous draft, ${request.avoidName.trim()}, with a new name and fresh details.`
+    ? detailed
+      ? `\nThis is a second take on the previous draft, ${request.avoidName.trim()}: keep everything the description sets, but make what it leaves open clearly different, with a new name unless it gives one.`
+      : `\nThis is a second take: make it clearly different from the previous draft, ${request.avoidName.trim()}, with a new name and fresh details.`
     : "";
   const opening = request.photo
-    ? `Create an original roleplay AI character from the attached photo${idea ? " and this idea, staying true to both" : ""}, filling in vivid, specific details.${idea ? `\n\nIdea: ${idea}` : ""}
+    ? `Create an original roleplay AI character from the attached photo${idea ? ` and this ${detailed ? "description" : "idea"}, staying true to both` : ""}, filling in vivid, specific details.${idea ? `\n\n${detailed ? "Description" : "Idea"}: ${idea}` : ""}${detailed ? `\n\n${followRules("The description")}` : ""}
 
 ${PHOTO_RULES}`
-    : `Create an original roleplay AI character from this one-line idea, staying true to it and filling in vivid, specific details.
+    : detailed
+      ? `Create an original roleplay AI character from this description by the user.
+
+Description:
+${idea}
+
+${followRules("It")}`
+      : `Create an original roleplay AI character from this one-line idea, staying true to it and filling in vivid, specific details.
 
 Idea: ${idea}`;
   return `${opening}
@@ -93,7 +122,7 @@ Idea: ${idea}`;
 ${rating}${style}${another}
 
 Respond with ONLY a single valid JSON object in exactly this shape, with no markdown code fences and no commentary:
-${DRAFT_SHAPE}`;
+${draftShape(detailed)}`;
 };
 
 // Keys are compared lowercased with spaces, dashes and underscores removed,

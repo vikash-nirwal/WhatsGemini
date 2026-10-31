@@ -3,7 +3,7 @@ import { FaCamera, FaImage, FaLightbulb, FaMagic, FaRedo, FaTimes } from "react-
 import Modal from "src/components/molecules/Modal";
 import { ContentRatingField } from "src/components/molecules/ContentRatingField";
 import { SegmentedControl } from "src/components/molecules/SegmentedControl";
-import { TextInput, FieldLabel } from "src/components/molecules/form-controls";
+import { TextArea, FieldLabel } from "src/components/molecules/form-controls";
 import { Button } from "src/components/atoms/button";
 import { Card } from "src/components/atoms/card";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
@@ -119,7 +119,7 @@ const IdeaDraftSection: React.FC<IdeaDraftSectionProps> = ({
       return;
     }
     setIdeaError(null);
-    onDraft({ idea: idea.trim(), contentRating: rating, adultsConfirmed: rating === "nsfw" && confirmed, artStyle: style, photo: photo || undefined });
+    onDraft({ idea: idea.trim(), typed: true, contentRating: rating, adultsConfirmed: rating === "nsfw" && confirmed, artStyle: style, photo: photo || undefined });
   };
 
   const handlePhotoPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -156,7 +156,8 @@ const IdeaDraftSection: React.FC<IdeaDraftSectionProps> = ({
       <Card className="p-5 flex flex-col gap-3" aria-label="Create from an idea" role="region">
         {lastRequest ? (
           <>
-            <p className="text-sm text-foreground">
+            {/* A detailed brief would fill the card, so it shows three lines. */}
+            <p className="text-sm text-foreground line-clamp-3 whitespace-pre-line">
               {lastRequest.idea ? (
                 <>
                   Drafted from your {lastRequest.photo ? "photo and idea" : "idea"}: <span className="italic">“{lastRequest.idea}”</span>
@@ -190,7 +191,7 @@ const IdeaDraftSection: React.FC<IdeaDraftSectionProps> = ({
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground flex-1 basis-[220px]">
-              Have an idea or a photo? Describe a character in one line, or start from a picture, and the AI drafts the rest for you to review.
+              Have an idea or a photo? Describe a character in one line or in detail, or start from a picture, and the AI drafts the rest for you to review.
             </p>
             <Button type="button" variant="default" onClick={() => onDialogOpenChange(true)} className="h-auto px-4 py-2 text-sm font-semibold">
               <FaLightbulb size={12} /> Create from an idea
@@ -205,19 +206,27 @@ const IdeaDraftSection: React.FC<IdeaDraftSectionProps> = ({
         isOpen={dialogOpen}
         onClose={() => !drafting && onDialogOpenChange(false)}
         title="Create from an idea"
-        subtitle="The AI drafts every field from one line or a photo. You review and edit it all before anything is saved."
+        subtitle="The AI drafts every field from your idea or a photo. You review and edit it all before anything is saved."
       >
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <div>
             <FieldLabel htmlFor="character-idea">Your idea</FieldLabel>
-            <TextInput
+            {/* Several lines, growing with the text, so a detailed brief
+                fits as easily as one line; Enter starts a new line and
+                Cmd/Ctrl+Enter drafts. */}
+            <TextArea
               id="character-idea"
-              type="text"
               autoFocus
+              rows={2}
               value={idea}
               onChange={(e) => setIdea(e.target.value)}
-              placeholder="e.g. grumpy pirate cook who secretly writes poetry"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) e.currentTarget.form?.requestSubmit();
+              }}
+              placeholder="e.g. grumpy pirate cook who secretly writes poetry, or a full description of who they are"
+              className="max-h-64 resize-none [field-sizing:content]"
             />
+            <p className="mt-1 text-xs text-muted-foreground">One line and the AI invents the rest. Give more detail and it keeps all of it.</p>
             {ideaError && <p className="text-xs text-destructive mt-1">{ideaError}</p>}
           </div>
           <div>

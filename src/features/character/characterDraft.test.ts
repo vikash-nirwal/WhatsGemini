@@ -1,4 +1,4 @@
-import { buildCharacterDraftPrompt, parseCharacterDraft, draftAllowsNsfw, CharacterDraftError } from "./characterDraft";
+import { buildCharacterDraftPrompt, parseCharacterDraft, draftAllowsNsfw, CharacterDraftError, isDetailedIdea } from "./characterDraft";
 
 const FULL_DRAFT = {
   name: "Barnaby Salt",
@@ -57,6 +57,47 @@ describe("buildCharacterDraftPrompt", () => {
     expect(both).toContain("and this idea, staying true to both");
     expect(both).toContain("Idea: a lighthouse keeper");
     expect(buildCharacterDraftPrompt({ idea: "a bard" })).not.toContain("attached photo");
+  });
+
+  // The user's request, 2026-10-31: one line still gets a character
+  // invented around it, a detailed brief has all its details kept.
+  const BRIEF = "Mara Voss, 34, keeps the lighthouse on Grey Point.\nShe never lies, hums sea shanties when nervous and calls the user \"skipper\".";
+
+  it("tells a detailed brief from a one-line idea", () => {
+    expect(isDetailedIdea("grumpy pirate cook who secretly writes poetry")).toBe(false);
+    expect(isDetailedIdea("  a bard\n  ")).toBe(false);
+    expect(isDetailedIdea(BRIEF)).toBe(true);
+    expect(isDetailedIdea("x".repeat(181))).toBe(true);
+  });
+
+  it("follows a typed detailed brief closely, with room for its details", () => {
+    const prompt = buildCharacterDraftPrompt({ idea: BRIEF, typed: true });
+    expect(prompt).toContain(`Description:\n${BRIEF}`);
+    expect(prompt).toContain("keep every name, fact, trait");
+    expect(prompt).toContain("invent only what it leaves out");
+    expect(prompt).toContain("the name the description gives");
+    expect(prompt).toContain("as many sentences as it takes");
+    expect(prompt).not.toContain("one-line idea");
+    expect(prompt).not.toContain("4 to 6 sentences");
+  });
+
+  it("keeps a one-line idea, and a long idea it didn't type, as a seed", () => {
+    for (const request of [{ idea: "a bard", typed: true }, { idea: BRIEF }]) {
+      const prompt = buildCharacterDraftPrompt(request);
+      expect(prompt).toContain("from this one-line idea");
+      expect(prompt).toContain("4 to 6 sentences");
+      expect(prompt).not.toContain("invent only what it leaves out");
+    }
+  });
+
+  it("keeps a brief's details on a second take and with a photo", () => {
+    const again = buildCharacterDraftPrompt({ idea: BRIEF, typed: true, avoidName: "Mara Voss" });
+    expect(again).toContain("keep everything the description sets");
+    expect(again).toContain("a new name unless it gives one");
+    const photo = buildCharacterDraftPrompt({ idea: BRIEF, typed: true, photo: "data:image/png;base64,AAAA" });
+    expect(photo).toContain("and this description, staying true to both");
+    expect(photo).toContain("The description is detailed, so follow it closely");
+    expect(photo).toContain("never identify or name a real person");
   });
 });
 
