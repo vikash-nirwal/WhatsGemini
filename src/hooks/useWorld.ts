@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { loadTimeline, onTimeline, TimelineEntry } from "../features/world/timeline";
-import { livingIn, loadWorldPrefs, saveWorldPrefs, WorldPrefs } from "src/features/world/worldPrefs";
+import { livingIn, loadWorldPrefs, LS_WORLD_PREFS, saveWorldPrefs, WorldPrefs } from "src/features/world/worldPrefs";
 import { useAppSelector } from "src/store/hooks";
 import { inWorld, worldName, worldOf } from "src/features/world/currentWorld";
 import { Channel } from "src/types";
@@ -44,20 +44,33 @@ export const useWorldPrefs = (worldId: number | null): [WorldPrefs, (patch: Worl
   useEffect(() => {
     setPrefs(loadWorldPrefs(worldId));
     const sync = () => setPrefs(loadWorldPrefs(worldId));
+    const fromElsewhere = (e: StorageEvent) => e.key === LS_WORLD_PREFS && sync();
     window.addEventListener("world-prefs", sync);
-    return () => window.removeEventListener("world-prefs", sync);
+    window.addEventListener("storage", fromElsewhere);
+    return () => {
+      window.removeEventListener("world-prefs", sync);
+      window.removeEventListener("storage", fromElsewhere);
+    };
   }, [worldId]);
   return [prefs, (patch) => setPrefs(saveWorldPrefs(worldId, patch))];
 };
 
 // Background jobs (#146) see the people (and group chats) of every world
 // that's still living: the one on screen, and others unless switched off.
+// Prefs changed in this tab ("world-prefs"), or in another tab or the
+// installed app on this device ("storage"; 2026-11-01: Auto replies switched
+// off in one tab left another posting statuses).
 const usePrefsVersion = () => {
   const [version, setVersion] = useState(0);
   useEffect(() => {
     const bump = () => setVersion((v) => v + 1);
+    const fromElsewhere = (e: StorageEvent) => e.key === LS_WORLD_PREFS && bump();
     window.addEventListener("world-prefs", bump);
-    return () => window.removeEventListener("world-prefs", bump);
+    window.addEventListener("storage", fromElsewhere);
+    return () => {
+      window.removeEventListener("world-prefs", bump);
+      window.removeEventListener("storage", fromElsewhere);
+    };
   }, []);
   return version;
 };

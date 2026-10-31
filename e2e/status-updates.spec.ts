@@ -112,3 +112,26 @@ test("a status lasts one day, as long as you set it", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Status" })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Aria's status/ })).toHaveCount(0);
 });
+
+// Auto replies switched off in another tab (2026-11-01): the tab already
+// open kept posting statuses until it was reloaded.
+test("switching auto replies off in another tab stops statuses here", async ({ page, mockAI }) => {
+  await page.clock.install();
+  mockAI.reply("Long shift, but the rain made the cafe cozy ☔");
+  await openChat(page);
+  await patchAria(page, { postsStatuses: true });
+  await page.reload();
+  await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
+
+  const other = await page.context().newPage();
+  await other.goto(page.url().replace(/#.*$/, "#/worlds"));
+  const toggle = other.getByRole("group", { name: "Life in Default" }).getByRole("switch", { name: "Auto replies" });
+  await expect(toggle).toBeChecked({ timeout: 30_000 });
+  await toggle.click();
+  await expect(toggle).not.toBeChecked();
+  await other.close();
+
+  await page.clock.fastForward(20_000);
+  await page.waitForTimeout(2000);
+  expect(mockAI.requests).toHaveLength(0);
+});

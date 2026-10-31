@@ -31,7 +31,7 @@ export type WorldFeature = "events" | "drift" | "arrivals" | "places" | "reputat
 
 export const DEFAULT_TALK_LENGTH = 10;
 export const MAX_TALK_LENGTH = 20;
-const LS_WORLD_PREFS = "world_prefs";
+export const LS_WORLD_PREFS = "world_prefs";
 
 const keyOf = (worldId: number | null) => (worldId ? String(worldId) : "mine");
 
