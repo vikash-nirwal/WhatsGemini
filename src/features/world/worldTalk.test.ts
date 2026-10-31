@@ -70,7 +70,7 @@ describe("life inside a world (#145)", () => {
     expect(prompt).toContain("Sam isn't in it.");
   });
 
-  it("keeps per-world switches, My world included", () => {
+  it("keeps per-world switches, Default included", () => {
     expect(loadWorldPrefs(null)).toEqual({});
     saveWorldPrefs(null, { peek: true });
     saveWorldPrefs(5, { talkLength: 40 });

@@ -50,7 +50,7 @@ test("everyone in a world can be given a life at once, and the card is full widt
   await openRoute(page, "/worlds");
 
   const card = page.getByLabel("Harbour Town", { exact: true });
-  const mine = page.getByLabel("My world", { exact: true });
+  const mine = page.getByLabel("Default", { exact: true });
   expect(Math.abs((await card.boundingBox())!.width - (await mine.boundingBox())!.width)).toBeLessThan(2);
 
   const lives = card.getByRole("combobox", { name: "How everyone in Harbour Town lives" });

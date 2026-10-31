@@ -816,6 +816,10 @@ export interface Character {
   // and deletions never reach the others.
   worldId?: number;
   cardOf?: number;
+  // Kept when its world was deleted (2026-10-31): that world's name. With
+  // its original in the same world, it shows inside the original's card as
+  // a variant instead of as a card of its own (`isVariant`).
+  variantFrom?: string;
   // How they're tied to others in their world (#144): "your older brother",
   // "your rival at the shipyard". Set by the world wizard; per world.
   ties?: { withId: number; tie: string; story?: string }[]; // story: how they know each other (#237)

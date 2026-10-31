@@ -1,4 +1,4 @@
-import { backgroundAllowed, callsToday, countBackgroundCall, inQuietHours, saveWorldPrefs } from "./worldPrefs";
+import { autoRepliesOn, backgroundAllowed, callsToday, countBackgroundCall, inQuietHours, livingIn, saveWorldPrefs } from "./worldPrefs";
 
 const at = (h: number) => new Date(2026, 9, 21, h, 30).getTime();
 
@@ -21,4 +21,24 @@ test("a world stops at its daily limit, counted per day (#192)", () => {
   expect(backgroundAllowed(4, at(14))).toBe(false);
   expect(backgroundAllowed(4, at(14) + 86_400_000)).toBe(true);
   expect(backgroundAllowed(null, at(14))).toBe(true);
+});
+
+describe("auto replies (2026-10-31)", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("are off in Default and on in a world of yours until switched", () => {
+    expect(autoRepliesOn(null)).toBe(false);
+    expect(autoRepliesOn(4)).toBe(true);
+    saveWorldPrefs(null, { autoReplies: true });
+    saveWorldPrefs(4, { autoReplies: false });
+    expect(autoRepliesOn(null)).toBe(true);
+    expect(autoRepliesOn(4)).toBe(false);
+  });
+
+  it("off, nothing lives there in the background, even the world on screen", () => {
+    expect(livingIn(4, 4)).toBe(true);
+    saveWorldPrefs(4, { autoReplies: false });
+    expect(livingIn(4, 4)).toBe(false);
+    expect(livingIn(null, null)).toBe(false);
+  });
 });

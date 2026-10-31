@@ -40,7 +40,7 @@ test("a day of life happens on demand", async ({ page, mockAI }) => {
 // #192: in a world's quiet hours nothing runs in the background.
 test("nothing happens in quiet hours", async ({ page, mockAI }) => {
   await page.clock.install({ time: new Date(2026, 9, 21, 23, 30, 0) });
-  await page.addInitScript(() => localStorage.setItem("world_prefs", JSON.stringify({ mine: { quietHours: [23, 8] } })));
+  await page.addInitScript(() => localStorage.setItem("world_prefs", JSON.stringify({ mine: { autoReplies: true, quietHours: [23, 8] } })));
   mockAI.reply("Long day at the garage.");
   await openRoute(page, "/worlds");
   await page.evaluate(async ({ aria }) => {
@@ -60,7 +60,7 @@ test("nothing happens in quiet hours", async ({ page, mockAI }) => {
     db.close();
   }, { aria: ARIA.id });
   await page.reload();
-  await expect(page.getByRole("group", { name: "Life in My world" }).getByRole("combobox", { name: "Quiet hours in My world" })).toContainText("11pm-8am");
+  await expect(page.getByRole("group", { name: "Life in Default" }).getByRole("combobox", { name: "Quiet hours in Default" })).toContainText("11pm-8am");
   await page.getByRole("button", { name: "Simulate a day" }).click();
   await page.getByRole("dialog", { name: "Simulate a day" }).getByRole("button", { name: "Simulate a day" }).click();
   await expect(page.getByText("A day went by")).toBeVisible({ timeout: 30_000 });

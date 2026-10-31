@@ -8,9 +8,9 @@ test.use({ seed: { messages: 2 } });
 
 test("points are switched on per world, moved by a reply and set by hand", async ({ page, mockAI }) => {
   await openRoute(page, "/worlds");
-  const life = page.getByRole("group", { name: "Life in My world" });
+  const life = page.getByRole("group", { name: "Life in Default" });
   await life.getByText("Points toward you and each other").click();
-  const traits = page.getByRole("group", { name: "Traits in My world" });
+  const traits = page.getByRole("group", { name: "Traits in Default" });
   await expect(traits).toContainText("affection");
   await traits.getByLabel("New trait").fill("Loyalty");
   await traits.getByLabel("New trait").press("Enter");

@@ -4,14 +4,14 @@ import { World } from "../../types";
 const worlds = [{ id: 4, name: "Harbour Town", premise: "A port" }] as World[];
 
 describe("current world (#143)", () => {
-  it("remembers the world on screen, and My world is no id at all", () => {
+  it("remembers the world on screen, and Default is no id at all", () => {
     saveCurrentWorld(4);
     expect(loadCurrentWorld()).toBe(4);
     saveCurrentWorld(null);
     expect(loadCurrentWorld()).toBeNull();
   });
 
-  it("puts things in their world, and a deleted world's things in My world", () => {
+  it("puts things in their world, and a deleted world's things in Default", () => {
     expect(worldOf({ worldId: 4 }, worlds)).toBe(4);
     expect(worldOf({ worldId: 9 }, worlds)).toBeNull();
     expect(worldOf({}, worlds)).toBeNull();

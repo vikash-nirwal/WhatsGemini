@@ -29,7 +29,7 @@ test("a new world starts empty, someone joins it fresh, and switching back shows
   await expect(page).toHaveURL(/#\/worlds$/);
 
   // The manager shows My world (where you are) and the new one.
-  await expect(page.getByLabel("My world", { exact: true })).toContainText("You're here");
+  await expect(page.getByLabel("Default", { exact: true })).toContainText("You're here");
   await page.getByRole("button", { name: "Switch to Harbour Town" }).click();
   await expect(page).toHaveURL(/#\/$/);
   await expect(page.getByRole("button", { name: /^World: Harbour Town/ }).first()).toBeVisible();
@@ -39,7 +39,7 @@ test("a new world starts empty, someone joins it fresh, and switching back shows
   await openRoute(page, "/characters");
   await page.getByRole("button", { name: "From another world" }).click();
   const dialog = page.getByRole("dialog", { name: "Add someone to Harbour Town" });
-  await expect(dialog).toContainText("From My world");
+  await expect(dialog).toContainText("From Default");
   await dialog.getByRole("button", { name: "Add Aria" }).click();
   await expect(dialog).toContainText("Everyone from your other worlds is already here.");
   await page.keyboard.press("Escape");
@@ -50,6 +50,6 @@ test("a new world starts empty, someone joins it fresh, and switching back shows
 
   // Back in My world, the old chat is there again.
   await openRoute(page, "/worlds");
-  await page.getByRole("button", { name: "Switch to My world" }).click();
+  await page.getByRole("button", { name: "Switch to Default" }).click();
   await expect(page.getByRole("link", { name: /^AR Aria/ })).toBeVisible();
 });

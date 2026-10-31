@@ -59,7 +59,7 @@ test("characters who know each other text on their own, and Peek shows it", asyn
   // Hidden until Peek is turned on for this world.
   await expect(page.getByRole("link", { name: /^Peek/ })).toHaveCount(0);
   await openRoute(page, "/worlds");
-  await page.getByRole("group", { name: "Life in My world" }).getByText("Peek at their own texts").click();
+  await page.getByRole("group", { name: "Life in Default" }).getByText("Peek at their own texts").click();
   await openRoute(page, "/");
   await page.getByRole("link", { name: "Peek, 1 thread" }).click();
   await page.getByRole("list", { name: "Threads" }).getByRole("link", { name: /Aria & Kai/ }).click();
@@ -84,7 +84,7 @@ test("a world you've left keeps living unless it's switched off", async ({ page,
   await page.locator("#world-name").fill("Elsewhere");
   await page.locator("#world-premise").fill("Somewhere else entirely.");
   await page.getByRole("button", { name: "Create World" }).click();
-  await page.getByRole("group", { name: "Life in My world" }).getByText("Keep living while I'm elsewhere").click();
+  await page.getByRole("group", { name: "Life in Default" }).getByText("Keep living while I'm elsewhere").click();
   await page.getByRole("button", { name: "Switch to Elsewhere" }).click();
   await patchCharacter(page, ARIA.id, { knowsAbout: [KAI.id] });
   await page.reload();
@@ -93,7 +93,7 @@ test("a world you've left keeps living unless it's switched off", async ({ page,
   expect(mockAI.requests.some((r) => r.prompt.includes("Write a text conversation between"))).toBe(false);
 
   await openRoute(page, "/worlds");
-  await page.getByRole("group", { name: "Life in My world" }).getByText("Keep living while I'm elsewhere").click();
+  await page.getByRole("group", { name: "Life in Default" }).getByText("Keep living while I'm elsewhere").click();
   await page.clock.fastForward(60 * 60_000);
   await expect.poll(() => talksInDb(page), { timeout: 15_000 }).toHaveLength(1);
 });
@@ -102,7 +102,7 @@ test("a world you've left keeps living unless it's switched off", async ({ page,
 // updates their tie both ways, with a notice and a timeline entry.
 test("a talk that changes things changes their relationship", async ({ page, mockAI }) => {
   // Off until switched on (the user's call); switched on for My world here.
-  await page.addInitScript(() => localStorage.setItem("world_prefs", JSON.stringify({ mine: { drift: true } })));
+  await page.addInitScript(() => localStorage.setItem("world_prefs", JSON.stringify({ mine: { autoReplies: true, drift: true } })));
   await page.clock.install({ time: new Date(2026, 9, 21, 10, 0, 0) });
   // Low rolls, so this talk is one that may change their tie.
   await page.addInitScript(() => {

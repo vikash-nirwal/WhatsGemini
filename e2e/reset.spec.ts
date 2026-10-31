@@ -56,8 +56,8 @@ test("resetting a world resets its people, and can delete its chats", async ({ p
   await db(page, "characters", ARIA.id, { memory: ["You like tea"] });
   await page.reload();
   await openRoute(page, "/worlds");
-  await page.getByRole("button", { name: "Reset My world" }).click();
-  const dialog = page.getByRole("dialog", { name: "Reset My world?" });
+  await page.getByRole("button", { name: "Reset Default" }).click();
+  const dialog = page.getByRole("dialog", { name: "Reset Default?" });
   await dialog.getByLabel("Also delete your chats here").click();
   await dialog.getByRole("button", { name: "Reset" }).click();
   await expect.poll(async () => (await db(page, "characters", ARIA.id)).memory).toBeUndefined();

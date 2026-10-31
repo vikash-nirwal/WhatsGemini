@@ -30,6 +30,14 @@ export const startingRelationship = (c: Character) => c.relationshipHistory?.[0]
 // The id every copy of a character shares: the original's.
 export const rootOf = (c: Character) => c.cardOf ?? c.id;
 
+// A copy kept from a deleted world whose original lives in the same world
+// as it (`here`): one person, so it's listed inside the original's card.
+export const isVariant = (c: Character, here: Character[]) =>
+  c.variantFrom != null && c.cardOf != null && c.cardOf !== c.id && here.some((o) => o.id === c.cardOf && o.worldId === c.worldId);
+
+// The variants listed inside `c`'s card.
+export const variantsOf = (c: Character, here: Character[]) => here.filter((v) => v.cardOf === c.id && isVariant(v, here));
+
 // A new copy for another world: the card and the starting relationship,
 // nothing that happened elsewhere.
 // What they remember, for a copy that keeps it (the user's choice when

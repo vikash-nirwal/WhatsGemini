@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { exportWorld, readWorldFile, worldFileName } from "../features/world/worldFile";
 import { importWorld } from "../features/world/importWorld";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { deleteWorld, switchWorld } from "../features/worldSlice";
+import { switchWorld } from "../features/worldSlice";
+import { DeleteWorldDialog } from "src/components/organisms/DeleteWorldDialog";
 import { MY_WORLD, worldOf } from "../features/world/currentWorld";
 import { formatStoryDate } from "../features/world/storyTime";
 import { useCurrentWorld } from "../hooks/useWorld";
@@ -14,7 +15,6 @@ import { WorldLifeControls } from "src/components/organisms/WorldLifeControls";
 import { ResetDialog } from "src/components/organisms/ResetDialog";
 import { CurrentWorldHero } from "src/components/organisms/CurrentWorldHero";
 import { resetWorldLife } from "../features/life/reset";
-import { useModal } from "../contexts/ModalContext";
 import { useColorTheme } from "../hooks/useColorTheme";
 import { cn } from "../utils/cn";
 import { Button } from "src/components/atoms/button";
@@ -26,7 +26,6 @@ import Header from "src/components/organisms/Header";
 const WorldGalleryPage = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { showConfirm } = useModal();
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
   const worlds = useAppSelector((state) => state.world.worlds);
@@ -78,16 +77,13 @@ const WorldGalleryPage = () => {
     return worlds.filter((w) => w.name.toLowerCase().includes(q) || w.premise.toLowerCase().includes(q));
   }, [worlds, search]);
 
-  const handleDelete = async (worldId: number, name: string) => {
-    const confirmed = await showConfirm(
-      "Delete world",
-      `Delete "${name}"? Its people and chats move to ${MY_WORLD}, and adventures set here keep their own history.`
-    );
-    if (confirmed) dispatch(deleteWorld(worldId));
-  };
+  // Asks who to keep first (DeleteWorldDialog).
+  const [deleting, setDeleting] = useState<{ id: number; name: string } | null>(null);
+  const handleDelete = (worldId: number, name: string) => setDeleting({ id: worldId, name });
 
   return (
     <div className="w-full h-dvh flex flex-col">
+      <DeleteWorldDialog world={deleting} onClose={() => setDeleting(null)} />
       <ResetDialog
         open={Boolean(resetting)}
         onOpenChange={(open) => !open && setResetting(null)}

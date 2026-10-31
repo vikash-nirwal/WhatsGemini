@@ -155,7 +155,7 @@ export const CurrentWorldHero = ({ onOpenMap }: { onOpenMap?: () => void }) => {
               ))}
             </ul>
           ) : (
-            <p className="text-[13.5px] text-muted-foreground">{current ? "No places pinned yet. Add a map in Edit world." : "My world has no map; make a world for one."}</p>
+            <p className="text-[13.5px] text-muted-foreground">{current ? "No places pinned yet. Add a map in Edit world." : "Default has no map; make a world for one."}</p>
           )}
         </div>
       </div>

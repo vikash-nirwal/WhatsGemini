@@ -114,7 +114,7 @@ test("a status posted in one world isn't shown in another", async ({ page, mockA
 
   // In My world there's nothing of yours to view.
   await openRoute(page, "/worlds");
-  await page.getByRole("button", { name: "Switch to My world" }).click();
+  await page.getByRole("button", { name: "Switch to Default" }).click();
   await openRoute(page, "/updates");
   await expect(mine.getByRole("button", { name: "Add a status" })).toBeVisible();
   await expect(mine.getByRole("button", { name: "View my status" })).toHaveCount(0);

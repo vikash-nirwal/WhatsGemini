@@ -4,6 +4,11 @@ export interface WorldPrefs {
   peek?: boolean; // show their own talk, read-only (#145); hidden by default
   talkLength?: number; // most messages in one exchange (#145)
   keepLiving?: boolean; // background life while you're in another world (#146); on unless false
+  // Whether its people do anything on their own (the user's ask,
+  // 2026-10-31): follow-ups, texting first, talk between them, statuses,
+  // news, everything that calls the model without you sending something.
+  // On unless false in a world of yours; off unless true in My world.
+  autoReplies?: boolean;
   // Living-world features, each off until you switch it on (the user's
   // call, 2026-10-26): they add background calls and change the story.
   events?: boolean; // world events (#162)
@@ -98,10 +103,14 @@ export const featureOn = (worldId: number | null | undefined, feature: WorldFeat
 export const talkLengthFor = (worldId: number | null) =>
   Math.min(MAX_TALK_LENGTH, Math.max(2, loadWorldPrefs(worldId).talkLength || DEFAULT_TALK_LENGTH));
 
-// Whether a world's background life runs (#146): the one on screen always
-// does; others unless their "keep living" switch is off.
+export const autoRepliesOn = (worldId: number | null | undefined, prefs: WorldPrefs = loadWorldPrefs(worldId ?? null)) =>
+  prefs.autoReplies ?? worldId != null;
+
+// Whether a world's background life runs (#146): the one on screen does,
+// and others unless their "keep living" switch is off; neither when its
+// auto replies are off.
 export const livingIn = (worldId: number | null, currentWorldId: number | null) =>
-  worldId === currentWorldId || loadWorldPrefs(worldId).keepLiving !== false;
+  autoRepliesOn(worldId) && (worldId === currentWorldId || loadWorldPrefs(worldId).keepLiving !== false);
 
 // Every world's prefs at once, for the full backup (#215), keyed as stored:
 // a world's id, or "mine".

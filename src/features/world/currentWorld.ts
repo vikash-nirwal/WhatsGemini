@@ -3,7 +3,7 @@ import { World } from "../../types";
 // Worlds as spaces (#143): the app shows one world at a time, like switching
 // accounts. Everything that existed before worlds lives in "My world", which
 // isn't a stored World: it's whatever has no worldId.
-export const MY_WORLD = "My world";
+export const MY_WORLD = "Default";
 
 const LS_CURRENT_WORLD = "current_world";
 

@@ -42,7 +42,7 @@ const TimelinePage = () => {
   const q = query.trim().toLowerCase();
   const shown = entries.filter((e) => (!only || e.kind === only) && (!q || e.text.toLowerCase().includes(q)) && (person == null || e.characterIds?.includes(person)));
   const groups = groupTimeline(shown);
-  const title = world?.name || "My world";
+  const title = world?.name || "Default";
 
   return (
     <div className="flex h-dvh w-full flex-col">

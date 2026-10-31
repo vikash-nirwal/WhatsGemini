@@ -16,7 +16,7 @@ test("what happened today shows on the chat list and opens the timeline", async 
   const menu = page.getByRole("button", { name: "Open menu" });
   if (await menu.isVisible()) await menu.click();
   const pulse = page.getByRole("region", { name: "World pulse" });
-  await expect(pulse).toContainText("My world today · 1 new");
+  await expect(pulse).toContainText("Default today · 1 new");
   await expect(pulse).toContainText("The harbour froze overnight");
   await pulse.getByRole("button", { expanded: false }).click();
   await expect(pulse).not.toContainText("new");

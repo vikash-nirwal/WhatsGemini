@@ -13,7 +13,7 @@ const tess = { id: 4, name: "Tess", prompt: "x", worldId: 5, met: [3] } as Chara
 
 afterEach(resetScheduler);
 
-test("worlds take turns at talking, My world among them (#209)", () => {
+test("worlds take turns at talking, Default among them (#209)", () => {
   const people = [aria, kai, bram, tess];
   expect(pickNextTalk(people, worlds, NOW)?.map((c) => c.id)).toEqual([1, 2]);
   // My world just had its turn, so Harbour Town goes next, though nobody

@@ -34,6 +34,7 @@ import ImportReviewDialog from "src/components/organisms/ImportReviewDialog";
 import { Dialog, DialogContent, DialogTitle, DialogClose } from "src/components/molecules/dialog";
 import { parseSize, resolveImageSrcToUrl, autoCoverCropToBlob, generatePlaceholderPortraitBlob, blobToDataUrl } from "../features/ai/utils/portraitUtils";
 import { useWorldCharacters } from "src/hooks/useWorld";
+import { isVariant, variantsOf } from "src/features/character/card";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -46,13 +47,12 @@ const CharacterPage = () => {
   const shell = usePhoneShell();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  // #155: this world's people, or everyone across your worlds.
+  // This world's people only (the user's call, 2026-10-31: the "All
+  // worlds" view showed each world's copy of someone as a duplicate).
+  // Variants kept from a deleted world show inside their original's card.
   const worldCharacters = useWorldCharacters();
-  const everyone = useAppSelector((state) => state.character.characters);
-  const worldTotal = useAppSelector((state) => state.world.worlds.length);
-  const [scope, setScope] = useState<"world" | "all">("world");
   const [sort, setSort] = useState<"recent" | "name">("recent");
-  const allCharacters = scope === "world" ? worldCharacters : everyone;
+  const allCharacters = useMemo(() => worldCharacters.filter((c) => !isVariant(c, worldCharacters)), [worldCharacters]);
   const showNsfwCharacters = useAppSelector((state) => state.settings.showNsfwCharacters);
   const blurNsfwMedia = useAppSelector((state) => state.settings.privacy.blurNsfwMedia);
   const hasNsfwCharacters = useMemo(() => allCharacters.some(isNsfwCharacter), [allCharacters]);
@@ -237,6 +237,31 @@ const CharacterPage = () => {
     return characters.filter((c) => chats.some((chat) => chat.characterIds?.includes(c.id) && chat.timestamp >= cutoff)).length;
   }, [characters, chats]);
 
+  // Copies kept from deleted worlds, inside the card of the one they were
+  // copied from: each opens its own chat, or its editor.
+  const variantsRow = (char: Character) => {
+    const variants = variantsOf(char, worldCharacters);
+    if (!variants.length) return null;
+    return (
+      <div role="group" aria-label={`Variants of ${char.name}`} className="flex flex-wrap items-center gap-1">
+        <span className="text-[11.5px] text-subtle">Variants</span>
+        {variants.map((v) => (
+          <DropdownMenu key={v.id}>
+            <DropdownMenuTrigger asChild>
+              <button type="button" className="max-w-full truncate rounded-full px-2 py-0.5 text-[11.5px] font-semibold text-foreground ring-1 ring-inset ring-border hover:ring-primary/50">
+                {v.variantFrom}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onSelect={() => handleChatWithCharacter(v)}>Message {v.name} from {v.variantFrom}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => navigate(`/characters/${v.id}/edit`)}>Edit this variant</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ))}
+      </div>
+    );
+  };
+
   const renderCharacterMenu = (char: Character) => (
     <DropdownMenuContent align="end">
       {(char.diaryEnabled || (char.diary && char.diary.length > 0)) && (
@@ -397,14 +422,8 @@ const CharacterPage = () => {
           </div>
         </div>
 
-        {!terminal && (everyone.length > 0) && (
+        {!terminal && (worldCharacters.length > 0) && (
           <div className="-mt-2 mb-5 flex flex-wrap items-center gap-2">
-            {worldTotal > 0 && (
-              <div role="group" aria-label="Whose characters" className="flex gap-2">
-                <button type="button" aria-pressed={scope === "world"} onClick={() => setScope("world")} className={cn("h-9 rounded-full px-3.5 text-[13px] font-semibold", scope === "world" ? "bg-primary/15 text-primary-text ring-1 ring-inset ring-primary" : "bg-raised text-foreground ring-1 ring-inset ring-border")}>In this world · {worldCharacters.length}</button>
-                <button type="button" aria-pressed={scope === "all"} onClick={() => setScope("all")} className={cn("h-9 rounded-full px-3.5 text-[13px] font-semibold", scope === "all" ? "bg-primary/15 text-primary-text ring-1 ring-inset ring-primary" : "bg-raised text-foreground ring-1 ring-inset ring-border")}>All worlds · {everyone.length}</button>
-              </div>
-            )}
             <span className="flex-1" />
             <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
               Sort
@@ -465,6 +484,7 @@ const CharacterPage = () => {
                         </DropdownMenu>
                       </div>
                       {char.description && <div className="text-[10px] text-muted-foreground truncate"># {char.description}</div>}
+                      {variantsRow(char)}
                       <div className="flex gap-1.5 mt-1.5">
                         <Button onClick={() => handleChatWithCharacter(char)} variant="outline" className="flex-1 h-auto py-1.5 px-1 text-[10px]">
                           chat
@@ -498,6 +518,7 @@ const CharacterPage = () => {
                     <span className="truncate text-[12.5px] text-muted-foreground">{[char.relationship, char.description].filter(Boolean).join(" · ")}</span>
                   </div>
                   <span className="truncate text-[12px] text-subtle">{life}</span>
+                  {variantsRow(char)}
                   <div className="mt-auto flex gap-1.5 pt-1">
                     <Button onClick={() => handleChatWithCharacter(char)} variant="secondary" size="sm" className="h-9 flex-1 font-semibold">
                       {main ? "Message" : "Start chat"}

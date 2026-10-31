@@ -152,6 +152,9 @@ export const BASE_LOCAL_STORAGE: Record<string, string> = {
   // Same for the relationship check (#30), which would otherwise add a
   // helper call to every test that sends in the 30-message seed.
   roleplay_style: JSON.stringify({ relationshipSuggestions: false, arcSuggestions: false }),
+  // My world starts with auto replies off (2026-10-31); most specs test what
+  // its people do on their own. Its own spec covers the default.
+  world_prefs: JSON.stringify({ mine: { autoReplies: true } }),
 };
 
 // Writes straight into the app's Dexie database with the raw IndexedDB API.

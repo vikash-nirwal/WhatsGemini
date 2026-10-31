@@ -1,6 +1,6 @@
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { Select } from "src/components/molecules/form-controls/FormSelect";
-import { callsToday, DEFAULT_TALK_LENGTH, isLivingWorld, livingWorldPatch, MAX_TALK_LENGTH, WorldFeature } from "src/features/world/worldPrefs";
+import { autoRepliesOn, callsToday, DEFAULT_TALK_LENGTH, isLivingWorld, livingWorldPatch, MAX_TALK_LENGTH, WorldFeature } from "src/features/world/worldPrefs";
 import { useCurrentWorld, useWorldPrefs } from "src/hooks/useWorld";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { updateCharacter } from "src/features/characterSlice";
@@ -95,6 +95,15 @@ export const WorldLifeControls = ({ worldId, name }: { worldId: number | null; n
   };
   return (
     <div className="grid grid-cols-1 gap-x-6 gap-y-2 border-t border-border pt-3 sm:grid-cols-2" role="group" aria-label={`Life in ${name}`}>
+      {/* Everything they'd do on their own, off in one go (2026-10-31). */}
+      <div className="flex flex-col gap-0.5 sm:col-span-2">
+        <ToggleSwitch checked={autoRepliesOn(worldId, prefs)} onChange={(autoReplies) => update({ autoReplies })} label="Auto replies" />
+        <span className="text-[12px] text-subtle">
+          {autoRepliesOn(worldId, prefs)
+            ? "They follow up, text first, talk to each other and post on their own, using your API key."
+            : "Off: nobody here does anything on their own. They only answer what you send."}
+        </span>
+      </div>
       <ToggleSwitch checked={Boolean(prefs.peek)} onChange={(peek) => update({ peek })} label="Peek at their own texts" />
       <ToggleSwitch checked={prefs.keepLiving !== false} onChange={(keepLiving) => update({ keepLiving })} label="Keep living while I'm elsewhere" />
       {worldId != null && (

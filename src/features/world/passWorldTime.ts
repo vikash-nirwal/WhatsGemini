@@ -44,7 +44,7 @@ export const passWorldTime = (
   if (days >= AGING_MIN_DAYS && characters.length) {
     try {
       const withTies = featureOn(worldId, "drift");
-      const reply = await dispatch(generateAssistText({ instruction: buildGapLivesPrompt(world || { name: "My world", premise: "the user's own world" }, gap, note || undefined, characters, withTies), background: true, activity: { at: now, kind: "event", text: `Lives moved on over ${gap}`, name: world?.name }, ...(world ? { worldId: world.id } : {}) })).unwrap();
+      const reply = await dispatch(generateAssistText({ instruction: buildGapLivesPrompt(world || { name: "Default", premise: "the user's own world" }, gap, note || undefined, characters, withTies), background: true, activity: { at: now, kind: "event", text: `Lives moved on over ${gap}`, name: world?.name }, ...(world ? { worldId: world.id } : {}) })).unwrap();
       const { lives, ties } = parseGapLives(reply, characters);
       const byId = new Map(characters.map((c) => [c.id, c]));
       for (const l of lives) {

@@ -9,12 +9,12 @@ test("time passes for the whole world, and someone texts first", async ({ page, 
   mockAI.reply((req) => (req.prompt.includes("have passed since your last conversation") ? "hey stranger. two weeks, huh?" : "Mock reply"));
   await openRoute(page, "/worlds");
   await page.getByRole("button", { name: "Pass the time" }).click();
-  const dialog = page.getByRole("dialog", { name: "Pass the time in My world" });
+  const dialog = page.getByRole("dialog", { name: "Pass the time in Default" });
   await dialog.getByRole("spinbutton", { name: "How long" }).fill("2");
   await dialog.getByRole("radio", { name: "weeks" }).click();
   await dialog.getByRole("textbox", { name: "What happened meanwhile" }).fill("a storm cut the power");
   await dialog.getByRole("button", { name: "Pass 2 weeks" }).click();
-  await expect(page.getByText("2 weeks later in My world · 1 texted you")).toBeVisible();
+  await expect(page.getByText("2 weeks later in Default · 1 texted you")).toBeVisible();
   expect(mockAI.requests.find((r) => r.prompt.includes("have passed since"))!.prompt).toContain("meanwhile: a storm cut the power");
 
   await openChat(page, 1);
@@ -37,11 +37,11 @@ test("years later, lives have moved on", async ({ page, mockAI }) => {
   );
   await openRoute(page, "/worlds");
   await page.getByRole("button", { name: "Pass the time" }).click();
-  const dialog = page.getByRole("dialog", { name: "Pass the time in My world" });
+  const dialog = page.getByRole("dialog", { name: "Pass the time in Default" });
   await dialog.getByRole("spinbutton", { name: "How long" }).fill("3");
   await dialog.getByRole("radio", { name: "years" }).click();
   await dialog.getByRole("button", { name: "Pass 3 years" }).click();
-  await expect(page.getByText("3 years later in My world · 1 texted you")).toBeVisible();
+  await expect(page.getByText("3 years later in Default · 1 texted you")).toBeVisible();
   await openChat(page, 1);
   await expect(chatMessages(page).getByText("I have a bakery now. can you believe it")).toHaveCount(1);
   await openRoute(page, "/worlds/mine/timeline");
@@ -52,19 +52,19 @@ test("years later, lives have moved on", async ({ page, mockAI }) => {
 test("a time skip can be undone", async ({ page, mockAI }) => {
   // Quiet hours all day: a background text after the skip would rightly
   // stop the undo (the story moved on), so none may arrive here.
-  await page.addInitScript(() => localStorage.setItem("world_prefs", JSON.stringify({ mine: { quietHours: [0, 24] } })));
+  await page.addInitScript(() => localStorage.setItem("world_prefs", JSON.stringify({ mine: { autoReplies: true, quietHours: [0, 24] } })));
   mockAI.reply((req) => (req.prompt.includes("have just passed there") ? "LIFE: Aria | Aria opened a bakery by the pier." : "Mock reply"));
   await openRoute(page, "/worlds");
   await page.getByRole("button", { name: "Pass the time" }).click();
-  let dialog = page.getByRole("dialog", { name: "Pass the time in My world" });
+  let dialog = page.getByRole("dialog", { name: "Pass the time in Default" });
   await dialog.getByRole("spinbutton", { name: "How long" }).fill("3");
   await dialog.getByRole("radio", { name: "years" }).click();
   await dialog.getByRole("switch").click(); // nobody texts first
   await dialog.getByRole("button", { name: "Pass 3 years" }).click();
-  await expect(page.getByText("3 years later in My world").first()).toBeVisible();
+  await expect(page.getByText("3 years later in Default").first()).toBeVisible();
 
   await page.getByRole("button", { name: "Pass the time" }).click();
-  dialog = page.getByRole("dialog", { name: "Pass the time in My world" });
+  dialog = page.getByRole("dialog", { name: "Pass the time in Default" });
   await dialog.getByRole("button", { name: "Undo the last skip (3 years)" }).click();
   await expect(page.getByText("Time skip undone")).toBeVisible();
   await openChat(page, 1);
