@@ -565,6 +565,12 @@ const ChatPage = () => {
   // Every reply's prompt is built here: the speaker's turn with the room's
   // context and this chat's scene, or the swapped one.
   const turnContextFor = (msgs: Message[], speaker: Character, extra?: string[], limit?: number) => {
+    const context = turnContextWithoutNames(msgs, speaker, extra, limit);
+    // Anyone else they know can come up in a picture's prompt too ("with
+    // Lena at the market"), so every character's name is kept from it.
+    return { ...context, hideNames: [...context.hideNames, ...characters.map((c) => c.name)] };
+  };
+  const turnContextWithoutNames = (msgs: Message[], speaker: Character, extra?: string[], limit?: number) => {
     if (swap && characterData) {
       const swapScene: SceneContext = { authorNote: scene.authorNote, worldTags: scene.worldTags, hardLimits: scene.hardLimits, intensity: scene.intensity, roleplayStyle, world: scene.world };
       return buildTurnContext(msgs, personaAsCharacter(activePersona, characterData), [buildSwapDirective(characterData.name, activePersona?.name?.trim() || "User", swap.bodySwap), ...(extra || [])], limit, characterAsPersona(characterData), undefined, swapScene);
@@ -1090,7 +1096,7 @@ const ChatPage = () => {
     await trackUsage(compressTokens, compressCost);
 
     await recallFor(speaker, compressedFreshMessages);
-    const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = turnContextFor(
+    const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks, hideNames } = turnContextFor(
       compressedFreshMessages,
       speaker,
       answering ? (extraDirective ? [extraDirective] : []) : extraDirective ? [AUTO_REPLY_DIRECTIVE, extraDirective] : [AUTO_REPLY_DIRECTIVE]
@@ -1104,7 +1110,7 @@ const ChatPage = () => {
       prompt: followupPrompt,
       history, systemInstruction, postHistoryNote, streamKey, characterImages, adultImages, imagePresetId: speaker?.imagePresetId, characterName, artStyle: speaker?.artStyle,
       isImageRequest: includeImage, isVideoRequest: includeVideo, isCharacterInitiated: true, isAutoSelfie: shouldAutoSelfie,
-      customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings,
+      customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, hideNames, localImageSettings: speaker.localImageSettings,
     }));
     setRecordingVoiceNote(false);
 
@@ -1674,11 +1680,11 @@ const ChatPage = () => {
       }
 
       await recallFor(speaker, [...contextMessages, { role: YOU, txt: text } as Message]);
-      const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = turnContextFor(contextMessages, speaker, undefined, replyLengthLimit);
+      const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks, hideNames } = turnContextFor(contextMessages, speaker, undefined, replyLengthLimit);
       const sendVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest || shouldAutoSelfie));
       // Matches the "(voice note)" mark buildChatHistory puts on the same
       // message, so it's recognized as the prompt and not sent twice.
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: promptTextFor({ role: YOU, txt: text, isVoiceNote, replyTo, quotedStatus }), history, systemInstruction, postHistoryNote, streamKey, characterImages, adultImages, imagePresetId: speaker?.imagePresetId, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isVideoRequest, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings, promptImages: photos }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: promptTextFor({ role: YOU, txt: text, isVoiceNote, replyTo, quotedStatus }), history, systemInstruction, postHistoryNote, streamKey, characterImages, adultImages, imagePresetId: speaker?.imagePresetId, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isVideoRequest, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, hideNames, localImageSettings: speaker.localImageSettings, promptImages: photos }));
       const aiResponse = await aiPromiseRef.current;
       setRecordingVoiceNote(false);
       aiPromiseRef.current = null;
@@ -1794,9 +1800,9 @@ const ChatPage = () => {
         if (!speaker) return;
 
         await recallFor(speaker, contextUpToEdit);
-        const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = turnContextFor(contextUpToEdit, speaker, undefined, replyLengthLimit);
+        const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks, hideNames } = turnContextFor(contextUpToEdit, speaker, undefined, replyLengthLimit);
         const editVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest));
-        aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, postHistoryNote, streamKey, characterImages, adultImages, imagePresetId: speaker?.imagePresetId, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings, promptImages: sentPhotos }));
+        aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, postHistoryNote, streamKey, characterImages, adultImages, imagePresetId: speaker?.imagePresetId, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, hideNames, localImageSettings: speaker.localImageSettings, promptImages: sentPhotos }));
         const aiResponse = await aiPromiseRef.current;
         setRecordingVoiceNote(false);
         aiPromiseRef.current = null;
@@ -1925,9 +1931,9 @@ const ChatPage = () => {
       if (!speaker) return undefined;
 
       await recallFor(speaker, historyUpToTarget);
-      const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks } = turnContextFor(historyUpToTarget, speaker, extraDirectives, replyLengthLimit);
+      const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks, hideNames } = turnContextFor(historyUpToTarget, speaker, extraDirectives, replyLengthLimit);
       const regenVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest));
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, characterImages, adultImages, imagePresetId: speaker?.imagePresetId, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: override || speaker.modelOverride, appearanceLocks, localImageSettings: speaker.localImageSettings, promptImages: sentPhotos }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, characterImages, adultImages, imagePresetId: speaker?.imagePresetId, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: override || speaker.modelOverride, appearanceLocks, hideNames, localImageSettings: speaker.localImageSettings, promptImages: sentPhotos }));
       const aiResponse = await aiPromiseRef.current;
       setRecordingVoiceNote(false);
       aiPromiseRef.current = null;

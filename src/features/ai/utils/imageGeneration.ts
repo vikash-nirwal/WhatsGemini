@@ -1,5 +1,5 @@
 import { tagPurpose } from "../../spending/tokenUsage";
-import { nameLabels, withoutNames } from "./hideNames";
+import { nameLabels, namesIn, withoutNames } from "./hideNames";
 import { AISafetySettings, SDImageParams, ArtStyle, LocalImageSettings } from "../../../types";
 import { appendCharacterImages } from "./imageProcessing";
 import { generateSDImage } from "./sdWebuiUtils";
@@ -274,7 +274,11 @@ export const generateImage = async (
   rewrite?: (prompt: string, level: 1 | 2 | 3) => Promise<string>,
   // A character's image preset (imagePresets.ts): its tone-down and fal
   // SDXL setup in place of the ones in Settings.
-  overrides?: ImageOverrides
+  overrides?: ImageOverrides,
+  // Everyone else the prompt may name without being a reference: you, and
+  // people in the chat or scene who have no photos (2026-10-31: their names
+  // reached the image model, along with their locked look's "Name: ...").
+  alsoHide?: string[]
 ): Promise<ImageGenerationResult> => {
   // The chosen level first, then - if a service blocks it and retrying is on -
   // each stricter one, keeping the picture's idea.
@@ -303,7 +307,8 @@ export const generateImage = async (
   async function drawOnce(namedPrompt: string): Promise<ImageGenerationResult> {
     // No names go to the image model (hideNames.ts): the prompt and the
     // reference legend say "the character" or "person 1", "person 2".
-    const labels = nameLabels([characterName, ...(otherRoomCharacters || []).map((c) => c.name)]);
+    const references = [characterName, ...(otherRoomCharacters || []).map((c) => c.name)];
+    const labels = nameLabels([...references, ...namesIn(namedPrompt, alsoHide || [])]);
     const derivedImagePrompt = withoutNames(namedPrompt, labels);
     const labelOf = (name: string | undefined) => (name && labels.get(name.trim())) || "the character";
     if (useSdWebui) {

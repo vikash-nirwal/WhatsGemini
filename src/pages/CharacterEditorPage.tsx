@@ -8,6 +8,8 @@ import { Character, CharacterSchedule, CharacterHome, CharacterVoice, WritingSty
 import { dbService } from "../services/dbService";
 import { generateAssistText, generateAssistTextWithImage, generateAvatarImage } from "../features/aiSlice";
 import { buildVisualTagsDraftPrompt, cleanVisualTags } from "../features/ai/utils/appearanceLock";
+import { buildLookPrompt, parseLookReply } from "../features/character/lookReader";
+import { LookHelperProps } from "./CharacterEditorPage/LookHelper";
 import { DisplayImage } from "src/components/molecules/DisplayImage";
 import { Slider } from "src/components/molecules/form-controls";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
@@ -603,6 +605,47 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
     }
   };
 
+  // Reading the look from the main picture, or steering the written one
+  // (lookReader.ts). Both fields are overwritten, so what they held before
+  // is kept for Undo until the next change.
+  const [lookSteer, setLookSteer] = useState("");
+  const [readingLook, setReadingLook] = useState<"picture" | "steer" | null>(null);
+  const [lookError, setLookError] = useState<string | null>(null);
+  const [lookBefore, setLookBefore] = useState<{ appearance: string; visualTags: string } | null>(null);
+  const handleReadLook = async (fromPicture: boolean) => {
+    const picture = appearanceImages[0];
+    if (fromPicture ? !picture : !appearance.trim()) return;
+    setLookError(null);
+    setReadingLook(fromPicture ? "picture" : "steer");
+    try {
+      const instruction = buildLookPrompt({
+        appearance, steer: lookSteer, fromPicture,
+        adult: contentRating === "nsfw" && adultsConfirmed && minorIndicators.length === 0,
+      });
+      const text = fromPicture
+        ? await dispatch(generateAssistTextWithImage({ instruction, image: picture })).unwrap()
+        : await dispatch(generateAssistText({ instruction, background: true })).unwrap();
+      const look = parseLookReply(text);
+      setLookBefore({ appearance, visualTags });
+      if (look.appearance) setAppearance(look.appearance);
+      if (look.visualTags) setVisualTags(look.visualTags);
+    } catch (err: any) {
+      setLookError(typeof err === "string" ? err : err?.message || "Couldn't read the look.");
+    } finally {
+      setReadingLook(null);
+    }
+  };
+  const lookHelper: LookHelperProps = {
+    steer: lookSteer,
+    setSteer: setLookSteer,
+    hasPicture: appearanceImages.length > 0,
+    hasAppearance: Boolean(appearance.trim()),
+    busy: readingLook,
+    error: lookError,
+    onRead: handleReadLook,
+    onUndo: lookBefore ? () => { setAppearance(lookBefore.appearance); setVisualTags(lookBefore.visualTags); setLookBefore(null); } : undefined,
+  };
+
   // Main reference (#35): the first reference photo is the one providers
   // that take a single image get, so "make main" moves a photo to the front.
   const handleMakeMainReference = (index: number) => {
@@ -1179,6 +1222,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   onDraftVisualTags={handleDraftVisualTags}
                   draftingVisualTags={draftingVisualTags}
                   visualTagsError={visualTagsError}
+                  lookHelper={lookHelper}
                   onMakeMainReference={handleMakeMainReference}
                   onGenerateReferenceSheet={handleGenerateReferenceSheet}
                   generatingSheetView={generatingSheetView}
@@ -1244,6 +1288,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                   onDraftVisualTags={handleDraftVisualTags}
                   draftingVisualTags={draftingVisualTags}
                   visualTagsError={visualTagsError}
+                  lookHelper={lookHelper}
                   onMakeMainReference={handleMakeMainReference}
                   onGenerateReferenceSheet={handleGenerateReferenceSheet}
                   generatingSheetView={generatingSheetView}

@@ -1,4 +1,4 @@
-import { nameLabels, withoutNames } from "./hideNames";
+import { nameLabels, namesIn, withoutNames } from "./hideNames";
 
 test("one person drawn is just the character", () => {
   const labels = nameLabels(["Aria Vale"]);
@@ -18,4 +18,9 @@ test("only whole words are replaced", () => {
 
 test("a LoRA trigger word that contains the name is left alone", () => {
   expect(withoutNames("aria_char, Aria waving", nameLabels(["Aria"]))).toBe("aria_char, the character waving");
+});
+
+test("only the names the prompt mentions are found, first names included", () => {
+  expect(namesIn("Aria hugs Vikash at the harbour", ["Kai Moss", "Vikash Nirwal", undefined, ""])).toEqual(["Vikash Nirwal"]);
+  expect(namesIn("a quiet harbour", ["Kai"])).toEqual([]);
 });

@@ -144,7 +144,7 @@ const toneRewriter = (settings: RootState["settings"]) => async (prompt: string,
 
 export const generateAIResponse = createAsyncThunk(
   "ai/generateResponse",
-  async ({ prompt, history = [], systemInstruction, postHistoryNote, streamKey, characterImages, adultImages, imagePresetId, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters, protectedCount, modelOverride, appearanceLocks, localImageSettings, promptImages, keepChoices }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, postHistoryNote?: string, streamKey?: string, characterImages?: string[], adultImages?: boolean, imagePresetId?: string, characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[], protectedCount?: number, modelOverride?: Character["modelOverride"], appearanceLocks?: AppearanceLock[], localImageSettings?: LocalImageSettings, promptImages?: string[], keepChoices?: boolean }, { getState, dispatch, rejectWithValue, signal }) => {
+  async ({ prompt, history = [], systemInstruction, postHistoryNote, streamKey, characterImages, adultImages, imagePresetId, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters, protectedCount, modelOverride, appearanceLocks, localImageSettings, promptImages, keepChoices, hideNames }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, postHistoryNote?: string, streamKey?: string, characterImages?: string[], adultImages?: boolean, imagePresetId?: string, characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[], protectedCount?: number, modelOverride?: Character["modelOverride"], appearanceLocks?: AppearanceLock[], localImageSettings?: LocalImageSettings, promptImages?: string[], keepChoices?: boolean, hideNames?: string[] }, { getState, dispatch, rejectWithValue, signal }) => {
     try {
       const state = getState() as RootState;
       const settings = state.settings;
@@ -291,7 +291,7 @@ export const generateAIResponse = createAsyncThunk(
         } else if (isVideoRequest) {
           finalDerivedVideoPrompt = derivation.derivedImagePrompt;
 
-          const videoResult = await generateVideo(videoProviderId, videoConfig, videoModelName, derivation.derivedImagePrompt, signal);
+          const videoResult = await generateVideo(videoProviderId, videoConfig, videoModelName, derivation.derivedImagePrompt, signal, [characterName, ...(otherRoomCharacters || []).map((c) => c.name), ...(hideNames || [])]);
           trackUsage(videoResult.usage, videoProviderId, videoModelName);
           generatedVideos = videoResult.videos;
           if (videoResult.warning) response += videoResult.warning;
@@ -302,7 +302,7 @@ export const generateAIResponse = createAsyncThunk(
           const imageResult = await generateImage(
             imageProviderId, imageConfig, useSdWebui, imageModelName, derivation.derivedImagePrompt, derivation.derivedParams,
             characterImages, characterName, imageSafetyFor(imageSettings.safetySettings, adultImages), signal, settings.geminiImageSize, undefined, otherRoomCharacters, localImageSettings,
-            artStyle || DEFAULT_ART_STYLE, toneRewriter(settings), imageOverrides
+            artStyle || DEFAULT_ART_STYLE, toneRewriter(settings), imageOverrides, hideNames
           );
           trackUsage(imageResult.usage, imageProviderId, imageModelName);
           generatedImages = imageResult.images;
@@ -953,7 +953,9 @@ export const generateAdventureSceneImage = createAsyncThunk(
         imageProviderId, imageConfig, useSdWebui, imageModelName, imagePrompt,
         useSdWebui ? { width: 768, height: 512 } : {},
         undefined, undefined, imageSafetyFor(settings.safetySettings, allAdults(cast)), undefined, settings.geminiImageSize, "16:9",
-        references.length > 0 ? references : undefined, undefined, artStyle || DEFAULT_ART_STYLE, toneRewriter(settings)
+        references.length > 0 ? references : undefined, undefined, artStyle || DEFAULT_ART_STYLE, toneRewriter(settings), undefined,
+        // The cast without photos, and the player, by name.
+        [...presentCast.map((c) => c.name), ...(persona?.name ? [persona.name] : [])]
       );
       trackUsage(result.usage, imageProviderId, imageModelName);
 

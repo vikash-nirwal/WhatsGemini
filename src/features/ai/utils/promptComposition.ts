@@ -549,6 +549,9 @@ export interface TurnContext {
   // Locked looks (#34) of the replying character and anyone else present,
   // for image requests.
   appearanceLocks: AppearanceLock[];
+  // Everyone else a picture's prompt may name (the others here, photos or
+  // not, and you), so the image model gets none of their names.
+  hideNames: string[];
 }
 
 // Only passed for a multi-character room (Phase 12); a normal 1:1 chat
@@ -749,5 +752,6 @@ export const buildTurnContext = (
     otherParticipantImages,
     protectedCount: countProtectedPrefix(messages),
     appearanceLocks: [...appearanceLocksFor(character ? [character] : []), ...(roomContext?.otherAppearanceLocks || [])],
+    hideNames: [...(roomContext?.otherParticipants || []), ...(activePersona?.name?.trim() ? [activePersona.name.trim()] : [])],
   };
 };

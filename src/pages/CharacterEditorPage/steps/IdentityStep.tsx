@@ -10,6 +10,7 @@ import { cn } from "../../../utils/cn";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { EMOTIONS, ART_STYLES, RELATIONSHIP_PRESETS, TAG_PRESETS } from "../../../utils/constants";
 import { SegmentedControl } from "src/components/molecules/SegmentedControl";
+import { LookHelper, LookHelperProps } from "../LookHelper";
 
 interface IdentityStepProps {
   part: "who" | "look"; // #154: "Who they are" or "Look"
@@ -38,6 +39,7 @@ interface IdentityStepProps {
   onDraftVisualTags: () => void;
   draftingVisualTags: boolean;
   visualTagsError: string | null;
+  lookHelper: LookHelperProps;
   onMakeMainReference: (index: number) => void;
   onGenerateReferenceSheet: () => void;
   generatingSheetView: string | null; // which view is being drawn, while the sheet is generating
@@ -99,6 +101,7 @@ const IdentityStep: React.FC<IdentityStepProps> = ({
   onDraftVisualTags,
   draftingVisualTags,
   visualTagsError,
+  lookHelper,
   onMakeMainReference,
   onGenerateReferenceSheet,
   generatingSheetView,
@@ -210,6 +213,7 @@ const IdentityStep: React.FC<IdentityStepProps> = ({
         <h3 data-slot="section-title" className="font-semibold text-[15px] text-foreground">Appearance</h3>
         <InfoTooltip hint="Given to image-capable models to keep generated looks consistent" />
       </div>
+      <LookHelper {...lookHelper} />
       <TextArea
         placeholder="Character Appearance/Looks (e.g. Blonde hair, wears a red jacket) (Optional)"
         value={appearance}

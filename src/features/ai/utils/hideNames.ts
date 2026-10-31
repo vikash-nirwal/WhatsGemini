@@ -15,16 +15,26 @@ export const nameLabels = (names: (string | undefined)[]): Map<string, string> =
   return new Map(unique.map((n, i) => [n, unique.length === 1 ? "the character" : `person ${i + 1}`]));
 };
 
+// The whole name and, when it has more than one word, the first name.
+const namesToFind = (name: string): string[] => {
+  const first = name.split(/\s+/)[0];
+  return first && first !== name && first.length > 2 ? [name, first] : [name];
+};
+const wordPattern = (name: string) => new RegExp(`(?<![\\p{L}\\p{N}_])${escape(name)}(?![\\p{L}\\p{N}_])`, "giu");
+
+// The names that come up in the prompt. People who are only mentioned (you
+// without photos, someone in the group or the scene without photos) aren't
+// references, so they get a label only when the prompt names them; one
+// who doesn't come up shouldn't turn "the character" into "person 1".
+export const namesIn = (prompt: string, names: (string | undefined)[]): string[] =>
+  names.filter((n): n is string => Boolean(n?.trim()) && namesToFind(n!.trim()).some((v) => wordPattern(v).test(prompt)));
+
 // The prompt with every name (and every first name, which is how chat text
 // usually says it) replaced by its label. Longer names go first, so "Aria
 // Vale" isn't half-replaced by "Aria".
 export const withoutNames = (prompt: string, labels: Map<string, string>): string => {
   const pairs: [string, string][] = [];
-  labels.forEach((label, name) => {
-    pairs.push([name, label]);
-    const first = name.split(/\s+/)[0];
-    if (first && first !== name && first.length > 2) pairs.push([first, label]);
-  });
+  labels.forEach((label, name) => namesToFind(name).forEach((n) => pairs.push([n, label])));
   pairs.sort((a, b) => b[0].length - a[0].length);
-  return pairs.reduce((text, [name, label]) => text.replace(new RegExp(`(?<![\\p{L}\\p{N}_])${escape(name)}(?![\\p{L}\\p{N}_])`, "giu"), label), prompt);
+  return pairs.reduce((text, [name, label]) => text.replace(wordPattern(name), label), prompt);
 };

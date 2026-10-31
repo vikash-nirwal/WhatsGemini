@@ -430,3 +430,12 @@ describe("where things stand in the prompt (#142)", () => {
     expect(text).not.toContain("Sam likes jazz.");
   });
 });
+
+// A picture's prompt may name you, or someone here without photos; those
+// names are kept from the image model too (2026-10-31).
+test("the turn context lists everyone else a picture's prompt may name", () => {
+  const persona = { id: "p", name: "Vikash" } as UserProfile;
+  const room = { otherParticipants: ["Kai", "Lena"], otherParticipantImages: [] } as any;
+  expect(buildTurnContext([msg(YOU, "hi")], makeCharacter(), undefined, undefined, persona, room).hideNames).toEqual(["Kai", "Lena", "Vikash"]);
+  expect(buildTurnContext([msg(YOU, "hi")], makeCharacter()).hideNames).toEqual([]);
+});

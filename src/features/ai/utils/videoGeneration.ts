@@ -1,6 +1,7 @@
 import { UsageInfo } from "../types";
 import { ProviderRuntimeConfig, VideoProviderAdapter } from "../providers/types";
 import { VIDEO_PROVIDERS } from "../providers/registry";
+import { nameLabels, namesIn, withoutNames } from "./hideNames";
 
 export interface VideoGenerationResult {
   videos: string[];
@@ -15,11 +16,16 @@ export const generateVideo = async (
   videoConfig: ProviderRuntimeConfig,
   videoModelName: string,
   derivedPrompt: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  // Everyone the prompt may name. A video model gets no names either
+  // (hideNames.ts); there are no references, so only the ones it mentions
+  // are labelled.
+  names: (string | undefined)[] = []
 ): Promise<VideoGenerationResult> => {
   try {
     const adapter: VideoProviderAdapter = VIDEO_PROVIDERS[videoProvider] || VIDEO_PROVIDERS.wan;
-    const result = await adapter.generateVideo({ model: videoModelName, prompt: derivedPrompt, signal }, videoConfig);
+    const prompt = withoutNames(derivedPrompt, nameLabels(namesIn(derivedPrompt, names)));
+    const result = await adapter.generateVideo({ model: videoModelName, prompt, signal }, videoConfig);
     return { videos: result.videos, usage: result.usage };
   } catch (err) {
     console.error("Video generation failed:", err);
