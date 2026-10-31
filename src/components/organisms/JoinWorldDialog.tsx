@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "src/components/molecules/dialog";
 import { CharacterAvatar } from "src/components/molecules/CharacterAvatar";
 import { Button } from "src/components/atoms/button";
@@ -6,6 +6,7 @@ import { useAppDispatch, useAppSelector } from "src/store/hooks";
 import { addCharacter } from "src/features/characterSlice";
 import { rootOf, worldCopy } from "src/features/character/card";
 import { worldName, worldOf } from "src/features/world/currentWorld";
+import { Character } from "src/types";
 import { avatarOf } from "src/features/character/profileChanges";
 import { useCurrentWorld } from "src/hooks/useWorld";
 
@@ -28,6 +29,23 @@ export const JoinWorldDialog = ({ open, onOpenChange, target }: { open: boolean;
     return characters.filter((c) => !here.has(rootOf(c)));
   }, [characters, worlds, currentWorldId]);
   const [memories, setMemories] = useState(false);
+  // One copy per person, however fast the taps (2026-10-31: a double tap
+  // added two, and so did adding two worlds' versions of the same person).
+  // A ref, so two taps in the same frame both see the first.
+  const busy = useRef<Set<number>>(new Set());
+  const [adding, setAdding] = useState<Set<number>>(new Set());
+  const add = async (c: Character) => {
+    const root = rootOf(c);
+    if (busy.current.has(root)) return;
+    busy.current.add(root);
+    setAdding(new Set(busy.current));
+    try {
+      await dispatch(addCharacter(worldCopy(c, currentWorldId, { memories }))).unwrap();
+    } finally {
+      busy.current.delete(root);
+      setAdding(new Set(busy.current));
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -54,7 +72,7 @@ export const JoinWorldDialog = ({ open, onOpenChange, target }: { open: boolean;
                   <div className="truncate text-[15px] font-semibold text-foreground">{c.name}</div>
                   <div className="truncate text-[12.5px] text-muted-foreground">From {worldName(worldOf(c, worlds), worlds)}{memories ? ` · ${(c.memory?.length || 0) + (c.pinnedMemory?.length || 0)} facts` : ""}</div>
                 </div>
-                <Button size="sm" aria-label={`Add ${c.name}`} onClick={() => dispatch(addCharacter(worldCopy(c, currentWorldId, { memories })))}>Add</Button>
+                <Button size="sm" aria-label={`Add ${c.name}`} disabled={adding.has(rootOf(c))} onClick={() => void add(c)}>Add</Button>
               </li>
             ))}
           </ul>

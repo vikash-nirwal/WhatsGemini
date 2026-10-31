@@ -52,24 +52,44 @@ test("a full backup restores into a taken library with everyone relinked", async
   const file = await (await download).path();
   await expect(page.getByText(/Backed up 2 chat\(s\), 2 character\(s\), 0 world\(s\) and 1 adventure\(s\)/)).toBeVisible();
 
-  // The same backup again, on top of itself: every id is taken.
-  await page.locator('input[type="file"][accept=".zip,.json"]').setInputFiles({ name: "kindred_backup.zip", mimeType: "application/zip", buffer: readFileSync(file!) });
-  await page.getByRole("alertdialog").getByRole("button", { name: "Confirm" }).click();
-  await expect(page.getByText(/Restored 2 chat\(s\), 2 character\(s\), 0 world\(s\) and 1 adventure\(s\)/)).toBeVisible();
+  const restore = async () => {
+    await page.locator('input[type="file"][accept=".zip,.json"]').setInputFiles({ name: "kindred_backup.zip", mimeType: "application/zip", buffer: readFileSync(file!) });
+    await page.getByRole("alertdialog").getByRole("button", { name: "Confirm" }).click();
+  };
+
+  // The same backup on top of itself: everyone and every chat is already
+  // here, so nothing is added twice (2026-10-31).
+  await restore();
+  await expect(page.getByText("Everything in this backup is already here.")).toBeVisible();
+
+  // With the two here changed since, they come back as copies on new ids,
+  // since every id is taken, and the copies point at each other.
+  await page.evaluate(async () => {
+    const db: IDBDatabase = await new Promise((r) => { const q = indexedDB.open("ChatAppDB"); q.onsuccess = () => r(q.result); });
+    const tx = db.transaction("characters", "readwrite");
+    const chars = tx.objectStore("characters");
+    const all: any[] = await new Promise((r) => { const g = chars.getAll(); g.onsuccess = () => r(g.result); });
+    for (const c of all) chars.put({ ...c, name: `${c.name} (here)` });
+    await new Promise<void>((r) => { tx.oncomplete = () => r(); });
+    db.close();
+  });
+  await page.reload();
+  await restore();
+  // The adventure itself is unchanged, so it's still here only once.
+  await expect(page.getByText("Restored 2 chat(s), 2 character(s), 0 world(s).")).toBeVisible();
 
   const { characters, adventures, channels, myStatuses } = await readDb(page);
-  const arias = characters.filter((c) => c.name === "Aria").sort((a, b) => a.id - b.id);
-  const kais = characters.filter((c) => c.name === "Kai").sort((a, b) => a.id - b.id);
-  expect(arias).toHaveLength(2);
-  const [aria2, kai2] = [arias[1], kais[1]];
+  const aria2 = characters.find((c) => c.name === "Aria");
+  const kai2 = characters.find((c) => c.name === "Kai");
+  const kaiHere = characters.find((c) => c.name === "Kai (here)");
   // The copies point at each other, not at the originals.
   expect(aria2.ties).toEqual([{ withId: kai2.id, tie: "your brother" }]);
   expect(kai2.ties).toEqual([{ withId: aria2.id, tie: "your sister" }]);
   expect(aria2.knowsAbout).toEqual([kai2.id]);
   const holder = aria2.id < kai2.id ? aria2 : kai2;
   expect(holder.talks?.[0]).toMatchObject({ withId: holder.id === aria2.id ? kai2.id : aria2.id, lines: [{ speakerId: kai2.id, text: "hey sis" }] });
-  expect(adventures).toHaveLength(2);
-  expect(channels.map((c: { id: string }) => c.id)).toEqual([`character-${kais[0].id}`, `character-${kai2.id}`]);
+  expect(adventures).toHaveLength(1);
+  expect(channels.map((c: { id: string }) => c.id)).toEqual([`character-${kaiHere.id}`, `character-${kai2.id}`]);
   // Your status was already here, so it's kept once.
   expect(myStatuses).toHaveLength(1);
 });

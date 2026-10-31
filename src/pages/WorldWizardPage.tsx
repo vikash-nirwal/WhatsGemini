@@ -4,7 +4,7 @@ import { livingWorldPatch, saveWorldPrefs } from "../features/world/worldPrefs";
 import { useNavigate } from "react-router-dom";
 import { FaArrowLeft, FaArrowRight, FaCheck, FaGlobe, FaMagic, FaPlus, FaTimes, FaUserFriends, FaLink, FaUser } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { addWorld, switchWorld } from "../features/worldSlice";
+import { addWorld, switchWorld, updateWorld } from "../features/worldSlice";
 import { addCharacter, updateCharacter } from "../features/characterSlice";
 import { generateAssistText } from "../features/aiSlice";
 import { addPersona, selectActivePersona } from "../features/settingsSlice";
@@ -21,7 +21,7 @@ import CastFitPanel from "src/components/organisms/CastFitPanel";
 import { worldName, worldOf } from "../features/world/currentWorld";
 import { circleLayout } from "../features/character/relationshipMap";
 import { avatarOf } from "../features/character/profileChanges";
-import { Character } from "../types";
+import { Character, World } from "../types";
 import { cn } from "../utils/cn";
 import { CHARACTER_SWATCHES, RELATIONSHIP_PRESETS, TIE_PRESETS, WORLD_ERA_PRESETS, WORLD_TONE_PRESETS } from "../utils/constants";
 import { Button } from "src/components/atoms/button";
@@ -276,14 +276,30 @@ const WorldWizardPage = () => {
   // Who this person is to the others, for their rewrite.
   const tiesFor = (key: string) => ties.flatMap((t) => (t.a === key ? [`${nameOf(t.b)} is their ${bareTie(t.aToB)}`] : t.b === key ? [`${nameOf(t.a)} is their ${bareTie(t.bToA)}`] : []));
 
+  // What a failed Create already saved (the user's report, 2026-10-31):
+  // pressing it again used to make a second world and copy everyone again.
+  // A retry carries on with the same world and only adds who's missing.
+  const savedWorld = useRef<World | null>(null);
+  const savedPeople = useRef<Record<string, Character>>({});
   const create = async () => {
+    if (creating) return;
     setCreating(true);
     try {
-      const saved = await dispatch(addWorld({ ...world, personaId: personaId && personaId !== NEW_PERSONA ? personaId : undefined })).unwrap();
+      const fields = { ...world, personaId: personaId && personaId !== NEW_PERSONA ? personaId : undefined };
+      const saved = savedWorld.current
+        ? await dispatch(updateWorld({ ...savedWorld.current, ...fields, id: savedWorld.current.id })).unwrap()
+        : await dispatch(addWorld(fields)).unwrap();
+      savedWorld.current = saved;
       if (living) saveWorldPrefs(saved.id, livingWorldPatch(true));
       const idOf: Record<string, number> = {};
       const made: Character[] = [];
       for (const m of cast) {
+        const already = savedPeople.current[m.key];
+        if (already) {
+          idOf[m.key] = already.id;
+          made.push(already);
+          continue;
+        }
         const base = m.kind === "existing"
           ? worldCopy(m.character, saved.id, { memories: m.memories })
           : withDefaultLife({ ...m.draft, first_mes: m.draft.first_mes || undefined, accent: CHARACTER_SWATCHES[Math.floor(Math.random() * CHARACTER_SWATCHES.length)], worldId: saved.id });
@@ -291,6 +307,7 @@ const WorldWizardPage = () => {
         // alternate openings behind, written for somewhere else.
         const fit = currentFit(m.fit);
         const c = await dispatch(addCharacter({ ...base, ...fit, ...(fit.first_mes ? { alternateGreetings: undefined } : {}), relationship: m.withYou.trim() || base.relationship } as Omit<Character, "id">)).unwrap();
+        savedPeople.current[m.key] = c;
         idOf[m.key] = c.id;
         made.push(c);
       }

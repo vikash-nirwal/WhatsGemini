@@ -90,3 +90,26 @@ test.describe("auto replies", () => {
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem("world_prefs") || "{}").mine)).toMatchObject({ autoReplies: true });
   });
 });
+
+// A double tap on Add used to bring in two copies (2026-10-31).
+test("a double tap on Add brings in one copy", async ({ page }) => {
+  await openChat(page, 1);
+  const worldId = await page.evaluate(async () => {
+    const db: IDBDatabase = await new Promise((r) => { const q = indexedDB.open("ChatAppDB"); q.onsuccess = () => r(q.result); });
+    const tx = db.transaction("worlds", "readwrite");
+    const id: number = await new Promise((r) => { const q = tx.objectStore("worlds").add({ name: "Harbour Town", premise: "A rainy port." }); q.onsuccess = () => r(q.result as number); });
+    await new Promise((r) => { tx.oncomplete = r; });
+    db.close();
+    localStorage.setItem("current_world", String(id));
+    return id;
+  });
+  await openRoute(page, "/characters");
+  await page.reload();
+  await page.getByRole("button", { name: "From another world" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add someone to Harbour Town" });
+  await dialog.getByRole("button", { name: "Add Aria" }).dblclick();
+  await expect(dialog).toContainText("Everyone from your other worlds is already here.");
+  await page.waitForTimeout(500);
+  const copies = (await inDb(page)).characters.filter((c) => c.worldId === worldId);
+  expect(copies).toHaveLength(1);
+});

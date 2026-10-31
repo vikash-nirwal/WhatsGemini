@@ -197,3 +197,19 @@ test("a backup carries adventures, channels, your statuses and every local pictu
   const { localImagesIn } = require("./backupRemap");
   expect(Array.from(localImagesIn([data.characters, data.adventures]))).toEqual(["album.png", "sticker.png", "scene.png"]);
 });
+
+// Restoring a backup again (2026-10-31): what's already here was added a
+// second time, people and all. Now it's matched and linked to.
+test("restoring the same backup twice adds nothing the second time", async () => {
+  const withTalk = (): BackupData => ({ ...backup(), chats: [{ ...groupChat, content: [{ id: "g1", role: "ai", txt: "Hi", timestamp: 1 }] } as unknown as Chat] });
+  await restoreLibrary(withTalk());
+  const sizes = () => [tables.worlds.size, tables.characters.size, tables.chats.size];
+  expect(sizes()).toEqual([1, 2, 1]);
+  saveWorldPrefs(3, { callCap: 10 });
+
+  const again = await restoreLibrary(withTalk());
+  expect(again).toEqual({ chatsRestored: 0, charactersRestored: 0, worldsRestored: 0, adventuresRestored: 0 });
+  expect(sizes()).toEqual([1, 2, 1]);
+  // The world here keeps what was changed on this device since.
+  expect(allWorldPrefs()["3"]).toEqual({ events: true, callCap: 10 });
+});

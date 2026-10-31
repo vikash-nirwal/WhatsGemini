@@ -777,7 +777,7 @@ const SettingsPage = () => {
 
       const worldCount = Array.isArray(data.worlds) ? data.worlds.length : 0;
       const adventureCount = Array.isArray(data.adventures) ? data.adventures.length : 0;
-      let confirmMessage = `This will add ${data.chats.length} chat(s), ${data.characters.length} character(s), ${worldCount} world(s)${adventureCount ? `, ${adventureCount} adventure(s)` : ""} to your existing library (nothing will be overwritten or removed).`;
+      let confirmMessage = `This will add ${data.chats.length} chat(s), ${data.characters.length} character(s), ${worldCount} world(s)${adventureCount ? `, ${adventureCount} adventure(s)` : ""} to your existing library. Anything already here is skipped, and nothing is overwritten or removed.`;
       if (imageFilenames.length > 0) confirmMessage += ` It also includes ${imageFilenames.length} local image(s).`;
       confirmMessage += " Continue?";
 
@@ -795,8 +795,11 @@ const SettingsPage = () => {
       dispatch(loadChannels());
       dispatch(loadMyStatuses());
 
+      // What was already here is skipped (restoreMatch.ts), so a backup can
+      // bring nothing new.
       let message = `Restored ${chatsRestored} chat(s), ${charactersRestored} character(s), ${worldsRestored} world(s)${adventuresRestored ? ` and ${adventuresRestored} adventure(s)` : ""}`;
       message += imagesRestored > 0 ? `, including ${imagesRestored} image(s).` : ".";
+      if (!chatsRestored && !charactersRestored && !worldsRestored && !adventuresRestored) message = "Everything in this backup is already here.";
       toast.success(message);
     } catch (err) {
       console.error("Backup import error:", err);

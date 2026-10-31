@@ -3,6 +3,7 @@ import { dbService } from "./dbService";
 import { Adventure, Channel, Chat, Character, Message, ConversationTree, MyStatus, UserProfile, World } from "../types";
 import { IdMaps, localImagesIn, rehomeTalks, remapAdventure, remapChannel, remapCharacter, remapChat, remapMessage, remapMyStatus, remapTreeRefs, remapWorld } from "./backupRemap";
 import { LS_USER_PERSONAS } from "../utils/constants";
+import { adventureKey, characterKey, chatKey, indexBy, worldKey } from "./restoreMatch";
 import { appendEntry, editTimeline, loadTimeline, TimelineEntry } from "../features/world/timeline";
 import { allWorldPrefs, replaceAllWorldPrefs, WorldPrefs } from "../features/world/worldPrefs";
 
@@ -120,9 +121,21 @@ export const restoreChatsAndCharacters = async (
     return rest as T;
   };
 
+  // Who and what's already here is linked to, not added again
+  // (restoreMatch.ts). With ids kept nothing here can match: those ids were
+  // all free.
+  const [peopleHere, chatsHere] = keepIds ? [[], []] : await Promise.all([dbService.getAllCharacters(), dbService.getAllChats()]);
+  const personHere = indexBy(peopleHere, characterKey);
+  const chatHere = indexBy(chatsHere, chatKey);
+  const addedPeople = new Set<number>();
+  const addedChats = new Set<number>();
+
   for (const character of characters) {
     const { id: oldId, ...rest } = character;
-    const newId = await dbService.addCharacter(withWorld(keepIds && oldId != null ? character : rest));
+    const record = withWorld(keepIds && oldId != null ? character : rest);
+    const existing = keepIds ? undefined : personHere.get(characterKey(record));
+    const newId = existing ?? (await dbService.addCharacter(record));
+    if (existing == null) addedPeople.add(newId);
     if (oldId != null) idMap.set(oldId, newId);
   }
 
@@ -138,6 +151,14 @@ export const restoreChatsAndCharacters = async (
     // chat only has its new id once every chat is in, so it waits.
     const maps: IdMaps = { characters: idMap, chats: chatIdMap, worlds: worldMap };
     const relinked = keepIds ? null : remapChat({ ...rest, characterIds: sourceIds, mutedParticipantIds, content: content || [], tree } as Chat, maps);
+    const existing = keepIds ? undefined : (() => {
+      const key = chatKey({ characterIds: remapIdArray(sourceIds, idMap) || [], content: content || [] });
+      return key ? chatHere.get(key) : undefined;
+    })();
+    if (existing != null) {
+      if (id != null) chatIdMap.set(id, existing);
+      continue;
+    }
     const newId = await dbService.addChat(withWorld({
       ...(keepIds && id != null ? { id } : {}),
       ...rest,
@@ -148,6 +169,7 @@ export const restoreChatsAndCharacters = async (
       tree: remapTree(tree, idMap),
     }));
     if (id != null) chatIdMap.set(id, newId);
+    addedChats.add(newId);
     chatsRestored++;
   }
 
@@ -156,7 +178,8 @@ export const restoreChatsAndCharacters = async (
   // secrets, rumors, likes, a letter's chat - and a what-if's parent chat.
   if (!keepIds) {
     const maps: IdMaps = { characters: idMap, chats: chatIdMap, worlds: worldMap };
-    const restored = characters.filter((c) => c.id != null && idMap.has(c.id)).map((c) => ({ ...remapCharacter(c, maps), id: idMap.get(c.id)! }));
+    // Only the people just added: someone matched here keeps their own.
+    const restored = characters.filter((c) => c.id != null && addedPeople.has(idMap.get(c.id)!)).map((c) => ({ ...remapCharacter(c, maps), id: idMap.get(c.id)! }));
     for (const c of rehomeTalks(restored)) {
       const saved = await dbService.getCharacterById(c.id);
       await dbService.updateCharacter({ ...saved, ...c, worldId: saved.worldId });
@@ -164,14 +187,14 @@ export const restoreChatsAndCharacters = async (
     for (const chat of chats) {
       const parent = chat.whatIf?.parentChatId;
       const newId = chat.id != null ? chatIdMap.get(chat.id) : undefined;
-      if (parent == null || newId == null) continue;
+      if (parent == null || newId == null || !addedChats.has(newId)) continue;
       const next = chatIdMap.get(parent);
       const { parentChatId: _p, ...whatIf } = chat.whatIf!;
       await dbService.patchChat(newId, { whatIf: next != null ? { ...whatIf, parentChatId: next } : whatIf });
     }
   }
 
-  return { chatsRestored, charactersRestored: characters.length, idMap, chatIdMap };
+  return { chatsRestored, charactersRestored: keepIds ? characters.length : addedPeople.size, idMap, chatIdMap };
 };
 
 // A timeline entry's people on their restored ids, dropping anyone who
@@ -212,9 +235,14 @@ export const restoreLibrary = async (
   const keepIds = idsFree(chatsHere, data.chats) && idsFree(charactersHere, data.characters) && idsFree(worldsHere, worlds);
 
   const worldMap = new Map<number, number>();
+  // A world already here is linked to, like people and chats (restoreMatch.ts).
+  const worldHere = keepIds ? new Map<string, number>() : indexBy(worldsHere, worldKey);
+  const addedWorlds = new Set<number>();
   for (const world of worlds) {
     const { id: oldId, ...rest } = world;
-    const newId = await dbService.addWorld(keepIds && oldId != null ? world : rest);
+    const existing = worldHere.get(worldKey(world));
+    const newId = existing ?? (await dbService.addWorld(keepIds && oldId != null ? world : rest));
+    if (existing == null) addedWorlds.add(newId);
     if (oldId != null) worldMap.set(oldId, newId);
   }
   // A backup from before #215 has no worlds, so its people and chats keep
@@ -228,7 +256,7 @@ export const restoreLibrary = async (
   // name whose they are, which only now have ids.
   if (!keepIds) {
     for (const world of worlds) {
-      if (world.id == null || (!world.factions?.length && !world.extras?.length)) continue;
+      if (world.id == null || !addedWorlds.has(worldMap.get(world.id)!) || (!world.factions?.length && !world.extras?.length)) continue;
       await dbService.updateWorld({ ...remapWorld(world, maps), id: worldMap.get(world.id)! });
     }
   }
@@ -239,7 +267,11 @@ export const restoreLibrary = async (
   let adventuresRestored = 0;
   const adventuresHere = Array.isArray(data.adventures) && data.adventures.length ? await dbService.getAllAdventures() : [];
   const adventureIdsTaken = new Set(adventuresHere.map((a) => a.id));
+  const adventureHere = indexBy(adventuresHere, adventureKey);
   for (const adventure of Array.isArray(data.adventures) ? data.adventures : []) {
+    // Already here (restoreMatch.ts): kept as it is on this device.
+    const key = adventureKey(adventure);
+    if (key && adventureHere.has(key)) continue;
     const { id, ...rest } = remapAdventure(adventure, outerMaps);
     await dbService.addAdventure(keepIds && id != null && !adventureIdsTaken.has(id) ? ({ id, ...rest } as Adventure) : rest);
     adventuresRestored++;
@@ -261,7 +293,9 @@ export const restoreLibrary = async (
     const target = targetOf(key);
     if (target === undefined || !Array.isArray(list)) continue;
     const entries = keepIds ? list : list.map((e) => remapTimelineEntry(e, idMap));
-    await editTimeline(target, (here) => (target === null ? mergeTimelines(here, entries) : entries));
+    // My world's, and a world that was already here, are merged with this
+    // device's; a world just added takes the backup's as it is.
+    await editTimeline(target, (here) => (target === null || !addedWorlds.has(target) ? mergeTimelines(here, entries) : entries));
   }
 
   if (data.worldPrefs && typeof data.worldPrefs === "object") {
@@ -271,12 +305,12 @@ export const restoreLibrary = async (
       const target = targetOf(key);
       if (target === undefined || !prefs || typeof prefs !== "object") continue;
       if (target === null) next[MINE] = { ...prefs, ...here[MINE] };
-      else next[String(target)] = prefs;
+      else next[String(target)] = addedWorlds.has(target) ? prefs : { ...prefs, ...here[String(target)] };
     }
     replaceAllWorldPrefs(next);
   }
 
-  return { chatsRestored, charactersRestored, worldsRestored: worlds.length, adventuresRestored };
+  return { chatsRestored, charactersRestored, worldsRestored: keepIds ? worlds.length : addedWorlds.size, adventuresRestored };
 };
 
 
