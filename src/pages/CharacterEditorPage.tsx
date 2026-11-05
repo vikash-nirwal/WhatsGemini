@@ -1450,7 +1450,7 @@ GREETING: <a short, in-character opening line they'd say to the user, 1-3 senten
                       <ImagePresetSection value={imagePresetId} onChange={setImagePresetId} />
                     </div>
                     <div className="mt-4 border-t border-border pt-4">
-                      <LocalImageSettingsSection value={localImageSettings} onChange={setLocalImageSettings} />
+                      <LocalImageSettingsSection value={localImageSettings} onChange={setLocalImageSettings} characterName={name} />
                     </div>
                     <div className="mt-4 border-t border-border pt-4">
                       <IntimacySection value={intimacy} onChange={setIntimacy} />

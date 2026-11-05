@@ -318,14 +318,15 @@ test.describe("ComfyUI", () => {
       localImageSettings: { seed: 1234, loraName: "aria_v1", loraWeight: 0.7, loraTrigger: "aria_char" },
     });
 
-    expect(comfy.sequence()[0]).toBe("POST /upload/image");
+    // ComfyUI's LoRA list is asked for first, to find the character's LoRA.
+    expect(comfy.sequence().slice(0, 2)).toEqual(["GET /object_info/LoraLoader", "POST /upload/image"]);
     const nodes = Object.values(comfy.queuedWorkflow() as Record<string, { class_type: string; inputs: Record<string, any> }>);
     const texts = nodes.filter((n) => typeof n.inputs.text === "string").map((n) => n.inputs.text as string);
     // ComfyUI's SDXL workflow takes tags, so the locked look goes in as tags.
     expect(texts.some((t) => t.startsWith("aria_char, ") && t.includes("silver hair, violet eyes, ") && t.includes("the character waving at the camera"))).toBe(true);
     expect(nodes.find((n) => "seed" in n.inputs)?.inputs.seed).toBe(1234);
     expect(nodes.find((n) => "lora_name" in n.inputs)?.inputs).toMatchObject({ lora_name: "aria_v1.safetensors", strength_model: 0.7 });
-    expect(nodes.find((n) => n.class_type === "LoadImage")?.inputs.image).toBe(comfy.requests[0].uploadName);
+    expect(nodes.find((n) => n.class_type === "LoadImage")?.inputs.image).toBe(comfy.requests.find((r) => r.uploadName)?.uploadName);
   });
 });
 

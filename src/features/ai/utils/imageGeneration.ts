@@ -341,7 +341,7 @@ export const generateImage = async (
     }
 
     const result = await adapter.generateImage(
-      { model: imageModelName, prompt: derivedImagePrompt, referenceImages, referenceCharacters, signal, safetySettings, imageSize, aspectRatio, localImageSettings, artStyle, ...(overrides?.falLora ? { falLora: overrides.falLora } : {}) },
+      { model: imageModelName, prompt: derivedImagePrompt, referenceImages, referenceCharacters, signal, safetySettings, imageSize, aspectRatio, localImageSettings, characterName, artStyle, ...(overrides?.falLora ? { falLora: overrides.falLora } : {}) },
       imageConfig
     );
     return { images: result.images, usage: result.usage };

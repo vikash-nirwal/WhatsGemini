@@ -2,6 +2,7 @@ import type { ImageGenCallOptions, ImageGenCallResult, ImageProviderAdapter } fr
 import type { NormalizedImage } from "../types";
 import { cancelPrompt, fetchOutputImage, normalizeServerUrl, queuePrompt, uploadImage, waitForOutputs } from "../comfyui/client";
 import { faceIdOptionsFor, loadComfySettings, loadCustomWorkflows, parseSeed, templateForCharacter, templateOptionsFor } from "../comfyui/settings";
+import { characterLoraFile, listLoras } from "../comfyui/loras";
 import { fillWorkflow, PlaceholderValues, randomSeed, REFERENCE_PLACEHOLDERS, sizeForAspectRatio } from "../comfyui/workflow";
 
 // A local ComfyUI server (#39). Everything the adapter needs (server URL,
@@ -34,9 +35,6 @@ const hashData = (data: string): string => {
 export const referenceFileName = (image: NormalizedImage): string =>
   `kindred-ref-${hashData(image.data)}-${image.data.length.toString(36)}.${EXTENSIONS[image.mimeType] || "png"}`;
 
-// ComfyUI's loaders want the file name with its extension.
-const loraFileName = (name: string): string => (/\.(safetensors|pt|ckpt)$/i.test(name) ? name : `${name}.safetensors`);
-
 const makeClientId = (): string =>
   typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
     ? crypto.randomUUID()
@@ -65,7 +63,9 @@ export const createComfyUIAdapter = (adapterOptions: ComfyUIAdapterOptions = {})
     const template = templateForCharacter(settings, references.length > 0, character?.referenceMode, customs);
     // The art style picks the checkpoint and the FaceID strength, if set.
     const options = templateOptionsFor(settings, template, opts.artStyle);
-    const characterLora = character?.loraName?.trim();
+    // ComfyUI's LoRA list is only asked for when there's a LoRA to look for.
+    const lookFor = !character?.noLora && Boolean(character?.loraName?.trim() || opts.characterName?.trim());
+    const characterLora = lookFor ? characterLoraFile(character, opts.characterName, await listLoras(serverUrl, { signal: opts.signal })) : undefined;
     const trigger = character?.loraTrigger?.trim();
     const prompt = trigger && !opts.prompt.toLowerCase().includes(trigger.toLowerCase()) ? `${trigger}, ${opts.prompt}` : opts.prompt;
     const { width, height } = sizeForAspectRatio(opts.aspectRatio, settings.baseSize || 1024);
@@ -76,7 +76,7 @@ export const createComfyUIAdapter = (adapterOptions: ComfyUIAdapterOptions = {})
       seed: character?.seed ?? parseSeed(settings.seed) ?? randomSeed(),
       width,
       height,
-      lora: characterLora ? loraFileName(characterLora) : options.lora,
+      lora: characterLora || options.lora,
       loraStrength: characterLora ? character?.loraWeight ?? 0.8 : options.loraStrength,
       ...faceIdOptionsFor(settings, opts.artStyle),
     };

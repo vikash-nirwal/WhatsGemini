@@ -638,6 +638,7 @@ export interface LocalImageSettings {
   loraName?: string; // LoRA file name without extension, e.g. "mira_v2"
   loraWeight?: number; // usually 0.6-1.0
   loraTrigger?: string; // the LoRA's trigger word(s)
+  noLora?: boolean; // ComfyUI: no LoRA, not even the one named after their first name
   referenceMode?: "none" | "img2img" | "controlnet" | "reactor"; // how reference photos are used
   reactorFaceModel?: string; // ReActor face model name (without .safetensors)
 }

@@ -31,7 +31,10 @@ export const cleanLocalImageSettings = (settings?: LocalImageSettings): LocalIma
   const cleaned: LocalImageSettings = {};
   if (settings.seed != null && Number.isInteger(settings.seed) && settings.seed >= 0) cleaned.seed = settings.seed;
   if (settings.loraName?.trim()) cleaned.loraName = settings.loraName.trim();
-  if (cleaned.loraName && settings.loraWeight != null && !Number.isNaN(settings.loraWeight)) cleaned.loraWeight = settings.loraWeight;
+  if (settings.noLora && !cleaned.loraName) cleaned.noLora = true;
+  // A weight also goes with the LoRA ComfyUI picks by first name, so it's
+  // kept unless there's no LoRA at all.
+  if (!cleaned.noLora && settings.loraWeight != null && !Number.isNaN(settings.loraWeight)) cleaned.loraWeight = settings.loraWeight;
   if (settings.loraTrigger?.trim()) cleaned.loraTrigger = settings.loraTrigger.trim();
   if (settings.referenceMode) cleaned.referenceMode = settings.referenceMode;
   if (settings.reactorFaceModel?.trim()) cleaned.reactorFaceModel = settings.reactorFaceModel.trim().replace(/\.safetensors$/i, "");

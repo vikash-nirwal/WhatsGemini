@@ -72,6 +72,9 @@ export interface ImageGenCallOptions {
   // The replying character's seed, LoRA and reference mode (#40). Only the
   // local providers (ComfyUI here; SD WebUI has its own path) use it.
   localImageSettings?: LocalImageSettings;
+  // The replying character's name. Never part of the prompt (hideNames.ts):
+  // ComfyUI only uses it to find the LoRA named after their first name.
+  characterName?: string;
   // The character's art style. ComfyUI uses it to pick the checkpoint and
   // FaceID strength set for that style; other adapters ignore it.
   artStyle?: ArtStyle;

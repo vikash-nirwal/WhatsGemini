@@ -948,12 +948,14 @@ export const generateAdventureSceneImage = createAsyncThunk(
       }
 
       // Always the named-reference path (never a single "speaking character"),
-      // since a scene has no one subject the way a chat reply does.
+      // since a scene has no one subject the way a chat reply does. A scene
+      // of one person (a status photo) still gets their seed and LoRA.
+      const solo = presentCast.length === 1 ? presentCast[0] : undefined;
       const result = await generateImage(
         imageProviderId, imageConfig, useSdWebui, imageModelName, imagePrompt,
         useSdWebui ? { width: 768, height: 512 } : {},
-        undefined, undefined, imageSafetyFor(settings.safetySettings, allAdults(cast)), undefined, settings.geminiImageSize, "16:9",
-        references.length > 0 ? references : undefined, undefined, artStyle || DEFAULT_ART_STYLE, toneRewriter(settings), undefined,
+        undefined, solo?.name, imageSafetyFor(settings.safetySettings, allAdults(cast)), undefined, settings.geminiImageSize, "16:9",
+        references.length > 0 ? references : undefined, solo?.localImageSettings, artStyle || DEFAULT_ART_STYLE, toneRewriter(settings), undefined,
         // The cast without photos, and the player, by name.
         [...presentCast.map((c) => c.name), ...(persona?.name ? [persona.name] : [])]
       );

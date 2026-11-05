@@ -1,4 +1,5 @@
 import { test, expect, openRoute, openChat, openDetails, editorStep } from "./fixtures";
+import { mockComfyUI } from "./comfyui";
 import type { Page } from "@playwright/test";
 
 // Consistent looks (#34, #35): the locked look is drafted, edited and saved
@@ -106,4 +107,33 @@ test("local image settings are saved with the character", async ({ page }) => {
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Character saved")).toBeVisible();
   expect((await readCharacter(page)).localImageSettings).toEqual({ seed: 1234, loraName: "aria_v1", loraTrigger: "aria_char", referenceMode: "reactor" });
+});
+
+// A character's LoRA in ComfyUI (2026-11-05): picked from ComfyUI's own
+// list, with their first name's LoRA by default and None to turn it off.
+test.describe("with ComfyUI as the image provider", () => {
+  test.use({ localStorageOverrides: { image_provider: "comfyui" } });
+
+  test("the LoRA is picked from ComfyUI's list, automatic by first name or none", async ({ page }) => {
+    await mockComfyUI(page, { knownNodes: { LoraLoader: { input: { required: { lora_name: [["characters/Aria.safetensors", "kai_v1.safetensors"]] } } } } });
+    await openRoute(page, "/characters/1/edit");
+    await expect(page.getByRole("textbox", { name: "Character Name" })).toHaveValue("Aria", { timeout: 30_000 });
+    await editorStep(page, "Advanced");
+    const section = page.locator("details").filter({ has: page.locator("summary", { hasText: "Local image settings" }) });
+    await openDetails(section);
+
+    const picker = section.getByRole("combobox", { name: "LoRA", exact: true });
+    await expect(picker).toContainText("Automatic: aria");
+    await expect(section.locator("summary").first()).toContainText("LoRA aria (automatic)");
+    await picker.click();
+    await page.getByRole("option", { name: "None" }).click();
+    await expect(section.locator("summary").first()).toContainText("no LoRA");
+    await picker.click();
+    await page.getByRole("option", { name: "kai_v1" }).click();
+    await expect(section.locator("summary").first()).toContainText("LoRA kai_v1");
+
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText("Character saved")).toBeVisible();
+    expect((await readCharacter(page)).localImageSettings).toEqual({ loraName: "kai_v1.safetensors" });
+  });
 });

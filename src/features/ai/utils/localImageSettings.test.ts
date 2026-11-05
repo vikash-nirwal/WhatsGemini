@@ -24,7 +24,11 @@ describe("cleanLocalImageSettings", () => {
     });
   });
 
-  it("drops a weight without a LoRA", () => {
-    expect(cleanLocalImageSettings({ loraWeight: 0.5 })).toBeUndefined();
+  // A weight with no LoRA named is for the one ComfyUI picks by first name
+  // (2026-11-05); "None" drops it.
+  it("keeps a weight for the automatic LoRA, and drops it with None", () => {
+    expect(cleanLocalImageSettings({ loraWeight: 0.5 })).toEqual({ loraWeight: 0.5 });
+    expect(cleanLocalImageSettings({ loraWeight: 0.5, noLora: true })).toEqual({ noLora: true });
+    expect(cleanLocalImageSettings({ loraName: "mira", noLora: true })).toEqual({ loraName: "mira" });
   });
 });

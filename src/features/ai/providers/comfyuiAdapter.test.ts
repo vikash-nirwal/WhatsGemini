@@ -1,6 +1,7 @@
 import { createComfyUIAdapter, referenceFileName } from "./comfyuiAdapter";
 import { createFakeComfy, FAKE_PROMPT_ID } from "../comfyui/fakeServer";
 import { DEFAULT_COMFYUI_SETTINGS, LS_COMFYUI_SETTINGS, saveComfySettings } from "../comfyui/settings";
+import { forgetLoraList } from "../comfyui/loras";
 
 const REF = { mimeType: "image/png", data: btoa("reference-photo-bytes") };
 const adapter = createComfyUIAdapter({ pollIntervalMs: 1, timeoutMs: 2000 });
@@ -13,6 +14,7 @@ const install = (fake: ReturnType<typeof createFakeComfy>) => {
 
 beforeEach(() => {
   localStorage.clear();
+  forgetLoraList();
 });
 
 describe("comfyuiAdapter", () => {
@@ -263,6 +265,33 @@ describe("comfyuiAdapter", () => {
       expect(workflow["6"].inputs.seed).toBe(1234);
       expect(workflow["2"].inputs).toMatchObject({ lora_name: "aria_v1.safetensors", strength_model: 0.65 });
       expect(workflow["3"].inputs.text).toBe("aria_char, Aria at the beach");
+    });
+
+    // 2026-11-05: with no LoRA picked, the one named after their first name.
+    const WITH_LORAS = { knownNodes: { LoraLoader: { input: { required: { lora_name: [["characters/Mira.safetensors", "style.safetensors"]] } } } } };
+
+    it("load the LoRA named after their first name when ComfyUI has it, without naming them in the prompt", async () => {
+      saveComfySettings(SDXL);
+      const fake = createFakeComfy(WITH_LORAS);
+      install(fake);
+      await adapter.generateImage({ model: "", prompt: "the character at the beach", referenceImages: [REF], characterName: "Mira Voss", localImageSettings: { loraWeight: 0.7 } }, {});
+      const workflow = fake.queuedWorkflow();
+      expect(workflow["2"].inputs).toMatchObject({ lora_name: "characters/Mira.safetensors", strength_model: 0.7 });
+      expect(workflow["3"].inputs.text).toBe("the character at the beach");
+    });
+
+    it("load no character LoRA when there's none by that name, or None is picked", async () => {
+      saveComfySettings(SDXL);
+      const fake = createFakeComfy(WITH_LORAS);
+      install(fake);
+      await adapter.generateImage({ model: "", prompt: "at the beach", referenceImages: [REF], characterName: "Kai" }, {});
+      expect(JSON.stringify(fake.queuedWorkflow())).not.toContain("Mira.safetensors");
+
+      const none = createFakeComfy(WITH_LORAS);
+      install(none);
+      await adapter.generateImage({ model: "", prompt: "at the beach", referenceImages: [REF], characterName: "Mira", localImageSettings: { noLora: true } }, {});
+      expect(JSON.stringify(none.queuedWorkflow())).not.toContain("Mira.safetensors");
+      expect(none.paths()).not.toContain("GET /object_info/LoraLoader");
     });
 
     it("pick the template from the reference mode", async () => {
