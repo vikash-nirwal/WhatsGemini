@@ -53,8 +53,11 @@ describe("resolveImagePromptTarget", () => {
     // Bundled defaults: Z-Image without a reference photo, Klein with one,
     // both written as prose.
     const zImage = resolveImagePromptTarget({ providerId: "comfyui" });
-    expect(zImage).toMatchObject({ dialect: "flux", tags: false });
+    expect(zImage).toMatchObject({ dialect: "flux", tags: false, wantsParams: true });
     expect(zImage.engine).toContain('"Z-Image Turbo text to image"');
+    // The writer picks the framing, not the sampler: the workflow fixes that.
+    expect(zImage.paramsGuide).toContain('"width" and "height"');
+    expect(zImage.paramsGuide).not.toContain("steps");
     expect(resolveImagePromptTarget({ providerId: "comfyui", hasReference: true }).engine).toContain("FLUX.2 Klein 4B");
     // The SDXL FaceID template, picked by the character's controlnet reference mode.
     expect(resolveImagePromptTarget({ providerId: "comfyui", hasReference: true, referenceMode: "controlnet" }).dialect).toBe("sdxl");
@@ -89,7 +92,10 @@ describe("the prompt-writing call", () => {
     expect(request).toContain('"""\nAria waves from a rainy bus stop.\n"""');
     expect(request).toContain("Always follow this style rule: Cinematic.\nArt style: anime style.");
     expect(request).toContain("short comma-separated phrases");
-    expect(request).toContain("Reply with only the prompt");
+    expect(request).toContain('PARAMS:\n<a JSON object with the "width" and "height" that frame this picture best');
+    expect(request).not.toContain("cfg_scale");
+    expect(buildImagePromptRequest({ target: resolveImagePromptTarget({ providerId: "sdwebui" }), scene: "A cat." })).toContain('"steps" (15-40), "cfg_scale" (1-15)');
+    expect(buildImagePromptRequest({ target: resolveImagePromptTarget({ providerId: "openai" }), scene: "A cat." })).toContain("Reply with only the prompt");
   });
 
   it("reads the prompt and params back", () => {

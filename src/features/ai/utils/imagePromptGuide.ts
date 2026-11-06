@@ -20,8 +20,11 @@ export interface ImagePromptTarget {
   tags: boolean;
   // How to write it.
   guide: string;
-  // Only the SD WebUI takes sampler, steps and size from the prompt writer.
+  // Whether the prompt writer also picks settings, and which: the SD WebUI
+  // takes sampler, steps and size; ComfyUI only the size (the framing), as
+  // its workflows fix the sampler for their model.
   wantsParams: boolean;
+  paramsGuide: string;
 }
 
 // How Settings names each style.
@@ -70,12 +73,19 @@ const STYLE_CHECKPOINT_HINTS: Record<ArtStyle, (name: string) => boolean> = {
 export const guessStyleCheckpoint = (artStyle: ArtStyle, checkpoints: string[]): string | undefined =>
   checkpoints.find((name) => dialectForCheckpoint(name) !== "flux" && STYLE_CHECKPOINT_HINTS[artStyle](name));
 
-const target = (dialect: PromptDialect, engine: string, wantsParams = false): ImagePromptTarget => ({
+// What the SD WebUI's PARAMS may set.
+const SD_WEBUI_PARAMS = 'the best "steps" (15-40), "cfg_scale" (1-15), "sampler_name", "width" and "height" for this checkpoint and subject, e.g. portrait 832x1216 for SDXL or 512x768 for SD 1.5; {} if the defaults are fine';
+// ComfyUI only takes the framing: the adapter keeps the picture's area and
+// uses the ratio (sizeForAspectRatio), so these are shapes, not pixel counts.
+const SIZE_PARAMS = 'the "width" and "height" that frame this picture best: 1024x1024 for a square, 832x1216 for a portrait (a selfie, one person standing, a full-body shot), 1216x832 for a landscape (a wide scene, people side by side); {} if square is fine';
+
+const target = (dialect: PromptDialect, engine: string, params = ""): ImagePromptTarget => ({
   dialect,
   engine,
   tags: dialect !== "flux" && dialect !== "prose",
   guide: GUIDES[dialect],
-  wantsParams,
+  wantsParams: params !== "",
+  paramsGuide: params,
 });
 
 export interface TargetInput {
@@ -106,7 +116,7 @@ const baseTarget = ({ providerId, imageModel, sdWebuiModel, hasReference = false
   switch (providerId) {
     case "sdwebui": {
       const dialect = dialectForCheckpoint(sdWebuiModel);
-      return target(dialect, `Stable Diffusion WebUI${sdWebuiModel ? ` with the checkpoint "${sdWebuiModel}"` : " (SD 1.5)"}`, true);
+      return target(dialect, `Stable Diffusion WebUI${sdWebuiModel ? ` with the checkpoint "${sdWebuiModel}"` : " (SD 1.5)"}`, SD_WEBUI_PARAMS);
     }
     case "comfyui": {
       try {
@@ -116,9 +126,9 @@ const baseTarget = ({ providerId, imageModel, sdWebuiModel, hasReference = false
         const { checkpoint } = templateOptionsFor(settings, template, artStyle);
         const byTemplate: PromptDialect = /flux|z-image/i.test(`${template.id} ${template.label}`) ? "flux" : "sdxl";
         const dialect = byTemplate === "flux" ? "flux" : dialectForCheckpoint(checkpoint, settings.baseSize <= 768 ? "sd15" : "sdxl");
-        return target(dialect, `ComfyUI running the "${template.label}" workflow${checkpoint ? ` with "${checkpoint}"` : ""}`);
+        return target(dialect, `ComfyUI running the "${template.label}" workflow${checkpoint ? ` with "${checkpoint}"` : ""}`, SIZE_PARAMS);
       } catch {
-        return target("sdxl", "ComfyUI");
+        return target("sdxl", "ComfyUI", SIZE_PARAMS);
       }
     }
     case "fal":
@@ -169,7 +179,7 @@ export const buildImagePromptRequest = ({
     // that can't be seen only add noise.
     "Make it work: one clear moment, the main subject first. Only what can be seen - leave out dialogue, thoughts, backstory and anything that happened before or after. Describe people by how they look (the model doesn't know them); use a name only where reference photos are named. Keep every given look (hair, eyes, clothes) exactly. Say the framing (selfie at arm's length, close-up, full body, wide shot) and where the light comes from. Text in the picture only if the scene needs it, in quotes.",
     t.wantsParams
-      ? `Reply in exactly this format:\nPROMPT:\n<the prompt>\nPARAMS:\n<a JSON object with the best "steps" (15-40), "cfg_scale" (1-15), "sampler_name", "width" and "height" for this checkpoint and subject, e.g. portrait 832x1216 for SDXL or 512x768 for SD 1.5; {} if the defaults are fine>`
+      ? `Reply in exactly this format:\nPROMPT:\n<the prompt>\nPARAMS:\n<a JSON object with ${t.paramsGuide}>`
       : "Reply with only the prompt: no label, quotes or explanation.",
   ]
     .filter(Boolean)

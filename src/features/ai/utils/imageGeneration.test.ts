@@ -1,11 +1,23 @@
-import { composeImagePrompt, deriveImagePrompt, ImagePromptRefusedError, parseSceneReply } from "./imageGeneration";
+import { composeImagePrompt, deriveImagePrompt, generateImage, ImagePromptRefusedError, parseSceneReply } from "./imageGeneration";
 import { resolveImagePromptTarget } from "./imagePromptGuide";
 import { LS_COMFYUI_SETTINGS } from "../comfyui/settings";
 import { ChatProviderAdapter, ContentBlockedError } from "../providers/types";
 
 // The real registry pulls in provider SDKs that Jest can't load (ESM-only);
-// deriveImagePrompt doesn't use it.
-jest.mock("../providers/registry", () => ({ IMAGE_PROVIDERS: {} }));
+// deriveImagePrompt doesn't use it, and generateImage gets a ComfyUI stand-in
+// that records what it was asked for.
+const mockComfyCalls: any[] = [];
+jest.mock("../providers/registry", () => ({
+  IMAGE_PROVIDERS: {
+    comfyui: {
+      id: "comfyui",
+      generateImage: async (opts: any) => {
+        mockComfyCalls.push(opts);
+        return { images: ["data:image/png;base64,AA=="] };
+      },
+    },
+  },
+}));
 
 // #34: the image prompt writer is told the locked look, and the final prompt
 // carries it word for word even when the model paraphrases it away.
@@ -71,6 +83,29 @@ describe("deriveImagePrompt writes the prompt for the image model in use", () =>
     const result = await derive(fakeAdapter([SCENE_REPLY, 'PROMPT:\nmasterpiece, 1girl, cafe\nPARAMS:\n{"steps": 28, "width": 512, "height": 768}'], []), SD_WEBUI, undefined, []);
     expect(result.derivedImagePrompt).toBe("masterpiece, 1girl, cafe");
     expect(result.derivedParams).toEqual({ steps: 28, width: 512, height: 768 });
+  });
+
+  it("asks ComfyUI's prompt writer for the framing only, and reads it back", async () => {
+    const seen: string[] = [];
+    const result = await derive(fakeAdapter([SCENE_REPLY, 'PROMPT:\n1girl, selfie, rainy cafe window\nPARAMS:\n{"width": 832, "height": 1216}'], seen), SDXL_COMFY, undefined, []);
+    expect(seen[1]).toContain('"width" and "height" that frame this picture best');
+    expect(seen[1]).not.toContain('"steps"');
+    expect(result.derivedImagePrompt).toBe("1girl, selfie, rainy cafe window");
+    expect(result.derivedParams).toEqual({ width: 832, height: 1216 });
+  });
+});
+
+describe("generateImage passes the prompt writer's framing on", () => {
+  const draw = (params: Record<string, number>, aspectRatio?: string) =>
+    generateImage("comfyui", {} as any, false, "", "a woman at a cafe window", params, undefined, undefined, {} as any, undefined, undefined, aspectRatio);
+
+  it("uses the PARAMS size as the aspect ratio unless the caller fixed one", async () => {
+    await draw({ width: 832, height: 1216 });
+    expect(mockComfyCalls[mockComfyCalls.length - 1].aspectRatio).toBe("832:1216");
+    await draw({ width: 832, height: 1216 }, "1:1");
+    expect(mockComfyCalls[mockComfyCalls.length - 1].aspectRatio).toBe("1:1");
+    await draw({});
+    expect(mockComfyCalls[mockComfyCalls.length - 1].aspectRatio).toBeUndefined();
   });
 });
 

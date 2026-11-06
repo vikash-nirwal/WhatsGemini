@@ -247,6 +247,10 @@ export interface ImageGenerationResult {
 // Gemini's native image output, or another configured image provider (e.g. OpenAI).
 // Never throws - generation failures come back as a warning so the text reply can
 // still be saved.
+// The framing the prompt writer chose (imagePromptGuide.ts), as an aspect
+// ratio for providers that take one, when the caller didn't fix it.
+const framingOf = ({ width, height }: SDImageParams): string | undefined => (width && height ? `${width}:${height}` : undefined);
+
 export const generateImage = async (
   imageProvider: string,
   imageConfig: ProviderRuntimeConfig,
@@ -341,7 +345,7 @@ export const generateImage = async (
     }
 
     const result = await adapter.generateImage(
-      { model: imageModelName, prompt: derivedImagePrompt, referenceImages, referenceCharacters, signal, safetySettings, imageSize, aspectRatio, localImageSettings, characterName, artStyle, ...(overrides?.falLora ? { falLora: overrides.falLora } : {}) },
+      { model: imageModelName, prompt: derivedImagePrompt, referenceImages, referenceCharacters, signal, safetySettings, imageSize, aspectRatio: aspectRatio ?? framingOf(derivedParams), localImageSettings, characterName, artStyle, ...(overrides?.falLora ? { falLora: overrides.falLora } : {}) },
       imageConfig
     );
     return { images: result.images, usage: result.usage };
