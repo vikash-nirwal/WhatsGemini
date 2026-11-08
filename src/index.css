@@ -105,3 +105,9 @@ html, body, #root {
 }
 
 
+
+/* Search this chat (#247): the found words in the chosen message. */
+::highlight(chat-search) {
+  background-color: rgb(250 204 21 / 0.55);
+  color: inherit;
+}

@@ -16,9 +16,10 @@ test("the chat menu is grouped, and the rarer items sit in submenus", async ({ p
   await expect(page.getByRole("menuitem", { name: "Export chat (backup file)" })).toBeHidden();
   await page.getByRole("menuitem", { name: "Save and share" }).click();
   await expect(page.getByRole("menuitem", { name: "Export chat (backup file)" })).toBeVisible();
-  // Fewer things at the top level than the thirty-odd there were.
+  // Fewer things at the top level than the thirty-odd there were (one more
+  // since Search this chat, #247, an everyday item).
   const top = page.getByRole("menu").first().locator(':scope > [role="menuitem"]');
-  expect(await top.count()).toBeLessThanOrEqual(16);
+  expect(await top.count()).toBeLessThanOrEqual(17);
 });
 
 test("the composer's + menu asks for a follow-up", async ({ page, mockAI }) => {
