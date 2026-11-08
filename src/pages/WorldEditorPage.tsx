@@ -260,7 +260,7 @@ const WorldEditorPage = () => {
               <FaMap size={13} className="text-subtle" /> Map
             </h3>
             <p className="text-xs text-subtle">A map of the world with its places pinned. In a chat set in this world (with the scene tracked) or an adventure, the place the story is at shows as "you are here".</p>
-            {map && <WorldMapView map={map} onChange={setMap} />}
+            {map && <WorldMapView map={map} onChange={setMap} factions={editWorld?.factions} />}
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" size="sm" onClick={handleGenerateMap} disabled={mapBusy}>
                 {mapBusy ? "Drawing..." : map ? "Redraw" : "Generate"}

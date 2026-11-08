@@ -1083,6 +1083,7 @@ export interface MapPin {
   name: string;
   x: number;
   y: number;
+  factionId?: string; // the family or faction whose place it is (#246)
 }
 
 export interface WorldMap {
