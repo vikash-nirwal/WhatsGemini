@@ -77,3 +77,37 @@ test("a world's language, reply length and connections are set in the editor and
   expect(system).toContain("Everyone in Harbour Town speaks Hindi");
   expect(system).toContain("roughly 300 characters");
 });
+
+// Seasons by hemisphere (#243): a southern world has summer in January, in
+// what its chats hear.
+test("a world's seasons follow the hemisphere picked in its editor", async ({ page, mockAI }) => {
+  mockAI.reply("Mock reply");
+  await page.clock.setFixedTime(new Date(2026, 0, 15, 12));
+  await openRoute(page, "/worlds/new");
+  await page.locator("#world-name").fill("Harbour Town");
+  await page.locator("#world-premise").fill("A rainy port.");
+  await page.getByLabel("Seasons").click();
+  await page.getByRole("option", { name: "Southern (winter in June)" }).click();
+  await page.getByRole("button", { name: "Create World" }).click();
+  await expect(page.getByRole("button", { name: "Switch to Harbour Town" })).toBeVisible();
+  const worldId = await db<number>(page, `
+    const worlds = await new Promise((r) => { const q = db.transaction("worlds").objectStore("worlds").getAll(); q.onsuccess = () => r(q.result); });
+    const world = worlds.find((w) => w.name === "Harbour Town");
+    const tx = db.transaction(["characters", "chats"], "readwrite");
+    const store = tx.objectStore("characters");
+    const aria = await new Promise((r) => { const q = store.get(${ARIA.id}); q.onsuccess = () => r(q.result); });
+    store.put({ ...aria, worldId: world.id });
+    const chats = tx.objectStore("chats");
+    const chat = await new Promise((r) => { const q = chats.get(1); q.onsuccess = () => r(q.result); });
+    chats.put({ ...chat, worldId: world.id });
+    await new Promise((r) => { tx.oncomplete = r; });
+    return world.hemisphere === "south" ? world.id : -1;
+  `);
+  expect(worldId).toBeGreaterThan(0);
+  await page.reload();
+  await openChat(page);
+  await sendMessage(page, "hello");
+  await waitForReplyDone(page);
+  const system = mockAI.requests.filter((r) => r.stream).pop()!.messages.find((m) => m.role === "system")?.content || "";
+  expect(system).toContain("In Harbour Town it's summer");
+});

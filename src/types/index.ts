@@ -992,6 +992,7 @@ export interface World {
   traditions?: { id: string; title: string; text: string; month: number; day: number; days: number; lastYear?: number }[]; // yearly events, on the world's calendar (#222)
   language?: string; // the language everyone here speaks and writes in (2026-10-30); unset = the chat's own
   replyLengthLimit?: number; // reply length target for chats here, in characters (2026-10-30); unset = Settings' own
+  hemisphere?: "north" | "south"; // whose seasons the real calendar gives (#243); unset = northern
 }
 
 // A secret one character keeps from another (#170). You may hear it as

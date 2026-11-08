@@ -16,7 +16,7 @@ const partOfDay = (now: number) => {
   return h < 5 ? "the middle of the night" : h < 12 ? "morning" : h < 17 ? "afternoon" : h < 21 ? "evening" : "late evening";
 };
 
-export const buildSceneNow = (world: Pick<World, "storyTime" | "map" | "placeStates"> | undefined, people: Character[], now: number): string => {
+export const buildSceneNow = (world: Pick<World, "storyTime" | "map" | "placeStates" | "hemisphere"> | undefined, people: Character[], now: number): string => {
   const when = world?.storyTime
     ? `${formatStoryDate(world.storyTime, now)}, ${partOfDay(now)}`
     : `${new Date(now).toLocaleDateString("en-US", { weekday: "long" })} ${partOfDay(now)}`;
