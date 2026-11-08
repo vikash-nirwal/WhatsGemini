@@ -222,3 +222,23 @@ describe("finishing a beat", () => {
     expect(buildBeatBridgePrompt(s, "", { secondPerson: true })).toContain('second person ("you")');
   });
 });
+
+describe("finishing a beat, the reader's way", () => {
+  const s = script({ beats: [makeBeat("They meet.")], cast: [makeCastMember("Mira", "A thief.")] });
+
+  it("takes the length, the leaning and the reader's wishes, with the story's people and directions", () => {
+    const prompt = buildBeatBridgePrompt(s, "", { length: "long", focus: "dialogue", direction: "Mira lies about her name." });
+    expect(prompt).toContain("4 to 7 paragraphs");
+    expect(prompt).toContain("Lean on the characters talking");
+    expect(prompt).toContain("The reader's wishes for this passage (follow them, inside the story): Mira lies about her name.");
+    expect(prompt).toContain("- Mira: A thief.");
+    expect(prompt).toContain("The author's directions (always follow them): Slow burn. No violence.");
+    expect(prompt).toContain("Show, don't tell");
+  });
+
+  it("is a short paragraph when asked, and medium by default", () => {
+    expect(buildBeatBridgePrompt(s, "", { length: "short" })).toContain("one short paragraph");
+    expect(buildBeatBridgePrompt(s, "")).toContain("2 or 3 paragraphs");
+    expect(buildBeatBridgePrompt(s, "")).not.toContain("reader's wishes");
+  });
+});

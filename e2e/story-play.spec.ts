@@ -1,4 +1,4 @@
-import { test, expect, openChat, openRoute, sendMessage, adventureReply } from "./fixtures";
+import { test, expect, openChat, openRoute, sendMessage, adventureReply, headerAction } from "./fixtures";
 
 // Story play: paste a story, take a part in it and the AI narrates and
 // voices everyone else, with no Character made. And in a chat's story
@@ -115,12 +115,25 @@ test("in a chat, replies are reminded of the beat, and a beat can be finished fr
 
   await page.getByRole("button", { name: "Story progress: Beat 1 of 2. Show the story" }).click();
   await page.getByRole("region", { name: "Story progress" }).getByRole("button", { name: "Finish this beat" }).click();
+  const finish = page.getByRole("dialog", { name: "Finish this beat" });
+  await finish.getByRole("group", { name: "Length" }).getByRole("button", { name: "Short" }).click();
+  await finish.getByRole("group", { name: "Leaning on" }).getByRole("button", { name: "More dialogue" }).click();
+  await finish.getByLabel("Anything you want in it (optional)").fill("Tom blushes.");
+  await finish.getByRole("button", { name: "Write it" }).click();
+  await expect(finish.getByLabel("The rest of the beat")).toHaveValue(BRIDGE);
+  await finish.getByLabel("The rest of the beat").fill(BRIDGE + " Tom blushes.");
+  await finish.getByRole("button", { name: "Add and go to the next beat" }).click();
+  await expect(finish).toBeHidden();
+  await expect(page.getByText("Tom blushes.").first()).toBeVisible();
   await expect(page.getByText("Chapter 1: They meet.")).toBeVisible();
   await expect(page.getByText("Mira and Tom met over a dropped ticket.")).toBeVisible();
   await expect(page.getByRole("region", { name: "Story progress" })).toContainText("Beat 2 of 2");
   const bridge = mockAI.requests.find((r) => r.prompt.includes("Write the rest of the current beat"))!;
   expect(bridge.prompt).toContain("Mira drops her ticket and Tom picks it up.");
   expect(bridge.prompt).toContain('The next beat (don\'t start it): "A storm stops the train."');
+  expect(bridge.prompt).toContain("one short paragraph");
+  expect(bridge.prompt).toContain("Lean on the characters talking");
+  expect(bridge.prompt).toContain("Tom blushes.");
 });
 
 test("in Stories, the choices follow the story, and a beat can be finished there too", async ({ page, mockAI }) => {
@@ -130,18 +143,31 @@ test("in Stories, the choices follow the story, and a beat can be finished there
   await page.getByRole("button", { name: "Read the story" }).click();
   await expect(page.getByLabel("What happens in beat 1")).toHaveValue("Darcy calls her tolerable.");
 
+  await page.getByRole("group", { name: "Reply length" }).getByRole("button", { name: "Short" }).click();
   mockAI.reply(responder(adventureReply("The ballroom glitters.", ["Dance", "Listen to Darcy"])));
   await page.getByRole("button", { name: "Start playing" }).click();
   await expect(page.getByText("The ballroom glitters.")).toBeVisible();
   const opening = mockAI.requests.find((r) => r.stream)!;
   expect(systemPrompt(opening.messages)).toContain("At least one of the choices moves straight toward it");
   expect(opening.prompt).toContain('Story: beat 1 of 3, "Lizzy overhears Darcy\'s insult."');
+  expect(systemPrompt(opening.messages)).toContain("Keep it brief");
 
   await page.getByRole("button", { name: "Story progress: Beat 1 of 3. Show the story" }).click();
   await page.getByRole("region", { name: "Story progress" }).getByRole("button", { name: "Finish this beat" }).click();
-  await expect(page.getByText(BRIDGE)).toBeVisible();
-  await expect(page.getByText("Lizzy overhears Darcy's insult.").first()).toBeVisible();
+  const finish = page.getByRole("dialog", { name: "Finish this beat" });
+  await finish.getByRole("button", { name: "Write it" }).click();
+  await expect(finish.getByLabel("The rest of the beat")).toHaveValue(BRIDGE);
+  // Keep the whole conversation this time: no chapter.
+  await finish.getByText("Sum the beat up as a chapter").click();
+  await finish.getByRole("button", { name: "Add and go to the next beat" }).click();
+  await expect(page.getByText(BRIDGE).first()).toBeVisible();
+  await expect(page.getByText(/^Chapter 1/)).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Story progress" })).toContainText("Beat 2 of 3");
   const bridge = mockAI.requests.find((r) => r.prompt.includes("Write the rest of the current beat"))!;
   expect(bridge.prompt).toContain('second person ("you")');
+
+  // The reply length can be changed while playing: Short goes to Medium.
+  await headerAction(page, "Reply length: Short");
+  await headerAction(page, "Reply length: Medium");
+  await headerAction(page, "Reply length: Long");
 });

@@ -16,6 +16,7 @@ import { Card } from "src/components/atoms/card";
 import { TextArea, TextInput } from "src/components/molecules/form-controls";
 import { SegmentedControl } from "src/components/molecules/SegmentedControl";
 import { StoryCastEditor } from "src/components/molecules/StoryCastEditor";
+import { STORY_LENGTH_OPTIONS, STORY_LENGTHS, StoryLength } from "src/features/chat/storyLength";
 import Header from "src/components/organisms/Header";
 
 // Story play: paste a story and play it as one of its own people (or as
@@ -115,6 +116,7 @@ export const NewStoryPlayPage = () => {
   const [draft, setDraft] = useState<StoryScript | null>(null);
   // The cast as the story text names them, for carrying renames through.
   const [castBefore, setCastBefore] = useState<StoryCastMember[] | undefined>(undefined);
+  const [length, setLength] = useState<StoryLength>("medium");
   const [reading, setReading] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -151,7 +153,7 @@ export const NewStoryPlayPage = () => {
     try {
       const fallback = script.premise.split(/[.!?]/)[0].slice(0, 60).trim() || "A story";
       const created = await dispatch(
-        addAdventure({ title: title.trim() || fallback, storyPlay: true, storyScript: script, rules: { choiceCount: DEFAULT_ADVENTURE_CHOICE_COUNT } })
+        addAdventure({ title: title.trim() || fallback, storyPlay: true, storyScript: script, rules: { choiceCount: DEFAULT_ADVENTURE_CHOICE_COUNT, replyLengthLimit: STORY_LENGTHS[length].chars } })
       ).unwrap();
       navigate(`/adventures/${created.id}`);
     } catch (err: any) {
@@ -263,6 +265,12 @@ export const NewStoryPlayPage = () => {
                 <span className="text-[11.5px] text-muted-foreground">How closely to follow it</span>
                 <SegmentedControl value={draft.mode} onChange={(v) => update({ mode: v as StoryScript["mode"] })} options={MODE_OPTIONS} />
                 <span className="text-xs text-subtle">{draft.mode === "strict" ? "The story goes as written; going off it is steered back." : "The story heads for each beat, with room for your own choices on the way."}</span>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[11.5px] text-muted-foreground">Reply length</span>
+                <SegmentedControl aria-label="Reply length" value={length} onChange={(v) => setLength(v as StoryLength)} options={STORY_LENGTH_OPTIONS} />
+                <span className="text-xs text-subtle">{STORY_LENGTHS[length].hint}. You can change it any time from the story's menu.</span>
               </div>
 
               <div className="flex justify-end gap-2 border-t border-border pt-4">

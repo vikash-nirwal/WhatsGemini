@@ -9,6 +9,7 @@ import { buildGameStateDirective, currentGameState, startingGameState, STATS_STA
 import { buildSkillCheckDirective } from "../../adventure/skillChecks";
 import { selectRelevantFacts } from "./memoryRelevance";
 import { buildStoryScriptSection, storyChoicesRule } from "../../chat/storyScript";
+import { lengthOfLimit, STORY_LENGTHS } from "../../chat/storyLength";
 import type { ImagePromptTarget } from "./imagePromptGuide";
 import { worldLanguageLine } from "../../world/worldVoice";
 
@@ -147,6 +148,9 @@ export const buildAdventureSystemInstruction = (
     sections.push(
       `Reply length: keep your narration to roughly ${adventure.rules.replyLengthLimit} characters or less (not counting the choices block). Pace it so it wraps up naturally within that budget.`
     );
+    // A length picked from the presets also says how it should read.
+    const preset = lengthOfLimit(adventure.rules.replyLengthLimit);
+    if (preset && STORY_LENGTHS[preset].style) sections.push(STORY_LENGTHS[preset].style);
   }
 
   return sections

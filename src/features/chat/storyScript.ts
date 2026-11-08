@@ -1,4 +1,5 @@
 import { StoryBeat, StoryCastMember, StoryScript } from "../../types";
+import { STORY_LENGTHS, StoryLength } from "./storyLength";
 
 // Story script (#57): the story a chat must stay inside, written before (or
 // during) the roleplay. Every reply is given the premise, the directions,
@@ -238,20 +239,52 @@ export const storyChoicesRule = (script: StoryScript | undefined, what = "sugges
 // "Finish this beat": the rest of the current beat written out, from what
 // the story says happens in it, picking up where the scene is now and
 // stopping where the next beat begins. Then the beat is summarised like a
-// chapter and the story moves on.
+// chapter and the story moves on. The reader picks how long it is, what it
+// leans on, and can say what they want to happen.
+export type BeatFocus = "balanced" | "dialogue" | "description";
+export const BEAT_FOCUS: Record<BeatFocus, { label: string; rule: string }> = {
+  balanced: { label: "Balanced", rule: "Mix what happens, what it looks and feels like, and what people say." },
+  dialogue: { label: "More dialogue", rule: "Lean on the characters talking, each in their own voice, with short bits of action between the lines." },
+  description: { label: "More description", rule: "Lean on vivid description: the place, what people do and feel, with only the key lines spoken." },
+};
+
+export interface BeatBridgeOptions {
+  secondPerson?: boolean;
+  playerName?: string;
+  length?: StoryLength;
+  focus?: BeatFocus;
+  direction?: string; // what the reader wants in it, in their words
+}
+
 export const buildBeatBridgePrompt = (
   script: StoryScript,
   transcript: string,
-  { secondPerson = false, playerName }: { secondPerson?: boolean; playerName?: string } = {}
+  { secondPerson = false, playerName, length = "medium", focus = "balanced", direction }: BeatBridgeOptions = {}
 ): string => {
   const beat = script.beats[script.currentBeat];
   const next = script.beats[script.currentBeat + 1];
   const voice = secondPerson
     ? `Write in second person ("you"), addressing the player${playerName ? ` as ${playerName}` : ""}; describe what they do only as far as the story has them do it.`
     : `Write it as narration in the third person, present tense, naming everyone${playerName ? ` (the user is ${playerName})` : ""}.`;
-  return `A roleplay follows a story planned in beats. The current beat is: "${beat?.text || ""}"${beat?.details ? `\nWhat happens in it, in the story: ${beat.details}` : ""}${script.premise ? `\nPremise: ${script.premise}` : ""}${next ? `\nThe next beat (don't start it): "${next.text}"` : script.ending ? `\nHow the story ends (don't reach it yet): ${script.ending}` : ""}
+  const about = [
+    `The current beat is: "${beat?.text || ""}"`,
+    beat?.details ? `What happens in it, in the story: ${beat.details}` : "",
+    script.premise ? `Premise: ${script.premise}` : "",
+    script.cast?.length ? `The story's characters:\n${script.cast.map((c) => `- ${c.name}${c.about ? `: ${c.about}` : ""}`).join("\n")}` : "",
+    script.directions ? `The author's directions (always follow them): ${script.directions}` : "",
+    next ? `The next beat (don't start it): "${next.text}"` : script.ending ? `How the story ends (don't reach it yet): ${script.ending}` : "",
+  ].filter(Boolean);
+  const wish = direction?.trim();
+  return `A roleplay follows a story planned in beats. ${about.join("\n")}
 
-Write the rest of the current beat as a passage of the story: everything it still needs, its events and the key lines people say, in the story's order, picking up exactly where the conversation below leaves off. Skip what has already happened. Stop where the next beat would begin. ${voice} Put spoken lines in quotes. 1 to 4 short paragraphs. Reply with only the passage.
+Write the rest of the current beat as a passage of the story: everything it still needs, its events and the lines people say, in the story's order, picking up exactly where the conversation below leaves off. Skip what has already happened. Stop where the next beat would begin.
+- ${voice}
+- Show, don't tell: concrete details of the place, body language and what people feel; everyone sounds and acts like themselves.
+- ${BEAT_FOCUS[focus].rule}
+- Put spoken lines in quotes.
+- Length: ${STORY_LENGTHS[length].passage}.${wish ? `\n- The reader's wishes for this passage (follow them, inside the story): ${wish}` : ""}
+
+Reply with only the passage.
 
 Conversation so far:
 ${transcript}`;

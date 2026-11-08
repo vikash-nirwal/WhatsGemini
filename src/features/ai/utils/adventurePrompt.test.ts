@@ -286,3 +286,12 @@ describe("story-aware choices", () => {
     expect(text).toContain("Darcy draws first.");
   });
 });
+
+describe("reply length presets", () => {
+  const base: Adventure = { id: 4, title: "T", timestamp: 0, characterIds: [], status: "active", content: [] };
+  it("says how a preset length should read, beyond the budget", () => {
+    expect(buildAdventureSystemInstruction({ ...base, rules: { replyLengthLimit: 3000 } }, undefined, [], undefined, [])).toContain("rich, immersive narration");
+    expect(buildAdventureSystemInstruction({ ...base, rules: { replyLengthLimit: 450 } }, undefined, [], undefined, [])).toContain("Keep it brief");
+    expect(buildAdventureSystemInstruction({ ...base, rules: { replyLengthLimit: 800 } }, undefined, [], undefined, [])).not.toContain("Keep it brief");
+  });
+});

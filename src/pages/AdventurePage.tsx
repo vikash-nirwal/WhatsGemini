@@ -1,7 +1,7 @@
 import { splitIntoTexts } from "src/features/ai/utils/textingMode";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo, FaImage, FaSyncAlt, FaTimes, FaPalette, FaBookOpen, FaComments, FaFont, FaShieldAlt, FaCompressArrowsAlt, FaDiceD20, FaListUl, FaBrain, FaBookmark, FaMap } from "react-icons/fa";
+import { FaAlignLeft, FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo, FaImage, FaSyncAlt, FaTimes, FaPalette, FaBookOpen, FaComments, FaFont, FaShieldAlt, FaCompressArrowsAlt, FaDiceD20, FaListUl, FaBrain, FaBookmark, FaMap } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { deleteAdventure, addAdventureMessage, updateAdventureStatus, incrementAdventureUsage, updateAdventureMessage, updateAdventureRules, removeAdventureCompressionSummary, updateAdventureMemory, insertAdventureCompressionSummary, updateAdventureStoryScript } from "../features/adventureSlice";
 import { BEAT_CHECK_MESSAGES, beatStamp, beatStarts, buildBeatBridgePrompt, buildBeatCheckPrompt, buildStoryReminder, extractBeatTag, isFinished, moveBeat, parseBeatCheckReply } from "../features/chat/storyScript";
@@ -37,6 +37,8 @@ import { Dialog, DialogContent, DialogTitle, DialogClose } from "src/components/
 import { NovelMessageItem } from "src/components/molecules/NovelMessageItem";
 import { NovelChoicesView } from "src/components/molecules/NovelChoicesView";
 import { StoryProgress } from "src/components/molecules/StoryProgress";
+import FinishBeatDialog, { FinishBeatChoices } from "src/components/organisms/FinishBeatDialog";
+import { lengthOfLimit, nextLength, STORY_LENGTHS } from "src/features/chat/storyLength";
 import { NARRATIVE_CONTEXT_MESSAGES } from "src/features/ai/utils/narrativeTools";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { AdventureStatsPanel, CheckChip, GameChanges, SkillCheckBadge, statsSummary } from "src/components/molecules/AdventureStatsPanel";
@@ -158,7 +160,7 @@ const AdventurePage = () => {
   const [storyOpen, setStoryOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [endingChapter, setEndingChapter] = useState(false);
-  const [finishingBeat, setFinishingBeat] = useState(false);
+  const [finishBeatOpen, setFinishBeatOpen] = useState(false);
   // The story script as it is now, for a beat check that finishes after the
   // script was moved or edited.
   const latestScript = useRef(adventure?.storyScript);
@@ -502,26 +504,25 @@ const AdventurePage = () => {
   };
 
   // "Finish this beat": the narrator writes what's left of the current beat
-  // from the story, the beat becomes a chapter named after it, and the
-  // story moves to the next beat, so a beat that stalled can be closed the
-  // way the story tells it.
-  const handleFinishBeat = async () => {
-    if (!script || script.beats.length === 0 || isFinished(script) || finishingBeat || generating) return;
-    setError(null);
-    setFinishingBeat(true);
-    try {
-      const recent = trimToLatestSummary(adventure.content).filter((m) => !m.isSystem).slice(-NARRATIVE_CONTEXT_MESSAGES);
-      const reply = await dispatch(generateAssistText({ instruction: buildBeatBridgePrompt(script, formatTranscript(recent, { userName: playerName, charName: "Narrator" }), { secondPerson: true, playerName }), purpose: "finish-beat" })).unwrap();
-      const text = reply.trim();
-      if (!text) throw new Error("The AI wrote nothing for this beat. Try again.");
-      const content = await dispatch(addAdventureMessage({ adventureId: adventure.id, message: { role: AI, txt: text, ...beatStamp(script) } })).unwrap();
-      await closeChapter(content, script.beats[script.currentBeat].text);
-      await dispatch(updateAdventureStoryScript({ adventureId: adventure.id, storyScript: moveBeat(latestScript.current || script, 1) }));
-    } catch (err: any) {
-      setError(typeof err === "string" ? err : err?.message || "Couldn't finish the beat. Check your model settings and try again.");
-    } finally {
-      setFinishingBeat(false);
-    }
+  // from the story, in the length and leaning the reader picks
+  // (FinishBeatDialog); once added, the beat can become a chapter named
+  // after it and the story moves to the next beat.
+  const writeBeat = async ({ length, focus, direction }: FinishBeatChoices): Promise<string> => {
+    if (!script || isFinished(script)) throw new Error("This story has no beat left to finish.");
+    const recent = trimToLatestSummary(adventure.content).filter((m) => !m.isSystem).slice(-NARRATIVE_CONTEXT_MESSAGES);
+    const reply = await dispatch(generateAssistText({
+      instruction: buildBeatBridgePrompt(script, formatTranscript(recent, { userName: playerName, charName: "Narrator" }), { secondPerson: true, playerName, length, focus, direction }),
+      purpose: "finish-beat",
+    })).unwrap();
+    const text = reply.trim();
+    if (!text) throw new Error("The AI wrote nothing for this beat. Try again.");
+    return text;
+  };
+  const addBeat = async (text: string, { chapter }: { chapter: boolean }) => {
+    if (!script || isFinished(script)) return;
+    const content = await dispatch(addAdventureMessage({ adventureId: adventure.id, message: { role: AI, txt: text, ...beatStamp(script) } })).unwrap();
+    if (chapter) await closeChapter(content, script.beats[script.currentBeat].text);
+    await dispatch(updateAdventureStoryScript({ adventureId: adventure.id, storyScript: moveBeat(latestScript.current || script, 1) }));
   };
 
   const isCompleted = adventure.status === "completed";
@@ -565,6 +566,16 @@ const AdventurePage = () => {
       onClick: () => dispatch(updateAdventureRules({ adventureId: adventure.id, rules: { ...adventure.rules, skillChecks: !skillChecks || undefined } })),
     },
     ...(world?.map ? [{ icon: FaMap, label: "World map", onClick: () => setMapOpen(true) }] : []),
+    // How much the narrator writes at a time: long is immersive, short is
+    // quick to read. Tapping it goes Short, Medium, Long and round again.
+    {
+      icon: FaAlignLeft,
+      label: `Reply length: ${(() => {
+        const preset = lengthOfLimit(adventure.rules?.replyLengthLimit);
+        return preset ? STORY_LENGTHS[preset].label : adventure.rules?.replyLengthLimit ? `${adventure.rules.replyLengthLimit} characters` : "no limit";
+      })()}`,
+      onClick: () => dispatch(updateAdventureRules({ adventureId: adventure.id, rules: { ...adventure.rules, replyLengthLimit: STORY_LENGTHS[nextLength(adventure.rules?.replyLengthLimit)].chars } })),
+    },
     {
       icon: FaBookOpen,
       label: !script ? "Story script" : script.beats.length === 0 ? "Story script: on" : isFinished(script) ? "Story script: all beats done" : `Story script: beat ${script.currentBeat + 1} of ${script.beats.length}`,
@@ -845,7 +856,7 @@ const AdventurePage = () => {
               <p className="text-xs text-destructive">{error}</p>
             )}
             {script && adventure.content.length > 0 && !isCompleted && (
-              <StoryProgress script={script} onMove={(step) => dispatch(updateAdventureStoryScript({ adventureId: adventure.id, storyScript: moveBeat(script, step) }))} onEdit={() => setStoryOpen(true)} onFinish={handleFinishBeat} finishing={finishingBeat} />
+              <StoryProgress script={script} onMove={(step) => dispatch(updateAdventureStoryScript({ adventureId: adventure.id, storyScript: moveBeat(script, step) }))} onEdit={() => setStoryOpen(true)} onFinish={generating ? undefined : () => setFinishBeatOpen(true)} />
             )}
             <div ref={endRef} />
           </div>
@@ -867,6 +878,9 @@ const AdventurePage = () => {
             <WorldMapView map={world.map} hereId={latestPinIn(adventure.content.filter((m) => m.role === AI).map((m) => m.txt || ""), world.map.pins)?.id} />
           </DialogContent>
         </Dialog>
+      )}
+      {script && !isFinished(script) && (
+        <FinishBeatDialog open={finishBeatOpen} onOpenChange={setFinishBeatOpen} beatText={script.beats[script.currentBeat]?.text || ""} onWrite={writeBeat} onAdd={addBeat} />
       )}
       <StoryScriptDialog open={storyOpen} onOpenChange={setStoryOpen} script={adventure.storyScript} onSave={(next) => dispatch(updateAdventureStoryScript({ adventureId: adventure.id, storyScript: next }))} />
       <Dialog open={memoryOpen} onOpenChange={setMemoryOpen}>

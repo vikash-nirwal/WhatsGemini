@@ -31,6 +31,7 @@ import { formatCallTime } from "../features/voice/callSession";
 import { isRecognitionSupported } from "../features/voice/recognition";
 import { isSpeechSupported } from "../features/voice/speech";
 import { hasBranches } from "../features/chat/branchMap";
+import FinishBeatDialog, { FinishBeatChoices } from "src/components/organisms/FinishBeatDialog";
 import StoryScriptDialog from "../components/organisms/StoryScriptDialog";
 import { AlbumDialog } from "../components/organisms/AlbumDialog";
 import { ScenarioCardsDialog, TimeSkipDialog } from "../components/organisms/ScenarioCardsDialog";
@@ -2425,31 +2426,34 @@ const ChatPage = () => {
   };
 
   // "Finish this beat" (story script, #57): the rest of the current beat is
-  // written out from the story as narration, the beat becomes a chapter
-  // named after it, and the story moves on to the next beat.
-  const [finishingBeat, setFinishingBeat] = useState(false);
-  const handleFinishBeat = async () => {
+  // written out from the story as narration, in the length and with the
+  // leaning the reader picks (FinishBeatDialog), then added; the beat can
+  // become a chapter named after it, and the story moves on to the next.
+  const [finishBeatOpen, setFinishBeatOpen] = useState(false);
+  const writeBeat = async ({ length, focus, direction }: FinishBeatChoices): Promise<string> => {
     const script = currentChat?.storyScript;
-    if (!chatIdNum || !script || script.beats.length === 0 || isFinished(script) || finishingBeat || aiLoading) return;
-    setError(null);
-    setFinishingBeat(true);
-    try {
-      const recent = trimToLatestSummary(messages).filter((m) => !m.isSystem).slice(-NARRATIVE_CONTEXT_MESSAGES);
-      const userPart = script.cast?.find((c) => c.playedBy === "user")?.name;
-      const reply = await dispatch(generateAssistText({ instruction: buildBeatBridgePrompt(script, formatTranscript(recent, transcriptNames()), { playerName: userPart || activePersona?.name?.trim() || undefined }), purpose: "finish-beat" })).unwrap();
-      const text = reply.trim();
-      if (!text) throw new Error("The AI wrote nothing for this beat. Try again.");
-      await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, isNarration: true, ...beatStamp(script) })).unwrap();
-      const fresh = await dispatch(fetchChatById(chatIdNum)).unwrap();
+    if (!script || isFinished(script)) throw new Error("This story has no beat left to finish.");
+    const recent = trimToLatestSummary(messages).filter((m) => !m.isSystem).slice(-NARRATIVE_CONTEXT_MESSAGES);
+    const userPart = script.cast?.find((c) => c.playedBy === "user")?.name;
+    const reply = await dispatch(generateAssistText({
+      instruction: buildBeatBridgePrompt(script, formatTranscript(recent, transcriptNames()), { playerName: userPart || activePersona?.name?.trim() || undefined, length, focus, direction }),
+      purpose: "finish-beat",
+    })).unwrap();
+    const text = reply.trim();
+    if (!text) throw new Error("The AI wrote nothing for this beat. Try again.");
+    return text;
+  };
+  const addBeat = async (text: string, { chapter }: { chapter: boolean }) => {
+    const script = currentChat?.storyScript;
+    if (!chatIdNum || !script || isFinished(script)) return;
+    await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, isNarration: true, ...beatStamp(script) })).unwrap();
+    const fresh = await dispatch(fetchChatById(chatIdNum)).unwrap();
+    if (chapter) {
       const all = fresh.content || [];
       const latest = latestSummaryIndex(all);
       await closeChapter(all, latest >= 0 ? latest : countSeedMessages(all), script.beats[script.currentBeat].text);
-      await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { storyScript: moveBeat(fresh.storyScript || script, 1) } })).unwrap();
-    } catch (err: any) {
-      setError(typeof err === "string" ? err : err?.message || "Couldn't finish the beat. Check your model settings and try again.");
-    } finally {
-      setFinishingBeat(false);
     }
+    await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { storyScript: moveBeat(fresh.storyScript || script, 1) } })).unwrap();
   };
 
   // Episodes and cliffhangers (#103): the character ends the scene on a
@@ -2828,7 +2832,7 @@ const ChatPage = () => {
             </div>
           </div>
         )}
-        <ChatWindow unreadSince={openedRead ? { since: openedRead.since, until: openedRead.at } : undefined} awayNote={awayNote} onFork={handleFork} stageSuggestion={currentChat?.stage && currentChat.stageSuggestion ? { from: currentChat.stage, to: currentChat.stageSuggestion } : undefined} onAcceptStage={acceptStage} onDismissStage={dismissStage} coWriting={!isRoom && Boolean(currentChat?.coWriting)} onSuggestNext={handleSuggestNext} onTranslate={currentChat?.language ? handleTranslate : undefined} onReplyToLetter={(letter) => setDraftInjection({ text: letterReplyDraft(letter), nonce: Date.now() })} arcSuggestion={currentChat?.arcSuggestion} onAcceptArc={acceptArc} onDismissArc={dismissArc} relationshipSuggestion={currentChat?.relationshipSuggestion} onAcceptRelationship={acceptRelationship} onDismissRelationship={dismissRelationship} game={currentChat?.game} gameScore={currentChat?.gameScore} onEndGame={() => chatIdNum && dispatch(updateChatOptions({ chatId: chatIdNum, patch: { game: undefined } }))} storyScript={currentChat?.storyScript} onEditStory={() => setStoryOpen(true)} onMoveBeat={moveStoryBeat} onFinishBeat={handleFinishBeat} finishingBeat={finishingBeat} onReply={(m) => setReplyingTo(m)} onViewOnce={openViewOnce} onVote={votePoll} onOpenContact={(m) => void openContact(m)} onAnswerInvite={answerInvite} recap={recap} onToggleBookmark={handleToggleBookmark} onUndoSummary={handleUndoSummary} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={worldPeople} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} contactOpen={contactOpen} onCloseContact={() => setContactOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} />
+        <ChatWindow unreadSince={openedRead ? { since: openedRead.since, until: openedRead.at } : undefined} awayNote={awayNote} onFork={handleFork} stageSuggestion={currentChat?.stage && currentChat.stageSuggestion ? { from: currentChat.stage, to: currentChat.stageSuggestion } : undefined} onAcceptStage={acceptStage} onDismissStage={dismissStage} coWriting={!isRoom && Boolean(currentChat?.coWriting)} onSuggestNext={handleSuggestNext} onTranslate={currentChat?.language ? handleTranslate : undefined} onReplyToLetter={(letter) => setDraftInjection({ text: letterReplyDraft(letter), nonce: Date.now() })} arcSuggestion={currentChat?.arcSuggestion} onAcceptArc={acceptArc} onDismissArc={dismissArc} relationshipSuggestion={currentChat?.relationshipSuggestion} onAcceptRelationship={acceptRelationship} onDismissRelationship={dismissRelationship} game={currentChat?.game} gameScore={currentChat?.gameScore} onEndGame={() => chatIdNum && dispatch(updateChatOptions({ chatId: chatIdNum, patch: { game: undefined } }))} storyScript={currentChat?.storyScript} onEditStory={() => setStoryOpen(true)} onMoveBeat={moveStoryBeat} onFinishBeat={() => setFinishBeatOpen(true)} onReply={(m) => setReplyingTo(m)} onViewOnce={openViewOnce} onVote={votePoll} onOpenContact={(m) => void openContact(m)} onAnswerInvite={answerInvite} recap={recap} onToggleBookmark={handleToggleBookmark} onUndoSummary={handleUndoSummary} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={worldPeople} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} contactOpen={contactOpen} onCloseContact={() => setContactOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} />
         {inCall && characterData && (
           <CallScreen
             name={characterData.name}
@@ -2851,6 +2855,9 @@ const ChatPage = () => {
         />
         <GameDialog open={gameOpen} onOpenChange={setGameOpen} characterName={characterData?.name || "them"} onStart={startGame} />
         <PollDialog open={pollOpen} onOpenChange={setPollOpen} onCreate={(q, o) => void handleCreatePoll(q, o)} />
+        {currentChat?.storyScript && !isFinished(currentChat.storyScript) && (
+          <FinishBeatDialog open={finishBeatOpen} onOpenChange={setFinishBeatOpen} beatText={currentChat.storyScript.beats[currentChat.storyScript.currentBeat]?.text || ""} onWrite={writeBeat} onAdd={addBeat} />
+        )}
         <StoryScriptDialog open={storyOpen} onOpenChange={setStoryOpen} script={currentChat?.storyScript} onSave={saveStoryScript} characterName={!isRoom ? characterData?.name : undefined} />
         <ScenarioCardsDialog open={scenarioOpen} onOpenChange={setScenarioOpen} onStart={handleStartScenario} />
         <TimeSkipDialog open={timeSkipOpen} onOpenChange={setTimeSkipOpen} onSkip={handleTimeSkip} onPassTime={(pass) => void handlePassTime(pass)} />
