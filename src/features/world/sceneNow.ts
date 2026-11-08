@@ -1,3 +1,4 @@
+import { zoneOf } from "../character/characterClock";
 import { Character, World } from "../../types";
 import { currentBlock } from "../character/schedule";
 import { formatStoryDate } from "./storyTime";
@@ -21,7 +22,7 @@ export const buildSceneNow = (world: Pick<World, "storyTime" | "map" | "placeSta
     ? `${formatStoryDate(world.storyTime, now)}, ${partOfDay(now)}`
     : `${new Date(now).toLocaleDateString("en-US", { weekday: "long" })} ${partOfDay(now)}`;
   const pins = world?.map?.pins || [];
-  const places = people.map((c) => ({ c, pin: pins.length ? whereIs(c, pins, now) : undefined, doing: currentBlock(c.schedule, now)?.activity }));
+  const places = people.map((c) => ({ c, pin: pins.length ? whereIs(c, pins, now) : undefined, doing: currentBlock(c.schedule, now, zoneOf(c))?.activity }));
   const where = places
     .filter((p) => p.pin || p.doing)
     .map((p) => `${p.c.name} is ${[p.pin && `at ${p.pin.name}`, p.doing && `(${p.doing.replace(/\s+/g, " ").trim().slice(0, 60)})`].filter(Boolean).join(" ")}`);

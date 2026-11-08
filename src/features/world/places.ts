@@ -1,3 +1,4 @@
+import { zoneOf } from "../character/characterClock";
 import { Character, MapPin } from "../../types";
 import { currentBlock } from "../character/schedule";
 import { pinForLocation } from "./worldMap";
@@ -7,7 +8,7 @@ import { pinForLocation } from "./worldMap";
 // on the map; otherwise at their usual spot, if they have one.
 
 export const whereIs = (character: Character, pins: MapPin[], now: number): MapPin | undefined =>
-  pinForLocation(currentBlock(character.schedule, now)?.activity, pins) || pins.find((p) => p.id === character.hangout);
+  pinForLocation(currentBlock(character.schedule, now, zoneOf(character))?.activity, pins) || pins.find((p) => p.id === character.hangout);
 
 export const whoIsWhere = (cast: Character[], pins: MapPin[], now: number): Record<string, Character[]> => {
   const out: Record<string, Character[]> = {};
