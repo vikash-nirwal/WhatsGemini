@@ -182,3 +182,60 @@ test("in Stories, the choices follow the story, and a beat can be finished there
   await headerAction(page, "Reply length: Medium");
   await headerAction(page, "Reply length: Long");
 });
+
+// The pasted story is kept with the script (#240), never sent in replies,
+// and can be read again: to fill in beat events, or to split the rest anew.
+test("a story's text is kept, and it can be read again without losing progress", async ({ page, mockAI }) => {
+  const STORY = "SOURCE-TEXT: Lizzy goes to the ball, Darcy insults her, Wickham charms her, Darcy proposes.";
+  await openRoute(page, "/stories/new");
+  mockAI.replyOnce(JSON.stringify({ ...DRAFT, beats: [{ beat: "Lizzy overhears Darcy's insult.", events: "Darcy calls her tolerable." }, "Wickham charms her.", "Event 3"] }));
+  await page.getByLabel("Story to play").fill(STORY);
+  await page.getByRole("button", { name: "Read the story" }).click();
+  await expect(page.getByText("3 beats")).toBeVisible();
+  mockAI.reply(responder(adventureReply("The ballroom glitters.", ["Dance", "Listen to Darcy"])));
+  await page.getByRole("button", { name: "Start playing" }).click();
+  await expect(page.getByText("The ballroom glitters.")).toBeVisible();
+  for (const r of mockAI.requests.filter((r) => r.stream)) expect(r.messages.map((m) => m.content).join("\n")).not.toContain("SOURCE-TEXT");
+
+  await headerAction(page, "Story script: beat 1 of 3");
+  const dialog = page.getByRole("dialog", { name: "Story script" });
+  await dialog.getByText("Read the story again").click();
+  await expect(dialog.getByText("2 beats have none yet.")).toBeVisible();
+
+  mockAI.replyOnce(JSON.stringify({ beats: [{ beat: 2, events: "Wickham tells Lizzy a sad tale about Darcy." }, { beat: 3, events: "Darcy proposes badly." }] }));
+  await dialog.getByRole("button", { name: "Fill in beat events" }).click();
+  await expect(dialog.getByLabel("What happens in beat 2")).toHaveValue("Wickham tells Lizzy a sad tale about Darcy.");
+  await expect(dialog.getByLabel("What happens in beat 1")).toHaveValue("Darcy calls her tolerable.");
+  const fill = mockAI.requests[mockAI.requests.length - 1];
+  expect(fill.prompt).toContain("SOURCE-TEXT");
+  expect(fill.prompt).toContain("2. Wickham charms her. (needs events)");
+
+  mockAI.replyOnce(JSON.stringify({ beats: [{ beat: "Wickham lies.", events: "He blames Darcy." }, "Darcy proposes.", "Lizzy refuses."] }));
+  await dialog.getByLabel("Split again from beat").click();
+  await page.getByRole("option", { name: "2", exact: true }).click();
+  await dialog.getByRole("button", { name: "Split again" }).click();
+  await expect(dialog.getByLabel("Beat 4", { exact: true })).toHaveValue("Lizzy refuses.");
+  await expect(dialog.getByLabel("Beat 1", { exact: true })).toHaveValue("Lizzy overhears Darcy's insult.");
+  await expect(dialog.getByLabel("Beat 2", { exact: true })).toHaveValue("Wickham lies.");
+  expect(mockAI.requests[mockAI.requests.length - 1].prompt).toContain("from where beat 1 ends");
+  await dialog.getByRole("button", { name: "Save script" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole("button", { name: "Story progress: Beat 1 of 4. Show the story" })).toBeVisible();
+
+  // Still saved with the story, and still kept out of the next reply.
+  const saved = await page.evaluate(
+    () =>
+      new Promise<string | undefined>((resolve) => {
+        const open = indexedDB.open("ChatAppDB");
+        open.onsuccess = () => {
+          const req = open.result.transaction("adventures").objectStore("adventures").getAll();
+          req.onsuccess = () => resolve(req.result[0]?.storyScript?.source);
+        };
+      })
+  );
+  expect(saved).toBe(STORY);
+  const before = mockAI.requests.length;
+  await page.getByRole("button", { name: "Dance" }).click();
+  await expect.poll(() => mockAI.requests.slice(before).some((r) => r.stream)).toBe(true);
+  for (const r of mockAI.requests.filter((r) => r.stream)) expect(r.messages.map((m) => m.content).join("\n")).not.toContain("SOURCE-TEXT");
+});

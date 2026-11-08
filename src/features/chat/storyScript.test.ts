@@ -1,4 +1,4 @@
-import { applyCastRenames, beatRange, buildBeatBridgePrompt, buildStoryReminder, storyChoicesRule, beatStamp, beatStarts, buildBeatCheckPrompt, buildNextBeatPrompt, buildScriptDraftPrompt, buildStoryScriptSection, cleanScript, emptyScript, extractBeatTag, makeBeat, makeCastMember, moveBeat, parseBeatCheckReply, parseScriptDraft, renameInText, stripStreamingBeatTag } from "./storyScript";
+import { applyCastRenames, beatRange, buildBeatBridgePrompt, buildStoryReminder, storyChoicesRule, beatStamp, beatStarts, beatsMissingDetails, buildBeatCheckPrompt, buildFillDetailsPrompt, buildNextBeatPrompt, buildResplitPrompt, buildScriptDraftPrompt, keepSource, parseFillDetails, parseResplit, STORY_SOURCE_MAX, buildStoryScriptSection, cleanScript, emptyScript, extractBeatTag, makeBeat, makeCastMember, moveBeat, parseBeatCheckReply, parseScriptDraft, renameInText, stripStreamingBeatTag } from "./storyScript";
 import { StoryScript } from "../../types";
 
 const script = (overrides: Partial<StoryScript> = {}): StoryScript => ({
@@ -248,5 +248,49 @@ describe("opening the next beat (#239)", () => {
     expect(buildNextBeatPrompt(script({ currentBeat: 1 }))).toContain('open the next one now, "A storm stops the train."');
     expect(buildNextBeatPrompt(script({ currentBeat: 1 }))).toContain("choices block");
     expect(buildNextBeatPrompt(script({ currentBeat: 3 }))).toContain("toward the story's ending (They get off at the same stop.)");
+  });
+});
+
+describe("keeping the story's text (#240)", () => {
+  const story = "Mira boards the night train. Tom sits across from her. A storm stops the train. They talk till dawn.";
+  const s = script({ source: story, beats: [makeBeat("They meet.", "Mira drops her ticket."), makeBeat("A storm stops the train."), makeBeat("They confess.")], currentBeat: 1 });
+
+  it("is kept through cleaning, capped, and never sent in replies", () => {
+    expect(cleanScript(s)?.source).toBe(story);
+    expect(keepSource("x".repeat(STORY_SOURCE_MAX + 50))).toHaveLength(STORY_SOURCE_MAX);
+    const many = { ...s, source: "SECRET-SOURCE " + story };
+    expect(buildStoryScriptSection(many)).not.toContain("SECRET-SOURCE");
+    expect(buildStoryReminder(many)).not.toContain("SECRET-SOURCE");
+    expect(buildBeatCheckPrompt(many, "")).not.toContain("SECRET-SOURCE");
+    expect(buildBeatBridgePrompt(many, "")).not.toContain("SECRET-SOURCE");
+    expect(storyChoicesRule(many)).not.toContain("SECRET-SOURCE");
+    expect(buildNextBeatPrompt(many)).not.toContain("SECRET-SOURCE");
+  });
+
+  it("fills in missing beat events only, keeping beats and progress", () => {
+    expect(beatsMissingDetails(s)).toEqual([1, 2]);
+    const prompt = buildFillDetailsPrompt(s);
+    expect(prompt).toContain("2. A storm stops the train. (needs events)");
+    expect(prompt).toContain("1. They meet.\n");
+    expect(prompt).toContain(story);
+    const filled = parseFillDetails('{"beats": [{"beat": 1, "events": "Overwrite?"}, {"beat": 2, "events": "The train halts in the snow."}]}', s);
+    expect(filled?.beats.map((b) => b.details)).toEqual(["Mira drops her ticket.", "The train halts in the snow.", undefined]);
+    expect(filled?.beats.map((b) => b.id)).toEqual(s.beats.map((b) => b.id));
+    expect(filled?.currentBeat).toBe(1);
+    expect(parseFillDetails("no idea", s)).toBeUndefined();
+  });
+
+  it("re-splits from a chosen beat on, keeping the beats before it and where the story is", () => {
+    const prompt = buildResplitPrompt(s, 1);
+    expect(prompt).toContain("1. They meet.");
+    expect(prompt).not.toContain("2. A storm");
+    expect(prompt).toContain("from where beat 1 ends");
+    expect(prompt).toContain(story);
+    const next = parseResplit('{"beats": [{"beat": "The train stops.", "events": "Snow."}, "They talk till dawn."]}', s, 1);
+    expect(next?.beats.map((b) => b.text)).toEqual(["They meet.", "The train stops.", "They talk till dawn."]);
+    expect(next?.beats[0].id).toBe(s.beats[0].id);
+    expect(next?.currentBeat).toBe(1);
+    expect(parseResplit('{"beats": []}', s, 1)).toBeUndefined();
+    expect(parseResplit('{"beats": ["One"]}', { ...s, currentBeat: 3 }, 0)?.currentBeat).toBe(1);
   });
 });

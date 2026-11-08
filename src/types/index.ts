@@ -489,6 +489,10 @@ export interface StoryScript {
   // strict: nothing outside the script; loose: improvise between beats.
   mode: "strict" | "loose";
   currentBeat: number; // index into beats; beats.length once all are done
+  // The pasted story itself (#240), kept so it can be read again later. It
+  // never goes into a reply prompt: only the helper's "Read the story again"
+  // calls see it.
+  source?: string;
 }
 
 // A "Previously on..." recap (#46), written for the chat's last message at

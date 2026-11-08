@@ -10,7 +10,7 @@ import { useModal } from "src/contexts/ModalContext";
 import { cn } from "src/utils/cn";
 import { DEFAULT_ADVENTURE_CHOICE_COUNT } from "src/utils/constants";
 import { StoryCastMember, StoryScript } from "src/types";
-import { applyCastRenames, buildScriptDraftPrompt, cleanScript, emptyScript, makeBeat, parseScriptDraft } from "src/features/chat/storyScript";
+import { applyCastRenames, buildScriptDraftPrompt, cleanScript, emptyScript, keepSource, makeBeat, parseScriptDraft } from "src/features/chat/storyScript";
 import { Button } from "src/components/atoms/button";
 import { Card } from "src/components/atoms/card";
 import { TextArea, TextInput } from "src/components/molecules/form-controls";
@@ -136,7 +136,9 @@ export const NewStoryPlayPage = () => {
       if (!parsed) throw new Error("The AI's answer couldn't be read as a story. Try again.");
       // The main character is the likeliest part to want; it's one tap to change.
       const parsedCast = (parsed.cast || []).map((c, i) => (i === 0 ? { ...c, playedBy: "user" as const } : c));
-      setDraft({ ...emptyScript(), mode: "loose", ...parsed, cast: parsedCast, currentBeat: 0 });
+      // The story's text goes with the script (#240), so it can be read
+      // again later from the story's script editor.
+      setDraft({ ...emptyScript(), mode: "loose", ...parsed, cast: parsedCast, currentBeat: 0, source: keepSource(pasted) });
       setCastBefore(parsed.cast);
     } catch (err: any) {
       setError(typeof err === "string" ? err : err?.message || "Couldn't read the story.");

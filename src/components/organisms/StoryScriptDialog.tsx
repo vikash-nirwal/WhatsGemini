@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { FaArrowDown, FaArrowUp, FaMagic, FaPlus, FaTrash } from "react-icons/fa";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "src/components/molecules/dialog";
-import { TextArea, TextInput } from "src/components/molecules/form-controls";
+import { Select, TextArea, TextInput } from "src/components/molecules/form-controls";
 import { SegmentedControl } from "src/components/molecules/SegmentedControl";
 import { Button } from "src/components/atoms/button";
 import { useAppDispatch } from "src/store/hooks";
@@ -10,11 +10,17 @@ import { StoryCastMember, StoryScript } from "src/types";
 import { StoryCastEditor } from "src/components/molecules/StoryCastEditor";
 import {
   applyCastRenames,
+  beatsMissingDetails,
+  buildFillDetailsPrompt,
+  buildResplitPrompt,
   buildScriptDraftPrompt,
   cleanScript,
   emptyScript,
+  keepSource,
   loadStoryTemplates,
   makeBeat,
+  parseFillDetails,
+  parseResplit,
   parseScriptDraft,
   saveStoryTemplate,
   StoryTemplate,
@@ -45,6 +51,11 @@ const StoryScriptDialog: React.FC<StoryScriptDialogProps> = ({ open, onOpenChang
   const [pasted, setPasted] = useState("");
   const [splitting, setSplitting] = useState(false);
   const [splitError, setSplitError] = useState<string | null>(null);
+  // "Read the story again" (#240): which helper call is running, and the
+  // beat (1-based) to split again from.
+  const [rereading, setRereading] = useState<"details" | "split" | null>(null);
+  const [rereadError, setRereadError] = useState<string | null>(null);
+  const [resplitFrom, setResplitFrom] = useState(1);
   const [templates, setTemplates] = useState<StoryTemplate[]>([]);
   const [templateName, setTemplateName] = useState("");
   // The story's people as the script text names them, so a rename can be
@@ -57,6 +68,8 @@ const StoryScriptDialog: React.FC<StoryScriptDialogProps> = ({ open, onOpenChang
     setCastBefore(script?.cast);
     setPasted("");
     setSplitError(null);
+    setRereadError(null);
+    setResplitFrom(Math.min((script?.currentBeat ?? 0) + 1, Math.max(1, script?.beats.length ?? 1)));
     setTemplates(loadStoryTemplates());
   }, [open, script]);
 
@@ -78,7 +91,8 @@ const StoryScriptDialog: React.FC<StoryScriptDialogProps> = ({ open, onOpenChang
       const reply = await dispatch(generateAssistText({ instruction: buildScriptDraftPrompt(pasted.trim()) })).unwrap();
       const parsed = parseScriptDraft(reply);
       if (!parsed) throw new Error("The AI's answer couldn't be read as a story plan. Try again, or write the beats yourself.");
-      update({ ...parsed, cast: parsed.cast || [], currentBeat: 0 });
+      // The story's text is kept with the script (#240), to read it again later.
+      update({ ...parsed, cast: parsed.cast || [], currentBeat: 0, source: keepSource(pasted) });
       setCastBefore(parsed.cast);
     } catch (err: any) {
       setSplitError(typeof err === "string" ? err : err?.message || "Couldn't split the story.");
@@ -86,6 +100,27 @@ const StoryScriptDialog: React.FC<StoryScriptDialogProps> = ({ open, onOpenChang
       setSplitting(false);
     }
   };
+
+  // Both keep the beats already there and where the story is; only the
+  // helper reads the kept story, never a reply.
+  const handleReread = async (kind: "details" | "split") => {
+    if (!draft.source) return;
+    setRereading(kind);
+    setRereadError(null);
+    try {
+      const from = Math.max(0, Math.min(resplitFrom - 1, draft.beats.length));
+      const instruction = kind === "details" ? buildFillDetailsPrompt(draft) : buildResplitPrompt(draft, from);
+      const reply = await dispatch(generateAssistText({ instruction })).unwrap();
+      const next = kind === "details" ? parseFillDetails(reply, draft) : parseResplit(reply, draft, from);
+      if (!next) throw new Error("The AI's answer couldn't be read. Try again.");
+      setDraft(next);
+    } catch (err: any) {
+      setRereadError(typeof err === "string" ? err : err?.message || "Couldn't read the story again.");
+    } finally {
+      setRereading(null);
+    }
+  };
+  const missingDetails = beatsMissingDetails(draft).filter((i) => draft.beats[i].text.trim()).length;
 
   // Renames are written into the script text here, once, rather than on
   // every keystroke, where half-typed names would be swapped in.
@@ -125,6 +160,35 @@ const StoryScriptDialog: React.FC<StoryScriptDialogProps> = ({ open, onOpenChang
               </div>
             </div>
           </details>
+
+          {draft.source && (
+            <details className="rounded-lg border border-border px-3 py-2">
+              <summary className="cursor-pointer font-medium text-foreground">Read the story again</summary>
+              <div className="mt-3 flex flex-col gap-3">
+                <span className="text-xs text-subtle">Your story is kept with the script, so the AI can read it again. Replies never see it, only the beats.</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => handleReread("details")} disabled={rereading !== null || missingDetails === 0}>
+                    <FaMagic size={11} /> {rereading === "details" ? "Reading..." : "Fill in beat events"}
+                  </Button>
+                  <span className="text-xs text-subtle">{missingDetails === 0 ? "Every beat has its events." : `${missingDetails} beat${missingDetails === 1 ? " has" : "s have"} none yet.`}</span>
+                </div>
+                {draft.beats.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Split again from beat</span>
+                    <Select aria-label="Split again from beat" value={String(resplitFrom)} onChange={(e) => setResplitFrom(Number(e.target.value))} className="w-20">
+                      {draft.beats.map((_, i) => (
+                        <option key={i} value={String(i + 1)}>{i + 1}</option>
+                      ))}
+                    </Select>
+                    <Button type="button" variant="outline" size="sm" onClick={() => handleReread("split")} disabled={rereading !== null}>
+                      <FaMagic size={11} /> {rereading === "split" ? "Splitting..." : "Split again"}
+                    </Button>
+                  </div>
+                )}
+                {rereadError && <span role="alert" className="text-xs text-destructive">{rereadError}</span>}
+              </div>
+            </details>
+          )}
 
           <label className="flex flex-col gap-1.5">
             <span className="text-[11.5px] text-muted-foreground">Premise</span>

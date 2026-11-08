@@ -33,6 +33,7 @@ export const cleanScript = (script: StoryScript): StoryScript | undefined => {
     ending: script.ending?.trim() || "",
     mode: script.mode,
     currentBeat: Math.max(0, Math.min(script.currentBeat, beats.length)),
+    ...(script.source?.trim() ? { source: keepSource(script.source) } : {}),
   };
   return cleaned.premise || cleaned.beats.length > 0 || cleaned.directions || cleaned.ending ? cleaned : undefined;
 };
@@ -170,6 +171,14 @@ export const beatRange = (story: string): { min: number; max: number } => {
   return { min: Math.min(min, max), max };
 };
 
+// Keep the story's text (#240): the pasted story is saved with the script
+// so it can be read again (to fill in beat events, or re-split the rest).
+// It's capped because it's stored in every save of the chat or adventure
+// and in backups; 200k characters is a long novella, far more than the
+// helper model is ever sent in one go anyway.
+export const STORY_SOURCE_MAX = 200_000;
+export const keepSource = (story: string): string => story.trim().slice(0, STORY_SOURCE_MAX);
+
 // "Paste a story": the AI splits the user's text into a script for review,
 // with the story's own people so they can be renamed or played.
 export const buildScriptDraftPrompt = (story: string): string => {
@@ -210,6 +219,84 @@ export const parseScriptDraft = (reply: string): Pick<StoryScript, "premise" | "
   } catch {
     return undefined;
   }
+};
+
+// "Read the story again" (#240), for a script whose story was kept: the
+// helper reads it once more to (a) fill in what happens in beats that have
+// no events yet, keeping the beats and progress, or (b) split the story
+// again from a chosen beat on, keeping the beats before it.
+const parseJsonObject = (reply: string): any => {
+  const raw = reply.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  const start = raw.indexOf("{");
+  const end = raw.lastIndexOf("}");
+  if (start < 0 || end <= start) return undefined;
+  try {
+    return JSON.parse(raw.slice(start, end + 1));
+  } catch {
+    return undefined;
+  }
+};
+
+export const beatsMissingDetails = (script: StoryScript): number[] =>
+  script.beats.map((b, i) => (b.details?.trim() ? -1 : i)).filter((i) => i >= 0);
+
+export const buildFillDetailsPrompt = (script: StoryScript): string => {
+  const missing = new Set(beatsMissingDetails(script));
+  const list = script.beats.map((b, i) => `${i + 1}. ${b.text}${missing.has(i) ? " (needs events)" : ""}`).join("\n");
+  return `A story has been planned as the beats below. For each beat marked "(needs events)", write what happens in it in the story: who's there, what they do and the key lines said, in order, 2-4 sentences, using only the story's own events. Keep the beats as they are.
+
+Beats:
+${list}
+
+Reply with only a JSON object, no code fence:
+{"beats": [{"beat": 1, "events": "what happens in beat 1"}]}
+
+Story:
+${script.source || ""}`;
+};
+
+// Fills in only beats that had no events; anything already written stays.
+export const parseFillDetails = (reply: string, script: StoryScript): StoryScript | undefined => {
+  const data = parseJsonObject(reply);
+  if (!data || !Array.isArray(data.beats)) return undefined;
+  const missing = new Set(beatsMissingDetails(script));
+  const found = new Map<number, string>();
+  for (const b of data.beats) {
+    const n = Number(b?.beat ?? b?.n);
+    const events = typeof b?.events === "string" ? b.events.trim() : "";
+    if (Number.isInteger(n) && missing.has(n - 1) && events) found.set(n - 1, events);
+  }
+  if (found.size === 0) return undefined;
+  return { ...script, beats: script.beats.map((b, i) => (found.has(i) ? { ...b, details: found.get(i) } : b)) };
+};
+
+// `from` is the index of the first beat to split again.
+export const buildResplitPrompt = (script: StoryScript, from: number): string => {
+  const kept = script.beats.slice(0, from);
+  const source = script.source || "";
+  const { min, max } = beatRange(source);
+  const left = Math.max(1, max - kept.length);
+  return `A story is being turned into a roleplay plan of beats. ${kept.length > 0 ? `These first beats are already planned; keep them and don't repeat them:\n${kept.map((b, i) => `${i + 1}. ${b.text}`).join("\n")}\n\nSplit the rest of the story, from where beat ${kept.length} ends,` : "Split the whole story"} into beats, in order. Keep the story's plot, names and order of events; don't add new events. Give each key event its own beat, one short sentence each, about ${Math.max(1, Math.min(left, min - kept.length))} to ${left} beats.
+
+Reply with only a JSON object, no code fence:
+{"beats": [{"beat": "the key event, one short sentence", "events": "what happens in it in the story, in order: who's there, what they do and the key lines said, 2-4 sentences"}]}
+
+Story:
+${source}`;
+};
+
+// The beats before `from` are kept as they are, and so is where the story
+// is (kept in range), so re-splitting never loses progress.
+export const parseResplit = (reply: string, script: StoryScript, from: number): StoryScript | undefined => {
+  const data = parseJsonObject(reply);
+  if (!data || !Array.isArray(data.beats)) return undefined;
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const fresh: StoryBeat[] = data.beats
+    .map((b: any) => (typeof b === "string" ? makeBeat(b.trim()) : makeBeat(str(b?.beat ?? b?.text), str(b?.events ?? b?.details) || undefined)))
+    .filter((b: StoryBeat) => b.text);
+  if (fresh.length === 0) return undefined;
+  const beats = [...script.beats.slice(0, from), ...fresh].slice(0, MAX_BEATS);
+  return { ...script, beats, currentBeat: Math.min(script.currentBeat, beats.length) };
 };
 
 // A short reminder of where the story is, sent after the conversation
@@ -364,7 +451,10 @@ export const loadStoryTemplates = (): StoryTemplate[] => {
 
 export const saveStoryTemplate = (name: string, script: StoryScript): StoryTemplate[] => {
   const templates = loadStoryTemplates().filter((t) => t.name !== name);
-  const next = [...templates, { id: newBeatId(), name, script: { ...script, currentBeat: 0 } }];
+  // Without the story's text (#240): localStorage is small, and a template
+  // is the plan to reuse, not the story it came from.
+  const { source: _source, ...plan } = script;
+  const next = [...templates, { id: newBeatId(), name, script: { ...plan, currentBeat: 0 } }];
   localStorage.setItem(LS_STORY_TEMPLATES, JSON.stringify(next));
   return next;
 };
