@@ -9,8 +9,8 @@ import { firstTextLimitOf, MAX_UNANSWERED } from "src/features/character/firstTe
 import { LEFT_ON_READ_LEVELS } from "src/features/chat/leftOnRead";
 import { describeMood, fadedMood } from "src/features/chat/lingeringMood";
 import { dayLogFor } from "src/features/character/dayLog";
-import { writeDayLog } from "src/components/molecules/DayLogWriter";
-import { writeConcerns } from "src/components/molecules/ConcernsWriter";
+import { writeDayLog } from "src/features/character/engine/dayLogJob";
+import { writeConcerns } from "src/features/character/engine/concernsJob";
 import { dropConcern, openConcerns } from "src/features/character/preoccupations";
 import { Character, Chat } from "src/types";
 import { zoneOf } from "src/features/character/characterClock";
@@ -40,7 +40,7 @@ export const AliveSection: React.FC<{ character: Character }> = ({ character }) 
   const writeToday = async () => {
     setWritingDay(true);
     try {
-      await writeDayLog(dispatch, character, () => undefined);
+      await writeDayLog(dispatch, character);
     } finally {
       setWritingDay(false);
     }
@@ -50,7 +50,7 @@ export const AliveSection: React.FC<{ character: Character }> = ({ character }) 
   const writeThisWeek = async () => {
     setWritingConcerns(true);
     try {
-      await writeConcerns(dispatch, character, () => undefined);
+      await writeConcerns(dispatch, character);
     } finally {
       setWritingConcerns(false);
     }
