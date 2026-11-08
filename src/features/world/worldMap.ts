@@ -1,4 +1,4 @@
-import { MapPin, World } from "../../types";
+import { Faction, MapPin, World } from "../../types";
 
 // World map (#66): a picture of a World with its places pinned on it. The
 // scene tracker's location (#9), or the place an adventure's narrator last
@@ -40,3 +40,27 @@ export const latestPinIn = (texts: string[], pins: MapPin[]): MapPin | undefined
   }
   return undefined;
 };
+
+// Factions on the map (#246): a pin can belong to a family or faction
+// (#171), shown in that faction's colour with a small legend, and the map
+// can show one faction's places alone. Colours go by the faction's place in
+// the world's list, so they stay the same between visits; rose (no faction),
+// amber (selected) and the theme's own colour (you are here) are left out.
+export const FACTION_COLORS = ["#2563eb", "#16a34a", "#9333ea", "#0891b2", "#ea580c", "#4f46e5", "#0d9488", "#a16207"];
+
+export const factionOfPin = (pin: Pick<MapPin, "factionId">, factions: Faction[] = []): Faction | undefined =>
+  pin.factionId ? factions.find((f) => f.id === pin.factionId) : undefined;
+
+export const factionColor = (factionId: string | undefined, factions: Faction[] = []): string | undefined => {
+  const i = factionId ? factions.findIndex((f) => f.id === factionId) : -1;
+  return i < 0 ? undefined : FACTION_COLORS[i % FACTION_COLORS.length];
+};
+
+// The factions that hold a place on the map, in the world's order, for the legend.
+export const factionsOnMap = (pins: MapPin[], factions: Faction[] = []): Faction[] =>
+  factions.filter((f) => pins.some((p) => p.factionId === f.id));
+
+// The pins the filter shows: all, or one faction's ("none" = places no
+// faction holds, a faction since deleted included).
+export const pinsShown = (pins: MapPin[], filter: string | undefined, factions: Faction[] = []): MapPin[] =>
+  !filter ? pins : filter === "none" ? pins.filter((p) => !factionOfPin(p, factions)) : pins.filter((p) => p.factionId === filter);

@@ -35,9 +35,11 @@ export const feedPeersFor = (poster: Character, characters: Character[], chats: 
 
 const about = (c: Pick<Character, "description" | "prompt">) => [c.description, c.prompt].filter(Boolean).join(" ").slice(0, 300);
 
-export const buildFeedReactionsPrompt = (poster: Character, status: CharacterStatus, peers: FeedPeer[]): string =>
+// `worldTruths`: what's true in the poster's world (#245), so the friends
+// react knowing it.
+export const buildFeedReactionsPrompt = (poster: Character, status: CharacterStatus, peers: FeedPeer[], worldTruths?: string): string =>
   `${poster.name} just posted a status for their friends: "${status.text}"
-
+${worldTruths ? `${worldTruths}\n` : ""}
 Their friends who see it:
 ${peers.map((p) => `- ${p.character.name}: ${about(p.character)}${p.feeling ? ` How ${p.character.name} feels about ${poster.name}: ${p.feeling}.` : ""}`).join("\n")}
 
@@ -71,12 +73,12 @@ export const parseFeedReactions = (reply: string, peers: FeedPeer[], now: number
 };
 
 // The poster answers your comment, in their own voice.
-export const buildCommentReplyPrompt = (poster: Character, status: CharacterStatus, comment: string, userName: string): string =>
+export const buildCommentReplyPrompt = (poster: Character, status: CharacterStatus, comment: string, userName: string, worldTruths?: string): string =>
   `${poster.name} posted a status: "${status.text}"
 ${status.comments?.filter((c) => c.from !== "you").length ? `Friends commented:\n${status.comments.filter((c) => c.from !== "you").map((c) => `- ${c.text}`).join("\n")}\n` : ""}${userName} commented: "${comment}"
 
 About ${poster.name}: ${about(poster)}
-
+${worldTruths ? `${worldTruths}\n` : ""}
 Write ${poster.name}'s reply to ${userName}'s comment: one short, warm line in their own voice, at most 120 characters, like a reply under a post. Reply with only the text.`;
 
 export const cleanCommentReply = (reply: string): string | undefined => {

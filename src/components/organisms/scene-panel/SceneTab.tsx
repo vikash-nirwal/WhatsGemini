@@ -418,6 +418,7 @@ const SceneTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, cha
                 {chatWorld?.map && (
                   <WorldMapView
                     map={chatWorld.map}
+                    factions={chatWorld.factions}
                     hereId={pinForLocation(chat?.sceneState?.location, chatWorld.map.pins)?.id}
                     className="mt-2"
                   />

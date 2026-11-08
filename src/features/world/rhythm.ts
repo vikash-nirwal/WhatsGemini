@@ -1,4 +1,4 @@
-import { World, WorldEvent } from "../../types";
+import { Character, CharacterHome, World, WorldEvent } from "../../types";
 import { storyParts } from "./storyTime";
 
 // A year with a rhythm (#222). Worlds had no seasons and nothing came back
@@ -26,16 +26,33 @@ export const yearPosition = (world: Pick<World, "storyTime"> | undefined, now: n
 };
 
 // "early spring", "late autumn": the year in four seasons, winter starting
-// in the year's last twelfth (December, on the real calendar).
-export const seasonOf = (world: Pick<World, "storyTime"> | undefined, now: number): string => {
+// in the year's last twelfth (December, on the real calendar). On the real
+// calendar a southern world or home (#243) has them the other way round,
+// winter in June; a world's own calendar keeps its seasons where they are,
+// since it was made with them.
+export const seasonOf = (world: Pick<World, "storyTime" | "hemisphere"> | undefined, now: number, south: boolean = world?.hemisphere === "south"): string => {
   const { month, day, months } = yearPosition(world, now);
   const perMonth = world?.storyTime ? Math.max(1, world.storyTime.daysPerMonth) : 31;
   // A twelfth of the year back, so winter takes in the year's last stretch
-  // whatever the number of months.
-  const through = ((month + (day - 1) / perMonth) / months + 1 / 12) % 1;
+  // whatever the number of months; half a year on for the south.
+  const flip = south && !world?.storyTime ? 0.5 : 0;
+  const through = ((month + (day - 1) / perMonth) / months + 1 / 12 + flip) % 1;
   const quarter = Math.floor(through * 4);
   const within = (through * 4) % 1;
   return `${within < 1 / 3 ? "early " : within > 2 / 3 ? "late " : ""}${SEASONS[quarter]}`;
+};
+
+// The season where someone lives (#243), from their home's latitude, on the
+// real calendar. Near the equator there are no four seasons to speak of, so
+// it's left out there.
+export const seasonAtHome = (home: Pick<CharacterHome, "lat"> | undefined, now: number): string | undefined =>
+  home && Math.abs(home.lat) >= 12 ? seasonOf(undefined, now, home.lat < 0) : undefined;
+
+// The editor's starting choice for a world without one (#243): southern
+// when most of its people with a home live south of the equator.
+export const defaultHemisphere = (people: Pick<Character, "home">[]): "north" | "south" => {
+  const homes = people.filter((c) => c.home);
+  return homes.length > 0 && homes.filter((c) => c.home!.lat < 0).length * 2 > homes.length ? "south" : "north";
 };
 
 // The tradition an event becomes: the same date every year in the world's

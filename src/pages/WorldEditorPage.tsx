@@ -22,6 +22,7 @@ import { TextInput, ChipSelectField } from "src/components/molecules/form-contro
 import LorebookStep from "./CharacterEditorPage/steps/LorebookStep";
 import { WorldVoiceFields } from "src/components/molecules/WorldVoiceFields";
 import { WorldSummariseCard } from "src/components/organisms/WorldSummariseCard";
+import { defaultHemisphere } from "../features/world/rhythm";
 import { TAG_PRESETS, WORLD_ERA_PRESETS, WORLD_TONE_PRESETS } from "../utils/constants";
 
 const makeLoreEntryId = () => `lore_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
@@ -51,6 +52,8 @@ const WorldEditorPage = () => {
   const [storyTime, setStoryTime] = useState<StoryTime | undefined>(undefined);
   const [language, setLanguage] = useState("");
   const [replyLength, setReplyLength] = useState(0);
+  // Whose seasons the real calendar gives (#243); "" = not chosen yet.
+  const [hemisphere, setHemisphere] = useState<"" | "north" | "south">("");
   const personas = useAppSelector((state) => state.settings.personas);
 
   useEffect(() => {
@@ -67,6 +70,7 @@ const WorldEditorPage = () => {
       setStoryTime(editWorld.storyTime);
       setLanguage(editWorld.language || "");
       setReplyLength(editWorld.replyLengthLimit || 0);
+      setHemisphere(editWorld.hemisphere || "");
     } else {
       setName("");
       setPremise("");
@@ -80,6 +84,7 @@ const WorldEditorPage = () => {
       setStoryTime(undefined);
       setLanguage("");
       setReplyLength(0);
+      setHemisphere("");
     }
   }, [editWorld]);
 
@@ -111,6 +116,8 @@ const WorldEditorPage = () => {
   // AI help on every field (#144), and filling the rest at once.
   const assist = useWorldAssist();
   const residents = useAppSelector((state) => state.character.characters).filter((c) => editWorld && c.worldId === editWorld.id);
+  // Not chosen yet: southern when most people here live in the south.
+  const shownHemisphere = hemisphere || defaultHemisphere(residents);
   const draftWorld = { name, premise, tone, era, details: settingDetails };
   const [filling, setFilling] = useState(false);
   const fillRest = async () => {
@@ -171,7 +178,7 @@ const WorldEditorPage = () => {
       return;
     }
     setSaveError(null);
-    const payload = { name: name.trim(), premise: premise.trim(), settingDetails: settingDetails.trim() || undefined, tone: tone.trim() || undefined, era: era.trim() || undefined, tags, loreEntries, map, personaId: personaId && personaId !== NEW_PERSONA ? personaId : undefined, storyTime, language: language.trim() || undefined, replyLengthLimit: replyLength || undefined };
+    const payload = { name: name.trim(), premise: premise.trim(), settingDetails: settingDetails.trim() || undefined, tone: tone.trim() || undefined, era: era.trim() || undefined, tags, loreEntries, map, personaId: personaId && personaId !== NEW_PERSONA ? personaId : undefined, storyTime, language: language.trim() || undefined, replyLengthLimit: replyLength || undefined, hemisphere: shownHemisphere };
     if (editWorld) {
       // Only the editor's fields (#173): events, storylines and the rest
       // written while it was open stay.
@@ -210,6 +217,16 @@ const WorldEditorPage = () => {
             <SuggestField id="world-details" label="Setting details (optional)" multiline value={settingDetails} onChange={setSettingDetails} hint="Longer background - history, factions, rules of the world." placeholder="History, factions, magic/tech rules, geography..." onSuggest={() => assist.suggestField("details", draftWorld, residents)} />
             <SuggestField id="world-tone" label="Tone" value={tone} onChange={setTone} options={WORLD_TONE_PRESETS} placeholder="e.g. Whimsical fairy-tale horror" onSuggest={() => assist.suggestField("tone", draftWorld, residents)} />
             <SuggestField id="world-era" label="Era or technology" value={era} onChange={setEra} options={WORLD_ERA_PRESETS} hint="A medieval world can still 'text': messages stand for letters or messengers." placeholder="e.g. Today, phones and all" onSuggest={() => assist.suggestField("era", draftWorld, residents)} />
+            {!storyTime && (
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="world-hemisphere" className="text-sm font-medium text-foreground">Seasons</label>
+                <Select id="world-hemisphere" aria-label="Seasons" value={shownHemisphere} onChange={(e) => setHemisphere(e.target.value as "north" | "south")}>
+                  <option value="north">Northern (winter in December)</option>
+                  <option value="south">Southern (winter in June)</option>
+                </Select>
+                <p className="text-xs text-subtle">Which half of the world this one's seasons follow. A world with its own calendar keeps its own.</p>
+              </div>
+            )}
             <WorldVoiceFields idPrefix="world" language={language} onLanguage={setLanguage} replyLength={replyLength} onReplyLength={setReplyLength} />
             <ChipSelectField label="Tags" value={tags} onChange={setTags} presets={TAG_PRESETS} placeholder="Add a tag..." />
             <div className="flex flex-col gap-1.5">
@@ -243,7 +260,7 @@ const WorldEditorPage = () => {
               <FaMap size={13} className="text-subtle" /> Map
             </h3>
             <p className="text-xs text-subtle">A map of the world with its places pinned. In a chat set in this world (with the scene tracked) or an adventure, the place the story is at shows as "you are here".</p>
-            {map && <WorldMapView map={map} onChange={setMap} />}
+            {map && <WorldMapView map={map} onChange={setMap} factions={editWorld?.factions} />}
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" size="sm" onClick={handleGenerateMap} disabled={mapBusy}>
                 {mapBusy ? "Drawing..." : map ? "Redraw" : "Generate"}

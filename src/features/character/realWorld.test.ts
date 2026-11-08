@@ -62,7 +62,7 @@ describe("real-world grounding (#112)", () => {
     expect(localTime(NOW, "Europe/Lisbon")).toBe("Wednesday 10:30");
     expect(localTime(NOW, "Asia/Kolkata")).toBe("Wednesday 15:00");
     const note = buildPlaceSection("Aria", lisbon, { temperature: 18, code: 61, isDay: true, fetchedAt: NOW }, [{ name: "Natal", inDays: 1 }], NOW);
-    expect(note).toContain("Aria lives in Lisbon, Portugal. It's Wednesday 10:30 there.");
+    expect(note).toContain("Aria lives in Lisbon, Portugal. It's Wednesday 10:30 there, in autumn.");
     expect(note).toContain("The weather there right now: raining, 18°C.");
     expect(note).toContain("Public holidays where Aria lives: Natal (tomorrow).");
     expect(note).toContain("never as a report");

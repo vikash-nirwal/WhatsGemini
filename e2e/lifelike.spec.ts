@@ -279,7 +279,8 @@ test("a home city gives the character the local time, weather and holidays (#112
   await sendAndWait(page, mockAI.requests, "hey");
   const system = lastSystem(mockAI.requests);
   expect(system).toContain("Aria lives in Lisbon, Portugal. It's ");
-  expect(system).toContain(" there.");
+  // With the season where they live (#243).
+  expect(system).toMatch(/ there, in (early |late )?(winter|spring|summer|autumn)\./);
   expect(system).toContain("The weather there right now: raining, 18°C.");
   expect(system).toContain("Public holidays where Aria lives: Dia de Teste (today).");
 });

@@ -1,4 +1,5 @@
 import { CharacterHome } from "../../types";
+import { seasonAtHome } from "../world/rhythm";
 
 // Real-world grounding (#112): a character with a home city gets the local
 // time there, the weather right now (Open-Meteo, no key) and the public
@@ -165,17 +166,21 @@ const whenHoliday = (inDays: number): string => (inDays === 0 ? "today" : inDays
 // The one-liner first texts and statuses get: "raining, 14°C".
 export const weatherLine = (weather: Weather | undefined): string | undefined => (weather ? `${describeWeather(weather.code)}, ${weather.temperature}°C` : undefined);
 
-// "Lisbon, Portugal, Wednesday 10:30, raining, 18°C" for statuses and first texts.
+// "Lisbon, Portugal, Wednesday 10:30, autumn, raining, 18°C" for statuses
+// and first texts. The season is their home's (#243), so someone in Sydney
+// posts about summer in December.
 export const placeLine = (home: CharacterHome | undefined, now: number): string | undefined => {
   if (!home) return undefined;
   const weather = weatherLine(cachedWeather(home, now));
-  return [describePlace(home), localTime(now, home.timeZone), weather].filter(Boolean).join(", ");
+  return [describePlace(home), localTime(now, home.timeZone), seasonAtHome(home, now), weather].filter(Boolean).join(", ");
 };
 
 export const buildPlaceSection = (name: string, home: CharacterHome, weather: Weather | undefined, holidays: { name: string; inDays: number }[], now: number): string => {
   const time = localTime(now, home.timeZone);
+  // The season by their home's hemisphere (#243).
+  const season = seasonAtHome(home, now);
   const lines = [
-    `${name} lives in ${describePlace(home)}.${time ? ` It's ${time} there.` : ""}`,
+    `${name} lives in ${describePlace(home)}.${time ? ` It's ${time} there${season ? `, in ${season}` : ""}.` : season ? ` It's ${season} there.` : ""}`,
     ...(weather ? [`The weather there right now: ${describeWeather(weather.code)}, ${weather.temperature}°C${weather.isDay ? "" : ", after dark"}.`] : []),
     ...(holidays.length > 0 ? [`Public holidays where ${name} lives: ${holidays.map((h) => `${h.name} (${whenHoliday(h.inDays)})`).join(", ")}.`] : []),
     `Mention these only when they'd naturally come up - the weather when going out or looking out of the window, the hour when it's late or early, a holiday when it's near - never as a report.`,

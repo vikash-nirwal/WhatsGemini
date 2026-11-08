@@ -4,7 +4,8 @@ import { bondOf, bondWords, intensity, moodOf, moodReasonOf, reasonOf } from "./
 import { canonLine, canonOf } from "./canon";
 import { extrasLine } from "./extras";
 import { seasonOf } from "./rhythm";
-import type { TimelineEntry } from "./timeline";
+import { cachedTimeline, type TimelineEntry } from "./timeline";
+import { anniversaryNoteFor } from "./anniversaries";
 import { featureOn } from "./worldPrefs";
 
 // The world as it is now, for the chats you type in (#226). The world engine's
@@ -39,8 +40,9 @@ const STRONG_BOND = 30;
 
 // One person's own state: their mood, the people they're closest to or
 // most at odds with lately and why, and the people around them who aren't
-// characters (with that switch on).
-export const buildInnerStateNote = (character: Character | undefined, world: World | undefined, cast: Character[], now: number): string | undefined => {
+// characters (with that switch on), and what they remember from a year ago
+// today (#244). The timeline is the one already loaded for the world.
+export const buildInnerStateNote = (character: Character | undefined, world: World | undefined, cast: Character[], now: number, timeline: TimelineEntry[] = character ? cachedTimeline(character.worldId ?? null) : []): string | undefined => {
   if (!character) return undefined;
   const lines: string[] = [];
   const mood = moodOf(character, now);
@@ -59,5 +61,7 @@ export const buildInnerStateNote = (character: Character | undefined, world: Wor
     const extras = extrasLine(world, [character], cast);
     if (extras) lines.push(extras);
   }
+  const anniversary = anniversaryNoteFor(character.id, timeline, world, now);
+  if (anniversary) lines.push(anniversary);
   return lines.length ? lines.join("\n") : undefined;
 };

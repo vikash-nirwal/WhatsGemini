@@ -41,18 +41,18 @@ export const crowdReactions = (postId: string): Record<string, number> => {
   return out;
 };
 
-export const buildCharacterChannelPrompt = (character: Pick<Character, "name" | "description" | "prompt">, recent: string[], context: { dayLog?: string; concerns?: string; now?: number }): string =>
+export const buildCharacterChannelPrompt = (character: Pick<Character, "name" | "description" | "prompt">, recent: string[], context: { dayLog?: string; concerns?: string; now?: number; worldTruths?: string }): string =>
   `${character.name} runs a broadcast channel for followers, like a WhatsApp Channel: short updates about their life, their work or what they make, to many people at once.
 ${context.now ? `${nowLine(context.now)} Keep to it: what their day says already happened is in the past.\n` : ""}
 About ${character.name}: ${[character.description, character.prompt].filter(Boolean).join(" ").slice(0, 600)}
-${context.dayLog ? `Their day (keep to it): ${context.dayLog}\n` : ""}${context.concerns ? `On their mind: ${context.concerns}\n` : ""}${recent.length ? `Their last posts (don't repeat them):\n- ${recent.join("\n- ")}\n` : ""}
+${context.dayLog ? `Their day (keep to it): ${context.dayLog}\n` : ""}${context.concerns ? `On their mind: ${context.concerns}\n` : ""}${context.worldTruths ? `${context.worldTruths}\n` : ""}${recent.length ? `Their last posts (don't repeat them):\n- ${recent.join("\n- ")}\n` : ""}
 Write their next channel post: one to three sentences, to followers (not to one person), in their own voice. An emoji or two is fine, no hashtags, no links. Reply with only the post.`;
 
-export const buildWorldChannelPrompt = (world: Pick<World, "name" | "premise" | "tone" | "settingDetails">, places: string[], recent: string[], events?: string): string =>
+export const buildWorldChannelPrompt = (world: Pick<World, "name" | "premise" | "tone" | "settingDetails">, places: string[], recent: string[], events?: string, worldTruths?: string): string =>
   `${world.name} has a news channel its people follow, like a WhatsApp Channel: a town crier, a local paper, a guild board, whatever fits the setting.
 
 The world: ${world.premise}${world.tone ? ` Tone: ${world.tone}.` : ""}
-${world.settingDetails ? `${world.settingDetails.slice(0, 600)}\n` : ""}${events ? `Going on right now (cover it, or how it's going): ${events}\n` : ""}${places.length ? `Places: ${places.join(", ")}\n` : ""}${recent.length ? `Recent posts (don't repeat them):\n- ${recent.join("\n- ")}\n` : ""}
+${world.settingDetails ? `${world.settingDetails.slice(0, 600)}\n` : ""}${events ? `Going on right now (cover it, or how it's going): ${events}\n` : ""}${worldTruths ? `${worldTruths}\n` : ""}${places.length ? `Places: ${places.join(", ")}\n` : ""}${recent.length ? `Recent posts (don't repeat them):\n- ${recent.join("\n- ")}\n` : ""}
 Write the next post: one short piece of local news, a notice or a rumor, one to three sentences, in the voice of whoever runs the channel. No links, no hashtags. Reply with only the post.`;
 
 export const cleanChannelPost = (reply: string): string | undefined => {
