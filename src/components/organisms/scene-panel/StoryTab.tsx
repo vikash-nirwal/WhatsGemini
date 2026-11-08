@@ -50,6 +50,8 @@ const StoryTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, onC
           {chat && <GodTruthsSection chat={chat} />}
           {!isRoom && character && chat && <PlansSection chat={chat} characterName={character.name} />}
           {!isRoom && character && chat && <InsideJokesSection chat={chat} characterName={character.name} />}
+          {/* A group's own inside jokes (#250) */}
+          {isRoom && chat && <InsideJokesSection chat={chat} characterName="Someone" />}
           {!isRoom && character && chat && <LiesSection chat={chat} characterName={character.name} />}
           {!isRoom && character && <PastSection character={character} />}
 

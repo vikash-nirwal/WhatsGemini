@@ -15,7 +15,7 @@ import { buildPollVotesPrompt, castYourVote, parsePollVotes } from "../../featur
 import { renameGroupChat } from "../../features/chatSlice";
 import { secretsInPlay } from "../../features/character/secrets";
 import { StoryTags } from "../../features/chat/storyTags";
-import { trustAfter } from "../../features/chat/conflicts";
+import { fightChange, trustAfter } from "../../features/chat/conflicts";
 import { moodAfterReply } from "../../features/chat/lingeringMood";
 import { addLie, catchLie, standingLies } from "../../features/chat/lies";
 import { markRumorRaised, pendingRumors } from "../../features/character/rumors";
@@ -197,11 +197,10 @@ export const useReplyEffects = ({
 
   // Story tags (#97, #98, #100): which of them this reply's tags really
   // change, given the chat as it is - a fight starts only when one isn't on,
-  // making up only ends one, a caught lie must be a standing one, a rumor
-  // must be waiting.
+  // making up only ends one (in a group, #250, only the member it's with),
+  // a caught lie must be a standing one, a rumor must be waiting.
   const tagEffects = (tags: StoryTags | undefined, speaker = characterData) => ({
-    upset: Boolean(!isRoom && tags?.upset && currentChat?.conflicts && !currentChat.conflict),
-    madeUp: Boolean(!isRoom && tags?.madeUp && currentChat?.conflict),
+    ...fightChange(currentChat, tags, isRoom, speaker?.id),
     lie: !isRoom && currentChat?.lies && tags?.lie ? tags.lie : undefined,
     lieCaught: !isRoom && tags?.lieCaught && standingLies(currentChat?.toldLies)[tags.lieCaught - 1] ? tags.lieCaught : undefined,
     rumor: tags?.rumorRaised ? pendingRumors(speaker, Date.now())[0] : undefined,
@@ -223,10 +222,11 @@ export const useReplyEffects = ({
 
   // Scene state (#9): what a reply reports is merged into the chat's state.
   // A fight or making up (#97) moves trust too, after the reply's own report.
+  // Not in a group (#250): the room's tracked trust isn't one member's.
   const saveSceneState = (payload: { sceneState?: Partial<SceneState>; storyTags?: StoryTags } | undefined) => {
     if (!chatIdNum || !currentChat?.sceneTracker) return;
     const effects = tagEffects(payload?.storyTags);
-    const change = effects.upset ? "upset" : effects.madeUp ? "made-up" : undefined;
+    const change = isRoom ? undefined : effects.upset ? "upset" : effects.madeUp ? "made-up" : undefined;
     if (!payload?.sceneState && !change) return;
     const reported = mergeState(currentChat.sceneState, payload?.sceneState || {});
     const moved = change ? trustAfter(reported, change) : undefined;
@@ -261,7 +261,7 @@ export const useReplyEffects = ({
     const effects = tagEffects(payload?.storyTags, speaker);
     const now = Date.now();
     const patch: Partial<Chat> = {};
-    if (effects.upset) patch.conflict = { about: payload!.storyTags!.upset!, since: now };
+    if (effects.upset) patch.conflict = { about: payload!.storyTags!.upset!, since: now, ...(isRoom ? { withId: speaker?.id } : {}) };
     if (effects.madeUp) patch.conflict = undefined;
     let lies = currentChat?.toldLies;
     if (effects.lieCaught) lies = catchLie(lies, effects.lieCaught, now);

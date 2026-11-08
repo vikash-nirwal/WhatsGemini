@@ -50,3 +50,24 @@ export const buildJokesSection = (jokes: InsideJoke[] | undefined, characterName
   if (list.length === 0) return undefined;
   return `Things only ${characterName} and ${userName} share - nicknames, running jokes, rituals:\n${list.map((j) => `- ${j.text.trim()}`).join("\n")}\nBring one back now and then when it fits naturally (a callback, the nickname, the ritual) - not in every reply.`;
 };
+
+// Inside jokes in a group (#250) belong to the whole group: one list on the
+// group chat, noticed by the same helper check, and every member's prompt
+// carries it.
+const namesList = (names: string[]): string =>
+  names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+
+export const buildGroupJokesPrompt = (memberNames: string[], userName: string, existing: InsideJoke[], transcript: string): string =>
+  `Read this stretch of a group roleplay between ${userName}, ${namesList(memberNames)}.
+
+${transcript}
+
+${existing.length > 0 ? `Already noted (don't repeat these):\n${existing.map((j) => `- ${j.text}`).join("\n")}\n\n` : ""}List anything new that has become this group's own: a nickname someone got, a running joke or gag, a phrase they keep coming back to, a song or place that's theirs, a little ritual. Only things that came up more than once or clearly stuck - not one-off jokes or ordinary facts.
+Write each as one short line that explains it, e.g. "Everyone calls ${userName} 'Captain' since the boat trip".
+Reply with one "- " line each (at most ${MAX_NEW}), or only NONE.`;
+
+export const buildGroupJokesSection = (jokes: InsideJoke[] | undefined, memberNames: string[], userName: string): string | undefined => {
+  const list = (jokes || []).filter((j) => j.text.trim());
+  if (list.length === 0) return undefined;
+  return `Things only this group shares (${userName}, ${namesList(memberNames)}) - nicknames, running jokes, rituals:\n${list.map((j) => `- ${j.text.trim()}`).join("\n")}\nBring one back now and then when it fits naturally - not in every reply, and not everyone at once.`;
+};

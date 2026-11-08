@@ -97,8 +97,8 @@ import { ambientFor, ambientSceneTexts } from "../features/chat/ambientSound";
 import { useAmbientSound } from "./chat/useAmbientSound";
 import { buildDayMoodSection, dayMoodFor } from "../features/character/badDays";
 import { buildDreamDirective, dreamDue, dreamIngredients } from "../features/character/dreams";
-import { buildJokesSection } from "../features/chat/insideJokes";
-import { buildConflictDirective, buildConflictSection, upsetDelayMs } from "../features/chat/conflicts";
+import { buildGroupJokesSection, buildJokesSection } from "../features/chat/insideJokes";
+import { buildConflictDirective, buildConflictSection, groupConflictNoteFor, upsetDelayMs } from "../features/chat/conflicts";
 import { buildMoodSection, fadedMood } from "../features/chat/lingeringMood";
 import { buildDayLogSection, dayLogText } from "../features/character/dayLog";
 import { buildConcernsSection } from "../features/character/preoccupations";
@@ -321,6 +321,8 @@ const ChatPage = () => {
       // How this speaker took what was announced to their world.
       speaker.id !== undefined && world?.announcements?.some((x) => x.takes?.[speaker.id!]) ? `How ${speaker.name} took what was announced: ${world.announcements.flatMap((x) => (x.takes?.[speaker.id!] ? [`"${x.text}": ${x.takes[speaker.id!]}`] : [])).slice(-4).join("; ")}` : undefined,
       pointsMoveIn(currentChat) ? buildPointsNote(speaker, userName, roomCharacters, now, { group: true }) : undefined,
+      // A fight in the group (#250): only the member it's with carries it.
+      groupConflictNoteFor(currentChat, speaker, roomCharacters, userName, now),
     ].filter(Boolean).join("\n\n") || undefined;
   };
 
@@ -450,6 +452,9 @@ const ChatPage = () => {
   const maxContextTokensForNotes = getModelContextWindow(notesModel.provider, notesModel.model);
   const mainStory = !isRoom && !currentChat?.whatIf;
   const userNameForNotes = activePersona?.name?.trim() || "the user";
+  // Who's upset with you, for the banner: the character, or in a group the
+  // member the fight is with (#250).
+  const upsetName = isRoom ? roomCharacters.find((c) => c.id === currentChat?.conflict?.withId)?.name : characterData?.name;
   const noteTime = Date.now();
   scene.letterNote = mainStory ? recentLetterNote(characterData, currentChat, chatIdNum, userNameForNotes) : undefined;
   scene.knowsNote = mainStory ? knowsNoteFor(characterData, characters, chats, userNameForNotes) : undefined;
@@ -542,7 +547,10 @@ const ChatPage = () => {
   const dayMood = mainStory ? dayMoodFor(characterData, noteTime) : undefined;
   scene.dayMoodNote = dayMood && characterData ? buildDayMoodSection(characterData.name, dayMood, userNameForNotes) : undefined;
   scene.dreamNote = mainStory && characterData && dreamDue(characterData, currentChat, noteTime) ? buildDreamDirective(characterData.name, userNameForNotes, dreamIngredients(characterData, currentChat)) : undefined;
-  scene.jokesNote = !isRoom && characterData ? buildJokesSection(currentChat?.insideJokes, characterData.name, userNameForNotes) : undefined;
+  // In a group (#250) the inside jokes are the whole group's, in every member's prompt.
+  scene.jokesNote = isRoom
+    ? buildGroupJokesSection(currentChat?.insideJokes, roomCharacters.map((c) => c.name), userNameForNotes)
+    : characterData ? buildJokesSection(currentChat?.insideJokes, characterData.name, userNameForNotes) : undefined;
   scene.conflictNote = !isRoom && characterData && currentChat?.conflicts
     ? currentChat.conflict ? buildConflictSection(characterData.name, userNameForNotes, currentChat.conflict, noteTime) : buildConflictDirective(characterData.name, userNameForNotes)
     : undefined;
@@ -1682,8 +1690,9 @@ const ChatPage = () => {
         await new Promise((resolve) => window.setTimeout(resolve, wait));
         setAwayNote(null);
       }
-      // Upset with you (#97): they take a little longer to answer.
-      if (!isRoom && currentChat?.conflict && !swap) {
+      // Upset with you (#97): they take a little longer to answer. In a
+      // group (#250), only the member who's upset.
+      if (currentChat?.conflict && !swap && (!isRoom || currentChat.conflict.withId === speaker.id)) {
         setAwayNote(`${speaker.name} saw your message`);
         await new Promise((resolve) => window.setTimeout(resolve, upsetDelayMs()));
         setAwayNote(null);
@@ -2883,11 +2892,11 @@ const ChatPage = () => {
         <ChatSearchBar query={searchQuery} onQueryChange={changeSearchQuery} matches={searchMatches} current={searchIndex} onStep={stepSearch} onClose={closeSearch} switchedBranch={Boolean(searchId && searchId === searchSwitchedId)} />
       )}
       <div className="flex-1 min-h-0 overflow-clip relative">
-        {/* Upset with you (#97), until you make up. */}
-        {!isRoom && characterData && currentChat?.conflict && (
+        {/* Upset with you (#97), until you make up; in a group, the member it's with (#250). */}
+        {upsetName && currentChat?.conflict && (
           <div className="pointer-events-none absolute top-2 left-1/2 -translate-x-1/2 z-10 max-w-[90%]">
             <div role="status" className="truncate rounded-full border border-destructive/30 bg-card/95 px-3 py-1 text-[12px] text-foreground shadow-soft" title={currentChat.conflict.about}>
-              <span aria-hidden>😠 </span>{characterData.name} is upset with you · {currentChat.conflict.about}
+              <span aria-hidden>😠 </span>{upsetName} is upset with you · {currentChat.conflict.about}
             </div>
           </div>
         )}

@@ -23,7 +23,7 @@ import { logChatMoment } from "../../features/world/chatMoments";
 import { STAGE_LABELS, STAGES } from "../../features/character/relationshipStages";
 import { nudgePoints, pointsMoveIn, YOU_MOMENTS } from "../../features/world/pointsNotes";
 import { tieBaseline } from "../../features/world/bonds";
-import { addJokes, buildJokesPrompt, jokeCheckDue, parseJokesReply } from "../../features/chat/insideJokes";
+import { addJokes, buildGroupJokesPrompt, buildJokesPrompt, jokeCheckDue, parseJokesReply } from "../../features/chat/insideJokes";
 import { AI, DIARY_INTERVAL, MEMORY_EXTRACTION_INTERVAL } from "../../utils/constants";
 import { Character, Chat, Message, RoleplayStyle, UserProfile } from "../../types";
 
@@ -367,17 +367,26 @@ export const useBackgroundUpdates = ({
   };
 
   // Inside jokes (#96): with "Notice inside jokes" on, every JOKE_INTERVAL
-  // messages of a 1:1 chat a helper check picks out new ones. Recorded
-  // first, like the other checks, so a stretch is never asked about twice.
+  // messages a helper check picks out new ones; in a group (#250) they're
+  // the whole group's. Recorded first, like the other checks, so a stretch
+  // is never asked about twice.
+  // A group's round has several replies, each from the same render, so the
+  // chat they see doesn't have the check's mark yet: the count is also kept
+  // here, set before anything is awaited, so a round asks once (#250).
+  const jokesCheckedRef = useRef<{ chatId?: number; at?: number }>({});
   const maybeTrackJokes = async (allMessages: Message[], speaker = characterData) => {
-    if (!chatIdNum || isRoom || !speaker || !currentChat?.jokeTracking) return;
+    if (!chatIdNum || !speaker || !currentChat?.jokeTracking) return;
     const count = allMessages.filter((m) => !m.isSystem).length;
-    if (!jokeCheckDue(count, currentChat.jokesCheckedAt)) return;
+    const seen = jokesCheckedRef.current.chatId === chatIdNum ? jokesCheckedRef.current.at : undefined;
+    if (!jokeCheckDue(count, Math.max(currentChat.jokesCheckedAt ?? 0, seen ?? -Infinity))) return;
+    jokesCheckedRef.current = { chatId: chatIdNum, at: count };
     await dispatch(updateChatOptions({ chatId: chatIdNum, patch: { jokesCheckedAt: count } }));
     try {
       const recent = trimToLatestSummary(allMessages).filter((m) => !m.isSystem).slice(-40);
       const reply = await dispatch(generateAssistText({
-        instruction: buildJokesPrompt(speaker.name, activePersona?.name?.trim() || "the user", currentChat.insideJokes || [], formatTranscript(recent, transcriptNames())),
+        instruction: isRoom
+          ? buildGroupJokesPrompt(roomCharacters.map((c) => c.name), activePersona?.name?.trim() || "the user", currentChat.insideJokes || [], formatTranscript(recent, transcriptNames()))
+          : buildJokesPrompt(speaker.name, activePersona?.name?.trim() || "the user", currentChat.insideJokes || [], formatTranscript(recent, transcriptNames())),
         background: true,
       })).unwrap();
       const fresh = await dispatch(fetchChatById(chatIdNum)).unwrap().catch(() => currentChat);

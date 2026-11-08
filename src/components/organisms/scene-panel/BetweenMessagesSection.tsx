@@ -274,3 +274,26 @@ export const DramaSection: React.FC<{ chat: Chat; character: Character }> = ({ c
     </>
   );
 };
+
+// Fights in a group (#250): the same switch, for every member. A fight is
+// with the one you hurt, until you make it up with them.
+export const GroupFightsRow: React.FC<{ chat: Chat; members: Character[] }> = ({ chat, members }) => {
+  const dispatch = useAppDispatch();
+  const set = (patch: Partial<Chat>) => dispatch(updateChatOptions({ chatId: chat.id, patch }));
+  const upset = members.find((m) => m.id === chat.conflict?.withId);
+  return (
+    <div className="flex flex-col gap-2">
+      <SwitchRow
+        title="Fights that need making up"
+        hint={`If you really hurt one of them, they stay upset (cooler, slower to answer) until you make it right with them. The others feel the tension.`}
+        checked={Boolean(chat.conflicts)}
+        onChange={(on) => set({ conflicts: on || undefined, ...(on ? {} : { conflict: undefined }) })}
+      />
+      {chat.conflict && (
+        <button type="button" className="self-start text-[11px] text-primary hover:underline" onClick={() => set({ conflict: undefined })}>
+          {upset ? `End the fight with ${upset.name} now` : "End the fight now"}
+        </button>
+      )}
+    </div>
+  );
+};

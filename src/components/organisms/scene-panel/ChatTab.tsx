@@ -17,7 +17,7 @@ import { browserLanguageName, PRACTICE_LANGUAGES } from "src/features/chat/langu
 import { BOLDNESS_LABELS, STAGE_LABELS, STAGES } from "src/features/character/relationshipStages";
 import { ScenePanelTabProps } from "./types";
 import { AmbientSection } from "./AmbientSection";
-import { AliveSection, DramaSection, MisremembersRow, MoodCarryRows, TextingSlipsRow } from "./BetweenMessagesSection";
+import { AliveSection, DramaSection, GroupFightsRow, MisremembersRow, MoodCarryRows, TextingSlipsRow } from "./BetweenMessagesSection";
 
 // The Chat tab: per-chat switches (texting, room turns, stages, co-writing,
 // language practice, suggestions...), per-character ones (statuses,
@@ -495,6 +495,13 @@ const ChatTab: React.FC<ScenePanelTabProps & { groups?: ChatTabGroup[] }> = ({ c
               })}
             </div>
           )}
+          </PanelGroup>
+          )}
+
+          {/* Fights in a group (#250) */}
+          {isRoom && chat && show("drama") && (
+          <PanelGroup id="drama" title="Drama">
+            <GroupFightsRow chat={chat} members={members} />
           </PanelGroup>
           )}
 

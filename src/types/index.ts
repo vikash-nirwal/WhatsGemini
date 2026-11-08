@@ -324,6 +324,7 @@ export interface InsideJoke {
 export interface ChatConflict {
   about: string;
   since: number;
+  withId?: number; // in a group (#250): the member who's upset with you
 }
 
 // Something the character is dealing with in their own life (#110).

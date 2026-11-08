@@ -1,6 +1,7 @@
 import { Character, Chat, Message } from "../../types";
-import { buildConflictSection, trustAfter, TRUST_DROP, upsetDelayMs } from "./conflicts";
-import { addJokes, buildJokesSection, jokeCheckDue, parseJokesReply } from "./insideJokes";
+import { buildConflictSection, fightChange, groupConflictNoteFor, trustAfter, TRUST_DROP, upsetDelayMs } from "./conflicts";
+import { addJokes, buildGroupJokesPrompt, buildGroupJokesSection, buildJokesSection, jokeCheckDue, parseJokesReply } from "./insideJokes";
+import { extractStoryTags } from "./storyTags";
 import { jealousyNoteFor, timeElsewhere } from "./jealousy";
 import { addLie, buildLiesSection, catchLie, standingLies } from "./lies";
 import { buildRumorSection, lastRumorFrom, markRumorRaised, parseRumorReply, pendingRumors, pickListener, rumorDue, rumorListenersFor } from "../character/rumors";
@@ -106,5 +107,52 @@ describe("rumors (#98)", () => {
     expect(pendingRumors({ rumors: markRumorRaised([rumor], "r", NOW) }, NOW)).toEqual([]);
     expect(pickListener([listener, mia], NOW)?.name).toBe("Mia");
     expect(buildRumorSection("Aria", "Sam", rumor, "Kai")).toContain('heard a rumor about Sam, through Kai: "Sam is moving to Rome"');
+  });
+});
+
+describe("fights and inside jokes in a group (#250)", () => {
+  const members = [{ id: 1, name: "Aria" }, { id: 2, name: "Kai" }];
+  const fight = { about: "the burnt toast joke", since: NOW - HOUR, withId: 2 };
+
+  it("gives the fight to the member it's with and a line of tension to the others", () => {
+    const room = { conflicts: true, conflict: fight };
+    expect(groupConflictNoteFor(room, members[1], members, "Sam", NOW)).toContain("Kai is upset with Sam about: the burnt toast joke (for 1 hour now)");
+    const aria = groupConflictNoteFor(room, members[0], members, "Sam", NOW)!;
+    expect(aria).toBe("Kai is upset with Sam right now (about: the burnt toast joke). You may notice the tension, in a line at most; it's their fight, not yours.");
+    expect(aria).not.toContain("[Made up]");
+  });
+
+  it("tells every member how a fight starts while none is on, and nothing when fights are off", () => {
+    expect(groupConflictNoteFor({ conflicts: true }, members[0], members, "Sam", NOW)).toContain("add [Upset: what about, in a few words]");
+    expect(groupConflictNoteFor({ conflict: fight }, members[1], members, "Sam", NOW)).toBeUndefined();
+    // The member it was with has left the group.
+    expect(groupConflictNoteFor({ conflicts: true, conflict: { ...fight, withId: 9 } }, members[0], members, "Sam", NOW)).toBeUndefined();
+  });
+
+  it("starts a fight from the speaker's [Upset:] tag and only they can make up", () => {
+    const upsetTags = extractStoryTags("Wow. Okay.\n[Upset: the burnt toast joke]").tags;
+    expect(fightChange({ conflicts: true }, upsetTags, true, 2)).toEqual({ upset: true, madeUp: false });
+    expect(fightChange({ conflicts: true, conflict: fight }, upsetTags, true, 1).upset).toBe(false);
+    const madeUp = extractStoryTags("Fine, you're forgiven.\n[Made up]").tags;
+    expect(fightChange({ conflicts: true, conflict: fight }, madeUp, true, 1).madeUp).toBe(false);
+    expect(fightChange({ conflicts: true, conflict: fight }, madeUp, true, 2).madeUp).toBe(true);
+  });
+
+  it("keeps a 1:1 chat's fights as they were", () => {
+    const tags = { upset: "x" };
+    expect(fightChange({ conflicts: true }, tags, false, undefined).upset).toBe(true);
+    expect(fightChange({ conflicts: true, conflict: { about: "x", since: 0 } }, { madeUp: true }, false, 5).madeUp).toBe(true);
+    expect(fightChange({}, tags, false, 1).upset).toBe(false);
+  });
+
+  it("shares the group's inside jokes with every member and asks about the whole group", () => {
+    const jokes = addJokes([], ["Everyone calls Sam 'Captain'"], NOW);
+    expect(buildGroupJokesSection(jokes, ["Aria", "Kai"], "Sam")).toContain("Things only this group shares (Sam, Aria and Kai)");
+    expect(buildGroupJokesSection(jokes, ["Aria", "Kai"], "Sam")).toContain("- Everyone calls Sam 'Captain'");
+    expect(buildGroupJokesSection([], ["Aria", "Kai"], "Sam")).toBeUndefined();
+    const prompt = buildGroupJokesPrompt(["Aria", "Kai", "Mo"], "Sam", jokes, "Sam: hi");
+    expect(prompt).toContain("group roleplay between Sam, Aria, Kai and Mo");
+    expect(prompt).toContain("has become this group's own");
+    expect(prompt).toContain("- Everyone calls Sam 'Captain'");
   });
 });
