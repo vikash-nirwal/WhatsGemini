@@ -1,4 +1,5 @@
 import { CharacterSchedule, ScheduleBlock } from "../../types";
+import { clockIn } from "./characterClock";
 
 // Character schedule and presence (#7): a simple daily routine, in hour
 // blocks, each with what the character is doing and whether they're free,
@@ -14,15 +15,12 @@ export const TYPICAL_DAY: ScheduleBlock[] = [
   { start: 23, end: 24, activity: "asleep", status: "asleep" },
 ];
 
-const hourOf = (now: number) => {
-  const d = new Date(now);
-  return d.getHours() + d.getMinutes() / 60;
-};
-
 // The block covering `now`; blocks may wrap past midnight (start > end).
-export const currentBlock = (schedule: CharacterSchedule | undefined, now: number): ScheduleBlock | undefined => {
+// `timeZone` is the character's home (#249, `zoneOf`): their routine runs on
+// their clock; without one, on yours.
+export const currentBlock = (schedule: CharacterSchedule | undefined, now: number, timeZone?: string): ScheduleBlock | undefined => {
   if (!schedule?.blocks?.length) return undefined;
-  const h = hourOf(now);
+  const h = clockIn(now, timeZone).hour;
   return schedule.blocks.find((b) => (b.start <= b.end ? h >= b.start && h < b.end : h >= b.start || h < b.end));
 };
 
@@ -40,8 +38,8 @@ const ago = (ms: number): string => {
   return `${Math.round(h / 24)}d ago`;
 };
 
-export const presenceFor = (schedule: CharacterSchedule | undefined, now: number, lastSeen?: number): Presence | undefined => {
-  const block = currentBlock(schedule, now);
+export const presenceFor = (schedule: CharacterSchedule | undefined, now: number, lastSeen?: number, timeZone?: string): Presence | undefined => {
+  const block = currentBlock(schedule, now, timeZone);
   if (!block) return undefined;
   if (block.status === "free") return { online: true, label: "online" };
   const seen = lastSeen ? ` · last seen ${ago(now - lastSeen)}` : "";
@@ -51,8 +49,8 @@ export const presenceFor = (schedule: CharacterSchedule | undefined, now: number
 const fmtHour = (h: number) => `${String(Math.floor(h) % 24).padStart(2, "0")}:${String(Math.round((h % 1) * 60)).padStart(2, "0")}`;
 
 // For the system prompt: the routine, and what they're doing right now.
-export const buildScheduleSection = (schedule: CharacterSchedule | undefined, now: number): string | undefined => {
-  const block = currentBlock(schedule, now);
+export const buildScheduleSection = (schedule: CharacterSchedule | undefined, now: number, timeZone?: string): string | undefined => {
+  const block = currentBlock(schedule, now, timeZone);
   if (!schedule?.blocks?.length || !block) return undefined;
   const routine = schedule.blocks.map((b) => `${fmtHour(b.start)}-${fmtHour(b.end)} ${b.activity}`).join("; ");
   const state = block.status === "asleep"
@@ -65,9 +63,9 @@ export const buildScheduleSection = (schedule: CharacterSchedule | undefined, no
 
 // "Realistic" schedules: how long a reply waits while they're busy or
 // asleep, as if they'd only just seen the message. Free: no wait.
-export const replyDelayMs = (schedule: CharacterSchedule | undefined, now: number, random: () => number = Math.random): number => {
+export const replyDelayMs = (schedule: CharacterSchedule | undefined, now: number, random: () => number = Math.random, timeZone?: string): number => {
   if (!schedule?.realistic) return 0;
-  const block = currentBlock(schedule, now);
+  const block = currentBlock(schedule, now, timeZone);
   if (!block || block.status === "free") return 0;
   const [min, max] = block.status === "asleep" ? [45_000, 120_000] : [15_000, 45_000];
   return Math.round(min + random() * (max - min));

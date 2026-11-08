@@ -1,6 +1,7 @@
 import { lifeScaled } from "../life/lifeDial";
 import { Character, CharacterDayLog } from "../../types";
 import { dayKey } from "./badDays";
+import { clockIn, zoneOf } from "./characterClock";
 
 // One consistent day (#107): with the switch on, the helper model writes once
 // a day what the character's day has actually been like (where they went, who
@@ -9,11 +10,12 @@ import { dayKey } from "./badDays";
 // statuses (#8), first texts (#93) - gets the same account, so they stop
 // contradicting each other. Cached on the character for the day.
 
-export const dayLogFor = (character: Pick<Character, "dayLog"> | undefined, now: number): CharacterDayLog | undefined =>
-  character?.dayLog?.date === dayKey(now) ? character.dayLog : undefined;
+// Their day, on their clock (#249).
+export const dayLogFor = (character: Pick<Character, "dayLog" | "home"> | undefined, now: number): CharacterDayLog | undefined =>
+  character?.dayLog?.date === dayKey(now, zoneOf(character)) ? character.dayLog : undefined;
 
 // Today's text, when there is one worth using.
-export const dayLogText = (character: Pick<Character, "dayLog"> | undefined, now: number): string | undefined =>
+export const dayLogText = (character: Pick<Character, "dayLog" | "home"> | undefined, now: number): string | undefined =>
   dayLogFor(character, now)?.text || undefined;
 
 // Due once a day, from mid-morning on, so the day has had a chance to start.
@@ -27,9 +29,9 @@ export const DAY_LOG_FROM_HOUR = 9;
 export const DAY_LOG_REFRESH_MS = 6 * 60 * 60 * 1000;
 const DAY_LOG_UNTIL_HOUR = 22;
 
-export const dayLogDue = (character: Pick<Character, "dayLogs" | "dayLog"> | undefined, now: number): boolean => {
+export const dayLogDue = (character: Pick<Character, "dayLogs" | "dayLog" | "home"> | undefined, now: number): boolean => {
   if (!character?.dayLogs) return false;
-  const hour = new Date(now).getHours();
+  const hour = clockIn(now, zoneOf(character)).hour;
   if (hour < DAY_LOG_FROM_HOUR) return false;
   const today = dayLogFor(character, now);
   if (!today) return true;
@@ -48,9 +50,9 @@ const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Frida
 
 const timeOfDay = (hour: number): string => (hour < 12 ? "morning" : hour < 17 ? "afternoon" : hour < 21 ? "evening" : "night");
 
-export const buildDayLogPrompt = (character: Pick<Character, "name" | "description" | "prompt">, now: number, ctx: DayLogContext): string => {
-  const d = new Date(now);
-  return `Write what ${character.name}'s day has been like so far today (${WEEKDAYS[d.getDay()]} ${timeOfDay(d.getHours())}), and how the rest of it looks.
+export const buildDayLogPrompt = (character: Pick<Character, "name" | "description" | "prompt" | "home">, now: number, ctx: DayLogContext): string => {
+  const clock = clockIn(now, zoneOf(character));
+  return `Write what ${character.name}'s day has been like so far today (${WEEKDAYS[clock.weekday]} ${timeOfDay(clock.hour)}), and how the rest of it looks.
 
 About ${character.name}: ${[character.description, character.prompt].filter(Boolean).join(" ").slice(0, 600)}
 ${ctx.routine ? `${ctx.routine}\n` : ""}${ctx.dayMood ? `Today they're ${ctx.dayMood}, and it shows.\n` : ""}${ctx.yesterday ? `Yesterday: ${ctx.yesterday}\n` : ""}${ctx.earlier ? `Earlier today it went like this: ${ctx.earlier}\nBring it up to date: keep what already happened, move what was still ahead into the past if its time has come, and say what's ahead now.\n` : ""}${ctx.facts.length > 0 ? `Things going on in their life lately:\n- ${ctx.facts.slice(0, 8).join("\n- ")}\n` : ""}

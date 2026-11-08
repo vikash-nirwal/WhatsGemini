@@ -13,6 +13,7 @@ import { writeDayLog } from "src/components/molecules/DayLogWriter";
 import { writeConcerns } from "src/components/molecules/ConcernsWriter";
 import { dropConcern, openConcerns } from "src/features/character/preoccupations";
 import { Character, Chat } from "src/types";
+import { zoneOf } from "src/features/character/characterClock";
 
 // A labelled switch row, as elsewhere in the Chat tab.
 export const SwitchRow: React.FC<{ title: string; hint: string; checked: boolean; onChange: (on: boolean) => void }> = ({ title, hint, checked, onChange }) => (
@@ -31,7 +32,7 @@ export const AliveSection: React.FC<{ character: Character }> = ({ character }) 
   const dispatch = useAppDispatch();
   const name = character.name;
   const set = (patch: Partial<Character>) => dispatch(updateCharacter({ ...character, ...patch }));
-  const today = dayKey(Date.now());
+  const today = dayKey(Date.now(), zoneOf(character));
   const mood = dayMoodFor(character, Date.now());
   const picked = character.dayMood?.date === today ? character.dayMood.mood || "good" : "";
   const dayLog = dayLogFor(character, Date.now());

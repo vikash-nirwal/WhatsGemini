@@ -9,6 +9,7 @@ import { buildScheduleSection } from "src/features/character/schedule";
 import { dayKey, dayMoodFor } from "src/features/character/badDays";
 import { Character } from "src/types";
 import { useLivingCharacters } from "src/hooks/useWorld";
+import { zoneOf } from "src/features/character/characterClock";
 
 const CHECK_EVERY_MS = 20 * 60 * 1000;
 // Before the status poster (15 s) and the first texter (20 s), so their first
@@ -19,11 +20,11 @@ const FIRST_CHECK_MS = 8 * 1000;
 // empty when the reply was unusable so it isn't retried all day. Yesterday's
 // log, if that's what's there, gives the day a thread to pick up.
 export const writeDayLog = async (dispatch: AppDispatch, character: Character, latest: () => Character | undefined, now = Date.now()): Promise<void> => {
-  const yesterday = character.dayLog?.date === dayKey(now - 24 * 60 * 60 * 1000) ? character.dayLog.text || undefined : undefined;
+  const yesterday = character.dayLog?.date === dayKey(now - 24 * 60 * 60 * 1000, zoneOf(character)) ? character.dayLog.text || undefined : undefined;
   // Later in the day, today's earlier account is brought up to date.
-  const earlier = character.dayLog?.date === dayKey(now) ? character.dayLog.text || undefined : undefined;
+  const earlier = character.dayLog?.date === dayKey(now, zoneOf(character)) ? character.dayLog.text || undefined : undefined;
   const prompt = buildDayLogPrompt(character, now, {
-    routine: buildScheduleSection(character.schedule, now),
+    routine: buildScheduleSection(character.schedule, now, zoneOf(character)),
     dayMood: dayMoodFor(character, now)?.label,
     facts: [...(character.pinnedMemory || []), ...(character.memory || [])].slice(-8),
     yesterday,
@@ -35,7 +36,7 @@ export const writeDayLog = async (dispatch: AppDispatch, character: Character, l
   } catch (err) {
     console.warn("Day log failed (non-fatal):", err);
   }
-  await dispatch(patchCharacter(character.id, { dayLog: { date: dayKey(now), text, writtenAt: now } }));
+  await dispatch(patchCharacter(character.id, { dayLog: { date: dayKey(now, zoneOf(character)), text, writtenAt: now } }));
 };
 
 // One consistent day (#107): while the app is open, once a day each character

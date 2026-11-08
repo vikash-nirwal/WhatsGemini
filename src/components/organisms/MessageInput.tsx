@@ -39,8 +39,9 @@ interface MessageInputProps {
   // (via the room picker below) while a draft was in the box - only that
   // character should reply to this particular message, bypassing the usual
   // @mention/round-robin pick.
-  // `isVoiceNote` marks a message recorded with hold-to-talk (#44).
-  onSend: (text: string, isImageRequest?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean, isVoiceNote?: boolean, photos?: string[], isGod?: boolean) => void;
+  // `isVoiceNote` marks a message recorded with hold-to-talk (#44);
+  // `viewOnce`, photos that open only once (#248).
+  onSend: (text: string, isImageRequest?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean, isVoiceNote?: boolean, photos?: string[], isGod?: boolean, viewOnce?: boolean) => void;
   disabled?: boolean;
   onStop?: () => void;
   // Fires while the user is actively typing a non-empty draft - lets a
@@ -199,6 +200,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
   // Photos attached to the next message (#48), already shrunk.
   const [photos, setPhotos] = useState<string[]>([]);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  // View once (#248): the attached photos open once for the character, then
+  // only a note that they were seen stays in the chat.
+  const [photosViewOnce, setPhotosViewOnce] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const addPhotos = useCallback(async (files: File[]) => {
     const images = files.filter((f) => f.type.startsWith("image/"));
@@ -364,9 +368,10 @@ const MessageInput: React.FC<MessageInputProps> = ({
     }
     setSlashError(null);
 
-    onSend(trimmedText, isImageRequest, isVideoRequest, isImpersonated, selectedSpeakerId ?? undefined, isSilentSend, false, photos.length > 0 ? photos : undefined, isGod);
+    onSend(trimmedText, isImageRequest, isVideoRequest, isImpersonated, selectedSpeakerId ?? undefined, isSilentSend, false, photos.length > 0 ? photos : undefined, isGod, photos.length > 0 && photosViewOnce);
     setText("");
     setPhotos([]);
+    setPhotosViewOnce(false);
     setPhotoError(null);
     setIsImageRequest(false); // Disable/uncheck it afterward
     setIsVideoRequest(false);
@@ -374,7 +379,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
     setIsSilentSend(false);
     setSelectedSpeakerId(null);
     setMention(null);
-  }, [text, photos, isImageRequest, isVideoRequest, isImpersonated, isSilentSend, selectedSpeakerId, onSend, disabled, isGod]);
+  }, [text, photos, photosViewOnce, isImageRequest, isVideoRequest, isImpersonated, isSilentSend, selectedSpeakerId, onSend, disabled, isGod]);
 
   // ---- Voice (#12, #44) ----
   // Dictation types what you say into the box; holding the record button
@@ -965,7 +970,11 @@ const MessageInput: React.FC<MessageInputProps> = ({
               <img src={src} alt={`Attachment ${i + 1}`} className="h-full w-full object-cover" />
               <button
                 type="button"
-                onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))}
+                onClick={() => setPhotos((prev) => {
+                  const next = prev.filter((_, j) => j !== i);
+                  if (next.length === 0) setPhotosViewOnce(false);
+                  return next;
+                })}
                 aria-label={`Remove photo ${i + 1}`}
                 className="absolute right-0.5 top-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-background/85 text-foreground hover:bg-background"
               >
@@ -973,6 +982,21 @@ const MessageInput: React.FC<MessageInputProps> = ({
               </button>
             </div>
           ))}
+          {photos.length > 0 && (
+            <button
+              type="button"
+              aria-pressed={photosViewOnce}
+              onClick={() => setPhotosViewOnce((v) => !v)}
+              title="They can open it once; then only a note that they saw it stays"
+              className={cn(
+                "inline-flex h-9 items-center gap-1.5 px-3 text-[13px] font-semibold transition",
+                terminal ? "border border-border-bright" : "rounded-full ring-1 ring-inset",
+                photosViewOnce ? "bg-primary/[0.14] text-primary-text ring-primary/40" : "text-muted-foreground ring-border hover:text-foreground"
+              )}
+            >
+              <span aria-hidden>①</span> View once
+            </button>
+          )}
           {photoError && <span role="alert" className="text-[12.5px] text-destructive">{photoError}</span>}
         </div>
       )}

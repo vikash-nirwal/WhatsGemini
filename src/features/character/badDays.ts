@@ -1,4 +1,5 @@
 import { Character } from "../../types";
+import { clockIn, zoneOf } from "./characterClock";
 
 // Bad days (#95): with the switch on, some days (about one in six, the same
 // all day) a character is off - under the weather, tired, irritable, low or
@@ -23,10 +24,8 @@ export const DAY_MOODS: DayMood[] = [
 
 const ONE_IN = 6;
 
-export const dayKey = (now: number): string => {
-  const d = new Date(now);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
+// The date, on the character's clock when given their time zone (#249).
+export const dayKey = (now: number, timeZone?: string): string => clockIn(now, timeZone).dayKey;
 
 // A small stable string hash, so the same character has the same day all day.
 const hash = (text: string): number => {
@@ -40,9 +39,9 @@ const hash = (text: string): number => {
 
 // Today's mood, or undefined on a good day (or with the switch off). A mood
 // picked by hand for today wins; "" means you picked a good day.
-export const dayMoodFor = (character: Pick<Character, "id" | "badDays" | "dayMood"> | undefined, now: number): DayMood | undefined => {
+export const dayMoodFor = (character: Pick<Character, "id" | "badDays" | "dayMood" | "home"> | undefined, now: number): DayMood | undefined => {
   if (!character?.badDays) return undefined;
-  const key = dayKey(now);
+  const key = dayKey(now, zoneOf(character));
   if (character.dayMood?.date === key) return DAY_MOODS.find((m) => m.id === character.dayMood!.mood);
   const h = hash(`${character.id}-${key}`);
   if (h % ONE_IN !== 0) return undefined;

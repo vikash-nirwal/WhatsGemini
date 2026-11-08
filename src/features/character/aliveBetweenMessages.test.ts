@@ -124,3 +124,26 @@ test("people made in a world start alive, unless their card says otherwise", () 
   expect(withDefaultLife({ name: "Mira" })).toMatchObject({ textsFirst: true, postsStatuses: true, dayLogs: true });
   expect(withDefaultLife({ name: "Mira", dreams: true })).toEqual({ name: "Mira", dreams: true });
 });
+
+// Routines in their own time zone (#249): 03:00 UTC on Thursday 15 January
+// 2026 is noon in Tokyo and 10 pm (Wednesday) in New York.
+describe("their own clock", () => {
+  const threeUtc = Date.UTC(2026, 0, 15, 3, 0);
+  const tokyo = { city: "Tokyo", lat: 35.7, lon: 139.7, timeZone: "Asia/Tokyo" };
+  const newYork = { city: "New York", lat: 40.7, lon: -74, timeZone: "America/New_York" };
+
+  it("is awake by the hour where they live", () => {
+    expect(awakeAt(aria({ home: tokyo }), threeUtc)).toBe(true);
+    expect(awakeAt(aria({ home: newYork }), threeUtc)).toBe(false);
+  });
+
+  it("dreams in their morning and keeps their date for the day's mood", () => {
+    const morningInTokyo = Date.UTC(2026, 0, 15, 0, 0); // 9 am there, 7 pm the day before in New York
+    expect(dreamDue(aria({ dreams: true, home: tokyo }), chat([]), morningInTokyo)).toBe(true);
+    expect(dreamDue(aria({ dreams: true, home: newYork }), chat([]), morningInTokyo)).toBe(false);
+    expect(dayKey(morningInTokyo, "Asia/Tokyo")).toBe("2026-01-15");
+    expect(dayKey(morningInTokyo, "America/New_York")).toBe("2026-01-14");
+    const picked = aria({ badDays: true, home: newYork, dayMood: { date: "2026-01-14", mood: "tired" } });
+    expect(dayMoodFor(picked, morningInTokyo)?.id).toBe("tired");
+  });
+});

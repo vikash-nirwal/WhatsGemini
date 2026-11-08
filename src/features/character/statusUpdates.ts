@@ -1,5 +1,6 @@
 import { lifeScaled } from "../life/lifeDial";
 import { Character, CharacterStatus } from "../../types";
+import { clockIn, zoneOf } from "./characterClock";
 
 // Status updates (#8): like WhatsApp Status, a character with statuses on
 // now and then posts a short update about their day (from their routine,
@@ -59,14 +60,21 @@ export interface StatusTimeline {
 }
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-export const nowLine = (now: number): string => {
-  const d = new Date(now);
-  return `It's ${WEEKDAYS[d.getDay()]}, ${d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} right now.`;
+// The time where they live when they have a home (#249), else yours.
+export const nowLine = (now: number, timeZone?: string): string => {
+  const time = (() => {
+    try {
+      return new Date(now).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", timeZone });
+    } catch {
+      return new Date(now).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    }
+  })();
+  return `It's ${WEEKDAYS[clockIn(now, timeZone).weekday]}, ${time} right now.`;
 };
 
-export const buildStatusPrompt = (character: Pick<Character, "name" | "description" | "prompt">, nowDoing: string | undefined, facts: string[], recent: string[], dayMood?: string, dayLog?: string, concerns?: string, place?: string, mention?: string, timeline: StatusTimeline = {}): string =>
+export const buildStatusPrompt = (character: Pick<Character, "name" | "description" | "prompt" | "home">, nowDoing: string | undefined, facts: string[], recent: string[], dayMood?: string, dayLog?: string, concerns?: string, place?: string, mention?: string, timeline: StatusTimeline = {}): string =>
   `Write one short status update that ${character.name} posts for their friends to see, like a WhatsApp Status.
-${timeline.now ? `${nowLine(timeline.now)}\n` : ""}
+${timeline.now ? `${nowLine(timeline.now, zoneOf(character))}\n` : ""}
 About ${character.name}: ${[character.description, character.prompt].filter(Boolean).join(" ").slice(0, 600)}
 ${nowDoing ? `Right now they're ${nowDoing}.\n` : ""}${dayMood ? `Today they're ${dayMood}, and it shows.\n` : ""}${dayLog ? `Their day so far (keep to it): ${dayLog}\n` : ""}${concerns ? `On their mind lately: ${concerns}\n` : ""}${place ? `Where they are: ${place}\n` : ""}${timeline.worldEvents ? `Going on in their world right now (they may post about it): ${timeline.worldEvents}\n` : ""}${facts.length > 0 ? `Things going on in their life lately:\n- ${facts.slice(0, 8).join("\n- ")}\n` : ""}${recent.length > 0 ? `Their last statuses (don't repeat them):\n- ${recent.join("\n- ")}\n` : ""}${timeline.recentChat ? `Their latest messages with ${timeline.userName || "the user"} (all of this has already happened):\n${timeline.recentChat}\n` : ""}
 - Keep to the timeline: what's in their messages, or dated in the past, has already happened. Never post about a plan, trip or meeting as still ahead (or on the way to it) once it has taken place.

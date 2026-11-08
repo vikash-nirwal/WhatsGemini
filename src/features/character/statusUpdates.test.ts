@@ -103,3 +103,10 @@ describe("how long a day is (#140)", () => {
     expect(feedItems([aria], NOW).map((i) => i.status.id)).toEqual(["s2"]);
   });
 });
+
+// Routines in their own time zone (#249): the status prompt's "now" is theirs.
+it("says the time where they live", () => {
+  const noonUtc = Date.UTC(2026, 0, 15, 12, 0); // a Thursday
+  expect(nowLine(noonUtc, "Asia/Tokyo")).toMatch(/^It's Thursday, 9:00\s?PM right now\.$/);
+  expect(nowLine(Date.UTC(2026, 0, 15, 20, 0), "Asia/Tokyo")).toMatch(/^It's Friday, /);
+});

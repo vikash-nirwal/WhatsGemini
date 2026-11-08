@@ -93,6 +93,7 @@ interface ChatMessageProps {
   disappears?: string;
   // A sticker sent with the reply (#137): the image from the speaker's set.
   stickerSrc?: string;
+  searchHit?: boolean; // the match chosen in Search this chat (#247)
 }
 
 // The chat's text size. `data-chat-text` lets a reading font or line
@@ -209,6 +210,7 @@ const ChatMessage = React.memo(({
   inRoom = false,
   disappears,
   stickerSrc,
+  searchHit = false,
 }: ChatMessageProps) => {
   const isUser = msg.role === YOU;
   const { is } = useColorTheme();
@@ -252,6 +254,12 @@ const ChatMessage = React.memo(({
     msg.viewedOnce || !msg.images?.length ? (
       <div data-slot="view-once" data-state="opened" className="mt-1.5 inline-flex h-9 items-center gap-2 rounded-[18px] pl-2.5 pr-3.5 font-sans text-[13.5px] font-semibold text-subtle ring-1 ring-inset ring-border-strong">
         <span aria-hidden>◌</span> Opened
+      </div>
+    ) : isUser ? (
+      // Your own (#248): theirs to open, not yours; it shows as opened once
+      // their reply has seen it.
+      <div data-slot="view-once" data-state="sent" className="mt-1.5 inline-flex h-9 items-center gap-2 rounded-[18px] bg-primary/[0.14] pl-2.5 pr-3.5 font-sans text-[13.5px] font-semibold text-primary-text">
+        <span aria-hidden>①</span> Photo · view once
       </div>
     ) : (
       <button
@@ -1000,8 +1008,10 @@ const ChatMessage = React.memo(({
     <motion.div
       data-message-id={msg.id}
       data-run-start={runStart ? "true" : undefined}
+      data-search-hit={searchHit ? "true" : undefined}
       className={cn(
         "flex w-full scroll-mt-20",
+        searchHit && "rounded-xl bg-primary/[0.1] ring-1 ring-inset ring-primary/30",
         isUser ? "justify-end" : "justify-start",
         runStart ? "mt-3.5" : "mt-0.5",
         hasReaction && "mb-4"

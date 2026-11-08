@@ -355,6 +355,14 @@ describe("photos the user sent (#48)", () => {
     expect(history[0]).toEqual({ role: "user", text: "[sent a photo: A dog on a beach.]\n\nMeet Max" });
   });
 
+  it("a view-once one is noted as seen, without what it showed, once opened (#248)", () => {
+    const unopened = buildChatHistory([{ ...msg(YOU, "Just for you"), images: ["a"], viewOnce: true }]);
+    expect(unopened[0].text).toBe("[sent a photo]\n\nJust for you");
+    const opened = buildChatHistory([{ ...msg(YOU, "Just for you"), viewOnce: true, viewedOnce: true, photoDescription: "A secret tattoo." }]);
+    expect(opened[0].text).toBe("[sent a view-once photo, already opened and gone]\n\nJust for you");
+    expect(opened[0].text).not.toContain("tattoo");
+  });
+
   it("stand alone without words, and are counted", () => {
     const history = buildChatHistory([{ ...msg(YOU, ""), images: ["a", "b"] }]);
     expect(history[0].text).toBe("[sent 2 photos]");

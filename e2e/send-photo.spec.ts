@@ -53,6 +53,37 @@ test.describe("with a vision model", () => {
     await expect(messageBubble(page, "Cute!")).toBeVisible();
     expect(Array.isArray(lastUserContent(mockAI.requests[0].messages))).toBe(true);
   });
+
+  // #248: your own view-once photo. Their reply sees it; then it's gone
+  // from the chat and the context, with only a note that it was seen.
+  test("a view-once photo is seen by the reply, then shows as opened", async ({ page, mockAI }) => {
+    mockAI.reply("Oh wow. Saw it!");
+    await openChat(page);
+    await attachPhoto(page);
+    const viewOnce = page.getByRole("button", { name: "View once" });
+    await expect(viewOnce).toHaveAttribute("aria-pressed", "false");
+    await viewOnce.click();
+    await expect(viewOnce).toHaveAttribute("aria-pressed", "true");
+    await sendMessage(page, "Only for your eyes");
+    await expect(messageBubble(page, "Oh wow. Saw it!")).toBeVisible();
+    await waitForReplyDone(page);
+
+    expect(Array.isArray(lastUserContent(mockAI.requests[0].messages))).toBe(true);
+    const sent = messageBubble(page, "Only for your eyes");
+    await expect(sent.locator('[data-slot="view-once"]')).toHaveAttribute("data-state", "opened");
+    await expect(sent).toContainText("Opened");
+    await expect(sent.getByRole("img", { name: "Sent by you" })).toHaveCount(0);
+    // The composer's switch is off again for the next photo.
+    await attachPhoto(page);
+    await expect(page.getByRole("button", { name: "View once" })).toHaveAttribute("aria-pressed", "false");
+    await page.getByRole("button", { name: "Remove photo 1" }).click();
+
+    await sendMessage(page, "Did you like it?");
+    await expect.poll(() => mockAI.requests.length).toBe(2);
+    const history = JSON.stringify(mockAI.requests[1].messages);
+    expect(history).toContain("[sent a view-once photo, already opened and gone]");
+    expect(history).not.toContain("image_url");
+  });
 });
 
 test.describe("with a text-only model and a vision helper", () => {

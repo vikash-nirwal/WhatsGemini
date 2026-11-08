@@ -23,6 +23,7 @@ import { notifyChatMessage } from "src/features/notifications/notifications";
 import { AI } from "src/utils/constants";
 import { MessageNote } from "src/types";
 import { useElsewhereName, useLivingCharacters } from "src/hooks/useWorld";
+import { zoneOf } from "src/features/character/characterClock";
 
 const CHECK_EVERY_MS = 20 * 60 * 1000;
 const FIRST_CHECK_MS = 20 * 1000;
@@ -77,7 +78,7 @@ const FirstTexter = () => {
             firstContact,
             unanswered: unansweredFirstTexts(content),
             scenario: firstContact ? texter.scenario : undefined,
-            nowDoing: currentBlock(texter.schedule, now)?.activity,
+            nowDoing: currentBlock(texter.schedule, now, zoneOf(texter))?.activity,
             plans: openPlans(chat?.plans).slice(0, 3).map((p) => p.what),
             facts: [...(texter.pinnedMemory || []), ...(texter.memory || [])],
             transcript: formatTranscript(trimToLatestSummary(content).slice(-8), { userName, charName: texter.name }),

@@ -3,6 +3,7 @@ import { unreadStart } from "../../features/chat/chatList";
 import { sentWhileBlocked } from "../../features/chat/blocking";
 import { DISAPPEAR_LABEL, willDisappear } from "../../features/chat/disappearing";
 import { reactionRows } from "../../features/chat/reactions";
+import { foldForSearch } from "../../features/chat/chatSearch";
 import React, { useRef, useEffect, useCallback, useMemo, useState } from "react";
 import { avatarOf } from "../../features/character/profileChanges";
 import { FaCheck, FaTimes, FaArrowDown, FaClock, FaMicrophone } from "react-icons/fa";
@@ -133,6 +134,9 @@ interface ChatWindowProps {
   // The reply being written will be a voice note (#44): show "recording
   // audio..." instead of the text streaming in.
   recordingVoiceNote?: boolean;
+  // Search this chat (#247): the chosen match's message id and the words.
+  searchHitId?: string;
+  searchQuery?: string;
 }
 
 const TerminalCursorLine = ({ name, note }: { name?: string; note?: string }) => (
@@ -204,7 +208,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc, note, showAvatar }:
   </PendingRow>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ unreadSince, awayNote, onFork, stageSuggestion, onAcceptStage, onDismissStage, coWriting = false, onSuggestNext, onTranslate, onReplyToLetter, arcSuggestion, onAcceptArc, onDismissArc, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, onFinishBeat, finishingBeat, onReply, onViewOnce, onVote, onOpenContact, onAnswerInvite, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, contactOpen, onCloseContact, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ unreadSince, awayNote, onFork, stageSuggestion, onAcceptStage, onDismissStage, coWriting = false, onSuggestNext, onTranslate, onReplyToLetter, arcSuggestion, onAcceptArc, onDismissArc, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, onFinishBeat, finishingBeat, onReply, onViewOnce, onVote, onOpenContact, onAnswerInvite, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, contactOpen, onCloseContact, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote, searchHitId, searchQuery }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -459,6 +463,61 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ unreadSince, awayNote, onFork, 
     }
     prevMessagesLengthRef.current = messages.length;
   }, [messages, aiLoading, isScrolledUp, streamingText, scrollToEnd]);
+
+  // Search this chat (#247): the chosen match is brought to the middle of
+  // the list once, after the scroll to the end above so it wins when both
+  // run (a branch switch changes the messages). A match on a branch that's
+  // still switching isn't rendered yet; the next change of messages tries
+  // again.
+  const searchJumpRef = useRef<string | null>(null);
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!searchHitId) {
+      searchJumpRef.current = null;
+      return;
+    }
+    if (!el || searchJumpRef.current === searchHitId) return;
+    const row = el.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(searchHitId)}"]`);
+    if (!row) return;
+    searchJumpRef.current = searchHitId;
+    const rowTop = el.scrollTop + row.getBoundingClientRect().top - el.getBoundingClientRect().top;
+    const target = Math.max(0, Math.min(rowTop - Math.max(8, (el.clientHeight - bottomInset - row.offsetHeight) / 2), el.scrollHeight - el.clientHeight));
+    el.scrollTop = target;
+    // Kept where it is while you read, unless the match is at the bottom anyway.
+    const up = el.scrollHeight - target - el.clientHeight > 100;
+    isScrolledUpRef.current = up;
+    setIsScrolledUp(up);
+  }, [searchHitId, filteredMessages, bottomInset]);
+  // The words themselves are marked in the chosen message, without touching
+  // how it renders, where the browser can (CSS Custom Highlight API).
+  useEffect(() => {
+    const registry = (CSS as unknown as { highlights?: Map<string, unknown> }).highlights;
+    const HighlightCtor = (window as unknown as { Highlight?: new (...ranges: Range[]) => unknown }).Highlight;
+    if (!registry || !HighlightCtor) return;
+    registry.delete("chat-search");
+    const needle = foldForSearch((searchQuery || "").replace(/\s+/g, " ").trim());
+    const row = searchHitId ? scrollContainerRef.current?.querySelector(`[data-message-id="${CSS.escape(searchHitId)}"]`) : null;
+    if (!needle || !row) return;
+    const ranges: Range[] = [];
+    const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const text = node.textContent || "";
+      const folded = foldForSearch(text);
+      // Folding can shorten text typed with separate accent marks; positions
+      // in it wouldn't line up, so that node goes unmarked.
+      if (folded.length !== text.length) continue;
+      for (let at = folded.indexOf(needle); at >= 0; at = folded.indexOf(needle, at + needle.length)) {
+        const range = document.createRange();
+        range.setStart(node, at);
+        range.setEnd(node, at + needle.length);
+        ranges.push(range);
+      }
+    }
+    if (ranges.length > 0) registry.set("chat-search", new HighlightCtor(...ranges));
+    return () => {
+      registry.delete("chat-search");
+    };
+  }, [searchHitId, searchQuery, filteredMessages]);
 
   // The "N unread messages" line, as other chat apps have it: where the
   // replies you haven't seen start. A chat with more unread than fits opens
@@ -929,6 +988,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ unreadSince, awayNote, onFork, 
                     disappears={disappearing && willDisappear({ disappearing }, msg) ? DISAPPEAR_LABEL[disappearing.after] : undefined}
                     reactions={reactionRows(msg, (id) => resolveReactor(id) || "They")}
                     voice={msg.role === YOU ? undefined : speaker?.voice}
+                    searchHit={Boolean(searchHitId && msg.id === searchHitId)}
                   />
                   {character && lettersAfter.get(i)?.map((letter) => (
                     <LetterCard

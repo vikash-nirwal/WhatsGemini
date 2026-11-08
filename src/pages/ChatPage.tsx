@@ -63,6 +63,8 @@ import { buildSecretsNote } from "../features/world/secrets";
 import { buildFactionNote } from "../features/world/factions";
 import { autoRepliesOn, featureOn } from "../features/world/worldPrefs";
 import PlanBar from "../components/organisms/PlanBar";
+import ChatSearchBar from "../components/organisms/ChatSearchBar";
+import { searchChat, startingMatch, stepMatch } from "../features/chat/chatSearch";
 import { prepareRecall } from "../features/memory/semanticRecall";
 import { runTheirGroup } from "../features/chat/runTheirGroup";
 import { Select } from "src/components/molecules/form-controls/FormSelect";
@@ -119,7 +121,7 @@ import Header, { HeaderAction, HeaderGroup } from "src/components/organisms/Head
 import PortraitPreviewModal from "src/components/organisms/PortraitPreviewModal";
 import AutoReplyModal from "src/components/organisms/AutoReplyModal";
 import PersonaModal from "src/components/organisms/PersonaModal";
-import { FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20, FaLayerGroup, FaGamepad, FaCodeBranch, FaPhoneAlt, FaBookOpen, FaImages, FaTheaterMasks, FaForward, FaGift, FaBalanceScale, FaEye, FaHourglassStart, FaGlobe, FaFilm, FaExchangeAlt, FaPoll } from "react-icons/fa";
+import { FaSearch, FaCompressArrowsAlt, FaDownload, FaClock, FaBolt, FaSlidersH, FaHistory, FaUserCircle, FaTimes, FaUsers, FaBookmark, FaDiceD20, FaLayerGroup, FaGamepad, FaCodeBranch, FaPhoneAlt, FaBookOpen, FaImages, FaTheaterMasks, FaForward, FaGift, FaBalanceScale, FaEye, FaHourglassStart, FaGlobe, FaFilm, FaExchangeAlt, FaPoll } from "react-icons/fa";
 import { Button } from "src/components/atoms/button";
 import { AI, YOU, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow, CHARACTER_SWATCHES } from "../utils/constants";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
@@ -143,6 +145,7 @@ import { useColorTheme } from "../hooks/useColorTheme";
 import { cn } from "../utils/cn";
 import { useChatNotifier } from "../features/notifications/useNotifications";
 import { fitsVoiceNote, promptTextFor, rollVoiceNote } from "../features/voice/voiceNotes";
+import { zoneOf } from "../features/character/characterClock";
 
 // The read mark each chat had when it was last opened, for the unread line.
 type OpenedRead = { chatId: number; since?: number; at: number };
@@ -520,7 +523,7 @@ const ChatPage = () => {
   scene.groupNote = isRoom ? buildGroupDirective(userNameForNotes) : undefined;
   // Quoted replies (#119): in texting mode they may quote an older message.
   scene.quoteNote = !isRoom && characterData && textingOn ? [buildQuoteDirective(characterData.name, userNameForNotes), buildForwardDirective(characterData.name, userNameForNotes), buildContactDirective(characterData.name, userNameForNotes)].join("\n") : undefined;
-  scene.slipsNote = !isRoom && characterData && textingOn ? buildSlipsDirective(characterData.name, characterData.textingSlips, currentBlock(characterData.schedule, noteTime)?.status === "busy") : undefined;
+  scene.slipsNote = !isRoom && characterData && textingOn ? buildSlipsDirective(characterData.name, characterData.textingSlips, currentBlock(characterData.schedule, noteTime, zoneOf(characterData))?.status === "busy") : undefined;
   // Where they live (#112): what the caches hold right now; the refresher
   // keeps them fresh, and `placeTick` re-renders once a fetch lands.
   const home = mainStory ? characterData?.home : undefined;
@@ -1536,7 +1539,7 @@ const ChatPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [worldAutoReplies, autoReplySettings.enabled, autoReplySettings.minDelaySeconds, autoReplySettings.maxDelaySeconds, autoReplySettings.maxFollowups, autoReplySettings.followupCount, chatIdNum, characterData, currentChat?.content, aiLoading, lastTypingActivityAt]);
 
-  const handleSend = async (rawText: string, requestedImage?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean, isVoiceNote?: boolean, photos?: string[], isGod?: boolean) => {
+  const handleSend = async (rawText: string, requestedImage?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean, isVoiceNote?: boolean, photos?: string[], isGod?: boolean, viewOnce?: boolean) => {
     // A photo can go on its own, without words (#48).
     if ((!rawText.trim() && !photos?.length) || !chatIdNum) return;
     if (isGod) {
@@ -1588,8 +1591,9 @@ const ChatPage = () => {
       if (replyTo) setReplyingTo(null);
       const quotedStatus = replyingToStatus || undefined;
       if (quotedStatus) setReplyingToStatus(null);
-      const resultAction = await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, images: photos && photos.length > 0 ? photos : undefined, isImageRequest, isVideoRequest, isVoiceNote, swapped: swap ? true : undefined, replyTo, quotedStatus }));
+      const resultAction = await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, images: photos && photos.length > 0 ? photos : undefined, viewOnce: Boolean(viewOnce && photos?.length), isImageRequest, isVideoRequest, isVoiceNote, swapped: swap ? true : undefined, replyTo, quotedStatus }));
       const updatedMessages = resultAction.payload as Message[] || [];
+      const viewOnceId = viewOnce && photos?.length ? [...updatedMessages].reverse().find((m) => m.role === YOU)?.id : undefined;
 
       // Left on read (#126): they've seen it and will answer later; while
       // that's pending, more messages just pile up, read and unanswered.
@@ -1667,9 +1671,9 @@ const ChatPage = () => {
         Math.random() * 100 < (autoSelfieCfg.frequency ?? DEFAULT_AUTO_SELFIE_FREQUENCY);
 
       // A realistic routine (#7): busy or asleep, they take a while to see it.
-      const wait = replyDelayMs(speaker.schedule, Date.now());
+      const wait = replyDelayMs(speaker.schedule, Date.now(), Math.random, zoneOf(speaker));
       if (wait > 0) {
-        setAwayNote(`${speaker.name} is ${currentBlock(speaker.schedule, Date.now())?.activity || "busy"} and will reply in a bit`);
+        setAwayNote(`${speaker.name} is ${currentBlock(speaker.schedule, Date.now(), zoneOf(speaker))?.activity || "busy"} and will reply in a bit`);
         await new Promise((resolve) => window.setTimeout(resolve, wait));
         setAwayNote(null);
       }
@@ -1694,6 +1698,9 @@ const ChatPage = () => {
       if (isGenerationSuccess(aiResponse)) {
         const payloadObj = aiResponse.payload as any;
         await savePhotoOutcome(payloadObj, contextMessages);
+        // Your view-once photo (#248) has been seen: it leaves the chat and
+        // the context, and shows as opened, like theirs.
+        if (viewOnceId) await dispatch(updateChatMessage({ chatId: chatIdNum, messageId: viewOnceId, patch: { viewedOnce: true, images: undefined, photoDescription: undefined } }));
         await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
         const generatedImages = payloadObj?.images || undefined;
         const generatedVideos = payloadObj?.videos || undefined;
@@ -2048,6 +2055,47 @@ const ChatPage = () => {
     const newContent = flattenPath(tree, leafId);
     await dispatch(updateChatTree({ chatId: chatIdNum, content: newContent, tree, activeLeafId: leafId }));
   };
+
+  // Search inside a chat (#247). The match is kept by its message's id, so
+  // it stays chosen when switching branches reorders nothing but changes
+  // which matches are showing.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchId, setSearchId] = useState<string | null>(null);
+  const [searchSwitchedId, setSearchSwitchedId] = useState<string | null>(null);
+  const searchMatches = useMemo(
+    () => (searchOpen ? searchChat(messages, currentChat?.tree, searchQuery) : []),
+    [searchOpen, messages, currentChat?.tree, searchQuery]
+  );
+  const searchIndex = searchId ? searchMatches.findIndex((m) => m.id === searchId) : -1;
+  const changeSearchQuery = (query: string) => {
+    setSearchQuery(query);
+    const matches = searchChat(messages, currentChat?.tree, query);
+    setSearchId(matches[startingMatch(matches)]?.id ?? null);
+    setSearchSwitchedId(null);
+  };
+  const stepSearch = (step: 1 | -1) => {
+    const match = searchMatches[stepMatch(searchMatches, searchIndex, step)];
+    if (!match) return;
+    setSearchId(match.id);
+    // A match on another branch: that branch shows, the way the pager's
+    // arrows switch it.
+    if (!match.active) void handleSwitchBranch(match.id);
+    setSearchSwitchedId(match.active ? null : match.id);
+  };
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setSearchQuery("");
+    setSearchId(null);
+    setSearchSwitchedId(null);
+  };
+  // Another chat starts with search closed.
+  useEffect(() => {
+    setSearchOpen(false);
+    setSearchQuery("");
+    setSearchId(null);
+    setSearchSwitchedId(null);
+  }, [chatIdNum]);
 
   // Deletes a message node and everything generated after it. When the node
   // has sibling variants this is just "delete this variant" (the counterpart
@@ -2573,7 +2621,7 @@ const ChatPage = () => {
     const timer = window.setInterval(() => setClock(Date.now()), 60_000);
     return () => window.clearInterval(timer);
   }, [characterData?.schedule]);
-  const presence = !isRoom ? presenceFor(characterData?.schedule, clock, lastCharacterMessage?.timestamp) : undefined;
+  const presence = !isRoom ? presenceFor(characterData?.schedule, clock, lastCharacterMessage?.timestamp, zoneOf(characterData)) : undefined;
 
   // Event invites (#134): your answer is kept on the card; accepting makes
   // it a shared plan (#84), with a notice in the chat.
@@ -2618,6 +2666,9 @@ const ChatPage = () => {
       { icon: FaSlidersH, label: "Scene & story", onClick: () => { setSceneOpen((v) => !v); setParticipantsOpen(false); setContactOpen(false); }, active: sceneOpen, primary: true, labelled: true, shortLabel: "scene" },
       ...(messages.length > 0
         ? [{ icon: FaBolt, label: isRoom ? "Make the next bot send a follow-up now" : `Make ${characterData?.name || "them"} send a follow-up now`, onClick: handleManualFollowup, disabled: aiLoading, shortLabel: "follow-up" }]
+        : []),
+      ...(messages.length > 0
+        ? [{ icon: FaSearch, label: "Search this chat", onClick: () => setSearchOpen(true), active: searchOpen, shortLabel: "search" }]
         : []),
       { icon: FaClock, label: "Auto follow-up settings", onClick: () => setIsAutoReplyModalOpen(true), active: autoReplySettings.enabled },
       ...(roomCharacters.length > 0
@@ -2823,6 +2874,9 @@ const ChatPage = () => {
           each new message scrolled the whole chat up, leaving a blank strip.
           Clipped, not hidden, so nothing inside can scroll it either. */}
       {currentChat?.groupPlan && <PlanBar chat={currentChat} />}
+      {searchOpen && (
+        <ChatSearchBar query={searchQuery} onQueryChange={changeSearchQuery} matches={searchMatches} current={searchIndex} onStep={stepSearch} onClose={closeSearch} switchedBranch={Boolean(searchId && searchId === searchSwitchedId)} />
+      )}
       <div className="flex-1 min-h-0 overflow-clip relative">
         {/* Upset with you (#97), until you make up. */}
         {!isRoom && characterData && currentChat?.conflict && (
@@ -2832,7 +2886,7 @@ const ChatPage = () => {
             </div>
           </div>
         )}
-        <ChatWindow unreadSince={openedRead ? { since: openedRead.since, until: openedRead.at } : undefined} awayNote={awayNote} onFork={handleFork} stageSuggestion={currentChat?.stage && currentChat.stageSuggestion ? { from: currentChat.stage, to: currentChat.stageSuggestion } : undefined} onAcceptStage={acceptStage} onDismissStage={dismissStage} coWriting={!isRoom && Boolean(currentChat?.coWriting)} onSuggestNext={handleSuggestNext} onTranslate={currentChat?.language ? handleTranslate : undefined} onReplyToLetter={(letter) => setDraftInjection({ text: letterReplyDraft(letter), nonce: Date.now() })} arcSuggestion={currentChat?.arcSuggestion} onAcceptArc={acceptArc} onDismissArc={dismissArc} relationshipSuggestion={currentChat?.relationshipSuggestion} onAcceptRelationship={acceptRelationship} onDismissRelationship={dismissRelationship} game={currentChat?.game} gameScore={currentChat?.gameScore} onEndGame={() => chatIdNum && dispatch(updateChatOptions({ chatId: chatIdNum, patch: { game: undefined } }))} storyScript={currentChat?.storyScript} onEditStory={() => setStoryOpen(true)} onMoveBeat={moveStoryBeat} onFinishBeat={() => setFinishBeatOpen(true)} onReply={(m) => setReplyingTo(m)} onViewOnce={openViewOnce} onVote={votePoll} onOpenContact={(m) => void openContact(m)} onAnswerInvite={answerInvite} recap={recap} onToggleBookmark={handleToggleBookmark} onUndoSummary={handleUndoSummary} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={worldPeople} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} contactOpen={contactOpen} onCloseContact={() => setContactOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} />
+        <ChatWindow unreadSince={openedRead ? { since: openedRead.since, until: openedRead.at } : undefined} awayNote={awayNote} onFork={handleFork} stageSuggestion={currentChat?.stage && currentChat.stageSuggestion ? { from: currentChat.stage, to: currentChat.stageSuggestion } : undefined} onAcceptStage={acceptStage} onDismissStage={dismissStage} coWriting={!isRoom && Boolean(currentChat?.coWriting)} onSuggestNext={handleSuggestNext} onTranslate={currentChat?.language ? handleTranslate : undefined} onReplyToLetter={(letter) => setDraftInjection({ text: letterReplyDraft(letter), nonce: Date.now() })} arcSuggestion={currentChat?.arcSuggestion} onAcceptArc={acceptArc} onDismissArc={dismissArc} relationshipSuggestion={currentChat?.relationshipSuggestion} onAcceptRelationship={acceptRelationship} onDismissRelationship={dismissRelationship} game={currentChat?.game} gameScore={currentChat?.gameScore} onEndGame={() => chatIdNum && dispatch(updateChatOptions({ chatId: chatIdNum, patch: { game: undefined } }))} storyScript={currentChat?.storyScript} onEditStory={() => setStoryOpen(true)} onMoveBeat={moveStoryBeat} onFinishBeat={() => setFinishBeatOpen(true)} onReply={(m) => setReplyingTo(m)} onViewOnce={openViewOnce} onVote={votePoll} onOpenContact={(m) => void openContact(m)} onAnswerInvite={answerInvite} recap={recap} onToggleBookmark={handleToggleBookmark} onUndoSummary={handleUndoSummary} onReact={handleReact} replySuggestions={replySuggestions} onPickSuggestion={handlePickSuggestion} bottomInset={terminal ? 0 : composerInset} characterName={character} userName={activePersona?.name} character={characterData} characters={roomCharacters} allCharacters={worldPeople} messages={messages} tree={currentChat?.tree} onSwitchBranch={handleSwitchBranch} onDeleteBranch={handleDeleteBranch} onRegenerate={handleRegenerate} onContinue={handleContinueMessage} onClearRefusal={handleClearRefusal} onEdit={handleEditMessage} aiLoading={aiLoading} isFollowupPending={Boolean(chatIdNum && pendingFollowups[chatIdNum])} onSend={handleSend} chatId={chatIdNum ?? undefined} sceneOpen={sceneOpen} onCloseScene={() => setSceneOpen(false)} contactOpen={contactOpen} onCloseContact={() => setContactOpen(false)} authorNote={currentChat?.authorNote} worldTags={currentChat?.worldTags} isRoom={isRoom} chatMemory={currentChat?.memory} chatPinnedMemory={currentChat?.pinnedMemory} greetingIndex={currentChat?.greetingIndex} hardLimits={currentChat?.hardLimits} intensity={currentChat?.intensity} isNsfwChat={roomCharacters.length > 0 && roomCharacters.every((c) => effectiveContentRating(c) === "nsfw")} onSelectGreeting={(index) => chatIdNum && dispatch(updateChatGreeting({ chatId: chatIdNum, greetingIndex: index }))} chatScenario={currentChat?.scenario} participantsOpen={participantsOpen} onCloseParticipants={() => setParticipantsOpen(false)} mutedParticipantIds={currentChat?.mutedParticipantIds} recordingVoiceNote={recordingVoiceNote} searchHitId={searchOpen && searchIndex >= 0 ? searchId ?? undefined : undefined} searchQuery={searchOpen ? searchQuery : undefined} />
         {inCall && characterData && (
           <CallScreen
             name={characterData.name}
