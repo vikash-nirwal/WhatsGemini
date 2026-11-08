@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { FaChevronDown, FaChevronUp, FaSearch, FaTimes } from "react-icons/fa";
 import { Button } from "src/components/atoms/button";
 import { ChatSearchMatch } from "src/features/chat/chatSearch";
@@ -18,6 +18,19 @@ interface ChatSearchBarProps {
 }
 
 const ChatSearchBar: React.FC<ChatSearchBarProps> = ({ query, onQueryChange, matches, current, onStep, onClose, switchedBranch }) => {
+  const fieldRef = useRef<HTMLInputElement>(null);
+  // The chat menu that opened search hands the focus back to its button as
+  // it closes, which can land just after the field took it (now and then on
+  // a phone). Take it back once the menu has gone, unless the reader has
+  // already moved on to another field.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const field = fieldRef.current;
+      const active = document.activeElement;
+      if (field && active !== field && !(active instanceof HTMLInputElement) && !(active instanceof HTMLTextAreaElement)) field.focus();
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, []);
   const match = current >= 0 ? matches[current] : undefined;
   const count = !query.trim()
     ? ""
@@ -34,6 +47,7 @@ const ChatSearchBar: React.FC<ChatSearchBarProps> = ({ query, onQueryChange, mat
           // The field is the point of opening search, so it takes the focus.
           // eslint-disable-next-line jsx-a11y/no-autofocus
           autoFocus
+          ref={fieldRef}
           type="search"
           aria-label="Search messages"
           placeholder="Search messages"
