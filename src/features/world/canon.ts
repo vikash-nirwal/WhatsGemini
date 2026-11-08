@@ -1,4 +1,5 @@
 import { Character, World } from "../../types";
+import { anniversaryNoteAmong } from "./anniversaries";
 import { extrasLine } from "./extras";
 import type { TimelineEntry } from "./timeline";
 import { featureOn } from "./worldPrefs";
@@ -33,12 +34,14 @@ export const canonLine = (facts: string[]): string | undefined => (facts.length 
 export const addCanon = (list: string[] | undefined, fact: string): string[] => Array.from(new Set([...(list || []), fact.trim()])).slice(-MAX_KEPT);
 
 // What every background prompt about a world hears besides its own
-// material: what's settled, and the people around (with that switch on).
-export const worldContext = (world: World | undefined, people: Pick<Character, "id">[], cast: Character[], timeline: TimelineEntry[]): string[] => {
+// material: what's settled, the people around (with that switch on), and
+// what happened a year ago today that they all could know (#244).
+export const worldContext = (world: World | undefined, people: Pick<Character, "id">[], cast: Character[], timeline: TimelineEntry[], now: number = Date.now()): string[] => {
   if (!world) return [];
   const canon = canonLine(canonOf(world, cast, timeline));
   const extras = featureOn(world.id, "extras") ? extrasLine(world, people, cast) : undefined;
-  return [worldLanguageLine(world), canon, extras].filter((x): x is string => Boolean(x));
+  const anniversary = anniversaryNoteAmong(people.map((p) => p.id), timeline, world, now);
+  return [worldLanguageLine(world), canon, extras, anniversary].filter((x): x is string => Boolean(x));
 };
 
 // Generated text that puts someone who has died back on stage: it names
