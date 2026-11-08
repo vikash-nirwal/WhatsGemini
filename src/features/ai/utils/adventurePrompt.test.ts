@@ -223,6 +223,20 @@ describe("adventure content rules", () => {
     expect(adventureContentRating([])).toBeUndefined();
   });
 
+  it("takes a story's own rating when there's no cast (#253)", () => {
+    const adultStory = { ...adventure, contentRating: "nsfw" as const, adultsConfirmed: true };
+    expect(adventureContentRating([], adultStory)).toBe("nsfw");
+    expect(adventureContentRating([], { ...adventure, contentRating: "nsfw" as const })).toBe("sfw");
+    expect(buildAdventureSystemInstruction(adultStory, undefined, [], undefined, [])).toContain("explicit sexual content");
+    expect(buildAdventureSystemInstruction(adventure, undefined, [], undefined, [])).not.toContain("Content:");
+  });
+
+  it("keeps the cast rule, and a story held to SFW stays SFW", () => {
+    expect(adventureContentRating([adult(1)], { ...adventure, contentRating: "sfw" })).toBe("sfw");
+    expect(adventureContentRating([adult(1)], adventure)).toBe("nsfw");
+    expect(adventureContentRating([npc(1)], { ...adventure, contentRating: "nsfw", adultsConfirmed: true })).toBe("sfw");
+  });
+
   it("puts the content rule and roleplay style into the narrator prompt", () => {
     const text = buildAdventureSystemInstruction(adventure, undefined, [npc(1, { contentRating: "sfw" })], { id: "p", name: "Arin", bio: "" }, [], {
       roleplayStyle: { pov: "first", actionsInAsterisks: true, neverSpeakForUser: true, timeAwareness: false, customInstructions: "Keep it witty." },

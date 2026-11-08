@@ -1,5 +1,5 @@
-import { allAdults, detectMinorIndicators, effectiveContentRating } from "./contentRating";
-import { Character } from "../../types";
+import { allAdults, detectMinorIndicators, effectiveContentRating, effectiveStoryRating } from "./contentRating";
+import { Adventure, Character } from "../../types";
 
 const char = (overrides: Partial<Character>): Character => ({ id: 1, name: "Mira", description: "", prompt: "Sly.", ...overrides });
 
@@ -57,5 +57,34 @@ describe("allAdults", () => {
   });
   it("is false with no one", () => {
     expect(allAdults([])).toBe(false);
+  });
+});
+
+describe("effectiveStoryRating (#253)", () => {
+  const story = (overrides: Partial<Adventure> = {}, source = "Two old friends meet again in Paris."): Partial<Adventure> => ({
+    title: "Paris",
+    storyScript: { premise: "A reunion.", beats: [{ id: "b1", text: "They meet", details: "At a cafe." }], directions: "", mode: "strict", currentBeat: 0, source, cast: [{ id: "c1", name: "Ana", about: "A painter." }] },
+    ...overrides,
+  });
+
+  it("sends nothing for an unrated story", () => {
+    expect(effectiveStoryRating(story())).toBeUndefined();
+    expect(effectiveStoryRating(undefined)).toBeUndefined();
+  });
+
+  it("is NSFW only with the confirmation and a clean scan", () => {
+    expect(effectiveStoryRating(story({ contentRating: "nsfw", adultsConfirmed: true }))).toBe("nsfw");
+    expect(effectiveStoryRating(story({ contentRating: "nsfw" }))).toBe("sfw");
+    expect(effectiveStoryRating(story({ contentRating: "sfw" }))).toBe("sfw");
+  });
+
+  it("holds a story to SFW when anything in it suggests a minor", () => {
+    expect(effectiveStoryRating(story({ contentRating: "nsfw", adultsConfirmed: true }, "She was 16 years old that summer."))).toBe("sfw");
+    const castHit = story({ contentRating: "nsfw", adultsConfirmed: true });
+    castHit.storyScript!.cast = [{ id: "c1", name: "Ana", about: "a high school student" }];
+    expect(effectiveStoryRating(castHit)).toBe("sfw");
+    const beatHit = story({ contentRating: "nsfw", adultsConfirmed: true });
+    beatHit.storyScript!.beats = [{ id: "b1", text: "Prom", details: "Her 9th grader brother tags along." }];
+    expect(effectiveStoryRating(beatHit)).toBe("sfw");
   });
 });

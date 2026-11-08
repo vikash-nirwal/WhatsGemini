@@ -1,4 +1,4 @@
-import { applyCastRenames, beatRange, buildBeatBridgePrompt, buildStoryReminder, storyChoicesRule, beatStamp, beatStarts, beatsMissingDetails, buildBeatCheckPrompt, buildFillDetailsPrompt, buildNextBeatPrompt, buildResplitPrompt, buildScriptDraftPrompt, keepSource, parseFillDetails, parseResplit, STORY_SOURCE_MAX, buildStoryScriptSection, cleanScript, emptyScript, extractBeatTag, makeBeat, makeCastMember, moveBeat, parseBeatCheckReply, parseScriptDraft, renameInText, stripStreamingBeatTag, unplayedVoices } from "./storyScript";
+import { applyCastRenames, beatHeatLine, beatRange, buildBeatBridgePrompt, buildStoryReminder, storyChoicesRule, beatStamp, beatStarts, beatsMissingDetails, buildBeatCheckPrompt, buildFillDetailsPrompt, buildNextBeatPrompt, buildResplitPrompt, buildScriptDraftPrompt, keepSource, parseFillDetails, parseResplit, STORY_SOURCE_MAX, buildStoryScriptSection, cleanScript, emptyScript, extractBeatTag, makeBeat, makeCastMember, moveBeat, parseBeatCheckReply, parseScriptDraft, renameInText, stripStreamingBeatTag, unplayedVoices } from "./storyScript";
 import { StoryScript } from "../../types";
 
 const script = (overrides: Partial<StoryScript> = {}): StoryScript => ({
@@ -339,5 +339,41 @@ describe("keeping the story's text (#240)", () => {
     expect(next?.currentBeat).toBe(1);
     expect(parseResplit('{"beats": []}', s, 1)).toBeUndefined();
     expect(parseResplit('{"beats": ["One"]}', { ...s, currentBeat: 3 }, 0)?.currentBeat).toBe(1);
+  });
+});
+
+describe("intimate beats (#255)", () => {
+  const script = (current: number): StoryScript => ({
+    premise: "",
+    beats: [{ id: "a", text: "They meet" }, { id: "b", text: "The night together", intimate: true }],
+    directions: "",
+    mode: "strict",
+    currentBeat: current,
+  });
+
+  it("says whether the current beat is an intimate one, only in an 18+ story", () => {
+    expect(buildStoryReminder(script(1), { adult: true })).toContain("one of the story's intimate beats");
+    expect(buildStoryReminder(script(0), { adult: true })).toContain("keep to the plot");
+    expect(buildStoryReminder(script(1))).not.toContain("intimate");
+  });
+
+  it("says nothing when no beat is marked", () => {
+    expect(beatHeatLine({ ...script(0), beats: [makeBeat("One")] })).toBeUndefined();
+  });
+
+  it("keeps the mark through cleaning", () => {
+    expect(cleanScript(script(0))!.beats[1].intimate).toBe(true);
+    expect(cleanScript(script(0))!.beats[0]).not.toHaveProperty("intimate");
+  });
+
+  it("leans on intimacy and carries the content rule only when the story is 18+", () => {
+    const adult = buildBeatBridgePrompt(script(1), "x", { focus: "intimacy", adult: true, content: "Content: adults only.", toneDown: ["gore"] });
+    expect(adult).toContain("closeness between the characters");
+    expect(adult).toContain("Content: adults only.");
+    expect(adult).toContain("intimate beats");
+    expect(adult).toContain("soften them or leave them out: gore");
+    const sfw = buildBeatBridgePrompt(script(1), "x", { focus: "intimacy" });
+    expect(sfw).not.toContain("closeness between the characters");
+    expect(sfw).toContain("Mix what happens");
   });
 });

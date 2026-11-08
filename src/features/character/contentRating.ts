@@ -1,4 +1,4 @@
-import { Character, ContentRating } from "../../types";
+import { Adventure, Character, ContentRating } from "../../types";
 
 // Phrases that indicate a character is (or may be) under 18. Deliberately
 // conservative - a false positive only means the author has to reword the
@@ -84,3 +84,29 @@ export const effectiveContentRating = (c: Character | undefined): ContentRating 
 // the same rule rooms use for prompts (othersAllowNsfw).
 export const allAdults = (cast: (Character | undefined)[]): boolean =>
   cast.length > 0 && cast.every((c) => effectiveContentRating(c) === "nsfw");
+
+// All the text of an adventure's story that could describe someone's age
+// (#253): the pasted story itself, the script and its people. A story has
+// no Character card, so this is what the minor scan reads instead.
+export const storyTextFields = (a: Partial<Adventure>): (string | undefined)[] => {
+  const script = a.storyScript;
+  return [
+    a.title,
+    a.premise,
+    script?.source,
+    script?.premise,
+    script?.directions,
+    script?.ending,
+    ...(script?.beats || []).flatMap((b) => [b.text, b.details]),
+    ...(script?.cast || []).flatMap((c) => [c.name, c.about]),
+  ];
+};
+
+// The rating a story actually gets, by the same rule as a character's: NSFW
+// needs the 18+ confirmation AND a clean minor scan, and a story marked NSFW
+// without both is held to SFW.
+export const effectiveStoryRating = (a: Partial<Adventure> | undefined): ContentRating | undefined => {
+  if (!a?.contentRating) return undefined;
+  if (a.contentRating === "sfw") return "sfw";
+  return a.adultsConfirmed && detectMinorIndicators(storyTextFields(a)).length === 0 ? "nsfw" : "sfw";
+};

@@ -14,7 +14,9 @@ export interface FinishBeatChoices {
   direction: string;
 }
 
-const FOCUS_OPTIONS = (Object.keys(BEAT_FOCUS) as BeatFocus[]).map((value) => ({ value, label: BEAT_FOCUS[value].label }));
+// "Intimacy" only in an 18+ story or chat (#255).
+const focusOptions = (adult: boolean) =>
+  (Object.keys(BEAT_FOCUS) as BeatFocus[]).filter((value) => adult || !BEAT_FOCUS[value].adult).map((value) => ({ value, label: BEAT_FOCUS[value].label }));
 
 // "Finish this beat" with the reader in charge: how long the passage is,
 // what it leans on and anything they want in it; then a draft to read,
@@ -26,12 +28,14 @@ const FinishBeatDialog = ({
   beatText,
   onWrite,
   onAdd,
+  adult = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   beatText: string;
   onWrite: (choices: FinishBeatChoices) => Promise<string>;
   onAdd: (text: string, options: { chapter: boolean }) => Promise<void>;
+  adult?: boolean;
 }) => {
   const [length, setLength] = useState<StoryLength>("medium");
   const [focus, setFocus] = useState<BeatFocus>("balanced");
@@ -96,7 +100,7 @@ const FinishBeatDialog = ({
           </div>
           <div className="flex flex-col gap-1.5">
             <span className="text-[11.5px] text-muted-foreground">Leaning on</span>
-            <SegmentedControl aria-label="Leaning on" value={focus} onChange={(v) => setFocus(v as BeatFocus)} options={FOCUS_OPTIONS} />
+            <SegmentedControl aria-label="Leaning on" value={focus} onChange={(v) => setFocus(v as BeatFocus)} options={focusOptions(adult)} />
           </div>
           <label className="flex flex-col gap-1.5">
             <span className="text-[11.5px] text-muted-foreground">Anything you want in it (optional)</span>

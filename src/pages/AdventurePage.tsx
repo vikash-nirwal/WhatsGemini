@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom";
 import { FaAlignLeft, FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo, FaImage, FaSyncAlt, FaTimes, FaPalette, FaBookOpen, FaComments, FaFont, FaShieldAlt, FaCompressArrowsAlt, FaDiceD20, FaListUl, FaBrain, FaBookmark, FaMap, FaFileDownload } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { deleteAdventure, addAdventureMessage, updateAdventureStatus, incrementAdventureUsage, updateAdventureMessage, updateAdventureRules, removeAdventureCompressionSummary, updateAdventureMemory, insertAdventureCompressionSummary, updateAdventureStoryScript } from "../features/adventureSlice";
+import { deleteAdventure, addAdventureMessage, updateAdventureStatus, incrementAdventureUsage, updateAdventureMessage, updateAdventureRules, removeAdventureCompressionSummary, updateAdventureMemory, insertAdventureCompressionSummary, updateAdventureStoryScript, updateAdventureRating } from "../features/adventureSlice";
 import { BEAT_CHECK_MESSAGES, beatStamp, beatStarts, buildBeatBridgePrompt, buildBeatCheckPrompt, buildNextBeatPrompt, buildStoryReminder, extractBeatTag, isFinished, moveBeat, parseBeatCheckReply } from "../features/chat/storyScript";
 import StoryScriptDialog from "src/components/organisms/StoryScriptDialog";
 import { bookFileName, buildBookHtml, buildBookMarkdown } from "../features/chat/storyExport";
@@ -15,16 +15,19 @@ import { adventureFactsFor, rememberFacts } from "../features/memory/sharedMomen
 import { patchCharacter } from "../features/characterSlice";
 import { worldOf } from "../features/world/currentWorld";
 import { logToTimeline } from "../features/world/timeline";
-import { buildChatHistory, buildPostHistoryNote } from "../features/ai/utils/promptComposition";
+import { buildChatHistory, buildPostHistoryNote, contentNoteFor } from "../features/ai/utils/promptComposition";
 import { trimToLatestSummary, countProtectedPrefix, latestSummaryIndex, buildSummaryMessages, formatTranscript } from "../features/ai/utils/transcript";
 import { TagInput } from "src/components/molecules/form-controls/TagInput";
-import { buildAdventureSystemInstruction, parseAdventureChoices, extractAdventureEmotions, streamingNarrationForDisplay, ADVENTURE_OPENING_PROMPT } from "../features/ai/utils/adventurePrompt";
+import { INTENSITY_OPTIONS, StoryContentFields } from "src/components/molecules/StoryContentFields";
+import { SegmentedControl } from "src/components/molecules/SegmentedControl";
+import { detectMinorIndicators, storyTextFields } from "../features/character/contentRating";
+import { adventureContentRating, buildAdventureSystemInstruction, parseAdventureChoices, extractAdventureEmotions, streamingNarrationForDisplay, ADVENTURE_OPENING_PROMPT } from "../features/ai/utils/adventurePrompt";
 import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
 import { setEmotionPanelEnabled } from "../features/settingsSlice";
 import EmotionSpritePanel from "src/components/molecules/EmotionSpritePanel";
 import EmotionPopup, { EmotionPopupTrigger } from "src/components/molecules/EmotionPopup";
 import { useModal } from "../contexts/ModalContext";
-import { Adventure, Message, StoryScript } from "../types";
+import { Adventure, Intensity, Message, StoryScript } from "../types";
 import { YOU, AI, ART_STYLES, DEFAULT_ART_STYLE, MEMORY_EXTRACTION_INTERVAL } from "../utils/constants";
 import { cn } from "../utils/cn";
 import { Button } from "src/components/atoms/button";
@@ -295,7 +298,15 @@ const AdventurePage = () => {
       // Hard limits go after the history, where models weigh them most -
       // same as a chat's boundaries.
       // So does where the story script is (#57), which otherwise drifts.
-      const postHistoryNote = buildPostHistoryNote(undefined, undefined, persona, { hardLimits: adventure.rules?.hardLimits, storyNote: buildStoryReminder(adventure.storyScript) });
+      // And the intensity and what to tone down (#254, #256).
+      const adult = adventureContentRating(cast, adventure) === "nsfw";
+      const postHistoryNote = buildPostHistoryNote(undefined, undefined, persona, {
+        hardLimits: adventure.rules?.hardLimits,
+        toneDown: adventure.rules?.toneDown,
+        intensity: adventure.rules?.intensity,
+        nsfwActive: adult,
+        storyNote: buildStoryReminder(adventure.storyScript, { adult }),
+      });
       const result = await dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, protectedCount: countProtectedPrefix(sentMessages), keepChoices: true })).unwrap();
       // Emotions first: the tag can land on either side of the choices block.
       const { text: withoutEmotions, castEmotions } = extractAdventureEmotions(result.text, cast);
@@ -514,11 +525,21 @@ const AdventurePage = () => {
   // from the story, in the length and leaning the reader picks
   // (FinishBeatDialog); once added, the beat can become a chapter named
   // after it and the story moves to the next beat.
+  const storyRating = adventureContentRating(cast, adventure);
   const writeBeat = async ({ length, focus, direction }: FinishBeatChoices): Promise<string> => {
     if (!script || isFinished(script)) throw new Error("This story has no beat left to finish.");
     const recent = trimToLatestSummary(adventure.content).filter((m) => !m.isSystem).slice(-NARRATIVE_CONTEXT_MESSAGES);
     const reply = await dispatch(generateAssistText({
-      instruction: buildBeatBridgePrompt(script, formatTranscript(recent, { userName: playerName, charName: "Narrator" }), { secondPerson: true, playerName, length, focus, direction }),
+      instruction: buildBeatBridgePrompt(script, formatTranscript(recent, { userName: playerName, charName: "Narrator" }), {
+        secondPerson: true,
+        playerName,
+        length,
+        focus,
+        direction,
+        adult: storyRating === "nsfw",
+        content: contentNoteFor(storyRating, adventure.rules?.intensity),
+        toneDown: adventure.rules?.toneDown,
+      }),
       purpose: "finish-beat",
     })).unwrap();
     const text = reply.trim();
@@ -572,6 +593,7 @@ const AdventurePage = () => {
   const gameState = currentGameState(adventure.content, startingGameState(adventure.rules));
   const latestSummaryAt = latestSummaryIndex(adventure.content);
   const hardLimits = adventure.rules?.hardLimits || [];
+  const setRules = (patch: Partial<NonNullable<Adventure["rules"]>>) => dispatch(updateAdventureRules({ adventureId: adventure.id, rules: { ...adventure.rules, ...patch } }));
 
   const viewModeAction: HeaderAction = {
     icon: viewMode === "novel" ? FaComments : FaBookOpen,
@@ -923,9 +945,9 @@ const AdventurePage = () => {
         </Dialog>
       )}
       {script && !isFinished(script) && (
-        <FinishBeatDialog open={finishBeatOpen} onOpenChange={setFinishBeatOpen} beatText={script.beats[script.currentBeat]?.text || ""} onWrite={writeBeat} onAdd={addBeat} />
+        <FinishBeatDialog adult={storyRating === "nsfw"} open={finishBeatOpen} onOpenChange={setFinishBeatOpen} beatText={script.beats[script.currentBeat]?.text || ""} onWrite={writeBeat} onAdd={addBeat} />
       )}
-      <StoryScriptDialog open={storyOpen} onOpenChange={setStoryOpen} script={adventure.storyScript} onSave={(next) => dispatch(updateAdventureStoryScript({ adventureId: adventure.id, storyScript: next }))} />
+      <StoryScriptDialog adult={storyRating === "nsfw"} open={storyOpen} onOpenChange={setStoryOpen} script={adventure.storyScript} onSave={(next) => dispatch(updateAdventureStoryScript({ adventureId: adventure.id, storyScript: next }))} />
       <Dialog open={memoryOpen} onOpenChange={setMemoryOpen}>
         <DialogContent className="max-w-md">
           <DialogTitle>Story memory</DialogTitle>
@@ -976,14 +998,34 @@ const AdventurePage = () => {
       <Dialog open={boundariesOpen} onOpenChange={setBoundariesOpen}>
         <DialogContent className="max-w-md">
           <DialogTitle>Boundaries</DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            Hard limits: things this story must never include, whatever the cast's content rating. They're sent to the narrator right before every reply.
-          </p>
-          <TagInput
-            value={hardLimits}
-            onChange={(next) => dispatch(updateAdventureRules({ adventureId: adventure.id, rules: { ...adventure.rules, hardLimits: next.length > 0 ? next : undefined } }))}
-            placeholder="Add a limit and press Enter"
-          />
+          {cast.length > 0 ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Hard limits: things this story must never include, whatever the cast's content rating. Tone down: things to soften or skip. Both are sent to the narrator right before every reply.
+              </p>
+              <TagInput aria-label="Add a hard limit" value={hardLimits} onChange={(next) => setRules({ hardLimits: next.length > 0 ? next : undefined })} placeholder="Add a limit and press Enter" />
+              <TagInput aria-label="Add something to tone down" value={adventure.rules?.toneDown || []} onChange={(next) => setRules({ toneDown: next.length > 0 ? next : undefined })} placeholder="Add something to tone down" />
+              {storyRating === "nsfw" && (
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[11.5px] text-muted-foreground">Intensity of intimate scenes</span>
+                  <SegmentedControl aria-label="Intensity" value={adventure.rules?.intensity || ""} onChange={(v) => setRules({ intensity: (v || undefined) as Intensity | undefined })} options={INTENSITY_OPTIONS} />
+                </div>
+              )}
+            </>
+          ) : (
+            // A story with no Character cast takes its rating from here (#253).
+            <StoryContentFields
+              adult={adventure.contentRating === "nsfw"}
+              onAdult={(on) => dispatch(updateAdventureRating({ adventureId: adventure.id, contentRating: on ? "nsfw" : undefined, adultsConfirmed: on || undefined }))}
+              minorIndicators={adventure.contentRating === "nsfw" ? detectMinorIndicators(storyTextFields(adventure)) : []}
+              intensity={adventure.rules?.intensity}
+              onIntensity={(intensity) => setRules({ intensity })}
+              hardLimits={hardLimits}
+              onHardLimits={(next) => setRules({ hardLimits: next.length > 0 ? next : undefined })}
+              toneDown={adventure.rules?.toneDown || []}
+              onToneDown={(next) => setRules({ toneDown: next.length > 0 ? next : undefined })}
+            />
+          )}
           <div className="flex justify-end">
             <DialogClose asChild>
               <Button variant="outline" size="sm">Done</Button>

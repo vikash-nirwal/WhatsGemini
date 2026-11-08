@@ -3,7 +3,7 @@ import { DEFAULT_ADVENTURE_CHOICE_COUNT, EMOTIONS } from "../../../utils/constan
 import { matchLoreEntries, buildWorldInfoSection } from "./loreUtils";
 import { announcementsLine } from "../../world/announcements";
 import { getEmotionVocabulary } from "./emotionUtils";
-import { effectiveContentRating } from "../../character/contentRating";
+import { effectiveContentRating, effectiveStoryRating } from "../../character/contentRating";
 import { NSFW_CONTENT_RULE, SFW_CONTENT_RULE } from "./promptComposition";
 import { buildGameStateDirective, currentGameState, startingGameState, STATS_START } from "../../adventure/gameState";
 import { buildSkillCheckDirective } from "../../adventure/skillChecks";
@@ -34,11 +34,14 @@ export const ADVENTURE_OPENING_PROMPT =
 // rule group chats use: explicit content needs every NPC to be effectively
 // NSFW; any rated cast short of that keeps the story non-explicit; a cast
 // with no ratings at all (or no cast) sends no content rule, like an
-// unrated character.
-export const adventureContentRating = (cast: Character[]): ContentRating | undefined => {
+// unrated character. A story with no cast (#253) takes its own rating
+// instead; one held to SFW by its own rating stays SFW whatever the cast.
+export const adventureContentRating = (cast: Character[], adventure?: Partial<Adventure>): ContentRating | undefined => {
+  const story = effectiveStoryRating(adventure);
+  if (cast.length === 0) return story;
   const ratings = cast.map(effectiveContentRating);
-  if (ratings.length > 0 && ratings.every((r) => r === "nsfw")) return "nsfw";
-  return ratings.some(Boolean) ? "sfw" : undefined;
+  if (ratings.length > 0 && ratings.every((r) => r === "nsfw")) return story === "sfw" ? "sfw" : "nsfw";
+  return ratings.some(Boolean) || story ? "sfw" : undefined;
 };
 
 // The parts of the app-wide roleplay style that make sense for a narrator.
@@ -129,7 +132,7 @@ export const buildAdventureSystemInstruction = (
     if (parts.length > 0) sections.push(`About the player you are addressing as "you":\n${parts.join(" ")}`);
   }
 
-  const rating = adventureContentRating(cast);
+  const rating = adventureContentRating(cast, adventure);
   if (rating === "nsfw") sections.push(NSFW_CONTENT_RULE);
   else if (rating === "sfw") sections.push(SFW_CONTENT_RULE);
 

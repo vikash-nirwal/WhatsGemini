@@ -1,4 +1,4 @@
-import { buildChatHistory, buildSystemInstruction, buildTurnContext, buildPostHistoryNote, buildTimeSection, NSFW_CONTENT_RULE, SFW_CONTENT_RULE } from "./promptComposition";
+import { buildChatHistory, buildSystemInstruction, buildTurnContext, buildPostHistoryNote, buildTimeSection, contentNoteFor, NSFW_CONTENT_RULE, SFW_CONTENT_RULE } from "./promptComposition";
 import { DEFAULT_ROLEPLAY_STYLE } from "../../../utils/constants";
 import { YOU, AI } from "../../../utils/constants";
 import { Character, Message, UserProfile, World } from "../../../types";
@@ -446,4 +446,20 @@ test("the turn context lists everyone else a picture's prompt may name", () => {
   const room = { otherParticipants: ["Kai", "Lena"], otherParticipantImages: [] } as any;
   expect(buildTurnContext([msg(YOU, "hi")], makeCharacter(), undefined, undefined, persona, room).hideNames).toEqual(["Kai", "Lena", "Vikash"]);
   expect(buildTurnContext([msg(YOU, "hi")], makeCharacter()).hideNames).toEqual([]);
+});
+
+describe("tone down and content notes (#254, #256)", () => {
+  it("asks for listed things to be softened, after the history", () => {
+    const note = buildPostHistoryNote(undefined, undefined, undefined, { toneDown: ["gore", " "] });
+    expect(note).toContain("Tone these down");
+    expect(note).toContain("gore.");
+    expect(buildPostHistoryNote(undefined, undefined, undefined, { toneDown: [" "] })).toBeUndefined();
+  });
+
+  it("gives a helper call the same content rule and intensity a reply gets", () => {
+    expect(contentNoteFor(undefined, "explicit")).toBeUndefined();
+    expect(contentNoteFor("sfw", "explicit")).toBe(SFW_CONTENT_RULE);
+    expect(contentNoteFor("nsfw")).toBe(NSFW_CONTENT_RULE);
+    expect(contentNoteFor("nsfw", "fade")).toContain("fade to black");
+  });
 });

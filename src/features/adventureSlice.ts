@@ -32,7 +32,7 @@ export const fetchAdventureById = createAsyncThunk("adventure/fetchById", async 
 export const addAdventure = createAsyncThunk(
   "adventure/add",
   async (
-    { title, worldId, characterIds, personaId, premise, rules, storyScript, storyPlay }: { title: string; worldId?: number; characterIds?: number[]; personaId?: string; premise?: string; rules?: AdventureRules; storyScript?: Adventure["storyScript"]; storyPlay?: boolean },
+    { title, worldId, characterIds, personaId, premise, rules, storyScript, storyPlay, contentRating, adultsConfirmed }: { title: string; worldId?: number; characterIds?: number[]; personaId?: string; premise?: string; rules?: AdventureRules; storyScript?: Adventure["storyScript"]; storyPlay?: boolean; contentRating?: Adventure["contentRating"]; adultsConfirmed?: boolean },
     { rejectWithValue }
   ) => {
     try {
@@ -49,6 +49,8 @@ export const addAdventure = createAsyncThunk(
         content: [],
         ...(storyScript ? { storyScript } : {}),
         ...(storyPlay ? { storyPlay } : {}),
+        ...(contentRating ? { contentRating } : {}),
+        ...(adultsConfirmed ? { adultsConfirmed } : {}),
       };
       const id = await dbService.addAdventure(newAdventure);
       return { id, ...newAdventure } as Adventure;
@@ -245,6 +247,23 @@ export const updateAdventureRules = createAsyncThunk(
   }
 );
 
+// A story's own 18+ rating (#253). It only takes effect with the
+// confirmation and a clean minor scan (effectiveStoryRating).
+export const updateAdventureRating = createAsyncThunk(
+  "adventure/updateRating",
+  async ({ adventureId, contentRating, adultsConfirmed }: { adventureId: number; contentRating?: Adventure["contentRating"]; adultsConfirmed?: boolean }, { rejectWithValue }) => {
+    try {
+      const adventure = await dbService.getAdventureById(adventureId);
+      adventure.contentRating = contentRating;
+      adventure.adultsConfirmed = adultsConfirmed;
+      await dbService.updateAdventure(adventure);
+      return { adventureId, contentRating, adultsConfirmed };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  }
+);
+
 // The story script (#57) an adventure follows; undefined removes it.
 export const updateAdventureStoryScript = createAsyncThunk(
   "adventure/updateStoryScript",
@@ -407,6 +426,13 @@ const adventureSlice = createSlice({
       .addCase(updateAdventureRules.fulfilled, (state, action) => {
         const adventure = state.adventures.find((a) => a.id === action.payload.adventureId);
         if (adventure) adventure.rules = action.payload.rules;
+      })
+      .addCase(updateAdventureRating.fulfilled, (state, action) => {
+        const adventure = state.adventures.find((a) => a.id === action.payload.adventureId);
+        if (adventure) {
+          adventure.contentRating = action.payload.contentRating;
+          adventure.adultsConfirmed = action.payload.adultsConfirmed;
+        }
       })
       .addCase(updateAdventureStoryScript.fulfilled, (state, action) => {
         const adventure = state.adventures.find((a) => a.id === action.payload.adventureId);

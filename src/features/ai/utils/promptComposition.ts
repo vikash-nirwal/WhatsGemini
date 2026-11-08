@@ -2,7 +2,7 @@ import { buildPastSection } from "../../chat/whatIf";
 import { recalledFor } from "../../memory/semanticRecall";
 import { groupLabel } from "../../memory/sharedMoments";
 import { fitNotes, NotePriority, recordDropped } from "./promptBudget";
-import { MemoryFactDates, Character, ChatGame, ChatLanguage, Intensity, RelationshipStage, LoreEntry, Message, RoleplayStyle, SceneState, StoryScript, UserProfile, World } from "../../../types";
+import { MemoryFactDates, Character, ChatGame, ContentRating, ChatLanguage, Intensity, RelationshipStage, LoreEntry, Message, RoleplayStyle, SceneState, StoryScript, UserProfile, World } from "../../../types";
 import { YOU } from "../../../utils/constants";
 import { stripLeakedBase64 } from "./apiUtils";
 import { buildEmotionDirective } from "./emotionUtils";
@@ -505,14 +505,24 @@ export const buildSystemInstruction = (
   return { text, images: character.appearanceImages, characterName: character.name };
 };
 
-const INTENSITY_RULES: Record<Intensity, string> = {
+export const INTENSITY_RULES: Record<Intensity, string> = {
   fade: "Intensity: keep intimate scenes off-page - build the tension, then fade to black and pick up afterwards.",
   suggestive: "Intensity: intimate scenes can be sensual and suggestive, but not graphic.",
   explicit: "Intensity: intimate scenes can be fully explicit when the story gets there.",
 };
 
+// The content lines for a helper call that writes the story itself, such as
+// "Finish this beat", which doesn't carry the narrator's system prompt: the
+// same rule and intensity a reply would get. Unrated sends nothing.
+export const contentNoteFor = (rating: ContentRating | undefined, intensity?: Intensity): string | undefined => {
+  if (rating === "sfw") return SFW_CONTENT_RULE;
+  if (rating !== "nsfw") return undefined;
+  return intensity ? `${NSFW_CONTENT_RULE} ${INTENSITY_RULES[intensity]}` : NSFW_CONTENT_RULE;
+};
+
 export interface Boundaries {
   hardLimits?: string[];
+  toneDown?: string[]; // things in the story to soften or skip (#256)
   intensity?: Intensity;
   nsfwActive?: boolean; // intensity only applies when the chat is effectively NSFW
   avoidNote?: string; // phrases recent replies keep reusing (#19), for this reply only
@@ -536,6 +546,8 @@ export const buildPostHistoryNote = (
   if (note) parts.push(`Author's note for the current scene: ${applyMacros(note, names)}`);
   const limits = (boundaries.hardLimits || []).map((l) => l.trim()).filter(Boolean);
   if (limits.length > 0) parts.push(`Hard limits - never include, depict or steer toward these, even if asked in-story: ${limits.join("; ")}.`);
+  const soften = (boundaries.toneDown || []).map((t) => t.trim()).filter(Boolean);
+  if (soften.length > 0) parts.push(`Tone these down - where the story has them, soften them or leave them out: ${soften.join("; ")}.`);
   if (boundaries.nsfwActive && boundaries.intensity) parts.push(INTENSITY_RULES[boundaries.intensity]);
   const phi = character?.postHistoryInstructions?.trim();
   if (phi) parts.push(applyMacros(phi, names));
@@ -754,15 +766,16 @@ export const buildTurnContext = (
   const otherParticipantImages = personaReference
     ? [...(roomContext?.otherParticipantImages || []), personaReference]
     : roomContext?.otherParticipantImages;
+  const nsfwActive = effectiveContentRating(character) === "nsfw" && (!roomContext || Boolean(roomContext.othersAllowNsfw));
   return {
     history,
     systemInstruction: text,
     postHistoryNote: buildPostHistoryNote(character, scene?.authorNote, activePersona, {
       hardLimits: scene?.hardLimits,
       intensity: scene?.intensity,
-      nsfwActive: effectiveContentRating(character) === "nsfw" && (!roomContext || Boolean(roomContext.othersAllowNsfw)),
+      nsfwActive,
       avoidNote: scene?.roleplayStyle?.antiRepetition === false ? undefined : avoidNoteFor(messages, character),
-      storyNote: buildStoryReminder(scene?.storyScript),
+      storyNote: buildStoryReminder(scene?.storyScript, { adult: nsfwActive }),
     }),
     characterImages: images,
     characterName,

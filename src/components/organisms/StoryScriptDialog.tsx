@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { FaArrowDown, FaArrowUp, FaMagic, FaPlus, FaTrash } from "react-icons/fa";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "src/components/molecules/dialog";
 import { Select, TextArea, TextInput } from "src/components/molecules/form-controls";
@@ -36,6 +37,8 @@ interface StoryScriptDialogProps {
   characterName?: string;
   // A group chat's members (#242), who can each take one of the parts.
   members?: { id: number; name: string }[];
+  // An 18+ story or chat (#255), where beats can be marked intimate.
+  adult?: boolean;
 }
 
 const MODE_OPTIONS = [
@@ -47,7 +50,7 @@ const MODE_OPTIONS = [
 // ending, written by hand, split from a pasted story, or loaded from a
 // template. Saving replaces the chat's script; nothing reaches the model
 // until the next reply.
-const StoryScriptDialog: React.FC<StoryScriptDialogProps> = ({ open, onOpenChange, script, onSave, characterName, members }) => {
+const StoryScriptDialog: React.FC<StoryScriptDialogProps> = ({ open, onOpenChange, script, onSave, characterName, members, adult = false }) => {
   const dispatch = useAppDispatch();
   const [draft, setDraft] = useState<StoryScript>(script || emptyScript());
   const [pasted, setPasted] = useState("");
@@ -225,6 +228,15 @@ const StoryScriptDialog: React.FC<StoryScriptDialogProps> = ({ open, onOpenChang
                       placeholder="What happens in it in the story (optional)"
                       className="min-h-[44px] text-[13px]"
                     />
+                    {adult && (
+                      <ToggleSwitch
+                        checked={Boolean(beat.intimate)}
+                        onChange={(on) => update({ beats: draft.beats.map((b, j) => (j === i ? { ...b, intimate: on || undefined } : b)) })}
+                        label="Intimate beat"
+                        title="Only intimate beats go as far as the intensity allows; the rest keep to the plot"
+                        className="text-xs"
+                      />
+                    )}
                   </div>
                   <Button type="button" variant="ghost" size="icon" className="h-9 w-9" onClick={() => moveBeatAt(i, -1)} disabled={i === 0} aria-label={`Move beat ${i + 1} up`}>
                     <FaArrowUp size={11} />

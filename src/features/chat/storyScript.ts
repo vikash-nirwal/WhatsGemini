@@ -21,6 +21,7 @@ export const cleanScript = (script: StoryScript): StoryScript | undefined => {
       const details = b.details?.trim();
       const beat: StoryBeat = { id: b.id, text: b.text.trim() };
       if (details) beat.details = details;
+      if (b.intimate) beat.intimate = true;
       return beat;
     })
     .filter((b) => b.text);
@@ -375,14 +376,27 @@ export const parseResplit = (reply: string, script: StoryScript, from: number): 
 // (with the author's note), where models weigh instructions most: the
 // story section alone sits at the top of a long system prompt and gets
 // drowned out by the character and the chat, so strict stories drifted.
-export const buildStoryReminder = (script: StoryScript | undefined): string | undefined => {
+// In an 18+ story (`adult`) with beats marked intimate (#255), it also says
+// whether this is one of them, so intimacy stays where the story puts it.
+export const buildStoryReminder = (script: StoryScript | undefined, { adult = false }: { adult?: boolean } = {}): string | undefined => {
   if (!script || script.beats.length === 0) return undefined;
   if (isFinished(script)) return `Story: every beat has happened; ${script.ending ? `bring it to its ending: ${script.ending}` : "wrap it up"}.`;
   const beat = script.beats[script.currentBeat];
   const where = `Story: beat ${script.currentBeat + 1} of ${script.beats.length}, "${beat.text}"${beat.details ? ` (${beat.details})` : ""}.`;
-  return script.mode === "strict"
+  const reminder = script.mode === "strict"
     ? `${where} This reply stays inside the story and moves the scene toward that beat with the story's own events, people and lines; no new plot, people or twists.`
     : `${where} Keep the scene moving toward it.`;
+  const heat = adult ? beatHeatLine(script) : undefined;
+  return heat ? `${reminder} ${heat}` : reminder;
+};
+
+// Whether the current beat is one the author marked intimate. Nothing when
+// no beat is marked, so stories that don't use it read as before.
+export const beatHeatLine = (script: StoryScript): string | undefined => {
+  if (!script.beats.some((b) => b.intimate)) return undefined;
+  return script.beats[script.currentBeat]?.intimate
+    ? "This is one of the story's intimate beats: intimate scenes here can go as far as the intensity allows."
+    : "This isn't one of the story's intimate beats: keep to the plot, and leave intimacy for the beats meant for it.";
 };
 
 // What the suggested next moves (an adventure's choices, a chat's reply
@@ -400,11 +414,13 @@ export const storyChoicesRule = (script: StoryScript | undefined, what = "sugges
 // stopping where the next beat begins. Then the beat is summarised like a
 // chapter and the story moves on. The reader picks how long it is, what it
 // leans on, and can say what they want to happen.
-export type BeatFocus = "balanced" | "dialogue" | "description";
-export const BEAT_FOCUS: Record<BeatFocus, { label: string; rule: string }> = {
+// "Intimacy" is only offered in an 18+ story or chat (#255).
+export type BeatFocus = "balanced" | "dialogue" | "description" | "intimacy";
+export const BEAT_FOCUS: Record<BeatFocus, { label: string; rule: string; adult?: boolean }> = {
   balanced: { label: "Balanced", rule: "Mix what happens, what it looks and feels like, and what people say." },
   dialogue: { label: "More dialogue", rule: "Lean on the characters talking, each in their own voice, with short bits of action between the lines." },
   description: { label: "More description", rule: "Lean on vivid description: the place, what people do and feel, with only the key lines spoken." },
+  intimacy: { label: "Intimacy", rule: "Lean on the closeness between the characters: touch, tension, and what they feel and want, as far as the content rules allow.", adult: true },
 };
 
 export interface BeatBridgeOptions {
@@ -413,13 +429,22 @@ export interface BeatBridgeOptions {
   length?: StoryLength;
   focus?: BeatFocus;
   direction?: string; // what the reader wants in it, in their words
+  // The content rule and intensity a reply would get (contentNoteFor), since
+  // this helper call doesn't carry the narrator's system prompt.
+  content?: string;
+  adult?: boolean; // the story or chat is effectively NSFW
+  toneDown?: string[]; // #256
 }
 
 export const buildBeatBridgePrompt = (
   script: StoryScript,
   transcript: string,
-  { secondPerson = false, playerName, length = "medium", focus = "balanced", direction }: BeatBridgeOptions = {}
+  { secondPerson = false, playerName, length = "medium", focus = "balanced", direction, content, adult = false, toneDown }: BeatBridgeOptions = {}
 ): string => {
+  // Intimacy without an 18+ rule would ask for what the story isn't rated for.
+  const lean = BEAT_FOCUS[focus].adult && !adult ? "balanced" : focus;
+  const soften = (toneDown || []).map((t) => t.trim()).filter(Boolean);
+  const heat = adult ? beatHeatLine(script) : undefined;
   const beat = script.beats[script.currentBeat];
   const next = script.beats[script.currentBeat + 1];
   const voice = secondPerson
@@ -439,9 +464,9 @@ export const buildBeatBridgePrompt = (
 Write the rest of the current beat as a passage of the story: everything it still needs, its events and the lines people say, in the story's order, picking up exactly where the conversation below leaves off. Skip what has already happened. Stop where the next beat would begin.
 - ${voice}
 - Show, don't tell: concrete details of the place, body language and what people feel; everyone sounds and acts like themselves.
-- ${BEAT_FOCUS[focus].rule}
+- ${BEAT_FOCUS[lean].rule}
 - Put spoken lines in quotes.
-- Length: ${STORY_LENGTHS[length].passage}.${wish ? `\n- The reader's wishes for this passage (follow them, inside the story): ${wish}` : ""}
+- Length: ${STORY_LENGTHS[length].passage}.${wish ? `\n- The reader's wishes for this passage (follow them, inside the story): ${wish}` : ""}${content ? `\n- ${content}` : ""}${heat ? `\n- ${heat}` : ""}${soften.length > 0 ? `\n- Tone these down - where the story has them, soften them or leave them out: ${soften.join("; ")}.` : ""}
 
 Reply with only the passage.
 

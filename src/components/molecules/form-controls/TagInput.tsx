@@ -8,11 +8,12 @@ interface TagInputProps {
   onChange: (tags: string[]) => void;
   placeholder?: string;
   className?: string;
+  "aria-label"?: string; // for the text box, when there's no visible label tied to it
 }
 
 // Freeform chip input: type a tag and press Enter or "," to commit it,
 // Backspace on the empty draft removes the last chip. Dedupes case-insensitively.
-export const TagInput: React.FC<TagInputProps> = ({ value, onChange, placeholder, className }) => {
+export const TagInput: React.FC<TagInputProps> = ({ value, onChange, placeholder, className, "aria-label": ariaLabel }) => {
   const [draft, setDraft] = useState("");
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
@@ -64,6 +65,7 @@ export const TagInput: React.FC<TagInputProps> = ({ value, onChange, placeholder
       ))}
       <input
         type="text"
+        aria-label={ariaLabel}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {

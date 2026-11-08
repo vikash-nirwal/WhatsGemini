@@ -293,3 +293,69 @@ test("a story exports as a book, in Markdown and as a web page", async ({ page, 
   expect(html).toContain('<p class="player"><strong>Lizzy Bennet:</strong> Glare at Darcy</p>');
   expect(html).not.toContain("<script");
 });
+
+// 18+ stories (#253–#256): a story with no Character cast gets its own
+// rating, intensity, intimate beats, hard limits and things to tone down.
+test("an 18+ story gets explicit content, its intensity, intimate beats and limits", async ({ page, mockAI }) => {
+  await openRoute(page, "/stories/new");
+  mockAI.replyOnce(JSON.stringify({ ...DRAFT, beats: ["Lizzy overhears Darcy's insult.", "Their wedding night.", "Event 3"] }));
+  await page.getByLabel("Story to play").fill("A story about two adults.");
+  await page.getByRole("button", { name: "Read the story" }).click();
+
+  // Intensity and intimate beats only show once the story is 18+.
+  await expect(page.getByRole("group", { name: "Intensity" })).toHaveCount(0);
+  await expect(page.getByRole("switch", { name: "Intimate beat" })).toHaveCount(0);
+  await page.getByRole("switch", { name: /18\+ story/ }).click();
+  await page.getByRole("group", { name: "Intensity" }).getByRole("button", { name: "Explicit" }).click();
+  await page.getByText("3 beats").click();
+  await page.getByRole("switch", { name: "Intimate beat" }).nth(1).click();
+  await page.getByLabel("Add a hard limit").fill("gore");
+  await page.getByLabel("Add a hard limit").press("Enter");
+  await page.getByLabel("Add something to tone down").fill("swearing");
+  await page.getByLabel("Add something to tone down").press("Enter");
+
+  mockAI.reply(responder(adventureReply("The ballroom glitters.", ["Dance", "Listen to Darcy"])));
+  await page.getByRole("button", { name: "Start playing" }).click();
+  await expect(page.getByText("The ballroom glitters.")).toBeVisible();
+  const first = mockAI.requests.find((r) => r.stream)!;
+  expect(systemPrompt(first.messages)).toContain("explicit sexual content");
+  expect(first.prompt).toContain("fully explicit");
+  expect(first.prompt).toContain("Hard limits - never include, depict or steer toward these, even if asked in-story: gore.");
+  expect(first.prompt).toContain("soften them or leave them out: swearing.");
+  expect(first.prompt).toContain("This isn't one of the story's intimate beats");
+
+  // "Finish this beat" can lean on intimacy, with the same content rule.
+  await page.getByRole("button", { name: "Story progress: Beat 1 of 3. Show the story" }).click();
+  await page.getByRole("region", { name: "Story progress" }).getByRole("button", { name: "Finish this beat" }).click();
+  const finish = page.getByRole("dialog", { name: "Finish this beat" });
+  await finish.getByRole("group", { name: "Leaning on" }).getByRole("button", { name: "Intimacy" }).click();
+  await finish.getByRole("button", { name: "Write it" }).click();
+  await expect(finish.getByLabel("The rest of the beat")).toHaveValue(BRIDGE);
+  const bridge = mockAI.requests.find((r) => r.prompt.includes("Write the rest of the current beat"))!;
+  expect(bridge.prompt).toContain("closeness between the characters");
+  expect(bridge.prompt).toContain("explicit sexual content");
+  expect(bridge.prompt).toContain("swearing");
+});
+
+test("a story whose text suggests someone under 18 stays SFW", async ({ page, mockAI }) => {
+  await openRoute(page, "/stories/new");
+  mockAI.replyOnce(JSON.stringify({ ...DRAFT, beats: ["Event 1", "Event 2", "Event 3"] }));
+  await page.getByLabel("Story to play").fill("Jane was 15 years old that spring.");
+  await page.getByRole("button", { name: "Read the story" }).click();
+  await page.getByRole("switch", { name: /18\+ story/ }).click();
+  await expect(page.getByRole("alert")).toContainText('"15 years old"');
+  await expect(page.getByRole("group", { name: "Intensity" })).toHaveCount(0);
+
+  mockAI.reply(responder(adventureReply("The ballroom glitters.", ["Dance", "Listen to Darcy"])));
+  await page.getByRole("button", { name: "Start playing" }).click();
+  await expect(page.getByText("The ballroom glitters.")).toBeVisible();
+  const first = mockAI.requests.find((r) => r.stream)!;
+  expect(systemPrompt(first.messages)).toContain("keep this story non-explicit");
+  expect(systemPrompt(first.messages)).not.toContain("explicit sexual content");
+
+  // The story's Boundaries show the same reason.
+  await headerAction(page, "Boundaries");
+  const boundaries = page.getByRole("dialog", { name: "Boundaries" });
+  await expect(boundaries.getByRole("switch", { name: /18\+ story/ })).toBeChecked();
+  await expect(boundaries.getByRole("alert")).toContainText('"15 years old"');
+});

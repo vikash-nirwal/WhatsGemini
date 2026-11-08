@@ -127,7 +127,8 @@ import { AI, YOU, DEFAULT_AUTO_SELFIE_FREQUENCY, getModelContextWindow, CHARACTE
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { Message, Chat, Character, WhatIfChat } from "../types";
 import { stripLeakedBase64 } from "../features/ai/utils/apiUtils";
-import { buildSystemInstruction, buildTurnContext, AUTO_REPLY_DIRECTIVE, FOLLOWUP_CONTINUATION_PROMPT, RoomContext, SceneContext } from "../features/ai/utils/promptComposition";
+import { adventureContentRating } from "../features/ai/utils/adventurePrompt";
+import { buildSystemInstruction, buildTurnContext, contentNoteFor, AUTO_REPLY_DIRECTIVE, FOLLOWUP_CONTINUATION_PROMPT, RoomContext, SceneContext } from "../features/ai/utils/promptComposition";
 import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
 import { allAdults, effectiveContentRating } from "../features/character/contentRating";
 import { replyLengthFor } from "../features/world/worldVoice";
@@ -2492,13 +2493,23 @@ const ChatPage = () => {
   // leaning the reader picks (FinishBeatDialog), then added; the beat can
   // become a chapter named after it, and the story moves on to the next.
   const [finishBeatOpen, setFinishBeatOpen] = useState(false);
+  // The same rating rule replies get: explicit only when everyone in the
+  // chat is effectively NSFW.
+  const chatRating = adventureContentRating(roomCharacters);
   const writeBeat = async ({ length, focus, direction }: FinishBeatChoices): Promise<string> => {
     const script = currentChat?.storyScript;
     if (!script || isFinished(script)) throw new Error("This story has no beat left to finish.");
     const recent = trimToLatestSummary(messages).filter((m) => !m.isSystem).slice(-NARRATIVE_CONTEXT_MESSAGES);
     const userPart = script.cast?.find((c) => c.playedBy === "user")?.name;
     const reply = await dispatch(generateAssistText({
-      instruction: buildBeatBridgePrompt(script, formatTranscript(recent, transcriptNames()), { playerName: userPart || activePersona?.name?.trim() || undefined, length, focus, direction }),
+      instruction: buildBeatBridgePrompt(script, formatTranscript(recent, transcriptNames()), {
+        playerName: userPart || activePersona?.name?.trim() || undefined,
+        length,
+        focus,
+        direction,
+        adult: chatRating === "nsfw",
+        content: contentNoteFor(chatRating, currentChat?.intensity),
+      }),
       purpose: "finish-beat",
     })).unwrap();
     const text = reply.trim();
@@ -2924,9 +2935,9 @@ const ChatPage = () => {
         <GameDialog open={gameOpen} onOpenChange={setGameOpen} characterName={characterData?.name || "them"} onStart={startGame} />
         <PollDialog open={pollOpen} onOpenChange={setPollOpen} onCreate={(q, o) => void handleCreatePoll(q, o)} />
         {currentChat?.storyScript && !isFinished(currentChat.storyScript) && (
-          <FinishBeatDialog open={finishBeatOpen} onOpenChange={setFinishBeatOpen} beatText={currentChat.storyScript.beats[currentChat.storyScript.currentBeat]?.text || ""} onWrite={writeBeat} onAdd={addBeat} />
+          <FinishBeatDialog adult={chatRating === "nsfw"} open={finishBeatOpen} onOpenChange={setFinishBeatOpen} beatText={currentChat.storyScript.beats[currentChat.storyScript.currentBeat]?.text || ""} onWrite={writeBeat} onAdd={addBeat} />
         )}
-        <StoryScriptDialog open={storyOpen} onOpenChange={setStoryOpen} script={currentChat?.storyScript} onSave={saveStoryScript} characterName={!isRoom ? characterData?.name : undefined} members={storyMembers} />
+        <StoryScriptDialog adult={chatRating === "nsfw"} open={storyOpen} onOpenChange={setStoryOpen} script={currentChat?.storyScript} onSave={saveStoryScript} characterName={!isRoom ? characterData?.name : undefined} members={storyMembers} />
         <ScenarioCardsDialog open={scenarioOpen} onOpenChange={setScenarioOpen} onStart={handleStartScenario} />
         <TimeSkipDialog open={timeSkipOpen} onOpenChange={setTimeSkipOpen} onSkip={handleTimeSkip} onPassTime={(pass) => void handlePassTime(pass)} />
         {!isRoom && characterData && (

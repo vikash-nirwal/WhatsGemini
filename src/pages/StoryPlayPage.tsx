@@ -9,7 +9,7 @@ import { selectActivePersona } from "src/features/settingsSlice";
 import { useModal } from "src/contexts/ModalContext";
 import { cn } from "src/utils/cn";
 import { DEFAULT_ADVENTURE_CHOICE_COUNT } from "src/utils/constants";
-import { StoryCastMember, StoryScript } from "src/types";
+import { Intensity, StoryCastMember, StoryScript } from "src/types";
 import { applyCastRenames, buildScriptDraftPrompt, cleanScript, emptyScript, keepSource, makeBeat, parseScriptDraft } from "src/features/chat/storyScript";
 import { Button } from "src/components/atoms/button";
 import { Card } from "src/components/atoms/card";
@@ -18,6 +18,9 @@ import { SegmentedControl } from "src/components/molecules/SegmentedControl";
 import { StoryCastEditor } from "src/components/molecules/StoryCastEditor";
 import { STORY_LENGTH_OPTIONS, STORY_LENGTHS, StoryLength } from "src/features/chat/storyLength";
 import Header from "src/components/organisms/Header";
+import ToggleSwitch from "src/components/atoms/ToggleSwitch";
+import { StoryContentFields } from "src/components/molecules/StoryContentFields";
+import { detectMinorIndicators, storyTextFields } from "src/features/character/contentRating";
 
 // Story play: paste a story and play it as one of its own people (or as
 // yourself), with no Character made. The AI narrates and voices everyone
@@ -117,11 +120,19 @@ export const NewStoryPlayPage = () => {
   // The cast as the story text names them, for carrying renames through.
   const [castBefore, setCastBefore] = useState<StoryCastMember[] | undefined>(undefined);
   const [length, setLength] = useState<StoryLength>("medium");
+  // What the story may include (#253, #254, #256), set before it starts.
+  const [adult, setAdult] = useState(false);
+  const [intensity, setIntensity] = useState<Intensity | undefined>(undefined);
+  const [hardLimits, setHardLimits] = useState<string[]>([]);
+  const [toneDown, setToneDown] = useState<string[]>([]);
   const [reading, setReading] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const update = (patch: Partial<StoryScript>) => setDraft((d) => (d ? { ...d, ...patch } : d));
+  // Read again as the author edits, so rewording a flagged phrase clears it.
+  const minorIndicators = useMemo(() => (adult && draft ? detectMinorIndicators(storyTextFields({ title, storyScript: draft })) : []), [adult, draft, title]);
+  const adultOn = adult && minorIndicators.length === 0;
   const cast = draft?.cast || [];
   const part = cast.find((c) => c.playedBy === "user");
   const choosePart = (id: string | undefined) => update({ cast: cast.map((c) => ({ ...c, playedBy: c.id === id ? "user" : c.playedBy === "user" ? undefined : c.playedBy })) });
@@ -155,7 +166,19 @@ export const NewStoryPlayPage = () => {
     try {
       const fallback = script.premise.split(/[.!?]/)[0].slice(0, 60).trim() || "A story";
       const created = await dispatch(
-        addAdventure({ title: title.trim() || fallback, storyPlay: true, storyScript: script, rules: { choiceCount: DEFAULT_ADVENTURE_CHOICE_COUNT, replyLengthLimit: STORY_LENGTHS[length].chars } })
+        addAdventure({
+          title: title.trim() || fallback,
+          storyPlay: true,
+          storyScript: script,
+          ...(adult ? { contentRating: "nsfw" as const, adultsConfirmed: true } : {}),
+          rules: {
+            choiceCount: DEFAULT_ADVENTURE_CHOICE_COUNT,
+            replyLengthLimit: STORY_LENGTHS[length].chars,
+            ...(adult && intensity ? { intensity } : {}),
+            ...(hardLimits.length > 0 ? { hardLimits } : {}),
+            ...(toneDown.length > 0 ? { toneDown } : {}),
+          },
+        })
       ).unwrap();
       navigate(`/adventures/${created.id}`);
     } catch (err: any) {
@@ -251,6 +274,15 @@ export const NewStoryPlayPage = () => {
                           placeholder="What happens in it in the story"
                           className="min-h-[44px] text-[13px]"
                         />
+                        {adultOn && (
+                          <ToggleSwitch
+                            checked={Boolean(beat.intimate)}
+                            onChange={(on) => update({ beats: draft.beats.map((b, j) => (j === i ? { ...b, intimate: on || undefined } : b)) })}
+                            label="Intimate beat"
+                            title="Only intimate beats go as far as the intensity allows; the rest keep to the plot"
+                            className="text-xs"
+                          />
+                        )}
                       </div>
                       <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => update({ beats: draft.beats.filter((_, j) => j !== i) })} aria-label={`Remove beat ${i + 1}`}>
                         <FaTrash size={11} />
@@ -274,6 +306,21 @@ export const NewStoryPlayPage = () => {
                 <SegmentedControl aria-label="Reply length" value={length} onChange={(v) => setLength(v as StoryLength)} options={STORY_LENGTH_OPTIONS} />
                 <span className="text-xs text-subtle">{STORY_LENGTHS[length].hint}. You can change it any time from the story's menu.</span>
               </div>
+
+              <section className="flex flex-col gap-2">
+                <span className="text-[11.5px] text-muted-foreground">What it can include</span>
+                <StoryContentFields
+                  adult={adult}
+                  onAdult={setAdult}
+                  minorIndicators={minorIndicators}
+                  intensity={intensity}
+                  onIntensity={setIntensity}
+                  hardLimits={hardLimits}
+                  onHardLimits={setHardLimits}
+                  toneDown={toneDown}
+                  onToneDown={setToneDown}
+                />
+              </section>
 
               <div className="flex justify-end gap-2 border-t border-border pt-4">
                 <Button type="button" variant="outline" onClick={() => navigate("/stories")}>Cancel</Button>

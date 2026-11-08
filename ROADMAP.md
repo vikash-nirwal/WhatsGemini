@@ -1,8 +1,17 @@
 # Kindred roadmap
 
-What's left to build. What's built is mapped in [PROGRESS.md](PROGRESS.md); the details are in the git history. Item numbers never change; new ideas take the next free number (next: #253).
+What's left to build. What's built is mapped in [PROGRESS.md](PROGRESS.md); the details are in the git history. Item numbers never change; new ideas take the next free number (next: #261).
 
 Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
+
+## Next: 18+ stories, more
+
+Built on #253–#256 (18+ stories, intensity, intimate beats, limits and tone down; see PROGRESS.md). The user asked for these on 2026-11-08.
+
+- **#257 Stay in this moment (S).** A toggle in the story's menu and progress panel: the narrator holds the current scene and doesn't move toward the next beat (the reminder and `storyChoicesRule` say so), and the beat check is skipped; "Move on" turns it off.
+- **#258 Paths Ahead with a tempo (S).** In an NSFW story with intensity above fade, the choices cover leaning in, slowing down or pulling back, and the plot (`storyChoicesRule`), so there's always a way to steer an intimate scene, not only forward.
+- **#259 Pictures for 18+ stories (M).** A story confirmed adult (#253) counts for "Off for 18+" in `imageSafetyFor`, so its scene pictures work as a chat's do; a short look per story person (`StoryCastMember.look`, editable in `StoryCastEditor`) goes into scene prompts so people look the same from picture to picture. No names to image models, as everywhere (`hideNames`).
+- **#260 Privacy for 18+ stories (S).** NSFW stories follow "show NSFW characters" and blur on the Stories page (`StoryPlayGalleryPage`), discreet mode hides their titles and premises, and "Export as a book" can use a plain title.
 
 ## Open
 

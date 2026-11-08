@@ -472,6 +472,9 @@ export interface StoryBeat {
   // and what's said, so replies (and "Finish this beat") follow the story
   // itself rather than a one-line outline.
   details?: string;
+  // An intimate beat (#255): in an 18+ story, only these go as far as the
+  // intensity allows; the others keep to the plot.
+  intimate?: boolean;
 }
 // Someone in a pasted story. `playedBy` says who takes the part: the AI
 // (unset), the user, or the chat's own character (1:1 chats only). In a
@@ -1120,6 +1123,10 @@ export interface AdventureRules {
   startingItems?: string[];
   skillChecks?: boolean; // risky choices carry a check the app rolls (#26)
   memoryOff?: boolean; // long-term story memory is on unless this is set
+  intensity?: Intensity; // how explicit intimate scenes get (#254); ignored unless the story is effectively NSFW
+  // Things in the story to soften or skip (#256), so a strict story doesn't
+  // reproduce them faithfully; unlike hard limits, they may still be there.
+  toneDown?: string[];
 }
 
 // A roleplay adventure/story session - deliberately its own entity rather
@@ -1151,4 +1158,9 @@ export interface Adventure {
   // Character made. The part the player takes is the cast member with
   // playedBy "user" in storyScript.cast; none means they join as themselves.
   storyPlay?: boolean;
+  // An 18+ story (#253), for stories with no Character cast to take a rating
+  // from. "nsfw" only takes effect with adultsConfirmed and a clean minor scan
+  // of the story's text (effectiveStoryRating).
+  contentRating?: ContentRating;
+  adultsConfirmed?: boolean;
 }
