@@ -135,3 +135,35 @@ test("switching auto replies off in another tab stops statuses here", async ({ p
   await page.waitForTimeout(2000);
   expect(mockAI.requests).toHaveLength(0);
 });
+
+// What's true reaches statuses (#245): god mode's truths and announcements
+// in their world go into the status prompt.
+test("a status from someone in a world knows what's true there", async ({ page, mockAI }) => {
+  await page.clock.install();
+  mockAI.reply("Waving at the ghost in the lighthouse 👻");
+  await openChat(page);
+  await page.evaluate(async (id) => {
+    const db: IDBDatabase = await new Promise((resolve, reject) => {
+      const req = indexedDB.open("ChatAppDB");
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    await new Promise<void>((resolve) => {
+      const tx = db.transaction(["worlds", "characters"], "readwrite");
+      tx.objectStore("worlds").put({ id: 7, name: "Harbour Town", premise: "A rainy port.", godTruths: ["The lighthouse keeper is a ghost"], announcements: [{ id: "a1", text: "The regatta is cancelled", at: Date.now() }] });
+      const store = tx.objectStore("characters");
+      const get = store.get(id);
+      get.onsuccess = () => store.put({ ...get.result, worldId: 7, postsStatuses: true });
+      tx.oncomplete = () => resolve();
+    });
+    db.close();
+  }, ARIA.id);
+  await page.reload();
+  await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
+  await page.clock.fastForward(20_000);
+  await expect.poll(() => mockAI.requests.filter((r) => r.prompt.includes("Write one short status update that Aria posts")).length, { timeout: 15_000 }).toBeGreaterThan(0);
+  const prompt = mockAI.requests.find((r) => r.prompt.includes("Write one short status update that Aria posts"))!.prompt;
+  expect(prompt).toContain("What's true in Harbour Town");
+  expect(prompt).toContain("The lighthouse keeper is a ghost");
+  expect(prompt).toContain("The regatta is cancelled");
+});

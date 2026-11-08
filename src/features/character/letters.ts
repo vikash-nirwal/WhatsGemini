@@ -27,11 +27,12 @@ export const buildLetterPrompt = (
   facts: string[],
   transcript: string,
   nowDoing?: string,
-  summary?: string
+  summary?: string,
+  worldTruths?: string // what's true in their world (#245)
 ): string => `You are ${character.name}. ${userName} hasn't written in ${daysAway} days. Write them a letter, the way you'd write one by hand.
 
 About you: ${[character.description, character.prompt].filter(Boolean).join(" ").slice(0, 700)}
-${character.relationship ? `You and ${userName}: ${character.relationship}\n` : ""}${nowDoing ? `These days you're usually ${nowDoing}.\n` : ""}${facts.length > 0 ? `What you remember:\n- ${facts.slice(-10).join("\n- ")}\n` : ""}${summary ? `The story so far:\n${summary}\n` : ""}
+${character.relationship ? `You and ${userName}: ${character.relationship}\n` : ""}${nowDoing ? `These days you're usually ${nowDoing}.\n` : ""}${facts.length > 0 ? `What you remember:\n- ${facts.slice(-10).join("\n- ")}\n` : ""}${summary ? `The story so far:\n${summary}\n` : ""}${worldTruths ? `${worldTruths}\n` : ""}
 How you last left things:
 ${transcript}
 

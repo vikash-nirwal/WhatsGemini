@@ -5,6 +5,7 @@ import { generateAssistText } from "src/features/aiSlice";
 import { buildCommentReplyPrompt, cleanCommentReply, newCommentId, toggleLike, updateStatus, withComment } from "src/features/character/statusFeed";
 import { Character, CharacterStatus } from "src/types";
 import { useWorldCharacters } from "src/hooks/useWorld";
+import { worldOfCharacter, worldTruthsLine } from "src/features/world/worldTruths";
 
 // Liking and commenting on a character's status (#85), shared by the feed
 // and the status viewer (#152). A comment gets the poster's answer.
@@ -13,6 +14,7 @@ export const useStatusActions = () => {
   const characters = useWorldCharacters();
   const personas = useAppSelector((state) => state.settings.personas);
   const activePersonaId = useAppSelector((state) => state.settings.activePersonaId);
+  const worlds = useAppSelector((state) => state.world.worlds);
   const userName = (personas.find((p) => p.id === activePersonaId) || personas[0])?.name?.trim() || "You";
   const [answering, setAnswering] = useState<string | null>(null);
   const nameOf = (from: number | "you") => (from === "you" ? "You" : characters.find((c) => c.id === from)?.name || "Someone");
@@ -31,7 +33,7 @@ export const useStatusActions = () => {
     await change(poster.id, status.id, (s) => withComment(s, { id: newCommentId(), from: "you", text: text.trim(), at: Date.now() }));
     setAnswering(status.id);
     try {
-      const reply = cleanCommentReply(await dispatch(generateAssistText({ instruction: buildCommentReplyPrompt(poster, status, text.trim(), userName), background: true })).unwrap());
+      const reply = cleanCommentReply(await dispatch(generateAssistText({ instruction: buildCommentReplyPrompt(poster, status, text.trim(), userName, worldTruthsLine(worldOfCharacter(poster, worlds), [poster])), background: true })).unwrap());
       if (reply) {
         // Re-read: the store has your comment by now.
         const base: Character = (await dispatch(fetchCharacterById(poster.id)).unwrap().catch(() => poster)) || poster;

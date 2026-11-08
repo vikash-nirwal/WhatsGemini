@@ -20,7 +20,7 @@ import { annotateFacts } from "src/features/ai/utils/memoryTime";
 import { useLivingCharacters } from "src/hooks/useWorld";
 import { activeEvents, eventsLine } from "src/features/world/worldEvents";
 import { featureOn } from "src/features/world/worldPrefs";
-import { arcActive, arcLine } from "src/features/world/worldArcs";
+import { worldOfCharacter, worldTruthsLine } from "src/features/world/worldTruths";
 import { statusesOn } from "src/features/status/statusSwitch";
 
 const CHECK_EVERY_MS = 30 * 60 * 1000;
@@ -69,7 +69,7 @@ const StatusPoster = () => {
         const recentChat = recent.length > 0 ? formatTranscript(recent, { userName: userName || "User", charName: due.name }) : undefined;
         // What happened in their life this past week (#164) comes first.
         const facts = [...(due.lifeEvents || []).filter((e) => now - e.at < 7 * 86_400_000).map((e) => e.text), ...annotateFacts((due.memory || []).slice(-8), due.memoryDates, now)];
-        const prompt = buildStatusPrompt(due, currentBlock(due.schedule, now)?.activity, facts, liveStatuses(due, now).map((s) => s.text), dayMoodFor(due, now)?.label, dayLogText(due, now), concernsLine(due.concerns), placeLine(due.home, now), mention, { now, userName, recentChat, language: worldsRef.current.find((w) => w.id === due.worldId)?.language?.trim() || undefined, worldEvents: [featureOn(due.worldId, "events") ? eventsLine(activeEvents(worldsRef.current.find((w) => w.id === due.worldId), now)) : undefined, arcLine(arcActive(worldsRef.current.find((w) => w.id === due.worldId)))].filter(Boolean).join("; ") || undefined });
+        const prompt = buildStatusPrompt(due, currentBlock(due.schedule, now)?.activity, facts, liveStatuses(due, now).map((s) => s.text), dayMoodFor(due, now)?.label, dayLogText(due, now), concernsLine(due.concerns), placeLine(due.home, now), mention, { now, userName, recentChat, language: worldsRef.current.find((w) => w.id === due.worldId)?.language?.trim() || undefined, worldEvents: featureOn(due.worldId, "events") ? eventsLine(activeEvents(worldsRef.current.find((w) => w.id === due.worldId), now)) : undefined, worldTruths: worldTruthsLine(worldOfCharacter(due, worldsRef.current), [due]) });
         const text = cleanStatus(await dispatch(generateAssistText({ instruction: prompt, background: true, activity: { at: now, kind: "status", text: `${due.name} posted a status`, characterId: due.id, name: due.name } })).unwrap());
         if (text) {
           const latest = charactersRef.current.find((c) => c.id === due.id) || due;
@@ -91,7 +91,7 @@ const StatusPoster = () => {
           // The feed (#85): the others who know them like it and comment.
           const peers = feedPeersFor(latest, charactersRef.current, chatsRef.current);
           if (peers.length > 0) {
-            const reply = await dispatch(generateAssistText({ instruction: buildFeedReactionsPrompt(latest, status, peers), background: true, activity: { at: now, kind: "status", text: `Friends reacted to ${latest.name}'s status`, characterId: latest.id, name: latest.name } })).unwrap();
+            const reply = await dispatch(generateAssistText({ instruction: buildFeedReactionsPrompt(latest, status, peers, worldTruthsLine(worldOfCharacter(latest, worldsRef.current), [latest, ...peers.map((p) => p.character).filter((c) => c.worldId === latest.worldId)])), background: true, activity: { at: now, kind: "status", text: `Friends reacted to ${latest.name}'s status`, characterId: latest.id, name: latest.name } })).unwrap();
             const { likes, comments } = parseFeedReactions(reply, peers, Date.now());
             const posted = charactersRef.current.find((c) => c.id === due.id);
             if (posted && (likes.length > 0 || comments.length > 0)) {
