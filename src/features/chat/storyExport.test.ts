@@ -1,4 +1,5 @@
-import { buildStoryMarkdown, storyFileName } from "./storyExport";
+import { bookFileName, buildBookHtml, buildBookMarkdown, buildStoryMarkdown, storyFileName } from "./storyExport";
+import { emptyScript, makeBeat } from "./storyScript";
 import { Message } from "../../types";
 
 const at = new Date(2026, 0, 15);
@@ -53,5 +54,50 @@ describe("storyFileName", () => {
   it("makes a safe file name", () => {
     expect(storyFileName("Aria & Kai: Part 2!")).toBe("aria-kai-part-2.md");
     expect(storyFileName("")).toBe("story.md");
+  });
+});
+
+describe("a story as a book (#241)", () => {
+  const script = { ...emptyScript(), premise: "A ball in Meryton.", beats: [makeBeat("Darcy's insult."), makeBeat("Wickham's tale.")] };
+  const messages: Message[] = [
+    { role: "ai", txt: "The ballroom glitters.", beat: 1, choices: [{ id: "c1", label: "Dance with Darcy" }] },
+    { role: "you", txt: "I dance.", chosenChoiceId: "c1", skillCheck: { skill: "charm", dc: 10, roll: 12, total: 12, success: true } as any },
+    { role: "ai", txt: "**Darcy:** \"Tolerable.\"", beat: 1 },
+    { role: "you", txt: "summary", isCompressionSummary: true, chapterTitle: "The Ball", chapterRecap: "Darcy was rude." },
+    { role: "ai", txt: "Understood", isSystem: true },
+    { role: "ai", txt: "Wickham smiles. <script>alert(1)</script>", beat: 2 },
+  ];
+  const input = { title: "Meryton", premise: "A ball in Meryton.", playerName: "Jane", script, messages };
+
+  it("writes Markdown with the premise, chapters, beats and the player's turns set apart", () => {
+    const md = buildBookMarkdown(input);
+    expect(md.startsWith("# Meryton\n\n_A ball in Meryton._")).toBe(true);
+    expect(md.indexOf("## Chapter 1: The Ball")).toBeLessThan(md.indexOf("### Darcy's insult."));
+    expect(md.indexOf("### Darcy's insult.")).toBeLessThan(md.indexOf("The ballroom glitters."));
+    expect(md).toContain("> Darcy was rude.");
+    expect(md).toContain("> **Jane:** I dance.");
+    expect(md.indexOf("## Chapter 2")).toBeLessThan(md.indexOf("### Wickham's tale."));
+    expect(md.match(/### Darcy's insult\./g)).toHaveLength(1);
+    expect(md).not.toContain("Dance with Darcy");
+    expect(md).not.toContain("summary");
+    expect(md).not.toContain("Understood");
+    expect(md).not.toContain("charm");
+  });
+
+  it("writes a self-contained HTML page, escaping what the story says", () => {
+    const html = buildBookHtml(input);
+    expect(html).toContain("<title>Meryton</title>");
+    expect(html).toContain("<h2>Chapter 1: The Ball</h2>");
+    expect(html).toContain("<h3>Darcy's insult.</h3>");
+    expect(html).toContain('<p class="player"><strong>Jane:</strong> I dance.</p>');
+    expect(html).toContain("<strong>Darcy:</strong> &quot;Tolerable.&quot;");
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).not.toContain("<script>");
+    expect(html).not.toMatch(/<link|src="(?!https?:)/);
+  });
+
+  it("names the files", () => {
+    expect(bookFileName("Meryton Ball", "html")).toBe("meryton-ball.html");
+    expect(bookFileName("Meryton Ball", "md")).toBe("meryton-ball.md");
   });
 });

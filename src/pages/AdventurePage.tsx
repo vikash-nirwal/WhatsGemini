@@ -1,11 +1,12 @@
 import { splitIntoTexts } from "src/features/ai/utils/textingMode";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FaAlignLeft, FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo, FaImage, FaSyncAlt, FaTimes, FaPalette, FaBookOpen, FaComments, FaFont, FaShieldAlt, FaCompressArrowsAlt, FaDiceD20, FaListUl, FaBrain, FaBookmark, FaMap } from "react-icons/fa";
+import { FaAlignLeft, FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo, FaImage, FaSyncAlt, FaTimes, FaPalette, FaBookOpen, FaComments, FaFont, FaShieldAlt, FaCompressArrowsAlt, FaDiceD20, FaListUl, FaBrain, FaBookmark, FaMap, FaFileDownload } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { deleteAdventure, addAdventureMessage, updateAdventureStatus, incrementAdventureUsage, updateAdventureMessage, updateAdventureRules, removeAdventureCompressionSummary, updateAdventureMemory, insertAdventureCompressionSummary, updateAdventureStoryScript } from "../features/adventureSlice";
 import { BEAT_CHECK_MESSAGES, beatStamp, beatStarts, buildBeatBridgePrompt, buildBeatCheckPrompt, buildNextBeatPrompt, buildStoryReminder, extractBeatTag, isFinished, moveBeat, parseBeatCheckReply } from "../features/chat/storyScript";
 import StoryScriptDialog from "src/components/organisms/StoryScriptDialog";
+import { bookFileName, buildBookHtml, buildBookMarkdown } from "../features/chat/storyExport";
 import { WorldMapView } from "src/components/molecules/WorldMapView";
 import { latestPinIn } from "../features/world/worldMap";
 import { generateAIResponse, generateAdventureSceneImage, autoCompressAdventure, extractCharacterMemory, summarizeChapter, generateAssistText } from "../features/aiSlice";
@@ -548,6 +549,19 @@ const AdventurePage = () => {
     }
   };
 
+  // "Export as a book" (#241): the story so far as Markdown or one HTML
+  // page, downloaded like a chat's "Export as story".
+  const handleExportBook = (format: "md" | "html") => {
+    const input = { title: adventure.title, premise: script?.premise || adventure.premise, playerName: playerName || "You", script, messages: adventure.content };
+    const blob = format === "md" ? new Blob([buildBookMarkdown(input)], { type: "text/markdown" }) : new Blob([buildBookHtml(input)], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = bookFileName(adventure.title, format);
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const isCompleted = adventure.status === "completed";
   const lastMessage = adventure.content[adventure.content.length - 1];
   const activeChoices = !generating && !isCompleted && lastMessage?.role === AI ? lastMessage.choices : undefined;
@@ -631,6 +645,12 @@ const AdventurePage = () => {
       active: hardLimits.length > 0,
       onClick: () => setBoundariesOpen(true),
     },
+    ...(adventure.content.length > 0
+      ? [
+          { icon: FaFileDownload, label: "Export as a book (Markdown)", onClick: () => handleExportBook("md") },
+          { icon: FaFileDownload, label: "Export as a book (web page)", onClick: () => handleExportBook("html") },
+        ]
+      : []),
     { icon: FaTrash, label: "Delete adventure", onClick: handleDelete, danger: true },
   ];
   // Changing the style mid-story only affects illustrations drawn from here

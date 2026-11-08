@@ -1,3 +1,4 @@
+import fs from "fs";
 import { test, expect, openChat, openRoute, sendMessage, adventureReply, headerAction } from "./fixtures";
 
 // Story play: paste a story, take a part in it and the AI narrates and
@@ -238,4 +239,57 @@ test("a story's text is kept, and it can be read again without losing progress",
   await page.getByRole("button", { name: "Dance" }).click();
   await expect.poll(() => mockAI.requests.slice(before).some((r) => r.stream)).toBe(true);
   for (const r of mockAI.requests.filter((r) => r.stream)) expect(r.messages.map((m) => m.content).join("\n")).not.toContain("SOURCE-TEXT");
+});
+
+// A story as a book (#241): chapters and beats as headings, the player's
+// turns set apart, the choices and summaries left out.
+test("a story exports as a book, in Markdown and as a web page", async ({ page, mockAI }) => {
+  await openRoute(page, "/stories/new");
+  mockAI.replyOnce(JSON.stringify({ ...DRAFT, beats: ["Lizzy overhears Darcy's insult.", "Wickham charms her.", "Event 3"] }));
+  await page.getByLabel("Story to play").fill("A story.");
+  await page.getByRole("button", { name: "Read the story" }).click();
+  await page.getByPlaceholder("Name this story").fill("Meryton Ball");
+  mockAI.reply((req) => {
+    if (req.stream && req.prompt.includes("open the next one now")) return adventureReply("Days later, Wickham calls.", ["Hear him out", "Send him away"]);
+    if (req.stream && req.prompt.includes("Glare at Darcy")) return adventureReply("Darcy looks away.", ["Leave", "Stay"]);
+    return responder(adventureReply("The ballroom glitters.", ["Glare at Darcy", "Dance"]))(req);
+  });
+  await page.getByRole("button", { name: "Start playing" }).click();
+  await page.getByRole("button", { name: "Glare at Darcy" }).click();
+  await expect(page.getByText("Darcy looks away.")).toBeVisible();
+
+  await page.getByRole("button", { name: "Story progress: Beat 1 of 3. Show the story" }).click();
+  await page.getByRole("region", { name: "Story progress" }).getByRole("button", { name: "Finish this beat" }).click();
+  const finish = page.getByRole("dialog", { name: "Finish this beat" });
+  await finish.getByRole("button", { name: "Write it" }).click();
+  await expect(finish.getByLabel("The rest of the beat")).toHaveValue(BRIDGE);
+  await finish.getByRole("button", { name: "Add and go to the next beat" }).click();
+  await expect(page.getByText("Days later, Wickham calls.")).toBeVisible();
+
+  let download = page.waitForEvent("download");
+  await headerAction(page, "Export as a book (Markdown)");
+  let file = await download;
+  expect(file.suggestedFilename()).toBe("meryton-ball.md");
+  const md = fs.readFileSync((await file.path())!, "utf8");
+  expect(md).toContain("# Meryton Ball");
+  expect(md).toContain("_Lizzy Bennet meets proud Mr Darcy at a ball in Meryton._");
+  expect(md).toContain("## Chapter 1: Lizzy overhears Darcy's insult.");
+  expect(md).toContain("### Lizzy overhears Darcy's insult.");
+  expect(md).toContain("> **Lizzy Bennet:** Glare at Darcy");
+  expect(md).toContain("Mira's ticket flutters to the floor");
+  expect(md.indexOf("## Chapter 2")).toBeLessThan(md.indexOf("### Wickham charms her."));
+  expect(md.indexOf("### Wickham charms her.")).toBeLessThan(md.indexOf("Days later, Wickham calls."));
+  expect(md).not.toContain("Hear him out");
+  expect(md).not.toContain("CHOICES");
+  expect(md).not.toContain("SUMMARY");
+
+  download = page.waitForEvent("download");
+  await headerAction(page, "Export as a book (web page)");
+  file = await download;
+  expect(file.suggestedFilename()).toBe("meryton-ball.html");
+  const html = fs.readFileSync((await file.path())!, "utf8");
+  expect(html).toContain("<title>Meryton Ball</title>");
+  expect(html).toContain("<h2>Chapter 1: Lizzy overhears Darcy's insult.</h2>");
+  expect(html).toContain('<p class="player"><strong>Lizzy Bennet:</strong> Glare at Darcy</p>');
+  expect(html).not.toContain("<script");
 });
