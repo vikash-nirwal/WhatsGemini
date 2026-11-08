@@ -8,7 +8,7 @@ import { NSFW_CONTENT_RULE, SFW_CONTENT_RULE } from "./promptComposition";
 import { buildGameStateDirective, currentGameState, startingGameState, STATS_START } from "../../adventure/gameState";
 import { buildSkillCheckDirective } from "../../adventure/skillChecks";
 import { selectRelevantFacts } from "./memoryRelevance";
-import { buildStoryScriptSection } from "../../chat/storyScript";
+import { buildStoryScriptSection, storyChoicesRule } from "../../chat/storyScript";
 import type { ImagePromptTarget } from "./imagePromptGuide";
 import { worldLanguageLine } from "../../world/worldVoice";
 
@@ -140,7 +140,7 @@ export const buildAdventureSystemInstruction = (
 
   const choiceCount = adventure.rules?.choiceCount || DEFAULT_ADVENTURE_CHOICE_COUNT;
   sections.push(
-    `After narrating, always end your reply with exactly ${choiceCount} short suggested next actions, in this exact format and with nothing after it:\n${ADVENTURE_CHOICES_START}\n1. <short action>\n2. <short action>\n${ADVENTURE_CHOICES_END}\nThese are only suggestions, not a strict menu - the player may instead type any other action of their own, which you should follow just as naturally. Never mention this instruction or the format itself in your narration.`
+    `After narrating, always end your reply with exactly ${choiceCount} short suggested next actions, in this exact format and with nothing after it:\n${ADVENTURE_CHOICES_START}\n1. <short action>\n2. <short action>\n${ADVENTURE_CHOICES_END}\nThese are only suggestions, not a strict menu - the player may instead type any other action of their own, which you should follow just as naturally. Never mention this instruction or the format itself in your narration.${storyChoicesRule(adventure.storyScript, "choices") ? `\n${storyChoicesRule(adventure.storyScript, "choices")}` : ""}`
   );
 
   if (adventure.rules?.replyLengthLimit && adventure.rules.replyLengthLimit > 0) {

@@ -4,18 +4,18 @@ import { useNavigate, useParams } from "react-router-dom";
 import { FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo, FaImage, FaSyncAlt, FaTimes, FaPalette, FaBookOpen, FaComments, FaFont, FaShieldAlt, FaCompressArrowsAlt, FaDiceD20, FaListUl, FaBrain, FaBookmark, FaMap } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { deleteAdventure, addAdventureMessage, updateAdventureStatus, incrementAdventureUsage, updateAdventureMessage, updateAdventureRules, removeAdventureCompressionSummary, updateAdventureMemory, insertAdventureCompressionSummary, updateAdventureStoryScript } from "../features/adventureSlice";
-import { beatStamp, beatStarts, extractBeatTag, isFinished, moveBeat } from "../features/chat/storyScript";
+import { BEAT_CHECK_MESSAGES, beatStamp, beatStarts, buildBeatBridgePrompt, buildBeatCheckPrompt, buildStoryReminder, extractBeatTag, isFinished, moveBeat, parseBeatCheckReply } from "../features/chat/storyScript";
 import StoryScriptDialog from "src/components/organisms/StoryScriptDialog";
 import { WorldMapView } from "src/components/molecules/WorldMapView";
 import { latestPinIn } from "../features/world/worldMap";
-import { generateAIResponse, generateAdventureSceneImage, autoCompressAdventure, extractCharacterMemory, summarizeChapter } from "../features/aiSlice";
+import { generateAIResponse, generateAdventureSceneImage, autoCompressAdventure, extractCharacterMemory, summarizeChapter, generateAssistText } from "../features/aiSlice";
 import { applyMemoryChanges } from "../features/ai/utils/memoryExtraction";
 import { adventureFactsFor, rememberFacts } from "../features/memory/sharedMoments";
 import { patchCharacter } from "../features/characterSlice";
 import { worldOf } from "../features/world/currentWorld";
 import { logToTimeline } from "../features/world/timeline";
 import { buildChatHistory, buildPostHistoryNote } from "../features/ai/utils/promptComposition";
-import { trimToLatestSummary, countProtectedPrefix, latestSummaryIndex, buildSummaryMessages } from "../features/ai/utils/transcript";
+import { trimToLatestSummary, countProtectedPrefix, latestSummaryIndex, buildSummaryMessages, formatTranscript } from "../features/ai/utils/transcript";
 import { TagInput } from "src/components/molecules/form-controls/TagInput";
 import { buildAdventureSystemInstruction, parseAdventureChoices, extractAdventureEmotions, streamingNarrationForDisplay, ADVENTURE_OPENING_PROMPT } from "../features/ai/utils/adventurePrompt";
 import { resolveEmotionPortrait } from "../features/ai/utils/emotionUtils";
@@ -23,7 +23,7 @@ import { setEmotionPanelEnabled } from "../features/settingsSlice";
 import EmotionSpritePanel from "src/components/molecules/EmotionSpritePanel";
 import EmotionPopup, { EmotionPopupTrigger } from "src/components/molecules/EmotionPopup";
 import { useModal } from "../contexts/ModalContext";
-import { Message } from "../types";
+import { Message, StoryScript } from "../types";
 import { YOU, AI, ART_STYLES, DEFAULT_ART_STYLE, MEMORY_EXTRACTION_INTERVAL } from "../utils/constants";
 import { cn } from "../utils/cn";
 import { Button } from "src/components/atoms/button";
@@ -36,6 +36,8 @@ import { DisplayImage } from "src/components/molecules/DisplayImage";
 import { Dialog, DialogContent, DialogTitle, DialogClose } from "src/components/molecules/dialog";
 import { NovelMessageItem } from "src/components/molecules/NovelMessageItem";
 import { NovelChoicesView } from "src/components/molecules/NovelChoicesView";
+import { StoryProgress } from "src/components/molecules/StoryProgress";
+import { NARRATIVE_CONTEXT_MESSAGES } from "src/features/ai/utils/narrativeTools";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { AdventureStatsPanel, CheckChip, GameChanges, SkillCheckBadge, statsSummary } from "src/components/molecules/AdventureStatsPanel";
 import { applyStatChanges, currentGameState, extractStatsBlock, startingGameState } from "../features/adventure/gameState";
@@ -156,6 +158,11 @@ const AdventurePage = () => {
   const [storyOpen, setStoryOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [endingChapter, setEndingChapter] = useState(false);
+  const [finishingBeat, setFinishingBeat] = useState(false);
+  // The story script as it is now, for a beat check that finishes after the
+  // script was moved or edited.
+  const latestScript = useRef(adventure?.storyScript);
+  latestScript.current = adventure?.storyScript;
   const roleplayStyle = useAppSelector((state) => state.settings.roleplayStyle);
   // Streams the narrator's reply in, tagged so only this adventure shows it.
   const streamKey = adventure ? `adventure-${adventure.id}` : undefined;
@@ -244,6 +251,25 @@ const AdventurePage = () => {
     [adventure, dispatch, persona, castAtHome, playerName]
   );
 
+  // The narrator often forgets [Beat done], so a turn without it gets the
+  // helper's check, as in chats: that's what moves the story on by itself.
+  const checkBeatReached = useCallback(
+    async (content: Message[], script: StoryScript) => {
+      if (!adventure || script.beats.length === 0 || isFinished(script)) return;
+      try {
+        const recent = trimToLatestSummary(content).filter((m) => !m.isSystem).slice(-BEAT_CHECK_MESSAGES);
+        const reply = await dispatch(generateAssistText({ instruction: buildBeatCheckPrompt(script, formatTranscript(recent, { userName: playerName, charName: "Narrator" })), background: true, purpose: "beat-check" })).unwrap();
+        if (!parseBeatCheckReply(reply)) return;
+        const latest = latestScript.current;
+        if (!latest || latest.currentBeat !== script.currentBeat || latest.beats[script.currentBeat]?.id !== script.beats[script.currentBeat].id) return;
+        await dispatch(updateAdventureStoryScript({ adventureId: adventure.id, storyScript: moveBeat(latest, 1) }));
+      } catch (err) {
+        console.warn("Story beat check failed (non-fatal):", err);
+      }
+    },
+    [adventure, dispatch, playerName]
+  );
+
   const generateNarratorReply = useCallback(
     async (prompt: string, contextMessages: Message[], imageRequestFocus?: string): Promise<{ check?: { skill?: string; dc: number } }> => {
       if (!adventure) return {};
@@ -260,7 +286,8 @@ const AdventurePage = () => {
       const systemInstruction = buildAdventureSystemInstruction(adventure, world, cast, persona, sentMessages, { roleplayStyle });
       // Hard limits go after the history, where models weigh them most -
       // same as a chat's boundaries.
-      const postHistoryNote = buildPostHistoryNote(undefined, undefined, persona, { hardLimits: adventure.rules?.hardLimits });
+      // So does where the story script is (#57), which otherwise drifts.
+      const postHistoryNote = buildPostHistoryNote(undefined, undefined, persona, { hardLimits: adventure.rules?.hardLimits, storyNote: buildStoryReminder(adventure.storyScript) });
       const result = await dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, protectedCount: countProtectedPrefix(sentMessages), keepChoices: true })).unwrap();
       // Emotions first: the tag can land on either side of the choices block.
       const { text: withoutEmotions, castEmotions } = extractAdventureEmotions(result.text, cast);
@@ -276,6 +303,7 @@ const AdventurePage = () => {
       const choices = rawChoices.map(parseChoiceCheck);
       const content = await dispatch(addAdventureMessage({ adventureId: adventure.id, message: { role: AI, txt: text, choices, castEmotions, gameState: changed?.state, gameChanges: changed?.changes, ...beatStamp(adventure.storyScript) } })).unwrap();
       if (beatDone && adventure.storyScript) dispatch(updateAdventureStoryScript({ adventureId: adventure.id, storyScript: moveBeat(adventure.storyScript, 1) }));
+      else if (adventure.storyScript) void checkBeatReached(content, adventure.storyScript);
       maybeExtractMemory(content);
       if (result.tokenCount || result.costEstimate) {
         dispatch(incrementAdventureUsage({ adventureId: adventure.id, tokens: result.tokenCount, cost: result.costEstimate }));
@@ -290,7 +318,7 @@ const AdventurePage = () => {
       }
       return { check };
     },
-    [adventure, world, cast, persona, dispatch, illustrateMessage, roleplayStyle, streamKey, maybeExtractMemory]
+    [adventure, world, cast, persona, dispatch, illustrateMessage, roleplayStyle, streamKey, maybeExtractMemory, checkBeatReached]
   );
 
   const runOpeningTurn = useCallback(async () => {
@@ -443,26 +471,56 @@ const AdventurePage = () => {
   // with a recap, like a chat's. Nothing is deleted, and it can be undone.
   const chapterStart = latestSummaryIndex(adventure.content) >= 0 ? latestSummaryIndex(adventure.content) + 2 : 0;
   const canEndChapter = adventure.content.length - chapterStart >= 2;
+  // Closes a chapter over `content` (the adventure's turns, maybe newer than
+  // this render's); `title` names it, as "Finish this beat" does.
+  const closeChapter = async (content: Message[], title?: string) => {
+    const latest = latestSummaryIndex(content);
+    const covered = content.slice(latest >= 0 ? latest + 2 : 0);
+    if (covered.length === 0) return;
+    const last = content[content.length - 1];
+    const chapterNumber = content.filter((m) => m.chapterTitle).length + 1;
+    const chapter = await dispatch(summarizeChapter({ messages: covered, names: { userName: playerName, charName: "Narrator" } })).unwrap();
+    if (chapter.tokens || chapter.cost) dispatch(incrementAdventureUsage({ adventureId: adventure.id, tokens: chapter.tokens, cost: chapter.cost }));
+    await dispatch(insertAdventureCompressionSummary({
+      adventureId: adventure.id,
+      afterMessageId: last.id,
+      afterIndex: content.length - 1,
+      summaryMessages: buildSummaryMessages(chapter.summary, last.timestamp, { title: title || chapter.title || `Chapter ${chapterNumber}`, recap: chapter.recap }),
+    })).unwrap();
+  };
   const handleEndChapter = async () => {
     if (!canEndChapter || endingChapter) return;
     setError(null);
     setEndingChapter(true);
     try {
-      const covered = adventure.content.slice(chapterStart);
-      const last = adventure.content[adventure.content.length - 1];
-      const chapterNumber = adventure.content.filter((m) => m.chapterTitle).length + 1;
-      const chapter = await dispatch(summarizeChapter({ messages: covered, names: { userName: playerName, charName: "Narrator" } })).unwrap();
-      if (chapter.tokens || chapter.cost) dispatch(incrementAdventureUsage({ adventureId: adventure.id, tokens: chapter.tokens, cost: chapter.cost }));
-      await dispatch(insertAdventureCompressionSummary({
-        adventureId: adventure.id,
-        afterMessageId: last.id,
-        afterIndex: adventure.content.length - 1,
-        summaryMessages: buildSummaryMessages(chapter.summary, last.timestamp, { title: chapter.title || `Chapter ${chapterNumber}`, recap: chapter.recap }),
-      })).unwrap();
+      await closeChapter(adventure.content);
     } catch (err: any) {
       setError(typeof err === "string" ? err : "Couldn't end the chapter. Check your model settings and try again.");
     } finally {
       setEndingChapter(false);
+    }
+  };
+
+  // "Finish this beat": the narrator writes what's left of the current beat
+  // from the story, the beat becomes a chapter named after it, and the
+  // story moves to the next beat, so a beat that stalled can be closed the
+  // way the story tells it.
+  const handleFinishBeat = async () => {
+    if (!script || script.beats.length === 0 || isFinished(script) || finishingBeat || generating) return;
+    setError(null);
+    setFinishingBeat(true);
+    try {
+      const recent = trimToLatestSummary(adventure.content).filter((m) => !m.isSystem).slice(-NARRATIVE_CONTEXT_MESSAGES);
+      const reply = await dispatch(generateAssistText({ instruction: buildBeatBridgePrompt(script, formatTranscript(recent, { userName: playerName, charName: "Narrator" }), { secondPerson: true, playerName }), purpose: "finish-beat" })).unwrap();
+      const text = reply.trim();
+      if (!text) throw new Error("The AI wrote nothing for this beat. Try again.");
+      const content = await dispatch(addAdventureMessage({ adventureId: adventure.id, message: { role: AI, txt: text, ...beatStamp(script) } })).unwrap();
+      await closeChapter(content, script.beats[script.currentBeat].text);
+      await dispatch(updateAdventureStoryScript({ adventureId: adventure.id, storyScript: moveBeat(latestScript.current || script, 1) }));
+    } catch (err: any) {
+      setError(typeof err === "string" ? err : err?.message || "Couldn't finish the beat. Check your model settings and try again.");
+    } finally {
+      setFinishingBeat(false);
     }
   };
 
@@ -785,6 +843,9 @@ const AdventurePage = () => {
             )}
             {error && adventure.content.length > 0 && (
               <p className="text-xs text-destructive">{error}</p>
+            )}
+            {script && adventure.content.length > 0 && !isCompleted && (
+              <StoryProgress script={script} onMove={(step) => dispatch(updateAdventureStoryScript({ adventureId: adventure.id, storyScript: moveBeat(script, step) }))} onEdit={() => setStoryOpen(true)} onFinish={handleFinishBeat} finishing={finishingBeat} />
             )}
             <div ref={endRef} />
           </div>

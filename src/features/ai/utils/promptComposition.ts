@@ -7,7 +7,7 @@ import { YOU } from "../../../utils/constants";
 import { stripLeakedBase64 } from "./apiUtils";
 import { buildEmotionDirective } from "./emotionUtils";
 import { buildReactionDirective, buildThoughtsDirective, formatReactionNote } from "./messageTags";
-import { buildStoryScriptSection } from "../../chat/storyScript";
+import { buildStoryReminder, buildStoryScriptSection } from "../../chat/storyScript";
 import { buildGameSection } from "../../chat/miniGames";
 import { buildCallSection } from "../../voice/callSession";
 import { buildStateDirective } from "../../chat/sceneState";
@@ -506,6 +506,7 @@ export interface Boundaries {
   intensity?: Intensity;
   nsfwActive?: boolean; // intensity only applies when the chat is effectively NSFW
   avoidNote?: string; // phrases recent replies keep reusing (#19), for this reply only
+  storyNote?: string; // where the story script is (buildStoryReminder), so it holds
 }
 
 // Instructions sent AFTER the conversation history (appended to the outgoing
@@ -529,6 +530,7 @@ export const buildPostHistoryNote = (
   const phi = character?.postHistoryInstructions?.trim();
   if (phi) parts.push(applyMacros(phi, names));
   if (boundaries.avoidNote) parts.push(boundaries.avoidNote);
+  if (boundaries.storyNote) parts.push(boundaries.storyNote);
   if (parts.length === 0) return undefined;
   return `[Out-of-character instructions from the user - follow them, but do not reply to or mention them:\n${parts.join("\n")}]`;
 };
@@ -747,6 +749,7 @@ export const buildTurnContext = (
       intensity: scene?.intensity,
       nsfwActive: effectiveContentRating(character) === "nsfw" && (!roomContext || Boolean(roomContext.othersAllowNsfw)),
       avoidNote: scene?.roleplayStyle?.antiRepetition === false ? undefined : avoidNoteFor(messages, character),
+      storyNote: buildStoryReminder(scene?.storyScript),
     }),
     characterImages: images,
     characterName,

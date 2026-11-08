@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FaBookOpen, FaCheck, FaChevronUp, FaStepBackward } from "react-icons/fa";
+import { FaBookOpen, FaCheck, FaChevronUp, FaForward, FaStepBackward } from "react-icons/fa";
 import { cn } from "src/utils/cn";
 import { Button } from "src/components/atoms/button";
 import { StoryScript } from "src/types";
@@ -10,7 +10,23 @@ import { isFinished } from "src/features/chat/storyScript";
 // scene; the story moves on by itself as replies reach each beat. Clicking
 // the bar opens the full section: every beat, and manual controls for when
 // the story needs a nudge.
-export const StoryProgress = ({ script, onMove, onEdit, terminal = false }: { script: StoryScript; onMove: (step: number) => void; onEdit: () => void; terminal?: boolean }) => {
+// "Finish this beat" (`onFinish`) has the AI write the rest of the beat
+// from the story, sum it up and move on.
+export const StoryProgress = ({
+  script,
+  onMove,
+  onEdit,
+  onFinish,
+  finishing = false,
+  terminal = false,
+}: {
+  script: StoryScript;
+  onMove: (step: number) => void;
+  onEdit: () => void;
+  onFinish?: () => void;
+  finishing?: boolean;
+  terminal?: boolean;
+}) => {
   const [open, setOpen] = useState(false);
   const total = script.beats.length;
   const finished = isFinished(script);
@@ -69,7 +85,7 @@ export const StoryProgress = ({ script, onMove, onEdit, terminal = false }: { sc
         </Button>
       </div>
       {total > 0 && (
-        <ol className="mt-2 space-y-1.5">
+        <ol className="mt-2 max-h-[45vh] space-y-1.5 overflow-y-auto">
           {script.beats.map((beat, i) => (
             <li
               key={beat.id}
@@ -94,6 +110,19 @@ export const StoryProgress = ({ script, onMove, onEdit, terminal = false }: { sc
             <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={() => onMove(1)} disabled={finished} aria-label="Mark beat done">
               <FaCheck size={10} /> Done
             </Button>
+            {onFinish && !finished && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2"
+                onClick={onFinish}
+                disabled={finishing}
+                title="The AI writes what's left of this beat from your story, sums it up and moves to the next one"
+              >
+                <FaForward size={10} /> {finishing ? "Finishing..." : "Finish this beat"}
+              </Button>
+            )}
           </>
         )}
         <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={onEdit}>

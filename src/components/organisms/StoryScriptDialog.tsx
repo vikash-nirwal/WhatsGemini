@@ -145,13 +145,16 @@ const StoryScriptDialog: React.FC<StoryScriptDialogProps> = ({ open, onOpenChang
               {draft.beats.map((beat, i) => (
                 <li key={beat.id} className="flex items-start gap-2">
                   <span className="mt-2 w-5 text-right text-xs tabular-nums text-subtle">{i + 1}.</span>
-                  <TextInput
-                    aria-label={`Beat ${i + 1}`}
-                    value={beat.text}
-                    onChange={(e) => setBeat(i, e.target.value)}
-                    placeholder="What happens next"
-                    className="flex-1"
-                  />
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <TextInput aria-label={`Beat ${i + 1}`} value={beat.text} onChange={(e) => setBeat(i, e.target.value)} placeholder="What happens next" />
+                    <TextArea
+                      aria-label={`What happens in beat ${i + 1}`}
+                      value={beat.details || ""}
+                      onChange={(e) => update({ beats: draft.beats.map((b, j) => (j === i ? { ...b, details: e.target.value } : b)) })}
+                      placeholder="What happens in it in the story (optional)"
+                      className="min-h-[44px] text-[13px]"
+                    />
+                  </div>
                   <Button type="button" variant="ghost" size="icon" className="h-9 w-9" onClick={() => moveBeatAt(i, -1)} disabled={i === 0} aria-label={`Move beat ${i + 1} up`}>
                     <FaArrowUp size={11} />
                   </Button>

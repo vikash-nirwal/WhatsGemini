@@ -80,9 +80,11 @@ export const togglePreset = (note: string | undefined, preset: AuthorNotePreset)
 
 export const REPLY_SUGGESTION_COUNT = 3;
 
-export const buildReplySuggestionsPrompt = (userName: string, charName: string, transcript: string): string =>
+// `storyRule`: with a story script (#57), what the suggestions must do to
+// carry the story on (storyChoicesRule).
+export const buildReplySuggestionsPrompt = (userName: string, charName: string, transcript: string, storyRule?: string): string =>
   `Suggest ${REPLY_SUGGESTION_COUNT} different things ${userName} could say or do next in reply to ${charName}, for a roleplay chat.
-- Each one short (under 15 words), in ${userName}'s voice, and clearly different from the others (for example: warm, bold, curious).
+- Each one short (under 15 words), in ${userName}'s voice, and clearly different from the others (for example: warm, bold, curious).${storyRule ? `\n- ${storyRule}` : ""}
 - One per line, numbered "1." to "${REPLY_SUGGESTION_COUNT}.". No other text.
 
 Conversation so far:

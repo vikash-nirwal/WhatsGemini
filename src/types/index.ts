@@ -467,6 +467,10 @@ export interface ChatGame {
 export interface StoryBeat {
   id: string;
   text: string;
+  // What happens in this beat in the user's story: its events, who's there
+  // and what's said, so replies (and "Finish this beat") follow the story
+  // itself rather than a one-line outline.
+  details?: string;
 }
 // Someone in a pasted story. `playedBy` says who takes the part: the AI
 // (unset), the user, or the chat's own character (1:1 chats only).

@@ -10,12 +10,19 @@ import { StoryBeat, StoryCastMember, StoryScript } from "../../types";
 export const emptyScript = (): StoryScript => ({ premise: "", beats: [], directions: "", ending: "", mode: "strict", currentBeat: 0 });
 
 const newBeatId = () => `beat-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-export const makeBeat = (text: string): StoryBeat => ({ id: newBeatId(), text });
+export const makeBeat = (text: string, details?: string): StoryBeat => ({ id: newBeatId(), text, ...(details ? { details } : {}) });
 export const makeCastMember = (name: string, about = ""): StoryCastMember => ({ id: newBeatId().replace("beat", "cast"), name, about });
 
 // Blank beats are dropped, and the current beat kept in range.
 export const cleanScript = (script: StoryScript): StoryScript | undefined => {
-  const beats = script.beats.map((b) => ({ ...b, text: b.text.trim() })).filter((b) => b.text);
+  const beats = script.beats
+    .map((b) => {
+      const details = b.details?.trim();
+      const beat: StoryBeat = { id: b.id, text: b.text.trim() };
+      if (details) beat.details = details;
+      return beat;
+    })
+    .filter((b) => b.text);
   const cast = (script.cast || []).map((c) => ({ ...c, name: c.name.trim(), about: c.about.trim() })).filter((c) => c.name);
   const cleaned: StoryScript = {
     premise: script.premise.trim(),
@@ -58,7 +65,7 @@ export const moveBeat = (script: StoryScript, step: number): StoryScript => ({
 
 const MODE_RULES: Record<StoryScript["mode"], string> = {
   strict:
-    "Stay strictly inside this story. Don't add new plot lines, characters or twists that aren't in it. If the user goes off-script, play along for a reply at most, then steer the scene back toward the current beat in character, without mentioning the script.",
+    "Stay strictly inside this story. Use the story's own events, people and lines for the current beat, in the story's order. Don't add new plot lines, characters or twists that aren't in it. If the user goes off-script, play along for a reply at most, then steer the scene back toward the current beat in character, without mentioning the script.",
   loose:
     "Follow this story's direction, but improvise freely between beats: small events, side conversations and details of your own are fine as long as the scene keeps moving toward the current beat.",
 };
@@ -102,8 +109,9 @@ export const buildStoryScriptSection = (
       parts.push(`Every planned beat has happened.${script.ending ? ` Bring the story to this ending: ${script.ending}` : " Wrap the story up naturally."}`);
     } else {
       const n = script.currentBeat + 1;
+      const beat = script.beats[script.currentBeat];
       parts.push(
-        `The story is told in ${script.beats.length} beats; you're on beat ${n}. Current beat: ${script.beats[script.currentBeat].text}`,
+        `The story is told in ${script.beats.length} beats; you're on beat ${n}. Current beat: ${beat.text}${beat.details ? `\nWhat happens in it, in the story: ${beat.details}` : ""}`,
         `Work toward the current beat over the next replies, at a natural pace; don't jump ahead to later beats, and don't rush it into one reply unless the user does. When the current beat has fully happened in the story, ${beforeChoices ? "put the tag [Beat done] on its own line just before the choices block" : "end that reply with the tag [Beat done] on its own line"}. Never explain or mention the tag.`
       );
       if (script.ending) parts.push(`Where it's all heading (don't reveal it early): ${script.ending}`);
@@ -134,9 +142,10 @@ export const stripStreamingBeatTag = (text: string): string => text.replace(BEAT
 export const BEAT_CHECK_MESSAGES = 10;
 
 export const buildBeatCheckPrompt = (script: StoryScript, transcript: string): string => {
-  const beat = script.beats[script.currentBeat]?.text || "";
+  const current = script.beats[script.currentBeat];
+  const beat = current?.text || "";
   const next = script.beats[script.currentBeat + 1]?.text;
-  return `A roleplay is following a story planned in beats. The current beat is: "${beat}"${next ? `\nThe beat after it (not due yet): "${next}"` : ""}
+  return `A roleplay is following a story planned in beats. The current beat is: "${beat}"${current?.details ? `\nWhat happens in it, in the story: ${current.details}` : ""}${next ? `\nThe beat after it (not due yet): "${next}"` : ""}
 
 Read the end of the conversation below. Has the current beat now fully happened in the story? Say yes only if what it describes has clearly taken place in the scene, not if it's only hinted at, planned or just starting.
 
@@ -169,7 +178,7 @@ export const buildScriptDraftPrompt = (story: string): string => {
 Split it into ${min} to ${max} beats, in order. A long story needs many beats: give each key event its own beat rather than squeezing several into one, one short sentence each.
 
 Reply with only a JSON object, no code fence:
-{"premise": "the setup: world, situation and who everyone is, 1-3 sentences", "beats": ["each key event, in order"], "cast": [{"name": "a character's name as the story gives it", "about": "who they are: role, personality, look and what they want, 1-2 sentences"}], "directions": "tone, pacing and rules the story implies, or empty", "ending": "how it ends, or empty"}
+{"premise": "the setup: world, situation and who everyone is, 1-3 sentences", "beats": [{"beat": "the key event, one short sentence", "events": "what happens in it in the story, in order: who's there, what they do and the key lines said, 2-4 sentences"}], "cast": [{"name": "a character's name as the story gives it", "about": "who they are: role, personality, look and what they want, 1-2 sentences"}], "directions": "tone, pacing and rules the story implies, or empty", "ending": "how it ends, or empty"}
 
 List every named character who matters to the plot in "cast", main ones first, at most 15.
 
@@ -185,7 +194,11 @@ export const parseScriptDraft = (reply: string): Pick<StoryScript, "premise" | "
   try {
     const data = JSON.parse(raw.slice(start, end + 1));
     const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
-    const beats = Array.isArray(data.beats) ? data.beats.map(str).filter(Boolean).slice(0, MAX_BEATS).map(makeBeat) : [];
+    // Each beat comes as {beat, events}, or as a plain line from an older reply.
+    const beats: StoryBeat[] = (Array.isArray(data.beats) ? data.beats : [])
+      .map((b: any) => (typeof b === "string" ? makeBeat(b.trim()) : makeBeat(str(b?.beat ?? b?.text), str(b?.events ?? b?.details) || undefined)))
+      .filter((b: StoryBeat) => b.text)
+      .slice(0, MAX_BEATS);
     if (!str(data.premise) && beats.length === 0) return undefined;
     const seen = new Set<string>();
     const cast = (Array.isArray(data.cast) ? data.cast : [])
@@ -196,6 +209,52 @@ export const parseScriptDraft = (reply: string): Pick<StoryScript, "premise" | "
   } catch {
     return undefined;
   }
+};
+
+// A short reminder of where the story is, sent after the conversation
+// (with the author's note), where models weigh instructions most: the
+// story section alone sits at the top of a long system prompt and gets
+// drowned out by the character and the chat, so strict stories drifted.
+export const buildStoryReminder = (script: StoryScript | undefined): string | undefined => {
+  if (!script || script.beats.length === 0) return undefined;
+  if (isFinished(script)) return `Story: every beat has happened; ${script.ending ? `bring it to its ending: ${script.ending}` : "wrap it up"}.`;
+  const beat = script.beats[script.currentBeat];
+  const where = `Story: beat ${script.currentBeat + 1} of ${script.beats.length}, "${beat.text}"${beat.details ? ` (${beat.details})` : ""}.`;
+  return script.mode === "strict"
+    ? `${where} This reply stays inside the story and moves the scene toward that beat with the story's own events, people and lines; no new plot, people or twists.`
+    : `${where} Keep the scene moving toward it.`;
+};
+
+// What the suggested next moves (an adventure's choices, a chat's reply
+// suggestions) must do with the story, so they carry it forward instead of
+// only answering the last message.
+export const storyChoicesRule = (script: StoryScript | undefined, what = "suggestions"): string | undefined => {
+  if (!script || script.beats.length === 0) return undefined;
+  if (isFinished(script)) return `The story has reached its last part: at least one of the ${what} heads for its ending${script.ending ? ` (${script.ending})` : ""}.`;
+  const beat = script.beats[script.currentBeat];
+  return `The story is heading for its next event: "${beat.text}"${beat.details ? ` (${beat.details})` : ""}. At least one of the ${what} moves straight toward it${script.mode === "strict" ? `, and all of them stay inside the story` : ""}.`;
+};
+
+// "Finish this beat": the rest of the current beat written out, from what
+// the story says happens in it, picking up where the scene is now and
+// stopping where the next beat begins. Then the beat is summarised like a
+// chapter and the story moves on.
+export const buildBeatBridgePrompt = (
+  script: StoryScript,
+  transcript: string,
+  { secondPerson = false, playerName }: { secondPerson?: boolean; playerName?: string } = {}
+): string => {
+  const beat = script.beats[script.currentBeat];
+  const next = script.beats[script.currentBeat + 1];
+  const voice = secondPerson
+    ? `Write in second person ("you"), addressing the player${playerName ? ` as ${playerName}` : ""}; describe what they do only as far as the story has them do it.`
+    : `Write it as narration in the third person, present tense, naming everyone${playerName ? ` (the user is ${playerName})` : ""}.`;
+  return `A roleplay follows a story planned in beats. The current beat is: "${beat?.text || ""}"${beat?.details ? `\nWhat happens in it, in the story: ${beat.details}` : ""}${script.premise ? `\nPremise: ${script.premise}` : ""}${next ? `\nThe next beat (don't start it): "${next.text}"` : script.ending ? `\nHow the story ends (don't reach it yet): ${script.ending}` : ""}
+
+Write the rest of the current beat as a passage of the story: everything it still needs, its events and the key lines people say, in the story's order, picking up exactly where the conversation below leaves off. Skip what has already happened. Stop where the next beat would begin. ${voice} Put spoken lines in quotes. 1 to 4 short paragraphs. Reply with only the passage.
+
+Conversation so far:
+${transcript}`;
 };
 
 // Renaming one of the story's people rewrites the whole script, so the

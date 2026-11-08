@@ -236,14 +236,18 @@ export const NewStoryPlayPage = () => {
                 <summary className="cursor-pointer font-medium text-foreground">{draft.beats.length} beats</summary>
                 <ol className="mt-3 flex flex-col gap-2">
                   {draft.beats.map((beat, i) => (
-                    <li key={beat.id} className="flex items-center gap-2">
-                      <span className="w-6 text-right text-xs tabular-nums text-subtle">{i + 1}.</span>
-                      <TextInput
-                        aria-label={`Beat ${i + 1}`}
-                        value={beat.text}
-                        onChange={(e) => update({ beats: draft.beats.map((b, j) => (j === i ? { ...b, text: e.target.value } : b)) })}
-                        className="flex-1"
-                      />
+                    <li key={beat.id} className="flex items-start gap-2">
+                      <span className="mt-2 w-6 text-right text-xs tabular-nums text-subtle">{i + 1}.</span>
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <TextInput aria-label={`Beat ${i + 1}`} value={beat.text} onChange={(e) => update({ beats: draft.beats.map((b, j) => (j === i ? { ...b, text: e.target.value } : b)) })} />
+                        <TextArea
+                          aria-label={`What happens in beat ${i + 1}`}
+                          value={beat.details || ""}
+                          onChange={(e) => update({ beats: draft.beats.map((b, j) => (j === i ? { ...b, details: e.target.value } : b)) })}
+                          placeholder="What happens in it in the story"
+                          className="min-h-[44px] text-[13px]"
+                        />
+                      </div>
                       <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => update({ beats: draft.beats.filter((_, j) => j !== i) })} aria-label={`Remove beat ${i + 1}`}>
                         <FaTrash size={11} />
                       </Button>

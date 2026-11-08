@@ -274,3 +274,15 @@ describe("story play", () => {
     expect(text).toContain("Name: Vik.");
   });
 });
+
+describe("story-aware choices", () => {
+  it("has the choices carry the story toward the current beat", () => {
+    const adventure: Adventure = {
+      id: 3, title: "T", timestamp: 0, characterIds: [], status: "active", content: [],
+      storyScript: { premise: "", beats: [{ id: "b", text: "The duel", details: "Darcy draws first." }], directions: "", mode: "strict", currentBeat: 0 },
+    };
+    const text = buildAdventureSystemInstruction(adventure, undefined, [], undefined, []);
+    expect(text).toContain('At least one of the choices moves straight toward it, and all of them stay inside the story.');
+    expect(text).toContain("Darcy draws first.");
+  });
+});

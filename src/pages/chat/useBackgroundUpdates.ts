@@ -1,3 +1,4 @@
+import { storyChoicesRule } from "../../features/chat/storyScript";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useAppDispatch } from "../../store/hooks";
@@ -223,7 +224,7 @@ export const useBackgroundUpdates = ({
     const recent = trimToLatestSummary(allMessages).slice(-NARRATIVE_CONTEXT_MESSAGES);
     try {
       const reply = await dispatch(generateAssistText({
-        instruction: buildReplySuggestionsPrompt(userName, speaker.name, formatTranscript(recent, transcriptNames())),
+        instruction: buildReplySuggestionsPrompt(userName, speaker.name, formatTranscript(recent, transcriptNames()), storyChoicesRule(currentChat.storyScript)),
         background: true,
       })).unwrap();
       const items = parseReplySuggestions(reply);

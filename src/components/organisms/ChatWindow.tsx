@@ -81,6 +81,8 @@ interface ChatWindowProps {
   onEndGame?: () => void;
   onEditStory?: () => void;
   onMoveBeat?: (step: number) => void;
+  onFinishBeat?: () => void; // "Finish this beat": the AI writes the rest of it from the story
+  finishingBeat?: boolean;
   onReply?: (msg: Message) => void; // quote a message in your next one (#119)
   onViewOnce?: (msg: Message) => void; // a view-once photo was opened (#122)
   onVote?: (msg: Message, option: number) => void; // your vote in a poll (#124)
@@ -202,7 +204,7 @@ const FollowupIndicator = ({ charInitials, accent, imageSrc, note, showAvatar }:
   </PendingRow>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ unreadSince, awayNote, onFork, stageSuggestion, onAcceptStage, onDismissStage, coWriting = false, onSuggestNext, onTranslate, onReplyToLetter, arcSuggestion, onAcceptArc, onDismissArc, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, onReply, onViewOnce, onVote, onOpenContact, onAnswerInvite, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, contactOpen, onCloseContact, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ unreadSince, awayNote, onFork, stageSuggestion, onAcceptStage, onDismissStage, coWriting = false, onSuggestNext, onTranslate, onReplyToLetter, arcSuggestion, onAcceptArc, onDismissArc, relationshipSuggestion, onAcceptRelationship, onDismissRelationship, game, gameScore, onEndGame, storyScript, onEditStory, onMoveBeat, onFinishBeat, finishingBeat, onReply, onViewOnce, onVote, onOpenContact, onAnswerInvite, recap, onToggleBookmark, onUndoSummary, onReact, replySuggestions, onPickSuggestion, bottomInset = 0, messages = [], tree, onSwitchBranch, onDeleteBranch, onRegenerate, onContinue, onClearRefusal, onEdit, onSend, aiLoading, isFollowupPending, characterName, userName, character, characters, allCharacters, chatId, sceneOpen, onCloseScene, contactOpen, onCloseContact, authorNote, worldTags, isRoom, chatMemory, chatPinnedMemory, chatScenario, participantsOpen, onCloseParticipants, mutedParticipantIds, greetingIndex, onSelectGreeting, hardLimits, intensity, isNsfwChat, recordingVoiceNote }) => {
   const { is } = useColorTheme();
   const terminal = is("terminal");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -839,7 +841,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ unreadSince, awayNote, onFork, 
                 {onEditStory && (
                   storyScript && onMoveBeat ? (
                     <div className="w-full max-w-[560px] mt-4">
-                      <StoryProgress script={storyScript} onMove={onMoveBeat} onEdit={onEditStory} terminal={terminal} />
+                      <StoryProgress script={storyScript} onMove={onMoveBeat} onEdit={onEditStory} onFinish={onFinishBeat} finishing={finishingBeat} terminal={terminal} />
                     </div>
                   ) : (
                     <Card className="w-full max-w-[560px] mt-4 px-5 py-4 flex flex-col items-start gap-2">
@@ -1035,7 +1037,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ unreadSince, awayNote, onFork, 
               <GameProgress game={game} score={gameScore} characterName={characterName || "them"} onEnd={onEndGame} terminal={terminal} />
             )}
             {storyScript && filteredMessages.length > 0 && onMoveBeat && onEditStory && (
-              <StoryProgress script={storyScript} onMove={onMoveBeat} onEdit={onEditStory} terminal={terminal} />
+              <StoryProgress script={storyScript} onMove={onMoveBeat} onEdit={onEditStory} onFinish={onFinishBeat} finishing={finishingBeat} terminal={terminal} />
             )}
             {terminal ? (
               aiLoading ? (

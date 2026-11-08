@@ -1,4 +1,4 @@
-import { applyCastRenames, beatRange, beatStamp, beatStarts, buildBeatCheckPrompt, buildScriptDraftPrompt, buildStoryScriptSection, cleanScript, emptyScript, extractBeatTag, makeBeat, makeCastMember, moveBeat, parseBeatCheckReply, parseScriptDraft, renameInText, stripStreamingBeatTag } from "./storyScript";
+import { applyCastRenames, beatRange, buildBeatBridgePrompt, buildStoryReminder, storyChoicesRule, beatStamp, beatStarts, buildBeatCheckPrompt, buildScriptDraftPrompt, buildStoryScriptSection, cleanScript, emptyScript, extractBeatTag, makeBeat, makeCastMember, moveBeat, parseBeatCheckReply, parseScriptDraft, renameInText, stripStreamingBeatTag } from "./storyScript";
 import { StoryScript } from "../../types";
 
 const script = (overrides: Partial<StoryScript> = {}): StoryScript => ({
@@ -171,5 +171,54 @@ describe("the story's people in the prompt", () => {
 
   it("keeps the cast through cleaning, dropping blank names", () => {
     expect(cleanScript(script({ cast: [makeCastMember(" Jane "), makeCastMember(" ")] }))?.cast?.map((c) => c.name)).toEqual(["Jane"]);
+  });
+});
+
+describe("each beat's events from the story", () => {
+  it("are read from the draft, with plain lines still accepted", () => {
+    const draft = parseScriptDraft(JSON.stringify({ premise: "P", beats: [{ beat: "They meet", events: "Mira drops her ticket; Tom picks it up and says 'Yours?'" }, "The storm"] }));
+    expect(draft?.beats.map((b) => [b.text, b.details])).toEqual([["They meet", "Mira drops her ticket; Tom picks it up and says 'Yours?'"], ["The storm", undefined]]);
+  });
+
+  it("go into the prompt and the beat check with the current beat", () => {
+    const s = script({ beats: [makeBeat("They meet.", "Mira drops her ticket."), makeBeat("A storm.")] });
+    expect(buildStoryScriptSection(s)).toContain("What happens in it, in the story: Mira drops her ticket.");
+    expect(buildBeatCheckPrompt(s, "")).toContain("Mira drops her ticket.");
+  });
+
+  it("survive cleaning, and an empty one is dropped", () => {
+    const cleaned = cleanScript(script({ beats: [makeBeat("A", " Details "), { ...makeBeat("B"), details: "  " }] }));
+    expect(cleaned?.beats.map((b) => b.details)).toEqual(["Details", undefined]);
+  });
+});
+
+describe("keeping replies on the story", () => {
+  const s = script({ beats: [makeBeat("They meet.", "Mira drops her ticket."), makeBeat("A storm.")] });
+
+  it("reminds the model of the beat after the conversation, firmly in strict mode", () => {
+    expect(buildStoryReminder(s)).toBe('Story: beat 1 of 2, "They meet." (Mira drops her ticket.). This reply stays inside the story and moves the scene toward that beat with the story\'s own events, people and lines; no new plot, people or twists.');
+    expect(buildStoryReminder({ ...s, mode: "loose" })).toContain("Keep the scene moving toward it.");
+    expect(buildStoryReminder({ ...s, currentBeat: 2 })).toContain("bring it to its ending: They get off at the same stop.");
+    expect(buildStoryReminder(script({ beats: [] }))).toBeUndefined();
+  });
+
+  it("makes suggested moves carry the story on", () => {
+    expect(storyChoicesRule(s, "choices")).toBe('The story is heading for its next event: "They meet." (Mira drops her ticket.). At least one of the choices moves straight toward it, and all of them stay inside the story.');
+    expect(storyChoicesRule({ ...s, mode: "loose" })).not.toContain("all of them");
+    expect(storyChoicesRule(undefined)).toBeUndefined();
+  });
+});
+
+describe("finishing a beat", () => {
+  it("asks for the rest of the current beat, stopping before the next", () => {
+    const s = script({ beats: [makeBeat("They meet.", "Mira drops her ticket."), makeBeat("A storm.")] });
+    const prompt = buildBeatBridgePrompt(s, "Tom: Hello.", { playerName: "Tom" });
+    expect(prompt).toContain('The current beat is: "They meet."');
+    expect(prompt).toContain("Mira drops her ticket.");
+    expect(prompt).toContain('The next beat (don\'t start it): "A storm."');
+    expect(prompt).toContain("third person");
+    expect(prompt).toContain("(the user is Tom)");
+    expect(prompt).toContain("Tom: Hello.");
+    expect(buildBeatBridgePrompt(s, "", { secondPerson: true })).toContain('second person ("you")');
   });
 });
