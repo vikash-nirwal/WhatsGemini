@@ -1,127 +1,29 @@
 import { registerJob } from "src/features/life/scheduler";
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { toast } from "sonner";
-import { useAppDispatch, useAppSelector } from "src/store/hooks";
-import { generateAssistText } from "src/features/aiSlice";
-import { addChat, addMessage, fetchChats } from "src/features/chatSlice";
-import { patchCharacter } from "src/features/characterSlice";
-import { selectActivePersona } from "src/features/settingsSlice";
-import { addFirstText, buildFirstTextPrompt, cleanFirstText, firstTextDue, unansweredFirstTexts } from "src/features/character/firstTexts";
-import { buildDreamDirective, dreamDue, dreamIngredients } from "src/features/character/dreams";
-import { dayMoodFor } from "src/features/character/badDays";
-import { dayLogText } from "src/features/character/dayLog";
-import { concernsLine } from "src/features/character/preoccupations";
-import { writingStyleLine } from "src/features/character/writingStyle";
-import { placeLine } from "src/features/character/realWorld";
-import { currentBlock } from "src/features/character/schedule";
-import { openPlans } from "src/features/chat/sharedPlans";
-import { formatTranscript } from "src/features/ai/utils/chatHistoryUtils";
-import { trimToLatestSummary } from "src/features/ai/utils/transcript";
-import { isNsfwCharacter } from "src/features/character/contentRating";
-import { notifyChatMessage } from "src/features/notifications/notifications";
-import { AI } from "src/utils/constants";
-import { MessageNote } from "src/types";
-import { useElsewhereName, useLivingCharacters } from "src/hooks/useWorld";
-import { zoneOf } from "src/features/character/characterClock";
+import { useAppDispatch } from "src/store/hooks";
+import { firstTextCheck } from "src/features/character/engine/firstTextJob";
 
 const CHECK_EVERY_MS = 20 * 60 * 1000;
 const FIRST_CHECK_MS = 20 * 1000;
-const HOUR_MS = 60 * 60 * 1000;
 
 // They text first (#93): while the app is open, a character with the switch
-// on whose 1:1 chat has gone quiet sends a short text into it, at most one
-// per check, on the cheaper helper model. In the morning, with dreams on
-// (#94), the text can be about a dream instead. A character you've never
-// chatted with one to one starts a new chat with their first text.
+// on whose 1:1 chat has gone quiet sends a short text into it (or a dream,
+// #94). The job itself is in features/character/engine/firstTextJob.ts
+// (#252); this puts it on the scheduler (#209), which also runs it for
+// catch-up and Simulate a day, and tells it where you are, so the chat
+// you're reading gets no toast.
 const FirstTexter = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const location = useLocation();
-  const chats = useAppSelector((state) => state.chat.chats);
-  const characters = useLivingCharacters();
-  const persona = useAppSelector(selectActivePersona);
-  const privacy = useAppSelector((state) => state.settings.privacy);
-  const elsewhere = useElsewhereName();
-  const latest = useRef({ chats, characters, persona, privacy, path: location.pathname, elsewhere });
-  latest.current = { chats, characters, persona, privacy, path: location.pathname, elsewhere };
-  const busy = useRef(false);
+  const path = useRef(location.pathname);
+  path.current = location.pathname;
 
-  useEffect(() => {
-    // `at`: a catch-up turn back in your absence (#130), stamped with it.
-    const check = async (at?: number) => {
-      if (busy.current) return;
-      const now = at ?? Date.now();
-      const { chats, characters, persona } = latest.current;
-      // The character's main 1:1 chat: not a what-if or a chat with its own memory.
-      const chatFor = (id: number) => chats.find((c) => c.characterIds?.length === 1 && c.characterIds[0] === id && c.memoryScope !== "chat" && !c.whatIf);
-      // Only a character with no 1:1 chat at all may open one; one whose
-      // only chats are what-ifs or keep their own memory is left alone.
-      const hasOneToOne = (id: number) => chats.some((c) => c.characterIds?.length === 1 && c.characterIds[0] === id);
-      const texter = characters.find((c) => {
-        const main = chatFor(c.id);
-        // Blocked either way (#133): no first texts.
-        return (main || !hasOneToOne(c.id)) && !main?.blocked && firstTextDue(c, main, now);
-      });
-      if (!texter) return;
-      busy.current = true;
-      try {
-        let chat = chatFor(texter.id);
-        const content = chat?.content || [];
-        const firstContact = !content.some((m) => !m.isSystem && !m.isCompressionSummary);
-        const userName = persona?.name?.trim() || "the user";
-        const last = content[content.length - 1]?.timestamp || chat?.timestamp || now;
-        const dreaming = Boolean(chat) && !firstContact && dreamDue(texter, chat!, now);
-        const reply = await dispatch(generateAssistText({
-          instruction: buildFirstTextPrompt(texter, userName, {
-            hoursQuiet: Math.max(1, Math.round((now - last) / HOUR_MS)),
-            firstContact,
-            unanswered: unansweredFirstTexts(content),
-            scenario: firstContact ? texter.scenario : undefined,
-            nowDoing: currentBlock(texter.schedule, now, zoneOf(texter))?.activity,
-            plans: openPlans(chat?.plans).slice(0, 3).map((p) => p.what),
-            facts: [...(texter.pinnedMemory || []), ...(texter.memory || [])],
-            transcript: formatTranscript(trimToLatestSummary(content).slice(-8), { userName, charName: texter.name }),
-            dayMood: dayMoodFor(texter, now)?.label,
-            dayLog: dayLogText(texter, now),
-            concerns: concernsLine(texter.concerns),
-            style: writingStyleLine(texter.writingStyle),
-            place: placeLine(texter.home, now),
-            dream: dreaming ? buildDreamDirective(texter.name, userName, dreamIngredients(texter, chat!)) : undefined,
-          }),
-          background: true,
-          activity: { at: now, kind: dreaming ? "dream" : "first-text", text: dreaming ? `${texter.name} told you a dream` : `${texter.name} texted you first`, characterId: texter.id, name: texter.name },
-          
-        })).unwrap();
-        const text = cleanFirstText(reply);
-        // Recorded even when the reply was unusable, so a failing model
-        // isn't asked again on every check.
-        await dispatch(patchCharacter(texter.id, (fresh) => ({ firstTexts: addFirstText(fresh.firstTexts, now), ...(dreaming && text ? { lastDreamAt: now } : {}) })));
-        if (!text) return;
-        if (!chat?.id) chat = await dispatch(addChat({ title: texter.name, characterIds: [texter.id] })).unwrap();
-        if (!chat?.id) return;
-        const notes: MessageNote[] = dreaming ? ["texted-first", "dream"] : ["texted-first"];
-        await dispatch(addMessage({ chatId: chat.id, role: AI, text, speakerId: texter.id, notes, noGreeting: firstContact, at: at }));
-        await dispatch(fetchChats());
-        // From another world (#146): the notification and toast say which.
-        const world = latest.current.elsewhere(texter);
-        const shown = await notifyChatMessage({ chatId: chat.id, speaker: texter, text, isNsfwChat: isNsfwCharacter(texter), privacy: latest.current.privacy, muted: chat.muted, world });
-        // In the app but in another chat: a toast instead (not for a muted chat).
-        if (!shown && !chat.muted && latest.current.path !== `/chat/${chat.id}`) {
-          toast.message(world ? `${texter.name} texted you in ${world}` : `${texter.name} texted you`, { description: text.length > 90 ? `${text.slice(0, 87)}...` : text, action: { label: "Open", onClick: () => navigate(`/chat/${chat.id}`) } });
-        }
-      } catch (err) {
-        console.warn("First text failed (non-fatal):", err);
-      } finally {
-        busy.current = false;
-      }
-    };
-    // The catch-up turn is claimed when the timer fires, not at mount (a
-    // remount would otherwise lose it).
-    // Catch-up for time away now runs through the life ticks (#193).
-    return registerJob("first-text", { everyMs: CHECK_EVERY_MS, firstMs: FIRST_CHECK_MS }, (at) => check(at));
-  }, [dispatch, navigate]);
-
+  useEffect(
+    () => registerJob("first-text", { everyMs: CHECK_EVERY_MS, firstMs: FIRST_CHECK_MS }, (at) => dispatch(firstTextCheck({ navigate, path: () => path.current }, at))),
+    [dispatch, navigate]
+  );
   return null;
 };
 
