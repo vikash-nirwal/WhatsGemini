@@ -10,6 +10,7 @@ import { formatTranscript } from "src/features/ai/utils/chatHistoryUtils";
 import { trimToLatestSummary } from "src/features/ai/utils/transcript";
 import { latestStorySummary } from "src/features/chat/recap";
 import { useLivingCharacters } from "src/hooks/useWorld";
+import { zoneOf } from "src/features/character/characterClock";
 
 const CHECK_EVERY_MS = 30 * 60 * 1000;
 const FIRST_CHECK_MS = 25 * 1000;
@@ -43,7 +44,7 @@ const LetterWriter = () => {
         const last = content[content.length - 1]?.timestamp || chat.timestamp || now;
         const recent = trimToLatestSummary(content).slice(-10);
         const reply = await dispatch(generateAssistText({
-          instruction: buildLetterPrompt(writer, userName, Math.max(1, Math.round((now - last) / DAY_MS)), writer.memory || [], formatTranscript(recent, { userName, charName: writer.name }), currentBlock(writer.schedule, now)?.activity, latestStorySummary(content)),
+          instruction: buildLetterPrompt(writer, userName, Math.max(1, Math.round((now - last) / DAY_MS)), writer.memory || [], formatTranscript(recent, { userName, charName: writer.name }), currentBlock(writer.schedule, now, zoneOf(writer))?.activity, latestStorySummary(content)),
           background: true,
           activity: { kind: "letter", text: `${writer.name} wrote you a letter`, characterId: writer.id, name: writer.name },
         })).unwrap();

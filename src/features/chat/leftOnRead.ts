@@ -2,6 +2,7 @@ import { Character, Chat } from "../../types";
 import { currentBlock } from "../character/schedule";
 import { dayMoodFor } from "../character/badDays";
 import { fadedMood } from "./lingeringMood";
+import { zoneOf } from "../character/characterClock";
 
 // Left on read (#126): a character with the switch on sometimes reads your
 // message and answers minutes later, more often when they're busy, having
@@ -15,11 +16,11 @@ const NEGATIVE = new Set(["angry", "annoyed", "sad", "shaken", "embarrassed"]);
 const MIN_MS = 3 * 60 * 1000;
 const MAX_MS = 25 * 60 * 1000;
 
-export const leftOnReadChance = (character: Pick<Character, "id" | "leavesOnRead" | "schedule" | "badDays" | "dayMood">, chat: Pick<Chat, "mood" | "conflict"> | undefined, now: number): number => {
+export const leftOnReadChance = (character: Pick<Character, "id" | "leavesOnRead" | "schedule" | "badDays" | "dayMood" | "home">, chat: Pick<Chat, "mood" | "conflict"> | undefined, now: number): number => {
   const level = character.leavesOnRead;
   if (!level) return 0;
   let chance = BASE[level];
-  if (currentBlock(character.schedule, now)?.status === "busy") chance += 0.25;
+  if (currentBlock(character.schedule, now, zoneOf(character))?.status === "busy") chance += 0.25;
   if (dayMoodFor(character, now)) chance += 0.15;
   const mood = fadedMood(chat?.mood, now);
   if (mood && NEGATIVE.has(mood.feeling)) chance += 0.15;

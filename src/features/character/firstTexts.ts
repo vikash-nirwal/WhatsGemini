@@ -2,6 +2,7 @@ import { lifeScaled } from "../life/lifeDial";
 import { Character, Chat, Message } from "../../types";
 import { AI } from "../../utils/constants";
 import { currentBlock } from "./schedule";
+import { clockIn, zoneOf } from "./characterClock";
 import { LETTER_AWAY_MS } from "./letters";
 
 // They text first (#93): with the switch on, a character whose 1:1 chat has
@@ -28,11 +29,12 @@ const lastReal = (content: Message[] | undefined): Message | undefined => {
   return real[real.length - 1];
 };
 
-// Awake: not asleep in their routine (#7); without one, 8 am to 10 pm.
-export const awakeAt = (character: Pick<Character, "schedule">, now: number): boolean => {
-  const block = currentBlock(character.schedule, now);
+// Awake: not asleep in their routine (#7); without one, 8 am to 10 pm. On
+// their clock when they have a home (#249).
+export const awakeAt = (character: Pick<Character, "schedule" | "home">, now: number): boolean => {
+  const block = currentBlock(character.schedule, now, zoneOf(character));
   if (character.schedule?.blocks?.length) return block?.status !== "asleep";
-  const hour = new Date(now).getHours();
+  const hour = clockIn(now, zoneOf(character)).hour;
   return hour >= 8 && hour < 22;
 };
 
@@ -49,7 +51,7 @@ export const unansweredFirstTexts = (content: Message[] | undefined): number => 
 
 // `chat` is their main 1:1 chat; none, or one with nothing in it yet,
 // means they'd be reaching out for the first time.
-export const firstTextDue = (character: Pick<Character, "textsFirst" | "firstTexts" | "firstTextLimit" | "schedule" | "writesLetters">, chat: Pick<Chat, "content" | "timestamp"> | undefined, now: number): boolean => {
+export const firstTextDue = (character: Pick<Character, "textsFirst" | "firstTexts" | "firstTextLimit" | "schedule" | "writesLetters" | "home">, chat: Pick<Chat, "content" | "timestamp"> | undefined, now: number): boolean => {
   if (!character.textsFirst) return false;
   const sent = character.firstTexts || [];
   if (sent.filter((t) => now - t < DAY_MS).length >= MAX_PER_DAY) return false;

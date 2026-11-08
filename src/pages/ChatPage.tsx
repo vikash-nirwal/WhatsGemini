@@ -145,6 +145,7 @@ import { useColorTheme } from "../hooks/useColorTheme";
 import { cn } from "../utils/cn";
 import { useChatNotifier } from "../features/notifications/useNotifications";
 import { fitsVoiceNote, promptTextFor, rollVoiceNote } from "../features/voice/voiceNotes";
+import { zoneOf } from "../features/character/characterClock";
 
 // The read mark each chat had when it was last opened, for the unread line.
 type OpenedRead = { chatId: number; since?: number; at: number };
@@ -522,7 +523,7 @@ const ChatPage = () => {
   scene.groupNote = isRoom ? buildGroupDirective(userNameForNotes) : undefined;
   // Quoted replies (#119): in texting mode they may quote an older message.
   scene.quoteNote = !isRoom && characterData && textingOn ? [buildQuoteDirective(characterData.name, userNameForNotes), buildForwardDirective(characterData.name, userNameForNotes), buildContactDirective(characterData.name, userNameForNotes)].join("\n") : undefined;
-  scene.slipsNote = !isRoom && characterData && textingOn ? buildSlipsDirective(characterData.name, characterData.textingSlips, currentBlock(characterData.schedule, noteTime)?.status === "busy") : undefined;
+  scene.slipsNote = !isRoom && characterData && textingOn ? buildSlipsDirective(characterData.name, characterData.textingSlips, currentBlock(characterData.schedule, noteTime, zoneOf(characterData))?.status === "busy") : undefined;
   // Where they live (#112): what the caches hold right now; the refresher
   // keeps them fresh, and `placeTick` re-renders once a fetch lands.
   const home = mainStory ? characterData?.home : undefined;
@@ -1670,9 +1671,9 @@ const ChatPage = () => {
         Math.random() * 100 < (autoSelfieCfg.frequency ?? DEFAULT_AUTO_SELFIE_FREQUENCY);
 
       // A realistic routine (#7): busy or asleep, they take a while to see it.
-      const wait = replyDelayMs(speaker.schedule, Date.now());
+      const wait = replyDelayMs(speaker.schedule, Date.now(), Math.random, zoneOf(speaker));
       if (wait > 0) {
-        setAwayNote(`${speaker.name} is ${currentBlock(speaker.schedule, Date.now())?.activity || "busy"} and will reply in a bit`);
+        setAwayNote(`${speaker.name} is ${currentBlock(speaker.schedule, Date.now(), zoneOf(speaker))?.activity || "busy"} and will reply in a bit`);
         await new Promise((resolve) => window.setTimeout(resolve, wait));
         setAwayNote(null);
       }
@@ -2620,7 +2621,7 @@ const ChatPage = () => {
     const timer = window.setInterval(() => setClock(Date.now()), 60_000);
     return () => window.clearInterval(timer);
   }, [characterData?.schedule]);
-  const presence = !isRoom ? presenceFor(characterData?.schedule, clock, lastCharacterMessage?.timestamp) : undefined;
+  const presence = !isRoom ? presenceFor(characterData?.schedule, clock, lastCharacterMessage?.timestamp, zoneOf(characterData)) : undefined;
 
   // Event invites (#134): your answer is kept on the card; accepting makes
   // it a shared plan (#84), with a notice in the chat.

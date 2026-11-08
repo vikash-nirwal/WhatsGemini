@@ -9,6 +9,7 @@ import { buildScheduleSection } from "src/features/character/schedule";
 import { dayLogText } from "src/features/character/dayLog";
 import { Character } from "src/types";
 import { useLivingCharacters } from "src/hooks/useWorld";
+import { zoneOf } from "src/features/character/characterClock";
 
 const CHECK_EVERY_MS = 60 * 60 * 1000;
 // After the day log (8 s), so this week's list can lean on today's account.
@@ -20,7 +21,7 @@ const FIRST_CHECK_MS = 12 * 1000;
 export const writeConcerns = async (dispatch: AppDispatch, character: Character, latest: () => Character | undefined, now = Date.now()): Promise<void> => {
   const current = openConcerns(character.concerns);
   const prompt = buildConcernsPrompt(character, now, {
-    routine: buildScheduleSection(character.schedule, now),
+    routine: buildScheduleSection(character.schedule, now, zoneOf(character)),
     dayLog: dayLogText(character, now),
     facts: [...(character.pinnedMemory || []), ...(character.memory || [])].slice(-8),
     current,

@@ -89,3 +89,37 @@ test("a realistic routine holds the reply back while they're busy", async ({ pag
   await expect(messageBubble(page, "Sorry, just saw this!")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Aria is at work and will reply in a bit")).toHaveCount(0);
 });
+
+// Routines in their own time zone (#249). The browser runs on UTC and Aria's
+// home is twelve hours ahead, so a two-hour sleep block starting at her hour
+// covers her clock and never yours.
+test.describe("on the character's own clock", () => {
+  test.use({ timezoneId: "UTC" });
+  const HOME = { city: "Suva", lat: -18.1, lon: 178.4, timeZone: "Etc/GMT-12" };
+  const sleepNowThere = () => {
+    const start = (new Date().getUTCHours() + 12) % 24;
+    return { blocks: [{ start, end: (start + 2) % 24 || 24, activity: "asleep", status: "asleep" }] };
+  };
+
+  test("the header and the prompt follow the hour where they live", async ({ page, mockAI }) => {
+    mockAI.reply("Mm... you woke me up.");
+    await openChat(page);
+    await patchAria(page, { schedule: sleepNowThere(), home: HOME });
+    await page.reload();
+    await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator("header").first()).toContainText("asleep");
+
+    await sendMessage(page, "Still up?");
+    await expect.poll(() => mockAI.requests.length).toBe(1);
+    const system = mockAI.requests[0].messages.find((m) => m.role === "system")?.content || "";
+    expect(system).toContain("You're asleep right now");
+  });
+
+  test("without a home it's your time, as before", async ({ page }) => {
+    await openChat(page);
+    await patchAria(page, { schedule: sleepNowThere() });
+    await page.reload();
+    await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator("header").first()).not.toContainText("asleep");
+  });
+});

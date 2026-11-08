@@ -34,6 +34,7 @@ import { AppearanceLock, appearanceLocksFor, currentOutfit } from "./appearanceL
 import { effectiveContentRating } from "../../character/contentRating";
 import { ChatMessage } from "../types";
 import { promptTextFor } from "../../voice/voiceNotes";
+import { zoneOf } from "../../character/characterClock";
 
 // The anti-repetition note (#19), from this speaker's own recent replies.
 const avoidNoteFor = (messages: Message[], character: Character | undefined): string | undefined => {
@@ -470,7 +471,7 @@ export const buildSystemInstruction = (
     sections.push(buildTimeSection(recentMessages, options.now ?? Date.now()));
   }
   // The character's routine (#7): what they're doing right now.
-  const routine = buildScheduleSection(character.schedule, options.now ?? Date.now());
+  const routine = buildScheduleSection(character.schedule, options.now ?? Date.now(), zoneOf(character));
   if (routine) sections.push(m(routine));
   if (character.importantDates && character.importantDates.length > 0) {
     const dates = buildDatesSection(character.importantDates, options.now ?? Date.now());

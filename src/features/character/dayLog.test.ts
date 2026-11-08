@@ -60,3 +60,18 @@ describe("a day log kept up to date", () => {
     expect(prompt).toContain("move what was still ahead into the past");
   });
 });
+
+// Routines in their own time zone (#249).
+describe("a day log on their clock", () => {
+  // Thursday 15 January 2026, 01:00 UTC: 10 am in Tokyo, 8 pm the day
+  // before in Los Angeles.
+  const oneUtc = Date.UTC(2026, 0, 15, 1, 0);
+  it("is due and described by the time where they live", () => {
+    const tokyo = aria({ dayLogs: true, home: { city: "Tokyo", lat: 35.7, lon: 139.7, timeZone: "Asia/Tokyo" } });
+    expect(dayLogDue(tokyo, oneUtc)).toBe(true);
+    expect(buildDayLogPrompt(tokyo, oneUtc, { facts: [] })).toContain("(Thursday morning)");
+    const la = aria({ dayLogs: true, home: { city: "Los Angeles", lat: 34, lon: -118, timeZone: "America/Los_Angeles" } });
+    expect(buildDayLogPrompt(la, oneUtc, { facts: [] })).toContain("(Wednesday evening)");
+    expect(dayLogFor({ ...la, dayLog: { date: "2026-01-14", text: "Surfed.", writtenAt: oneUtc } }, oneUtc)?.text).toBe("Surfed.");
+  });
+});

@@ -4,6 +4,7 @@ import { AI } from "../../utils/constants";
 import { secretsInPlay } from "./secrets";
 import { openPlans } from "../chat/sharedPlans";
 import { dayKey } from "./badDays";
+import { clockIn, zoneOf } from "./characterClock";
 
 // Dreams (#94): with the switch on, now and then (at most every few days)
 // the first reply of a morning opens with a dream the character had - built
@@ -13,22 +14,23 @@ import { dayKey } from "./badDays";
 
 export const DREAM_GAP_MS = 3 * 24 * 60 * 60 * 1000;
 
-export const isMorning = (now: number): boolean => {
-  const hour = new Date(now).getHours();
+// Their morning, where they live (#249).
+export const isMorning = (now: number, timeZone?: string): boolean => {
+  const hour = clockIn(now, timeZone).hour;
   return hour >= 5 && hour < 12;
 };
 
-// Whether the character has already written today in this chat.
-const repliedToday = (content: Message[] | undefined, now: number): boolean => {
-  const today = dayKey(now);
-  return (content || []).some((m) => m.role === AI && !m.isSystem && m.timestamp != null && dayKey(m.timestamp) === today);
+// Whether the character has already written today (their today) in this chat.
+const repliedToday = (content: Message[] | undefined, now: number, timeZone?: string): boolean => {
+  const today = dayKey(now, timeZone);
+  return (content || []).some((m) => m.role === AI && !m.isSystem && m.timestamp != null && dayKey(m.timestamp, timeZone) === today);
 };
 
-export const dreamDue = (character: Pick<Character, "dreams" | "lastDreamAt"> | undefined, chat: Pick<Chat, "content"> | undefined, now: number): boolean =>
+export const dreamDue = (character: Pick<Character, "dreams" | "lastDreamAt" | "home"> | undefined, chat: Pick<Chat, "content"> | undefined, now: number): boolean =>
   Boolean(character?.dreams) &&
-  isMorning(now) &&
+  isMorning(now, zoneOf(character)) &&
   (!character!.lastDreamAt || now - character!.lastDreamAt >= lifeScaled(DREAM_GAP_MS)) &&
-  !repliedToday(chat?.content, now);
+  !repliedToday(chat?.content, now, zoneOf(character));
 
 export interface DreamIngredients {
   memories: string[];
