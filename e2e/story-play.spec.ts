@@ -144,13 +144,15 @@ test("in Stories, the choices follow the story, and a beat can be finished there
   await expect(page.getByLabel("What happens in beat 1")).toHaveValue("Darcy calls her tolerable.");
 
   await page.getByRole("group", { name: "Reply length" }).getByRole("button", { name: "Short" }).click();
-  mockAI.reply(responder(adventureReply("The ballroom glitters.", ["Dance", "Listen to Darcy"])));
+  // The turn after a finished beat opens the next one (#239).
+  const opening = responder(adventureReply("The ballroom glitters.", ["Dance", "Listen to Darcy"]));
+  mockAI.reply((req) => (req.stream && req.prompt.includes("open the next one now") ? adventureReply("Days later, a letter comes.", ["Read it", "Burn it"]) : opening(req)));
   await page.getByRole("button", { name: "Start playing" }).click();
   await expect(page.getByText("The ballroom glitters.")).toBeVisible();
-  const opening = mockAI.requests.find((r) => r.stream)!;
-  expect(systemPrompt(opening.messages)).toContain("At least one of the choices moves straight toward it");
-  expect(opening.prompt).toContain('Story: beat 1 of 3, "Lizzy overhears Darcy\'s insult."');
-  expect(systemPrompt(opening.messages)).toContain("Keep it brief");
+  const first = mockAI.requests.find((r) => r.stream)!;
+  expect(systemPrompt(first.messages)).toContain("At least one of the choices moves straight toward it");
+  expect(first.prompt).toContain('Story: beat 1 of 3, "Lizzy overhears Darcy\'s insult."');
+  expect(systemPrompt(first.messages)).toContain("Keep it brief");
 
   await page.getByRole("button", { name: "Story progress: Beat 1 of 3. Show the story" }).click();
   await page.getByRole("region", { name: "Story progress" }).getByRole("button", { name: "Finish this beat" }).click();
@@ -165,6 +167,15 @@ test("in Stories, the choices follow the story, and a beat can be finished there
   await expect(page.getByRole("region", { name: "Story progress" })).toContainText("Beat 2 of 3");
   const bridge = mockAI.requests.find((r) => r.prompt.includes("Write the rest of the current beat"))!;
   expect(bridge.prompt).toContain('second person ("you")');
+
+  // The narrator goes straight on into beat 2, with fresh choices.
+  await expect(page.getByText("Days later, a letter comes.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Read it" })).toBeVisible();
+  const next = mockAI.requests.find((r) => r.stream && r.prompt.includes("open the next one now"))!;
+  expect(next.prompt).toContain('"Event 2"');
+  expect(next.prompt).toContain('Story: beat 2 of 3, "Event 2"');
+  expect(systemPrompt(next.messages)).toContain("you're on beat 2");
+  expect(next.messages.map((m) => m.content).join("\n")).toContain(BRIDGE);
 
   // The reply length can be changed while playing: Short goes to Medium.
   await headerAction(page, "Reply length: Short");

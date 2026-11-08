@@ -290,6 +290,19 @@ Conversation so far:
 ${transcript}`;
 };
 
+// The next beat opens itself (#239): once "Finish this beat" has added the
+// passage and moved the story on, the narrator writes the next turn straight
+// away, opening the new beat (or heading for the ending once every beat is
+// done), so the player gets fresh choices instead of a turn with none.
+// `script` is the script after the move.
+export const buildNextBeatPrompt = (script: StoryScript): string => {
+  if (isFinished(script)) {
+    return `Continue the story from the passage above: every planned beat has now happened, so move the scene toward the story's ending${script.ending ? ` (${script.ending})` : ""}, and end with the choices block as instructed.`;
+  }
+  const beat = script.beats[script.currentBeat];
+  return `Continue the story from the passage above: the last beat is done, so open the next one now, "${beat?.text || ""}". Set the scene and start moving toward it without rushing through it, and end with the choices block as instructed.`;
+};
+
 // Renaming one of the story's people rewrites the whole script, so the
 // model never sees the old name and the new one simply is the character.
 // The full name is replaced, then the first name on its own ("Elizabeth

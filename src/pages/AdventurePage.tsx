@@ -4,7 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { FaAlignLeft, FaTrash, FaGlobe, FaPaperPlane, FaCheckCircle, FaUndo, FaRedo, FaImage, FaSyncAlt, FaTimes, FaPalette, FaBookOpen, FaComments, FaFont, FaShieldAlt, FaCompressArrowsAlt, FaDiceD20, FaListUl, FaBrain, FaBookmark, FaMap } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { deleteAdventure, addAdventureMessage, updateAdventureStatus, incrementAdventureUsage, updateAdventureMessage, updateAdventureRules, removeAdventureCompressionSummary, updateAdventureMemory, insertAdventureCompressionSummary, updateAdventureStoryScript } from "../features/adventureSlice";
-import { BEAT_CHECK_MESSAGES, beatStamp, beatStarts, buildBeatBridgePrompt, buildBeatCheckPrompt, buildStoryReminder, extractBeatTag, isFinished, moveBeat, parseBeatCheckReply } from "../features/chat/storyScript";
+import { BEAT_CHECK_MESSAGES, beatStamp, beatStarts, buildBeatBridgePrompt, buildBeatCheckPrompt, buildNextBeatPrompt, buildStoryReminder, extractBeatTag, isFinished, moveBeat, parseBeatCheckReply } from "../features/chat/storyScript";
 import StoryScriptDialog from "src/components/organisms/StoryScriptDialog";
 import { WorldMapView } from "src/components/molecules/WorldMapView";
 import { latestPinIn } from "../features/world/worldMap";
@@ -23,7 +23,7 @@ import { setEmotionPanelEnabled } from "../features/settingsSlice";
 import EmotionSpritePanel from "src/components/molecules/EmotionSpritePanel";
 import EmotionPopup, { EmotionPopupTrigger } from "src/components/molecules/EmotionPopup";
 import { useModal } from "../contexts/ModalContext";
-import { Message, StoryScript } from "../types";
+import { Adventure, Message, StoryScript } from "../types";
 import { YOU, AI, ART_STYLES, DEFAULT_ART_STYLE, MEMORY_EXTRACTION_INTERVAL } from "../utils/constants";
 import { cn } from "../utils/cn";
 import { Button } from "src/components/atoms/button";
@@ -272,8 +272,13 @@ const AdventurePage = () => {
     [adventure, dispatch, playerName]
   );
 
+  const current = adventure;
   const generateNarratorReply = useCallback(
-    async (prompt: string, contextMessages: Message[], imageRequestFocus?: string): Promise<{ check?: { skill?: string; dc: number } }> => {
+    async (prompt: string, contextMessages: Message[], imageRequestFocus?: string, fresh?: Adventure): Promise<{ check?: { skill?: string; dc: number } }> => {
+      // `fresh`: the adventure as it is right now, when this render's copy is
+      // already behind (the next beat opening itself (#239) runs right after
+      // the script moved on, before the page has re-rendered).
+      const adventure = fresh || current;
       if (!adventure) return {};
       // Turns an earlier compression already summarized stay in the story but
       // aren't sent: the narrator sees the newest summary onward.
@@ -320,7 +325,7 @@ const AdventurePage = () => {
       }
       return { check };
     },
-    [adventure, world, cast, persona, dispatch, illustrateMessage, roleplayStyle, streamKey, maybeExtractMemory, checkBeatReached]
+    [current, world, cast, persona, dispatch, illustrateMessage, roleplayStyle, streamKey, maybeExtractMemory, checkBeatReached]
   );
 
   const runOpeningTurn = useCallback(async () => {
@@ -478,17 +483,18 @@ const AdventurePage = () => {
   const closeChapter = async (content: Message[], title?: string) => {
     const latest = latestSummaryIndex(content);
     const covered = content.slice(latest >= 0 ? latest + 2 : 0);
-    if (covered.length === 0) return;
+    if (covered.length === 0) return content;
     const last = content[content.length - 1];
     const chapterNumber = content.filter((m) => m.chapterTitle).length + 1;
     const chapter = await dispatch(summarizeChapter({ messages: covered, names: { userName: playerName, charName: "Narrator" } })).unwrap();
     if (chapter.tokens || chapter.cost) dispatch(incrementAdventureUsage({ adventureId: adventure.id, tokens: chapter.tokens, cost: chapter.cost }));
-    await dispatch(insertAdventureCompressionSummary({
+    const spliced = await dispatch(insertAdventureCompressionSummary({
       adventureId: adventure.id,
       afterMessageId: last.id,
       afterIndex: content.length - 1,
       summaryMessages: buildSummaryMessages(chapter.summary, last.timestamp, { title: title || chapter.title || `Chapter ${chapterNumber}`, recap: chapter.recap }),
     })).unwrap();
+    return spliced.content;
   };
   const handleEndChapter = async () => {
     if (!canEndChapter || endingChapter) return;
@@ -520,9 +526,26 @@ const AdventurePage = () => {
   };
   const addBeat = async (text: string, { chapter }: { chapter: boolean }) => {
     if (!script || isFinished(script)) return;
-    const content = await dispatch(addAdventureMessage({ adventureId: adventure.id, message: { role: AI, txt: text, ...beatStamp(script) } })).unwrap();
-    if (chapter) await closeChapter(content, script.beats[script.currentBeat].text);
-    await dispatch(updateAdventureStoryScript({ adventureId: adventure.id, storyScript: moveBeat(latestScript.current || script, 1) }));
+    const added = await dispatch(addAdventureMessage({ adventureId: adventure.id, message: { role: AI, txt: text, ...beatStamp(script) } })).unwrap();
+    const content = chapter ? await closeChapter(added, script.beats[script.currentBeat].text) : added;
+    const moved = moveBeat(latestScript.current || script, 1);
+    await dispatch(updateAdventureStoryScript({ adventureId: adventure.id, storyScript: moved }));
+    // The next beat opens itself (#239): the narrator goes on at once from
+    // the passage (and the chapter summary, if one was made), so the player
+    // has fresh choices. Not awaited, so the dialog closes and the page
+    // shows the narrator writing, as after any other turn.
+    void openNextBeat({ ...adventure, content, storyScript: moved });
+  };
+  const openNextBeat = async (fresh: Adventure) => {
+    setError(null);
+    setGenerating(true);
+    try {
+      await generateNarratorReply(buildNextBeatPrompt(fresh.storyScript!), fresh.content, undefined, fresh);
+    } catch (err: any) {
+      setError(typeof err === "string" ? err : "Couldn't continue the story. Check your model settings and try again.");
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const isCompleted = adventure.status === "completed";

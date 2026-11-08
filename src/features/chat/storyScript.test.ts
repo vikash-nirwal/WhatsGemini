@@ -1,4 +1,4 @@
-import { applyCastRenames, beatRange, buildBeatBridgePrompt, buildStoryReminder, storyChoicesRule, beatStamp, beatStarts, buildBeatCheckPrompt, buildScriptDraftPrompt, buildStoryScriptSection, cleanScript, emptyScript, extractBeatTag, makeBeat, makeCastMember, moveBeat, parseBeatCheckReply, parseScriptDraft, renameInText, stripStreamingBeatTag } from "./storyScript";
+import { applyCastRenames, beatRange, buildBeatBridgePrompt, buildStoryReminder, storyChoicesRule, beatStamp, beatStarts, buildBeatCheckPrompt, buildNextBeatPrompt, buildScriptDraftPrompt, buildStoryScriptSection, cleanScript, emptyScript, extractBeatTag, makeBeat, makeCastMember, moveBeat, parseBeatCheckReply, parseScriptDraft, renameInText, stripStreamingBeatTag } from "./storyScript";
 import { StoryScript } from "../../types";
 
 const script = (overrides: Partial<StoryScript> = {}): StoryScript => ({
@@ -240,5 +240,13 @@ describe("finishing a beat, the reader's way", () => {
     expect(buildBeatBridgePrompt(s, "", { length: "short" })).toContain("one short paragraph");
     expect(buildBeatBridgePrompt(s, "")).toContain("2 or 3 paragraphs");
     expect(buildBeatBridgePrompt(s, "")).not.toContain("reader's wishes");
+  });
+});
+
+describe("opening the next beat (#239)", () => {
+  it("names the new beat, or heads for the ending once all are done", () => {
+    expect(buildNextBeatPrompt(script({ currentBeat: 1 }))).toContain('open the next one now, "A storm stops the train."');
+    expect(buildNextBeatPrompt(script({ currentBeat: 1 }))).toContain("choices block");
+    expect(buildNextBeatPrompt(script({ currentBeat: 3 }))).toContain("toward the story's ending (They get off at the same stop.)");
   });
 });
