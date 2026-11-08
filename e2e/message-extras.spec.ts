@@ -31,6 +31,35 @@ test("a reply can be dropped before sending", async ({ page }, testInfo) => {
   await expect(page.getByRole("group", { name: /Replying to/ })).toHaveCount(0);
 });
 
+const PHONES_ONLY = "phones only";
+
+// Swipe right to reply (#119, tested by #251), on phones: a sideways drag
+// past the threshold quotes the message; a mostly downward one (a scroll)
+// doesn't. Touch events are sent by hand, as Playwright has no touch drag.
+test("on a phone, swiping a message to the right replies to it", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.use.hasTouch !== true, PHONES_ONLY);
+  await openChat(page);
+  const target = messageBubble(page, "Aria message 3: how was your day?");
+  const b = await target.boundingBox();
+  if (!b) throw new Error("no bubble");
+  const at = (dx: number, dy = 0) => ({ identifier: 0, clientX: b.x + 20 + dx, clientY: b.y + b.height / 2 + dy });
+  const drag = async (points: { identifier: number; clientX: number; clientY: number }[]) => {
+    await target.dispatchEvent("touchstart", { touches: [points[0]], changedTouches: [points[0]], targetTouches: [points[0]] });
+    for (const p of points.slice(1)) await target.dispatchEvent("touchmove", { touches: [p], changedTouches: [p], targetTouches: [p] });
+    const last = points[points.length - 1];
+    await target.dispatchEvent("touchend", { touches: [], changedTouches: [last], targetTouches: [] });
+  };
+
+  // Mostly downward: a scroll, not a reply.
+  await drag([at(0), at(10, 40), at(80, 60)]);
+  await expect(page.getByRole("group", { name: /Replying to/ })).toHaveCount(0);
+
+  await drag([at(0), at(30, 2), at(70, 4)]);
+  await expect(page.getByRole("group", { name: "Replying to Aria" })).toContainText("Aria message 3");
+  // The bubble springs back once the finger lifts.
+  await expect(target).not.toHaveAttribute("style", /translateX/);
+});
+
 test("a character's [Re: ...] quotes one of your messages", async ({ page, mockAI }) => {
   mockAI.reply("[Re: User message 2] About that, yes, it was fine for me too.");
   await openChat(page);

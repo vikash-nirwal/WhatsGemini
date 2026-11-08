@@ -102,7 +102,10 @@ test("a member speaking up on their own gets the rest of the round too", async (
   await page.getByRole("button", { name: "Close scene panel" }).click();
 
   await headerAction(page, "Make the next bot send a follow-up now");
-  await expect(messageBubble(page, "Aria says hello back.")).toBeVisible();
+  // The first reply gets as long as the rest (#251): it was the one left on
+  // the default five seconds, and a slow first reply after opening the room
+  // made this test fail now and then.
+  await expect(messageBubble(page, "Aria says hello back.")).toBeVisible({ timeout: 15_000 });
   await expect(messageBubble(page, "Kai says hello back.")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Rain drums on the garage roof.")).toBeVisible({ timeout: 15_000 });
 });

@@ -67,6 +67,11 @@ test("a dated plan reminds the group and resolves on its own", async ({ page, mo
   await page.clock.fastForward(65_000);
   await expect(page.getByText("tomorrow!! bring blankets").first()).toBeVisible({ timeout: 15_000 });
 
+  // Wait for the page's lazy chunks (here the markdown's) to finish loading
+  // first (#251): webpack gives each one a two-minute timeout, and jumping
+  // two days ahead while one is still loading fires it, so the screen breaks
+  // with a ChunkLoadError. Webpack removes a chunk's script tag once loaded.
+  await expect.poll(() => page.evaluate(() => document.querySelectorAll('script[src*=".chunk.js"]').length)).toBe(0);
   await page.clock.fastForward(2 * 24 * 3_600_000);
   await expect(page.getByRole("region", { name: "Group plan" })).toContainText("done", { timeout: 15_000 });
   await expect(page.getByText("How it went: The fire wouldn't light", { exact: false })).toBeVisible();

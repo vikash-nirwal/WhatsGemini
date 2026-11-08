@@ -73,7 +73,7 @@ test("dates are found in the character's memory", async ({ page, mockAI }) => {
   await section.getByRole("button", { name: "Find dates in memory" }).click();
   await expect(section.getByRole("status")).toHaveText("Found 1.");
   await expect(section.getByLabel("What the date is")).toHaveValue("Your birthday");
-  expect(mockAI.requests[0].prompt).toContain("The user's birthday is March 4th.");
+  expect(mockAI.requests.some((r) => r.prompt.includes("The user's birthday is March 4th."))).toBe(true);
 });
 
 test("on the day, the character messages first, once", async ({ page, mockAI }) => {
@@ -88,13 +88,15 @@ test("on the day, the character messages first, once", async ({ page, mockAI }) 
   await openChat(page);
 
   await expect(messageBubble(page, "Happy birthday!!")).toBeVisible({ timeout: 30_000 });
-  const request = mockAI.requests[0];
-  expect(JSON.stringify(request.messages)).toContain("Today is your birthday. Reach out first about it");
+  // Only the birthday message's requests count (#251): another background
+  // job may call the AI now and then, which made this test fail at times.
+  const birthday = () => mockAI.requests.filter((r) => JSON.stringify(r.messages).includes("Today is your birthday. Reach out first about it"));
+  expect(birthday()).toHaveLength(1);
   await expect.poll(async () => (await readAria(page)).importantDates[0].lastCelebratedYear).toBe(today.getFullYear());
 
   // Reopening the same day doesn't send it again.
   await page.reload();
   await expect(page.getByLabel("Message input")).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(1000);
-  expect(mockAI.requests).toHaveLength(1);
+  expect(birthday()).toHaveLength(1);
 });
