@@ -67,6 +67,8 @@ const WorldWizardPage = lazy(() => import("./pages/WorldWizardPage"));
 const PeekPage = lazy(() => import("./pages/PeekPage"));
 const ImagePlaygroundPage = lazy(() => import("./pages/ImagePlaygroundPage"));
 const AdventureGalleryPage = lazy(() => import("./pages/AdventureGalleryPage"));
+const StoryPlayGalleryPage = lazy(() => import("./pages/StoryPlayPage").then((m) => ({ default: m.StoryPlayGalleryPage })));
+const NewStoryPlayPage = lazy(() => import("./pages/StoryPlayPage").then((m) => ({ default: m.NewStoryPlayPage })));
 const AdventureWizardPage = lazy(() => import("./pages/AdventureWizardPage"));
 const AdventurePage = lazy(() => import("./pages/AdventurePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -276,6 +278,8 @@ const AppContent = () => {
                 <Route path="/peek/:a/:b" element={<PeekPage />} />
                 <Route path="/worlds/:worldId/edit" element={<WorldEditorPage />} />
                 <Route path="/worlds/:worldId/timeline" element={<TimelinePage />} />
+                <Route path="/stories" element={<StoryPlayGalleryPage />} />
+                <Route path="/stories/new" element={<NewStoryPlayPage />} />
                 <Route path="/adventures" element={<AdventureGalleryPage />} />
                 <Route path="/adventures/new" element={<AdventureWizardPage />} />
                 <Route path="/adventures/:adventureId" element={<AdventurePage />} />

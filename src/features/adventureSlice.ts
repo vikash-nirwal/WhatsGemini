@@ -32,7 +32,7 @@ export const fetchAdventureById = createAsyncThunk("adventure/fetchById", async 
 export const addAdventure = createAsyncThunk(
   "adventure/add",
   async (
-    { title, worldId, characterIds, personaId, premise, rules }: { title: string; worldId?: number; characterIds?: number[]; personaId?: string; premise?: string; rules?: AdventureRules },
+    { title, worldId, characterIds, personaId, premise, rules, storyScript, storyPlay }: { title: string; worldId?: number; characterIds?: number[]; personaId?: string; premise?: string; rules?: AdventureRules; storyScript?: Adventure["storyScript"]; storyPlay?: boolean },
     { rejectWithValue }
   ) => {
     try {
@@ -47,6 +47,8 @@ export const addAdventure = createAsyncThunk(
         rules,
         status: "active",
         content: [],
+        ...(storyScript ? { storyScript } : {}),
+        ...(storyPlay ? { storyPlay } : {}),
       };
       const id = await dbService.addAdventure(newAdventure);
       return { id, ...newAdventure } as Adventure;

@@ -60,8 +60,17 @@ export const buildAdventureSystemInstruction = (
   recentMessages: Message[],
   options: { roleplayStyle?: RoleplayStyle } = {}
 ): string => {
+  // Story play: the player takes a part in a story they pasted, and the
+  // narrator plays everyone else in it, several of them in one reply.
+  const part = adventure.storyPlay ? adventure.storyScript?.cast?.find((c) => c.playedBy === "user") : undefined;
   const sections: string[] = [
-    "You are the narrator and game master for an interactive text adventure. Narrate the world and voice every NPC yourself - the player only ever controls their own character, never anyone else. Write in second person (\"you\") addressing the player directly, describing what happens as a result of their last action.",
+    adventure.storyPlay
+      ? `You are the narrator of an interactive story the user brought, and you voice every character in it yourself except the player's. ${
+          part
+            ? `The player plays ${part.name}, one of the story's own characters: they only ever speak and act as ${part.name}, and you never do it for them. Write in second person ("you"), addressing the player as ${part.name}.`
+            : `The player joins the story as themselves, a newcomer to it; never speak or act for them. Write in second person ("you").`
+        } Describe what happens as a result of their last action. Any number of the story's characters can speak and act in one reply when the scene calls for it; start each one's spoken lines on a new line with their name in bold, like **Name:** "...".`
+      : "You are the narrator and game master for an interactive text adventure. Narrate the world and voice every NPC yourself - the player only ever controls their own character, never anyone else. Write in second person (\"you\") addressing the player directly, describing what happens as a result of their last action.",
   ];
 
   if (world) {
@@ -105,7 +114,10 @@ export const buildAdventureSystemInstruction = (
     );
   }
 
-  if (activePersona) {
+  // Playing a part, the player is that character, not their persona.
+  if (part) {
+    sections.push(`About the player you are addressing as "you": ${part.name}${part.about ? `. ${part.about}` : ""}`);
+  } else if (activePersona) {
     const parts: string[] = [];
     if (activePersona.name) parts.push(`Name: ${activePersona.name}.`);
     if (activePersona.bio) parts.push(`Bio: ${activePersona.bio}.`);
@@ -120,7 +132,7 @@ export const buildAdventureSystemInstruction = (
   if (rating === "nsfw") sections.push(NSFW_CONTENT_RULE);
   else if (rating === "sfw") sections.push(SFW_CONTENT_RULE);
 
-  sections.push(buildAdventureStyleSection(options.roleplayStyle, activePersona?.name?.trim() || "the player"));
+  sections.push(buildAdventureStyleSection(options.roleplayStyle, part?.name || activePersona?.name?.trim() || "the player"));
 
   if (cast.length > 0) sections.push(buildAdventureEmotionDirective(cast));
   if (adventure.rules?.trackStats) sections.push(buildGameStateDirective(currentGameState(adventure.content, startingGameState(adventure.rules))));

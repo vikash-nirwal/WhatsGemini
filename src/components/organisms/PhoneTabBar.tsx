@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { MdOutlineChat, MdOutlineDonutLarge, MdOutlinePeopleAlt, MdOutlineExplore } from "react-icons/md";
+import { MdOutlineChat, MdOutlineDonutLarge, MdOutlinePeopleAlt, MdOutlineExplore, MdOutlineAutoStories } from "react-icons/md";
 import { cn } from "src/utils/cn";
 import { TAB_BAR_PATHS, usePhoneShell } from "src/hooks/usePhoneShell";
 import { unreadCount } from "src/features/chat/chatList";
@@ -24,12 +24,13 @@ export const PhoneTabBar = () => {
     { to: "/", label: "Chats", Icon: MdOutlineChat, badge: unreadChats },
     { to: "/updates", label: "Updates", Icon: MdOutlineDonutLarge, dot: newStatuses },
     { to: "/characters", label: "Characters", Icon: MdOutlinePeopleAlt },
+    { to: "/stories", label: "Stories", Icon: MdOutlineAutoStories },
     { to: "/adventures", label: "Adventures", Icon: MdOutlineExplore },
   ];
 
   return (
     <nav aria-label="Main" data-slot="tab-bar" className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)]">
-      <ul className="grid h-16 grid-cols-4 px-2">
+      <ul className="grid h-16 grid-cols-5 px-1">
         {tabs.map(({ to, label, Icon, badge, dot }) => (
           <li key={to}>
             <NavLink

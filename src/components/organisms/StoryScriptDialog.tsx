@@ -6,8 +6,10 @@ import { SegmentedControl } from "src/components/molecules/SegmentedControl";
 import { Button } from "src/components/atoms/button";
 import { useAppDispatch } from "src/store/hooks";
 import { generateAssistText } from "src/features/aiSlice";
-import { StoryScript } from "src/types";
+import { StoryCastMember, StoryScript } from "src/types";
+import { StoryCastEditor } from "src/components/molecules/StoryCastEditor";
 import {
+  applyCastRenames,
   buildScriptDraftPrompt,
   cleanScript,
   emptyScript,
@@ -24,6 +26,8 @@ interface StoryScriptDialogProps {
   script: StoryScript | undefined;
   // Saves the script, or removes it when given undefined.
   onSave: (script: StoryScript | undefined) => void;
+  // The chat's character in a 1:1 chat, who can take one of the story's parts.
+  characterName?: string;
 }
 
 const MODE_OPTIONS = [
@@ -35,7 +39,7 @@ const MODE_OPTIONS = [
 // ending, written by hand, split from a pasted story, or loaded from a
 // template. Saving replaces the chat's script; nothing reaches the model
 // until the next reply.
-const StoryScriptDialog: React.FC<StoryScriptDialogProps> = ({ open, onOpenChange, script, onSave }) => {
+const StoryScriptDialog: React.FC<StoryScriptDialogProps> = ({ open, onOpenChange, script, onSave, characterName }) => {
   const dispatch = useAppDispatch();
   const [draft, setDraft] = useState<StoryScript>(script || emptyScript());
   const [pasted, setPasted] = useState("");
@@ -43,10 +47,14 @@ const StoryScriptDialog: React.FC<StoryScriptDialogProps> = ({ open, onOpenChang
   const [splitError, setSplitError] = useState<string | null>(null);
   const [templates, setTemplates] = useState<StoryTemplate[]>([]);
   const [templateName, setTemplateName] = useState("");
+  // The story's people as the script text names them, so a rename can be
+  // carried through the premise, beats and the rest on save.
+  const [castBefore, setCastBefore] = useState<StoryCastMember[] | undefined>(undefined);
 
   useEffect(() => {
     if (!open) return;
-    setDraft(script ? { ...script, beats: script.beats.map((b) => ({ ...b })) } : { ...emptyScript(), beats: [makeBeat("")] });
+    setDraft(script ? { ...script, beats: script.beats.map((b) => ({ ...b })), cast: script.cast?.map((c) => ({ ...c })) } : { ...emptyScript(), beats: [makeBeat("")] });
+    setCastBefore(script?.cast);
     setPasted("");
     setSplitError(null);
     setTemplates(loadStoryTemplates());
@@ -70,7 +78,8 @@ const StoryScriptDialog: React.FC<StoryScriptDialogProps> = ({ open, onOpenChang
       const reply = await dispatch(generateAssistText({ instruction: buildScriptDraftPrompt(pasted.trim()) })).unwrap();
       const parsed = parseScriptDraft(reply);
       if (!parsed) throw new Error("The AI's answer couldn't be read as a story plan. Try again, or write the beats yourself.");
-      update({ ...parsed, currentBeat: 0 });
+      update({ ...parsed, cast: parsed.cast || [], currentBeat: 0 });
+      setCastBefore(parsed.cast);
     } catch (err: any) {
       setSplitError(typeof err === "string" ? err : err?.message || "Couldn't split the story.");
     } finally {
@@ -78,8 +87,12 @@ const StoryScriptDialog: React.FC<StoryScriptDialogProps> = ({ open, onOpenChang
     }
   };
 
+  // Renames are written into the script text here, once, rather than on
+  // every keystroke, where half-typed names would be swapped in.
+  const finalDraft = () => applyCastRenames(draft, castBefore);
+
   const handleSave = () => {
-    onSave(cleanScript(draft));
+    onSave(cleanScript(finalDraft()));
     onOpenChange(false);
   };
 
@@ -119,7 +132,15 @@ const StoryScriptDialog: React.FC<StoryScriptDialogProps> = ({ open, onOpenChang
           </label>
 
           <div className="flex flex-col gap-2">
-            <span className="text-[11.5px] text-muted-foreground">Story beats, in order</span>
+            <span className="text-[11.5px] text-muted-foreground">Story characters</span>
+            <span className="text-xs text-subtle">
+              Rename anyone and the whole story follows. {characterName ? `${characterName} voices everyone the AI plays, several in one reply when the scene needs them.` : "The AI voices everyone you don't play."}
+            </span>
+            <StoryCastEditor cast={draft.cast || []} onChange={(cast) => update({ cast })} characterName={characterName} />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <span className="text-[11.5px] text-muted-foreground">Story beats, in order{draft.beats.length > 1 ? ` (${draft.beats.length})` : ""}</span>
             <ol className="flex flex-col gap-2">
               {draft.beats.map((beat, i) => (
                 <li key={beat.id} className="flex items-start gap-2">
@@ -194,7 +215,7 @@ const StoryScriptDialog: React.FC<StoryScriptDialogProps> = ({ open, onOpenChang
                 size="sm"
                 disabled={!templateName.trim() || !cleanScript(draft)}
                 onClick={() => {
-                  const cleaned = cleanScript(draft);
+                  const cleaned = cleanScript(finalDraft());
                   if (!cleaned) return;
                   setTemplates(saveStoryTemplate(templateName.trim(), cleaned));
                   setTemplateName("");

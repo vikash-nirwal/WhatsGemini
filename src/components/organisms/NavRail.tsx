@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { MdOutlineChat, MdOutlineDonutLarge, MdOutlinePeopleAlt, MdOutlineExplore, MdOutlineSettings } from "react-icons/md";
+import { MdOutlineChat, MdOutlineDonutLarge, MdOutlinePeopleAlt, MdOutlineExplore, MdOutlineSettings, MdOutlineAutoStories } from "react-icons/md";
 import { cn } from "src/utils/cn";
 import { useAppSelector } from "src/store/hooks";
 import { selectActivePersona } from "src/features/settingsSlice";
@@ -12,11 +12,12 @@ import { useWorldChats, useWorldCharacters } from "src/hooks/useWorld";
 import { WorldRail } from "src/components/molecules/WorldSwitcher";
 
 // The app's sections, which part of the app a path belongs to (#150).
-export type Section = "chats" | "updates" | "characters" | "adventures" | "settings" | "other";
+export type Section = "chats" | "updates" | "characters" | "stories" | "adventures" | "settings" | "other";
 export const sectionOf = (pathname: string): Section => {
   if (pathname === "/" || pathname.startsWith("/chat/")) return "chats";
   if (pathname.startsWith("/updates") || pathname.startsWith("/channels") || pathname.startsWith("/starred")) return "updates";
   if (pathname.startsWith("/characters")) return "characters";
+  if (pathname.startsWith("/stories")) return "stories";
   if (pathname.startsWith("/adventures") || pathname.startsWith("/worlds")) return "adventures";
   if (pathname.startsWith("/settings")) return "settings";
   return "other";
@@ -26,6 +27,7 @@ const SECTIONS: { section: Section; to: string; label: string; Icon: React.Compo
   { section: "chats", to: "/", label: "Chats", Icon: MdOutlineChat },
   { section: "updates", to: "/updates", label: "Updates", Icon: MdOutlineDonutLarge },
   { section: "characters", to: "/characters", label: "Characters", Icon: MdOutlinePeopleAlt },
+  { section: "stories", to: "/stories", label: "Stories", Icon: MdOutlineAutoStories },
   { section: "adventures", to: "/adventures", label: "Adventures", Icon: MdOutlineExplore },
 ];
 

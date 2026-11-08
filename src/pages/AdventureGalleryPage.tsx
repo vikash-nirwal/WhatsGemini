@@ -23,7 +23,9 @@ const AdventureGalleryPage = () => {
   const { showConfirm } = useModal();
   const { is } = useColorTheme();
   const neumorphic = is("neumorphic");
-  const adventures = useAppSelector((state) => state.adventure.adventures);
+  // Stories played from a pasted story have their own section (/stories).
+  const allAdventures = useAppSelector((state) => state.adventure.adventures);
+  const adventures = useMemo(() => allAdventures.filter((a) => !a.storyPlay), [allAdventures]);
   const worlds = useAppSelector((state) => state.world.worlds);
   const characters = useAppSelector((state) => state.character.characters);
   const loading = useAppSelector((state) => state.adventure.loading);

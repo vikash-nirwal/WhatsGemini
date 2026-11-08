@@ -65,6 +65,10 @@ const AdventurePage = () => {
   // Which persona this adventure actually speaks as: its own override if set,
   // otherwise whichever persona is globally active - same rule ChatPage uses.
   const persona = personas.find((p) => p.id === (adventure?.personaId || globalActivePersonaId)) || personas[0];
+  // Story play: the player goes by the story character they took, and the
+  // story lives in its own section (Stories), where Back goes.
+  const playerName = (adventure?.storyPlay ? adventure.storyScript?.cast?.find((c) => c.playedBy === "user")?.name : undefined) || persona?.name?.trim() || undefined;
+  const backTo = adventure?.storyPlay ? "/stories" : "/adventures";
 
   // Texting mode (#141), the app's setting: the chat view splits the
   // narrator's turns into texts, like a chat's replies.
@@ -220,7 +224,7 @@ const AdventurePage = () => {
           recentMessages: recent,
           memory: existing,
           pinnedMemory: [],
-          names: { userName: persona?.name?.trim() || undefined, charName: "Narrator" },
+          names: { userName: playerName, charName: "Narrator" },
         })).unwrap();
         // Where the story stands (#142) comes with every update.
         if (changes.added.length + changes.updated.length + changes.forgotten.length + changes.reinforced.length > 0 || changes.standing) {
@@ -237,7 +241,7 @@ const AdventurePage = () => {
         console.warn("Adventure memory extraction failed (non-fatal):", err);
       }
     },
-    [adventure, dispatch, persona, castAtHome]
+    [adventure, dispatch, persona, castAtHome, playerName]
   );
 
   const generateNarratorReply = useCallback(
@@ -324,7 +328,7 @@ const AdventurePage = () => {
         const compressed = await dispatch(autoCompressAdventure({
           adventureId: adventure.id,
           messages: added,
-          names: { userName: persona?.name?.trim() || undefined, charName: "Narrator" },
+          names: { userName: playerName, charName: "Narrator" },
         })).unwrap();
         if (compressed.error) setError(`Couldn't summarize older turns: ${compressed.error}`);
         if (compressed.tokens || compressed.cost) {
@@ -342,7 +346,7 @@ const AdventurePage = () => {
         setGenerating(false);
       }
     },
-    [adventure, generating, imageRequested, dispatch, generateNarratorReply, persona]
+    [adventure, generating, imageRequested, dispatch, generateNarratorReply, persona, playerName]
   );
 
   // A brand-new adventure has no opening scene yet - trigger it once,
@@ -415,7 +419,7 @@ const AdventurePage = () => {
     const confirmed = await showConfirm("Delete adventure", `Delete "${adventure.title}"? This can't be undone.`);
     if (confirmed) {
       await dispatch(deleteAdventure(adventure.id));
-      navigate("/adventures");
+      navigate(backTo);
     }
   };
 
@@ -447,7 +451,7 @@ const AdventurePage = () => {
       const covered = adventure.content.slice(chapterStart);
       const last = adventure.content[adventure.content.length - 1];
       const chapterNumber = adventure.content.filter((m) => m.chapterTitle).length + 1;
-      const chapter = await dispatch(summarizeChapter({ messages: covered, names: { userName: persona?.name?.trim() || undefined, charName: "Narrator" } })).unwrap();
+      const chapter = await dispatch(summarizeChapter({ messages: covered, names: { userName: playerName, charName: "Narrator" } })).unwrap();
       if (chapter.tokens || chapter.cost) dispatch(incrementAdventureUsage({ adventureId: adventure.id, tokens: chapter.tokens, cost: chapter.cost }));
       await dispatch(insertAdventureCompressionSummary({
         adventureId: adventure.id,
@@ -567,8 +571,8 @@ const AdventurePage = () => {
     <div className="w-full h-dvh flex flex-col">
       <Header
         title={adventure.title}
-        subtitle={world ? world.name : "Freeform"}
-        onBack={() => navigate("/adventures")}
+        subtitle={adventure.storyPlay ? (playerName ? `Playing ${playerName}` : "Story") : world ? world.name : "Freeform"}
+        onBack={() => navigate(backTo)}
         actionGroups={[
           [viewModeAction, ...headerActions],
           artStyleActions,

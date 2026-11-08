@@ -249,3 +249,28 @@ describe("streamingNarrationForDisplay", () => {
     expect(streamingNarrationForDisplay("The door creaks open.")).toBe("The door creaks open.");
   });
 });
+
+describe("story play", () => {
+  const story: Adventure = {
+    id: 2, title: "Pride", timestamp: 0, characterIds: [], status: "active", content: [], storyPlay: true,
+    storyScript: {
+      premise: "A ball in Meryton.", beats: [], directions: "", mode: "loose", currentBeat: 0,
+      cast: [{ id: "a", name: "Lizzy", about: "Witty and proud.", playedBy: "user" }, { id: "b", name: "Darcy", about: "Aloof." }],
+    },
+  };
+
+  it("has the player play their part, with the narrator voicing everyone else", () => {
+    const text = buildAdventureSystemInstruction(story, undefined, [], { id: "p", name: "Vik" } as any, []);
+    expect(text).toContain("The player plays Lizzy, one of the story's own characters");
+    expect(text).toContain("**Name:**");
+    expect(text).toContain('About the player you are addressing as "you": Lizzy. Witty and proud.');
+    expect(text).not.toContain("Name: Vik.");
+    expect(text).toContain("- Darcy: Aloof.");
+  });
+
+  it("lets the player join as themselves when they take no part", () => {
+    const text = buildAdventureSystemInstruction({ ...story, storyScript: { ...story.storyScript!, cast: [{ id: "b", name: "Darcy", about: "" }] } }, undefined, [], { id: "p", name: "Vik" } as any, []);
+    expect(text).toContain("joins the story as themselves");
+    expect(text).toContain("Name: Vik.");
+  });
+});

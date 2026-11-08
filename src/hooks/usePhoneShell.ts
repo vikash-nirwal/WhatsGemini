@@ -26,5 +26,5 @@ export const usePhoneShell = (): boolean => {
 
 // Pages that show the tab bar: the shell's top-level screens, one per
 // section (#150).
-export const TAB_BAR_PATHS = ["/", "/updates", "/characters", "/adventures"];
+export const TAB_BAR_PATHS = ["/", "/updates", "/characters", "/stories", "/adventures"];
 export const TAB_BAR_HEIGHT = 64;

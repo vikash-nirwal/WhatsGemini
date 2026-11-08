@@ -2815,7 +2815,7 @@ const ChatPage = () => {
         />
         <GameDialog open={gameOpen} onOpenChange={setGameOpen} characterName={characterData?.name || "them"} onStart={startGame} />
         <PollDialog open={pollOpen} onOpenChange={setPollOpen} onCreate={(q, o) => void handleCreatePoll(q, o)} />
-        <StoryScriptDialog open={storyOpen} onOpenChange={setStoryOpen} script={currentChat?.storyScript} onSave={saveStoryScript} />
+        <StoryScriptDialog open={storyOpen} onOpenChange={setStoryOpen} script={currentChat?.storyScript} onSave={saveStoryScript} characterName={!isRoom ? characterData?.name : undefined} />
         <ScenarioCardsDialog open={scenarioOpen} onOpenChange={setScenarioOpen} onStart={handleStartScenario} />
         <TimeSkipDialog open={timeSkipOpen} onOpenChange={setTimeSkipOpen} onSkip={handleTimeSkip} onPassTime={(pass) => void handlePassTime(pass)} />
         {!isRoom && characterData && (

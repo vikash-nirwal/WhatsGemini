@@ -468,9 +468,18 @@ export interface StoryBeat {
   id: string;
   text: string;
 }
+// Someone in a pasted story. `playedBy` says who takes the part: the AI
+// (unset), the user, or the chat's own character (1:1 chats only).
+export interface StoryCastMember {
+  id: string;
+  name: string;
+  about: string;
+  playedBy?: "user" | "character";
+}
 export interface StoryScript {
   premise: string;
   beats: StoryBeat[];
+  cast?: StoryCastMember[]; // the story's own characters, renameable
   directions: string;
   ending?: string;
   // strict: nothing outside the script; loose: improvise between beats.
@@ -1124,4 +1133,8 @@ export interface Adventure {
   memory?: string[];
   memoryStanding?: MemoryStanding; // where the story stands (#142)
   storyScript?: StoryScript; // the user's own story for the narrator to follow (#57)
+  // Story play: a pasted story played as one of its own characters, with no
+  // Character made. The part the player takes is the cast member with
+  // playedBy "user" in storyScript.cast; none means they join as themselves.
+  storyPlay?: boolean;
 }

@@ -1,4 +1,4 @@
-import { StoryBeat, StoryScript } from "../../types";
+import { StoryBeat, StoryCastMember, StoryScript } from "../../types";
 
 // Story script (#57): the story a chat must stay inside, written before (or
 // during) the roleplay. Every reply is given the premise, the directions,
@@ -11,13 +11,16 @@ export const emptyScript = (): StoryScript => ({ premise: "", beats: [], directi
 
 const newBeatId = () => `beat-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 export const makeBeat = (text: string): StoryBeat => ({ id: newBeatId(), text });
+export const makeCastMember = (name: string, about = ""): StoryCastMember => ({ id: newBeatId().replace("beat", "cast"), name, about });
 
 // Blank beats are dropped, and the current beat kept in range.
 export const cleanScript = (script: StoryScript): StoryScript | undefined => {
   const beats = script.beats.map((b) => ({ ...b, text: b.text.trim() })).filter((b) => b.text);
+  const cast = (script.cast || []).map((c) => ({ ...c, name: c.name.trim(), about: c.about.trim() })).filter((c) => c.name);
   const cleaned: StoryScript = {
     premise: script.premise.trim(),
     beats,
+    ...(cast.length > 0 ? { cast } : {}),
     directions: script.directions.trim(),
     ending: script.ending?.trim() || "",
     mode: script.mode,
@@ -60,13 +63,39 @@ const MODE_RULES: Record<StoryScript["mode"], string> = {
     "Follow this story's direction, but improvise freely between beats: small events, side conversations and details of your own are fine as long as the scene keeps moving toward the current beat.",
 };
 
+// Who's in the story and who plays whom. In a chat (`characterName` given)
+// the character also voices everyone nobody plays, so a reply can carry
+// several of the story's people, each line under its speaker's name; the
+// app shows those lines as they come. A narrator voices them all anyway.
+const buildCastSection = (cast: StoryCastMember[], characterName?: string, room = false): string[] => {
+  const lines = cast.map((c) => {
+    const who = c.playedBy === "user" ? " (the user plays them)" : c.playedBy === "character" && characterName && !room ? ` (you, ${characterName}, play them)` : "";
+    return `- ${c.name}${who}${c.about ? `: ${c.about}` : ""}`;
+  });
+  const parts = [`The story's characters:\n${lines.join("\n")}`];
+  if (!characterName) return parts;
+  const userPart = cast.find((c) => c.playedBy === "user")?.name;
+  const voiced = cast.filter((c) => !c.playedBy || (room && c.playedBy === "character")).map((c) => c.name);
+  if (voiced.length > 0) {
+    parts.push(
+      `Besides yourself, you voice the story's other characters (${voiced.join(", ")}) whenever the scene needs them, so one reply can have several of them speaking and acting. Start each of their turns on a new line with their name in bold, like **${voiced[0]}:** and then what they say or do; your own lines need no name.${userPart ? ` Never speak or act for ${userPart}, the user's part.` : " Never speak or act for the user."}`
+    );
+  }
+  return parts;
+};
+
 // The system-prompt section. It sits in the system instruction, which is
 // never compressed, so the story survives however long the chat gets.
 // `beforeChoices`: in an adventure the reply must end with its choices
-// block, so the beat tag goes just before it instead.
-export const buildStoryScriptSection = (script: StoryScript, { beforeChoices = false }: { beforeChoices?: boolean } = {}): string => {
+// block, so the beat tag goes just before it instead. `characterName`: the
+// chat's character, who also voices the story's other people.
+export const buildStoryScriptSection = (
+  script: StoryScript,
+  { beforeChoices = false, characterName, room = false }: { beforeChoices?: boolean; characterName?: string; room?: boolean } = {}
+): string => {
   const parts = ["This roleplay follows a story the user wrote. You must work inside it."];
   if (script.premise) parts.push(`Premise: ${script.premise}`);
+  if (script.cast && script.cast.length > 0) parts.push(...buildCastSection(script.cast, characterName, room));
   if (script.directions) parts.push(`The user's directions (always follow them): ${script.directions}`);
   if (script.beats.length > 0) {
     if (isFinished(script)) {
@@ -119,17 +148,36 @@ ${transcript}`;
 
 export const parseBeatCheckReply = (reply: string): boolean => /^[\s*_"'`.]*yes\b/i.test(reply);
 
-// "Paste a story": the AI splits the user's text into a script for review.
-export const buildScriptDraftPrompt = (story: string): string =>
-  `Turn the user's story or script below into a roleplay plan. Keep their plot, names and order of events; don't add new events.
+// How many beats a pasted story gets: at least 3 and at most 10 for a short
+// one, as before, growing with its length (about one per 120-300 words) so
+// a long story isn't squeezed into ten giant steps. Only the current beat
+// reaches each reply, so a long list costs nothing per message.
+export const MAX_BEATS = 60;
+export const beatRange = (story: string): { min: number; max: number } => {
+  const words = story.trim().split(/\s+/).filter(Boolean).length;
+  const max = Math.max(10, Math.min(MAX_BEATS, Math.ceil(words / 120)));
+  const min = Math.max(3, Math.min(30, Math.round(words / 300)));
+  return { min: Math.min(min, max), max };
+};
+
+// "Paste a story": the AI splits the user's text into a script for review,
+// with the story's own people so they can be renamed or played.
+export const buildScriptDraftPrompt = (story: string): string => {
+  const { min, max } = beatRange(story);
+  return `Turn the user's story or script below into a roleplay plan. Keep their plot, names and order of events; don't add new events.
+
+Split it into ${min} to ${max} beats, in order. A long story needs many beats: give each key event its own beat rather than squeezing several into one, one short sentence each.
 
 Reply with only a JSON object, no code fence:
-{"premise": "the setup: world, situation and who everyone is, 1-3 sentences", "beats": ["each key event, in order, one short sentence each, 3 to 10 of them"], "directions": "tone, pacing and rules the story implies, or empty", "ending": "how it ends, or empty"}
+{"premise": "the setup: world, situation and who everyone is, 1-3 sentences", "beats": ["each key event, in order"], "cast": [{"name": "a character's name as the story gives it", "about": "who they are: role, personality, look and what they want, 1-2 sentences"}], "directions": "tone, pacing and rules the story implies, or empty", "ending": "how it ends, or empty"}
+
+List every named character who matters to the plot in "cast", main ones first, at most 15.
 
 Story:
 ${story}`;
+};
 
-export const parseScriptDraft = (reply: string): Pick<StoryScript, "premise" | "beats" | "directions" | "ending"> | undefined => {
+export const parseScriptDraft = (reply: string): Pick<StoryScript, "premise" | "beats" | "cast" | "directions" | "ending"> | undefined => {
   const raw = reply.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
   const start = raw.indexOf("{");
   const end = raw.lastIndexOf("}");
@@ -137,13 +185,58 @@ export const parseScriptDraft = (reply: string): Pick<StoryScript, "premise" | "
   try {
     const data = JSON.parse(raw.slice(start, end + 1));
     const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
-    const beats = Array.isArray(data.beats) ? data.beats.map(str).filter(Boolean).map(makeBeat) : [];
+    const beats = Array.isArray(data.beats) ? data.beats.map(str).filter(Boolean).slice(0, MAX_BEATS).map(makeBeat) : [];
     if (!str(data.premise) && beats.length === 0) return undefined;
-    return { premise: str(data.premise), beats, directions: str(data.directions), ending: str(data.ending) };
+    const seen = new Set<string>();
+    const cast = (Array.isArray(data.cast) ? data.cast : [])
+      .map((c: any) => (typeof c === "string" ? makeCastMember(c.trim()) : makeCastMember(str(c?.name), str(c?.about))))
+      .filter((c: StoryCastMember) => c.name && !seen.has(c.name.toLowerCase()) && seen.add(c.name.toLowerCase()))
+      .slice(0, 15);
+    return { premise: str(data.premise), beats, ...(cast.length > 0 ? { cast } : {}), directions: str(data.directions), ending: str(data.ending) };
   } catch {
     return undefined;
   }
 };
+
+// Renaming one of the story's people rewrites the whole script, so the
+// model never sees the old name and the new one simply is the character.
+// The full name is replaced, then the first name on its own ("Elizabeth
+// Bennet" to "Lily Bennet" also turns a lone "Elizabeth" into "Lily").
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const replaceName = (text: string, from: string, to: string): string =>
+  text.replace(new RegExp(`(?<![\\p{L}\\p{N}_])${escapeRegExp(from)}(?![\\p{L}\\p{N}_])`, "gu"), to);
+
+export const renameInText = (text: string, from: string, to: string): string => {
+  const a = from.trim();
+  const b = to.trim();
+  if (!a || !b || a === b) return text;
+  let out = replaceName(text, a, b);
+  const firstA = a.split(/\s+/)[0];
+  const firstB = b.split(/\s+/)[0];
+  if (firstA !== a && firstA.length > 1 && firstA !== firstB) out = replaceName(out, firstA, firstB);
+  return out;
+};
+
+export const renameInScript = (script: StoryScript, from: string, to: string): StoryScript => {
+  const r = (text: string) => renameInText(text, from, to);
+  return {
+    ...script,
+    premise: r(script.premise),
+    beats: script.beats.map((b) => ({ ...b, text: r(b.text) })),
+    directions: r(script.directions),
+    ending: script.ending ? r(script.ending) : script.ending,
+    cast: script.cast?.map((c) => ({ ...c, about: r(c.about) })),
+  };
+};
+
+// Applies every rename made in the editor: each cast member whose name
+// differs from what it was (by id) in `before`. The cast's own names are
+// already the new ones.
+export const applyCastRenames = (script: StoryScript, before: StoryCastMember[] | undefined): StoryScript =>
+  (script.cast || []).reduce((acc, member) => {
+    const old = before?.find((c) => c.id === member.id)?.name;
+    return old && member.name.trim() && old !== member.name.trim() ? renameInScript(acc, old, member.name.trim()) : acc;
+  }, script);
 
 // Templates: a script saved to reuse with other characters, kept in this
 // browser (and in the settings export).

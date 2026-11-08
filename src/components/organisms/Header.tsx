@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { FaBars, FaArrowLeft, FaSun, FaMoon, FaUserFriends, FaHatWizard, FaCog, FaEllipsisV, FaQuestionCircle, FaChevronDown } from "react-icons/fa";
+import { FaBars, FaArrowLeft, FaSun, FaMoon, FaUserFriends, FaHatWizard, FaBookOpen, FaCog, FaEllipsisV, FaQuestionCircle, FaChevronDown } from "react-icons/fa";
 import { useSidebar } from "../../contexts/SidebarContext";
 import { ThemeContext } from "../../contexts/ThemeContext";
 import { useColorTheme } from "../../hooks/useColorTheme";
@@ -133,6 +133,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, online = true, avatar,
     { icon: isDark ? FaSun : FaMoon, label: "Toggle theme", shortLabel: isDark ? "light" : "dark", onClick: toggleTheme, primary: appPrimary },
     { icon: FaQuestionCircle, label: "Keyboard shortcuts", shortLabel: "?", onClick: () => setShowShortcuts(true), primary: appPrimary },
     { icon: FaUserFriends, label: "Characters", onClick: () => navigate("/characters"), active: isCharacters, primary: appPrimary },
+    { icon: FaBookOpen, label: "Stories", onClick: () => navigate("/stories"), active: location.pathname.startsWith("/stories"), primary: appPrimary },
     { icon: FaHatWizard, label: "Adventures", onClick: () => navigate("/adventures"), active: isAdventures, primary: appPrimary },
     { icon: FaCog, label: "Settings", onClick: () => navigate("/settings/profile"), active: isSettings, primary: appPrimary },
   ];

@@ -688,8 +688,9 @@ export const buildTurnContext = (
   // The story script (#57) goes in the system instruction, which is never
   // compressed, so it holds however long the chat runs.
   // A mini-game's rules (#52) ride along the same way while it's on.
+  // With the story's people listed, the character also voices them.
   const sceneDirectives = [
-    ...(scene?.storyScript ? [buildStoryScriptSection(scene.storyScript)] : []),
+    ...(scene?.storyScript ? [buildStoryScriptSection(scene.storyScript, { characterName: character?.name, room: !!roomContext })] : []),
     ...(scene?.game && character ? [buildGameSection(scene.game, character.name)] : []),
     ...(scene?.onCall && character ? [buildCallSection(character.name)] : []),
     ...(scene?.sceneTracker && character ? [buildStateDirective(scene.sceneState, character.name, scene.roomNames, scene.meters)] : []),

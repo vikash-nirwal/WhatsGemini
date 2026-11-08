@@ -1,4 +1,4 @@
-import { beatStamp, beatStarts, buildBeatCheckPrompt, buildStoryScriptSection, cleanScript, emptyScript, extractBeatTag, makeBeat, moveBeat, parseBeatCheckReply, parseScriptDraft, stripStreamingBeatTag } from "./storyScript";
+import { applyCastRenames, beatRange, beatStamp, beatStarts, buildBeatCheckPrompt, buildScriptDraftPrompt, buildStoryScriptSection, cleanScript, emptyScript, extractBeatTag, makeBeat, makeCastMember, moveBeat, parseBeatCheckReply, parseScriptDraft, renameInText, stripStreamingBeatTag } from "./storyScript";
 import { StoryScript } from "../../types";
 
 const script = (overrides: Partial<StoryScript> = {}): StoryScript => ({
@@ -109,5 +109,67 @@ describe("beat check", () => {
     expect(parseBeatCheckReply("no")).toBe(false);
     expect(parseBeatCheckReply("Not yet, yes it's close")).toBe(false);
     expect(parseBeatCheckReply("yesterday")).toBe(false);
+  });
+});
+
+describe("beats for long stories", () => {
+  const words = (n: number) => Array.from({ length: n }, () => "word").join(" ");
+
+  it("keeps 3 to 10 for a short story and grows with a long one", () => {
+    expect(beatRange(words(300))).toEqual({ min: 3, max: 10 });
+    expect(beatRange(words(6000))).toEqual({ min: 20, max: 50 });
+    expect(beatRange(words(50000)).max).toBe(60);
+  });
+
+  it("asks for that many beats and the story's people", () => {
+    const prompt = buildScriptDraftPrompt(words(6000));
+    expect(prompt).toContain("20 to 50 beats");
+    expect(prompt).toContain('"cast"');
+  });
+
+  it("reads more than ten beats and the cast", () => {
+    const beats = Array.from({ length: 25 }, (_, i) => `Event ${i + 1}`);
+    const draft = parseScriptDraft(JSON.stringify({ premise: "P", beats, cast: [{ name: "Mira", about: "A thief." }, "Tom", { name: "mira" }] }));
+    expect(draft?.beats).toHaveLength(25);
+    expect(draft?.cast?.map((c) => [c.name, c.about])).toEqual([["Mira", "A thief."], ["Tom", ""]]);
+  });
+});
+
+describe("renaming the story's people", () => {
+  it("replaces whole names only, and the first name on its own", () => {
+    expect(renameInText("Elizabeth Bennet meets Darcy. Elizabeth laughs. Elizabethan dress.", "Elizabeth Bennet", "Lily Bennet")).toBe("Lily Bennet meets Darcy. Lily laughs. Elizabethan dress.");
+    expect(renameInText("Tom's hat; Tommy's too.", "Tom", "Sam")).toBe("Sam's hat; Tommy's too.");
+  });
+
+  it("rewrites the script for every changed name", () => {
+    const mira = makeCastMember("Mira", "Mira is a thief.");
+    const s = script({ premise: "Mira robs a train.", beats: [makeBeat("Mira hides.")], cast: [mira] });
+    const renamed = applyCastRenames({ ...s, cast: [{ ...mira, name: "Nadia" }] }, [mira]);
+    expect(renamed.premise).toBe("Nadia robs a train.");
+    expect(renamed.beats[0].text).toBe("Nadia hides.");
+    expect(renamed.cast?.[0]).toMatchObject({ name: "Nadia", about: "Nadia is a thief." });
+  });
+});
+
+describe("the story's people in the prompt", () => {
+  const cast = [{ ...makeCastMember("Darcy", "Proud."), playedBy: "character" as const }, { ...makeCastMember("Lizzy", "Witty."), playedBy: "user" as const }, makeCastMember("Jane", "Kind.")];
+
+  it("lets the chat's character voice the others, by name", () => {
+    const text = buildStoryScriptSection(script({ cast }), { characterName: "Ari" });
+    expect(text).toContain("- Darcy (you, Ari, play them): Proud.");
+    expect(text).toContain("- Lizzy (the user plays them): Witty.");
+    expect(text).toContain("you voice the story's other characters (Jane)");
+    expect(text).toContain("**Jane:**");
+    expect(text).toContain("Never speak or act for Lizzy");
+  });
+
+  it("only lists them for a narrator", () => {
+    const text = buildStoryScriptSection(script({ cast }), { beforeChoices: true });
+    expect(text).toContain("- Jane: Kind.");
+    expect(text).not.toContain("**Jane:**");
+  });
+
+  it("keeps the cast through cleaning, dropping blank names", () => {
+    expect(cleanScript(script({ cast: [makeCastMember(" Jane "), makeCastMember(" ")] }))?.cast?.map((c) => c.name)).toEqual(["Jane"]);
   });
 });
