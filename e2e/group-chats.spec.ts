@@ -281,3 +281,52 @@ test("members react to you and to each other, and you can see who", async ({ pag
   await expect(list).toContainText("1 reaction");
   await expect(list.getByRole("menuitem", { name: "😂 Aria" })).toBeVisible();
 });
+
+// Story parts in group chats (#242): a member takes a part from the story's
+// cast, and every member's prompt says whose part is whose; a part nobody
+// plays is voiced by one member only.
+test("in a group, a member plays a part from the story", async ({ page, mockAI }) => {
+  replyByRequest(mockAI, "");
+  await openChat(page, 2);
+  await openRoomPanel(page, "Group");
+  await page.getByRole("button", { name: "Everyone", exact: true }).click();
+  await page.getByRole("tab", { name: "Scene", exact: true }).click();
+  await page.getByRole("button", { name: "Write", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Story script" });
+  mockAI.replyOnce(
+    JSON.stringify({
+      premise: "Lizzy meets proud Darcy at a ball.",
+      beats: ["Lizzy overhears Darcy's insult.", "They dance.", "They marry."],
+      cast: [{ name: "Lizzy", about: "Witty." }, { name: "Darcy", about: "Proud." }, { name: "Jane", about: "Kind." }],
+    })
+  );
+  await dialog.getByText("Paste a story or script").click();
+  await dialog.getByLabel("Story to split into beats").fill("A long story.");
+  await dialog.getByRole("button", { name: "Split into beats" }).click();
+  await expect(dialog.getByLabel("Name of story character 2")).toHaveValue("Darcy");
+
+  await dialog.getByLabel("Name of story character 1").fill("Eliza");
+  await dialog.getByLabel("Who plays Eliza").click();
+  await page.getByRole("option", { name: "You play them" }).click();
+  await dialog.getByLabel("Who plays Darcy").click();
+  await page.getByRole("option", { name: "Kai plays them" }).click();
+  await dialog.getByRole("button", { name: "Save script" }).click();
+  await expect(dialog).toBeHidden();
+  if (await page.getByRole("button", { name: "Close scene panel" }).isVisible()) await page.getByRole("button", { name: "Close scene panel" }).click();
+
+  const before = mockAI.requests.length;
+  await sendMessage(page, "Shall we dance?");
+  await expect(messageBubble(page, "Kai says hello back.")).toBeVisible({ timeout: 15_000 });
+  await expect(messageBubble(page, "Aria says hello back.")).toBeVisible({ timeout: 15_000 });
+  const asked = mockAI.requests.slice(before);
+  const kai = systemOf(asked.find((r) => speakerOf(r.messages) === "Kai")!.messages);
+  const aria = systemOf(asked.find((r) => speakerOf(r.messages) === "Aria")!.messages);
+  expect(kai).toContain("- Darcy (you, Kai, play them): Proud.");
+  expect(kai).toContain("- Eliza (the user plays them): Witty.");
+  expect(kai).toContain("- Jane (Aria voices them): Kind.");
+  expect(kai).not.toContain("**Jane:**");
+  expect(aria).toContain("- Darcy (Kai plays them): Proud.");
+  expect(aria).toContain("you voice Jane whenever the scene needs them");
+  expect(aria).toContain("Never speak or act for Eliza, the user's part.");
+  expect(aria).not.toContain("Lizzy");
+});

@@ -93,18 +93,90 @@ const buildCastSection = (cast: StoryCastMember[], characterName?: string, room 
   return parts;
 };
 
+// Story parts in group chats (#242). The room member who plays a part, if
+// they're still in the room; the user's part is never a member's.
+const memberPart = (c: StoryCastMember, members: Record<number, string>): number | undefined =>
+  c.playedBy !== "user" && c.playedById != null && members[c.playedById] != null ? c.playedById : undefined;
+
+// Who voices each part nobody plays, by cast id. Every member replies from
+// their own prompt, one after another in the same round, so telling them
+// all to voice the unplayed people "when the scene needs them" would have
+// each of them speak for the same person in turn. Instead each unplayed
+// part gets one member, worked out the same way in every member's prompt:
+// members without a part of their own first (they have the most room for
+// it), shared out in turn by id. Each of the story's people then keeps one
+// voice for the whole chat, and the parts stay put as people reply.
+export const unplayedVoices = (cast: StoryCastMember[], members: Record<number, string>): Map<string, number> => {
+  const ids = Object.keys(members).map(Number).sort((a, b) => a - b);
+  const taken = new Set(cast.map((c) => memberPart(c, members)).filter((id): id is number => id != null));
+  const free = ids.filter((id) => !taken.has(id));
+  const pool = free.length > 0 ? free : ids;
+  const voices = new Map<string, number>();
+  if (pool.length === 0) return voices;
+  cast.filter((c) => c.playedBy !== "user" && memberPart(c, members) == null).forEach((c, i) => voices.set(c.id, pool[i % pool.length]));
+  return voices;
+};
+
+// A group member's view of the cast: their own part, the others' parts and
+// the user's, and the unplayed people they voice under bold names, as in
+// 1:1; the rest they leave alone.
+const buildRoomCastSection = (cast: StoryCastMember[], characterName: string, selfId: number, members: Record<number, string>): string[] => {
+  const voices = unplayedVoices(cast, members);
+  const lines = cast.map((c) => {
+    const player = memberPart(c, members);
+    const voice = voices.get(c.id);
+    const who =
+      c.playedBy === "user"
+        ? " (the user plays them)"
+        : player === selfId
+          ? ` (you, ${characterName}, play them)`
+          : player != null
+            ? ` (${members[player]} plays them)`
+            : voice != null && voice !== selfId
+              ? ` (${members[voice]} voices them)`
+              : "";
+    return `- ${c.name}${who}${c.about ? `: ${c.about}` : ""}`;
+  });
+  const parts = [`The story's characters:\n${lines.join("\n")}`];
+  const mine = cast.filter((c) => voices.get(c.id) === selfId).map((c) => c.name);
+  const others = cast.filter((c) => c.playedBy !== "user" && memberPart(c, members) !== selfId && voices.get(c.id) !== selfId).map((c) => c.name);
+  const userPart = cast.find((c) => c.playedBy === "user")?.name;
+  const leave = [
+    others.length > 0 ? `Leave ${others.join(", ")} to the others in the group: never speak or act for them.` : "",
+    userPart ? `Never speak or act for ${userPart}, the user's part.` : "Never speak or act for the user.",
+  ].filter(Boolean).join(" ");
+  parts.push(
+    mine.length > 0
+      ? `Besides yourself, you voice ${mine.join(", ")} whenever the scene needs them, so one reply can have several of them speaking and acting. Start each of their turns on a new line with their name in bold, like **${mine[0]}:** and then what they say or do; your own lines need no name. ${leave}`
+      : leave
+  );
+  return parts;
+};
+
 // The system-prompt section. It sits in the system instruction, which is
 // never compressed, so the story survives however long the chat gets.
 // `beforeChoices`: in an adventure the reply must end with its choices
 // block, so the beat tag goes just before it instead. `characterName`: the
-// chat's character, who also voices the story's other people.
+// chat's character, who also voices the story's other people. In a group
+// (#242), `selfId` is the member replying and `members` every member's name
+// by id, so each is told their own part and the ones they voice.
 export const buildStoryScriptSection = (
   script: StoryScript,
-  { beforeChoices = false, characterName, room = false }: { beforeChoices?: boolean; characterName?: string; room?: boolean } = {}
+  {
+    beforeChoices = false,
+    characterName,
+    room = false,
+    selfId,
+    members,
+  }: { beforeChoices?: boolean; characterName?: string; room?: boolean; selfId?: number; members?: Record<number, string> } = {}
 ): string => {
   const parts = ["This roleplay follows a story the user wrote. You must work inside it."];
   if (script.premise) parts.push(`Premise: ${script.premise}`);
-  if (script.cast && script.cast.length > 0) parts.push(...buildCastSection(script.cast, characterName, room));
+  if (script.cast && script.cast.length > 0) {
+    parts.push(
+      ...(room && characterName && selfId != null && members ? buildRoomCastSection(script.cast, characterName, selfId, members) : buildCastSection(script.cast, characterName, room))
+    );
+  }
   if (script.directions) parts.push(`The user's directions (always follow them): ${script.directions}`);
   if (script.beats.length > 0) {
     if (isFinished(script)) {

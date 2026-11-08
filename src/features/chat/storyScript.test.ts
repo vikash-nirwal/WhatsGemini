@@ -1,4 +1,4 @@
-import { applyCastRenames, beatRange, buildBeatBridgePrompt, buildStoryReminder, storyChoicesRule, beatStamp, beatStarts, beatsMissingDetails, buildBeatCheckPrompt, buildFillDetailsPrompt, buildNextBeatPrompt, buildResplitPrompt, buildScriptDraftPrompt, keepSource, parseFillDetails, parseResplit, STORY_SOURCE_MAX, buildStoryScriptSection, cleanScript, emptyScript, extractBeatTag, makeBeat, makeCastMember, moveBeat, parseBeatCheckReply, parseScriptDraft, renameInText, stripStreamingBeatTag } from "./storyScript";
+import { applyCastRenames, beatRange, buildBeatBridgePrompt, buildStoryReminder, storyChoicesRule, beatStamp, beatStarts, beatsMissingDetails, buildBeatCheckPrompt, buildFillDetailsPrompt, buildNextBeatPrompt, buildResplitPrompt, buildScriptDraftPrompt, keepSource, parseFillDetails, parseResplit, STORY_SOURCE_MAX, buildStoryScriptSection, cleanScript, emptyScript, extractBeatTag, makeBeat, makeCastMember, moveBeat, parseBeatCheckReply, parseScriptDraft, renameInText, stripStreamingBeatTag, unplayedVoices } from "./storyScript";
 import { StoryScript } from "../../types";
 
 const script = (overrides: Partial<StoryScript> = {}): StoryScript => ({
@@ -171,6 +171,53 @@ describe("the story's people in the prompt", () => {
 
   it("keeps the cast through cleaning, dropping blank names", () => {
     expect(cleanScript(script({ cast: [makeCastMember(" Jane "), makeCastMember(" ")] }))?.cast?.map((c) => c.name)).toEqual(["Jane"]);
+  });
+});
+
+// Story parts in group chats (#242).
+describe("the story's people in a group chat", () => {
+  const members = { 1: "Ari", 2: "Bo", 3: "Cy" };
+  const darcy = { ...makeCastMember("Darcy", "Proud."), playedById: 2 };
+  const lizzy = { ...makeCastMember("Lizzy", "Witty."), playedBy: "user" as const };
+  const jane = makeCastMember("Jane", "Kind.");
+  const kitty = makeCastMember("Kitty", "Silly.");
+  const cast = [darcy, lizzy, jane, kitty];
+  const forMember = (selfId: number, name: string) => buildStoryScriptSection(script({ cast }), { characterName: name, room: true, selfId, members });
+
+  it("tells the member who plays a part that it's theirs", () => {
+    const text = forMember(2, "Bo");
+    expect(text).toContain("- Darcy (you, Bo, play them): Proud.");
+    expect(text).toContain("- Lizzy (the user plays them): Witty.");
+    expect(text).toContain("Leave Jane, Kitty to the others in the group");
+    expect(text).toContain("Never speak or act for Lizzy, the user's part.");
+    expect(text).not.toContain("**");
+  });
+
+  it("gives each unplayed part to one member, those without a part first", () => {
+    expect(unplayedVoices(cast, members)).toEqual(new Map([[jane.id, 1], [kitty.id, 3]]));
+    const ari = forMember(1, "Ari");
+    expect(ari).toContain("- Darcy (Bo plays them): Proud.");
+    expect(ari).toContain("- Kitty (Cy voices them): Silly.");
+    expect(ari).toContain("Besides yourself, you voice Jane whenever the scene needs them");
+    expect(ari).toContain("**Jane:**");
+    expect(ari).toContain("Leave Darcy, Kitty to the others in the group");
+    expect(forMember(3, "Cy")).toContain("you voice Kitty whenever");
+  });
+
+  it("shares parts among everyone when every member has one", () => {
+    const all = [{ ...darcy, playedById: 1 }, { ...jane, playedById: 2 }, { ...kitty, playedById: 3 }, makeCastMember("Mary"), makeCastMember("Lydia")];
+    expect([...unplayedVoices(all, members).values()]).toEqual([1, 2]);
+  });
+
+  it("treats a part whose player left, or an old 1:1 character part, as unplayed", () => {
+    const old = [{ ...darcy, playedById: 9 }, { ...jane, playedBy: "character" as const }];
+    expect(unplayedVoices(old, { 1: "Ari", 2: "Bo" })).toEqual(new Map([[darcy.id, 1], [jane.id, 2]]));
+  });
+
+  it("keeps the parts through renames", () => {
+    const renamed = applyCastRenames(script({ premise: "Darcy sulks.", cast: [{ ...darcy, name: "Fitz" }] }), [darcy]);
+    expect(renamed.premise).toBe("Fitz sulks.");
+    expect(renamed.cast?.[0]).toMatchObject({ name: "Fitz", playedById: 2 });
   });
 });
 

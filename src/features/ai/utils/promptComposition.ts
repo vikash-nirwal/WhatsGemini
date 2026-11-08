@@ -702,7 +702,10 @@ export const buildTurnContext = (
   // A mini-game's rules (#52) ride along the same way while it's on.
   // With the story's people listed, the character also voices them.
   const sceneDirectives = [
-    ...(scene?.storyScript ? [buildStoryScriptSection(scene.storyScript, { characterName: character?.name, room: !!roomContext })] : []),
+    // In a group (#242) each member is told their own part from the cast.
+    ...(scene?.storyScript
+      ? [buildStoryScriptSection(scene.storyScript, { characterName: character?.name, room: !!roomContext, selfId: character?.id, members: roomContext?.speakerNames })]
+      : []),
     ...(scene?.game && character ? [buildGameSection(scene.game, character.name)] : []),
     ...(scene?.onCall && character ? [buildCallSection(character.name)] : []),
     ...(scene?.sceneTracker && character ? [buildStateDirective(scene.sceneState, character.name, scene.roomNames, scene.meters)] : []),

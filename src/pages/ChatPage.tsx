@@ -256,6 +256,11 @@ const ChatPage = () => {
     [characters, currentChat]
   );
   const isRoom = roomCharacters.length > 1;
+  // Who can take one of the story's parts in a group (#242).
+  const storyMembers = useMemo(
+    () => (isRoom ? roomCharacters.flatMap((c) => (c.id != null ? [{ id: c.id, name: c.name }] : [])) : undefined),
+    [isRoom, roomCharacters]
+  );
   // Whether fal's checker may be off for this chat's pictures under "Off
   // for 18+ characters": every member has to be an 18+ character.
   const adultImages = useMemo(() => allAdults(roomCharacters), [roomCharacters]);
@@ -2912,7 +2917,7 @@ const ChatPage = () => {
         {currentChat?.storyScript && !isFinished(currentChat.storyScript) && (
           <FinishBeatDialog open={finishBeatOpen} onOpenChange={setFinishBeatOpen} beatText={currentChat.storyScript.beats[currentChat.storyScript.currentBeat]?.text || ""} onWrite={writeBeat} onAdd={addBeat} />
         )}
-        <StoryScriptDialog open={storyOpen} onOpenChange={setStoryOpen} script={currentChat?.storyScript} onSave={saveStoryScript} characterName={!isRoom ? characterData?.name : undefined} />
+        <StoryScriptDialog open={storyOpen} onOpenChange={setStoryOpen} script={currentChat?.storyScript} onSave={saveStoryScript} characterName={!isRoom ? characterData?.name : undefined} members={storyMembers} />
         <ScenarioCardsDialog open={scenarioOpen} onOpenChange={setScenarioOpen} onStart={handleStartScenario} />
         <TimeSkipDialog open={timeSkipOpen} onOpenChange={setTimeSkipOpen} onSkip={handleTimeSkip} onPassTime={(pass) => void handlePassTime(pass)} />
         {!isRoom && characterData && (

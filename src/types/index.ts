@@ -473,12 +473,15 @@ export interface StoryBeat {
   details?: string;
 }
 // Someone in a pasted story. `playedBy` says who takes the part: the AI
-// (unset), the user, or the chat's own character (1:1 chats only).
+// (unset), the user, or the chat's own character (1:1 chats only). In a
+// group chat (#242) `playedById` names the room member who plays them
+// instead; it's ignored outside groups, and "user" wins over it.
 export interface StoryCastMember {
   id: string;
   name: string;
   about: string;
   playedBy?: "user" | "character";
+  playedById?: number;
 }
 export interface StoryScript {
   premise: string;

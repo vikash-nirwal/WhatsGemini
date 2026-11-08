@@ -34,6 +34,8 @@ interface StoryScriptDialogProps {
   onSave: (script: StoryScript | undefined) => void;
   // The chat's character in a 1:1 chat, who can take one of the story's parts.
   characterName?: string;
+  // A group chat's members (#242), who can each take one of the parts.
+  members?: { id: number; name: string }[];
 }
 
 const MODE_OPTIONS = [
@@ -45,7 +47,7 @@ const MODE_OPTIONS = [
 // ending, written by hand, split from a pasted story, or loaded from a
 // template. Saving replaces the chat's script; nothing reaches the model
 // until the next reply.
-const StoryScriptDialog: React.FC<StoryScriptDialogProps> = ({ open, onOpenChange, script, onSave, characterName }) => {
+const StoryScriptDialog: React.FC<StoryScriptDialogProps> = ({ open, onOpenChange, script, onSave, characterName, members }) => {
   const dispatch = useAppDispatch();
   const [draft, setDraft] = useState<StoryScript>(script || emptyScript());
   const [pasted, setPasted] = useState("");
@@ -198,9 +200,14 @@ const StoryScriptDialog: React.FC<StoryScriptDialogProps> = ({ open, onOpenChang
           <div className="flex flex-col gap-2">
             <span className="text-[11.5px] text-muted-foreground">Story characters</span>
             <span className="text-xs text-subtle">
-              Rename anyone and the whole story follows. {characterName ? `${characterName} voices everyone the AI plays, several in one reply when the scene needs them.` : "The AI voices everyone you don't play."}
+              Rename anyone and the whole story follows.{" "}
+              {members
+                ? "Give anyone in the group a part; the parts nobody plays are shared out among them."
+                : characterName
+                  ? `${characterName} voices everyone the AI plays, several in one reply when the scene needs them.`
+                  : "The AI voices everyone you don't play."}
             </span>
-            <StoryCastEditor cast={draft.cast || []} onChange={(cast) => update({ cast })} characterName={characterName} />
+            <StoryCastEditor cast={draft.cast || []} onChange={(cast) => update({ cast })} characterName={characterName} members={members} />
           </div>
 
           <div className="flex flex-col gap-2">
