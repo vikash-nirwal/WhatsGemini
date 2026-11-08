@@ -248,7 +248,7 @@ const AdventurePage = () => {
         console.warn("Adventure memory extraction failed (non-fatal):", err);
       }
     },
-    [adventure, dispatch, persona, castAtHome, playerName]
+    [adventure, dispatch, castAtHome, playerName]
   );
 
   // The narrator often forgets [Beat done], so a turn without it gets the
