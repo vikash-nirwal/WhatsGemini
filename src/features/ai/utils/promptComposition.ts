@@ -52,6 +52,10 @@ export interface HistoryPerspective {
   userName?: string; // the persona's name, used to label the human's own lines
 }
 
+// What's left of your view-once photo (#248) in the history once their
+// reply has seen it.
+export const VIEW_ONCE_SEEN_NOTE = "[sent a view-once photo, already opened and gone]";
+
 // Converts stored DB messages into the provider-agnostic ChatMessage shape,
 // stripping any leaked base64 image data and falling back to a single space
 // since every provider's API requires non-empty message text.
@@ -79,7 +83,12 @@ export const buildChatHistory = (
     // A photo the user sent (#48) is noted in front of their words, with
     // what a helper saw in it when the model couldn't look itself.
     const photos = msg.role === YOU && !msg.isNarration ? msg.images?.length || 0 : 0;
-    const photoNote = photos > 0 ? `[sent ${photos > 1 ? `${photos} photos` : "a photo"}${msg.photoDescription ? `: ${msg.photoDescription}` : ""}]` : "";
+    // Your view-once photo (#248), once their reply has seen it: only that
+    // it was sent and seen, never what it showed.
+    const viewOnceSeen = msg.role === YOU && !msg.isNarration && msg.viewOnce && msg.viewedOnce;
+    const photoNote = viewOnceSeen
+      ? VIEW_ONCE_SEEN_NOTE
+      : photos > 0 ? `[sent ${photos > 1 ? `${photos} photos` : "a photo"}${msg.photoDescription ? `: ${msg.photoDescription}` : ""}]` : "";
     const trimmed = photoNote ? (text ? `${photoNote}\n\n${text}` : photoNote) : text || " ";
 
     // A /narrate line is the scene's narration, not the user speaking.

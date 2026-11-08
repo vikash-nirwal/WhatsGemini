@@ -255,6 +255,12 @@ const ChatMessage = React.memo(({
       <div data-slot="view-once" data-state="opened" className="mt-1.5 inline-flex h-9 items-center gap-2 rounded-[18px] pl-2.5 pr-3.5 font-sans text-[13.5px] font-semibold text-subtle ring-1 ring-inset ring-border-strong">
         <span aria-hidden>◌</span> Opened
       </div>
+    ) : isUser ? (
+      // Your own (#248): theirs to open, not yours; it shows as opened once
+      // their reply has seen it.
+      <div data-slot="view-once" data-state="sent" className="mt-1.5 inline-flex h-9 items-center gap-2 rounded-[18px] bg-primary/[0.14] pl-2.5 pr-3.5 font-sans text-[13.5px] font-semibold text-primary-text">
+        <span aria-hidden>①</span> Photo · view once
+      </div>
     ) : (
       <button
         type="button"

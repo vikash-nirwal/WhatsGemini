@@ -1538,7 +1538,7 @@ const ChatPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [worldAutoReplies, autoReplySettings.enabled, autoReplySettings.minDelaySeconds, autoReplySettings.maxDelaySeconds, autoReplySettings.maxFollowups, autoReplySettings.followupCount, chatIdNum, characterData, currentChat?.content, aiLoading, lastTypingActivityAt]);
 
-  const handleSend = async (rawText: string, requestedImage?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean, isVoiceNote?: boolean, photos?: string[], isGod?: boolean) => {
+  const handleSend = async (rawText: string, requestedImage?: boolean, isVideoRequest?: boolean, isImpersonated?: boolean, forcedSpeakerId?: number, silentSend?: boolean, isVoiceNote?: boolean, photos?: string[], isGod?: boolean, viewOnce?: boolean) => {
     // A photo can go on its own, without words (#48).
     if ((!rawText.trim() && !photos?.length) || !chatIdNum) return;
     if (isGod) {
@@ -1590,8 +1590,9 @@ const ChatPage = () => {
       if (replyTo) setReplyingTo(null);
       const quotedStatus = replyingToStatus || undefined;
       if (quotedStatus) setReplyingToStatus(null);
-      const resultAction = await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, images: photos && photos.length > 0 ? photos : undefined, isImageRequest, isVideoRequest, isVoiceNote, swapped: swap ? true : undefined, replyTo, quotedStatus }));
+      const resultAction = await dispatch(addMessage({ chatId: chatIdNum, role: YOU, text, images: photos && photos.length > 0 ? photos : undefined, viewOnce: Boolean(viewOnce && photos?.length), isImageRequest, isVideoRequest, isVoiceNote, swapped: swap ? true : undefined, replyTo, quotedStatus }));
       const updatedMessages = resultAction.payload as Message[] || [];
+      const viewOnceId = viewOnce && photos?.length ? [...updatedMessages].reverse().find((m) => m.role === YOU)?.id : undefined;
 
       // Left on read (#126): they've seen it and will answer later; while
       // that's pending, more messages just pile up, read and unanswered.
@@ -1696,6 +1697,9 @@ const ChatPage = () => {
       if (isGenerationSuccess(aiResponse)) {
         const payloadObj = aiResponse.payload as any;
         await savePhotoOutcome(payloadObj, contextMessages);
+        // Your view-once photo (#248) has been seen: it leaves the chat and
+        // the context, and shows as opened, like theirs.
+        if (viewOnceId) await dispatch(updateChatMessage({ chatId: chatIdNum, messageId: viewOnceId, patch: { viewedOnce: true, images: undefined, photoDescription: undefined } }));
         await trackUsage(payloadObj?.tokenCount, payloadObj?.costEstimate);
         const generatedImages = payloadObj?.images || undefined;
         const generatedVideos = payloadObj?.videos || undefined;

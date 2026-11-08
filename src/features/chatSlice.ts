@@ -99,12 +99,12 @@ export const addPreparedChat = createAsyncThunk("chat/addPrepared", async (chat:
   }
 });
 
-export type AddMessageArgs = { godMode?: boolean; at?: number; chatId: number; role: string; text: string; images?: string[], isImageRequest?: boolean, videos?: string[], isVideoRequest?: boolean, videoPrompt?: string, isImpersonated?: boolean, emotion?: string, imagePrompt?: string, imageParams?: any, speakerId?: number, isRefusal?: boolean, isNarration?: boolean, thoughts?: string, isVoiceNote?: boolean, beat?: number, choices?: Message["choices"], secretRevealed?: boolean, notes?: Message["notes"], swapped?: boolean, noGreeting?: boolean, quotedStatus?: Message["quotedStatus"], replyTo?: Message["replyTo"], forward?: Message["forward"], poll?: Message["poll"] };
+export type AddMessageArgs = { viewOnce?: boolean; godMode?: boolean; at?: number; chatId: number; role: string; text: string; images?: string[], isImageRequest?: boolean, videos?: string[], isVideoRequest?: boolean, videoPrompt?: string, isImpersonated?: boolean, emotion?: string, imagePrompt?: string, imageParams?: any, speakerId?: number, isRefusal?: boolean, isNarration?: boolean, thoughts?: string, isVoiceNote?: boolean, beat?: number, choices?: Message["choices"], secretRevealed?: boolean, notes?: Message["notes"], swapped?: boolean, noGreeting?: boolean, quotedStatus?: Message["quotedStatus"], replyTo?: Message["replyTo"], forward?: Message["forward"], poll?: Message["poll"] };
 
 // `saved` goes with the result: the chat as written, for addMessage.fulfilled.
 export const addMessage = createAsyncThunk<Message[], AddMessageArgs, { fulfilledMeta: { saved: Chat } }>(
   "chat/addMessage",
-  lockedByChat(async ({ chatId, role, text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration, thoughts, isVoiceNote, beat, choices, secretRevealed, notes, swapped, noGreeting, quotedStatus, replyTo, forward, poll, at, godMode }: AddMessageArgs, { dispatch, getState, rejectWithValue, fulfillWithValue }) => {
+  lockedByChat(async ({ chatId, role, text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration, thoughts, isVoiceNote, beat, choices, secretRevealed, notes, swapped, noGreeting, quotedStatus, replyTo, forward, poll, at, godMode, viewOnce }: AddMessageArgs, { dispatch, getState, rejectWithValue, fulfillWithValue }) => {
     try {
       const chat = await dbService.getChatById(chatId);
 
@@ -140,7 +140,7 @@ export const addMessage = createAsyncThunk<Message[], AddMessageArgs, { fulfille
         }
       }
 
-      const newMessage: Message = { role, txt: text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration: isNarration || undefined, thoughts, isVoiceNote: isVoiceNote || undefined, beat, choices, secretRevealed: secretRevealed || undefined, notes: notes && notes.length > 0 ? notes : undefined, swapped: swapped || undefined, quotedStatus, replyTo, forward, poll, godMode: godMode || undefined, id: generateNodeId(), timestamp: at ?? Date.now() };
+      const newMessage: Message = { role, txt: text, images, isImageRequest, videos, isVideoRequest, videoPrompt, isImpersonated, emotion, imagePrompt, imageParams, speakerId, isRefusal, isNarration: isNarration || undefined, thoughts, isVoiceNote: isVoiceNote || undefined, beat, choices, secretRevealed: secretRevealed || undefined, notes: notes && notes.length > 0 ? notes : undefined, swapped: swapped || undefined, quotedStatus, replyTo, forward, poll, godMode: godMode || undefined, viewOnce: viewOnce || undefined, id: generateNodeId(), timestamp: at ?? Date.now() };
 
       // A real reply from the user - or the user speaking as the character via
       // Impersonate mode - both mean the user is actively here, so any pending
