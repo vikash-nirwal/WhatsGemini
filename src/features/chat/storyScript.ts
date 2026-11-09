@@ -31,13 +31,19 @@ export const cleanScript = (script: StoryScript): StoryScript | undefined => {
     beats,
     ...(cast.length > 0 ? { cast } : {}),
     directions: script.directions.trim(),
+    ...(script.instructions?.trim() ? { instructions: script.instructions.trim() } : {}),
     ending: script.ending?.trim() || "",
     mode: script.mode,
     currentBeat: Math.max(0, Math.min(script.currentBeat, beats.length)),
     ...(script.source?.trim() ? { source: keepSource(script.source) } : {}),
   };
-  return cleaned.premise || cleaned.beats.length > 0 || cleaned.directions || cleaned.ending ? cleaned : undefined;
+  return cleaned.premise || cleaned.beats.length > 0 || cleaned.directions || cleaned.instructions || cleaned.ending ? cleaned : undefined;
 };
+
+// The user's tweaks to the story (#261). They're stated as overriding the
+// story text, since changing what the story says is their whole point.
+export const instructionsLine = (instructions: string) =>
+  `The user's changes to this story (always follow them; where the story says otherwise, these win): ${instructions.trim()}`;
 
 export const isFinished = (script: StoryScript) => script.beats.length > 0 && script.currentBeat >= script.beats.length;
 
@@ -179,6 +185,7 @@ export const buildStoryScriptSection = (
     );
   }
   if (script.directions) parts.push(`The user's directions (always follow them): ${script.directions}`);
+  if (script.instructions) parts.push(instructionsLine(script.instructions));
   if (script.beats.length > 0) {
     if (isFinished(script)) {
       parts.push(`Every planned beat has happened.${script.ending ? ` Bring the story to this ending: ${script.ending}` : " Wrap the story up naturally."}`);
@@ -456,6 +463,7 @@ export const buildBeatBridgePrompt = (
     script.premise ? `Premise: ${script.premise}` : "",
     script.cast?.length ? `The story's characters:\n${script.cast.map((c) => `- ${c.name}${c.about ? `: ${c.about}` : ""}`).join("\n")}` : "",
     script.directions ? `The author's directions (always follow them): ${script.directions}` : "",
+    script.instructions ? instructionsLine(script.instructions) : "",
     next ? `The next beat (don't start it): "${next.text}"` : script.ending ? `How the story ends (don't reach it yet): ${script.ending}` : "",
   ].filter(Boolean);
   const wish = direction?.trim();
@@ -513,6 +521,7 @@ export const renameInScript = (script: StoryScript, from: string, to: string): S
     premise: r(script.premise),
     beats: script.beats.map((b) => ({ ...b, text: r(b.text) })),
     directions: r(script.directions),
+    ...(script.instructions ? { instructions: r(script.instructions) } : {}),
     ending: script.ending ? r(script.ending) : script.ending,
     cast: script.cast?.map((c) => ({ ...c, about: r(c.about) })),
   };

@@ -125,13 +125,16 @@ export const NewStoryPlayPage = () => {
   const [intensity, setIntensity] = useState<Intensity | undefined>(undefined);
   const [hardLimits, setHardLimits] = useState<string[]>([]);
   const [toneDown, setToneDown] = useState<string[]>([]);
+  // The user's changes to the story (#261), kept apart from the draft so
+  // reading the story again doesn't wipe them.
+  const [instructions, setInstructions] = useState("");
   const [reading, setReading] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const update = (patch: Partial<StoryScript>) => setDraft((d) => (d ? { ...d, ...patch } : d));
   // Read again as the author edits, so rewording a flagged phrase clears it.
-  const minorIndicators = useMemo(() => (adult && draft ? detectMinorIndicators(storyTextFields({ title, storyScript: draft })) : []), [adult, draft, title]);
+  const minorIndicators = useMemo(() => (adult && draft ? detectMinorIndicators(storyTextFields({ title, storyScript: { ...draft, instructions } })) : []), [adult, draft, title, instructions]);
   const adultOn = adult && minorIndicators.length === 0;
   const cast = draft?.cast || [];
   const part = cast.find((c) => c.playedBy === "user");
@@ -160,7 +163,7 @@ export const NewStoryPlayPage = () => {
 
   const handleStart = async () => {
     if (!draft) return;
-    const script = cleanScript(applyCastRenames(draft, castBefore));
+    const script = cleanScript(applyCastRenames({ ...draft, instructions }, castBefore));
     if (!script) return;
     setStarting(true);
     try {
@@ -294,6 +297,18 @@ export const NewStoryPlayPage = () => {
                   <FaPlus size={10} /> Add beat
                 </Button>
               </details>
+
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[11.5px] text-muted-foreground">Your changes to the story (optional)</span>
+                <TextArea
+                  aria-label="Your changes to the story"
+                  value={instructions}
+                  onChange={(e) => setInstructions(e.target.value)}
+                  placeholder="Anything to do differently from the story: a twist, a different setting, someone kinder or crueler, a new ending."
+                  className="min-h-[60px]"
+                />
+                <span className="text-xs text-subtle">The AI follows these over the story's own text. You can change them later from the story's script.</span>
+              </label>
 
               <div className="flex flex-col gap-1.5">
                 <span className="text-[11.5px] text-muted-foreground">How closely to follow it</span>

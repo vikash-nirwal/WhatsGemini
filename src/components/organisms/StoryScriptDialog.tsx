@@ -270,6 +270,17 @@ const StoryScriptDialog: React.FC<StoryScriptDialogProps> = ({ open, onOpenChang
           </label>
 
           <label className="flex flex-col gap-1.5">
+            <span className="text-[11.5px] text-muted-foreground">Your changes to the story (optional)</span>
+            <TextArea
+              aria-label="Your changes to the story"
+              value={draft.instructions || ""}
+              onChange={(e) => update({ instructions: e.target.value })}
+              placeholder="Anything to do differently from the story: a twist, a different setting, someone kinder or crueler."
+              className="min-h-[60px]"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1.5">
             <span className="text-[11.5px] text-muted-foreground">How it ends (optional)</span>
             <TextInput value={draft.ending || ""} onChange={(e) => update({ ending: e.target.value })} placeholder="Where the story should end up" />
           </label>

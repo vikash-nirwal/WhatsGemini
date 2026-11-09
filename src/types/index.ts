@@ -492,6 +492,11 @@ export interface StoryScript {
   beats: StoryBeat[];
   cast?: StoryCastMember[]; // the story's own characters, renameable
   directions: string;
+  // The user's own changes to the story ("make her the villain", "set it
+  // in winter"). Unlike the directions, which the AI reads from the pasted
+  // story, these are only ever written by the user, so reading the story
+  // again never replaces them, and they win where the story says otherwise.
+  instructions?: string;
   ending?: string;
   // strict: nothing outside the script; loose: improvise between beats.
   mode: "strict" | "loose";

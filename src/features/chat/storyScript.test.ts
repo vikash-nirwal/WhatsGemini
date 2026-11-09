@@ -377,3 +377,22 @@ describe("intimate beats (#255)", () => {
     expect(sfw).toContain("Mix what happens");
   });
 });
+
+describe("the user's changes to the story (#261)", () => {
+  const s = script({ instructions: "  Mira is secretly a prince.  ", cast: [makeCastMember("Mira", "A thief.")] });
+
+  it("go into every reply and into finishing a beat, as winning over the story", () => {
+    const line = "The user's changes to this story (always follow them; where the story says otherwise, these win): Mira is secretly a prince.";
+    expect(buildStoryScriptSection(s)).toContain(line);
+    expect(buildBeatBridgePrompt(s, "")).toContain(line);
+    expect(buildStoryScriptSection(script())).not.toContain("The user's changes");
+  });
+
+  it("are kept tidy, survive renames, and count as a script on their own", () => {
+    expect(cleanScript(s)?.instructions).toBe("Mira is secretly a prince.");
+    expect(cleanScript({ ...emptyScript(), instructions: "Set it in winter." })?.instructions).toBe("Set it in winter.");
+    expect(cleanScript({ ...emptyScript(), instructions: "   " })).toBeUndefined();
+    const renamed = applyCastRenames({ ...s, cast: [{ ...s.cast![0], name: "Kai" }] }, s.cast);
+    expect(renamed.instructions).toContain("Kai is secretly a prince.");
+  });
+});

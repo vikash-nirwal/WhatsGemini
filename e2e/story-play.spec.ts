@@ -359,3 +359,37 @@ test("a story whose text suggests someone under 18 stays SFW", async ({ page, mo
   await expect(boundaries.getByRole("switch", { name: /18\+ story/ })).toBeChecked();
   await expect(boundaries.getByRole("alert")).toContainText('"15 years old"');
 });
+
+// The user's own changes to a story (#261): kept through reading it again,
+// sent with every reply as winning over the story, and editable later.
+test("the user's changes to a story reach every reply and can be edited while playing", async ({ page, mockAI }) => {
+  await openRoute(page, "/stories/new");
+  mockAI.replyOnce(JSON.stringify(DRAFT));
+  await page.getByLabel("Story to play").fill("A story.");
+  await page.getByRole("button", { name: "Read the story" }).click();
+  await page.getByLabel("Your changes to the story").fill("Darcy is kind from the start.");
+  mockAI.replyOnce(JSON.stringify(DRAFT));
+  await page.getByRole("button", { name: "Read it again" }).click();
+  await expect(page.getByText("14 beats")).toBeVisible();
+  await expect(page.getByLabel("Your changes to the story")).toHaveValue("Darcy is kind from the start.");
+
+  mockAI.reply(adventureReply("The ballroom glitters.", ["Dance", "Listen to Darcy"]));
+  await page.getByRole("button", { name: "Start playing" }).click();
+  await expect(page.getByText("The ballroom glitters.")).toBeVisible();
+  const first = mockAI.requests.find((r) => r.stream)!;
+  expect(systemPrompt(first.messages)).toContain("where the story says otherwise, these win): Darcy is kind from the start.");
+
+  await headerAction(page, "Story script: beat 1 of 14");
+  const dialog = page.getByRole("dialog", { name: "Story script" });
+  await expect(dialog.getByLabel("Your changes to the story")).toHaveValue("Darcy is kind from the start.");
+  await dialog.getByLabel("Your changes to the story").fill("It snows all through the story.");
+  await dialog.getByRole("button", { name: "Save script" }).click();
+  await expect(dialog).toBeHidden();
+
+  const before = mockAI.requests.length;
+  await page.getByRole("button", { name: "Dance" }).click();
+  await expect.poll(() => mockAI.requests.slice(before).some((r) => r.stream)).toBe(true);
+  const next = mockAI.requests.slice(before).find((r) => r.stream)!;
+  expect(systemPrompt(next.messages)).toContain("these win): It snows all through the story.");
+  expect(systemPrompt(next.messages)).not.toContain("Darcy is kind");
+});

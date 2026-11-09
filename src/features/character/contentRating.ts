@@ -96,6 +96,7 @@ export const storyTextFields = (a: Partial<Adventure>): (string | undefined)[] =
     script?.source,
     script?.premise,
     script?.directions,
+    script?.instructions,
     script?.ending,
     ...(script?.beats || []).flatMap((b) => [b.text, b.details]),
     ...(script?.cast || []).flatMap((c) => [c.name, c.about]),
