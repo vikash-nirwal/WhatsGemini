@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { AmbientPlayer, AmbientSound, DEFAULT_AMBIENT_VOLUME } from "../../features/chat/ambientSound";
+import { hostBridge } from "../../features/embed/hostBridge";
 
 // Ambient sound (#89): plays what the chat wants (see ambientFor), fading
 // between sounds, and stops when it's off or the chat closes. Browsers start
@@ -24,6 +25,10 @@ export const useAmbientSound = (sound: AmbientSound | undefined, volume = DEFAUL
   useEffect(() => {
     playerRef.current?.setVolume(volume);
   }, [volume]);
+
+  // A host app's panic (#264) silences it at once; the next tap or key
+  // resumes it, as after the browser's own autoplay pause.
+  useEffect(() => hostBridge.onPanic(() => playerRef.current?.suspend()), []);
 
   useEffect(() => {
     const resume = () => playerRef.current?.resume();

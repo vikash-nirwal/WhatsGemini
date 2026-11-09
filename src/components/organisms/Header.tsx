@@ -12,6 +12,7 @@ import { Button } from "src/components/atoms/button";
 import KeyboardShortcutsModal from "src/components/molecules/KeyboardShortcutsModal";
 import { TermLink } from "src/components/atoms/TermLink";
 import { TAB_BAR_PATHS, usePhoneShell } from "src/hooks/usePhoneShell";
+import { useHostTitle } from "src/features/embed/useHostBridge";
 
 // A single header icon action, described once and rendered two ways: as a
 // tooltipped icon button (desktop, `primary` actions only) and as a labeled
@@ -98,6 +99,8 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, online = true, avatar,
   // the tab screens have the tab bar instead of the drawer.
   const shell = usePhoneShell();
   const [showShortcuts, setShowShortcuts] = useState(false);
+  // Inside a host app (#264) the host shows the screen's title in its bar.
+  useHostTitle(title);
   // The "more" menu's open section; every section starts closed.
   const [openSection, setOpenSection] = useState<string | null>(null);
   const menuOpenChange = (open: boolean) => {

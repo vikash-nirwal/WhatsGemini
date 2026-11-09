@@ -238,6 +238,11 @@ export class AmbientPlayer {
     if (this.ctx?.state === "suspended") void this.ctx.resume().catch(() => undefined);
   }
 
+  // Silent at once, keeping what plays (a host app's panic, #264).
+  suspend() {
+    if (this.ctx?.state === "running") void this.ctx.suspend().catch(() => undefined);
+  }
+
   setVolume(volume: number) {
     this.volume = Math.max(0, Math.min(1, volume));
     if (this.ctx && this.master) this.master.gain.setTargetAtTime(this.volume, this.ctx.currentTime, 0.1);

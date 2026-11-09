@@ -48,6 +48,9 @@ import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { AdventureStatsPanel, CheckChip, GameChanges, SkillCheckBadge, statsSummary } from "src/components/molecules/AdventureStatsPanel";
 import { applyStatChanges, currentGameState, extractStatsBlock, startingGameState } from "../features/adventure/gameState";
 import { buildTypedCheckNote, extractCheckTag, parseChoiceCheck, resolveCheck, rollCheck, rollD20, withCheckNote } from "../features/adventure/skillChecks";
+import SaveToLibraryButton from "src/components/molecules/SaveToLibraryButton";
+import { generatedMessageFor, imageSettingsOf } from "src/features/embed/imageSettings";
+import { hostBridge } from "src/features/embed/hostBridge";
 
 const AdventurePage = () => {
   const dispatch = useAppDispatch();
@@ -155,6 +158,7 @@ const AdventurePage = () => {
   const [illustratingIds, setIllustratingIds] = useState<string[]>([]);
   const [illustrationErrors, setIllustrationErrors] = useState<Record<string, string>>({});
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+  const fullscreenMsg = hostBridge.active ? generatedMessageFor(adventure?.content, fullscreenImage, YOU) : undefined;
   // Composer toggle: illustrate the narrator's reply to the next action,
   // focused on what the player asked to see.
   const [imageRequested, setImageRequested] = useState(false);
@@ -1143,6 +1147,12 @@ const AdventurePage = () => {
           </DialogClose>
           {fullscreenImage && (
             <DisplayImage srcContext={fullscreenImage} alt="Scene illustration" className="max-w-[95vw] max-h-[90vh] object-contain rounded-lg shadow-2xl" />
+          )}
+          {/* Inside a host app (#264): the scene picture to the host's library. */}
+          {fullscreenImage && fullscreenMsg && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 rounded-full bg-black/60 px-4 py-2 [&_[data-slot=save-to-library]]:text-white">
+              <SaveToLibraryButton src={fullscreenImage} prompt={fullscreenMsg.imagePrompt || ""} settings={imageSettingsOf(fullscreenMsg)} />
+            </div>
           )}
         </DialogContent>
       </Dialog>

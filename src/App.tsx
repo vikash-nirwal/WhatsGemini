@@ -47,6 +47,8 @@ import { Toaster } from "src/components/atoms/sonner";
 import { Button } from "src/components/atoms/button";
 import AgeGate from "src/components/organisms/AgeGate";
 import AppLock from "src/components/organisms/AppLock";
+import HostBridgeRoot from "src/components/molecules/HostBridgeRoot";
+import HostRouterBridge from "src/components/molecules/HostRouterBridge";
 import { useNotificationClicks } from "./features/notifications/useNotifications";
 
 const ChatPage = lazy(() => import("./pages/ChatPage"));
@@ -313,6 +315,7 @@ const App = () => (
               <AgeGate>
                 <AppLock>
                   <HashRouter>
+                    <HostRouterBridge />
                     <Suspense fallback={<PageLoader />}>
                       <Routes>
                         <Route path="/login" element={<Login />} />
@@ -326,6 +329,7 @@ const App = () => (
           </ModalProvider>
         </TooltipProvider>
         <Toaster position="top-right" />
+        <HostBridgeRoot />
       </ThemeProvider>
     </AuthProvider>
   </Provider>

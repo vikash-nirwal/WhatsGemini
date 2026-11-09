@@ -24,6 +24,7 @@ import { cn } from "src/utils/cn";
 import { allAdults } from "src/features/character/contentRating";
 import { ImagePresetPicker } from "src/components/molecules/ImagePresetPicker";
 import { ImageContentTest } from "src/components/organisms/ImageContentTest";
+import SaveToLibraryButton from "src/components/molecules/SaveToLibraryButton";
 
 // The image playground (#238): try the image setup with any characters'
 // reference photos - a prompt as written or written like a chat picture,
@@ -228,6 +229,10 @@ const ImagePlaygroundPage = () => {
                 <div className="flex flex-wrap gap-2">
                   {r.images.map((src, i) => (
                     <a key={i} href={src} download={`playground-${r.id}-${i + 1}.png`} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary-text hover:underline"><FaDownload size={11} /> Download{r.images.length > 1 ? ` ${i + 1}` : ""}</a>
+                  ))}
+                  {/* Inside a host app (#264): each picture to the host's library. */}
+                  {r.images.map((src, i) => (
+                    <SaveToLibraryButton key={`save-${i}`} src={src} prompt={r.prompt} settings={{ model: r.model }} />
                   ))}
                   <button type="button" onClick={() => { setPrompt(r.asked); void generate(r.asked); }} disabled={busy} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary-text hover:underline disabled:opacity-40"><FaRedo size={10} /> Again</button>
                 </div>

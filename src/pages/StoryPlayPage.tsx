@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { FaBookOpen, FaMagic, FaPlus, FaTrash, FaUser } from "react-icons/fa";
 import { usePhoneShell, TAB_BAR_HEIGHT } from "src/hooks/usePhoneShell";
 import { useAppDispatch, useAppSelector } from "src/store/hooks";
@@ -21,6 +21,7 @@ import Header from "src/components/organisms/Header";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { StoryAdultSwitch, StoryContentFields } from "src/components/molecules/StoryContentFields";
 import { detectMinorIndicators, storyTextFields } from "src/features/character/contentRating";
+import type { AdaptStory } from "src/features/embed/hostBridge";
 
 // Story play: paste a story and play it as one of its own people (or as
 // yourself), with no Character made. The AI narrates and voices everyone
@@ -134,6 +135,19 @@ export const NewStoryPlayPage = () => {
   const [reading, setReading] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // A story sent by a host app to adapt (#264, HostRouterBridge): its text
+  // pasted and its title filled, as if typed, starting over if one was read.
+  const location = useLocation();
+  useEffect(() => {
+    const story = (location.state as { adaptStory?: AdaptStory } | null)?.adaptStory;
+    if (!story) return;
+    setPasted(story.text);
+    setTitle(story.title);
+    setDraft(null);
+    setCastBefore(undefined);
+    setError(null);
+  }, [location.state]);
 
   const update = (patch: Partial<StoryScript>) => setDraft((d) => (d ? { ...d, ...patch } : d));
   // Read again as the author edits, so rewording a flagged phrase clears it.

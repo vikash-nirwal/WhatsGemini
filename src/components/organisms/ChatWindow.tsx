@@ -54,6 +54,9 @@ import { cn } from "../../utils/cn";
 import { beatStarts } from "../../features/chat/storyScript";
 import { messageInfoFor } from "../../features/chat/messageInfo";
 import { latestMood, tintFor } from "../../features/chat/moodTint";
+import SaveToLibraryButton from "src/components/molecules/SaveToLibraryButton";
+import { generatedMessageFor, imageSettingsOf } from "src/features/embed/imageSettings";
+import { hostBridge } from "src/features/embed/hostBridge";
 
 interface ChatWindowProps {
   unreadSince?: { since?: number; until: number }; // the chat's read mark when it was opened, for the unread line
@@ -247,6 +250,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ unreadSince, awayNote, onFork, 
     return () => { cancelled = true; };
   }, []);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+  const fullscreenMsg = hostBridge.active ? generatedMessageFor(messages, fullscreenImage, YOU) : undefined;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
@@ -1299,7 +1303,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ unreadSince, awayNote, onFork, 
         </DialogContent>
       </Dialog>
 
-      {/* Fullscreen Image Modal */}
+      {/* Fullscreen Image Modal. Inside a host app (#264) a generated
+          picture can go to the host's library from here. */}
       <Dialog open={fullscreenImage !== null} onOpenChange={(open) => !open && setFullscreenImage(null)}>
         <DialogContent size="full">
           <DialogTitle asChild>
@@ -1321,6 +1326,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ unreadSince, awayNote, onFork, 
               alt="Fullscreen"
               className="max-w-[95vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
             />
+          )}
+          {fullscreenImage && fullscreenMsg && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 rounded-full bg-black/60 px-4 py-2 [&_[data-slot=save-to-library]]:text-white">
+              <SaveToLibraryButton src={fullscreenImage} prompt={fullscreenMsg.imagePrompt || ""} settings={imageSettingsOf(fullscreenMsg)} />
+            </div>
           )}
         </DialogContent>
       </Dialog>
