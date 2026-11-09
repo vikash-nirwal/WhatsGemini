@@ -6,6 +6,7 @@ import { SegmentedControl } from "src/components/molecules/SegmentedControl";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
 import { Input } from "src/components/atoms/input";
 import { Button } from "src/components/atoms/button";
+import { IS_EMBEDDED } from "src/features/embed/embedded";
 
 interface PrivacySettingsProps {
   privacy: PrivacySettingsType;
@@ -66,6 +67,15 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({ privacy, setPrivacy }
         </SettingsRow>
       </SettingsCard>
 
+      {/* Inside a host app (#263) Kindred's PIN screen is never shown: the
+          host's lock covers it. */}
+      {IS_EMBEDDED ? (
+        <SettingsCard>
+          <div className="p-5">
+            <SettingsCardHeader title="App lock" hint="Kindred is running inside another app here, and that app's own lock covers it, so Kindred's PIN isn't asked." />
+          </div>
+        </SettingsCard>
+      ) : (
       <SettingsCard>
         <div className="p-5">
           <SettingsCardHeader
@@ -97,6 +107,7 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({ privacy, setPrivacy }
           </SettingsRow>
         )}
       </SettingsCard>
+      )}
     </div>
   );
 };

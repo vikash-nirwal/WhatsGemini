@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import * as serviceWorkerRegistration from "../../serviceWorkerRegistration";
 import { Button } from "src/components/atoms/button";
 import { Card } from "src/components/atoms/card";
+import { IS_EMBEDDED } from "src/features/embed/embedded";
 
 // Registers the offline service worker and, when a new version has finished
 // downloading in the background, shows a small persistent banner instead of
@@ -10,6 +11,9 @@ const ServiceWorkerUpdater: React.FC = () => {
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
 
   useEffect(() => {
+    // Inside a host app (#263) the host ships and updates Kindred's files,
+    // so there's no offline cache of our own to keep or update.
+    if (IS_EMBEDDED) return;
     serviceWorkerRegistration.register({
       onUpdate: (registration) => {
         if (registration.waiting) setWaitingWorker(registration.waiting);

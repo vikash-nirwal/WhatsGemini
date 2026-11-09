@@ -5,11 +5,17 @@ import { hashPin } from "src/utils/pinLock";
 import { Button } from "src/components/atoms/button";
 import { Input } from "src/components/atoms/input";
 import Logo from "src/components/atoms/Logo";
+import { IS_EMBEDDED } from "src/features/embed/embedded";
 
 // Full-screen PIN prompt covering the app on launch and after it has been in
 // the background for privacy.lockAfterMinutes. Renders children underneath
 // untouched (no unmount), so an in-progress reply keeps streaming while locked.
-const AppLock: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const AppLock: React.FC<{ children: React.ReactNode }> = ({ children }) =>
+  // Inside a host app (#263) the host's own lock covers Kindred's frame, so
+  // a second PIN screen would only ask twice.
+  IS_EMBEDDED ? <>{children}</> : <PinLock>{children}</PinLock>;
+
+const PinLock: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const privacy = useAppSelector((state) => state.settings.privacy);
   const enabled = Boolean(privacy.pinHash && privacy.pinSalt);
   const [locked, setLocked] = useState(enabled);
