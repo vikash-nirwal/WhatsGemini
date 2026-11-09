@@ -1,6 +1,6 @@
 # Kindred roadmap
 
-What's left to build. What's built is mapped in [PROGRESS.md](PROGRESS.md); the details are in the git history. Item numbers never change; new ideas take the next free number (next: #263).
+What's left to build. What's built is mapped in [PROGRESS.md](PROGRESS.md); the details are in the git history. Item numbers never change; new ideas take the next free number (next: #266).
 
 Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
@@ -24,6 +24,7 @@ Built and unit/UI-tested with mocks, never with the real thing.
 - **Chat tags:** `[Re:]`, `[Fwd:]`, `[Contact:]`, `[Poll:]`, `[Group name:]`, `[Sticker:]`, `[Secret revealed: n]`, story tags (`[Upset:]`, `[Made up]`, `[Lie:]`, `[Lie caught: n]`, `[Rumor raised]`). Chat replies aren't in the reply log yet, so these need reading by hand.
 - **Helper prompts:** first texts, dreams, rumors, statuses and the feed, channels, profile changes, letters, day logs, preoccupations, recaps, character drafts (also from a photo); all the world prompts (talk with TIE / SHARED / NEW / GOAL / PERSON lines, events, life events, newcomers, reputation, introductions, secrets, storylines, factions, plans, world turns, the catch-up story, aftermath, goal AGAINST lines). The weights behind #211 and the prompt budget's priorities are first guesses.
 - **Services:** image providers with real keys (Wan from Singapore, fal.ai uploads and safety flags, OpenAI `input_fidelity`/`image[]`, ComfyUI node names, SD WebUI), vision APIs, Open-Meteo and Nager.Date, Google Drive backup (needs the user's OAuth client ID), the in-browser model (needs a GPU) and the embedding download.
+- **Embedded releases (#265):** the release Action has never run on GitHub; it needs the `KINDRED_EMBED_SIGNING_KEY` secret and a push to `main`. The bridge (#264) is tested against a stand-in host page only.
 - **Devices:** notifications in the installed app, Android Chrome and an iPhone Home Screen app; Android background sync; voice on real phones and Windows; ambient sound on iPhone; `h-dvh` on a real iPhone.
 
 ## Ideas not built

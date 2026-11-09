@@ -81,12 +81,17 @@ npm run test:visual      # screenshot tests (macOS baselines, local only)
 
 The first UI test run needs the browsers: `npx playwright install chromium webkit`. CI runs the type-check, unit tests and UI tests on every push (`.github/workflows/ci.yml`).
 
+### **5️⃣ Embedded in another app**
+
+`npm run build:embedded` builds Kindred to run inside a host app's page, and talks to the host through a small `postMessage` protocol. Each push to `main` publishes a signed embedded release. See [docs/embedding.md](docs/embedding.md).
+
 ## 📂 Project Structure
 ```
 📦 src
  ┣ 📂 components      atoms / molecules / organisms (UI building blocks)
  ┣ 📂 contexts        auth, theme, modal and sidebar providers
  ┣ 📂 features
+ ┃ ┣ 📂 embed       the embedded build's flags and the host bridge (docs/embedding.md)
  ┃ ┣ 📂 ai
  ┃ ┃ ┣ 📂 providers   one adapter per chat / image / video provider
  ┃ ┃ ┗ 📂 utils       prompt building, lorebook, memory, compression, images
