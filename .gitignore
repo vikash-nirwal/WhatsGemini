@@ -27,3 +27,6 @@ yarn-error.log*
 /test-results
 /blob-report
 /playwright/.cache
+
+# embedded release (scripts/package-embedded.mjs)
+/dist-embedded

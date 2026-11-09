@@ -1,0 +1,110 @@
+# The embedded build's releases (#265): Kindred built to run inside a host
+# app's page (docs/embedding.md), published as a signed GitHub release on
+# every push to main, for hosts that update themselves from it.
+#
+# Each release, tagged embedded-<version with + as ->, carries
+#   kindred-embedded.zip       the embedded build, its files at the zip's root
+#   kindred-embedded.json      the manifest: version, commit, build time,
+#                              bridge version, and the zip's size and SHA-256
+#   kindred-embedded.json.sig  an Ed25519 signature of the manifest's bytes
+# The signing key is the KINDRED_EMBED_SIGNING_KEY secret (a PKCS#8 PEM);
+# without it the build and tests still run but nothing is published. Only
+# the newest 5 embedded-* releases are kept; other releases are never touched.
+name: Embedded release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# One release at a time, in push order, so pruning never races a publish.
+concurrency:
+  group: embedded-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Type-check
+        run: |
+          npx tsc --noEmit -p .
+          npx tsc --noEmit -p e2e
+
+      - name: Unit tests
+        run: npm test
+        env:
+          CI: true
+
+      - name: Embedded build
+        run: npm run build:embedded
+
+      - name: Package
+        id: pack
+        run: node scripts/package-embedded.mjs dist-embedded
+
+      - name: Sign
+        id: sign
+        env:
+          KINDRED_EMBED_SIGNING_KEY: ${{ secrets.KINDRED_EMBED_SIGNING_KEY }}
+        run: |
+          if [ -z "$KINDRED_EMBED_SIGNING_KEY" ]; then
+            echo "::notice title=Not published::The KINDRED_EMBED_SIGNING_KEY secret isn't set, so the embedded build was built and tested but not published."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          node scripts/sign-embedded.mjs dist-embedded/kindred-embedded.json
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+
+      - name: Publish
+        if: steps.sign.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.pack.outputs.tag }}
+          VERSION: ${{ steps.pack.outputs.version }}
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "::notice title=Already published::$TAG exists; nothing to do."
+            exit 0
+          fi
+          gh release create "$TAG" \
+            dist-embedded/kindred-embedded.zip \
+            dist-embedded/kindred-embedded.json \
+            dist-embedded/kindred-embedded.json.sig \
+            --target "$GITHUB_SHA" \
+            --title "Kindred embedded $VERSION" \
+            --notes "The embedded build of $GITHUB_SHA, for host apps (docs/embedding.md). Check kindred-embedded.json.sig against the manifest's bytes before using the zip."
+
+      # Keeps the newest 5 embedded-* releases, deleting older ones with their
+      # tags. Only tags starting with embedded- are ever listed for deletion.
+      - name: Keep the last 5 embedded releases
+        if: steps.sign.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release list --limit 1000 --json tagName,createdAt \
+            --jq '.[] | select(.tagName | startswith("embedded-")) | [.createdAt, .tagName] | @tsv' \
+            | sort -r | tail -n +6 | cut -f2 \
+            | while read -r tag; do
+                case "$tag" in
+                  embedded-*)
+                    echo "Deleting $tag"
+                    gh release delete "$tag" --cleanup-tag --yes
+                    ;;
+                esac
+              done
