@@ -1,6 +1,6 @@
 # Kindred roadmap
 
-What's left to build. What's built is mapped in [PROGRESS.md](PROGRESS.md); the details are in the git history. Item numbers never change; new ideas take the next free number (next: #262).
+What's left to build. What's built is mapped in [PROGRESS.md](PROGRESS.md); the details are in the git history. Item numbers never change; new ideas take the next free number (next: #263).
 
 Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 

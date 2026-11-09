@@ -19,7 +19,7 @@ import { StoryCastEditor } from "src/components/molecules/StoryCastEditor";
 import { STORY_LENGTH_OPTIONS, STORY_LENGTHS, StoryLength } from "src/features/chat/storyLength";
 import Header from "src/components/organisms/Header";
 import ToggleSwitch from "src/components/atoms/ToggleSwitch";
-import { StoryContentFields } from "src/components/molecules/StoryContentFields";
+import { StoryAdultSwitch, StoryContentFields } from "src/components/molecules/StoryContentFields";
 import { detectMinorIndicators, storyTextFields } from "src/features/character/contentRating";
 
 // Story play: paste a story and play it as one of its own people (or as
@@ -128,13 +128,21 @@ export const NewStoryPlayPage = () => {
   // The user's changes to the story (#261), kept apart from the draft so
   // reading the story again doesn't wipe them.
   const [instructions, setInstructions] = useState("");
+  // Whether the draft was read as an 18+ story (#262), to say when the
+  // switch has changed since and reading again would adapt it.
+  const [readAdult, setReadAdult] = useState(false);
   const [reading, setReading] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const update = (patch: Partial<StoryScript>) => setDraft((d) => (d ? { ...d, ...patch } : d));
   // Read again as the author edits, so rewording a flagged phrase clears it.
-  const minorIndicators = useMemo(() => (adult && draft ? detectMinorIndicators(storyTextFields({ title, storyScript: { ...draft, instructions } })) : []), [adult, draft, title, instructions]);
+  // Before it's read, the pasted text alone is scanned, so the warning shows
+  // as soon as 18+ is asked for.
+  const minorIndicators = useMemo(
+    () => (adult ? detectMinorIndicators(storyTextFields({ title, storyScript: { ...(draft || { ...emptyScript(), source: pasted }), instructions } })) : []),
+    [adult, draft, pasted, title, instructions]
+  );
   const adultOn = adult && minorIndicators.length === 0;
   const cast = draft?.cast || [];
   const part = cast.find((c) => c.playedBy === "user");
@@ -145,7 +153,7 @@ export const NewStoryPlayPage = () => {
     setReading(true);
     setError(null);
     try {
-      const reply = await dispatch(generateAssistText({ instruction: buildScriptDraftPrompt(pasted.trim()), purpose: "story-play" })).unwrap();
+      const reply = await dispatch(generateAssistText({ instruction: buildScriptDraftPrompt(pasted.trim(), { adult }), purpose: "story-play" })).unwrap();
       const parsed = parseScriptDraft(reply);
       if (!parsed) throw new Error("The AI's answer couldn't be read as a story. Try again.");
       // The main character is the likeliest part to want; it's one tap to change.
@@ -154,6 +162,7 @@ export const NewStoryPlayPage = () => {
       // again later from the story's script editor.
       setDraft({ ...emptyScript(), mode: "loose", ...parsed, cast: parsedCast, currentBeat: 0, source: keepSource(pasted) });
       setCastBefore(parsed.cast);
+      setReadAdult(adult);
     } catch (err: any) {
       setError(typeof err === "string" ? err : err?.message || "Couldn't read the story.");
     } finally {
@@ -206,6 +215,20 @@ export const NewStoryPlayPage = () => {
                 className="min-h-[200px]"
               />
             </label>
+            <StoryAdultSwitch
+              adult={adult}
+              onAdult={setAdult}
+              minorIndicators={minorIndicators}
+              hint={
+                draft && adult !== readAdult
+                  ? adult
+                    ? "Read the story again to adapt it into an 18+ one."
+                    : "Read the story again for a version without the added intimate scenes."
+                  : adult
+                    ? "The AI adapts the story into an 18+ one as it reads it, with intimate scenes between adults where they fit."
+                    : "Off keeps the story non-explicit; intimate scenes fade to black."
+              }
+            />
             <div className="flex flex-wrap items-center gap-2">
               <Button type="button" variant={draft ? "outline" : "default"} onClick={handleRead} disabled={reading || !pasted.trim()}>
                 <FaMagic size={11} /> {reading ? "Reading..." : draft ? "Read it again" : "Read the story"}
@@ -325,6 +348,7 @@ export const NewStoryPlayPage = () => {
               <section className="flex flex-col gap-2">
                 <span className="text-[11.5px] text-muted-foreground">What it can include</span>
                 <StoryContentFields
+                  showAdult={false}
                   adult={adult}
                   onAdult={setAdult}
                   minorIndicators={minorIndicators}

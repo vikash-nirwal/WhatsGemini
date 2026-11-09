@@ -396,3 +396,22 @@ describe("the user's changes to the story (#261)", () => {
     expect(renamed.instructions).toContain("Kai is secretly a prince.");
   });
 });
+
+describe("reading a story as 18+ (#262)", () => {
+  it("asks for an adult adaptation with intimate beats only when asked, never changing ages", () => {
+    const adult = buildScriptDraftPrompt("They meet at a ball.", { adult: true });
+    expect(adult).toContain("The user wants this as an 18+ story for adults");
+    expect(adult).toContain('"intimate": true or false');
+    expect(adult).toContain("never change anyone's age");
+    expect(adult).toContain("If anyone in the story is under 18, or could be, don't adapt it");
+    const plain = buildScriptDraftPrompt("They meet at a ball.");
+    expect(plain).not.toContain("18+");
+    expect(plain).not.toContain("intimate");
+    expect(plain).toContain("don't add new events.");
+  });
+
+  it("keeps the intimate marks the reading gives", () => {
+    const draft = parseScriptDraft(JSON.stringify({ premise: "A ball.", beats: [{ beat: "They meet.", events: "A dance.", intimate: false }, { beat: "The night after.", intimate: true }, "Morning."] }))!;
+    expect(draft.beats.map((b) => Boolean(b.intimate))).toEqual([false, true, false]);
+  });
+});

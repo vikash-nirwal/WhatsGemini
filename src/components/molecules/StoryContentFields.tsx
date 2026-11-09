@@ -16,7 +16,23 @@ export const INTENSITY_OPTIONS = [
 // character's: it only takes effect when nothing in the story's text
 // suggests someone is under 18, and the phrases that do are shown so the
 // author can reword them. Intensity only shows once the story is 18+.
+// The new story page asks the 18+ question before the story is read
+// (#262), so it shows the switch there and leaves it out here.
+export const StoryAdultSwitch = ({ adult, onAdult, minorIndicators, hint }: { adult: boolean; onAdult: (adult: boolean) => void; minorIndicators: string[]; hint?: string }) => (
+  <div className="flex flex-col gap-1.5">
+    <ToggleSwitch checked={adult} onChange={onAdult} label="18+ story: everyone in it is an adult (18 or older)" />
+    {adult && minorIndicators.length > 0 ? (
+      <p role="alert" className="text-xs text-destructive">
+        The story's text suggests someone in it may be under 18 ({minorIndicators.map((p) => `"${p}"`).join(", ")}). It stays SFW until that wording is changed.
+      </p>
+    ) : (
+      <span className="text-xs text-subtle">{hint || (adult ? "Explicit content is allowed when the story and you lead there." : "Off keeps the story non-explicit; intimate scenes fade to black.")}</span>
+    )}
+  </div>
+);
+
 export const StoryContentFields = ({
+  showAdult = true,
   adult,
   onAdult,
   minorIndicators,
@@ -36,20 +52,10 @@ export const StoryContentFields = ({
   onHardLimits: (limits: string[]) => void;
   toneDown: string[];
   onToneDown: (items: string[]) => void;
+  showAdult?: boolean;
 }) => (
   <div className="flex flex-col gap-4">
-    <div className="flex flex-col gap-1.5">
-      <ToggleSwitch checked={adult} onChange={onAdult} label="18+ story: everyone in it is an adult (18 or older)" />
-      {adult && minorIndicators.length > 0 ? (
-        <p role="alert" className="text-xs text-destructive">
-          The story's text suggests someone in it may be under 18 ({minorIndicators.map((p) => `"${p}"`).join(", ")}). It stays SFW until that wording is changed.
-        </p>
-      ) : (
-        <span className="text-xs text-subtle">
-          {adult ? "Explicit content is allowed when the story and you lead there." : "Off keeps the story non-explicit; intimate scenes fade to black."}
-        </span>
-      )}
-    </div>
+    {showAdult && <StoryAdultSwitch adult={adult} onAdult={onAdult} minorIndicators={minorIndicators} />}
     {adult && minorIndicators.length === 0 && (
       <div className="flex flex-col gap-1.5">
         <span className="text-[11.5px] text-muted-foreground">Intensity of intimate scenes</span>

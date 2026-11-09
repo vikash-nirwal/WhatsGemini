@@ -393,3 +393,36 @@ test("the user's changes to a story reach every reply and can be edited while pl
   expect(systemPrompt(next.messages)).toContain("these win): It snows all through the story.");
   expect(systemPrompt(next.messages)).not.toContain("Darcy is kind");
 });
+
+// Asked upfront (#262): with 18+ on before reading, the story is adapted
+// into an adult one, and the beats the reading marks intimate come marked.
+test("18+ asked before reading adapts the story, with its intimate beats marked", async ({ page, mockAI }) => {
+  await openRoute(page, "/stories/new");
+  await page.getByLabel("Story to play").fill("Two adults fall for each other at a ball.");
+  await page.getByRole("switch", { name: /18\+ story/ }).click();
+  await expect(page.getByText("The AI adapts the story into an 18+ one as it reads it")).toBeVisible();
+  mockAI.replyOnce(JSON.stringify({ ...DRAFT, beats: [{ beat: "They meet.", intimate: false }, { beat: "Their first night.", intimate: true }, "Morning."] }));
+  await page.getByRole("button", { name: "Read the story" }).click();
+  await expect(page.getByText("3 beats")).toBeVisible();
+  expect(mockAI.requests[0].prompt).toContain("The user wants this as an 18+ story for adults");
+
+  await page.getByText("3 beats").click();
+  const marks = page.getByRole("switch", { name: "Intimate beat" });
+  await expect(marks.nth(0)).not.toBeChecked();
+  await expect(marks.nth(1)).toBeChecked();
+
+  // Turned off after reading, it says reading again would drop the adaptation.
+  await page.getByRole("switch", { name: /18\+ story/ }).click();
+  await expect(page.getByText("Read the story again for a version without the added intimate scenes.")).toBeVisible();
+  mockAI.replyOnce(JSON.stringify(DRAFT));
+  await page.getByRole("button", { name: "Read it again" }).click();
+  await expect(page.getByText("14 beats")).toBeVisible();
+  expect(mockAI.requests[1].prompt).not.toContain("18+");
+});
+
+test("18+ asked before reading warns at once when the pasted story suggests someone under 18", async ({ page }) => {
+  await openRoute(page, "/stories/new");
+  await page.getByLabel("Story to play").fill("Jane was 15 years old that spring.");
+  await page.getByRole("switch", { name: /18\+ story/ }).click();
+  await expect(page.getByRole("alert")).toContainText('"15 years old"');
+});

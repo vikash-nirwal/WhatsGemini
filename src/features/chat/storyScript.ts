@@ -261,14 +261,24 @@ export const keepSource = (story: string): string => story.trim().slice(0, STORY
 
 // "Paste a story": the AI splits the user's text into a script for review,
 // with the story's own people so they can be renamed or played.
-export const buildScriptDraftPrompt = (story: string): string => {
+// With `adult` (#262), the user asked for an 18+ story before it was read,
+// so the plan is adapted to one: intimate scenes between adults where the
+// story's relationships lead, on beats marked intimate. Ages are never
+// changed, and a story with anyone under 18 is left as it is; the minor
+// scan on the result still decides whether it's rated 18+.
+export const buildScriptDraftPrompt = (story: string, { adult = false }: { adult?: boolean } = {}): string => {
   const { min, max } = beatRange(story);
-  return `Turn the user's story or script below into a roleplay plan. Keep their plot, names and order of events; don't add new events.
+  const adapt = adult
+    ? `
+
+The user wants this as an 18+ story for adults. Adapt it: where the story has romance, attraction or tension between adult characters, let it go further, and add intimate scenes where they fit the plot and the characters, as their own beats or within existing ones. Set "intimate": true on those beats and false on the rest, and in "directions" say how the romance and intimacy build. Everyone involved in anything intimate must be an adult (18 or older); never change anyone's age. If anyone in the story is under 18, or could be, don't adapt it: write the plan as the story is, with every beat "intimate": false.`
+    : "";
+  return `Turn the user's story or script below into a roleplay plan. Keep their plot, names and order of events; don't add new events${adult ? " other than the intimate scenes asked for below" : ""}.${adapt}
 
 Split it into ${min} to ${max} beats, in order. A long story needs many beats: give each key event its own beat rather than squeezing several into one, one short sentence each.
 
 Reply with only a JSON object, no code fence:
-{"premise": "the setup: world, situation and who everyone is, 1-3 sentences", "beats": [{"beat": "the key event, one short sentence", "events": "what happens in it in the story, in order: who's there, what they do and the key lines said, 2-4 sentences"}], "cast": [{"name": "a character's name as the story gives it", "about": "who they are: role, personality, look and what they want, 1-2 sentences"}], "directions": "tone, pacing and rules the story implies, or empty", "ending": "how it ends, or empty"}
+{"premise": "the setup: world, situation and who everyone is, 1-3 sentences", "beats": [{"beat": "the key event, one short sentence", "events": "what happens in it in the story, in order: who's there, what they do and the key lines said, 2-4 sentences"${adult ? ', "intimate": true or false' : ""}}], "cast": [{"name": "a character's name as the story gives it", "about": "who they are: role, personality, look and what they want, 1-2 sentences"}], "directions": "tone, pacing and rules the story implies, or empty", "ending": "how it ends, or empty"}
 
 List every named character who matters to the plot in "cast", main ones first, at most 15.
 
@@ -286,7 +296,12 @@ export const parseScriptDraft = (reply: string): Pick<StoryScript, "premise" | "
     const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
     // Each beat comes as {beat, events}, or as a plain line from an older reply.
     const beats: StoryBeat[] = (Array.isArray(data.beats) ? data.beats : [])
-      .map((b: any) => (typeof b === "string" ? makeBeat(b.trim()) : makeBeat(str(b?.beat ?? b?.text), str(b?.events ?? b?.details) || undefined)))
+      .map((b: any) => {
+        if (typeof b === "string") return makeBeat(b.trim());
+        const beat = makeBeat(str(b?.beat ?? b?.text), str(b?.events ?? b?.details) || undefined);
+        // Only an 18+ reading asks for this (#262); the page decides whether it counts.
+        return b?.intimate === true ? { ...beat, intimate: true } : beat;
+      })
       .filter((b: StoryBeat) => b.text)
       .slice(0, MAX_BEATS);
     if (!str(data.premise) && beats.length === 0) return undefined;
@@ -372,7 +387,12 @@ export const parseResplit = (reply: string, script: StoryScript, from: number): 
   if (!data || !Array.isArray(data.beats)) return undefined;
   const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
   const fresh: StoryBeat[] = data.beats
-    .map((b: any) => (typeof b === "string" ? makeBeat(b.trim()) : makeBeat(str(b?.beat ?? b?.text), str(b?.events ?? b?.details) || undefined)))
+    .map((b: any) => {
+        if (typeof b === "string") return makeBeat(b.trim());
+        const beat = makeBeat(str(b?.beat ?? b?.text), str(b?.events ?? b?.details) || undefined);
+        // Only an 18+ reading asks for this (#262); the page decides whether it counts.
+        return b?.intimate === true ? { ...beat, intimate: true } : beat;
+      })
     .filter((b: StoryBeat) => b.text);
   if (fresh.length === 0) return undefined;
   const beats = [...script.beats.slice(0, from), ...fresh].slice(0, MAX_BEATS);
