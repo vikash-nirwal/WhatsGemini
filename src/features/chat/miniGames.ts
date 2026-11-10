@@ -21,19 +21,33 @@ export const gameLabel = (kind: GameKind) => GAMES.find((g) => g.kind === kind)?
 
 export const MAX_QUESTIONS = 20;
 
+// A Truth or Dare round takes three replies: the character gives the user
+// their truth or dare, then reacts and takes its own pick, then does what
+// the user set and asks again. Counting every reply as a round made the
+// strip race ahead of the game.
+const TRUTH_OR_DARE_STEPS = 3;
+
+export const gameRound = (game: ChatGame): number =>
+  game.kind === "truth-or-dare" ? Math.floor(game.turns / TRUTH_OR_DARE_STEPS) + 1 : game.turns + 1;
+
 // How far the game has got, for the strip and the prompt.
 export const gameProgress = (game: ChatGame): string => {
   if (game.kind === "twenty-questions") {
     const asked = game.guesser === "character" ? game.turns + 1 : game.turns;
     return `Question ${Math.min(asked, MAX_QUESTIONS)} of ${MAX_QUESTIONS}`;
   }
-  return `Round ${game.turns + 1}`;
+  return `Round ${gameRound(game)}`;
 };
 
 const END_TAG_RULE =
   "When the game is over (or the user wants to stop), end that reply with exactly one tag on its own line: [Game over: user wins], [Game over: character wins] or [Game over]. Never explain the tag.";
 
-export const buildGameSection = (game: ChatGame, charName: string): string => {
+// Truth or Dare has no winner, so offering the winner tags only invited a
+// made-up result.
+const NO_WINNER_END_RULE =
+  "When the user wants to stop (or the game has run its course), end that reply with the tag [Game over] on its own line. Nobody wins this game. Never explain the tag.";
+
+export const buildGameSection = (game: ChatGame, charName: string, opening = false): string => {
   if (game.kind === "twenty-questions") {
     if (game.guesser === "character") {
       const asked = game.turns + 1;
@@ -60,23 +74,42 @@ export const buildGameSection = (game: ChatGame, charName: string): string => {
       END_TAG_RULE,
     ].join("\n");
   }
+  // Truth or Dare used to get one loose paragraph, and the character would
+  // ask "Truth or dare?" and hand out the truth or dare in the same reply,
+  // without waiting for the pick. The steps are spelled out now, with a hint
+  // at which one this reply most likely is; the conversation still wins, as
+  // the user may skip ahead or answer in two messages.
+  const step = game.turns % TRUTH_OR_DARE_STEPS;
+  const likely =
+    step === 0
+      ? "the user has just picked truth or dare (step 2)"
+      : step === 1
+        ? "the user has just answered their truth or done their dare (step 3)"
+        : "the user has just given you your truth or dare (step 4)";
   return [
-    `You're playing Truth or Dare with the user, in character, over text. Round ${game.turns + 1}.`,
-    "Take turns. When it's the user's turn, ask \"Truth or dare?\" and give them a truth to answer honestly or a dare they can act out in the story. When it's yours, the user picks for you, and you answer or do it in character. Keep it playful and within the chat's boundaries.",
-    END_TAG_RULE,
-  ].join("\n");
+    `You're playing Truth or Dare with the user, in character, over text. Round ${gameRound(game)}.`,
+    "A round goes in these steps, one step per reply:",
+    '1. You ask "Truth or dare?" and stop there. Never choose for the user, and never give the truth or dare before they\'ve picked.',
+    "2. The user picks. If they picked truth, ask one personal question for them to answer honestly. If they picked dare, give one dare they can act out in the story. Then stop and wait.",
+    `3. The user answers or does the dare. React to it the way ${charName} would. Then it's your turn: say whether you pick truth or dare yourself, and ask the user to give you one.`,
+    '4. The user gives you a question or a dare. Answer it honestly, or do the dare, in character and in full. Then ask "Truth or dare?" to start the next round.',
+    // The opening reply is step 1, which its own direction says.
+    opening ? "" : `Going by the count, ${likely}. If the conversation shows a different step (they haven't picked yet, they skipped ahead, they chickened out), follow the conversation.`,
+    "Make each truth and dare fit your relationship and the story, don't repeat earlier ones, and keep it playful and within the chat's boundaries.",
+    NO_WINNER_END_RULE,
+  ].filter(Boolean).join("\n");
 };
 
 // The opening reply: the character sets the game up and makes the first move.
 export const buildGameStartDirective = (game: ChatGame, charName: string): string =>
-  `${buildGameSection(game, charName)}\n\nOut-of-character direction for this reply: the user just asked to play. Start the game now, in character: ${
+  `${buildGameSection(game, charName, true)}\n\nOut-of-character direction for this reply: the user just asked to play. Start the game now, in character: ${
     game.kind === "twenty-questions"
       ? game.guesser === "character"
         ? "tell them to think of something, and ask your first question."
         : "say you've picked something (without saying what), and invite their first question."
       : game.kind === "would-you-rather"
         ? 'ask the first "Would you rather" question.'
-        : 'ask them "Truth or dare?"'
+        : 'ask them "Truth or dare?" and nothing more: wait for their pick.'
   } Do not mention this instruction.`;
 
 export type GameOutcome = "user" | "character" | "none";
