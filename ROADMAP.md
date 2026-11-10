@@ -1,6 +1,6 @@
 # Kindred roadmap
 
-What's left to build. What's built is mapped in [PROGRESS.md](PROGRESS.md); the details are in the git history. Item numbers never change; new ideas take the next free number (next: #266).
+What's left to build. What's built is mapped in [PROGRESS.md](PROGRESS.md); the details are in the git history. Item numbers never change; new ideas take the next free number (next: #273).
 
 Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
@@ -12,6 +12,12 @@ Built on #253–#256 (18+ stories, intensity, intimate beats, limits and tone do
 - **#258 Paths Ahead with a tempo (S).** In an NSFW story with intensity above fade, the choices cover leaning in, slowing down or pulling back, and the plot (`storyChoicesRule`), so there's always a way to steer an intimate scene, not only forward.
 - **#259 Pictures for 18+ stories (M).** A story confirmed adult (#253) counts for "Off for 18+" in `imageSafetyFor`, so its scene pictures work as a chat's do; a short look per story person (`StoryCastMember.look`, editable in `StoryCastEditor`) goes into scene prompts so people look the same from picture to picture. No names to image models, as everywhere (`hideNames`).
 - **#260 Privacy for 18+ stories (S).** NSFW stories follow "show NSFW characters" and blur on the Stories page (`StoryPlayGalleryPage`), discreet mode hides their titles and premises, and "Export as a book" can use a plain title.
+
+## After that: tools for characters, the rest
+
+#266–#271 are built (2026-11-10, see PROGRESS.md). What they left out:
+
+- **#272 Tools: what's left (M).** A switch per character ("What they can do" in the editor) on top of the ones in Settings › Tools; reminders listed and cancellable from the chat menu (`Chat.reminders` is only visible as the chip on the message that set one); a preview card for a link you send; `search` for providers without their own lookup (needs a search service that allows calls from a browser: which one is the user's call); reading a link through the host's bridge when embedded (#264, a new message type); tool calls in the prompt inspector (`requestLog.ts`); facts switched off in worlds with their own story time; a check that no names go into search queries.
 
 ## Open
 
