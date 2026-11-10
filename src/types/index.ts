@@ -74,6 +74,7 @@ export interface Message {
   // An event invite (#134): what, when, where, and your answer.
   invite?: { what: string; when?: string; where?: string; answer?: "accepted" | "declined"; planId?: string };
   sticker?: string; // a sticker sent with (or as) the reply: its mood, from the speaker's set (#137)
+  toolsUsed?: ToolUse[]; // tools the character used for this reply (#266), shown as small chips
   reaction?: string; // the user's emoji reaction to this message (#11)
   // The character's emoji reaction to this (user) message (#11), and who
   // reacted in a room.
@@ -108,6 +109,23 @@ export interface Message {
 }
 
 // What a story note under a reply says (#93-#100); see storyNotes.ts.
+// A tool a character used in a reply (#266): which one, and a short line
+// for the chip ("Rolled 2d6: 9"). Sources are the pages a web lookup read.
+export interface ToolUse {
+  name: string;
+  label: string;
+  sources?: { title?: string; url: string }[];
+}
+
+// A reminder a character set for you (#268).
+export interface ChatReminder {
+  id: string;
+  at: number; // when it's due
+  about: string;
+  setAt: number;
+  by?: number; // the character who set it, in a group
+}
+
 export type MessageNote = "texted-first" | "dream" | "upset" | "made-up" | "lie-caught" | "rumor";
 
 // One tappable option offered at the end of an adventure narrator turn.
@@ -623,6 +641,7 @@ export interface Chat {
   storyScript?: StoryScript; // the story this chat follows (#57)
   game?: ChatGame; // the mini-game being played (#52)
   gameScore?: { user: number; character: number }; // games won, where there's a winner
+  reminders?: ChatReminder[]; // reminders a character set with its tool (#268), soonest first
   personaId?: string; // overrides the global active persona for just this chat; unset = use the global one
   // Per-chat boundaries, sent right before each reply (see buildPostHistoryNote).
   hardLimits?: string[]; // things the story must never include, whatever the rating

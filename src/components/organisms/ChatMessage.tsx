@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from "react";
 import { useColorTheme } from "../../hooks/useColorTheme";
-import { FaReply, FaShare, FaInfoCircle, FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask, FaBookmark, FaStar, FaCode, FaVolumeUp, FaStop, FaLanguage, FaCodeBranch, FaEllipsisH } from "react-icons/fa";
+import { FaReply, FaShare, FaInfoCircle, FaCopy, FaRedo, FaEdit, FaChevronLeft, FaChevronRight, FaTrash, FaCompressArrowsAlt, FaForward, FaMask, FaBookmark, FaStar, FaCode, FaVolumeUp, FaStop, FaLanguage, FaCodeBranch, FaEllipsisH, FaWrench } from "react-icons/fa";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "src/components/molecules/dropdown-menu";
 import { motion } from "framer-motion";
 import { cn } from "../../utils/cn";
@@ -26,6 +26,15 @@ import { NOTE_LABELS } from "../../features/chat/storyTags";
 import { VoiceNote } from "src/components/molecules/VoiceNote";
 import { isSpeechSupported, speak, stopSpeaking, toSpokenText } from "../../features/voice/speech";
 import { useSpeakingFor } from "../../features/voice/useSpeech";
+
+// The site a source link points at, for a source with no title (#270).
+const hostOfLink = (url: string): string => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+};
 
 interface SiblingInfo {
   index: number;
@@ -924,6 +933,24 @@ const ChatMessage = React.memo(({
           </div>
           {stickerSrc && (
             <DisplayImage srcContext={stickerSrc} alt={`Sticker: ${msg.sticker}`} className="mt-1 h-32 w-32 object-contain" data-slot="sticker" />
+          )}
+          {/* Tools the reply used (#266): what was rolled, checked or looked
+              up, so a real result can be told from a made-up one. */}
+          {msg.toolsUsed && msg.toolsUsed.length > 0 && (
+            <div data-slot="tools-used" className="mt-1.5 flex max-w-full flex-col items-start gap-1 font-sans">
+              {msg.toolsUsed.map((use, i) => (
+                <div key={i} className="max-w-full rounded-lg bg-foreground/[0.07] px-2 py-1 text-[12px] leading-[16px]">
+                  <span className="flex items-center gap-1.5 opacity-80"><FaWrench size={9} aria-hidden className="shrink-0" /><span className="min-w-0 break-words">{use.label}</span></span>
+                  {use.sources && use.sources.length > 0 && (
+                    <span className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
+                      {use.sources.map((source) => (
+                        <a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer" className="max-w-[220px] truncate text-primary-text underline-offset-2 hover:underline">{source.title || hostOfLink(source.url)}</a>
+                      ))}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
           {/* A shared contact (#128): a card with "Message". */}
           {msg.contactCard && (

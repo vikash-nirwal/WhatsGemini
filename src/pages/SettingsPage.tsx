@@ -20,7 +20,7 @@ import {
   setChatProvider, setImageProvider, setOllamaBaseUrl,
   setEmotionPanelEnabled, setEmotionPopupEnabled, setEmotionPopupDuration, setAlwaysShowInitials, setTextingMode, setRecapAfterDays,
 } from "../features/settingsSlice";
-import { FaUser, FaMicrochip, FaImage, FaComments, FaShieldAlt, FaDatabase, FaPalette, FaLock, FaWallet, FaChevronRight, FaGlobe } from "react-icons/fa";
+import { FaUser, FaMicrochip, FaImage, FaComments, FaShieldAlt, FaDatabase, FaPalette, FaLock, FaWallet, FaChevronRight, FaGlobe, FaWrench } from "react-icons/fa";
 import Header from "src/components/organisms/Header";
 import { toast } from "sonner";
 import { useColorTheme } from "../hooks/useColorTheme";
@@ -109,6 +109,8 @@ import ChatInterfaceSettings from "src/components/organisms/ChatInterfaceSetting
 import SafetySettings from "src/components/organisms/SafetySettings";
 import DataBackupSettings from "src/components/organisms/DataBackupSettings";
 import PrivacySettings from "src/components/organisms/PrivacySettings";
+import ToolSettings from "src/components/organisms/ToolSettings";
+import { cleanToolSettings, loadToolSettings, LS_TOOLS, saveToolSettings, toolSummary } from "src/features/tools/toolSettings";
 import LifeSettings from "src/components/organisms/LifeSettings";
 import TokenUsageCard from "src/components/organisms/TokenUsageCard";
 import SpendingSettings from "src/components/organisms/SpendingSettings";
@@ -116,7 +118,7 @@ import { getSpendingSnapshot, importLedger, setBudget } from "../features/spendi
 import { formatRelativeTime } from "../utils/formatRelativeTime";
 import { cn } from "../utils/cn";
 
-const SECTION_IDS = ["profile", "text", "image", "chat", "appearance", "privacy", "safety", "spending", "data"] as const;
+const SECTION_IDS = ["profile", "text", "image", "tools", "chat", "appearance", "privacy", "safety", "spending", "data"] as const;
 
 const SettingsPage = () => {
   const navigate = useNavigate();
@@ -466,6 +468,8 @@ const SettingsPage = () => {
   const selectedSection = SECTION_IDS.includes(section as any) ? (section as string) : "profile";
   const desktopSettings = useMediaQuery("(min-width: 768px)");
   const [lifeLevel, setLifeLevel] = useState<LifeLevel>(() => loadLifeDial());
+  // Tools for characters (#266): how many are on, for the Settings list.
+  const [toolsValue, setToolsValue] = useState(() => toolSummary(loadToolSettings()));
   const { name: worldTitle } = useCurrentWorld();
   const setSelectedSection = (id: string) => navigate(`/settings/${id}`);
   const [lastBackupAt, setLastBackupAt] = useState<number>(() => Number(localStorage.getItem(LS_LAST_BACKUP_AT) || 0));
@@ -597,6 +601,8 @@ const SettingsPage = () => {
     // Read from storage rather than state, so a change made on the Life
     // screen since this page opened is the one saved (#215).
     [LS_LIFE_DIAL]: loadLifeDial(),
+    // Tools for characters (#266), kept outside Redux too.
+    [LS_TOOLS]: loadToolSettings(),
   }), [selectedModel, maxOutputTokens, replyLengthLimit, compressThreshold, historyKeepTokens, temperature, samplers, roleplayStyle, safetySettings, maxChatLength, fontSize, imageResolution, geminiImageSize, portraitSaveSize, portraitResizeEnabled, emotionPanelEnabled, emotionPopupEnabled, emotionPopupDuration, alwaysShowInitials, textingMode, recapAfterDays, personas, activePersonaId]);
 
   const downloadJson = (data: unknown, filename: string) => {
@@ -700,6 +706,10 @@ const SettingsPage = () => {
     if (settings[LS_LIFE_DIAL] !== undefined) {
         restoreLifeDial(settings[LS_LIFE_DIAL]);
         setLifeLevel(loadLifeDial());
+    }
+    if (settings[LS_TOOLS] !== undefined) {
+        saveToolSettings(cleanToolSettings(settings[LS_TOOLS]));
+        setToolsValue(toolSummary(loadToolSettings()));
     }
   }, [dispatch]);
 
@@ -827,6 +837,7 @@ const SettingsPage = () => {
     { id: "profile", icon: <FaUser size={13} />, title: "Profile and personas", subtitle: "Who you are in your chats", conf: "user_profile", group: "You" },
     { id: "text", icon: <FaMicrochip size={13} />, title: "Text model", subtitle: "Provider, model, temperature, tokens", conf: "text_model", group: "AI", value: CHAT_PROVIDER_META.find((p) => p.id === chatProvider)?.label },
     { id: "image", icon: <FaImage size={13} />, title: "Images and voice", subtitle: "Provider, model, ratio, count", conf: "image_model", group: "AI" },
+    { id: "tools", icon: <FaWrench size={13} />, title: "Tools", subtitle: "Dice, reminders, real-world facts, web lookup", conf: "tools", group: "AI", value: toolsValue },
     { id: "chat", icon: <FaComments size={13} />, title: "Chat defaults", subtitle: "System prompt, bubbles, notifications", conf: "chat_ui", group: "Chat and look", value: textingMode ? "Texting on" : undefined },
     { id: "appearance", icon: <FaPalette size={13} />, title: "Appearance", subtitle: "Theme and reading comfort", conf: "appearance", group: "Chat and look" },
     { id: "privacy", icon: <FaLock size={13} />, title: "Privacy", subtitle: "Blur, discreet list, app lock", conf: "privacy", group: "Care" },
@@ -1093,6 +1104,8 @@ const SettingsPage = () => {
                     onSafetyChange={handleSafetyChange}
                   />
                 )}
+
+                {selectedSection === "tools" && <ToolSettings onChange={(next) => setToolsValue(toolSummary(next))} />}
 
                 {selectedSection === "privacy" && (
                   <PrivacySettings privacy={privacy} setPrivacy={(val) => dispatch(setPrivacy(val))} />

@@ -1,5 +1,5 @@
 import { ChatMessage, NormalizedImage, UsageInfo } from "../types";
-import { ChatCallOptions, ChatCallResult, ChatProviderAdapter, ContentBlockedError, ProviderRuntimeConfig } from "./types";
+import { ChatCallOptions, ChatCallResult, ChatProviderAdapter, ContentBlockedError, ProviderRuntimeConfig, WebLookupRequest, WebLookupResult, cleanLookupText, webLookupPrompt } from "./types";
 import { readSseStream } from "./sse";
 
 // Anthropic's Messages API is the only requested provider that isn't OpenAI-Chat-
@@ -144,9 +144,82 @@ const generateOnce = (
 ): Promise<ChatCallResult> =>
   messagesCall([{ role: "user", content: prompt }], model, config, { systemInstruction });
 
+// Web lookup and link reading (#270, #271): Claude's web search and web
+// fetch tools, which Anthropic runs. Newer models take the 2026 versions;
+// older ones answer 400 to those, so the basic versions are tried next.
+const WEB_TOOLS = {
+  search: ["web_search_20260209", "web_search_20250305"],
+  open: ["web_fetch_20260209", "web_fetch_20250910"],
+} as const;
+const LOOKUP_MAX_TOKENS = 2048;
+// A long search can pause the turn; it's sent back to carry on, a few times.
+const MAX_RESUMES = 3;
+
+interface LookupBlock {
+  type: string;
+  text?: string;
+  content?: unknown;
+}
+
+export const lookupSources = (blocks: LookupBlock[]): { title?: string; url: string }[] => {
+  const sources: { title?: string; url: string }[] = [];
+  for (const block of blocks) {
+    // A failed search carries an error object here, not a list.
+    if (block.type !== "web_search_tool_result" || !Array.isArray(block.content)) continue;
+    for (const hit of block.content as { type?: string; url?: string; title?: string }[]) {
+      if (hit?.type === "web_search_result" && hit.url && !sources.some((s) => s.url === hit.url)) sources.push({ url: hit.url, title: hit.title });
+    }
+  }
+  return sources;
+};
+
+const webLookup = async (request: WebLookupRequest, model: string, config: ProviderRuntimeConfig): Promise<WebLookupResult> => {
+  if (!config.apiKey) throw new Error("An Anthropic API key is required.");
+  const apiKey = config.apiKey;
+  const call = (tool: string, messages: unknown[]) =>
+    fetch(`${ANTHROPIC_BASE_URL}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": ANTHROPIC_VERSION, "anthropic-dangerous-direct-browser-access": "true" },
+      body: JSON.stringify({
+        model,
+        max_tokens: LOOKUP_MAX_TOKENS,
+        messages,
+        tools: [request.kind === "search" ? { type: tool, name: "web_search", max_uses: 3 } : { type: tool, name: "web_fetch", max_uses: 1, max_content_tokens: 8000 }],
+      }),
+      signal: request.signal,
+    });
+
+  const messages: unknown[] = [{ role: "user", content: webLookupPrompt(request) }];
+  const blocks: LookupBlock[] = [];
+  const usage: AnthropicUsage = { input_tokens: 0, output_tokens: 0 };
+  let tool: string = WEB_TOOLS[request.kind][0];
+  for (let turn = 0; turn <= MAX_RESUMES; turn++) {
+    let response = await call(tool, messages);
+    if (response.status === 400 && turn === 0) {
+      tool = WEB_TOOLS[request.kind][1];
+      response = await call(tool, messages);
+    }
+    if (!response.ok) throw new Error(`Anthropic error: ${await extractErrorMessage(response)}`);
+    const data = await response.json();
+    const content = (data?.content || []) as LookupBlock[];
+    blocks.push(...content);
+    usage.input_tokens = (usage.input_tokens || 0) + (data?.usage?.input_tokens || 0);
+    usage.output_tokens = (usage.output_tokens || 0) + (data?.usage?.output_tokens || 0);
+    if (data?.stop_reason !== "pause_turn") break;
+    messages.push({ role: "assistant", content });
+  }
+  // The answer is the text after the last tool result: what comes before
+  // is Claude saying what it's about to look up.
+  const lastResult = blocks.map((b) => b.type).lastIndexOf(request.kind === "search" ? "web_search_tool_result" : "web_fetch_tool_result");
+  const text = blocks.slice(lastResult + 1).filter((b) => b.type === "text").map((b) => b.text || "").join("");
+  const sources = lookupSources(blocks);
+  return { text: cleanLookupText(text), sources: sources.length > 0 ? sources : undefined, usage: normalizeUsage(usage) };
+};
+
 export const anthropicAdapter: ChatProviderAdapter = {
   id: "anthropic",
   capabilities: { supportsImageGen: false, requiresApiKey: true, requiresBaseUrl: false },
   generateChat,
   generateOnce,
+  webLookup,
 };

@@ -37,6 +37,7 @@ import TheirGroupTalker from "src/components/molecules/TheirGroupTalker";
 import AutoBackup from "src/components/molecules/AutoBackup";
 import LetterWriter from "src/components/molecules/LetterWriter";
 import FirstTexter from "src/components/molecules/FirstTexter";
+import ReminderRunner from "src/components/molecules/ReminderRunner";
 import MyStatusWatcher from "src/components/molecules/MyStatusWatcher";
 import ProfileChanger from "src/components/molecules/ProfileChanger";
 import ChannelPoster from "src/components/molecules/ChannelPoster";
@@ -253,6 +254,7 @@ const AppContent = () => {
         <AutoBackup />
         <LetterWriter />
         <FirstTexter />
+        <ReminderRunner />
         <MyStatusWatcher />
         <ProfileChanger />
         <ChannelPoster />

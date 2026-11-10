@@ -28,7 +28,8 @@ import { buildNextIdeasPrompt } from "../../features/chat/coWriting";
 import { browserLanguageName, buildTranslatePrompt } from "../../features/chat/languagePractice";
 import { AI, YOU } from "../../utils/constants";
 import { reactionTarget, withCharacterReaction } from "../../features/chat/reactions";
-import { Character, Chat, Message, MessageNote, Poll, PollVote, SceneState, UserProfile } from "../../types";
+import { Character, Chat, Message, MessageNote, Poll, PollVote, SceneState, ToolUse, UserProfile } from "../../types";
+import { addReminder, newReminder } from "../../features/tools/reminders";
 
 export interface ReplyEffectDeps {
   chatIdNum: number | null;
@@ -99,7 +100,7 @@ export const useReplyEffects = ({
   // Forwarded (#123): something they passed along is kept the same way.
   // A shared contact card (#128) is kept on the reply too.
   // An event invite (#134) too.
-  const applyReplyQuote = (payload: { replyQuote?: string; forward?: string; contact?: { name: string; about: string }; invite?: Message["invite"]; sticker?: string; blocks?: boolean; patchedUp?: string } | undefined, allMessages: Message[]) => {
+  const applyReplyQuote = (payload: { replyQuote?: string; forward?: string; contact?: { name: string; about: string }; invite?: Message["invite"]; sticker?: string; blocks?: boolean; patchedUp?: string; toolsUsed?: ToolUse[]; reminders?: { at: number; about: string }[] } | undefined, allMessages: Message[]) => {
     // Blocking (#133), from the same reply: they blocked you, or a friend
     // patched it up with whoever did.
     if (chatIdNum && payload?.blocks && !isRoom && characterData && !currentChat?.blocked) {
@@ -108,8 +109,16 @@ export const useReplyEffects = ({
       if (pointsMoveIn(currentChat)) void dispatch(patchCharacter(characterData.id, (fresh) => nudgePoints(fresh, "you", YOU_MOMENTS.blocked, Date.now(), `blocked you`)));
     }
     if (payload?.patchedUp) void patchUp(payload.patchedUp);
-    if (!chatIdNum || (!payload?.replyQuote && !payload?.forward && !payload?.contact && !payload?.invite && !payload?.sticker)) return;
+    if (!chatIdNum || (!payload?.replyQuote && !payload?.forward && !payload?.contact && !payload?.invite && !payload?.sticker && !payload?.toolsUsed?.length && !payload?.reminders?.length)) return;
     const reply = [...allMessages].reverse().find((m) => m.role === AI && m.id);
+    // Reminders the reply set (#268) are kept on the chat, under whoever set
+    // them, for the reminder job to send when they're due.
+    if (payload.reminders?.length) {
+      const now = Date.now();
+      const saved = latestStore.current.chats.find((c) => c.id === chatIdNum)?.reminders ?? currentChat?.reminders;
+      const reminders = payload.reminders.reduce((list, r) => addReminder(list, newReminder(r.at, r.about, now, reply?.speakerId ?? characterData?.id)), saved || []);
+      void dispatch(updateChatOptions({ chatId: chatIdNum, patch: { reminders } }));
+    }
     if (!reply?.id) return;
     const quoted = payload.replyQuote ? findQuotedMessage(allMessages, payload.replyQuote) : undefined;
     const patch: Partial<Message> = {
@@ -118,6 +127,8 @@ export const useReplyEffects = ({
       ...(payload.contact ? { contactCard: payload.contact } : {}),
       ...(payload.invite ? { invite: payload.invite } : {}),
       ...(payload.sticker ? { sticker: payload.sticker } : {}),
+      // The tools the reply used (#266), for the chips under it.
+      ...(payload.toolsUsed?.length ? { toolsUsed: payload.toolsUsed } : {}),
     };
     if (Object.keys(patch).length > 0) void dispatch(updateChatMessage({ chatId: chatIdNum, messageId: reply.id, patch }));
   };

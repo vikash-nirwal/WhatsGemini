@@ -19,6 +19,10 @@ import {
   ImageProviderAdapter,
   ProviderRuntimeConfig,
   ContentBlockedError,
+  WebLookupRequest,
+  WebLookupResult,
+  cleanLookupText,
+  webLookupPrompt,
 } from "./types";
 
 // Finish reasons meaning Gemini withheld output on content grounds, not a
@@ -158,11 +162,28 @@ const generateOnce = async (
   return { text, usage: normalizeUsage(result.usageMetadata) };
 };
 
+// Web lookup and link reading (#270, #271): Gemini searches with Google
+// Search grounding and opens a page with URL context, both run by Google.
+const webLookup = async (request: WebLookupRequest, model: string, config: ProviderRuntimeConfig): Promise<WebLookupResult> => {
+  const ai = new GoogleGenAI({ apiKey: config.apiKey || "" });
+  const result = await ai.models.generateContent({
+    model,
+    contents: webLookupPrompt(request),
+    config: { tools: [request.kind === "search" ? { googleSearch: {} } : { urlContext: {} }], abortSignal: request.signal },
+  });
+  const sources = (result.candidates?.[0]?.groundingMetadata?.groundingChunks || [])
+    .map((chunk) => chunk.web)
+    .filter((web): web is { uri: string; title?: string } => Boolean(web?.uri))
+    .map((web) => ({ url: web.uri, title: web.title }));
+  return { text: cleanLookupText(result.text || ""), sources: sources.length > 0 ? sources : undefined, usage: normalizeUsage(result.usageMetadata) };
+};
+
 export const geminiAdapter: ChatProviderAdapter = {
   id: "gemini",
   capabilities: { supportsImageGen: true, requiresApiKey: true, requiresBaseUrl: false },
   generateChat,
   generateOnce,
+  webLookup,
 };
 
 const generateImage = async (opts: ImageGenCallOptions, config: ProviderRuntimeConfig): Promise<ImageGenCallResult> => {

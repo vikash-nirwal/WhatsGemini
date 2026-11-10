@@ -38,6 +38,28 @@ export interface ChatCallResult {
   usage?: UsageInfo;
 }
 
+// Web lookup and link reading (#270, #271): a search, or one page to read.
+export interface WebLookupRequest {
+  kind: "search" | "open";
+  query: string; // what to look up, or the link to read
+  signal?: AbortSignal;
+}
+
+export interface WebLookupResult {
+  text: string; // what was found, in plain words; empty when nothing was
+  sources?: { title?: string; url: string }[];
+  usage?: UsageInfo;
+}
+
+// The one prompt both providers get, so a lookup reads the same either way.
+export const UNREADABLE = "UNREADABLE";
+export const webLookupPrompt = (request: WebLookupRequest): string =>
+  request.kind === "search"
+    ? `Look this up on the web and report what you find in a few plain sentences: facts only, with dates and numbers where they matter, and nothing you didn't find. If you find nothing useful, reply with exactly: ${UNREADABLE}\n\nLook up: ${request.query}`
+    : `Read the page at ${request.query} and say what's on it in up to eight plain sentences: its title, the main points and any key facts. Report only what the page says. If you can't open it, reply with exactly: ${UNREADABLE}`;
+
+export const cleanLookupText = (text: string): string => (text.includes(UNREADABLE) ? "" : text.trim());
+
 export interface ModelOption {
   value: string;
   label: string;
@@ -107,6 +129,11 @@ export interface ChatProviderAdapter {
   // Settings can offer a live-fetched dropdown instead of (or on top of)
   // PROVIDER_CHAT_MODELS' hardcoded fallback list.
   listModels?(config: ProviderRuntimeConfig): Promise<ModelOption[]>;
+  // Optional - providers whose API can search the web and open pages itself
+  // (Gemini's Google Search and URL context, Claude's web search and web
+  // fetch). The app has no backend, so a browser can't fetch other sites;
+  // this is the only way a character gets to look something up.
+  webLookup?(request: WebLookupRequest, model: string, config: ProviderRuntimeConfig): Promise<WebLookupResult>;
 }
 
 export interface ImageProviderAdapter {

@@ -54,6 +54,14 @@ import { resolveTurnModel } from "./ai/modelResolution";
 import { AppearanceLock, appearanceLocksFor, applyAppearanceLocks } from "./ai/utils/appearanceLock";
 import { insertAdventureCompressionSummary } from "./adventureSlice";
 import { recordReply, ReplyKind } from "./ai/replyLog";
+import { enabledGroups, loadToolSettings } from "./tools/toolSettings";
+import { buildToolResultNote, buildToolSection, commandsFor, parseToolCall, stripToolTags } from "./tools/toolTag";
+import { runTool } from "./tools/runTool";
+import type { ToolUse } from "../types";
+
+// Tools for characters (#266): the most tool calls one reply may make, so a
+// model that keeps asking can't run up calls.
+const MAX_TOOL_CALLS = 2;
 
 // What a vision-capable helper writes about a photo the chat model can't see.
 const PHOTO_DESCRIPTION_PROMPT =
@@ -87,6 +95,8 @@ export interface GenerateAIResponseResult {
   patchedUp?: string; // a friend patched it up with whoever blocked you (#133)
   gameOver?: GameOutcome; // the mini-game ended, and who won (#52)
   sceneState?: Partial<SceneState>; // the scene's state as the reply left it (#9)
+  toolsUsed?: ToolUse[]; // the tools this reply used, for the chips under it (#266)
+  reminders?: { at: number; about: string }[]; // reminders it set (#268)
   photoDescription?: string; // what a helper model saw in the user's photo (#48)
   photoUnseen?: boolean; // nobody could see the user's photo (#48)
   isRefusal?: boolean;
@@ -261,6 +271,8 @@ export const generateAIResponse = createAsyncThunk(
       let finalDerivedImageParams: SDImageParams = {};
       let generatedVideos: string[] = [];
       let finalDerivedVideoPrompt = "";
+      const toolsUsed: ToolUse[] = [];
+      const reminders: { at: number; about: string }[] = [];
 
       if (isImageRequest || isVideoRequest) {
         // Same derivation step for both - it just describes the scene; video
@@ -321,30 +333,76 @@ export const generateAIResponse = createAsyncThunk(
             }
           : undefined;
         if (streamKey) dispatch(setStreamingReply({ key: streamKey, text: "" }));
-        let streamed;
-        try {
+        // Tools for characters (#266): the tools switched on in Settings are
+        // offered in the system prompt. An adventure keeps its own dice and
+        // rules, so it gets none.
+        const toolSettings = loadToolSettings();
+        const toolGroups = keepChoices ? [] : enabledGroups(toolSettings);
+        const toolSection = buildToolSection(commandsFor(toolGroups));
+        const systemWithTools = toolSection ? [turnConfig.systemInstruction, toolSection].filter(Boolean).join("\n\n") : turnConfig.systemInstruction;
+        const basePrompt = postHistoryNote ? `${fullPrompt}\n\n${postHistoryNote}` : fullPrompt;
+        const callChat = (promptText: string) => {
           tagPurpose("reply");
-          streamed = await chatAdapter.generateChat(
+          return chatAdapter.generateChat(
             {
               model: selectedModel,
-              systemInstruction: turnConfig.systemInstruction,
+              systemInstruction: systemWithTools,
               temperature: turnConfig.temperature,
               maxOutputTokens: turnConfig.maxOutputTokens,
               safetySettings: turnConfig.safetySettings,
               samplers: turnModel.samplers,
               history: historyForSdk,
-              prompt: postHistoryNote ? `${fullPrompt}\n\n${postHistoryNote}` : fullPrompt,
+              prompt: promptText,
               promptImages: seenImages,
               signal,
               onToken,
             },
             chatConfig
           );
+        };
+        // Web lookup and link reading (#270, #271) run on the provider's own
+        // search: the chat model's when it has one, otherwise the helper's.
+        const lookup = async (kind: "search" | "open", query: string) => {
+          let target = chatAdapter.webLookup ? { adapter: chatAdapter, config: chatConfig, model: selectedModel, providerId: chatProviderId } : undefined;
+          if (!target) {
+            const helper = await resolveHelperCall(settings);
+            if (helper.adapter.webLookup) target = helper;
+          }
+          if (!target?.adapter.webLookup) throw new Error("No provider that can look things up is set up.");
+          tagPurpose("reply");
+          const found = await target.adapter.webLookup({ kind, query, signal }, target.model, target.config);
+          trackUsage(found.usage, target.providerId, target.model);
+          return found;
+        };
+        const helperCanLookUp = Boolean(settings.helperProvider && settings.helperModel && CHAT_PROVIDERS[settings.helperProvider]?.webLookup);
+        const canLookUp = Boolean(chatAdapter.webLookup) || helperCanLookUp;
+
+        let streamed;
+        try {
+          streamed = await callChat(basePrompt);
+          trackUsage(streamed.usage, chatProviderId, selectedModel);
+          // A reply that asks for a tool is not the reply: the tool runs and
+          // the turn is asked again with what it gave, twice at most. Any
+          // text written around the tag is dropped with it.
+          const notes: string[] = [];
+          for (let used = 0; used < MAX_TOOL_CALLS && toolGroups.length > 0; used++) {
+            const call = parseToolCall(streamed.text);
+            if (!call) break;
+            const outcome = await runTool(call, { groups: toolGroups, now: Date.now(), lookup: canLookUp ? lookup : undefined, reader: toolSettings.reader });
+            if (outcome.use) toolsUsed.push(outcome.use);
+            if (outcome.reminder) reminders.push(outcome.reminder);
+            notes.push(buildToolResultNote(call, outcome.result, used + 1 < MAX_TOOL_CALLS));
+            if (streamKey) dispatch(setStreamingReply({ key: streamKey, text: "" }));
+            lastEmit = 0;
+            streamed = await callChat([basePrompt, ...notes].join("\n\n"));
+            trackUsage(streamed.usage, chatProviderId, selectedModel);
+          }
         } finally {
           if (streamKey) dispatch(clearStreamingReply(streamKey));
         }
-        trackUsage(streamed.usage, chatProviderId, selectedModel);
-        response = streamed.text;
+        // A tag that wasn't run (a third one, or tools switched off since the
+        // chat last used one) never shows.
+        response = stripToolTags(streamed.text);
       }
 
       // Parsed and stripped unconditionally (cheap no-op when the tag isn't
@@ -428,6 +486,8 @@ export const generateAIResponse = createAsyncThunk(
         patchedUp: blockTags.patchedUp,
         gameOver,
         sceneState,
+        toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined,
+        reminders: reminders.length > 0 ? reminders : undefined,
         // Only a plain text reply can be an out-of-character refusal; image/
         // video turns carry a derived scene summary instead.
         isRefusal: !isImageRequest && !isVideoRequest && looksLikeRefusal(finalResponseText) ? true : undefined,
