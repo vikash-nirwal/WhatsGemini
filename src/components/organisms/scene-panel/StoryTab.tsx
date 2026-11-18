@@ -10,6 +10,7 @@ import { ScenePanelTabProps } from "./types";
 import { PlansSection } from "./PlansSection";
 import { InsideJokesSection, LiesSection, PastSection } from "./StorySections";
 import GodTruthsSection from "./GodTruthsSection";
+import { showMessage } from "../../../features/chat/renderWindow";
 
 // The Story tab: plans together, inside jokes, lies, their past, chapters,
 // bookmarks and the mood timeline.
@@ -29,9 +30,9 @@ const StoryTab: React.FC<ScenePanelTabProps> = ({ chatId, character, isRoom, onC
   const jumpToMessage = (id: string) => {
     const covering = typeof window !== "undefined" && window.matchMedia?.("(max-width: 1279px)").matches;
     if (covering) onClose();
-    setTimeout(() => {
-      document.querySelector(`[data-message-id="${CSS.escape(id)}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, covering ? 250 : 0);
+    // The chat renders only its newest messages, so it's asked to show this
+    // one (rendering it first if it's older) rather than scrolled to it here.
+    setTimeout(() => showMessage(id), covering ? 250 : 0);
   };
 
   // Chapters ended in this chat, in story order (the active branch's path).

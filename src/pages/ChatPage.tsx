@@ -2,6 +2,7 @@ import { FaBan } from "react-icons/fa";
 import { blockedByThem, blockedByYou, blockNotesFor, buildBlockDirective } from "../features/chat/blocking";
 import { buildStickerDirective } from "../features/character/stickers";
 import { buildInviteAnswerNote, buildInviteDirective } from "../features/chat/invites";
+import { showMessage } from "../features/chat/renderWindow";
 import { newPlanId } from "../features/chat/sharedPlans";
 import { buildDisappearingNote, DISAPPEAR_LABEL, pruneDisappeared } from "../features/chat/disappearing";
 import { useEffect, useState, useMemo, useRef } from "react";
@@ -2178,7 +2179,9 @@ const ChatPage = () => {
   useEffect(() => {
     if (!jumpTo || jumpedRef.current === jumpTo || !messages.some((m) => m.id === jumpTo)) return;
     jumpedRef.current = jumpTo;
-    window.setTimeout(() => document.querySelector(`[data-message-id="${CSS.escape(jumpTo)}"]`)?.scrollIntoView({ block: "center" }), 300);
+    // Through the chat, which renders the message first if it's older than
+    // the newest ones it shows.
+    window.setTimeout(() => showMessage(jumpTo), 300);
   }, [jumpTo, messages]);
   const openSceneRef = useRef<number | null>(null);
   useEffect(() => {

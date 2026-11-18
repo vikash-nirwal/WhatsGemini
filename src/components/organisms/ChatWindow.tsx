@@ -4,7 +4,8 @@ import { sentWhileBlocked } from "../../features/chat/blocking";
 import { DISAPPEAR_LABEL, willDisappear } from "../../features/chat/disappearing";
 import { reactionRows } from "../../features/chat/reactions";
 import { foldForSearch } from "../../features/chat/chatSearch";
-import React, { useRef, useEffect, useCallback, useMemo, useState } from "react";
+import React, { useRef, useEffect, useLayoutEffect, useCallback, useMemo, useState } from "react";
+import { onShowMessage, RENDER_WINDOW, renderWindowStart } from "../../features/chat/renderWindow";
 import { avatarOf } from "../../features/character/profileChanges";
 import { FaCheck, FaTimes, FaArrowDown, FaClock, FaMicrophone } from "react-icons/fa";
 import { motion } from "framer-motion";
@@ -527,6 +528,54 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ unreadSince, awayNote, onFork, 
   // replies you haven't seen start. A chat with more unread than fits opens
   // at the line instead of at the bottom, once per opening.
   const unread = useMemo(() => (unreadSince ? unreadStart(filteredMessages, unreadSince.since, unreadSince.until) : undefined), [filteredMessages, unreadSince]);
+
+  // Long chats (features/chat/renderWindow.ts): only the newest messages are
+  // rendered, so a chat of thousands doesn't run the tab out of memory. The
+  // window is pinned once the chat has messages, and only ever widens while
+  // it's open: by "Show earlier messages", or to take in a search match, the
+  // unread line or a message shown from elsewhere (showMessage).
+  const [windowFrom, setWindowFrom] = useState<{ chatId?: number; from: number } | null>(null);
+  const pinnedFrom = windowFrom && windowFrom.chatId === chatId ? windowFrom.from : undefined;
+  const [revealId, setRevealId] = useState<string | null>(null);
+  useEffect(() => onShowMessage(setRevealId), []);
+  const indexOfId = (id?: string | null) => (id ? filteredMessages.findIndex((m) => m.id === id) : -1);
+  const windowStart = renderWindowStart(filteredMessages.length, pinnedFrom, [indexOfId(searchHitId), indexOfId(unread?.id), indexOfId(revealId)]);
+  useEffect(() => {
+    if (filteredMessages.length > 0 && (pinnedFrom === undefined || windowStart < pinnedFrom)) setWindowFrom({ chatId, from: windowStart });
+  }, [chatId, pinnedFrom, windowStart, filteredMessages.length]);
+  // Older messages go in above what you're reading, so the list is moved by
+  // what they added and nothing on screen jumps.
+  const keepFromBottomRef = useRef<number | null>(null);
+  const showEarlier = () => {
+    const el = scrollContainerRef.current;
+    if (el) keepFromBottomRef.current = el.scrollHeight - el.scrollTop;
+    setWindowFrom({ chatId, from: Math.max(0, windowStart - RENDER_WINDOW) });
+  };
+  useLayoutEffect(() => {
+    const el = scrollContainerRef.current;
+    const keep = keepFromBottomRef.current;
+    if (!el || keep == null) return;
+    keepFromBottomRef.current = null;
+    el.scrollTop = el.scrollHeight - keep;
+  }, [windowStart]);
+  // A message shown from elsewhere is brought to the middle once it's
+  // rendered; one not in this chat (or this branch) is let go.
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!revealId || !el) return;
+    if (indexOfId(revealId) < 0) {
+      setRevealId(null);
+      return;
+    }
+    const row = el.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(revealId)}"]`);
+    if (!row) return;
+    setRevealId(null);
+    row.scrollIntoView({ block: "center" });
+    const up = el.scrollHeight - el.scrollTop - el.clientHeight > 100;
+    isScrolledUpRef.current = up;
+    setIsScrolledUp(up);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealId, windowStart, filteredMessages]);
   // Tried again while the list settles (bubbles grow as fonts and images
   // load, and a long chat renders in steps) for a moment after opening; not
   // later, so a reply arriving while you read never pulls you up.
@@ -916,7 +965,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ unreadSince, awayNote, onFork, 
                 )}
               </div>
             ) : (
-              filteredMessages.map((msg, i) => {
+              <>
+              {windowStart > 0 && (
+                <div className="flex justify-center my-3">
+                  <Button type="button" variant="outline" size="sm" onClick={showEarlier}>
+                    Show earlier messages
+                  </Button>
+                </div>
+              )}
+              {filteredMessages.slice(windowStart).map((msg, shownIndex) => {
+                // The index in the whole chat, which everything below uses.
+                const i = windowStart + shownIndex;
                 const siblingInfo = tree && msg.id ? getSiblingInfo(tree, msg.id) : undefined;
                 const speaker = resolveSpeaker(msg);
                 // A false start (#108): nothing of the reply shows yet, only
@@ -1035,7 +1094,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ unreadSince, awayNote, onFork, 
                     {message}
                   </div>
                 ) : message;
-              })
+              })}
+              </>
             )}
             {recap && !aiLoading && <RecapCard recap={recap} terminal={terminal} />}
             {/* Choice moments (#87): the newest reply's options; tap one to send it. */}
