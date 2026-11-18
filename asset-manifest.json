@@ -1,10 +1,10 @@
 {
   "files": {
     "main.css": "/WhatsGemini/static/css/main.faa77c0e.css",
-    "main.js": "/WhatsGemini/static/js/main.9357b995.js",
+    "main.js": "/WhatsGemini/static/js/main.ff3fff91.js",
     "static/js/3572.0d91b68c.chunk.js": "/WhatsGemini/static/js/3572.0d91b68c.chunk.js",
     "static/js/3220.ef79453b.chunk.js": "/WhatsGemini/static/js/3220.ef79453b.chunk.js",
-    "static/js/4067.697e9a76.chunk.js": "/WhatsGemini/static/js/4067.697e9a76.chunk.js",
+    "static/js/4067.d275774d.chunk.js": "/WhatsGemini/static/js/4067.d275774d.chunk.js",
     "static/js/1358.453bb3bf.chunk.js": "/WhatsGemini/static/js/1358.453bb3bf.chunk.js",
     "static/js/9455.bdcdbb6b.chunk.js": "/WhatsGemini/static/js/9455.bdcdbb6b.chunk.js",
     "static/js/2627.baeae167.chunk.js": "/WhatsGemini/static/js/2627.baeae167.chunk.js",
@@ -14,7 +14,7 @@
     "static/js/2663.3f3d0ce0.chunk.js": "/WhatsGemini/static/js/2663.3f3d0ce0.chunk.js",
     "static/js/9459.f8e00166.chunk.js": "/WhatsGemini/static/js/9459.f8e00166.chunk.js",
     "static/js/6974.5fec2064.chunk.js": "/WhatsGemini/static/js/6974.5fec2064.chunk.js",
-    "static/js/9215.ccc02f20.chunk.js": "/WhatsGemini/static/js/9215.ccc02f20.chunk.js",
+    "static/js/9215.7a37d77b.chunk.js": "/WhatsGemini/static/js/9215.7a37d77b.chunk.js",
     "static/js/7541.eb55de20.chunk.js": "/WhatsGemini/static/js/7541.eb55de20.chunk.js",
     "static/js/3328.7aafb377.chunk.js": "/WhatsGemini/static/js/3328.7aafb377.chunk.js",
     "static/js/6567.4ac1c269.chunk.js": "/WhatsGemini/static/js/6567.4ac1c269.chunk.js",
@@ -323,10 +323,10 @@
     "service-worker.js": "/WhatsGemini/service-worker.js",
     "index.html": "/WhatsGemini/index.html",
     "main.faa77c0e.css.map": "/WhatsGemini/static/css/main.faa77c0e.css.map",
-    "main.9357b995.js.map": "/WhatsGemini/static/js/main.9357b995.js.map",
+    "main.ff3fff91.js.map": "/WhatsGemini/static/js/main.ff3fff91.js.map",
     "3572.0d91b68c.chunk.js.map": "/WhatsGemini/static/js/3572.0d91b68c.chunk.js.map",
     "3220.ef79453b.chunk.js.map": "/WhatsGemini/static/js/3220.ef79453b.chunk.js.map",
-    "4067.697e9a76.chunk.js.map": "/WhatsGemini/static/js/4067.697e9a76.chunk.js.map",
+    "4067.d275774d.chunk.js.map": "/WhatsGemini/static/js/4067.d275774d.chunk.js.map",
     "1358.453bb3bf.chunk.js.map": "/WhatsGemini/static/js/1358.453bb3bf.chunk.js.map",
     "9455.bdcdbb6b.chunk.js.map": "/WhatsGemini/static/js/9455.bdcdbb6b.chunk.js.map",
     "2627.baeae167.chunk.js.map": "/WhatsGemini/static/js/2627.baeae167.chunk.js.map",
@@ -336,7 +336,7 @@
     "2663.3f3d0ce0.chunk.js.map": "/WhatsGemini/static/js/2663.3f3d0ce0.chunk.js.map",
     "9459.f8e00166.chunk.js.map": "/WhatsGemini/static/js/9459.f8e00166.chunk.js.map",
     "6974.5fec2064.chunk.js.map": "/WhatsGemini/static/js/6974.5fec2064.chunk.js.map",
-    "9215.ccc02f20.chunk.js.map": "/WhatsGemini/static/js/9215.ccc02f20.chunk.js.map",
+    "9215.7a37d77b.chunk.js.map": "/WhatsGemini/static/js/9215.7a37d77b.chunk.js.map",
     "7541.eb55de20.chunk.js.map": "/WhatsGemini/static/js/7541.eb55de20.chunk.js.map",
     "3328.7aafb377.chunk.js.map": "/WhatsGemini/static/js/3328.7aafb377.chunk.js.map",
     "6567.4ac1c269.chunk.js.map": "/WhatsGemini/static/js/6567.4ac1c269.chunk.js.map",
@@ -645,6 +645,6 @@
   },
   "entrypoints": [
     "static/css/main.faa77c0e.css",
-    "static/js/main.9357b995.js"
+    "static/js/main.ff3fff91.js"
   ]
 }
