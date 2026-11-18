@@ -16,7 +16,7 @@ import { getProviderApiKey, getOllamaBaseUrl, getWanBaseUrl } from "./ai/utils/s
 import { extractAndSaveBase64ImagesLocally, stripLeakedBase64 } from "./ai/utils/apiUtils";
 import { composeImagePrompt, deriveImagePrompt, generateImage, IMAGE_PROMPT_REFUSED_MESSAGE, IMAGE_PROMPT_REFUSED_WARNING, ImagePromptRefusedError, RoomReferenceCharacter } from "./ai/utils/imageGeneration";
 import { ImagePromptTarget, resolveImagePromptTarget } from "./ai/utils/imagePromptGuide";
-import { nameLabels, withoutNames } from "./ai/utils/hideNames";
+import { kindLookup, nameLabels, withoutNames } from "./ai/utils/hideNames";
 import { generateVideo } from "./ai/utils/videoGeneration";
 import { extractEmotionTag } from "./ai/utils/emotionUtils";
 import { extractCorrection, extractReactionTag, extractThoughts } from "./ai/utils/messageTags";
@@ -291,7 +291,17 @@ export const generateAIResponse = createAsyncThunk(
             falCheckpoint: imageOverrides?.falLora?.checkpoint,
             calibration: imageOverrides?.calibration,
           }),
-          existingImagePrompt, existingImageParams, signal, isCharacterInitiated, isAutoSelfie, artStyle, appearanceLocks
+          existingImagePrompt, existingImageParams, signal, isCharacterInitiated, isAutoSelfie, artStyle, appearanceLocks,
+          {
+            references: [characterName, ...(otherRoomCharacters || []).map((c) => c.name)],
+            others: hideNames || [],
+            // Whether each one is a woman or a man, from their own card or
+            // persona (hideNames.ts), so the prompt writer gets "the woman".
+            kindOf: kindLookup([
+              ...state.character.characters.map((c) => ({ name: c.name, look: `${c.appearance || ""} ${c.visualTags || ""}`, about: `${c.description || ""} ${c.prompt || ""}` })),
+              ...(settings.personas || []).map((p) => ({ name: p.name, look: p.appearance, about: `${p.bio || ""} ${p.backstory || ""}` })),
+            ]),
+          }
         );
         trackUsage(derivation.usage, chatProviderId, selectedModel);
         response = derivation.derivedSummary;
@@ -314,7 +324,7 @@ export const generateAIResponse = createAsyncThunk(
           const imageResult = await generateImage(
             imageProviderId, imageConfig, useSdWebui, imageModelName, derivation.derivedImagePrompt, derivation.derivedParams,
             characterImages, characterName, imageSafetyFor(imageSettings.safetySettings, adultImages), signal, settings.geminiImageSize, undefined, otherRoomCharacters, localImageSettings,
-            artStyle || DEFAULT_ART_STYLE, toneRewriter(settings), imageOverrides, hideNames
+            artStyle || DEFAULT_ART_STYLE, toneRewriter(settings), imageOverrides, hideNames, derivation.labels
           );
           trackUsage(imageResult.usage, imageProviderId, imageModelName);
           generatedImages = imageResult.images;

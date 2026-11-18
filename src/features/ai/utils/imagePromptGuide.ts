@@ -177,7 +177,7 @@ export const buildImagePromptRequest = ({
     // Rules every model benefits from (2026-10-27): image models draw what's
     // visible and don't know the characters, so story, names and feelings
     // that can't be seen only add noise.
-    "Make it work: one clear moment, the main subject first. Only what can be seen - leave out dialogue, thoughts, backstory and anything that happened before or after. Describe people by how they look (the model doesn't know them); use a name only where reference photos are named. Keep every given look (hair, eyes, clothes) exactly. Say the framing (selfie at arm's length, close-up, full body, wide shot) and where the light comes from. Text in the picture only if the scene needs it, in quotes.",
+    "Make it work: one clear moment, the main subject first. Only what can be seen - leave out dialogue, thoughts, backstory and anything that happened before or after. Describe people by how they look (the model doesn't know them). Call each person what the description calls them ('the woman', 'the man', 'the first woman') and never give anyone a name. Keep every given look (hair, eyes, clothes) exactly. Say the framing (selfie at arm's length, close-up, full body, wide shot) and where the light comes from. Text in the picture only if the scene needs it, in quotes.",
     t.wantsParams
       ? `Reply in exactly this format:\nPROMPT:\n<the prompt>\nPARAMS:\n<a JSON object with ${t.paramsGuide}>`
       : "Reply with only the prompt: no label, quotes or explanation.",

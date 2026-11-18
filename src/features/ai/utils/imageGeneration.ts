@@ -1,5 +1,5 @@
 import { tagPurpose } from "../../spending/tokenUsage";
-import { nameLabels, namesIn, withoutNames } from "./hideNames";
+import { nameLabels, namesIn, PersonKind, withoutNames } from "./hideNames";
 import { AISafetySettings, SDImageParams, ArtStyle, LocalImageSettings } from "../../../types";
 import { appendCharacterImages } from "./imageProcessing";
 import { generateSDImage } from "./sdWebuiUtils";
@@ -43,7 +43,28 @@ export interface ImageDerivationResult {
   // The text model refused to describe or prompt the picture. There is no
   // prompt then, and nothing should be sent to the image provider.
   refused?: boolean;
+  // Who the prompt calls what ("Aria" -> "the woman"): the prompt has no
+  // names left, and the picture's references get the same labels.
+  labels?: Record<string, string>;
 }
+
+// Everyone a picture's prompt may name, for keeping names from the prompt
+// writer (hideNames.ts): the people drawn from references (the replying
+// character first, then the others present), everyone else who may come up
+// (you, people in the chat or the world), and what each of them is.
+export interface PromptPeople {
+  references: (string | undefined)[];
+  others: string[];
+  kindOf?: (name: string) => PersonKind | undefined;
+}
+
+// The labels for everyone the text mentions; the references always get one,
+// as the picture's legend names them.
+const labelsFor = (people: PromptPeople, text: string, locks: AppearanceLock[]): Map<string, string> =>
+  nameLabels([...people.references, ...namesIn(text, [...locks.map((l) => l.name), ...people.others])], people.kindOf);
+
+const relabel = (locks: AppearanceLock[], labels: Map<string, string>): AppearanceLock[] =>
+  locks.map((l) => ({ ...l, name: labels.get(l.name.trim()) || l.name }));
 
 // A refusal sent as a prompt gets drawn ("I can't create..." rendered as a
 // picture), so a refused or blocked prompt call stops the picture instead.
@@ -94,7 +115,8 @@ export const deriveImagePrompt = async (
   isAutoSelfie = false,
   artStyle?: ArtStyle,
   // Locked looks (#34) of the characters who may appear in the picture.
-  appearanceLocks: AppearanceLock[] = []
+  appearanceLocks: AppearanceLock[] = [],
+  people?: PromptPeople
 ): Promise<ImageDerivationResult> => {
   const lockStyle = target.tags ? "tags" : "sentences";
   // A refusal saved as an earlier picture's prompt isn't redrawn either.
@@ -102,14 +124,18 @@ export const deriveImagePrompt = async (
     return { derivedImagePrompt: "", derivedParams: {}, derivedSummary: "", refused: true };
   }
   if (existingImagePrompt) {
+    // A prompt saved before names were kept from the prompt writer still
+    // has them; it gets the same labels a new one would.
+    const labels = people ? labelsFor(people, existingImagePrompt, appearanceLocks) : undefined;
     const regenSummary = isCharacterInitiated || isAutoSelfie
       ? "Here's another look at that same moment.\n[Image Context: Retrying generation of the previous scene]"
       : "Here is the regenerated image you requested.\n[Image Context: Retrying generation of the previous scene]";
     return {
       // Re-applied so a look locked after the first try still reaches the redraw.
-      derivedImagePrompt: applyAppearanceLocks(existingImagePrompt, appearanceLocks, lockStyle),
+      derivedImagePrompt: labels ? applyAppearanceLocks(withoutNames(existingImagePrompt, labels), relabel(appearanceLocks, labels), lockStyle) : applyAppearanceLocks(existingImagePrompt, appearanceLocks, lockStyle),
       derivedParams: existingImageParams || {},
       derivedSummary: regenSummary,
+      labels: labels && Object.fromEntries(labels),
     };
   }
 
@@ -151,10 +177,10 @@ ${summaryInstruction} MUST INCLUDE: At the end of your response, append [Image C
     },
     chatConfig
   );
-  const { scene, reply } = parseSceneReply(sceneResult.text || "", prompt);
+  const { scene: namedScene, reply } = parseSceneReply(sceneResult.text || "", prompt);
   // A whole reply that refuses has no SCENE label, so its fallback scene
   // would quote the refusal; check both.
-  if (looksLikeRefusal(scene) || looksLikeRefusal(reply)) {
+  if (looksLikeRefusal(namedScene) || looksLikeRefusal(reply)) {
     return { derivedImagePrompt: "", derivedParams: {}, derivedSummary: reply, usage: sceneResult.usage, refused: true };
   }
 
@@ -164,6 +190,12 @@ ${summaryInstruction} MUST INCLUDE: At the end of your response, append [Image C
   // image matches the character's established look the same way their main
   // avatar and emotion portraits already do (generateAvatarImage, aiSlice.ts).
   const artStyleClause = ART_STYLE_CLAUSES[artStyle || DEFAULT_ART_STYLE];
+  // The in-character call knows everyone by name; the prompt writer doesn't
+  // (hideNames.ts). It gets "the woman", "the man" in the scene and in the
+  // locked looks, and the prompt it writes has no names to take out.
+  const labels = people ? labelsFor(people, namedScene, appearanceLocks) : undefined;
+  const scene = labels ? withoutNames(namedScene, labels) : namedScene;
+  const locks = labels ? relabel(appearanceLocks, labels) : appearanceLocks;
   let composed: Awaited<ReturnType<typeof composeImagePrompt>>;
   try {
     composed = await composeImagePrompt(chatAdapter, chatConfig, selectedModel, {
@@ -171,7 +203,7 @@ ${summaryInstruction} MUST INCLUDE: At the end of your response, append [Image C
       scene,
       baseStyle: imageGenPrompt,
       artStyleClause,
-      lockInstruction: buildAppearanceLockInstruction(appearanceLocks),
+      lockInstruction: buildAppearanceLockInstruction(locks),
       safetySettings: turnConfig.safetySettings,
       signal,
     });
@@ -181,12 +213,15 @@ ${summaryInstruction} MUST INCLUDE: At the end of your response, append [Image C
   }
 
   // Models still paraphrase sometimes; make sure each locked look is there.
-  const derivedImagePrompt = applyAppearanceLocks(composed.prompt || scene, appearanceLocks, lockStyle);
+  // A name the prompt writer brought back anyway is taken out again.
+  const written = labels ? withoutNames(composed.prompt || scene, labels) : composed.prompt || scene;
+  const derivedImagePrompt = applyAppearanceLocks(written, locks, lockStyle);
   return {
     derivedImagePrompt,
     derivedParams: composed.params as SDImageParams,
     derivedSummary: reply,
     usage: addUsage(sceneResult.usage, composed.usage),
+    labels: labels && Object.fromEntries(labels),
   };
 };
 
@@ -282,7 +317,10 @@ export const generateImage = async (
   // Everyone else the prompt may name without being a reference: you, and
   // people in the chat or scene who have no photos (2026-10-31: their names
   // reached the image model, along with their locked look's "Name: ...").
-  alsoHide?: string[]
+  alsoHide?: string[],
+  // The labels the prompt was written with (deriveImagePrompt), so the
+  // references are called what the prompt calls them.
+  knownLabels?: Record<string, string>
 ): Promise<ImageGenerationResult> => {
   // The chosen level first, then - if a service blocks it and retrying is on -
   // each stricter one, keeping the picture's idea.
@@ -312,7 +350,9 @@ export const generateImage = async (
     // No names go to the image model (hideNames.ts): the prompt and the
     // reference legend say "the character" or "person 1", "person 2".
     const references = [characterName, ...(otherRoomCharacters || []).map((c) => c.name)];
-    const labels = nameLabels([...references, ...namesIn(namedPrompt, alsoHide || [])]);
+    const labels = knownLabels ? new Map(Object.entries(knownLabels)) : nameLabels([...references, ...namesIn(namedPrompt, alsoHide || [])]);
+    // Anyone a toned-down rewrite named who has no label yet.
+    if (knownLabels) namesIn(namedPrompt, [...references, ...(alsoHide || [])]).forEach((n) => !labels.has(n.trim()) && labels.set(n.trim(), "another person"));
     const derivedImagePrompt = withoutNames(namedPrompt, labels);
     const labelOf = (name: string | undefined) => (name && labels.get(name.trim())) || "the character";
     if (useSdWebui) {

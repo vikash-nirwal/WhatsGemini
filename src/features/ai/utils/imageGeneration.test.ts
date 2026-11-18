@@ -187,3 +187,39 @@ test("hiding the image-context tag keeps a note after it (2026-10-27)", () => {
   expect(stripImageContextTag("Here's me! [Image Context: Aria waving]\n\n[Note: the picture was toned down to level 1.]")).toBe("Here's me!\n\n[Note: the picture was toned down to level 1.]");
   expect(stripImageContextTag("Here's me! [Image Context: Aria waving]")).toBe("Here's me!");
 });
+
+// The prompt writer never sees a name (2026-11-18): the scene and the
+// locked look reach it with "the woman", "the man" in their place.
+describe("deriveImagePrompt keeps names from the prompt writer", () => {
+  const people = {
+    references: ["Mira"],
+    others: ["Jon Reyes", "Lena"],
+    kindOf: (name: string) => ({ Mira: "woman", "Jon Reyes": "man" } as Record<string, "woman" | "man">)[name],
+  };
+  const run = (adapter: ChatProviderAdapter, existing?: string) =>
+    deriveImagePrompt(adapter, {} as any, "m", {}, [], "Send us a picture", "", OPENAI, existing, undefined, undefined, false, false, undefined, [MIRA], people);
+
+  it("gives the prompt writer labels, and the prompt and its labels come back without names", async () => {
+    const seen: string[] = [];
+    const scene = "SCENE:\nMira leans on Jon's shoulder at the pier, Jon laughing.\n\nREPLY:\nUs! [Image Context: the pier]";
+    const result = await run(fakeAdapter([scene, "Mira and the man at the pier at dusk."], seen));
+    expect(seen[1]).toContain("The woman leans on the man's shoulder at the pier, the man laughing.");
+    expect(seen[1]).toContain(`- the woman: ${MIRA.visualTags}`);
+    expect(seen[1]).not.toMatch(/Mira|Jon/);
+    expect(result.derivedImagePrompt).not.toMatch(/Mira|Jon/);
+    expect(result.derivedImagePrompt).toContain("The woman and the man at the pier");
+    expect(result.labels).toEqual({ Mira: "the woman", "Jon Reyes": "the man" });
+  });
+
+  it("takes the names out of an older saved prompt it redraws", async () => {
+    const result = await run(fakeAdapter([""], []), `Mira with Lena at the pier, ${MIRA.visualTags}`);
+    expect(result.derivedImagePrompt).toBe(`The woman with the person at the pier, ${MIRA.visualTags}`);
+  });
+
+  it("gives the picture's references the same labels", async () => {
+    mockComfyCalls.length = 0;
+    await generateImage("comfyui", {} as any, false, "m", "The woman and the man at the pier", {}, ["data:image/png;base64,AA=="], "Mira", {} as any, undefined, undefined, undefined,
+      [{ name: "Jon Reyes", images: ["data:image/png;base64,AA=="] }], undefined, undefined, undefined, undefined, [], { Mira: "the woman", "Jon Reyes": "the man" });
+    expect(mockComfyCalls[0].referenceCharacters.map((r: any) => r.name)).toEqual(["the woman", "the man"]);
+  });
+});
