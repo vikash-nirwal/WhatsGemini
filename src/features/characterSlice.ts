@@ -1,4 +1,5 @@
-import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk, original } from "@reduxjs/toolkit";
+import { shareUnchanged } from "../utils/shareUnchanged";
 import { logToTimeline } from "./world/timeline";
 import { dbService } from "../services/dbService";
 import { CHARACTER } from "../utils/constants";
@@ -140,7 +141,10 @@ const characterSlice = createSlice({
       })
       .addCase(fetchCharacters.fulfilled, (state, action) => {
         state.loading = false;
-        state.characters = action.payload;
+        // Unchanged pictures are kept from the copies already in memory
+        // (utils/shareUnchanged.ts).
+        const before = new Map((original(state.characters) || []).map((c: Character) => [c.id, c]));
+        state.characters = (action.payload as Character[]).map((c: Character) => shareUnchanged(before.get(c.id), c));
       })
       .addCase(fetchCharacters.rejected, (state, action) => {
         state.loading = false;
@@ -151,7 +155,7 @@ const characterSlice = createSlice({
         // pick up edits made elsewhere (Character Editor, an in-chat
         // generate/gallery action) without needing a full app reload.
         const idx = state.characters.findIndex((c) => c.id === action.payload.id);
-        if (idx !== -1) state.characters[idx] = action.payload;
+        if (idx !== -1) state.characters[idx] = shareUnchanged(original(state.characters[idx]), action.payload);
         else state.characters.push(action.payload);
       })
       .addCase(fetchCharacterById.rejected, (state, action) => {
@@ -169,7 +173,9 @@ const characterSlice = createSlice({
         // the rest of the running app keeps showing the pre-edit character
         // until something else happens to refetch it.
         const idx = state.characters.findIndex((c) => c.id === action.payload.id);
-        if (idx !== -1) state.characters[idx] = action.payload;
+        // Each save reads the character afresh; its unchanged pictures are
+        // kept from the copy already in memory (utils/shareUnchanged.ts).
+        if (idx !== -1) state.characters[idx] = shareUnchanged(original(state.characters[idx]), action.payload);
       })
       .addCase(updateCharacter.rejected, (state, action) => {
         state.error = action.payload as string;

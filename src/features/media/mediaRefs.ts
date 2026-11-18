@@ -28,7 +28,9 @@ export const dataUrlToBlob = (dataUrl: string): Blob => {
   const type = header.match(/^data:([^;,]+)/)?.[1] || "application/octet-stream";
   const body = dataUrl.slice(comma + 1);
   if (!/;base64/i.test(header)) return new Blob([decodeURIComponent(body)], { type });
-  const binary = atob(body);
+  // Picture data a model wrote can carry line breaks or spaces, which the
+  // browser's decoder refuses.
+  const binary = atob(body.replace(/\s+/g, ""));
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return new Blob([bytes], { type });

@@ -1,6 +1,7 @@
 import Dexie, { Table } from "dexie";
 import { DB_NAME } from "../utils/constants";
 import { Chat, Character, World, Adventure } from "../types";
+import { shareUnchanged } from "../utils/shareUnchanged";
 import { blobToDataUrl, chatHasInlineMedia, dataUrlToBlob, inlineChatMedia, isMediaRef, MEDIA_PREFIX, mediaIdFor, mediaIdOf, moveChatMedia, shouldMove } from "../features/media/mediaRefs";
 
 // A picture or video kept apart from its chat (features/media/mediaRefs.ts).
@@ -74,6 +75,16 @@ export const db = new KindredDB();
 
 const chatLocks = new Map<number, Promise<void>>();
 
+// The copy of each character read or saved last, whose pictures a fresh
+// read reuses. It holds what the app already has in memory, nothing more.
+const lastCharacter = new Map<number, Character>();
+const sharedCharacter = (character: Character): Character => {
+  if (character?.id == null) return character;
+  const shared = shareUnchanged(lastCharacter.get(character.id), character);
+  lastCharacter.set(character.id, shared);
+  return shared;
+};
+
 export const dbService = {
   // Settings (e.g. Directory Handle)
   async getSetting(key: string): Promise<any> {
@@ -99,11 +110,18 @@ export const dbService = {
   // fingerprint, and named in a message as "media:<id>".
   async storeMedia(src: string): Promise<string> {
     if (!shouldMove(src)) return src;
-    const id = await mediaIdFor(src);
-    if (!(await db.media.where("id").equals(id).count())) {
-      await db.media.put({ id, blob: dataUrlToBlob(src), createdAt: Date.now() });
+    // A picture that can't be read or stored stays where it was: a chat
+    // save must never fail over one picture (every send in that chat did).
+    try {
+      const id = await mediaIdFor(src);
+      if (!(await db.media.where("id").equals(id).count())) {
+        await db.media.put({ id, blob: dataUrlToBlob(src), createdAt: Date.now() });
+      }
+      return `${MEDIA_PREFIX}${id}`;
+    } catch (err) {
+      console.warn("Couldn't store a picture apart; it stays in its message.", err);
+      return src;
     }
-    return `${MEDIA_PREFIX}${id}`;
   },
 
   async getMediaBlob(ref: string): Promise<Blob> {
@@ -229,15 +247,18 @@ export const dbService = {
     }
   },
 
-  // Characters
+  // Characters. Each read reuses the pictures of the copy read or saved
+  // last (utils/shareUnchanged.ts): a character is read afresh several times
+  // a reply, and old copies kept alive elsewhere each held their own copy of
+  // every picture until the tab ran out of memory (2026-11-18).
   async getAllCharacters(): Promise<Character[]> {
-    return await db.characters.toArray();
+    return (await db.characters.toArray()).map(sharedCharacter);
   },
 
   async getCharacterById(id: number): Promise<Character> {
     const character = await db.characters.get(id);
     if (!character) throw new Error(`Character with id ${id} not found.`);
-    return character;
+    return sharedCharacter(character);
   },
 
   async addCharacter(character: Omit<Character, "id">): Promise<number> {
@@ -245,10 +266,13 @@ export const dbService = {
   },
 
   async updateCharacter(character: Character): Promise<number> {
-    return await db.characters.put(character);
+    const id = await db.characters.put(character);
+    sharedCharacter(character);
+    return id;
   },
 
   async deleteCharacter(id: number): Promise<void> {
+    lastCharacter.delete(id);
     return await db.characters.delete(id);
   },
 
