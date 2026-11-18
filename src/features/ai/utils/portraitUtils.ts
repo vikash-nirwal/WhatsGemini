@@ -1,4 +1,5 @@
 import { dbService } from "../../../services/dbService";
+import { isMediaRef } from "../../media/mediaRefs";
 
 // Parses the "WxH" strings this app already uses for pixel-dimension
 // settings (see IMAGE_RESOLUTIONS/DEFAULT_PORTRAIT_SAVE_SIZE in constants.ts).
@@ -117,6 +118,7 @@ export const blobToDataUrl = (blob: Blob): Promise<string> =>
 // or canvas load can use. Mirrors DisplayImage's own resolution logic for
 // call sites that need it imperatively rather than as a React component.
 export const resolveImageSrcToUrl = async (srcContext: string): Promise<string> => {
+  if (isMediaRef(srcContext)) return URL.createObjectURL(await dbService.getMediaBlob(srcContext));
   if (!srcContext.startsWith("local:")) return srcContext;
   const dirHandle = await dbService.getSetting("image_save_directory");
   if (!dirHandle) throw new Error("Set an Image Save Directory in Settings first.");

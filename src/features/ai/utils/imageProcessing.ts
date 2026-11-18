@@ -1,4 +1,5 @@
 import { dbService } from "../../../services/dbService";
+import { blobToDataUrl, isMediaRef } from "../../media/mediaRefs";
 import { NormalizedImage } from "../types";
 
 export const downscaleImageBase64 = async (base64Str: string, mimeType: string): Promise<string> => {
@@ -45,7 +46,18 @@ export const downscaleImageBase64 = async (base64Str: string, mimeType: string):
 export const appendCharacterImages = async (images: string[] | undefined): Promise<NormalizedImage[]> => {
   const result: NormalizedImage[] = [];
   if (images && images.length > 0) {
-    for (const imgRef of images) {
+    for (const stored of images) {
+      // A picture kept apart from its chat is read back as picture data
+      // and goes the same way as one that was never moved.
+      let imgRef = stored;
+      if (isMediaRef(stored)) {
+        try {
+          imgRef = await blobToDataUrl(await dbService.getMediaBlob(stored));
+        } catch (e) {
+          console.error("Failed to load a stored picture for AI context:", e);
+          continue;
+        }
+      }
       if (imgRef.startsWith('local:')) {
         try {
           const filename = imgRef.substring(6);

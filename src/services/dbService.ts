@@ -1,6 +1,14 @@
 import Dexie, { Table } from "dexie";
 import { DB_NAME } from "../utils/constants";
 import { Chat, Character, World, Adventure } from "../types";
+import { blobToDataUrl, chatHasInlineMedia, dataUrlToBlob, inlineChatMedia, isMediaRef, MEDIA_PREFIX, mediaIdFor, mediaIdOf, moveChatMedia, shouldMove } from "../features/media/mediaRefs";
+
+// A picture or video kept apart from its chat (features/media/mediaRefs.ts).
+export interface MediaRecord {
+  id: string;
+  blob: Blob;
+  createdAt: number;
+}
 
 class KindredDB extends Dexie {
   chats!: Table<Chat, number>;
@@ -8,6 +16,7 @@ class KindredDB extends Dexie {
   worlds!: Table<World, number>;
   adventures!: Table<Adventure, number>;
   settings!: Table<{ key: string, value: any }, string>;
+  media!: Table<MediaRecord, string>;
 
   constructor() {
     super(DB_NAME);
@@ -46,6 +55,18 @@ class KindredDB extends Dexie {
       adventures: "++id, title, timestamp, worldId, *characterIds, status",
       settings: "key",
     });
+    // Pictures and videos kept apart from chats (the crash of 2026-11-18).
+    // A new table only: existing chats are moved over after opening, one at
+    // a time (moveInlineMedia), so a failure leaves a chat as it was rather
+    // than the whole database unopenable.
+    this.version(7).stores({
+      chats: "++id, title, timestamp, content, characterId, *characterIds",
+      characters: "++id, name, description, prompt, relationship, appearance, avatar",
+      worlds: "++id, name",
+      adventures: "++id, title, timestamp, worldId, *characterIds, status",
+      settings: "key",
+      media: "id",
+    });
   }
 }
 
@@ -74,8 +95,75 @@ export const dbService = {
     return chat;
   },
 
+  // Pictures and videos (features/media/mediaRefs.ts): stored once by their
+  // fingerprint, and named in a message as "media:<id>".
+  async storeMedia(src: string): Promise<string> {
+    if (!shouldMove(src)) return src;
+    const id = await mediaIdFor(src);
+    if (!(await db.media.where("id").equals(id).count())) {
+      await db.media.put({ id, blob: dataUrlToBlob(src), createdAt: Date.now() });
+    }
+    return `${MEDIA_PREFIX}${id}`;
+  },
+
+  async getMediaBlob(ref: string): Promise<Blob> {
+    if (!isMediaRef(ref)) throw new Error("Not a stored picture.");
+    const record = await db.media.get(mediaIdOf(ref));
+    if (!record) throw new Error("This picture is missing from this browser.");
+    return record.blob;
+  },
+
+  async getMediaRecords(ids: string[]): Promise<MediaRecord[]> {
+    return (await db.media.bulkGet(ids)).filter((r): r is MediaRecord => Boolean(r));
+  },
+
+  async putMediaRecords(records: MediaRecord[]): Promise<void> {
+    if (records.length > 0) await db.media.bulkPut(records);
+  },
+
+  // Every chat write moves the pictures in it out first, so nothing large is
+  // ever kept inside a chat again, whichever path wrote it.
+  async withMediaMoved<T extends Partial<Pick<Chat, "content" | "tree">>>(chat: T): Promise<T> {
+    return moveChatMedia(chat, (src) => dbService.storeMedia(src));
+  },
+
+  // The chat with its stored pictures inside it again, for a file that
+  // leaves the app. A picture missing here is left as its reference.
+  async withMediaInlined<T extends Partial<Pick<Chat, "content" | "tree">>>(chat: T): Promise<T> {
+    return inlineChatMedia(chat, async (ref) => {
+      try {
+        return await blobToDataUrl(await dbService.getMediaBlob(ref));
+      } catch {
+        return ref;
+      }
+    });
+  },
+
+  // Moves the pictures already inside chats into the media table, one chat
+  // at a time, each under its chat's lock so nothing written meanwhile is
+  // lost. Returns how many chats changed. A chat that fails stays as it was
+  // and is tried again next time.
+  async moveInlineMedia(): Promise<number> {
+    let moved = 0;
+    const ids = (await db.chats.toCollection().primaryKeys()) as number[];
+    for (const id of ids) {
+      try {
+        const changed = await dbService.withChatLock(id, async () => {
+          const chat = await db.chats.get(id);
+          if (!chat || !chatHasInlineMedia(chat)) return false;
+          await db.chats.put(await dbService.withMediaMoved(chat));
+          return true;
+        });
+        if (changed) moved++;
+      } catch (err) {
+        console.warn(`Couldn't move the pictures out of chat ${id}; it's kept as it was.`, err);
+      }
+    }
+    return moved;
+  },
+
   async addChat(chat: Omit<Chat, "id">): Promise<number> {
-    return await db.chats.add(chat as Chat);
+    return await db.chats.add((await dbService.withMediaMoved(chat)) as Chat);
   },
 
   // One change at a time per chat (the user's report, 2026-10-27: a reply
@@ -100,13 +188,15 @@ export const dbService = {
   },
 
   async updateChat(chat: Chat): Promise<number> {
-    return await db.chats.put(chat);
+    return await db.chats.put(await dbService.withMediaMoved(chat));
   },
 
   // Read, patch and write a chat in one transaction, so two patches of
   // different fields landing at once (say a reply's scene state and its
   // story tags) can't overwrite each other.
   async patchChat(id: number, patch: Partial<Chat>): Promise<Chat> {
+    // Pictures are stored before the transaction: it may only touch chats.
+    patch = await dbService.withMediaMoved(patch);
     return await dbService.withChatLock(id, () =>
       db.transaction("rw", db.chats, async () => {
         const chat = await db.chats.get(id);

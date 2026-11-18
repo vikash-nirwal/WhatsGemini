@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { dbService } from '../../services/dbService';
+import { isMediaRef } from '../../features/media/mediaRefs';
 
 interface DisplayVideoProps extends React.VideoHTMLAttributes<HTMLVideoElement> {
   srcContext: string | undefined;
@@ -14,8 +16,22 @@ export const DisplayVideo: React.FC<DisplayVideoProps> = ({ srcContext, classNam
 
   useEffect(() => {
     let currentUrl: string | null = null;
+    let isMounted = true;
 
-    if (srcContext?.startsWith('data:video')) {
+    if (srcContext && isMediaRef(srcContext)) {
+      // Kept apart from its chat (features/media/mediaRefs.ts).
+      dbService.getMediaBlob(srcContext).then(
+        (blob) => {
+          if (!isMounted) return;
+          currentUrl = URL.createObjectURL(blob);
+          setObjectUrl(currentUrl);
+        },
+        (err) => {
+          console.error("Failed to load a stored video", err);
+          if (isMounted) setError(true);
+        }
+      );
+    } else if (srcContext?.startsWith('data:video')) {
       try {
         const arr = srcContext.split(',');
         const mimeMatch = arr[0].match(/:(.*?);/);
@@ -41,6 +57,7 @@ export const DisplayVideo: React.FC<DisplayVideoProps> = ({ srcContext, classNam
     }
 
     return () => {
+      isMounted = false;
       if (currentUrl) URL.revokeObjectURL(currentUrl);
     };
   }, [srcContext]);

@@ -1,6 +1,6 @@
 # Kindred roadmap
 
-What's left to build. What's built is mapped in [PROGRESS.md](PROGRESS.md); the details are in the git history. Item numbers never change; new ideas take the next free number (next: #273).
+What's left to build. What's built is mapped in [PROGRESS.md](PROGRESS.md); the details are in the git history. Item numbers never change; new ideas take the next free number (next: #274).
 
 Sizes: **S** = an hour or two, **M** = about a day, **L** = several days.
 
@@ -18,6 +18,10 @@ Built on #253–#256 (18+ stories, intensity, intimate beats, limits and tone do
 #266–#271 are built (2026-11-10, see PROGRESS.md). What they left out:
 
 - **#272 Tools: what's left (M).** A switch per character ("What they can do" in the editor) on top of the ones in Settings › Tools; reminders listed and cancellable from the chat menu (`Chat.reminders` is only visible as the chip on the message that set one); a preview card for a link you send; `search` for providers without their own lookup (needs a search service that allows calls from a browser: which one is the user's call); reading a link through the host's bridge when embedded (#264, a new message type); tool calls in the prompt inspector (`requestLog.ts`); facts switched off in worlds with their own story time; a check that no names go into search queries.
+
+## Pictures kept apart, the rest
+
+- **#273 Stored pictures: what's left (M).** Chats keep pictures and videos in the `media` table since 2026-11-18 (`features/media/mediaRefs.ts`). Still inside their records: characters' pictures (avatars, appearance photos, mood portraits, albums, stickers; 105 MB in the user's library, all held in memory), adventures' scene pictures, statuses and channel posts. Nothing removes a stored picture when its message or chat is deleted (a picture may be shared by a forwarded copy, so it needs a sweep over every record, not a delete per message). A generated picture the save folder couldn't take is only logged; it could say so.
 
 ## Open
 

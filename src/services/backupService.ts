@@ -1,5 +1,6 @@
 import JSZip from "jszip";
-import { dbService } from "./dbService";
+import { dbService, MediaRecord } from "./dbService";
+import { mediaRefsIn } from "../features/media/mediaRefs";
 import { Adventure, Channel, Chat, Character, Message, ConversationTree, MyStatus, UserProfile, World } from "../types";
 import { IdMaps, localImagesIn, rehomeTalks, remapAdventure, remapChannel, remapCharacter, remapChat, remapMessage, remapMyStatus, remapTreeRefs, remapWorld } from "./backupRemap";
 import { LS_USER_PERSONAS } from "../utils/constants";
@@ -12,6 +13,11 @@ export const BACKUP_FILE_TYPE = "whatsgemini-backup";
 export const BACKUP_FILE_VERSION = 1;
 export const BACKUP_ZIP_JSON_ENTRY = "backup.json";
 export const BACKUP_ZIP_IMAGES_DIR = "images";
+// Pictures and videos kept apart from chats, by id, with their types listed.
+export const BACKUP_ZIP_MEDIA_DIR = "media";
+export const BACKUP_ZIP_MEDIA_TYPES = "media-types.json";
+// Read a few at a time, so a big library isn't loaded all at once.
+const MEDIA_BATCH = 20;
 
 export interface BackupData {
   type: typeof BACKUP_FILE_TYPE;
@@ -356,6 +362,20 @@ export const getFullBackupZip = async (
     }
   }
 
+  // Pictures and videos kept apart from chats (features/media/mediaRefs.ts)
+  // travel as files too, with their types listed, since a zip keeps none.
+  const mediaIds = Array.from(mediaRefsIn([backupData.chats, backupData.characters, backupData.worlds, backupData.adventures, backupData.myStatuses, backupData.channels, personas]));
+  const types: Record<string, string> = {};
+  for (let i = 0; i < mediaIds.length; i += MEDIA_BATCH) {
+    for (const record of await dbService.getMediaRecords(mediaIds.slice(i, i + MEDIA_BATCH))) {
+      zip.file(`${BACKUP_ZIP_MEDIA_DIR}/${record.id}`, record.blob);
+      types[record.id] = record.blob.type;
+      imagesIncluded++;
+    }
+  }
+  imagesSkipped += mediaIds.length - Object.keys(types).length;
+  if (mediaIds.length > 0) zip.file(BACKUP_ZIP_MEDIA_TYPES, JSON.stringify(types));
+
   const blob = await zip.generateAsync({ type: "blob" });
   return { blob, chats: backupData.chats, characters: backupData.characters, worlds: backupData.worlds || [], adventures: backupData.adventures || [], imagesIncluded, imagesSkipped };
 };
@@ -403,9 +423,31 @@ export const parseBackupFile = async (file: File): Promise<ParsedBackup> => {
 export const applyParsedBackup = async (
   parsed: ParsedBackup
 ): Promise<{ chatsRestored: number; charactersRestored: number; worldsRestored: number; adventuresRestored: number; imagesRestored: number }> => {
+  // Stored pictures go back first, so the restored chats find them. They
+  // need no save folder, and one already here is the same picture.
+  let imagesRestored = 0;
+  const typesEntry = parsed.zip?.file(BACKUP_ZIP_MEDIA_TYPES);
+  if (parsed.zip && typesEntry) {
+    const types = JSON.parse(await typesEntry.async("string")) as Record<string, string>;
+    const ids = Object.keys(types);
+    for (let i = 0; i < ids.length; i += MEDIA_BATCH) {
+      const records: MediaRecord[] = [];
+      for (const id of ids.slice(i, i + MEDIA_BATCH)) {
+        try {
+          const entry = parsed.zip.file(`${BACKUP_ZIP_MEDIA_DIR}/${id}`);
+          if (!entry) continue;
+          records.push({ id, blob: new Blob([await entry.async("arraybuffer")], { type: types[id] }), createdAt: Date.now() });
+        } catch (e) {
+          console.warn(`Restore: failed to read stored picture "${id}"`, e);
+        }
+      }
+      await dbService.putMediaRecords(records);
+      imagesRestored += records.length;
+    }
+  }
+
   const { chatsRestored, charactersRestored, worldsRestored, adventuresRestored } = await restoreLibrary(parsed.data);
 
-  let imagesRestored = 0;
   if (parsed.zip && parsed.imageFilenames.length > 0) {
     const dirHandle = await dbService.getSetting("image_save_directory");
     if (dirHandle) {

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { dbService } from '../../services/dbService';
+import { isMediaRef } from '../../features/media/mediaRefs';
 
 interface DisplayImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   srcContext: string | undefined;
@@ -39,6 +40,19 @@ export const DisplayImage: React.FC<DisplayImageProps> = ({ srcContext, classNam
     if (srcContext?.startsWith('local:')) {
       const filename = srcContext.substring(6);
       loadLocalImage(filename);
+    } else if (srcContext && isMediaRef(srcContext)) {
+      // Kept apart from its chat (features/media/mediaRefs.ts).
+      dbService.getMediaBlob(srcContext).then(
+        (blob) => {
+          if (!isMounted) return;
+          currentUrl = URL.createObjectURL(blob);
+          setObjectUrl(currentUrl);
+        },
+        (err) => {
+          console.error("Failed to load a stored picture", err);
+          if (isMounted) setError(true);
+        }
+      );
     } else if (srcContext?.startsWith('data:image')) {
       // It's already base64, but we convert it to Object URL for better DOM performance
       try {

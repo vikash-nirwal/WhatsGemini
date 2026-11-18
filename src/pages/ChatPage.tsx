@@ -3,6 +3,7 @@ import { blockedByThem, blockedByYou, blockNotesFor, buildBlockDirective } from 
 import { buildStickerDirective } from "../features/character/stickers";
 import { buildInviteAnswerNote, buildInviteDirective } from "../features/chat/invites";
 import { showMessage } from "../features/chat/renderWindow";
+import { dbService } from "../services/dbService";
 import { newPlanId } from "../features/chat/sharedPlans";
 import { buildDisappearingNote, DISAPPEAR_LABEL, pruneDisappeared } from "../features/chat/disappearing";
 import { useEffect, useState, useMemo, useRef } from "react";
@@ -2605,12 +2606,14 @@ const ChatPage = () => {
     }
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!chatIdNum || !chats) return;
     const currentChat = chats.find((c) => c.id === chatIdNum);
     if (!currentChat) return;
 
-    const { id, ...exportData } = currentChat;
+    // Pictures kept apart from the chat go back inside the file, which is
+    // read outside this browser.
+    const { id, ...exportData } = await dbService.withMediaInlined(currentChat);
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);

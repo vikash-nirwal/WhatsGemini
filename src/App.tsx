@@ -38,6 +38,7 @@ import AutoBackup from "src/components/molecules/AutoBackup";
 import LetterWriter from "src/components/molecules/LetterWriter";
 import FirstTexter from "src/components/molecules/FirstTexter";
 import ReminderRunner from "src/components/molecules/ReminderRunner";
+import { dbService } from "src/services/dbService";
 import MyStatusWatcher from "src/components/molecules/MyStatusWatcher";
 import ProfileChanger from "src/components/molecules/ProfileChanger";
 import ChannelPoster from "src/components/molecules/ChannelPoster";
@@ -168,6 +169,15 @@ const AppContent = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+      // Pictures still inside chats are moved to their own table before the
+      // chats load (the crash of 2026-11-18), so a chat full of pictures is
+      // never held in memory whole. Once done, this finds nothing to move.
+      try {
+        const moved = await dbService.moveInlineMedia();
+        if (moved > 0) console.info(`Moved the pictures out of ${moved} chat(s).`);
+      } catch (err) {
+        console.warn("Couldn't move pictures out of chats; they still work where they are.", err);
+      }
       try {
         await dispatch(fetchChats()).unwrap();
         await dispatch(fetchCharacters()).unwrap();
