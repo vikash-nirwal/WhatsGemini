@@ -18,6 +18,7 @@ class KindredDB extends Dexie {
   adventures!: Table<Adventure, number>;
   settings!: Table<{ key: string, value: any }, string>;
   media!: Table<MediaRecord, string>;
+  sync!: Table<{ key: string; [field: string]: unknown }, string>;
 
   constructor() {
     super(DB_NAME);
@@ -68,10 +69,71 @@ class KindredDB extends Dexie {
       settings: "key",
       media: "id",
     });
+    // Sync between computers (#274): what each record's synced version is
+    // and what's waiting to go to the sync folder. A new table only.
+    this.version(8).stores({
+      chats: "++id, title, timestamp, content, characterId, *characterIds",
+      characters: "++id, name, description, prompt, relationship, appearance, avatar",
+      worlds: "++id, name",
+      adventures: "++id, title, timestamp, worldId, *characterIds, status",
+      settings: "key",
+      media: "id",
+      sync: "key",
+    });
   }
 }
 
 export const db = new KindredDB();
+
+// Sync between computers (#274) hears about every write here, however it's
+// made, without reading anything back: a change hook would read the old copy
+// of each record first, and a character can carry 100 MB of pictures.
+// features/sync/syncLocal.ts sets what to do; with sync off it does nothing.
+export type WriteListener = (table: string, keys: unknown[], deleted: boolean) => void;
+let writeListener: WriteListener | undefined;
+let newId: (() => number | undefined) | undefined;
+export const setWriteListener = (fn: WriteListener | undefined) => {
+  writeListener = fn;
+};
+// With sync on, a record added without an id gets one no other computer
+// will hand out (syncLocal.ts nextSyncId).
+export const setNewIdMaker = (fn: (() => number | undefined) | undefined) => {
+  newId = fn;
+};
+const ID_TABLES = new Set(["chats", "characters", "worlds", "adventures"]);
+db.use({
+  stack: "dbcore",
+  name: "kindred-sync",
+  create: (down) => ({
+    ...down,
+    table: (name) => {
+      const table = down.table(name);
+      if (name === "sync") return table;
+      return {
+        ...table,
+        mutate: async (req) => {
+          if (req.type === "add" && newId && ID_TABLES.has(name) && !req.keys) {
+            const make = newId;
+            req = {
+              ...req,
+              values: req.values.map((v) => {
+                const id = v && typeof v === "object" && v.id == null ? make() : undefined;
+                return id == null ? v : { ...v, id };
+              }),
+            };
+          }
+          const res = await table.mutate(req);
+          if (writeListener && req.type !== "deleteRange") {
+            const keys = req.type === "delete" ? req.keys : res.results || req.keys || [];
+            const done = keys.filter((_k: unknown, i: number) => !res.failures?.[i]);
+            if (done.length) writeListener(name, done, req.type === "delete");
+          }
+          return res;
+        },
+      };
+    },
+  }),
+});
 
 const chatLocks = new Map<number, Promise<void>>();
 

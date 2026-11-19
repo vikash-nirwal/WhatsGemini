@@ -4,6 +4,7 @@ import { Button } from 'src/components/atoms/button';
 import { formatRelativeTime } from '../../utils/formatRelativeTime';
 import { SettingsCard } from 'src/components/molecules/settings-card';
 import DriveBackupSection from './DriveBackupSection';
+import SyncSection from './SyncSection';
 
 interface DataBackupSettingsProps {
   lastBackupAt: number;
@@ -59,6 +60,10 @@ const DataBackupSettings: React.FC<DataBackupSettingsProps> = ({
             style={{ display: "none" }}
           />
         </div>
+      </SettingsCard>
+
+      <SettingsCard>
+        <SyncSection />
       </SettingsCard>
 
       <SettingsCard>

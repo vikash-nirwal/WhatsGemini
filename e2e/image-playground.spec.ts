@@ -64,7 +64,7 @@ test("a picture with a character's photo, as written, with another model, and no
   await expect(result).toContainText("references: Aria (1)");
   await result.getByText("Prompt sent").click();
   // As written, with the locked look, and no name for the image model.
-  await expect(result.locator('[data-slot="playground-prompt"]')).toContainText("the character at the harbour at sunset");
+  await expect(result.locator('[data-slot="playground-prompt"]')).toContainText("The character at the harbour at sunset");
   await expect(result.locator('[data-slot="playground-prompt"]')).toContainText("red hair, freckles");
   expect(submits).toHaveLength(1);
   expect(submits[0].url()).toBe("https://queue.fal.run/fal-ai/bytedance/seedream/v4.5/edit");
