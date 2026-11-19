@@ -81,6 +81,14 @@ export class ImagePromptRefusedError extends Error {
 // Appended to the character's reply, like the other image warnings.
 export const IMAGE_PROMPT_REFUSED_WARNING = `\n\n[Warning: ${IMAGE_PROMPT_REFUSED_MESSAGE}]`;
 
+// A reply's text without the notes about its picture (refused, failed,
+// toned down), for when the picture is drawn again (2026-11-19).
+export const withoutPictureWarnings = (text: string): string =>
+  text
+    .split(IMAGE_PROMPT_REFUSED_WARNING).join("")
+    .replace(/\n*\[Warning: Image generation failed[^\]]*\]/g, "")
+    .replace(/\n*\[Note: the picture was toned down[^\]]*\]/g, "");
+
 // Step 1 of an image request: the text model writes the picture's prompt and
 // the character's reply. Two calls, because one call doing both did neither
 // well and, when it broke the PROMPT/SUMMARY format, sent the user's own

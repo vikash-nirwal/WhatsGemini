@@ -245,10 +245,17 @@ const ChatMessage = React.memo(({
       OOC
     </span>
   ) : null;
+  const handleEdit = useCallback(() => onStartEdit(msg), [onStartEdit, msg]);
+  // The text model wouldn't write the picture's prompt (2026-11-19): you can.
+  const pictureNotice = !isUser && msg.imageRefused && !msg.images?.length ? (
+    <div data-slot="picture-refused" className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs text-foreground">
+      <span className="flex-1 min-w-[180px]">The model wouldn't write this picture's prompt.</span>
+      <button type="button" onClick={handleEdit} className="font-medium text-primary hover:underline">Write the prompt yourself</button>
+    </div>
+  ) : null;
   const refusalNotice = !isUser && msg.isRefusal ? (
     <RefusalNotice onRegenerate={handleRegenerate} onClear={onClearRefusal ? handleClearRefusal : undefined} disabled={aiLoading} />
-  ) : null;
-  const handleEdit = useCallback(() => onStartEdit(msg), [onStartEdit, msg]);
+  ) : pictureNotice;
   const handleDeleteBranch = useCallback(() => msg.id && onDeleteBranch?.(msg.id), [onDeleteBranch, msg.id]);
   const handleToggleBookmark = useCallback(() => onToggleBookmark?.(msg), [onToggleBookmark, msg]);
   const handleInspect = useCallback(() => onInspect?.(msg), [onInspect, msg]);

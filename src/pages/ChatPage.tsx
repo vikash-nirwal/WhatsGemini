@@ -11,7 +11,9 @@ import { avatarOf } from "../features/character/profileChanges";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { addChatNotice, setBlocked, fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, insertCompressionSummary, removeCompressionSummary, forkChat, updateChatMessage, updateChatOptions, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatGreeting, setPendingFollowupAt, addPreparedChat, addChat } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter, addCharacter, patchCharacter } from "../features/characterSlice";
-import { generateAIResponse, compressChatHistory, autoCompressChat, generateAvatarImage, summarizeChapter, generateAssistText, generateBackdropImage } from "../features/aiSlice";
+import { withoutPictureWarnings } from "../features/ai/utils/imageGeneration";
+import ImageProgressBar from "src/components/molecules/ImageProgressBar";
+import { generateAIResponse, drawImage, PendingImage, compressChatHistory, autoCompressChat, generateAvatarImage, summarizeChapter, generateAssistText, generateBackdropImage } from "../features/aiSlice";
 import { parseSlashCommand, SLASH_COMMANDS } from "../features/chat/slashCommands";
 import { buildStoryMarkdown, storyFileName } from "../features/chat/storyExport";
 import { CharacterModelOverride, resolveTurnModel } from "../features/ai/modelResolution";
@@ -911,6 +913,36 @@ const ChatPage = () => {
   // write to the same chat (addMessage, updateChatTree, ...) - otherwise the
   // two full-record writes race and whichever lands second silently wins,
   // dropping the other's change.
+  // After a reply is saved (2026-11-19): its picture is drawn now, with the
+  // bar above the message box, instead of the reply waiting for it; and a
+  // picture whose prompt the model refused is marked, so you can write it.
+  type PictureContext = { characterImages?: string[]; characterName?: string; otherRoomCharacters?: { name: string; images: string[] }[]; hideNames?: string[] };
+  const afterReplySaved = async (messageId: string | undefined, payloadObj: { pendingImage?: PendingImage; imageRefused?: boolean } | undefined, speaker: Character, context: PictureContext) => {
+    if (!messageId || !chatIdNum) return;
+    const chatId = chatIdNum;
+    if (payloadObj?.imageRefused) await dispatch(updateChatMessage({ chatId, messageId, patch: { imageRefused: true } }));
+    const pending = payloadObj?.pendingImage;
+    if (pending) await drawPictureFor(chatId, messageId, pending, speaker, context);
+  };
+  const drawPictureFor = async (chatId: number, messageId: string, pending: PendingImage, speaker: Character, context: PictureContext) => {
+    const result = await dispatch(drawImage({
+      chatId, prompt: pending.prompt, params: pending.params, labels: pending.labels,
+      adultImages, imagePresetId: speaker.imagePresetId, artStyle: speaker.artStyle, localImageSettings: speaker.localImageSettings,
+      ...context,
+    })).unwrap().catch(() => undefined);
+    if (!result) return;
+    await trackUsage(result.tokenCount, result.costEstimate);
+    // A redraw's earlier warning goes; this one's, if any, takes its place.
+    await dispatch(updateChatMessage({ chatId, messageId, patch: (saved) => ({
+      images: result.images.length ? result.images : saved.images,
+      imagePrompt: pending.prompt,
+      imageParams: pending.params,
+      imageRefused: result.images.length ? undefined : saved.imageRefused,
+      txt: `${withoutPictureWarnings(saved.txt || "")}${result.warning || ""}`,
+    }) }));
+    if (result.images.length) void dispatch(patchCharacter(speaker.id, (fresh) => ({ gallery: [...(fresh.gallery || []), ...result.images] })));
+  };
+
   const trackUsage = async (tokens?: number, cost?: number) => {
     if (!chatIdNum || (!tokens && !cost)) return;
     await dispatch(incrementChatUsage({ chatId: chatIdNum, tokens: tokens || 0, cost: cost || 0 }));
@@ -1131,6 +1163,7 @@ const ChatPage = () => {
       history, systemInstruction, postHistoryNote, streamKey, characterImages, adultImages, imagePresetId: speaker?.imagePresetId, characterName, artStyle: speaker?.artStyle,
       isImageRequest: includeImage, isVideoRequest: includeVideo, isCharacterInitiated: true, isAutoSelfie: shouldAutoSelfie,
       customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, hideNames, localImageSettings: speaker.localImageSettings,
+      deferImage: true,
     }));
     setRecordingVoiceNote(false);
 
@@ -1144,13 +1177,13 @@ const ChatPage = () => {
     const generatedImages = payloadObj?.images || undefined;
     const generatedVideos = payloadObj?.videos || undefined;
     const followupText = finalizeSpeakerText(typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string), speaker);
-    const followupIsVoiceNote = replyIsVoiceNote(followupVoiceNote, { text: followupText, images: generatedImages, videos: generatedVideos, isRefusal: payloadObj?.isRefusal });
+    const followupIsVoiceNote = replyIsVoiceNote(followupVoiceNote, { text: followupText, images: payloadObj?.pendingImage ? [""] : generatedImages, videos: generatedVideos, isRefusal: payloadObj?.isRefusal });
     const aiAddResult = await dispatch(addMessage({
       chatId: chatIdNum,
       role: AI,
       text: followupText,
       images: generatedImages,
-      isImageRequest: Boolean(generatedImages && generatedImages.length > 0),
+      isImageRequest: Boolean((generatedImages && generatedImages.length > 0) || payloadObj?.pendingImage),
       videos: generatedVideos,
       isVideoRequest: Boolean(generatedVideos && generatedVideos.length > 0),
       videoPrompt: payloadObj?.videoPrompt,
@@ -1170,6 +1203,7 @@ const ChatPage = () => {
     // Manual follow-ups go through here too, but they start from a click in
     // a visible tab, so they only notify if the user has left meanwhile.
     notifyIfAway(speaker, notificationText(followupText, followupIsVoiceNote), generatedImages);
+    void afterReplySaved(((aiAddResult.payload as Message[]) || []).slice(-1)[0]?.id, payloadObj, speaker, { characterImages, characterName, otherRoomCharacters: otherParticipantImages, hideNames });
 
     // Await the refresh before the caller can act on it (e.g. bump followupCount) -
     // otherwise the scheduling effect below can still be looking at the previous
@@ -1706,7 +1740,7 @@ const ChatPage = () => {
       const sendVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest || shouldAutoSelfie));
       // Matches the "(voice note)" mark buildChatHistory puts on the same
       // message, so it's recognized as the prompt and not sent twice.
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: promptTextFor({ role: YOU, txt: text, isVoiceNote, replyTo, quotedStatus }), history, systemInstruction, postHistoryNote, streamKey, characterImages, adultImages, imagePresetId: speaker?.imagePresetId, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isVideoRequest, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, hideNames, localImageSettings: speaker.localImageSettings, promptImages: photos }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt: promptTextFor({ role: YOU, txt: text, isVoiceNote, replyTo, quotedStatus }), history, systemInstruction, postHistoryNote, streamKey, characterImages, adultImages, imagePresetId: speaker?.imagePresetId, characterName, artStyle: speaker?.artStyle, isImageRequest: isImageRequest || shouldAutoSelfie, isVideoRequest, isAutoSelfie: shouldAutoSelfie, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, hideNames, localImageSettings: speaker.localImageSettings, promptImages: photos, deferImage: true }));
       const aiResponse = await aiPromiseRef.current;
       setRecordingVoiceNote(false);
       aiPromiseRef.current = null;
@@ -1722,7 +1756,7 @@ const ChatPage = () => {
         const generatedImages = payloadObj?.images || undefined;
         const generatedVideos = payloadObj?.videos || undefined;
         const replyText = finalizeSpeakerText(typeof payloadObj?.text === 'string' ? payloadObj.text : (payloadObj as string), speaker);
-        const replyVoiceNote = replyIsVoiceNote(sendVoiceNote, { text: replyText, images: generatedImages, videos: generatedVideos, isRefusal: payloadObj?.isRefusal });
+        const replyVoiceNote = replyIsVoiceNote(sendVoiceNote, { text: replyText, images: payloadObj?.pendingImage ? [""] : generatedImages, videos: generatedVideos, isRefusal: payloadObj?.isRefusal });
         const aiAddResult = await dispatch(addMessage({
           chatId: chatIdNum,
           role: AI,
@@ -1744,6 +1778,7 @@ const ChatPage = () => {
           isVoiceNote: replyVoiceNote,
         }));
         notifyIfAway(speaker, notificationText(replyText, replyVoiceNote), generatedImages);
+        void afterReplySaved(((aiAddResult.payload as Message[]) || []).slice(-1)[0]?.id, payloadObj, speaker, { characterImages, characterName, otherRoomCharacters: otherParticipantImages, hideNames });
 
         if (generatedImages && generatedImages.length > 0) {
           void dispatch(patchCharacter(speaker.id, (fresh) => ({ gallery: [...(fresh.gallery || []), ...generatedImages] })));
@@ -1779,7 +1814,9 @@ const ChatPage = () => {
     }
   };
 
-  const handleEditMessage = async (index: number, newText: string, isImageRequest?: boolean, isVideoRequest?: boolean) => {
+  // `imagePrompt`: a reply's picture prompt, edited or written by you
+  // (2026-11-19); a changed one draws the picture again.
+  const handleEditMessage = async (index: number, newText: string, isImageRequest?: boolean, isVideoRequest?: boolean, imagePrompt?: string) => {
     if (!newText.trim() || !chatIdNum || !currentChat) return;
 
     setError(null);
@@ -1827,7 +1864,7 @@ const ChatPage = () => {
         await recallFor(speaker, contextUpToEdit);
         const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks, hideNames } = turnContextFor(contextUpToEdit, speaker, undefined, replyLengthLimit);
         const editVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest));
-        aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, postHistoryNote, streamKey, characterImages, adultImages, imagePresetId: speaker?.imagePresetId, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, hideNames, localImageSettings: speaker.localImageSettings, promptImages: sentPhotos }));
+        aiPromiseRef.current = dispatch(generateAIResponse({ prompt: newText, history, systemInstruction, postHistoryNote, streamKey, characterImages, adultImages, imagePresetId: speaker?.imagePresetId, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: speaker.modelOverride, appearanceLocks, hideNames, localImageSettings: speaker.localImageSettings, promptImages: sentPhotos, deferImage: true }));
         const aiResponse = await aiPromiseRef.current;
         setRecordingVoiceNote(false);
         aiPromiseRef.current = null;
@@ -1842,7 +1879,7 @@ const ChatPage = () => {
           const newAiMsg: Message = {
             role: AI,
             txt: editReplyText,
-            isVoiceNote: replyIsVoiceNote(editVoiceNote, { text: editReplyText, images: generatedImages, videos: generatedVideos, isRefusal: payloadObj?.isRefusal }),
+            isVoiceNote: replyIsVoiceNote(editVoiceNote, { text: editReplyText, images: payloadObj?.pendingImage ? [""] : generatedImages, videos: generatedVideos, isRefusal: payloadObj?.isRefusal }),
             images: generatedImages,
             videos: generatedVideos,
             videoPrompt: payloadObj?.videoPrompt,
@@ -1873,6 +1910,7 @@ const ChatPage = () => {
           const { tree: finalTree, nodeId: aiNodeId } = addChildNode(treeWithReaction, editedNodeId, newAiMsg);
           const finalContent = flattenPath(finalTree, aiNodeId);
           await dispatch(updateChatTree({ chatId: chatIdNum, content: finalContent, tree: finalTree, activeLeafId: aiNodeId }));
+          void afterReplySaved(aiNodeId, payloadObj, speaker, { characterImages, characterName, otherRoomCharacters: otherParticipantImages, hideNames });
 
           if (generatedImages && generatedImages.length > 0) {
             void dispatch(patchCharacter(speaker.id, (fresh) => ({ gallery: [...(fresh.gallery || []), ...generatedImages] })));
@@ -1895,9 +1933,19 @@ const ChatPage = () => {
         }
       } else {
         // Mid-conversation edit: update this node's text in place, no branch, no regeneration.
-        const updatedTree = updateNodeMessage(tree, targetNodeId, { ...tree.nodes[targetNodeId].message, txt: newText });
+        const edited = tree.nodes[targetNodeId].message;
+        const updatedTree = updateNodeMessage(tree, targetNodeId, { ...edited, txt: newText });
         const updatedContent = flattenPath(updatedTree, currentActiveLeafId);
         await dispatch(updateChatTree({ chatId: chatIdNum, content: updatedContent, tree: updatedTree, activeLeafId: currentActiveLeafId }));
+        // A reply's picture drawn again from the prompt you changed.
+        const prompt = imagePrompt?.trim();
+        if (edited.role === AI && prompt && prompt !== (edited.imagePrompt || "").trim()) {
+          const speaker = roomCharacters.find((c) => c.id === edited.speakerId) || characterData;
+          if (speaker) {
+            const { characterImages, characterName, otherParticipantImages, hideNames } = turnContextFor(treeContent.slice(0, index), speaker);
+            void drawPictureFor(chatIdNum, targetNodeId, { prompt, params: edited.imageParams || {} }, speaker, { characterImages, characterName, otherRoomCharacters: otherParticipantImages, hideNames });
+          }
+        }
       }
 
       dispatch(fetchChats());
@@ -1939,8 +1987,16 @@ const ChatPage = () => {
         : promptTextFor(precedingMessage);
       // For a followup, whether it had a picture is recorded on the followup
       // message itself (no preceding user turn to read it off of).
-      const isImageRequest = isFollowup ? (targetMessage?.isImageRequest || false) : (precedingMessage.isImageRequest || false);
-      const isVideoRequest = isFollowup ? (targetMessage?.isVideoRequest || false) : (precedingMessage.isVideoRequest || false);
+      const askedForImage = isFollowup ? (targetMessage?.isImageRequest || false) : (precedingMessage.isImageRequest || false);
+      const askedForVideo = isFollowup ? (targetMessage?.isVideoRequest || false) : (precedingMessage.isVideoRequest || false);
+      // A reply that came with a picture comes back with one, even when your
+      // message didn't ask for it (a selfie the character chose to send):
+      // regenerating it used to give a reply without its picture.
+      const hadImage = Boolean(targetMessage?.images?.length || targetMessage?.imagePrompt);
+      const hadVideo = Boolean(targetMessage?.videos?.length || targetMessage?.videoPrompt);
+      const isImageRequest = askedForImage || hadImage;
+      const isVideoRequest = askedForVideo || hadVideo;
+      const isAutoSelfie = !isFollowup && !askedForImage && !askedForVideo && hadImage;
       const extraDirectives = isFollowup ? [AUTO_REPLY_DIRECTIVE] : undefined;
       // The photo you sent with the message (#48) goes to the model again.
       const sentPhotos = !isFollowup && precedingMessage.images && precedingMessage.images.length > 0 ? precedingMessage.images : undefined;
@@ -1958,7 +2014,7 @@ const ChatPage = () => {
       await recallFor(speaker, historyUpToTarget);
       const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks, hideNames } = turnContextFor(historyUpToTarget, speaker, extraDirectives, replyLengthLimit);
       const regenVoiceNote = rollReplyVoiceNote(speaker, Boolean(isImageRequest || isVideoRequest));
-      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, characterImages, adultImages, imagePresetId: speaker?.imagePresetId, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, isCharacterInitiated: isFollowup, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: override || speaker.modelOverride, appearanceLocks, hideNames, localImageSettings: speaker.localImageSettings, promptImages: sentPhotos }));
+      aiPromiseRef.current = dispatch(generateAIResponse({ prompt, history, systemInstruction, postHistoryNote, streamKey, characterImages, adultImages, imagePresetId: speaker?.imagePresetId, characterName, artStyle: speaker?.artStyle, isImageRequest, isVideoRequest, isCharacterInitiated: isFollowup, isAutoSelfie, existingImagePrompt, existingImageParams, customEmotions: speaker.emotionPortraits?.customEmotions, otherRoomCharacters: otherParticipantImages, protectedCount, modelOverride: override || speaker.modelOverride, appearanceLocks, hideNames, localImageSettings: speaker.localImageSettings, promptImages: sentPhotos, deferImage: true }));
       const aiResponse = await aiPromiseRef.current;
       setRecordingVoiceNote(false);
       aiPromiseRef.current = null;
@@ -1973,9 +2029,9 @@ const ChatPage = () => {
         const newMessage: Message = {
           role: AI,
           txt: regenText,
-          isVoiceNote: replyIsVoiceNote(regenVoiceNote, { text: regenText, images: generatedImages, videos: generatedVideos, isRefusal: payloadObj?.isRefusal }),
+          isVoiceNote: replyIsVoiceNote(regenVoiceNote, { text: regenText, images: payloadObj?.pendingImage ? [""] : generatedImages, videos: generatedVideos, isRefusal: payloadObj?.isRefusal }),
           images: generatedImages,
-          isImageRequest: isFollowup ? Boolean(generatedImages && generatedImages.length > 0) : undefined,
+          isImageRequest: isFollowup ? Boolean((generatedImages && generatedImages.length > 0) || payloadObj?.pendingImage) : undefined,
           videos: generatedVideos,
           isVideoRequest: isFollowup ? Boolean(generatedVideos && generatedVideos.length > 0) : undefined,
           videoPrompt: payloadObj?.videoPrompt,
@@ -1999,6 +2055,7 @@ const ChatPage = () => {
         const { tree: newTree, nodeId: newNodeId } = addChildNode(treeWithReaction, parentId, newMessage);
         const newContent = flattenPath(newTree, newNodeId);
         await dispatch(updateChatTree({ chatId: chatIdNum, content: newContent, tree: newTree, activeLeafId: newNodeId }));
+        void afterReplySaved(newNodeId, payloadObj, speaker, { characterImages, characterName, otherRoomCharacters: otherParticipantImages, hideNames });
 
         if (generatedImages && generatedImages.length > 0) {
           void dispatch(patchCharacter(speaker.id, (fresh) => ({ gallery: [...(fresh.gallery || []), ...generatedImages] })));
@@ -2981,6 +3038,7 @@ const ChatPage = () => {
               )
         }
       >
+        <ImageProgressBar chatId={chatIdNum} />
 {currentChat?.theirs ? (
           // A group of theirs (#202): you read it; they talk on their own.
           <div role="status" data-slot="their-group-bar" className="flex flex-wrap items-center justify-center gap-3 rounded-card bg-surface px-4 py-3 text-center shadow-popover ring-1 ring-inset ring-border">

@@ -106,7 +106,7 @@ interface ChatWindowProps {
   onRegenerate?: (index: number) => void;
   onContinue?: (index: number) => void;
   onClearRefusal?: (index: number) => void;
-  onEdit?: (index: number, text: string, isImageRequest?: boolean, isVideoRequest?: boolean) => void;
+  onEdit?: (index: number, text: string, isImageRequest?: boolean, isVideoRequest?: boolean, imagePrompt?: string) => void;
   onSend?: (text: string, isImageRequest?: boolean, isVideoRequest?: boolean) => void;
   aiLoading?: boolean;
   isFollowupPending?: boolean;
@@ -232,6 +232,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ unreadSince, awayNote, onFork, 
   const selectedGreeting = Math.min(greetingIndex || 0, Math.max(greetings.length - 1, 0));
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
+  // A reply's picture prompt, to change and draw again, or to write when the
+  // model wouldn't (2026-11-19). Null for a message without a picture.
+  const [editImagePrompt, setEditImagePrompt] = useState<string | null>(null);
   const [editIsImageRequest, setEditIsImageRequest] = useState(false);
   const [editIsVideoRequest, setEditIsVideoRequest] = useState(false);
   // Same "is Wan actually configured" check MessageInput does for its own
@@ -641,6 +644,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ unreadSince, awayNote, onFork, 
     if (originalIndex !== -1) {
       setEditingIndex(originalIndex);
       setEditText(msg.txt || "");
+      setEditImagePrompt(msg.role !== "you" && (msg.imagePrompt || msg.imageRefused || msg.images?.length) ? msg.imagePrompt || "" : null);
       setEditIsImageRequest(msg.isImageRequest || false);
       setEditIsVideoRequest(msg.isVideoRequest || false);
     }
@@ -649,19 +653,21 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ unreadSince, awayNote, onFork, 
   const cancelEdit = useCallback(() => {
     setEditingIndex(null);
     setEditText("");
+    setEditImagePrompt(null);
     setEditIsImageRequest(false);
     setEditIsVideoRequest(false);
   }, []);
 
   const saveEdit = useCallback(() => {
     if (editText.trim() && onEdit && editingIndex !== null) {
-      onEdit(editingIndex, editText.trim(), editIsImageRequest, editIsVideoRequest);
+      onEdit(editingIndex, editText.trim(), editIsImageRequest, editIsVideoRequest, editImagePrompt ?? undefined);
       setEditingIndex(null);
       setEditText("");
+      setEditImagePrompt(null);
       setEditIsImageRequest(false);
       setEditIsVideoRequest(false);
     }
-  }, [editText, editIsImageRequest, editIsVideoRequest, editingIndex, onEdit]);
+  }, [editText, editIsImageRequest, editIsVideoRequest, editImagePrompt, editingIndex, onEdit]);
 
   const handleCopyMessage = useCallback((text: string) => {
     navigator.clipboard.writeText(text);
@@ -1284,6 +1290,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ unreadSince, awayNote, onFork, 
               <span>Markdown is supported.</span>
               <span className="hidden sm:inline"><kbd className="bg-muted px-1.5 py-0.5 rounded">Enter</kbd> to save, <kbd className="bg-muted px-1.5 py-0.5 rounded">Shift+Enter</kbd> for new line, <kbd className="bg-muted px-1.5 py-0.5 rounded">Esc</kbd> to cancel</span>
             </div>
+            {editImagePrompt !== null && (
+              <label className="mt-4 flex flex-col gap-1.5">
+                <span className="text-sm font-medium text-foreground">Picture prompt</span>
+                <textarea
+                  value={editImagePrompt}
+                  onChange={(e) => setEditImagePrompt(e.target.value)}
+                  rows={4}
+                  className="w-full p-3 rounded-md border border-border bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-transparent outline-none resize-y text-sm"
+                  placeholder="Describe the picture for the image model: who is in it, how they look, what they're doing, where, the light and the framing."
+                />
+                <span className="text-xs text-muted-foreground">Change it to draw the picture again. It goes to the image model as written, with names left out.</span>
+              </label>
+            )}
           </div>
 
           <div className="p-4 border-t border-border flex flex-col sm:flex-row justify-between gap-3 bg-background items-stretch sm:items-center flex-shrink-0">

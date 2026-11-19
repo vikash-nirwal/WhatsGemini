@@ -16,6 +16,7 @@ import { getProviderApiKey, getOllamaBaseUrl, getWanBaseUrl } from "./ai/utils/s
 import { extractAndSaveBase64ImagesLocally, stripLeakedBase64 } from "./ai/utils/apiUtils";
 import { composeImagePrompt, deriveImagePrompt, generateImage, IMAGE_PROMPT_REFUSED_MESSAGE, IMAGE_PROMPT_REFUSED_WARNING, ImagePromptRefusedError, RoomReferenceCharacter } from "./ai/utils/imageGeneration";
 import { ImagePromptTarget, resolveImagePromptTarget } from "./ai/utils/imagePromptGuide";
+import { startImageProgress } from "./ai/imageProgress";
 import { kindLookup, nameLabels, withoutNames } from "./ai/utils/hideNames";
 import { generateVideo } from "./ai/utils/videoGeneration";
 import { extractEmotionTag } from "./ai/utils/emotionUtils";
@@ -67,8 +68,18 @@ const MAX_TOOL_CALLS = 2;
 const PHOTO_DESCRIPTION_PROMPT =
   "Describe this photo for someone who can't see it, in 2 to 4 plain sentences: who or what is in it, what's happening, the setting, and any text in it. Facts only, no guesses about identity.";
 
+// A picture still to draw for a reply that's already shown (drawImage).
+export interface PendingImage {
+  prompt: string;
+  params: SDImageParams;
+  labels?: Record<string, string>;
+}
+
 export interface GenerateAIResponseResult {
   text: string;
+  pendingImage?: PendingImage;
+  // The text model wouldn't write the picture's prompt; you can write it.
+  imageRefused?: boolean;
   tokenCount: number;
   costEstimate: number;
   imagePrompt: string;
@@ -154,7 +165,7 @@ const toneRewriter = (settings: RootState["settings"]) => async (prompt: string,
 
 export const generateAIResponse = createAsyncThunk(
   "ai/generateResponse",
-  async ({ prompt, history = [], systemInstruction, postHistoryNote, streamKey, characterImages, adultImages, imagePresetId, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters, protectedCount, modelOverride, appearanceLocks, localImageSettings, promptImages, keepChoices, hideNames }: { prompt: string; history?: ChatMessage[], systemInstruction?: string, postHistoryNote?: string, streamKey?: string, characterImages?: string[], adultImages?: boolean, imagePresetId?: string, characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[], protectedCount?: number, modelOverride?: Character["modelOverride"], appearanceLocks?: AppearanceLock[], localImageSettings?: LocalImageSettings, promptImages?: string[], keepChoices?: boolean, hideNames?: string[] }, { getState, dispatch, rejectWithValue, signal }) => {
+  async ({ prompt, history = [], systemInstruction, postHistoryNote, streamKey, characterImages, adultImages, imagePresetId, characterName, artStyle, isImageRequest = false, isVideoRequest = false, isCharacterInitiated = false, isAutoSelfie = false, existingImagePrompt, existingImageParams, customEmotions, otherRoomCharacters, protectedCount, modelOverride, appearanceLocks, localImageSettings, promptImages, keepChoices, hideNames, deferImage = false }: { prompt: string; deferImage?: boolean; history?: ChatMessage[], systemInstruction?: string, postHistoryNote?: string, streamKey?: string, characterImages?: string[], adultImages?: boolean, imagePresetId?: string, characterName?: string, artStyle?: ArtStyle, isImageRequest?: boolean, isVideoRequest?: boolean, isCharacterInitiated?: boolean, isAutoSelfie?: boolean, existingImagePrompt?: string, existingImageParams?: SDImageParams, customEmotions?: string[], otherRoomCharacters?: RoomReferenceCharacter[], protectedCount?: number, modelOverride?: Character["modelOverride"], appearanceLocks?: AppearanceLock[], localImageSettings?: LocalImageSettings, promptImages?: string[], keepChoices?: boolean, hideNames?: string[] }, { getState, dispatch, rejectWithValue, signal }) => {
     try {
       const state = getState() as RootState;
       const settings = state.settings;
@@ -271,6 +282,8 @@ export const generateAIResponse = createAsyncThunk(
       let finalDerivedImageParams: SDImageParams = {};
       let generatedVideos: string[] = [];
       let finalDerivedVideoPrompt = "";
+      let pendingImage: PendingImage | undefined;
+      let imageRefused = false;
       const toolsUsed: ToolUse[] = [];
       const reminders: { at: number; about: string }[] = [];
 
@@ -307,6 +320,7 @@ export const generateAIResponse = createAsyncThunk(
         response = derivation.derivedSummary;
 
         if (derivation.refused) {
+          imageRefused = !isVideoRequest;
           // Nothing to draw: the reply is kept, with a note saying why
           // there's no picture.
           response += IMAGE_PROMPT_REFUSED_WARNING;
@@ -320,7 +334,11 @@ export const generateAIResponse = createAsyncThunk(
         } else {
           finalDerivedImagePrompt = derivation.derivedImagePrompt;
           finalDerivedImageParams = derivation.derivedParams;
-
+        }
+        if (!derivation.refused && !isVideoRequest && deferImage) {
+          // The reply shows now; the picture is drawn after (drawImage).
+          pendingImage = { prompt: derivation.derivedImagePrompt, params: derivation.derivedParams, labels: derivation.labels };
+        } else if (!derivation.refused && !isVideoRequest) {
           const imageResult = await generateImage(
             imageProviderId, imageConfig, useSdWebui, imageModelName, derivation.derivedImagePrompt, derivation.derivedParams,
             characterImages, characterName, imageSafetyFor(imageSettings.safetySettings, adultImages), signal, settings.geminiImageSize, undefined, otherRoomCharacters, localImageSettings,
@@ -471,6 +489,8 @@ export const generateAIResponse = createAsyncThunk(
 
       const returnPayload: GenerateAIResponseResult = {
         text: finalResponseText.trim(),
+        pendingImage,
+        imageRefused: imageRefused || undefined,
         tokenCount: totalTokens,
         costEstimate: costEstimate,
         imagePrompt: finalDerivedImagePrompt,
@@ -515,6 +535,50 @@ export const generateAIResponse = createAsyncThunk(
     } catch (error: any) {
       console.error("AI Response Error:", error);
       return rejectWithValue(error.message || "An unexpected error occurred.");
+    }
+  }
+);
+
+// Draws a reply's picture after the reply is shown (2026-11-19): the reply's
+// own text no longer waits minutes for ComfyUI. Also redraws a picture from a
+// prompt you edited or wrote yourself. Never rejects for a failed picture:
+// it comes back as a warning, as it did inside the reply.
+export const drawImage = createAsyncThunk(
+  "ai/drawImage",
+  async (
+    { chatId, prompt, params = {}, labels, characterImages, adultImages, imagePresetId, characterName, artStyle, otherRoomCharacters, localImageSettings, hideNames }: {
+      chatId: number; prompt: string; params?: SDImageParams; labels?: Record<string, string>; characterImages?: string[]; adultImages?: boolean; imagePresetId?: string; characterName?: string; artStyle?: ArtStyle; otherRoomCharacters?: RoomReferenceCharacter[]; localImageSettings?: LocalImageSettings; hideNames?: string[];
+    },
+    { getState, signal }
+  ): Promise<{ images: string[]; warning?: string; tokenCount: number; costEstimate: number }> => {
+    const settings = (getState() as RootState).settings;
+    const { settings: imageSettings, overrides: imageOverrides } = imageSetupFor(settings, imagePresetId);
+    const imageProviderId = imageSettings.imageProvider;
+    const imageAdapter = IMAGE_PROVIDERS[imageProviderId] || IMAGE_PROVIDERS.gemini;
+    const useSdWebui = imageProviderId === "sdwebui";
+    const end = startImageProgress(chatId);
+    try {
+      const imageConfig = useSdWebui ? { apiKey: null } : await resolveProviderConfig(imageProviderId, imageAdapter.capabilities.requiresBaseUrl);
+      const result = await generateImage(
+        imageProviderId, imageConfig, useSdWebui, imageSettings.imageModel, prompt, params,
+        characterImages, characterName, imageSafetyFor(imageSettings.safetySettings, adultImages), signal, settings.geminiImageSize, undefined, otherRoomCharacters, localImageSettings,
+        artStyle || DEFAULT_ART_STYLE, toneRewriter(settings), imageOverrides, hideNames, labels
+      );
+      const images = [...result.images];
+      // Saved to the save folder, as a reply's pictures always were.
+      await extractAndSaveBase64ImagesLocally("", images);
+      const pricing = getModelPricing(imageProviderId, imageSettings.imageModel);
+      const usage = result.usage;
+      return {
+        images,
+        warning: result.warning,
+        tokenCount: usage?.totalTokens || 0,
+        costEstimate: usage ? (usage.inputTokens / 1_000_000) * pricing.input + (usage.outputTokens / 1_000_000) * pricing.output : 0,
+      };
+    } catch (err) {
+      return { images: [], warning: `\n\n[Warning: Image generation failed${err instanceof Error && err.message ? `: ${err.message.slice(0, 300)}` : ""}.]`, tokenCount: 0, costEstimate: 0 };
+    } finally {
+      end();
     }
   }
 );

@@ -86,6 +86,9 @@ export interface Message {
   imageFullCast?: boolean; // Whether imagePrompt was written to include the whole adventure cast (reused on redraw only while this still matches)
   imageArtStyle?: ArtStyle; // Style baked into imagePrompt (adventure scenes) - a redraw only reuses the prompt while this still matches
   imageParams?: SDImageParams; // The derived SD params
+  // The text model wouldn't write this reply's picture prompt (2026-11-19);
+  // the message offers to let you write it.
+  imageRefused?: boolean;
   sampler_name?: string; // The specific sampler name used
   // Adventure mode only: the tappable options parsed out of the model's
   // trailing <<<CHOICES block on this message (and stripped from `txt`

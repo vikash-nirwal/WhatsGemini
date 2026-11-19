@@ -1,5 +1,6 @@
 import type { ImageGenCallOptions, ImageGenCallResult, ImageProviderAdapter } from "./types";
 import type { NormalizedImage } from "../types";
+import { watchComfyProgress } from "../comfyui/progress";
 import { cancelPrompt, fetchOutputImage, normalizeServerUrl, queuePrompt, uploadImage, waitForOutputs } from "../comfyui/client";
 import { faceIdOptionsFor, loadComfySettings, loadCustomWorkflows, parseSeed, templateForCharacter, templateOptionsFor } from "../comfyui/settings";
 import { characterLoraFile, listLoras } from "../comfyui/loras";
@@ -90,14 +91,21 @@ export const createComfyUIAdapter = (adapterOptions: ComfyUIAdapterOptions = {})
     }
 
     const workflow = fillWorkflow(template.workflow, template.mappings, values);
-    const promptId = await queuePrompt(serverUrl, workflow, clientId, opts.signal);
+    // Opened before queueing, so the job's start isn't missed (progress.ts).
+    const progress = watchComfyProgress(serverUrl, clientId);
     try {
-      const outputs = await waitForOutputs(serverUrl, promptId, { signal: opts.signal, pollIntervalMs, timeoutMs });
-      const images = await Promise.all(outputs.map((o) => fetchOutputImage(serverUrl, o, opts.signal)));
-      return { images };
-    } catch (err) {
-      if (opts.signal?.aborted) void cancelPrompt(serverUrl, promptId);
-      throw err;
+      const promptId = await queuePrompt(serverUrl, workflow, clientId, opts.signal);
+      progress.track(promptId);
+      try {
+        const outputs = await waitForOutputs(serverUrl, promptId, { signal: opts.signal, pollIntervalMs, timeoutMs });
+        const images = await Promise.all(outputs.map((o) => fetchOutputImage(serverUrl, o, opts.signal)));
+        return { images };
+      } catch (err) {
+        if (opts.signal?.aborted) void cancelPrompt(serverUrl, promptId);
+        throw err;
+      }
+    } finally {
+      progress.close();
     }
   };
 
