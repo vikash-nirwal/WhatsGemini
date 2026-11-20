@@ -9,11 +9,12 @@ import { buildDisappearingNote, DISAPPEAR_LABEL, pruneDisappeared } from "../fea
 import { useEffect, useState, useMemo, useRef } from "react";
 import { avatarOf } from "../features/character/profileChanges";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { addChatNotice, setBlocked, fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, insertCompressionSummary, removeCompressionSummary, forkChat, updateChatMessage, updateChatOptions, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatGreeting, setPendingFollowupAt, addPreparedChat, addChat } from "../features/chatSlice";
+import { addChatNotice, setBlocked, fetchChatById, fetchChats, addMessage, updateMessages, updateChatTree, changeSavedTree, insertCompressionSummary, removeCompressionSummary, forkChat, updateChatMessage, updateChatOptions, updateChatAutoReply, incrementChatUsage, updateChatPersona, updateChatGreeting, setPendingFollowupAt, addPreparedChat, addChat } from "../features/chatSlice";
 import { fetchCharacterById, updateCharacter, addCharacter, patchCharacter } from "../features/characterSlice";
 import { withoutPictureWarnings } from "../features/ai/utils/imageGeneration";
 import ImageProgressBar from "src/components/molecules/ImageProgressBar";
-import { generateAIResponse, drawImage, PendingImage, compressChatHistory, autoCompressChat, generateAvatarImage, summarizeChapter, generateAssistText, generateBackdropImage } from "../features/aiSlice";
+import CompressionNote from "src/components/molecules/CompressionNote";
+import { generateAIResponse, drawImage, PendingImage, compressChatHistory, compressChatInBackground, generateAvatarImage, summarizeChapter, generateAssistText, generateBackdropImage } from "../features/aiSlice";
 import { parseSlashCommand, SLASH_COMMANDS } from "../features/chat/slashCommands";
 import { buildStoryMarkdown, storyFileName } from "../features/chat/storyExport";
 import { CharacterModelOverride, resolveTurnModel } from "../features/ai/modelResolution";
@@ -961,6 +962,18 @@ const ChatPage = () => {
     });
   };
 
+  // Summarising older messages runs beside the reply, never before it
+  // (2026-11-20): it used to be awaited first, so a long chat sat silent
+  // until the summary call came back. The reply is built from the history as
+  // it is; the summary goes in when it's ready (compressChatInBackground).
+  const compressInBackground = () => {
+    if (!chatIdNum) return;
+    void dispatch(compressChatInBackground({ chatId: chatIdNum, names: transcriptNames() }))
+      .unwrap()
+      .then(({ error }) => warnBackgroundFailure("compress", error))
+      .catch((err) => warnBackgroundFailure("compress", err?.message || String(err)));
+  };
+
   // A failed or blocked generation used to come back as a truthy `payload`
   // (the rejection's error string) and get saved as the character's reply -
   // then resent as history on every later turn. Callers now check for
@@ -1143,9 +1156,8 @@ const ChatPage = () => {
       ? promptTextFor(lastMessage)
       : FOLLOWUP_CONTINUATION_PROMPT;
 
-    const { messages: compressedFreshMessages, tokens: compressTokens, cost: compressCost, error: compressError } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: freshMessages, names: transcriptNames() })).unwrap();
-    warnBackgroundFailure("compress", compressError);
-    await trackUsage(compressTokens, compressCost);
+    compressInBackground();
+    const compressedFreshMessages = freshMessages;
 
     await recallFor(speaker, compressedFreshMessages);
     const { history, systemInstruction, postHistoryNote, characterImages, characterName, otherParticipantImages, protectedCount, appearanceLocks, hideNames } = turnContextFor(
@@ -1671,9 +1683,8 @@ const ChatPage = () => {
         return;
       }
 
-      const { messages: contextMessages, tokens: compressTokens, cost: compressCost, error: compressError } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: updatedMessages, names: transcriptNames() })).unwrap();
-      warnBackgroundFailure("compress", compressError);
-      await trackUsage(compressTokens, compressCost);
+      compressInBackground();
+      const contextMessages = updatedMessages;
 
       // Who replies: a speaker explicitly picked from the composer's room
       // picker (while this message was being typed) wins outright, then an
@@ -1846,15 +1857,12 @@ const ChatPage = () => {
         // Persist the branch point immediately so it survives even if generation fails.
         await dispatch(updateChatTree({ chatId: chatIdNum, content: contentUpToEdit, tree: treeWithEdit, activeLeafId: editedNodeId }));
 
-        // Same auto-compression handleSend runs. It may splice a summary into
-        // the tree, so the reply below is added to the tree as saved after
-        // that, not to treeWithEdit.
-        const { messages: contextUpToEdit, tokens: compressTokens, cost: compressCost, error: compressError } = await dispatch(autoCompressChat({ chatId: chatIdNum, messages: contentUpToEdit, names: transcriptNames() })).unwrap();
-        warnBackgroundFailure("compress", compressError);
-        await trackUsage(compressTokens, compressCost);
-        const treeForReply = contextUpToEdit === contentUpToEdit
-          ? treeWithEdit
-          : (await dispatch(fetchChatById(chatIdNum)).unwrap()).tree || treeWithEdit;
+        // Same background summary handleSend starts. It may splice a summary
+        // into the tree while the reply is written, so the reply below is
+        // added to the tree as saved then (changeSavedTree), not to
+        // treeWithEdit.
+        compressInBackground();
+        const contextUpToEdit = contentUpToEdit;
 
         const speaker = (isRoom ? parseMention(newText, roomCharacters) : undefined)
           || resolveNextSpeaker(roomCharacters, contextUpToEdit, unavailableIds)
@@ -1900,16 +1908,23 @@ const ChatPage = () => {
           };
           // The character's reaction (#11) and a language correction (#67)
           // go on the edited message itself.
-          const editedPatch = {
-            ...(payloadObj?.reaction ? withCharacterReaction(treeForReply.nodes[editedNodeId]?.message || {}, speaker.id, payloadObj.reaction) : {}),
-            ...(payloadObj?.correction && currentChat?.language ? { correction: payloadObj.correction } : {}),
-          };
-          const treeWithReaction = Object.keys(editedPatch).length > 0 && treeForReply.nodes[editedNodeId]
-            ? updateNodeMessage(treeForReply, editedNodeId, { ...treeForReply.nodes[editedNodeId].message, ...editedPatch })
-            : treeForReply;
-          const { tree: finalTree, nodeId: aiNodeId } = addChildNode(treeWithReaction, editedNodeId, newAiMsg);
-          const finalContent = flattenPath(finalTree, aiNodeId);
-          await dispatch(updateChatTree({ chatId: chatIdNum, content: finalContent, tree: finalTree, activeLeafId: aiNodeId }));
+          let aiNodeId = "";
+          const { content: finalContent } = await dispatch(changeSavedTree({
+            chatId: chatIdNum,
+            change: ({ tree: saved }) => {
+              const treeForReply = saved.nodes[editedNodeId] ? saved : treeWithEdit;
+              const editedPatch = {
+                ...(payloadObj?.reaction ? withCharacterReaction(treeForReply.nodes[editedNodeId]?.message || {}, speaker.id, payloadObj.reaction) : {}),
+                ...(payloadObj?.correction && currentChat?.language ? { correction: payloadObj.correction } : {}),
+              };
+              const treeWithReaction = Object.keys(editedPatch).length > 0 && treeForReply.nodes[editedNodeId]
+                ? updateNodeMessage(treeForReply, editedNodeId, { ...treeForReply.nodes[editedNodeId].message, ...editedPatch })
+                : treeForReply;
+              const added = addChildNode(treeWithReaction, editedNodeId, newAiMsg);
+              aiNodeId = added.nodeId;
+              return { tree: added.tree, activeLeafId: added.nodeId };
+            },
+          })).unwrap();
           void afterReplySaved(aiNodeId, payloadObj, speaker, { characterImages, characterName, otherRoomCharacters: otherParticipantImages, hideNames });
 
           if (generatedImages && generatedImages.length > 0) {
@@ -2048,13 +2063,22 @@ const ChatPage = () => {
           swapped: swap ? true : undefined,
           timestamp: Date.now(),
         };
-        // A new answer brings its own reaction (#11), or none.
-        const treeWithReaction = !isFollowup && parentId && tree.nodes[parentId]
-          ? updateNodeMessage(tree, parentId, { ...tree.nodes[parentId].message, ...withCharacterReaction(tree.nodes[parentId].message, speaker.id, payloadObj?.reaction) })
-          : tree;
-        const { tree: newTree, nodeId: newNodeId } = addChildNode(treeWithReaction, parentId, newMessage);
-        const newContent = flattenPath(newTree, newNodeId);
-        await dispatch(updateChatTree({ chatId: chatIdNum, content: newContent, tree: newTree, activeLeafId: newNodeId }));
+        // Added to the tree as saved now (changeSavedTree), so a summary the
+        // background compression spliced in while this was written stays.
+        let newNodeId = "";
+        const { content: newContent } = await dispatch(changeSavedTree({
+          chatId: chatIdNum,
+          change: ({ tree: saved }) => {
+            const base = parentId == null || saved.nodes[parentId] ? saved : tree;
+            // A new answer brings its own reaction (#11), or none.
+            const treeWithReaction = !isFollowup && parentId && base.nodes[parentId]
+              ? updateNodeMessage(base, parentId, { ...base.nodes[parentId].message, ...withCharacterReaction(base.nodes[parentId].message, speaker.id, payloadObj?.reaction) })
+              : base;
+            const added = addChildNode(treeWithReaction, parentId, newMessage);
+            newNodeId = added.nodeId;
+            return { tree: added.tree, activeLeafId: added.nodeId };
+          },
+        })).unwrap();
         void afterReplySaved(newNodeId, payloadObj, speaker, { characterImages, characterName, otherRoomCharacters: otherParticipantImages, hideNames });
 
         if (generatedImages && generatedImages.length > 0) {
@@ -3038,6 +3062,7 @@ const ChatPage = () => {
               )
         }
       >
+        <CompressionNote chatId={chatIdNum} />
         <ImageProgressBar chatId={chatIdNum} />
 {currentChat?.theirs ? (
           // A group of theirs (#202): you read it; they talk on their own.

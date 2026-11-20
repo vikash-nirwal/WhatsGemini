@@ -3,7 +3,8 @@ import { dbService } from "../services/dbService";
 import { LS_INITIAL_MESSAGES, YOU, AI } from "../utils/constants";
 import { Character, Chat, Message, ConversationTree, World } from "../types";
 import { buildFork } from "./chat/forkChat";
-import { addChildNode, flattenPath, generateNodeId, removeSummaryFromConversation, spliceSummaryIntoConversation } from "./chat/messageTree";
+import { addChildNode, flattenPath, generateNodeId, migrateToTree, removeSummaryFromConversation, spliceSummaryIntoConversation } from "./chat/messageTree";
+import { SummaryExpectation, summaryStillFits } from "./chat/backgroundCompression";
 import { applyMacros, getGreetings } from "./ai/utils/macros";
 
 // The persona name a chat speaks as (its own override, else the global active
@@ -220,6 +221,31 @@ export const updateChatTree = createAsyncThunk(
   })
 );
 
+// Changes the chat's tree as saved now, inside the chat's lock, rather than a
+// copy read before a reply was written: a regenerated or edited reply takes
+// its time, and anything saved meanwhile (a summary from the background
+// compression, a reaction) used to be overwritten by the older copy.
+export const changeSavedTree = createAsyncThunk(
+  "chat/changeSavedTree",
+  lockedByChat(async (
+    { chatId, change }: { chatId: number; change: (saved: { tree: ConversationTree; activeLeafId: string | null }) => { tree: ConversationTree; activeLeafId: string | null } },
+    { rejectWithValue }
+  ) => {
+    try {
+      const chat = await dbService.getChatById(chatId);
+      const saved = chat.tree ? { tree: chat.tree, activeLeafId: chat.activeLeafId ?? null } : migrateToTree(chat.content);
+      const { tree, activeLeafId } = change(saved);
+      chat.tree = tree;
+      chat.activeLeafId = activeLeafId;
+      chat.content = flattenPath(tree, activeLeafId);
+      await dbService.updateChat(chat);
+      return { chatId, content: chat.content, tree, activeLeafId };
+    } catch (error) {
+      return handleDbError(error, rejectWithValue);
+    }
+  })
+);
+
 // "Undo compression": takes a summary pair back out (removeSummaryFromConversation).
 export const removeCompressionSummary = createAsyncThunk(
   "chat/removeCompressionSummary",
@@ -243,14 +269,18 @@ export const removeCompressionSummary = createAsyncThunk(
 // message it covers, without deleting anything: the summarized messages and
 // every branch stay in the tree, and the prompt starts from the newest
 // summary (trimToLatestSummary). See spliceSummaryIntoConversation.
+// `expect` (the background summary, backgroundCompression.ts): what the chat
+// looked like when the summary was worked out. When it no longer fits the
+// chat as saved, nothing is written and the result says `skipped`.
 export const insertCompressionSummary = createAsyncThunk(
   "chat/insertCompressionSummary",
   lockedByChat(async (
-    { chatId, afterMessageId, afterIndex, summaryMessages }: { chatId: number; afterMessageId?: string; afterIndex: number; summaryMessages: Message[] },
+    { chatId, afterMessageId, afterIndex, summaryMessages, expect }: { chatId: number; afterMessageId?: string; afterIndex: number; summaryMessages: Message[]; expect?: SummaryExpectation },
     { rejectWithValue }
   ) => {
     try {
       const chat = await dbService.getChatById(chatId);
+      if (expect && !summaryStillFits(chat.content, expect)) return { chatId, skipped: true as const };
       const spliced = spliceSummaryIntoConversation(chat, afterMessageId, afterIndex, summaryMessages);
       if (!spliced) throw new Error("Couldn't find where to place the summary.");
       chat.tree = spliced.tree;
@@ -880,6 +910,14 @@ const chatSlice = createSlice({
           chat.activeLeafId = undefined;
         }
       })
+      .addCase(changeSavedTree.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c.id === action.payload.chatId);
+        if (chat) {
+          chat.content = action.payload.content;
+          chat.tree = action.payload.tree;
+          chat.activeLeafId = action.payload.activeLeafId;
+        }
+      })
       .addCase(updateChatTree.fulfilled, (state, action) => {
         const chat = state.chats.find((c) => c.id === action.payload.chatId);
         if (chat) {
@@ -908,6 +946,7 @@ const chatSlice = createSlice({
         }
       })
       .addCase(insertCompressionSummary.fulfilled, (state, action) => {
+        if ("skipped" in action.payload) return;
         const chat = state.chats.find((c) => c.id === action.payload.chatId);
         if (chat) {
           chat.content = action.payload.content;

@@ -30,11 +30,21 @@ test.describe("by size", () => {
     const summary = mockAI.requests.find((r) => r.prompt.includes("Summarize the following roleplay conversation"));
     expect(summary?.prompt).toContain("If you're unsure whether a detail matters, keep it.");
     expect(summary?.prompt).toContain("Aria message 1:");
+    // The summary is written in the background beside that reply
+    // (2026-11-20), so it's the next reply that starts from it.
+    await expect.poll(() => page.evaluate(async () => {
+      const db: IDBDatabase = await new Promise((r) => { const q = indexedDB.open("ChatAppDB"); q.onsuccess = () => r(q.result); });
+      const chat: any = await new Promise((r) => { const q = db.transaction("chats").objectStore("chats").get(1); q.onsuccess = () => r(q.result); });
+      db.close();
+      return chat.content.some((m: any) => m.isCompressionSummary);
+    })).toBe(true);
+    await sendMessage(page, "and again");
+    await waitForReplyDone(page);
     const reply = mockAI.requests.filter((r) => r.stream).pop()!;
     const sent = reply.messages.map((m) => m.content).join("\n");
     expect(sent).toContain("Aria and the user talked about their days.");
     expect(sent).not.toContain("Aria message 1:");
-    expect(sent).toContain("hello again");
+    expect(sent).toContain("and again");
   });
 });
 

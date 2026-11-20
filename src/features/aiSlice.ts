@@ -50,7 +50,9 @@ import { RootState } from "../store/store";
 import { SDImageParams, Message, ArtStyle, AdventureChoice, Character, UserProfile, World, DiaryEntry, LocalImageSettings, SceneState } from "../types";
 import { buildDiaryPrompt, cleanDiaryEntry } from "./ai/utils/diary";
 import { buildAdventureSceneImageInstruction, findCastInNarration } from "./ai/utils/adventurePrompt";
-import { insertCompressionSummary, fetchChats } from "./chatSlice";
+import { insertCompressionSummary, fetchChats, incrementChatUsage } from "./chatSlice";
+import { dbService } from "../services/dbService";
+import { runBackgroundCompression } from "./chat/backgroundCompression";
 import { resolveTurnModel } from "./ai/modelResolution";
 import { AppearanceLock, appearanceLocksFor, applyAppearanceLocks } from "./ai/utils/appearanceLock";
 import { insertAdventureCompressionSummary } from "./adventureSlice";
@@ -680,8 +682,49 @@ export const autoCompressChat = createAsyncThunk(
     runAutoCompression((getState() as RootState).settings, messages, names, async (args) => {
       const inserted = await dispatch(insertCompressionSummary({ chatId, ...args })).unwrap();
       dispatch(fetchChats());
-      return inserted.content;
+      return "skipped" in inserted ? messages : inserted.content;
     })
+);
+
+// The chat's summary on send, in the background (2026-11-20): ChatPage starts
+// it alongside the reply instead of awaiting it first, so the reply goes out
+// at once with the history as it is (the prompt's size budget still keeps
+// that in bounds) and the summary goes in when it's ready. It reads the chat
+// as saved, so the message just sent is in it, and only goes in if the chat
+// still fits what it summarised (summaryStillFits): messages sent meanwhile
+// stay after it, and a summary added or undone meanwhile wins. One at a time
+// per chat (runBackgroundCompression). Its spend goes on the chat it was for,
+// even if you've left it. Resolves with an error to show, never rejects.
+export const compressChatInBackground = createAsyncThunk(
+  "ai/compressChatInBackground",
+  async ({ chatId, names }: { chatId: number; names?: TranscriptNames }, { getState, dispatch }): Promise<{ error?: string }> => {
+    const settings = (getState() as RootState).settings;
+    if (settings.compressThreshold <= 0 && settings.historyKeepTokens <= 0) return {};
+    const outcome = await runBackgroundCompression(chatId, {
+      read: async () => (await dbService.getChatById(chatId)).content,
+      summarise: async (messages) => {
+        const helper = await resolveHelperCall(settings);
+        const result = await buildAutoCompressedMessages(helper.adapter, helper.config, helper.model, messages, settings.compressThreshold, names, settings.historyKeepTokens);
+        return { ...result, pricing: getModelPricing(helper.providerId, helper.model) };
+      },
+      insert: async (args) => {
+        const inserted = await dispatch(insertCompressionSummary({ chatId, ...args })).unwrap();
+        if ("skipped" in inserted) return false;
+        dispatch(fetchChats());
+        return true;
+      },
+    });
+    if (outcome.status === "failed") {
+      console.warn("Auto-compression failed, continuing with full history.", outcome.error);
+      return { error: outcome.error };
+    }
+    if (outcome.status === "done" && outcome.result.usage) {
+      const { usage, pricing } = outcome.result;
+      const cost = (usage.inputTokens / 1_000_000) * pricing.input + (usage.outputTokens / 1_000_000) * pricing.output;
+      await dispatch(incrementChatUsage({ chatId, tokens: usage.totalTokens || 0, cost }));
+    }
+    return {};
+  }
 );
 
 // Same as autoCompressChat, for an adventure's narrator/player turns.

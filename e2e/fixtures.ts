@@ -198,8 +198,9 @@ export interface MockAI {
   // Every chat/completions request seen so far, oldest first.
   requests: MockAIRequest[];
   // Holds back every answer from now until the returned release is called,
-  // for a task still running when you leave its screen.
-  hold: () => () => void;
+  // for a task still running when you leave its screen. With `which`, only
+  // the requests it picks wait (the summary call, say) and the rest answer.
+  hold: (which?: (req: MockAIRequest) => boolean) => () => void;
 }
 
 const sseBody = (text: string) => {
@@ -215,7 +216,7 @@ const installMockAI = async (page: Page): Promise<MockAI> => {
   const requests: MockAIRequest[] = [];
   const queue: string[] = [];
   let responder: Responder = () => `Mock reply ${requests.length}`;
-  let gate: Promise<void> | null = null;
+  let gate: { opened: Promise<void>; which?: (req: MockAIRequest) => boolean } | null = null;
 
   await page.route("**/chat/completions", async (route: Route) => {
     const body = route.request().postDataJSON() ?? {};
@@ -226,7 +227,7 @@ const installMockAI = async (page: Page): Promise<MockAI> => {
     const prompt = Array.isArray(content) ? content.filter((p: any) => p?.type === "text").map((p: any) => p.text).join("\n") : content ?? "";
     const req: MockAIRequest = { stream: !!body.stream, model: body.model, messages, prompt };
     requests.push(req);
-    if (gate) await gate;
+    if (gate && (!gate.which || gate.which(req))) await gate.opened;
     const text = queue.length ? queue.shift()! : typeof responder === "function" ? responder(req) : responder;
     if (req.stream) {
       await route.fulfill({ status: 200, headers: { "content-type": "text/event-stream", "cache-control": "no-cache" }, body: sseBody(text) });
@@ -254,14 +255,15 @@ const installMockAI = async (page: Page): Promise<MockAI> => {
       queue.push(...texts);
     },
     requests,
-    hold: () => {
+    hold: (which) => {
       let release = () => {};
-      gate = new Promise<void>((resolve) => {
+      const opened = new Promise<void>((resolve) => {
         release = () => {
           gate = null;
           resolve();
         };
       });
+      gate = { opened, which };
       return release;
     },
   };
