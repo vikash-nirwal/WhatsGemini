@@ -124,7 +124,10 @@ export const deriveImagePrompt = async (
   artStyle?: ArtStyle,
   // Locked looks (#34) of the characters who may appear in the picture.
   appearanceLocks: AppearanceLock[] = [],
-  people?: PromptPeople
+  people?: PromptPeople,
+  // A selfie the character takes, when the user asked for one or it's an
+  // auto-selfie; every other picture is seen through the user's eyes.
+  selfie = isAutoSelfie || /\bselfies?\b/i.test(prompt)
 ): Promise<ImageDerivationResult> => {
   const lockStyle = target.tags ? "tags" : "sentences";
   // A refusal saved as an earlier picture's prompt isn't redrawn either.
@@ -157,16 +160,23 @@ export const deriveImagePrompt = async (
     ? `<Respond IN CHARACTER, maintaining your exact persona, personality, and tone, as a natural message. Naturally mention that you're sharing a picture, framed as your own idea - never imply the user asked for it.`
     : `<Respond IN CHARACTER to the user's message above, maintaining your exact persona, personality, and tone. Only say you're "sending/showing the picture they asked for" if their message literally asked for one - otherwise just reply naturally to what they actually said, and let the picture accompany your reply without claiming they requested it.`;
 
+  // Who is in it and from where (2026-11-23): pictures mixed in other
+  // characters from the chat or the story, and came out as selfies or from
+  // a stranger's angle. Now it's only the character replying, seen through
+  // the user's eyes, unless it's a selfie.
   const selfieStyleHint = isAutoSelfie
     ? " It's a casual selfie you took yourself (close or medium shot, arm's length), but the pose, expression, outfit, setting and mood are yours to choose for the moment."
     : "";
+  const whoAndWhere = selfie
+    ? " The picture shows only you: no one else from this conversation or story is in it, not even in the background. It's a selfie you took yourself, at arm's length."
+    : " The picture shows only you: no one else from this conversation or story is in it, not even in the background. It's seen through the user's own eyes, from where they are with you (first-person point of view): you as they see you right now, not a selfie, and the user isn't in it.";
 
   const scenePrompt = `${requestContext}
 
 Write two sections, formatted exactly like this:
 
 SCENE:
-<What the picture shows, in plain sentences: who is in it and exactly how they look right now (face, hair, build, outfit), what they're doing and their expression, where it is, the light and mood, and the framing (selfie, close-up, upper body, full body, wide shot). Make it match everything this conversation has established. Plain description only: no style keywords or prompt jargon.${selfieStyleHint}>
+<What the picture shows, in plain sentences: who is in it and exactly how they look right now (face, hair, build, outfit), what they're doing and their expression, where it is, the light and mood, and the framing (close-up, upper body, full body, wide shot). Make it match everything this conversation has established. Plain description only: no style keywords or prompt jargon.${whoAndWhere}${selfieStyleHint}>
 
 REPLY:
 ${summaryInstruction} MUST INCLUDE: At the end of your response, append [Image Context: <short visual description of the picture>] so you can remember what you sent in future turns.>`;
@@ -212,6 +222,7 @@ ${summaryInstruction} MUST INCLUDE: At the end of your response, append [Image C
       baseStyle: imageGenPrompt,
       artStyleClause,
       lockInstruction: buildAppearanceLockInstruction(locks),
+      extra: soloRule(labels?.get((people?.references[0] || "").trim()), selfie),
       safetySettings: turnConfig.safetySettings,
       signal,
     });
@@ -231,6 +242,17 @@ ${summaryInstruction} MUST INCLUDE: At the end of your response, append [Image C
     usage: addUsage(sceneResult.usage, composed.usage),
     labels: labels && Object.fromEntries(labels),
   };
+};
+
+// The same rule for the prompt writer, who may still find other people in
+// the description: one person, and whose eyes the picture is seen through.
+export const soloRule = (label: string | undefined, selfie: boolean): string => {
+  const who = label || "the main character";
+  return `Only one person is in the picture: ${who}. Leave out everyone else the description mentions, even in the background (for tag-based models, say solo). ${
+    selfie
+      ? `It's a selfie ${who} is taking at arm's length.`
+      : `It's seen through the viewer's own eyes (first-person point of view, POV): ${who} as the viewer sees them, usually looking at the viewer. Not a selfie, and the viewer isn't shown.`
+  }`;
 };
 
 // The SCENE and REPLY sections of the in-character call. Older models

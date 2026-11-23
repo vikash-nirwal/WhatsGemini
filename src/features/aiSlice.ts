@@ -289,6 +289,11 @@ export const generateAIResponse = createAsyncThunk(
       const toolsUsed: ToolUse[] = [];
       const reminders: { at: number; about: string }[] = [];
 
+      // Only the character replying is drawn (2026-11-23): the others in a
+      // room aren't references, and their names are kept out like anyone
+      // else's. Their locked looks would bring them back, so they go too.
+      const othersHidden = [...(otherRoomCharacters || []).map((c) => c.name), ...(hideNames || [])];
+      const ownLocks = characterName && appearanceLocks ? appearanceLocks.filter((l) => l.name.trim() === characterName.trim()) : appearanceLocks;
       if (isImageRequest || isVideoRequest) {
         // Same derivation step for both - it just describes the scene; video
         // gets no extra camera-motion-specific instruction yet.
@@ -299,17 +304,17 @@ export const generateAIResponse = createAsyncThunk(
             providerId: imageProviderId,
             imageModel: imageModelName,
             sdWebuiModel: settings.sdWebuiModel,
-            hasReference: Boolean(characterImages?.length || otherRoomCharacters?.some((c) => c.images.length > 0)),
+            hasReference: Boolean(characterImages?.length),
             referenceMode: localImageSettings?.referenceMode,
             artStyle: artStyle || DEFAULT_ART_STYLE,
             isVideo: isVideoRequest,
             falCheckpoint: imageOverrides?.falLora?.checkpoint,
             calibration: imageOverrides?.calibration,
           }),
-          existingImagePrompt, existingImageParams, signal, isCharacterInitiated, isAutoSelfie, artStyle, appearanceLocks,
+          existingImagePrompt, existingImageParams, signal, isCharacterInitiated, isAutoSelfie, artStyle, ownLocks,
           {
-            references: [characterName, ...(otherRoomCharacters || []).map((c) => c.name)],
-            others: hideNames || [],
+            references: [characterName],
+            others: othersHidden,
             // Whether each one is a woman or a man, from their own card or
             // persona (hideNames.ts), so the prompt writer gets "the woman".
             kindOf: kindLookup([
@@ -329,7 +334,7 @@ export const generateAIResponse = createAsyncThunk(
         } else if (isVideoRequest) {
           finalDerivedVideoPrompt = derivation.derivedImagePrompt;
 
-          const videoResult = await generateVideo(videoProviderId, videoConfig, videoModelName, derivation.derivedImagePrompt, signal, [characterName, ...(otherRoomCharacters || []).map((c) => c.name), ...(hideNames || [])]);
+          const videoResult = await generateVideo(videoProviderId, videoConfig, videoModelName, derivation.derivedImagePrompt, signal, [characterName, ...othersHidden]);
           trackUsage(videoResult.usage, videoProviderId, videoModelName);
           generatedVideos = videoResult.videos;
           if (videoResult.warning) response += videoResult.warning;
@@ -343,8 +348,8 @@ export const generateAIResponse = createAsyncThunk(
         } else if (!derivation.refused && !isVideoRequest) {
           const imageResult = await generateImage(
             imageProviderId, imageConfig, useSdWebui, imageModelName, derivation.derivedImagePrompt, derivation.derivedParams,
-            characterImages, characterName, imageSafetyFor(imageSettings.safetySettings, adultImages), signal, settings.geminiImageSize, undefined, otherRoomCharacters, localImageSettings,
-            artStyle || DEFAULT_ART_STYLE, toneRewriter(settings), imageOverrides, hideNames, derivation.labels
+            characterImages, characterName, imageSafetyFor(imageSettings.safetySettings, adultImages), signal, settings.geminiImageSize, undefined, undefined, localImageSettings,
+            artStyle || DEFAULT_ART_STYLE, toneRewriter(settings), imageOverrides, othersHidden, derivation.labels
           );
           trackUsage(imageResult.usage, imageProviderId, imageModelName);
           generatedImages = imageResult.images;
@@ -563,8 +568,9 @@ export const drawImage = createAsyncThunk(
       const imageConfig = useSdWebui ? { apiKey: null } : await resolveProviderConfig(imageProviderId, imageAdapter.capabilities.requiresBaseUrl);
       const result = await generateImage(
         imageProviderId, imageConfig, useSdWebui, imageSettings.imageModel, prompt, params,
-        characterImages, characterName, imageSafetyFor(imageSettings.safetySettings, adultImages), signal, settings.geminiImageSize, undefined, otherRoomCharacters, localImageSettings,
-        artStyle || DEFAULT_ART_STYLE, toneRewriter(settings), imageOverrides, hideNames, labels
+        characterImages, characterName, imageSafetyFor(imageSettings.safetySettings, adultImages), signal, settings.geminiImageSize, undefined, undefined, localImageSettings,
+        // Only the character replying is drawn; the others' names are hidden.
+        artStyle || DEFAULT_ART_STYLE, toneRewriter(settings), imageOverrides, [...(otherRoomCharacters || []).map((c) => c.name), ...(hideNames || [])], labels
       );
       const images = [...result.images];
       // Saved to the save folder, as a reply's pictures always were.

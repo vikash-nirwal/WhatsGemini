@@ -223,3 +223,37 @@ describe("deriveImagePrompt keeps names from the prompt writer", () => {
     expect(mockComfyCalls[0].referenceCharacters.map((r: any) => r.name)).toEqual(["the woman", "the man"]);
   });
 });
+
+// Only the character you're chatting with, seen through your eyes
+// (2026-11-23): pictures used to bring in other characters from the chat
+// and come out from any angle.
+describe("deriveImagePrompt draws only the character, from the user's point of view", () => {
+  const people = { references: ["Mira"], others: ["Jon Reyes"], kindOf: (name: string) => (name === "Mira" ? "woman" as const : name === "Jon Reyes" ? "man" as const : undefined) };
+  const run = (adapter: ChatProviderAdapter, prompt: string, isAutoSelfie = false) =>
+    deriveImagePrompt(adapter, {} as any, "m", {}, [], prompt, "", SDXL_COMFY, undefined, undefined, undefined, false, isAutoSelfie, undefined, [], people);
+  const SCENE = "SCENE:\nMira at the pier at dusk, smiling.\n\nREPLY:\nHere! [Image Context: the pier]";
+
+  it("asks for a picture seen through the user's eyes, with no one else in it", async () => {
+    const seen: string[] = [];
+    await run(fakeAdapter([SCENE, "1girl, solo, pov, pier"], seen), "Show me where you are");
+    expect(seen[0]).toContain("The picture shows only you");
+    expect(seen[0]).toContain("seen through the user's own eyes");
+    expect(seen[1]).toContain("Only one person is in the picture: the woman.");
+    expect(seen[1]).toContain("first-person point of view, POV");
+    expect(seen[1]).not.toContain("It's a selfie");
+  });
+
+  it("makes it a selfie when the user asks for one", async () => {
+    const seen: string[] = [];
+    await run(fakeAdapter([SCENE, "1girl, solo, selfie, pier"], seen), "Send me a selfie at the pier");
+    expect(seen[0]).toContain("It's a selfie you took yourself");
+    expect(seen[1]).toContain("It's a selfie the woman is taking at arm's length.");
+    expect(seen[1]).not.toContain("POV");
+  });
+
+  it("keeps an auto-selfie a selfie", async () => {
+    const seen: string[] = [];
+    await run(fakeAdapter([SCENE, "1girl, solo, selfie"], seen), "How's your day?", true);
+    expect(seen[1]).toContain("It's a selfie the woman is taking");
+  });
+});
